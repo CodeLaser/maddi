@@ -13,17 +13,62 @@
  */
 
 plugins {
-    id("java-library-conventions")
+    `java-library`
     id("org.jreleaser") version "1.19.0"
+    `maven-publish`
 }
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(11)
     }
+    withJavadocJar()
+    withSourcesJar()
 }
 
+group = "io.codelaser"
 version = "0.8.2"
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+
+            pom {
+                name.set("maddi-support")
+                description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
+
+                groupId = "io.codelaser"
+                artifactId = "maddi-support"
+                version = "0.8.2"
+
+                url.set("https://github.com/CodeLaser/maddi")
+                licenses {
+                    license {
+                        name.set("LGPL-3.0-or-later")
+                        url.set("https://www.gnu.org/licenses/lgpl-3.0.en.html")
+                    }
+                }
+                developers {
+                    developer {
+                        name.set("Bart Naudts")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:git://github.com/CodeLaser/maddi.git")
+                    developerConnection.set("scm:git:ssh://github.com/CodeLaser/maddi.git")
+                    url.set("https://github.com/CodeLaser/maddi")
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "staging"
+            url = uri(layout.buildDirectory.dir("staging-deploy"))
+        }
+    }
+}
 
 jreleaser {
     gitRootSearch = true
@@ -31,25 +76,13 @@ jreleaser {
     project {
         name.set("maddi-support")
         description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
-
-        // Maven Central requires SPDX identifier (not arbitrary text)
         license.set("LGPL-3.0-or-later")
-
         authors.set(listOf("Bart Naudts"))
-
-        copyright.set("2020-20205 Bart Naudts")
+        copyright.set("2020-2025 Bart Naudts")
 
         links {
             homepage.set("https://github.com/CodeLaser/maddi")
-            documentation.set("hhttps://github.com/CodeLaser/maddi/road-to-immutability")
-        }
-    }
-
-    distributions {
-        create("maddi-support") {
-            artifact {
-                setPath("build/libs/maddi-support-${version}.jar")
-            }
+            documentation.set("https://github.com/CodeLaser/maddi/road-to-immutability")
         }
     }
 
@@ -57,7 +90,6 @@ jreleaser {
         active.set(org.jreleaser.model.Active.ALWAYS)
         armored = true
         mode = org.jreleaser.model.Signing.Mode.FILE
-
     }
 
     deploy {
@@ -66,7 +98,7 @@ jreleaser {
                 create("sonatype") {
                     active.set(org.jreleaser.model.Active.ALWAYS)
                     url.set("https://central.sonatype.com/api/v1/publisher")
-                    stagingRepository("target/staging-deploy")
+                    stagingRepository("${buildFile.parent}/build/staging-deploy")
                 }
             }
         }
