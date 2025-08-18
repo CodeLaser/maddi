@@ -12,7 +12,7 @@ dependencies {
         runtime("org.junit.jupiter:junit-jupiter-engine:5.9.2")
 
         api("org.slf4j:slf4j-api:2.0.17")
-        runtime("ch.qos.logback:logback-classic:1.5.18")
+        api("ch.qos.logback:logback-classic:1.5.18")
 
         api("org.jetbrains:annotations:26.0.2")
     }
