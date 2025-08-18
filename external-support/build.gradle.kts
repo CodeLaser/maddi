@@ -13,22 +13,5 @@
  */
 
 plugins {
-    `java-library`
-}
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(11)
-    }
-}
-
-tasks.named<Test>("test") {
-    useJUnitPlatform()
-}
-
-dependencies {
-    api(platform(project(":platform")))
-
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+    id("java-library-conventions")
 }
