@@ -1,0 +1,1401 @@
+[
+{"name": "Tjavax.swing.AbstractButton", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+ {"name": "SAccessibleAbstractButton(0)", "data":{"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+  {"name": "SButtonKeyBinding(0)", "data":{"hc":{"E":true}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.AbstractButton.AccessibleAbstractButton"}}, "subs":[
+    {"name": "Pthis$1(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+   {"name": "MgetAccessibleKeyBindingCount(0)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleKeyBinding(1)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}}]},
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.AbstractButton"}}, "sub":
+   {"name": "Pthis$0(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetAccessibleName(0)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetAccessibleIcon(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleIcon"},"hcsMethod":{"0":[[0]]},"immutableMethod":1}},
+  {"name": "MgetAccessibleStateSet(2)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleStateSet"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleRelationSet(3)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleRelationSet"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleAction(4)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleAction"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleValue(5)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleValue"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleActionCount(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleActionDescription(7)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MdoAccessibleAction(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetCurrentAccessibleValue(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Number"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+  {"name": "MsetCurrentAccessibleValue(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Number"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pn(0)", "data":{"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetMinimumAccessibleValue(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Number"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+  {"name": "MgetMaximumAccessibleValue(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Number"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+  {"name": "MgetAccessibleText(13)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleText"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetIndexAtPoint(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetCharacterBounds(15)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Rectangle"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetCharCount(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetCaretPosition(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAtIndex(18)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAfterIndex(19)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetBeforeIndex(20)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetCharacterAttribute(21)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.text.AttributeSet"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetSelectionStart(22)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetSelectionEnd(23)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetSelectedText(24)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetText(25)", "data":{"hc":{}}},
+  {"name": "MgetTextRectangle(26)", "data":{"hc":{"0":"Tjava.awt.Rectangle"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleExtendedComponent(27)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleExtendedComponent"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetToolTipText(28)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetTitledBorderText(29)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetAccessibleKeyBinding(30)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleKeyBinding"},"hcsMethod":{"0":[[-1]]}}}]},
+ {"name": "SButtonActionPropertyChangeListener(1)", "data":{"hc":{"0":"Tjavax.swing.AbstractButton","E":true,"M":1}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"1":"Tjavax.swing.Action","M":1},"hcsMethod":{"0":[[0]]}}, "subs":[
+   {"name": "Pb(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "Pa(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+  {"name": "MactionPropertyChanged(0)", "data":{"hc":{"1":"Tjavax.swing.Action","2":"Tjava.beans.PropertyChangeEvent","M":1}}, "subs":[
+   {"name": "Pbutton(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "Paction(1)", "data":{"hcsParameter":{"1":[[-1]]}}},
+   {"name": "Pe(2)", "data":{"hcsParameter":{"2":[[-1]]}}}]}]},
+ {"name": "SButtonChangeListener(2)", "data":{"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.AbstractButton"}}, "sub":
+   {"name": "Pthis$0(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MstateChanged(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+ {"name": "SHandler(3)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.AbstractButton"}}, "sub":
+   {"name": "Pthis$0(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MstateChanged(0)", "data":{"hc":{"0":"Tjavax.swing.event.ChangeEvent"}}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MactionPerformed(1)", "data":{"hc":{"0":"Tjava.awt.event.ActionEvent"}}, "sub":
+   {"name": "Pevent(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MitemStateChanged(2)", "data":{"hc":{"0":"Tjava.awt.event.ItemEvent"}}, "sub":
+   {"name": "Pevent(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+ {"name": "FMODEL_CHANGED_PROPERTY(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FTEXT_CHANGED_PROPERTY(1)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FMNEMONIC_CHANGED_PROPERTY(2)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FMARGIN_CHANGED_PROPERTY(3)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FVERTICAL_ALIGNMENT_CHANGED_PROPERTY(4)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FHORIZONTAL_ALIGNMENT_CHANGED_PROPERTY(5)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FVERTICAL_TEXT_POSITION_CHANGED_PROPERTY(6)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FHORIZONTAL_TEXT_POSITION_CHANGED_PROPERTY(7)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FBORDER_PAINTED_CHANGED_PROPERTY(8)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FFOCUS_PAINTED_CHANGED_PROPERTY(9)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FROLLOVER_ENABLED_CHANGED_PROPERTY(10)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FCONTENT_AREA_FILLED_CHANGED_PROPERTY(11)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FICON_CHANGED_PROPERTY(12)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FPRESSED_ICON_CHANGED_PROPERTY(13)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FSELECTED_ICON_CHANGED_PROPERTY(14)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FROLLOVER_ICON_CHANGED_PROPERTY(15)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FROLLOVER_SELECTED_ICON_CHANGED_PROPERTY(16)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FDISABLED_ICON_CHANGED_PROPERTY(17)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FDISABLED_SELECTED_ICON_CHANGED_PROPERTY(18)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "MsetHideActionText(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PhideActionText(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetHideActionText(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetText(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MsetText(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisSelected(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetSelected(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdoClick(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MdoClick(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PpressTime(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetMargin(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Insets"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pm(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetMargin(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Insets"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MgetIcon(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetIcon(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PdefaultIcon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetPressedIcon(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetPressedIcon(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PpressedIcon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetSelectedIcon(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetSelectedIcon(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PselectedIcon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetRolloverIcon(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetRolloverIcon(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "ProlloverIcon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetRolloverSelectedIcon(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetRolloverSelectedIcon(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "ProlloverSelectedIcon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetDisabledIcon(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetDisabledIcon(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PdisabledIcon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetDisabledSelectedIcon(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetDisabledSelectedIcon(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PdisabledSelectedIcon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetVerticalAlignment(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetVerticalAlignment(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Palignment(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetHorizontalAlignment(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetHorizontalAlignment(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Palignment(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetVerticalTextPosition(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetVerticalTextPosition(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PtextPosition(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetHorizontalTextPosition(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetHorizontalTextPosition(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PtextPosition(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetIconTextGap(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetIconTextGap(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PiconTextGap(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McheckHorizontalKey(34)", "data":{"hc":{}}},
+ {"name": "McheckVerticalKey(35)", "data":{"hc":{}}},
+ {"name": "MremoveNotify(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetActionCommand(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PactionCommand(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetActionCommand(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MsetAction(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Action"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pa(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisListener(40)", "data":{"hc":{"0":"Tjava.lang.Class","1":"Tjava.lang.Object","2":"Tjava.awt.event.ActionListener"}}, "subs":[
+  {"name": "Pc(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pa(1)", "data":{"hcsParameter":{"2":[[-1]]}}}]},
+ {"name": "MgetAction(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Action"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MconfigurePropertiesFromAction(42)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MclientPropertyChanged(43)", "data":{"hc":{"0":"Tjava.lang.Object"}}, "subs":[
+  {"name": "Pkey(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PoldValue(1)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PnewValue(2)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MshouldUpdateSelectedStateFromAction(44)", "data":{"hc":{}}},
+ {"name": "MactionPropertyChanged(45)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "subs":[
+  {"name": "Paction(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MsetDisplayedMnemonicIndexFromAction(46)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "subs":[
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MsetMnemonicFromAction(47)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetTextFromAction(48)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "subs":[
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MsetIconFromAction(49)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsmallIconChanged(50)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MlargeIconChanged(51)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetActionCommandFromAction(52)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetSelectedFromAction(53)", "data":{"hc":{"0":"Tjavax.swing.Action"}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McreateActionPropertyChangeListener(54)", "data":{"hc":{"0":"Tjavax.swing.Action","1":"Tjava.beans.PropertyChangeListener"},"hcsMethod":{"1":[[-1]]}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McreateActionPropertyChangeListener0(55)", "data":{"hc":{"0":"Tjavax.swing.Action","1":"Tjava.beans.PropertyChangeListener"},"hcsMethod":{"1":[[-1]]}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisBorderPainted(56)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetBorderPainted(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MpaintBorder(58)", "data":{"hc":{"0":"Tjava.awt.Graphics"}}, "sub":
+  {"name": "Pg(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisFocusPainted(59)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetFocusPainted(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisContentAreaFilled(61)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetContentAreaFilled(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisRolloverEnabled(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetRolloverEnabled(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetMnemonic(65)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetMnemonic(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pmnemonic(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetMnemonic(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pmnemonic(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetDisplayedMnemonicIndex(68)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetDisplayedMnemonicIndex(69)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MupdateDisplayedMnemonicIndex(70)", "data":{"hc":{}}},
+ {"name": "MupdateMnemonicProperties(71)", "data":{"hc":{}}},
+ {"name": "MsetMultiClickThreshhold(72)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pthreshold(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetMultiClickThreshhold(73)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetModel(74)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.ButtonModel"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetModel(75)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.ButtonModel"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PnewModel(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetUI(76)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.plaf.ButtonUI"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetUI(77)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.plaf.ButtonUI"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pui(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MupdateUI(78)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MaddImpl(79)", "data":{"hc":{"0":"Tjava.awt.Component","1":"Tjava.lang.Object"}}, "subs":[
+  {"name": "Pcomp(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pconstraints(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "MsetLayout(80)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.LayoutManager"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pmgr(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MaddChangeListener(81)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MremoveChangeListener(82)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetChangeListeners(83)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeListener"},"hcsMethod":{"0":[[0]]},"immutableMethod":1}},
+ {"name": "MfireStateChanged(84)", "data":{"hc":{}}},
+ {"name": "MaddActionListener(85)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.ActionListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MremoveActionListener(86)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.ActionListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetActionListeners(87)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.ActionListener"},"hcsMethod":{"0":[[0]]},"immutableMethod":1}},
+ {"name": "McreateChangeListener(88)", "data":{"hc":{"0":"Tjavax.swing.event.ChangeListener"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MfireActionPerformed(89)", "data":{"hc":{"0":"Tjava.awt.event.ActionEvent"}}, "sub":
+  {"name": "Pevent(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MfireItemStateChanged(90)", "data":{"hc":{"0":"Tjava.awt.event.ItemEvent"}}, "sub":
+  {"name": "Pevent(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McreateActionListener(91)", "data":{"hc":{"0":"Tjava.awt.event.ActionListener"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "McreateItemListener(92)", "data":{"hc":{"0":"Tjava.awt.event.ItemListener"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetEnabled(93)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetLabel(94)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MsetLabel(95)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Plabel(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MaddItemListener(96)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.ItemListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MremoveItemListener(97)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.ItemListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetItemListeners(98)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.ItemListener"},"hcsMethod":{"0":[[0]]},"immutableMethod":1}},
+ {"name": "MgetSelectedObjects(99)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[0]]},"immutableMethod":1}},
+ {"name": "Minit(100)", "data":{"hc":{"0":"Tjavax.swing.Icon"}}, "subs":[
+  {"name": "Picon(1)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MimageUpdate(101)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Image"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pimg(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pinfoflags(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Px(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Py(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pw(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ph(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MsetUIProperty(102)", "data":{"hc":{"0":"Tjava.lang.Object"}}, "subs":[
+  {"name": "Pvalue(1)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MparamString(103)", "data":{"hc":{}}},
+ {"name": "MgetHandler(104)", "data":{"hc":{"0":"Tjavax.swing.AbstractButton.Handler"},"hcsMethod":{"0":[[-1]]}}}]},
+
+{"name": "Tjavax.swing.DefaultComboBoxModel", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PE:0","E":true,"M":1}}, "subs":[
+ {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[0]]},"independentMethod":2,"notNullMethod":1}},
+ {"name": "C<init>(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[0]]},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pitems(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]]},"immutableParameter":1}}},
+ {"name": "C<init>(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.Vector","M":1},"hcsMethod":{"0":[[0]]},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pv(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "MsetSelectedItem(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanObject(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSelectedItem(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"hcsMethod":{"1":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MgetSize(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetElementAt(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetIndexOf(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanObject(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MaddElement(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanObject(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MinsertElementAt(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PanObject(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MremoveElementAt(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MremoveElement(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanObject(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MremoveAllElements(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MaddAll(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.Collection","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pc(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "MaddAll(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.Collection","M":1},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pc(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}]}]},
+
+{"name": "Tjavax.swing.JComboBox", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PE:0","E":true,"M":1}}, "subs":[
+ {"name": "SAccessibleJComboBox(0)", "data":{"defaultsAnalyzer":1,"hc":{"0":"PE:*0","E":true,"M":1}}, "subs":[
+  {"name": "SAccessibleEditor(0)", "data":{"hc":{"0":"PE:**0","E":true,"M":1}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"1":"Tjavax.swing.JComboBox.AccessibleJComboBox","M":1}}, "sub":
+    {"name": "PaccessibleJComboBox(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MgetAccessibleContext(0)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleContext","M":1},"hcsMethod":{"1":[[-1]]}}}]},
+  {"name": "SAccessibleJComboBoxListSelectionListener(1)", "data":{"hc":{"0":"PE:**0","E":true,"M":1}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"1":"Tjavax.swing.JComboBox.AccessibleJComboBox","M":1}}, "sub":
+    {"name": "PaccessibleJComboBox(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MvalueChanged(0)", "data":{"hc":{"1":"Tjavax.swing.event.ListSelectionEvent","M":1}}, "sub":
+    {"name": "Pe(0)", "data":{"hcsParameter":{"1":[[-1]]}}}}]},
+  {"name": "SAccessibleJComboBoxPopupMenuListener(2)", "data":{"hc":{"0":"PE:**0","E":true,"M":1}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"1":"Tjavax.swing.JComboBox.AccessibleJComboBox","M":1}}, "sub":
+    {"name": "PaccessibleJComboBox(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MpopupMenuWillBecomeVisible(0)", "data":{"hc":{"1":"Tjavax.swing.event.PopupMenuEvent","M":1}}, "sub":
+    {"name": "Pe(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MpopupMenuWillBecomeInvisible(1)", "data":{"hc":{"1":"Tjavax.swing.event.PopupMenuEvent","M":1}}, "sub":
+    {"name": "Pe(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MpopupMenuCanceled(2)", "data":{"hc":{"1":"Tjavax.swing.event.PopupMenuEvent","M":1}}, "sub":
+    {"name": "Pe(0)", "data":{"hcsParameter":{"1":[[-1]]}}}}]},
+  {"name": "SAccessibleJComboBoxPropertyChangeListener(3)", "data":{"hc":{"0":"PE:**0","E":true,"M":1}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"1":"Tjavax.swing.JComboBox.AccessibleJComboBox","M":1}}, "sub":
+    {"name": "PaccessibleJComboBox(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MpropertyChange(0)", "data":{"hc":{"1":"Tjava.beans.PropertyChangeEvent","M":1}}, "sub":
+    {"name": "Pe(0)", "data":{"hcsParameter":{"1":[[-1]]}}}}]},
+  {"name": "SEditorAccessibleContext(4)", "data":{"hc":{"0":"PE:**0","E":true,"M":1}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"1":"Tjavax.swing.JComboBox.AccessibleJComboBox","M":1}}, "sub":
+    {"name": "PaccessibleJComboBox(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "C<init>(1)", "data":{"hc":{"1":"Tjavax.swing.JComboBox.AccessibleJComboBox","2":"Tjavax.accessibility.Accessible","M":1}}, "subs":[
+    {"name": "PaccessibleJComboBox(0)", "data":{"hcsParameter":{"1":[[-1]]}}},
+    {"name": "Pa(1)", "data":{"hcsParameter":{"2":[[-1]]}}}]},
+   {"name": "MgetAccessibleName(0)", "data":{"hc":{"M":1}}},
+   {"name": "MsetAccessibleName(1)", "data":{"hc":{"M":1}}},
+   {"name": "MgetAccessibleDescription(2)", "data":{"hc":{"M":1}}},
+   {"name": "MsetAccessibleDescription(3)", "data":{"hc":{"M":1}}},
+   {"name": "MgetAccessibleRole(4)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleRole","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleStateSet(5)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleStateSet","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleParent(6)", "data":{"hc":{"1":"Tjavax.accessibility.Accessible","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MsetAccessibleParent(7)", "data":{"hc":{"1":"Tjavax.accessibility.Accessible","M":1}}, "sub":
+    {"name": "Pa(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MgetAccessibleIndexInParent(8)", "data":{"hc":{"M":1}}},
+   {"name": "MgetAccessibleChildrenCount(9)", "data":{"hc":{"M":1}}},
+   {"name": "MgetAccessibleChild(10)", "data":{"hc":{"1":"Tjavax.accessibility.Accessible","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetLocale(11)", "data":{"hc":{"M":1}}},
+   {"name": "MaddPropertyChangeListener(12)", "data":{"hc":{"1":"Tjava.beans.PropertyChangeListener","M":1}}, "sub":
+    {"name": "Plistener(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MremovePropertyChangeListener(13)", "data":{"hc":{"1":"Tjava.beans.PropertyChangeListener","M":1}}, "sub":
+    {"name": "Plistener(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+   {"name": "MgetAccessibleAction(14)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleAction","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleComponent(15)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleComponent","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleSelection(16)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleSelection","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleText(17)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleText","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleEditableText(18)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleEditableText","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleValue(19)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleValue","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleIcon(20)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleIcon","M":1},"hcsMethod":{"1":[[1]]}}},
+   {"name": "MgetAccessibleRelationSet(21)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleRelationSet","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MgetAccessibleTable(22)", "data":{"hc":{"1":"Tjavax.accessibility.AccessibleTable","M":1},"hcsMethod":{"1":[[-1]]}}},
+   {"name": "MfirePropertyChange(23)", "data":{"hc":{"1":"Tjava.lang.Object","M":1}}, "subs":[
+    {"name": "PoldValue(1)", "data":{"hcsParameter":{"1":[[-1]]}}},
+    {"name": "PnewValue(2)", "data":{"hcsParameter":{"1":[[-1]]}}}]}]},
+  {"name": "C<init>(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.JComboBox","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pthis$0(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+  {"name": "MsetEditorNameAndDescription(0)", "data":{"hc":{"M":1}}},
+  {"name": "MgetAccessibleChildrenCount(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleChild(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.accessibility.Accessible","M":1},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetAccessibleRole(3)", "data":{"defaultsAnalyzer":1,"hc":{"1":"Tjavax.accessibility.AccessibleRole","M":1},"hcsMethod":{"1":[[-1]]}}},
+  {"name": "MgetAccessibleStateSet(4)", "data":{"defaultsAnalyzer":1,"hc":{"1":"Tjavax.accessibility.AccessibleStateSet","M":1},"hcsMethod":{"1":[[-1]]}}},
+  {"name": "MgetAccessibleAction(5)", "data":{"defaultsAnalyzer":1,"hc":{"1":"Tjavax.accessibility.AccessibleAction","M":1},"hcsMethod":{"1":[[-1]]}}},
+  {"name": "MgetAccessibleActionDescription(6)", "data":{"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetAccessibleActionCount(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MdoAccessibleAction(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetAccessibleSelection(9)", "data":{"defaultsAnalyzer":1,"hc":{"1":"Tjavax.accessibility.AccessibleSelection","M":1},"hcsMethod":{"1":[[-1]]}}},
+  {"name": "MgetAccessibleSelectionCount(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleSelection(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.accessibility.Accessible","M":1},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MisAccessibleChildSelected(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MaddAccessibleSelection(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MremoveAccessibleSelection(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MclearAccessibleSelection(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+  {"name": "MselectAllAccessibleSelection(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}}]},
+ {"name": "SComboBoxActionPropertyChangeListener(1)", "data":{"hc":{"0":"Tjavax.swing.JComboBox","E":true,"M":1}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"1":"Tjava.lang.Object","2":"Tjavax.swing.Action","M":1},"hcsMethod":{"0":[[0]]}}, "subs":[
+   {"name": "Pb(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "Pa(1)", "data":{"hcsParameter":{"2":[[-1]]}}}]},
+  {"name": "MactionPropertyChanged(0)", "data":{"hc":{"1":"Tjava.lang.Object","2":"Tjavax.swing.Action","3":"Tjava.beans.PropertyChangeEvent","M":1}}, "subs":[
+   {"name": "Pcb(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "Paction(1)", "data":{"hcsParameter":{"2":[[-1]]}}},
+   {"name": "Pe(2)", "data":{"hcsParameter":{"3":[[-1]]}}}]}]},
+ {"name": "SDefaultKeySelectionManager(2)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MselectionForKey(0)", "data":{"hc":{"0":"Tjavax.swing.ComboBoxModel","1":"Tjava.lang.Object"}}, "subs":[
+   {"name": "PaModel(1)", "data":{"hcsParameter":{"0":[[-1]]}}}]}]},
+ {"name": "SKeySelectionManager(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "sub":
+  {"name": "MselectionForKey(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.ComboBoxModel","1":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pc(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "PcomboBoxModel(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]}},
+ {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.ComboBoxModel","M":1},"hcsMethod":{"0":[[0]]},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaModel(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "C<init>(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[0]]},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pitems(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]]},"immutableParameter":1}}},
+ {"name": "C<init>(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.Vector","M":1},"hcsMethod":{"0":[[0]]},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pitems(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "C<init>(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[0]]},"independentMethod":2,"notNullMethod":1}},
+ {"name": "Minit(0)", "data":{"hc":{"M":1}}},
+ {"name": "MinstallAncestorListener(1)", "data":{"hc":{"M":1}}},
+ {"name": "MsetUI(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.plaf.ComboBoxUI","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pui(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MupdateUI(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetUIClassID(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MgetUI(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.plaf.ComboBoxUI","M":1},"hcsMethod":{"1":[[-1]]}}},
+ {"name": "MsetModel(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.ComboBoxModel","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaModel(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "MgetModel(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.ComboBoxModel","M":1},"hcsMethod":{"0":[[0]],"1":[[-1]]}}},
+ {"name": "MsetLightWeightPopupEnabled(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaFlag(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisLightWeightPopupEnabled(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetEditable(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaFlag(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisEditable(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetMaximumRowCount(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pcount(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetMaximumRowCount(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetRenderer(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.ListCellRenderer","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaRenderer(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "MgetRenderer(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.ListCellRenderer","M":1},"hcsMethod":{"0":[[0]],"1":[[-1]]}}},
+ {"name": "MsetEditor(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.ComboBoxEditor","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanEditor(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MgetEditor(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.ComboBoxEditor","M":1},"hcsMethod":{"1":[[-1]]}}},
+ {"name": "MsetSelectedItem(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanObject(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSelectedItem(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"hcsMethod":{"1":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetSelectedIndex(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSelectedIndex(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetPrototypeDisplayValue(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetPrototypeDisplayValue(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PprototypeDisplayValue(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MaddItem(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pitem(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MinsertItemAt(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pitem(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MremoveItem(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanObject(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MremoveItemAt(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MremoveAllItems(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+ {"name": "McheckMutableComboBoxModel(29)", "data":{"hc":{"M":1}}},
+ {"name": "MshowPopup(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MhidePopup(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetPopupVisible(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pv(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisPopupVisible(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MaddItemListener(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.awt.event.ItemListener","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaListener(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MremoveItemListener(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.awt.event.ItemListener","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaListener(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MgetItemListeners(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.awt.event.ItemListener","M":1},"hcsMethod":{"1":[[1]]},"immutableMethod":1}},
+ {"name": "MaddActionListener(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.awt.event.ActionListener","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MremoveActionListener(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.awt.event.ActionListener","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MgetActionListeners(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.awt.event.ActionListener","M":1},"hcsMethod":{"1":[[1]]},"immutableMethod":1}},
+ {"name": "MaddPopupMenuListener(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.event.PopupMenuListener","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MremovePopupMenuListener(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.event.PopupMenuListener","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MgetPopupMenuListeners(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.event.PopupMenuListener","M":1},"hcsMethod":{"1":[[1]]},"immutableMethod":1}},
+ {"name": "MfirePopupMenuWillBecomeVisible(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MfirePopupMenuWillBecomeInvisible(44)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MfirePopupMenuCanceled(45)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetActionCommand(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaCommand(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetActionCommand(47)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MsetAction(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.Action","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pa(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MisListener(49)", "data":{"hc":{"1":"Tjava.lang.Class","2":"Tjava.lang.Object","3":"Tjava.awt.event.ActionListener","M":1}}, "subs":[
+  {"name": "Pc(0)", "data":{"hcsParameter":{"1":[[-1]]}}},
+  {"name": "Pa(1)", "data":{"hcsParameter":{"3":[[-1]]}}}]},
+ {"name": "MgetAction(50)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.Action","M":1},"hcsMethod":{"1":[[-1]]}}},
+ {"name": "MconfigurePropertiesFromAction(51)", "data":{"hc":{"1":"Tjavax.swing.Action","M":1}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "McreateActionPropertyChangeListener(52)", "data":{"hc":{"1":"Tjavax.swing.Action","2":"Tjava.beans.PropertyChangeListener","M":1},"hcsMethod":{"2":[[-1]]}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MactionPropertyChanged(53)", "data":{"hc":{"1":"Tjavax.swing.Action","M":1}}, "subs":[
+  {"name": "Paction(0)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "MsetActionCommandFromAction(54)", "data":{"hc":{"1":"Tjavax.swing.Action","M":1}}, "sub":
+  {"name": "Pa(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MfireItemStateChanged(55)", "data":{"hc":{"1":"Tjava.awt.event.ItemEvent","M":1}}, "sub":
+  {"name": "Pe(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MfireActionEvent(56)", "data":{"hc":{"M":1}}},
+ {"name": "MselectedItemChanged(57)", "data":{"hc":{"M":1}}},
+ {"name": "MgetSelectedObjects(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"hcsMethod":{"1":[[1]]},"immutableMethod":1}},
+ {"name": "MactionPerformed(59)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.awt.event.ActionEvent","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "McontentsChanged(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.event.ListDataEvent","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MintervalAdded(61)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.event.ListDataEvent","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MintervalRemoved(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.event.ListDataEvent","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MselectWithKeyChar(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PkeyChar(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetEnabled(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MconfigureEditor(65)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.ComboBoxEditor","2":"Tjava.lang.Object","M":1},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PanEditor(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}},
+  {"name": "PanItem(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"2":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MprocessKeyEvent(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.awt.event.KeyEvent","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MprocessKeyBinding(67)", "data":{"hc":{"1":"Tjavax.swing.KeyStroke","2":"Tjava.awt.event.KeyEvent","M":1}}, "subs":[
+  {"name": "Pks(0)", "data":{"hcsParameter":{"1":[[-1]]}}},
+  {"name": "Pe(1)", "data":{"hcsParameter":{"2":[[-1]]}}}]},
+ {"name": "MsetKeySelectionManager(68)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.JComboBox.KeySelectionManager","M":1},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaManager(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MgetKeySelectionManager(69)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.swing.JComboBox.KeySelectionManager","M":1},"hcsMethod":{"1":[[-1]]}}},
+ {"name": "MgetItemCount(70)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetItemAt(71)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McreateDefaultKeySelectionManager(72)", "data":{"hc":{"1":"Tjavax.swing.JComboBox.KeySelectionManager","M":1},"hcsMethod":{"1":[[-1]]}}},
+ {"name": "MwriteObject(73)", "data":{"hc":{"1":"Tjava.io.ObjectOutputStream","M":1}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"1":[[-1]]}}}},
+ {"name": "MparamString(74)", "data":{"hc":{"M":1}}},
+ {"name": "MgetAccessibleContext(75)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjavax.accessibility.AccessibleContext","M":1},"hcsMethod":{"1":[[-1]]}}}]},
+
+{"name": "Tjavax.swing.JLabel", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+ {"name": "SAccessibleJLabel(0)", "data":{"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+  {"name": "SLabelKeyBinding(0)", "data":{"hc":{"E":true}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JLabel.AccessibleJLabel"}}, "subs":[
+    {"name": "Pthis$1(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+   {"name": "MgetAccessibleKeyBindingCount(0)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleKeyBinding(1)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}}]},
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JLabel"}}, "sub":
+   {"name": "Pthis$0(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetAccessibleName(0)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetAccessibleNameImpl(1)", "data":{"hc":{}}},
+  {"name": "MgetAccessibleNameCheckIcon(2)", "data":{"hc":{}}},
+  {"name": "MgetAccessibleRole(3)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleRole"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleIcon(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleIcon"},"hcsMethod":{"0":[[0]]},"immutableMethod":1}},
+  {"name": "MgetAccessibleRelationSet(5)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleRelationSet"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleText(6)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleText"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetIndexAtPoint(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetCharacterBounds(8)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Rectangle"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetCharCount(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetCaretPosition(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAtIndex(11)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAfterIndex(12)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetBeforeIndex(13)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetCharacterAttribute(14)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.text.AttributeSet"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetSelectionStart(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetSelectionEnd(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetSelectedText(17)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetText(18)", "data":{"hc":{}}},
+  {"name": "MgetTextRectangle(19)", "data":{"hc":{"0":"Tjava.awt.Rectangle"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleExtendedComponent(20)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleExtendedComponent"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetToolTipText(21)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetTitledBorderText(22)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetAccessibleKeyBinding(23)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleKeyBinding"},"hcsMethod":{"0":[[-1]]}}}]},
+ {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Picon(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PhorizontalAlignment(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "C<init>(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PhorizontalAlignment(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "C<init>(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "C<init>(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pimage(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PhorizontalAlignment(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "C<init>(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pimage(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "C<init>(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetUI(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.plaf.LabelUI"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetUI(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.plaf.LabelUI"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pui(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MupdateUI(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetUIClassID(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MgetText(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MsetText(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetIcon(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetIcon(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Picon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetDisabledIcon(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetDisabledIcon(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.Icon"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PdisabledIcon(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetDisplayedMnemonic(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pkey(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetDisplayedMnemonic(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaChar(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetDisplayedMnemonic(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetDisplayedMnemonicIndex(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetDisplayedMnemonicIndex(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "McheckHorizontalKey(15)", "data":{"hc":{}}},
+ {"name": "McheckVerticalKey(16)", "data":{"hc":{}}},
+ {"name": "MgetIconTextGap(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetIconTextGap(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PiconTextGap(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetVerticalAlignment(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetVerticalAlignment(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Palignment(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetHorizontalAlignment(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetHorizontalAlignment(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Palignment(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetVerticalTextPosition(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetVerticalTextPosition(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PtextPosition(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetHorizontalTextPosition(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetHorizontalTextPosition(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PtextPosition(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MimageUpdate(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Image"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pimg(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pinfoflags(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Px(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Py(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pw(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ph(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteObject(28)", "data":{"hc":{"0":"Tjava.io.ObjectOutputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MparamString(29)", "data":{"hc":{}}},
+ {"name": "MgetLabelFor(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Component"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetLabelFor(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Component"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pc(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetAccessibleContext(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleContext"},"hcsMethod":{"0":[[-1]]}}}]},
+
+{"name": "Tjavax.swing.JTable", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+ {"name": "SAccessibleJTable(0)", "data":{"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+  {"name": "SAccessibleJTableCell(0)", "data":{"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+   {"name": "C<init>(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.JTable.AccessibleJTable","1":"Tjavax.swing.JTable"},"independentMethod":2,"notNullMethod":1}, "subs":[
+    {"name": "Pthis$1(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+    {"name": "Pt(1)", "data":{"hcsParameter":{"1":[[-1]]}}},
+    {"name": "Pr(2)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+    {"name": "Pc(3)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+    {"name": "Pi(4)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+   {"name": "MgetAccessibleContext(0)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleContext"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetCurrentAccessibleContext(1)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleContext"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetCurrentComponent(2)", "data":{"hc":{"0":"Tjava.awt.Component"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleName(3)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+   {"name": "MsetAccessibleName(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Ps(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+   {"name": "MgetAccessibleDescription(5)", "data":{"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+   {"name": "MsetAccessibleDescription(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Ps(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+   {"name": "MgetAccessibleRole(7)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleRole"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleStateSet(8)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleStateSet"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleParent(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleIndexInParent(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MgetAccessibleChildrenCount(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MgetAccessibleChild(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}, "sub":
+    {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+   {"name": "MgetLocale(13)", "data":{"defaultsAnalyzer":1,"hc":{}}},
+   {"name": "MaddPropertyChangeListener(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.beans.PropertyChangeListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pl(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MremovePropertyChangeListener(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.beans.PropertyChangeListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pl(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleAction(16)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleAction"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleComponent(17)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleComponent"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleSelection(18)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleSelection"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleText(19)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleText"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleValue(20)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleValue"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetBackground(21)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+   {"name": "MsetBackground(22)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pc(0)", "data":{"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+   {"name": "MgetForeground(23)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+   {"name": "MsetForeground(24)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pc(0)", "data":{"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+   {"name": "MgetCursor(25)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Cursor"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetCursor(26)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Cursor"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pc(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetFont(27)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Font"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetFont(28)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Font"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pf(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetFontMetrics(29)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Font","1":"Tjava.awt.FontMetrics"},"hcsMethod":{"1":[[-1]]}}, "sub":
+    {"name": "Pf(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MisEnabled(30)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MsetEnabled(31)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pb(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+   {"name": "MisVisible(32)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MsetVisible(33)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pb(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+   {"name": "MisShowing(34)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "Mcontains(35)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetLocationOnScreen(36)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetLocation(37)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetLocation(38)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetBounds(39)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Rectangle"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetBounds(40)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Rectangle"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pr(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetSize(41)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Dimension"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetSize(42)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Dimension"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pd(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleAt(43)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point","1":"Tjavax.accessibility.Accessible"},"hcsMethod":{"1":[[-1]]}}, "sub":
+    {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MisFocusTraversable(44)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MrequestFocus(45)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+   {"name": "MaddFocusListener(46)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.FocusListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pl(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MremoveFocusListener(47)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.FocusListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+    {"name": "Pl(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+  {"name": "SAccessibleJTableHeaderCell(1)", "data":{"hc":{"E":true}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JTable.AccessibleJTable","1":"Tjavax.swing.table.JTableHeader","2":"Tjava.awt.Component"}}, "subs":[
+    {"name": "PaccessibleJTable(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+    {"name": "Pparent(3)", "data":{"hcsParameter":{"1":[[-1]]}}},
+    {"name": "PrendererComponent(4)", "data":{"hcsParameter":{"2":[[-1]]}}}]},
+   {"name": "MgetAccessibleContext(0)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleContext"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetCurrentAccessibleContext(1)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleContext"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetCurrentComponent(2)", "data":{"hc":{"0":"Tjava.awt.Component"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleName(3)", "data":{"hc":{}}},
+   {"name": "MsetAccessibleName(4)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleDescription(5)", "data":{"hc":{}}},
+   {"name": "MsetAccessibleDescription(6)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleRole(7)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleRole"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleStateSet(8)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleStateSet"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleParent(9)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleIndexInParent(10)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleChildrenCount(11)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleChild(12)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetLocale(13)", "data":{"hc":{}}},
+   {"name": "MaddPropertyChangeListener(14)", "data":{"hc":{"0":"Tjava.beans.PropertyChangeListener"}}, "sub":
+    {"name": "Pl(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MremovePropertyChangeListener(15)", "data":{"hc":{"0":"Tjava.beans.PropertyChangeListener"}}, "sub":
+    {"name": "Pl(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleAction(16)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleAction"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleComponent(17)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleComponent"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleSelection(18)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleSelection"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleText(19)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleText"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleValue(20)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleValue"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetBackground(21)", "data":{"hc":{"0":"Tjava.awt.Color"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetBackground(22)", "data":{"hc":{"0":"Tjava.awt.Color"}}, "sub":
+    {"name": "Pc(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetForeground(23)", "data":{"hc":{"0":"Tjava.awt.Color"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetForeground(24)", "data":{"hc":{"0":"Tjava.awt.Color"}}, "sub":
+    {"name": "Pc(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetCursor(25)", "data":{"hc":{"0":"Tjava.awt.Cursor"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetCursor(26)", "data":{"hc":{"0":"Tjava.awt.Cursor"}}, "sub":
+    {"name": "Pc(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetFont(27)", "data":{"hc":{"0":"Tjava.awt.Font"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetFont(28)", "data":{"hc":{"0":"Tjava.awt.Font"}}, "sub":
+    {"name": "Pf(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetFontMetrics(29)", "data":{"hc":{"0":"Tjava.awt.Font","1":"Tjava.awt.FontMetrics"},"hcsMethod":{"1":[[-1]]}}, "sub":
+    {"name": "Pf(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MisEnabled(30)", "data":{"hc":{}}},
+   {"name": "MsetEnabled(31)", "data":{"hc":{}}},
+   {"name": "MisVisible(32)", "data":{"hc":{}}},
+   {"name": "MsetVisible(33)", "data":{"hc":{}}},
+   {"name": "MisShowing(34)", "data":{"hc":{}}},
+   {"name": "Mcontains(35)", "data":{"hc":{"0":"Tjava.awt.Point"}}, "sub":
+    {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetLocationOnScreen(36)", "data":{"hc":{"0":"Tjava.awt.Point"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetLocation(37)", "data":{"hc":{"0":"Tjava.awt.Point"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetLocation(38)", "data":{"hc":{"0":"Tjava.awt.Point"}}, "sub":
+    {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetBounds(39)", "data":{"hc":{"0":"Tjava.awt.Rectangle"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetBounds(40)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "sub":
+    {"name": "Pr(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetSize(41)", "data":{"hc":{"0":"Tjava.awt.Dimension"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetSize(42)", "data":{"hc":{"0":"Tjava.awt.Dimension"}}, "sub":
+    {"name": "Pd(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleAt(43)", "data":{"hc":{"0":"Tjava.awt.Point","1":"Tjavax.accessibility.Accessible"},"hcsMethod":{"1":[[-1]]}}, "sub":
+    {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MisFocusTraversable(44)", "data":{"hc":{}}},
+   {"name": "MrequestFocus(45)", "data":{"hc":{}}},
+   {"name": "MaddFocusListener(46)", "data":{"hc":{"0":"Tjava.awt.event.FocusListener"}}, "sub":
+    {"name": "Pl(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MremoveFocusListener(47)", "data":{"hc":{"0":"Tjava.awt.event.FocusListener"}}, "sub":
+    {"name": "Pl(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+  {"name": "SAccessibleJTableModelChange(2)", "data":{"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JTable.AccessibleJTable"}}, "subs":[
+    {"name": "Pthis$1(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+   {"name": "MgetType(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MgetFirstRow(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MgetLastRow(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MgetFirstColumn(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+   {"name": "MgetLastColumn(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}]},
+  {"name": "SAccessibleTableHeader(3)", "data":{"hc":{"E":true}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JTable.AccessibleJTable","1":"Tjavax.swing.table.JTableHeader"}}, "subs":[
+    {"name": "PaccessibleJTable(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+    {"name": "Pheader(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+   {"name": "MgetAccessibleCaption(0)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetAccessibleCaption(1)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"}}, "sub":
+    {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleSummary(2)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetAccessibleSummary(3)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"}}, "sub":
+    {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleRowCount(4)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleColumnCount(5)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleAt(6)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MgetAccessibleRowExtentAt(7)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleColumnExtentAt(8)", "data":{"hc":{}}},
+   {"name": "MgetAccessibleRowHeader(9)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleTable"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetAccessibleRowHeader(10)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleTable"}}, "sub":
+    {"name": "Ptable(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleColumnHeader(11)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleTable"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetAccessibleColumnHeader(12)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleTable"}}, "sub":
+    {"name": "Ptable(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleRowDescription(13)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetAccessibleRowDescription(14)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"}}, "subs":[
+    {"name": "Pa(1)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+   {"name": "MgetAccessibleColumnDescription(15)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+   {"name": "MsetAccessibleColumnDescription(16)", "data":{"hc":{"0":"Tjavax.accessibility.Accessible"}}, "subs":[
+    {"name": "Pa(1)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+   {"name": "MisAccessibleSelected(17)", "data":{"hc":{}}},
+   {"name": "MisAccessibleRowSelected(18)", "data":{"hc":{}}},
+   {"name": "MisAccessibleColumnSelected(19)", "data":{"hc":{}}},
+   {"name": "MgetSelectedAccessibleRows(20)", "data":{"hc":{}}},
+   {"name": "MgetSelectedAccessibleColumns(21)", "data":{"hc":{}}}]},
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JTable"}}, "sub":
+   {"name": "Pthis$0(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MpropertyChange(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.beans.PropertyChangeEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MtableChanged(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MtableRowsInserted(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MtableRowsDeleted(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "McolumnAdded(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableColumnModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "McolumnRemoved(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableColumnModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "McolumnMoved(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableColumnModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "McolumnMarginChanged(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "McolumnSelectionChanged(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ListSelectionEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MeditingStopped(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MeditingCanceled(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MvalueChanged(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ListSelectionEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetAccessibleSelection(12)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleSelection"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleRole(13)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleRole"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleAt(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point","1":"Tjavax.accessibility.Accessible"},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetAccessibleChildrenCount(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleChild(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetAccessibleSelectionCount(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleSelection(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MisAccessibleChildSelected(19)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MaddAccessibleSelection(20)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MremoveAccessibleSelection(21)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MclearAccessibleSelection(22)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+  {"name": "MselectAllAccessibleSelection(23)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleRow(24)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetAccessibleColumn(25)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetAccessibleIndex(26)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pc(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAccessibleTable(27)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleTable"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MgetAccessibleCaption(28)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MsetAccessibleCaption(29)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pa(0)", "data":{"containerParameter":1,"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetAccessibleSummary(30)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MsetAccessibleSummary(31)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pa(0)", "data":{"containerParameter":1,"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetAccessibleRowCount(32)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleColumnCount(33)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleAt(34)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}, "subs":[
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pc(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAccessibleRowExtentAt(35)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pc(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAccessibleColumnExtentAt(36)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pc(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAccessibleRowHeader(37)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleTable"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MsetAccessibleRowHeader(38)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleTable"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetAccessibleColumnHeader(39)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleTable"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MsetAccessibleColumnHeader(40)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleTable"},"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pa(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MgetAccessibleRowDescription(41)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MsetAccessibleRowDescription(42)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pa(1)", "data":{"containerParameter":1,"hcsParameter":{"0":[[-1]]}}}]},
+  {"name": "MgetAccessibleColumnDescription(43)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pc(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MsetAccessibleColumnDescription(44)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.Accessible"},"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pc(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pa(1)", "data":{"containerParameter":1,"hcsParameter":{"0":[[-1]]}}}]},
+  {"name": "MisAccessibleSelected(45)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pc(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MisAccessibleRowSelected(46)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MisAccessibleColumnSelected(47)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pc(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetSelectedAccessibleRows(48)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":1}},
+  {"name": "MgetSelectedAccessibleColumns(49)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":1}},
+  {"name": "MgetAccessibleRowAtIndex(50)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetAccessibleColumnAtIndex(51)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetAccessibleIndexAt(52)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pr(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pc(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]}]},
+ {"name": "SBooleanEditor(1)", "data":{"hc":{"E":true}}, "sub":
+  {"name": "C<init>(0)", "data":{"hc":{}}}},
+ {"name": "SBooleanRenderer(2)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "SAccessibleBooleanRenderer(0)", "data":{"hc":{"E":true}}, "subs":[
+   {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JTable.BooleanRenderer"}}, "sub":
+    {"name": "Pthis$0(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+   {"name": "MgetAccessibleAction(0)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleAction"},"hcsMethod":{"0":[[-1]]}}}]},
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MgetTableCellRendererComponent(0)", "data":{"hc":{"0":"Tjavax.swing.JTable","1":"Tjava.lang.Object","2":"Tjava.awt.Component"},"hcsMethod":{"2":[[-1]]}}, "subs":[
+   {"name": "Ptable(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "Pvalue(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+  {"name": "MgetAccessibleContext(1)", "data":{"hc":{"0":"Tjavax.accessibility.AccessibleContext"},"hcsMethod":{"0":[[-1]]}}}]},
+ {"name": "SCellEditorRemover(3)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JTable","1":"Tjava.awt.KeyboardFocusManager"}}, "subs":[
+   {"name": "Pthis$0(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "Pfm(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+  {"name": "MpropertyChange(0)", "data":{"hc":{"0":"Tjava.beans.PropertyChangeEvent"}}, "sub":
+   {"name": "Pev(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+ {"name": "SDateRenderer(4)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MsetValue(0)", "data":{"hc":{"0":"Tjava.lang.Object"}}, "sub":
+   {"name": "Pvalue(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+ {"name": "SDoubleRenderer(5)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MsetValue(0)", "data":{"hc":{"0":"Tjava.lang.Object"}}, "sub":
+   {"name": "Pvalue(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+ {"name": "SDropLocation(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjava.awt.Point"}}, "subs":[
+   {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+  {"name": "MgetRow(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetColumn(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MisInsertRow(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MisInsertColumn(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MtoString(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
+ {"name": "SGenericEditor(7)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MstopCellEditing(0)", "data":{"hc":{}}},
+  {"name": "MgetTableCellEditorComponent(1)", "data":{"hc":{"0":"Tjavax.swing.JTable","1":"Tjava.lang.Object","2":"Tjava.awt.Component"},"hcsMethod":{"2":[[-1]]}}, "subs":[
+   {"name": "Ptable(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "Pvalue(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+  {"name": "MgetCellEditorValue(2)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}}]},
+ {"name": "SIconRenderer(8)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MsetValue(0)", "data":{"hc":{"0":"Tjava.lang.Object"}}, "sub":
+   {"name": "Pvalue(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+ {"name": "SModelChange(9)", "data":{"hc":{}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.JTable","1":"Tjavax.swing.event.TableModelEvent"}}, "subs":[
+   {"name": "PjTable(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "Pe(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]}]},
+ {"name": "SNumberEditor(10)", "data":{"hc":{"E":true}}, "sub":
+  {"name": "C<init>(0)", "data":{"hc":{}}}},
+ {"name": "SNumberRenderer(11)", "data":{"hc":{"E":true}}, "sub":
+  {"name": "C<init>(0)", "data":{"hc":{}}}},
+ {"name": "SPrintMode(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "FNORMAL(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "FFIT_WIDTH(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "Mvalues(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":1}},
+  {"name": "MvalueOf(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+   {"name": "Pname(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+ {"name": "SResizable2(13)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "MgetElementCount(0)", "data":{"hc":{}}},
+  {"name": "MgetLowerBoundAt(1)", "data":{"hc":{}}},
+  {"name": "MgetUpperBoundAt(2)", "data":{"hc":{}}},
+  {"name": "MsetSizeAt(3)", "data":{"hc":{}}}]},
+ {"name": "SResizable3(14)", "data":{"hc":{"E":true}}, "sub":
+  {"name": "MgetMidPointAt(0)", "data":{"hc":{}}}},
+ {"name": "SSortManager(15)", "data":{"hc":{}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjavax.swing.RowSorter","1":"Tjavax.swing.table.TableModel"}}, "sub":
+   {"name": "ProwSorter(0)", "data":{"hcsParameter":{"0":[[-1]],"1":[[0]]}}}},
+  {"name": "Mdispose(0)", "data":{"hc":{}}},
+  {"name": "MsetViewRowHeight(1)", "data":{"hc":{}}},
+  {"name": "MallChanged(2)", "data":{"hc":{}}},
+  {"name": "MviewSelectionChanged(3)", "data":{"hc":{"0":"Tjavax.swing.event.ListSelectionEvent"}}, "sub":
+   {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MprepareForChange(4)", "data":{"hc":{"0":"Tjavax.swing.event.RowSorterEvent"}}, "subs":[
+   {"name": "PsortEvent(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+  {"name": "McacheSelection(5)", "data":{"hc":{"0":"Tjavax.swing.event.RowSorterEvent"}}, "subs":[
+   {"name": "PsortEvent(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+  {"name": "McacheModelSelection(6)", "data":{"hc":{"0":"Tjavax.swing.event.RowSorterEvent"}}, "sub":
+   {"name": "PsortEvent(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "MprocessChange(7)", "data":{"hc":{"0":"Tjavax.swing.event.RowSorterEvent"}}, "subs":[
+   {"name": "PsortEvent(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+  {"name": "MsetViewRowHeightsFromModel(8)", "data":{"hc":{}}},
+  {"name": "MrestoreSelection(9)", "data":{"hc":{}}}]},
+ {"name": "SThreadSafePrintable(16)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjava.awt.print.Printable"}}, "sub":
+   {"name": "PprintDelegate(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+  {"name": "Mprint(0)", "data":{"hc":{"0":"Tjava.awt.Graphics","1":"Tjava.awt.print.PageFormat"}}, "subs":[
+   {"name": "Pgraphics(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+   {"name": "PpageFormat(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]}]},
+ {"name": "FAUTO_RESIZE_OFF(1)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
+ {"name": "FAUTO_RESIZE_NEXT_COLUMN(2)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
+ {"name": "FAUTO_RESIZE_SUBSEQUENT_COLUMNS(3)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
+ {"name": "FAUTO_RESIZE_LAST_COLUMN(4)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
+ {"name": "FAUTO_RESIZE_ALL_COLUMNS(5)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
+ {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "C<init>(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableModel"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pdm(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "C<init>(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableModel","1":"Tjavax.swing.table.TableColumnModel"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pdm(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pcm(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "C<init>(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableModel","1":"Tjavax.swing.table.TableColumnModel","2":"Tjavax.swing.ListSelectionModel"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pdm(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pcm(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}},
+  {"name": "Psm(2)", "data":{"annotatedApi":1,"hcsParameter":{"2":[[-1]]}}}]},
+ {"name": "C<init>(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PnumRows(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PnumColumns(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "C<init>(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Vector","1":"Tjava.lang.Object"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "ProwData(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1],[0]]}}},
+  {"name": "PcolumnNames(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "C<init>(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "ProwData(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]]},"immutableParameter":1}},
+  {"name": "PcolumnNames(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]]},"immutableParameter":1}}]},
+ {"name": "MaddNotify(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MconfigureEnclosingScrollPane(1)", "data":{"hc":{}}},
+ {"name": "MconfigureEnclosingScrollPaneUI(2)", "data":{"hc":{}}},
+ {"name": "MremoveNotify(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MunconfigureEnclosingScrollPane(4)", "data":{"hc":{}}},
+ {"name": "MsetUIProperty(5)", "data":{"hc":{"0":"Tjava.lang.Object"}}, "subs":[
+  {"name": "Pvalue(1)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "McreateScrollPaneForTable(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.JTable","1":"Tjavax.swing.JScrollPane"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "sub":
+  {"name": "PaTable(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetTableHeader(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.JTableHeader"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PtableHeader(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetTableHeader(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.JTableHeader"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetRowHeight(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "ProwHeight(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetRowHeight(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetRowModel(11)", "data":{"hc":{"0":"Tjavax.swing.SizeSequence"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetRowHeight(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "ProwHeight(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetRowHeight(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetRowMargin(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "ProwMargin(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetRowMargin(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetIntercellSpacing(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Dimension"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PintercellSpacing(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetIntercellSpacing(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Dimension"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetGridColor(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PgridColor(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetGridColor(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetShowGrid(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PshowGrid(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetShowHorizontalLines(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PshowHorizontalLines(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetShowVerticalLines(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PshowVerticalLines(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetShowHorizontalLines(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetShowVerticalLines(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetAutoResizeMode(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pmode(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisValidAutoResizeMode(26)", "data":{"hc":{}}},
+ {"name": "MgetAutoResizeMode(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetAutoCreateColumnsFromModel(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PautoCreateColumnsFromModel(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetAutoCreateColumnsFromModel(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "McreateDefaultColumnsFromModel(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetDefaultRenderer(31)", "data":{"annotatedApi":1,"commutableMethods":["class,0","",""],"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Class","1":"Tjava.lang.Object","2":"Tjavax.swing.table.TableCellRenderer"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PcolumnClass(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Prenderer(1)", "data":{"annotatedApi":1,"hcsParameter":{"2":[[-1]]}}}]},
+ {"name": "MgetDefaultRenderer(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Class","1":"Tjava.lang.Object","2":"Tjavax.swing.table.TableCellRenderer"},"hcsMethod":{"2":[[-1]]}}, "sub":
+  {"name": "PcolumnClass(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MsetDefaultEditor(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Class","1":"Tjava.lang.Object","2":"Tjavax.swing.table.TableCellEditor"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PcolumnClass(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Peditor(1)", "data":{"annotatedApi":1,"hcsParameter":{"2":[[-1]]}}}]},
+ {"name": "MgetDefaultEditor(34)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Class","1":"Tjava.lang.Object","2":"Tjavax.swing.table.TableCellEditor"},"hcsMethod":{"2":[[-1]]}}, "sub":
+  {"name": "PcolumnClass(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MsetDragEnabled(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McheckDragEnabled(36)", "data":{"hc":{}}},
+ {"name": "MgetDragEnabled(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetDropMode(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PdropMode(0)", "data":{"annotatedApi":1}}},
+ {"name": "McheckDropMode(39)", "data":{"hc":{}}},
+ {"name": "MgetDropMode(40)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MdropLocationForPoint(41)", "data":{"hc":{"0":"Tjava.awt.Point"}}, "sub":
+  {"name": "Pp(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetDropLocation(42)", "data":{"hc":{"0":"Tjavax.swing.TransferHandler.DropLocation","1":"Tjava.lang.Object"},"hcsMethod":{"1":[[-1]]}}, "subs":[
+  {"name": "Plocation(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pstate(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "MgetDropLocation(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MsetAutoCreateRowSorter(44)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PautoCreateRowSorter(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetAutoCreateRowSorter(45)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetUpdateSelectionOnSort(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pupdate(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetUpdateSelectionOnSort(47)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetRowSorter(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.RowSorter","1":"Tjavax.swing.table.TableModel"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Psorter(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]],"1":[[0]]}}}},
+ {"name": "MgetRowSorter(49)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.RowSorter","1":"Tjavax.swing.table.TableModel"},"hcsMethod":{"0":[[-1]],"1":[[0]]}}},
+ {"name": "MsetSelectionMode(50)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PselectionMode(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetRowSelectionAllowed(51)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "ProwSelectionAllowed(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetRowSelectionAllowed(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetColumnSelectionAllowed(53)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PcolumnSelectionAllowed(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetColumnSelectionAllowed(54)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetCellSelectionEnabled(55)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PcellSelectionEnabled(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetCellSelectionEnabled(56)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MselectAll(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MclearSelection(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MclearSelectionAndLeadAnchor(59)", "data":{"hc":{}}},
+ {"name": "MgetAdjustedIndex(60)", "data":{"hc":{}}},
+ {"name": "MboundRow(61)", "data":{"hc":{}}},
+ {"name": "MboundColumn(62)", "data":{"hc":{}}},
+ {"name": "MsetRowSelectionInterval(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pindex1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MsetColumnSelectionInterval(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pindex1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MaddRowSelectionInterval(65)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pindex1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MaddColumnSelectionInterval(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pindex1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MremoveRowSelectionInterval(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pindex1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MremoveColumnSelectionInterval(68)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pindex0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pindex1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetSelectedRow(69)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetSelectedColumn(70)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetSelectedRows(71)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":1}},
+ {"name": "MgetSelectedColumns(72)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":1}},
+ {"name": "MgetSelectedRowCount(73)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetSelectedColumnCount(74)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisRowSelected(75)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisColumnSelected(76)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pcolumn(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisCellSelected(77)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MchangeSelectionModel(78)", "data":{"hc":{"0":"Tjavax.swing.ListSelectionModel"}}, "subs":[
+  {"name": "Psm(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MchangeSelection(79)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "ProwIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcolumnIndex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptoggle(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pextend(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetSelectionForeground(80)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetSelectionForeground(81)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PselectionForeground(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSelectionBackground(82)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetSelectionBackground(83)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Color"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PselectionBackground(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetColumn(84)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object","1":"Tjavax.swing.table.TableColumn"},"hcsMethod":{"1":[[-1]]}}, "sub":
+  {"name": "Pidentifier(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MconvertColumnIndexToModel(85)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PviewColumnIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MconvertColumnIndexToView(86)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PmodelColumnIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MconvertRowIndexToView(87)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PmodelRowIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MconvertRowIndexToModel(88)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PviewRowIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetRowCount(89)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetColumnCount(90)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetColumnName(91)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Pcolumn(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetColumnClass(92)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Class","1":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Pcolumn(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetValueAt(93)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MsetValueAt(94)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PaValue(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Prow(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisCellEditable(95)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MaddColumn(96)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableColumn"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaColumn(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MremoveColumn(97)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableColumn"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaColumn(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MmoveColumn(98)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pcolumn(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtargetColumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McolumnAtPoint(99)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ppoint(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MrowAtPoint(100)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Point"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ppoint(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetCellRect(101)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Rectangle"},"hcsMethod":{"0":[[-1]]}}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PincludeSpacing(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MviewIndexForColumn(102)", "data":{"hc":{"0":"Tjavax.swing.table.TableColumn"}}, "sub":
+  {"name": "PaColumn(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MdoLayout(103)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetResizingColumn(104)", "data":{"hc":{"0":"Tjavax.swing.table.TableColumn"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsizeColumnsToFit(105)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PlastColumnOnly(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsizeColumnsToFit(106)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PresizingColumn(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetWidthsFromPreferredWidths(107)", "data":{"hc":{}}},
+ {"name": "MaccommodateDelta(108)", "data":{"hc":{}}},
+ {"name": "MadjustSizes(109)", "data":{"hc":{"0":"Tjavax.swing.JTable.Resizable3"}}, "subs":[
+  {"name": "Presizable3(1)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MadjustSizes(110)", "data":{"hc":{"0":"Tjavax.swing.JTable.Resizable2"}}, "subs":[
+  {"name": "Presizable2(1)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MgetToolTipText(111)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.event.MouseEvent"},"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Pevent(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetSurrendersFocusOnKeystroke(112)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PsurrendersFocusOnKeystroke(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSurrendersFocusOnKeystroke(113)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MeditCellAt(114)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MeditCellAt(115)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.EventObject"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pe(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MisEditing(116)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetEditorComponent(117)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Component"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MgetEditingColumn(118)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetEditingRow(119)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetUI(120)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.plaf.TableUI"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetUI(121)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.plaf.TableUI"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pui(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MupdateUI(122)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetUIClassID(123)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MsetModel(124)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableModel"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PdataModel(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetModel(125)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableModel"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetColumnModel(126)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableColumnModel"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PcolumnModel(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetColumnModel(127)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableColumnModel"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetSelectionModel(128)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.ListSelectionModel"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PselectionModel(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetSelectionModel(129)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.ListSelectionModel"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsorterChanged(130)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.RowSorterEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsortedTableChanged(131)", "data":{"hc":{"0":"Tjavax.swing.event.RowSorterEvent","1":"Tjavax.swing.event.TableModelEvent"}}, "subs":[
+  {"name": "PsortedEvent(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pe(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "MrepaintSortedRows(132)", "data":{"hc":{}}},
+ {"name": "MrestoreSortingSelection(133)", "data":{"hc":{}}},
+ {"name": "MrestoreSortingEditingRow(134)", "data":{"hc":{}}},
+ {"name": "MnotifySorter(135)", "data":{"hc":{}}},
+ {"name": "MconvertRowIndexToView(136)", "data":{"hc":{}}},
+ {"name": "MconvertSelectionToModel(137)", "data":{"hc":{"0":"Tjavax.swing.event.RowSorterEvent"}}, "sub":
+  {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MconvertRowIndexToModel(138)", "data":{"hc":{"0":"Tjavax.swing.event.RowSorterEvent"}}, "subs":[
+  {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MtableChanged(139)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MtableRowsInserted(140)", "data":{"hc":{"0":"Tjavax.swing.event.TableModelEvent"}}, "sub":
+  {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MtableRowsDeleted(141)", "data":{"hc":{"0":"Tjavax.swing.event.TableModelEvent"}}, "sub":
+  {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McolumnAdded(142)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableColumnModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McolumnRemoved(143)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableColumnModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McolumnMoved(144)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.TableColumnModelEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McolumnMarginChanged(145)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mlimit(146)", "data":{"hc":{}}},
+ {"name": "McolumnSelectionChanged(147)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ListSelectionEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MvalueChanged(148)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ListSelectionEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MeditingStopped(149)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MeditingCanceled(150)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.event.ChangeEvent"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetPreferredScrollableViewportSize(151)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Dimension"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Psize(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetPreferredScrollableViewportSize(152)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Dimension"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MgetScrollableUnitIncrement(153)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Rectangle"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PvisibleRect(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Porientation(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdirection(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetScrollableBlockIncrement(154)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.awt.Rectangle"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PvisibleRect(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Porientation(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdirection(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetPreviousBlockIncrement(155)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "subs":[
+  {"name": "PvisibleRect(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MgetNextBlockIncrement(156)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "subs":[
+  {"name": "PvisibleRect(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MgetLeadingRow(157)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "sub":
+  {"name": "PvisibleRect(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetLeadingCol(158)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "sub":
+  {"name": "PvisibleRect(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetTrailingRow(159)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "sub":
+  {"name": "PvisibleRect(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetTrailingCol(160)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "sub":
+  {"name": "PvisibleRect(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MleadingEdge(161)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "subs":[
+  {"name": "Prect(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MtrailingEdge(162)", "data":{"hc":{"0":"Tjava.awt.Rectangle"}}, "subs":[
+  {"name": "Prect(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MgetScrollableTracksViewportWidth(163)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetScrollableTracksViewportHeight(164)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetFillsViewportHeight(165)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PfillsViewportHeight(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetFillsViewportHeight(166)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MprocessKeyBinding(167)", "data":{"hc":{"0":"Tjavax.swing.KeyStroke","1":"Tjava.awt.event.KeyEvent"}}, "subs":[
+  {"name": "Pks(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pe(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "McreateDefaultRenderers(168)", "data":{"hc":{}}},
+ {"name": "McreateDefaultEditors(169)", "data":{"hc":{}}},
+ {"name": "MinitializeLocalVars(170)", "data":{"hc":{}}},
+ {"name": "McreateDefaultDataModel(171)", "data":{"hc":{"0":"Tjavax.swing.table.TableModel"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "McreateDefaultColumnModel(172)", "data":{"hc":{"0":"Tjavax.swing.table.TableColumnModel"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "McreateDefaultSelectionModel(173)", "data":{"hc":{"0":"Tjavax.swing.ListSelectionModel"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "McreateDefaultTableHeader(174)", "data":{"hc":{"0":"Tjavax.swing.table.JTableHeader"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MresizeAndRepaint(175)", "data":{"hc":{}}},
+ {"name": "MgetCellEditor(176)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellEditor"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetCellEditor(177)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellEditor"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PanEditor(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MsetEditingColumn(178)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaColumn(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetEditingRow(179)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaRow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetCellRenderer(180)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellRenderer"},"hcsMethod":{"0":[[-1]]}}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MprepareRenderer(181)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellRenderer","1":"Tjava.awt.Component"},"hcsMethod":{"1":[[-1]]}}, "subs":[
+  {"name": "Prenderer(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Prow(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetCellEditor(182)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellEditor"},"hcsMethod":{"0":[[-1]]}}, "subs":[
+  {"name": "Prow(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MprepareEditor(183)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellEditor","1":"Tjava.awt.Component"},"hcsMethod":{"1":[[-1]]}}, "subs":[
+  {"name": "Peditor(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Prow(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcolumn(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MremoveEditor(184)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MwriteObject(185)", "data":{"hc":{"0":"Tjava.io.ObjectOutputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MreadObject(186)", "data":{"hc":{"0":"Tjava.io.ObjectInputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McompWriteObjectNotify(187)", "data":{"hc":{}}},
+ {"name": "MparamString(188)", "data":{"hc":{}}},
+ {"name": "Mprint(189)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mprint(190)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PprintMode(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mprint(191)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.text.MessageFormat"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PprintMode(0)", "data":{"annotatedApi":1}},
+  {"name": "PheaderFormat(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PfooterFormat(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "Mprint(192)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.text.MessageFormat","1":"Tjavax.print.attribute.PrintRequestAttributeSet"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PprintMode(0)", "data":{"annotatedApi":1}},
+  {"name": "PheaderFormat(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PfooterFormat(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PshowPrintDialog(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pattr(4)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}},
+  {"name": "Pinteractive(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mprint(193)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.text.MessageFormat","1":"Tjavax.print.attribute.PrintRequestAttributeSet","2":"Tjavax.print.PrintService"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PprintMode(0)", "data":{"annotatedApi":1}},
+  {"name": "PheaderFormat(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PfooterFormat(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PshowPrintDialog(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pattr(4)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}},
+  {"name": "Pinteractive(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pservice(6)", "data":{"annotatedApi":1,"hcsParameter":{"2":[[-1]]}}}]},
+ {"name": "MgetPrintable(194)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.text.MessageFormat","1":"Tjava.awt.print.Printable"},"hcsMethod":{"1":[[-1]]}}, "subs":[
+  {"name": "PprintMode(0)", "data":{"annotatedApi":1}},
+  {"name": "PheaderFormat(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PfooterFormat(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MgetAccessibleContext(195)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.accessibility.AccessibleContext"},"hcsMethod":{"0":[[-1]]}}}]}
+]

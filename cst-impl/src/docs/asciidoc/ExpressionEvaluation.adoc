@@ -1,0 +1,12 @@
+
+== Expression creation and evaluation
+
+`Sum`, `Product`, `Equals`, `Negation`, etc. are simply objects, without evaluation logic.
+The logic sits in the `EvalSum`, `EvalProduct` etc. classes.
+There are no static methods, for ease of overriding later.
+
+The user uses the `Runtime` interface to
+
+- create an object, using a `newSum` operation; this is in the `Factory` interface
+- create the optimal object, using a `sum` operation; this is in the `Eval` interface
+

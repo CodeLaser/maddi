@@ -1,0 +1,544 @@
+[[hidden-content]]
+= More on hidden content
+
+In this section, we consider modifications to the hidden content of a type, and explain when they are of importance.
+
+== Visitors
+
+Let's go back to `NonEmptyImmutableList`, first defined in <<abstract-methods>>:
+
+.Example {counter:example}, revisiting `NonEmptyImmutableList`
+[source,java]
+----
+@ImmutableContainer
+interface NonEmptyImmutableList<T> extends HasSize {
+
+    // implicitly present: @NotModified
+    @Independent(hc=true)
+    T first();
+
+    // implicitly present: @NotModified
+    void visit(@Independent(hc=true) Consumer<T> consumer); // implicitly present: @NotModified
+
+    @NotModified
+    @Override
+    default boolean isEmpty() {
+        return false;
+    }
+}
+----
+
+We start the discussion with the following immutable implementation of this interface:
+
+.Example {counter:example}, immutable implementation of `NonEmptyImmutableList`
+[source,java]
+----
+@ImmutableContainer
+class ImmutableOne<T> implements NonEmptyImmutableList<T> {
+    private final T t;
+
+    public ImmutableOne(@Independent(hc=true) T t) {
+        this.t = t;
+    }
+
+    @Override
+    public int size() {
+        return 1;
+    }
+
+    @Override
+    public T first() {
+        return t;
+    }
+
+    @Override
+    public void visit(Consumer<T> consumer) {
+        consumer.accept(t);
+    }
+}
+----
+
+According to the interface contract, we need the `visit` method to be non-modifying,
+and also not to modify its parameter `consumer`.
+However, following the normal definitions of modification, the following two statements hold:
+
+1. Because `accept` is {modified}, we should mark the parameter `consumer` as {modified}.
+2. Because `t`, the parameter of `accept`, is {modified}, we should mark `visit` as {modified}.
+
+The result of the first statement would violate the `@Container` property on `ImmutableOne`, and we'd be very
+reluctant to do that:
+according to the intuitive definition in <<containers>>, `ImmutableOne` is a type that holds data, but does not
+change the data it has been given.
+This statement still holds in the presence of a `visit` method, which is nothing but a way of exposing the object
+in a way similar to the method `first`.
+The second statement would make `visit` modifying, which again goes against our intuition:
+looping over elements is, in itself, not modifying.
+
+Luckily, there are two observations that come to the rescue.
+
+First, we believe it is correct to assume that concrete implementations of `Consumer` are semantically
+unrelated to `ImmutableOne`.
+As a consequence, we could say that the only modifications that concern us in this `visit` method, are the
+potential modifications to `accept` 's parameter `t`.
+Other modifications, for example those to the fields of the type in which the implementation is present,
+may be considered to be outside our scope.
+
+However, if we replace `Consumer` by `Set` and `accept` by `add`, we encounter a modification that we really do not
+want to ignore, in an otherwise equal setting.
+Therefore, it does not look like we can reason away potential modifications by `accept`.
+We will have to revert to a contracted {ignoreModifications} annotation on the parameter `consumer`,
+if we want to avoid `ImmutableOne` losing the `@Container` property.
+
+While we will ignore this second source of modification in the `ImmutableOne` type,
+we will _defer_ or _propagate_ it to the place where a concrete implementation of the consumer is presented.
+We can ignore it here, because `t` is part of the hidden content of the type; what happens to
+its content happens outside the zone of control of `ImmutableOne`.
+The fact that it is passed as an argument to a method of `consumer` is reflected by the {independent} annotation.
+It will take care of the propagation of modifications from the concrete implementation into the hidden content.
+
+This results in the following annotations for `visit` in `ImmutableOne`:
+
+.Example {counter:example}, the `visit` method in `ImmutableOne`, fully annotated
+[source,java]
+----
+@NotModified
+public void visit(@IgnoreModifications @Independent(hc=true) Consumer<T> consumer) {
+    consumer.accept(t);
+}
+----
+
+Note that we assume that we will need {ignoreModifications} for almost every use of a functional interface
+from the package `java.util.function` occurring as a parameter.
+These types are for generic use; one should never use them to represent some specific data type where modifications
+are of concern to the current type.
+Therefore, we make this annotation implicit in exactly this context.
+
+IMPORTANT: A parameter of a formal functional interface type of `java.util.function`
+will be marked {ignoreModifications} implicitly.
+
+Looking at the more general case of a `forEach` implementation iterating over a list or array, we therefore end up with:
+
+.Example {counter:example}, a generic `forEach` implementation
+[source,java]
+----
+@NotModified
+public void forEach(@Independent(hc=true) Consumer<T> consumer) {
+    for(T t: list) consumer.accept(t);
+}
+----
+
+Modifications to the parameter, made by the concrete implementation, are propagated into the hidden content of `list`,
+as shown in the next section.
+The {independent} annotation appears because hidden content in `list` is exposed to the `consumer` parameter.
+This annotation does not appear for the accessible content of the immutable type.
+
+Recall that parameters of modifiable type can already be shielded from external modification by
+the {independent} annotation.
+
+== Propagating modifications
+
+Let us apply the `visit` method of `NonEmptyImmutableList` to `StringBuilder`:
+
+.Example {counter:example}, propagating the modification of `visit`
+[source,java]
+----
+static void print(@NotModified NonEmptyImmutableList<StringBuilder> list) {
+    one.visit(System.out::println); // <1>
+}
+
+static void addNewLine(@Modified NonEmptyImmutableList<StringBuilder> list) {
+    one.visit(sb -> sb.append("\n")); // <2>
+}
+----
+
+<1> Non-modifying method implies no modification on the hidden content of `list`.
+<2> Parameter-modifying lambda propagates a modification to `list` 's hidden content.
+
+It is the second method, `addNewLine`, that is of importance here.
+Thanks to the {modified} annotation, we know of a modification to `list`.
+It may help to see the for-loop written out, if we temporarily assume that we have added an implementation of
+`Iterable` to `NonEmptyImmutableList`, functionally identical to `visit`:
+
+.Example {counter:example}, alternative implementation of `addNewLine`
+[source,java]
+----
+static void addNewLine(@Modified NonEmptyImmutableList<StringBuilder> list) {
+    for(StringBuilder sb: list) {
+        sb.append("\n"));
+    }
+}
+----
+
+Note that while `NonEmptyImmutableList` is immutable, its concrete instantiation gives access to a modifying method
+in its hidden content.
+
+We really need the link between `sb` and `list` for the modification on `sb` to propagate to `list`.
+Without this propagation, we would not be able to implement the full definition of modification of parameters,
+as stipulated in <<modification>>, in this relatively straightforward and probably frequently occurring situation.
+
+Moving from `NonEmptyImmutableList` to `NonEmptyList`, defined <<NonEmptyList, here>>, which has a modifying method,
+allows us to contrast two different modifications:
+
+.Example {counter:example}, contrasting the modification on the parameter `sb` to that on `list`
+[source,java]
+----
+static void addNewLine(@Modified NonEmptyList<StringBuilder> list) {
+    list.visit(sb -> sb.append("\n")); // <1>
+}
+
+static void replace(@Modified NonEmptyList<StringBuilder> list) {
+    list.setFirst(new StringBuilder("?")); // <2>
+}
+----
+
+<1> Modification to the hidden content of `list`
+<2> Modification to the modifiable content of `list`
+
+Without storing additional information (e.g., using an as yet undefined parameter like `@Modified(hc=true)` on `list`
+in `addNewLine`), however, we cannot make the distinction between a modification to the string builders
+inside `list`, or a modification to `list` itself.
+In other words, applying the two methods further on, we cannot compute
+
+.Example {counter:example}, using `print` and `addNewLine`
+[source,java]
+----
+static String useAddNewLine(@NotModified StringBuilder input) { // <1>
+    NonEmptyList<StringBuilder> list = new One<>();
+    list.setFirst(input);
+    addNewLine(list);
+    return list.getFirst().toString();
+}
+
+static String useReplace(@NotModified StringBuilder input) {
+    NonEmptyList<StringBuilder> list = new One<>();
+    list.setFirst(input);
+    replace(list); // <2>
+    return list.getFirst().toString();
+}
+----
+
+<1> Should be {modified}, however, in the 3rd statement we cannot know that the modification is to `input` rather than to `list`
+<2> This action discards `input` from `list` without modifying it.
+
+****
+The example shows that the introduction of {independent} only gets us so far: from the concrete, modifying implementation, to the parameter (or field).
+We do not plan to keep track of the distinction between modification of hidden content vs modification of modifiable content to a further extent.
+****
+
+Finally, we mention again the modification to a field from a concrete lambda:
+
+.Example {counter:example}, modification of a field outside the scope
+[source,java]
+----
+List<String> strings = ...
+@Modified
+void addToStrings(@NotModified NonEmptyList<StringBuilder> list) {
+  list.visit(sb -> strings.add(sb.toString()));
+}
+----
+
+[#content-linking]
+== Content linking
+
+Going back to `ImmutableOne`, we see that the constructor links the parameter `t` to the instance's field by
+means of assignment.
+Let us call this binding of parameters of hidden content to the field _content linking_,
+and mark it using {independentHc}, _content dependence_:
+
+.Example {counter:example}, constructor of `ImmutableOne`
+[source,java]
+----
+private final T t;
+
+public ImmutableOne(@Independent(hc=true) T t) {
+    this.t = t;
+}
+----
+
+Returning a part of the hidden content of the type, or exposing it as argument, both warrants a {independentHc}
+annotation:
+
+.Example {counter:example}, more methods of `ImmutableOne`
+[source,java]
+----
+@Independent(hc=true)
+@Override
+public T first() {
+    return t;
+}
+
+@Override
+public void visit(@Independent(hc=true) Consumer<T> consumer) {
+    consumer.accept(t);
+}
+----
+
+Observe that content dependence implies absence of dependence, as described in <<linking-and-independence>>
+and <<computing-dependence>>, exactly because we are dealing with type parameters of an immutable type.
+
+Another place where the hidden content linking can be seen, is the _for-each_ statement:
+
+.Example {counter:example}, for-each loop and hidden content linking
+[source,java]
+----
+ImmutableList<StringBuilder> list = ...;
+List<StringBuilder> builders = ...;
+for(StringBuilder sb: list) {
+    builders.add(sb);
+}
+----
+
+Because the `Collection` API contains an `add` method annotated as:
+
+.Example {counter:example}, `add` in `Collection` annotated
+[source,java]
+----
+@Modified
+boolean add(@NotNull @Independent(hc=true) E e);
+----
+
+indicating that after calling `add`, the argument will become part of the hidden content of the collection,
+we conclude that the local loop variable `sb` gets content linked to the `builders` list.
+Similarly, this loop variable contains hidden content from the `list` object.
+
+Let us look at a possible implementation of `Collection.addAll`:
+
+.Example {counter:example}, a possible implementation of `addAll` in `Collection`
+[source,java]
+----
+@Modified
+boolean addAll(@NotNull(content=true) @Independent(hc=true) Collection<? extends E> collection) {
+    boolean modified = false;
+    for (E e : c) if (add(e)) modified = true;
+    return modified;
+}
+----
+
+The call to `add` content links `e` to `this`.
+Because `e` is also content linked to `c`, the parameter `collection` holds content linked to the hidden content of
+the instance.
+
+We are now properly armed to see how a for-each loop can be implemented using an iterator whose hidden content
+links to that of a container.
+
+== Iterator, Iterable, loops
+
+Let us start with the simplest definition of an iterator, without `remove` method:
+
+.Example {counter:example}, the `Iterator` type, without `remove` method
+[source,java]
+----
+@Container
+interface Iterator<T> {
+
+    @Modified
+    @Independent(hc=true)
+    T next();
+
+    @Modified
+    boolean hasNext();
+}
+----
+
+Either the `next` method, or the `hasNext` method, must make a change to the iterator, because it has to keep track
+of the next element.
+As such, we make both {modified}.
+Following the discussion in the previous section, `next` is {independentHc}, because it returns part of the hidden
+content held by the iterator.
+
+The interface `Iterable` is a supplier of iterators:
+
+.Example {counter:example}, the `Iterable` type
+[source,java]
+----
+@ImmutableContainer
+interface Iterable<T> {
+
+    @Independent(hc=true)
+    Iterator<T> iterator();
+}
+----
+
+First, creating an iterator should never be a modifying operation on a type.
+Typically, as we explore in the next section, it implies creating a subtype, static or not, of the type implementing `Iterable`.
+Second, the iterator itself is independent of the fields of the implementing type, but has the ability to return its hidden content.
+
+The loop, on a variable `list` of type implementing `Iterable<T>`, is expressed as `for(T t: list) { ... }`, and can be interpreted as
+
+.Example {counter:example}, implementation of for-each using an `Iterator`
+[source,java]
+----
+Iterator<T> it = list.iterator();
+while(it.hasNext()) {
+    T t = it.next();
+    ...
+}
+----
+
+The iterator `it` content-links to `list`; via the `next` method, it content-links the hidden content of the `list` to `t`.
+
+
+[#independent-type]
+== Independence of types
+
+A concrete implementation of an iterator is often a nested type, static or not (inner class), of the iterable type:
+
+.Example {counter:example}, implementation of an `Iterator`
+[source,java]
+----
+@ImmutableContainer
+public class ImmutableArray<T> implements Iterable<T> {
+
+    @NotNull(content=true)
+    private final T[] elements;
+
+    @SuppressWarnings("unchecked")
+    public ImmutableArray(List<T> input) {
+        this.elements = (T[]) input.toArray();
+    }
+
+    @Override
+    @Independent(hc=true)
+    public Iterator<T> iterator() {
+        return new IteratorImpl();
+    }
+
+    @Container
+    @Independent(hc=true)
+    class IteratorImpl implements Iterator<T> {
+        private int i;
+
+        @Override
+        public boolean hasNext() {
+            return i < elements.length;
+        }
+
+        @Override
+        @NotNull
+        public T next() {
+            return elements[i++];
+        }
+    }
+}
+----
+
+For `ImmutableArray` to be immutable, the `iterator()` method must be independent of the field `elements`, in other words, the `IteratorImpl` object must not expose the `ImmutableArray` 's fields to the outside world.
+It cannot be immutable itself, because it needs to hold the state of the iterator.
+However, it should protect the fields owned by its enclosing type, up to the same standard as required
+for immutability.
+
+We propose to add a definition for the independence of a type, identical to the "shielding off" part of the definition of immutability.
+Let's first go there in a roundabout way:
+
+****
+*Definition*: an *external modification* is a modification, carried out outside the type,
+
+. on a field, directly accessed from the object, or
+. on an argument or return value, executed after the constructor or method call on the object.
+****
+
+Clearly, such external modifications are only possible when the constructor, method or field is non-private.
+
+Armed with this definition, we can define the independence of types:
+
+****
+*Definitions*:
+
+A type is *dependent* when external modifications impact the accessible content of the type.
+
+A type is *independent*, annotated {independent}, when external modifications cannot impact the accessible content of the type.
+The hidden content of the type is mutable or modifiable.
+****
+
+This definition is entirely equivalent to the definition of immutability without rules 0 and 1, and rules 2
+and 3 restricted to those fields that are 'exposed' to the outside world via linking or content linking.
+
+Consider the static variant of `IteratorImpl`, which makes it more obvious that `IteratorImpl` maintains a reference
+to the element array of its enclosing type:
+
+.Example {counter:example}, implementation of an `Iterator` as a static nested type
+[source,java]
+----
+@ImmutableContainer
+public class ImmutableArray<T> implements Iterable<T> {
+    ...
+
+    @Container
+    @Independent(hc=true)
+    static class IteratorImpl implements Iterator<T> {
+        @Modified
+        private int i;
+
+        private final T[] elements;
+
+        private IteratorImpl(T[] elements) {
+            this.elements = elements;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return i < elements.length;
+        }
+
+        @Override
+        @NotNull
+        @Modified
+        public T next() {
+            return elements[i++];
+        }
+    }
+}
+----
+
+The type `T` is part of the hidden content, the `T[]` and the counter `i` are part of the accessible content.
+No external modification can impact the array or the counter; indeed, only `T` and a `boolean` are exposed.
+The latter is immutable, so does not allow modifications.
+The former allows modifications on the hidden content, whence the {independentHc} annotation for `IteratorImpl`.
+
+Immutable types are independent as a type, but a type does not even have to be immutable to be independent.
+In fact, any type communicating via immutable types to the outside world is independent:
+
+.Example {counter:example}, simple getter and setter, independent
+[source,java]
+----
+@Independent
+@Container
+class GetterSetter {
+    private int i;
+
+    public int getI() {
+        return i;
+    }
+
+    public void setI(int i) {
+        this.i = i;
+    }
+}
+----
+
+The following table summarizes the relationship between immutability and independence by means of example types:
+
+[cols="1,1,1,1"]
+|===
+| |Mutable, modifiable |Immutable with hidden content |Immutable without hidden content
+
+|Dependent
+|{y} `Set`
+|{n}
+|{n}
+
+|Independent with hidden content
+|{y} `Iterator<T>`
+|{y} `Optional<T>`, `Set.of(T)`
+|{n}
+
+|Independent
+|{y} `Writer`, `Iterator<String>`
+|{n}
+|{y} `int`, `String`, `Class`
+
+|===
+
+
+
+//end of file

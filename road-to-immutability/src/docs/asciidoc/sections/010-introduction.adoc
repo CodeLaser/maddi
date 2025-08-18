@@ -1,0 +1,71 @@
+[[introduction]]
+= Introduction
+
+This document aims to be a logical walk through of the concepts of the {maddi} project.
+It does not intend to be complete, and is not structured for reference.
+The acronym {maddi} stands for __m__odification __a__nalyzer for __d__uplicatation __d__etection and __i__mmutability.
+
+The overarching aim of the {maddi} project is to improve every day programming by making code more readable, more robust, and more future-proof.
+Concretely, the project focuses on adding various forms of immutability protections to your Java code base, by making the (im)mutable nature of the types more visible.
+
+_Why Java?_ As a widely used object-oriented programming language, it has evolved over the years, and it has been increasingly equipped with functional programming machinery.
+It is therefore possible to write Java code in different styles, from overly object-oriented to almost fully functional.
+Combine this with lots of legacy code, both in house and in libraries, and many large software projects will end up mixing styles a lot.
+This adds to the complexity of understanding and maintaining the code base.
+
+_Why immutability?_ An important aspect of understanding the code of large software projects is to try to assess the
+_object lifecycle_ of the data it manages: when and how are these objects modified?
+In object-oriented programming, full of public getters and setters, objects can be modified all the time.
+In many a functional set-up, objects are immutable but new immutable versions pop up all the time.
+Java allows for the whole scala from object-oriented to functional, and the whole ecosystem reflects this choice.
+
+An easy way to envisage the life cycle of an object is to assume that it consists of a building phase, followed by an immutable phase.
+We set out to show that there are different forms of immutability, from very strict deep immutability to weak guarantees of non-modification, that can be made visible in the code.
+We believe that code complexity can be greatly reduced when the software engineer is permanently aware of the modification state of objects.
+
+The {maddi} project consists of a set of definitions, a static code analyzer to compute and enforce rules and definitions, and IDE support to visualize the results without cluttering.
+Using {maddi} in your project will help to maintain higher coding standards, the ultimate beneficiary being code that will survive longer.
+
+A _lack of references to academic literature_ in this version of the document is explained by the fact that this is my first foray into the world of static code analyzers, and theory of software engineering and programming languages.
+Academically coming from the theory of machine learning, I spent two decades writing software and managing teams of software engineers.
+This work builds on that practical experience alone.
+I did not consult or research the literature, and I realise I may be duplicating quite a lot here.
+
+[#assumptions]
+== Assumptions
+
+We discuss the Java language, version 8 and higher.
+We have already indicated that we believe that Java offers too much freedom to programmers.
+In this section, we impose some limits that are not critical to the substance of the discussion, but facilitate reasoning.
+Think of them as low-hanging fruit programming guidelines:
+
+* Exceptions do not belong to the normal programming flow; they are meant to raise situations that the program does not want to deal with.
+* Parameters of a method cannot be assigned to; we act as if they always have the `final` modifier.
+The simple way around is to create a new local variable, and assign the parameter to it.
+* We make no distinction between the various non-private access modifiers (package-private, protected, public).
+Either a field, method or type (the collective noun for class, interface, record, ...) is private, or it is not.
+* Synchronization is orthogonal to the data flow of the program; whilst it may have an influence on _when_ certain code runs, it should not be used to influence the semantics of the code.
+
+The {maddi} code analyzer warns for many other doubtful practices, as detailed in the user manual.
+
+== The purpose of annotations
+
+In this document we will add many annotations to the code fragments shown.
+We are acutely aware annotations may clutter the code and can make it less readable.
+Some IDEs, however, like JetBrains' IntelliJ IDEA, have extensive support to make working with annotations visually pleasing.
+
+The {maddi} code analyzer computes almost all the annotations that we add to the code fragments in this document.
+The complementary IDE plugin uses them to color code types, methods and fields.
+Except when the annotations act as a contract, in interfaces, they do not have to be present in your code.
+
+Explicitly adding the annotations to classes can be helpful during software development, however.
+Say you intend for a class to be immutable, then you can add the corresponding annotation to the type.
+Each time the code analyzer runs, and the computation finds the type is not immutable, it will raise an error.
+
+Explicit annotations also act as a safe-guard against the changing of semantics by overriding methods.
+Making the method `final`, or the type `final`, merely _prohibits_ overriding, which is typically too strong a mechanism.
+
+The final situation where explicit annotations in the code are important, is for the development of the analyzer.
+We add them to the code as a means of verification: the analyzer will check if it generates the same annotation at that location.
+
+// ensure a newline at the end

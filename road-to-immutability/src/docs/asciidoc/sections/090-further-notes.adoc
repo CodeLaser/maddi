@@ -1,0 +1,121 @@
+
+= Further notes on immutability
+
+[#extendability]
+== Extendability of types
+
+Unless a class is marked `final`, `sealed`, or `private`, it can be extended in a different source file.
+In the context of immutability, this means that any extendable class is like an interface:
+it must allow for hidden content.
+
+The analyzer, however, can be pragmatic about this. Just as in the case of effectively final fields, it can
+compute types to be effectively final, or effectively sealed, _when presented with the complete code base_.
+Indeed, if there is a guarantee of being able to see all code, the analyzer can easily compute if
+a type has effectively been extended, or not.
+
+This observation shows that the distinction between immutability with and without
+hidden content, is rather small.
+
+== Eventual immutability
+
+How does the whole story of eventually final fields and eventual immutability mix with hidden content?
+At some point, once a necessary precondition has been met, the hidden content will be well-defined, and modifying methods become unavailable.
+Before that, fields that will eventually contain the hidden content may still be `null`, or may be re-assigned.
+This should not have any effect, however, on the computation of hidden content linking, {independent} annotations, and the propagation of modifications, since the actual types do not change.
+The two concepts are sufficiently perpendicular to each other, and can easily co-exist.
+
+== Constant types
+
+A constant type can be defined as an immutable type whose fields are of constant type themselves.
+The basis of this recursion are the primitives, possibly boxed, `java.lang.String`, and `java.lang.Class`, i.e.,
+all the types that can have a Java literal as a value.
+
+The analyzer marks a constant type by the string representation of its value, e.g., `@ImmutableContainer("3.14")`,
+but obviously only in case of fields and method return types.
+This seems to be the only practical use of this definition.
+
+So while not really relevant, observe that types can be constant but not {container}; they can be eventually constant,
+and they can be constant with hidden content.
+
+== Field access restrictions
+
+Let us end this section with a note on the _non-private_ requirement for field and method access.
+The definitions of immutability and independence insist on the properties holding for all non-private fields, methods and constructors.
+
+First, consider nested types.
+Any nested type (a class defined either statically or nested inside another class, an interface defined inside another type) has access to the private methods of the primary type and other nested types inside the primary type.
+We first need to investigate whether this additional access plays havoc with the immutability and independence rules.
+
+Because all nested types of a primary type are fully known at analysis time, as they must reside in the same `.java` file, it is possible to ensure that a field, accessible beyond its own class even though it is private to the nested type, remains {nm}.
+Consider:
+
+.Example {counter:example}, immutability of a nested type
+[source,java]
+----
+public class NestedTypeExample {
+
+    @FinalFields @Container // <1>
+    static class HoldsStringBuilder {
+
+        @Modified // <2>
+        private final StringBuilder sb = new StringBuilder();
+
+        public HoldsStringBuilder(String s) {
+            add(s).add(s);
+        }
+
+        private HoldsStringBuilder add(String s) { // <3>
+            sb.append(s);
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            return sb.toString();
+        }
+    }
+
+    public static String break1(String s) {
+        HoldsStringBuilder hsb = new HoldsStringBuilder(s);
+        hsb.add("modify!");
+        return hsb.toString();
+    }
+
+    public static String break2(String s) {
+        HoldsStringBuilder hsb = new HoldsStringBuilder(s);
+        hsb.sb.append("modify field");
+        return hsb.toString();
+    }
+
+    public static StringBuilder break3(String s) { // <4>
+        HoldsStringBuilder hsb = new HoldsStringBuilder(s);
+        hsb.sb.append("modify field");
+        return hsb.sb;
+    }
+}
+----
+
+<1> Would have been {immutableContainer}, were it not for the `break` methods
+<2> Because of `break2`, not because of the presence of `add(s).add(s)` in the constructor!
+<3> Not only part of construction, because of `break1`
+<4> Introduces a dependence of `sb` on a method return value
+
+The solution here, clearly, is to extend the rules to all non-private methods and constructors of the primary type and all its nested types.
+
+The second question to answer is whether we can or should relax the requirement of private access, e.g., for a restriction of 'private and same package', or even 'non-public'.
+Remember that the `protected` access modifier allows access to classes that inherit from the type, _and_ to members of the same package.
+
+First, consider allowing 'package-private'.
+If we were to assume that all types in the same package are fully visible to the analyzer at the time of analysis, we could consider extending the rules to analyse all types in the package at the same time, as we did for nested types inside a primary type.
+However, firstly, it is perfectly possible, even if it is bad practice, to spread a package over multiple jars.
+This denies the analyzer complete visibility over the types in a package.
+Secondly, the complications that arise computationally are too much for efficient analysis.
+
+So there's no point in considering `protected` access.
+Even if inheritance where the only criterion used to define this access level, we would not allow it, because the child class can be invisible to the analyzer at the time of analysis of the parent.
+
+When annotating APIs (see {maddi} manual), we do use the public vs non-public criterion instead of the non-private vs private one, mostly as a matter of convenience.
+We assume (hope?) that library designers and implementers shield off internal types sufficiently, and rely on the project implementer to stick to their package prefix.
+
+
+// end of file

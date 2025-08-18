@@ -1,0 +1,19 @@
+
+== Codec
+
+Encode and decode directly to JSON.
+Base object for encoding is `Codec.E`, for decoding, it is `Codec.D`.
+
+=== Encoding
+
+The `E` object contains the encoded string `s`, and optionally a list of `subs` which recursively must contain `E` objects.
+
+
+==== Variables
+
+Variables encoded as lists.
+
+==== Info objects
+
+In hierarchical system, using a counter for decoding efficiency.
+Parameters encoded differently from `encodeVariable`!

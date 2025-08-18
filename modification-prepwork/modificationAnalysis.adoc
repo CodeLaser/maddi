@@ -1,0 +1,35 @@
+
+= What is computed where?
+
+Inspection phase
+
+* get/set synthetic fields `@GetSet("field")`
+* modification component synthetic fields `@Modified("field")`
+
+Prep work
+
+* hidden content types, hidden content selectors
+* variableData
+** variableInfo objects
+
+* part of construction
+** final fields
+
+* method call graph, recursive methods, order of analysis
+
+* get/set analysis
+
+Linked variables analyzer
+
+* linked variables
+* static values
+* fluent, identity
+* modification and its propagation via static values
+** modifying methods
+** modified parameters
+** modified fields
+
+* independence
+** independent methods
+** independent parameters
+

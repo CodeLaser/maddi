@@ -1,0 +1,143 @@
+[[modification]]
+= Modification
+
+****
+*Definition*: a *method is modifying* if it causes an assignment in the object graph of the fields of the object it is
+applied to.
+****
+
+We use the term 'object graph' to denote the fields of the object, the fields of these fields, etc., to arbitrary depth.
+
+Consequently, a method is not modifying if it only reads from the object graph of the fields.
+The analyzer uses the annotations {nm} and {modified}.
+They are exclusive, and the analyzer will compute one or the other for every method of the type.
+All non-trivial constructors are modifying, so we avoid clutter by not annotating them.
+
+NOTE: Why not `@Modifying` and `@NotModifying`? The analyzer will compute modifications of fields and parameters as well.
+They will either be _modified_ or _not modified_ by the code. To avoid
+confusion, we only use one set of annotations.
+
+It follows from the definition that directly assigning to the fields also causes the {modified} mark for methods.
+As a consequence, setters are {modified}, while getters are {nm}.
+Consider
+
+.Example {counter:example}, modifying and non-modifying methods
+[source,java]
+----
+class Counter {
+    // variable
+    private int counter;
+
+    @NotModified
+    public int getCounter() {
+        return counter;
+    }
+
+    @Modified
+    public int increment() {
+        counter += 1;
+        return counter;
+    }
+}
+
+@FinalFields
+class CountedInfo {
+    @Modified
+    private final Counter counter = new Counter();
+
+    @Modified
+    public void printInfo(String info) {
+        System.out.println("Message " + counter.increment() + ": "+info);
+    }
+}
+----
+
+We also see in the example that the `printInfo` method is {modified}.
+This is because it calls a modifying method on one of its fields, `increment`.
+
+Moving from methods to parameters and fields, keeping the same two annotations,
+
+****
+*Definition*:
+The analyzer marks a *parameter* as *modified* when the parameter's method applies an assignment or modifying methods
+to the argument, i.e., the object that enters the method via the parameter.
+This definition holds with respect to the argument's entire object graph.
+****
+
+We will apply a similar reasoning to a field:
+
+****
+*Definition*:
+The analyzer marks a *field* as *modified* when at least one of the type's methods, transitively reachable from a
+non-private non-constructor method, applies at least one assignment to or modifying method to this field's object graph.
+****
+
+Let us start by agreeing that the methods of `Object` and `String` are all {nm}.
+This is pretty obvious in the case of `toString`, `hashCode`, `getClass`.
+It is less obvious for the `wait` and other synchronization-related methods, but remember that as discussed in
+the <<assumptions>>, we exclude synchronization support from this discussion.
+
+Note also that we cannot add modifying methods to the type `DeeplyImmutable1` defined <<deeply-immutable1,earlier>>.
+
+Proceeding, let us also look at (a part of) the `Collection` interface, where we have restricted the annotations
+to {nm} and {modified} --  others will be introduced later.
+An abstract method without {nm} is assumed to be modifying, i.e., {modified} is implicitly present.
+The reason for this choice is that from the point of view of the analyzer, modification is the default behavior.
+The analyzer must _prove_ non-modification.
+
+.Example {counter:example}, [[collection-interface]] modification aspects of the `Collection` interface
+[source,java]
+----
+public interface Collection<E> extends Iterable<E> {
+    boolean add(E e);
+
+    boolean addAll(@NotModified Collection<? extends E> collection);
+
+    @NotModified
+    boolean contains(Object object);
+
+    @NotModified
+    boolean containsAll(@NotModified Collection<?> c);
+
+    @NotModified
+    void forEach(Consumer<? super E> action);
+
+    @NotModified
+    boolean isEmpty();
+
+    boolean remove(Object object);
+
+    boolean removeAll(@NotModified Collection<?> c);
+
+    @NotModified
+    int size();
+
+    @NotModified
+    Stream<E> stream();
+
+    @NotModified
+    Object[] toArray();
+}
+----
+
+Adding an object to a collection (set, list) will cause some assignment somewhere inside the data structure.
+Returning the size of the collection should not.
+
+IMPORTANT: Under supervision of the analyzer, you will not be able to create an implementation of this interface
+which violates the modification rules.
+This is intentional: no implementation should modify the data structure when e.g. `size` is called.
+
+Adding all elements of a collection to the object (in `addAll`) should not modify the input collection, whence the {nm}.
+Other types in the parameters have not been annotated with {nm}:
+
+* `Object` because it is immutable;
+* `E` because it is of an unbound generic type, it has the same methods available as `Object`.
+No code visible to implementations of `Collection` can make modifications to `E` without explicit down-casting;
+* `Consumer` because it is a functional interface (an interface with a single abstract method) in `java.util.function`;
+they are {ignoreModifications} by convention, as explained later.
+
+In order to keep the narrative going, we defer a discussion of modification in the context of parameters of abstract
+types to the sections <<abstract-methods>> and <<hidden-content>>.
+Here, we continue with the first use case of modification: containers.
+
+// ensure a newline at the end

@@ -1,0 +1,316 @@
+[[eventual-immutability]]
+= Eventual immutability
+
+In this section we explore types which follow a two-phase life cycle: the start off as mutable, then somehow become
+immutable.
+
+== Builders
+
+We start with the well-established _builder_ pattern.
+
+.Example {counter:example}, static nested builder type
+[source,java]
+----
+@ImmutableContainer
+class Point {
+    public final double x;
+    public final double y;
+
+    public Point(double x, double y) {
+        this.x = x;
+        this.y = y;
+    }
+}
+
+@ImmutableContainer
+class Polygon {
+
+    @ImmutableContainer
+    public final List<Point> points;
+
+    private Polygon(List<Point> points) { // <1>
+        this.points = points;
+    }
+
+    @FinalFields(builds=Polygon.class)
+    static class Builder {
+
+        @Modified
+        private final List<Point> points = new ArrayList<>();
+
+        @Modified
+        public void addPoint(Point point) {
+            points.add(point);
+        }
+
+        @NotModified
+        public Polygon build() {
+            return new Polygon(List.copyOf(points));
+        }
+    }
+}
+----
+
+<1> The private constructor combined with the construction of an immutable copy in the `build` method guarantees
+immutability.
+
+If your code can live with two different types (`Polygon.Builder`, `Polygon`) to represent polygons in their different
+stages (mutable, immutable), the builder paradigm is great.
+If, on the other hand, you want to hold polygons in a type that spans both stages of the polygon lifecycle, it becomes
+difficult to do this with an eye on immutability.
+One solution is the use of an interface that is implemented both by the builder and the immutable type.
+
+The <<support-firstthen>> type can also assist in this situation: it holds an initial object (the _first_) until a
+state change occurs, and it is forced to hold a second object (the _then_).
+Once it is in the final state, it cannot change anymore.
+It is _eventually immutable_:
+
+.Example {counter:example}, use of `FirstThen` to make a type eventually immutable
+[source,java]
+----
+class PolygonManager {
+    // initially, the polygon is in builder phase
+    public final FirstThen<Polygon.Builder, Polygon> polygon =
+        new FirstThen<>(new Polygon.Builder());
+
+    // ...
+
+    public void construct() {
+        // in builder phase ...
+        polygon.getFirst().add(point);
+        // transition
+        polygon.set(polygon.getFirst().build());
+        // from here on, polygon is immutable!
+    }
+
+    public Point firstPoint() {
+        return polygon.get().points.get(0);
+    }
+}
+----
+
+== Definition
+
+We propose a system of eventual immutability based on a single transition of state inside an object.
+
+.Example {counter:example}, state change in a boolean field
+[source,java]
+----
+@ImmutableContainer(after="frozen")
+class SimpleImmutableSet1<T> {
+    private final Set<T> set = new HashSet<>();
+    private boolean frozen;
+
+    @Only(before="frozen")
+    public boolean add(T t) {
+        if(frozen) throw new IllegalStateException();
+        set.add(t);
+    }
+
+    @Mark("frozen")
+    public void freeze() {
+        if(frozen) throw new IllegalStateException();
+        frozen = true;
+    }
+
+    @Only(after="frozen")
+    public Stream<T> stream() {
+        if(!frozen) throw new IllegalStateException();
+        return set.stream();
+    }
+
+    @TestMark("frozen")
+    public boolean isFrozen() { // <1>
+        return frozen;
+    }
+
+    public int size() { // <1>
+        return set.size();
+    }
+}
+----
+
+<1> These methods can be called any time.
+
+The analyzer has no problem detecting the presence of preconditions, and observing that one method changes its own
+precondition.
+The rules, however, are sufficiently general to support arbitrary preconditions, as shown in the following variant.
+This example does not require an additional field, but relies on the empty/not-empty state change:
+
+.Example {counter:example}, state change going from empty to non-empty
+[source,java]
+----
+@ImmutableContainer(after="set")
+class SimpleImmutableSet2<T> {
+    private final Set<T> set = new HashSet<>();
+
+    @Mark("set")
+    public void initialize(Set<T> data) {
+        if(!set.isEmpty()) throw new IllegalStateException();
+        if(data.isEmpty()) throw new IllegalArgumentException();
+        set.addAll(data);
+    }
+
+    @Only(after="set")
+    public Stream<T> stream() {
+        if(set.isEmpty()) throw new IllegalStateException();
+        return set.stream();
+    }
+
+    public int size() {
+        return set.size();
+    }
+
+    @TestMark("set")
+    public boolean hasBeenInitialised() {
+        return !set.isEmpty();
+    }
+}
+----
+
+Let us summarize the annotations:
+
+* The {mark} annotation marks methods that change the state from _before_ to _after_.
+* The {only} annotation identifies methods that, because of their precondition, can only be executed without raising
+an exception before (when complemented with a `before="..."` parameter) or after (with a `after="..."` parameter)
+the transition.
+* The analyzer computes the {testMark} annotation on methods which return the state as a boolean.
+There is a parameter to indicate that instead of returning `true` when the object is _after_, the method actually
+returns `true` on _before_.
+* Finally, the eventuality of the type shows in the `after="..."` parameter of {finalFields}, {immutable} or the
+shorthand {immutableContainer}.
+
+In each of these annotations, the actual value of the `...` in the `after=` or `before=` parameters is the name of the
+field.
+
+In case there are multiple fields involved, their names are represented in a comma-separated fashion.
+
+The {mark} and {only} annotations can also be assigned to parameters, in the event that marked methods are called
+on a parameter of eventually immutable type.
+Consider the following utility method for <<support-eventuallyfinal>>, frequently used in the analyzer's own code:
+
+.Example {counter:example}, utility method for `EventuallyFinal`
+[source,java]
+----
+public static <T> void setFinalAllowEquals(
+        @Mark("isFinal") EventuallyFinal<T> eventuallyFinal, T t) {
+    if (eventuallyFinal.isVariable() || !Objects.equals(eventuallyFinal.get(), t)) {
+        eventuallyFinal.setFinal(t);
+    }
+}
+----
+
+Here, the `setFinal` method's {mark} annotation travels to the parameter, where it is applied to the argument each
+time the static method is applied.
+
+== Propagation
+
+The support types detailed in <<support-classes>> can be used as building blocks to make ever more complex eventually
+immutable classes.
+Effectively final fields of eventually immutable type will at some point hold objects that are in their final or `after`
+state, in which case they act as immutable fields.
+
+The analyzer itself consists of many eventually immutable classes; we show some examples in <<in-the-analyzer>>.
+
+IMPORTANT: For everyday use of eventual immutability, this is probably the most important consequence of all definitions
+up to now.
+
+== Before the mark
+
+A method can return an eventually immutable object, guaranteed to be in its initial or `before` state.
+This can be annotated with {beforeMark}.
+Employing `SimpleImmutableSet1` from the example above,
+
+.Example {counter:example}, `@BeforeMark` annotation
+[source,java]
+----
+@BeforeMark
+public SimpleImmutableSet1 create() {
+    return new SimpleImmutableSet1();
+}
+----
+
+Similarly, the analyzer can compute a parameter to be {beforeMark}, when in the method, at least one before-mark
+methods is called on the parameter.
+
+Finally, a field can even be {beforeMark}, when it is created or arrives in the type as {beforeMark}, and stays in
+this state.
+This situation must occur in a type with a {finalizer}, as explained in <<finalizers>>.
+
+== Extensions of annotations
+
+When a type is eventually {finalFields}, should the field(s) of the state transition be marked {final}?
+Similarly, when a type is eventually immutable, should the analyzer mark the initially mutable or assignable fields
+{modified} or {nm}?
+
+Basically, we propose to mark the end state, qualifying with the parameter `after`:
+
+[options=header]
+|==
+| property | not present | eventually | effectively
+| finality of field | no annotation, or `@Final(absent=true)` | `@Final(after="mark")` | {final}
+| non-modification of field | {modified} | `@NotModified(after="mark")` | {nm}
+|==
+
+Since in an IDE it is not too easy to have multiple visual markers, it seems best to use the same visuals as the end
+state.
+
+When a type is effectively {finalFields} (not eventually), all fields are effectively final.
+The analyzer wants to emphasise the rules needed to obtain (eventual) immutability, by clearly indicating which fields
+break the immutability rules.
+
+Eventual finality simply adds a `@Final(after="mark")` annotation to each of these situations.
+
+== Frameworks and contracts
+
+A fair number of Java frameworks introduce dependency injection and initializer methods.
+This concept is, in many cases, compatible with the idea of eventual immutability: once dependency injection has taken
+place, and an initializing method has been called, the framework stops intervening in the value of the fields.
+
+It is therefore not difficult to imagine, and implement in the analyzer, a _before_ state (initialization still ongoing)
+and an _after_ state (initialization done) associated with the particular framework.
+The example below shows how this could be done for the `Verticle` interface of the https://vertx.io[vertx.io framework^].
+
+.Example {counter:example}, excerpts and annotations of `Verticle.java` and `AbstractVerticle.java`
+[source]
+----
+@FinalFields(after="init")
+interface Verticle {
+
+    @Mark("init")
+    void init(Vertx vertx, Context context);
+
+    @Only(after="init")
+    Vertx getVertx();
+
+    @Only(after="init")
+    void start(Promise<Void> startPromise) throws Exception;
+
+    @Only(after="init")
+    void stop(Promise<Void> startPromise) throws Exception;
+}
+
+public abstract class AbstractVerticle implements Verticle {
+    @Final(after="init")
+    protected Vertx vertx;
+
+    @Final(after="init")
+    protected Context context;
+
+    @Override
+    public Vertx getVertx() {
+        return vertx;
+    }
+
+    @Override
+    public void init(Vertx vertx, Context context) {
+        this.vertx = vertx;
+        this.context = context;
+    }
+    ...
+}
+----
+
+Currently, contracted eventual immutability has not been implemented yet in the analyzer.
+
+// ensure a newline at the end
