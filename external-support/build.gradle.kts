@@ -16,15 +16,10 @@ plugins {
     `java-library`
 }
 
-group = "io.codelaser"
-
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
-repositories {
-    mavenCentral()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
 }
 
 tasks.named<Test>("test") {
