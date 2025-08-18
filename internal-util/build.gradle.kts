@@ -14,10 +14,9 @@
 
 plugins {
     `java-library`
-    `maven-publish`
 }
 
-group = "org.e2immu"
+group = "io.codelaser"
 
 repositories {
     mavenCentral()
@@ -32,56 +31,13 @@ tasks.test {
     useJUnitPlatform()
 }
 
-val slf4jVersion = project.findProperty("slf4jVersion") as String
-val jupiterApiVersion = project.findProperty("jupiterApiVersion") as String
-val jupiterEngineVersion = project.findProperty("jupiterEngineVersion") as String
-val logbackClassicVersion = project.findProperty("logbackClassicVersion") as String
-
 dependencies {
-    api("org.e2immu:e2immu-external-support:$version")
-    implementation("org.slf4j:slf4j-api:$slf4jVersion")
+    api(platform(project(":platform")))
 
-    testImplementation("org.junit.jupiter:junit-jupiter-api:$jupiterApiVersion")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$jupiterEngineVersion")
-    testRuntimeOnly("ch.qos.logback:logback-classic:$logbackClassicVersion")
-}
+    api(project(":external-support"))
+    implementation("org.slf4j:slf4j-api")
 
-publishing {
-    repositories {
-        maven {
-            url = uri(project.findProperty("publishPublicUri") as String)
-            credentials {
-                username = project.findProperty("publishUsername") as String
-                password = project.findProperty("publishPassword") as String
-            }
-        }
-    }
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-
-            pom {
-                name = "util-internal-util of e2immu analyser"
-                description = "Static code analyser focusing on modification and immutability. " +
-                        "This module contains some common utility classes used by the analyser."
-                url = "https://e2immu.org"
-                scm {
-                    url = "https://github.com/e2immu"
-                }
-                licenses {
-                    license {
-                        name = "GNU Lesser General Public License, version 3.0"
-                        url = "https://www.gnu.org/licenses/lgpl-3.0.html"
-                    }
-                }
-                developers {
-                    developer {
-                        id = "bnaudts"
-                        name = "Bart Naudts"
-                        email = "bart.naudts@e2immu.org"
-                    }
-                }
-            }
-        }
-    }
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+    testRuntimeOnly("ch.qos.logback:logback-classic")
 }

@@ -14,68 +14,26 @@
 
 plugins {
     `java-library`
-    `maven-publish`
 }
 
-group = "org.e2immu"
-
-repositories {
-    mavenCentral()
-}
+group = "io.codelaser"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
 }
 
-tasks.test {
+repositories {
+    mavenCentral()
+}
+
+tasks.named<Test>("test") {
     useJUnitPlatform()
 }
 
-val jupiterApiVersion = project.findProperty("jupiterApiVersion") as String
-val jupiterEngineVersion = project.findProperty("jupiterEngineVersion") as String
-
 dependencies {
-    testImplementation("org.junit.jupiter:junit-jupiter-api:$jupiterApiVersion")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$jupiterEngineVersion")
-}
+    api(platform(project(":platform")))
 
-publishing {
-    repositories {
-        mavenLocal()
-        maven {
-            url = uri(project.findProperty("publishPublicUri") as String)
-            credentials {
-                username = project.findProperty("publishUsername") as String
-                password = project.findProperty("publishPassword") as String
-            }
-        }
-    }
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-
-            pom {
-                name = "e2immu external support"
-                description = "Helper library for the use with the e2immu analyser"
-                url = "https://e2immu.org"
-                scm {
-                    url = "https://github.com/e2immu"
-                }
-                licenses {
-                    license {
-                        name = "GNU Lesser General Public License, version 3.0"
-                        url = "https://www.gnu.org/licenses/lgpl-3.0.html"
-                    }
-                }
-                developers {
-                    developer {
-                        id = "bnaudts"
-                        name = "Bart Naudts"
-                        email = "bart.naudts@e2immu.org"
-                    }
-                }
-            }
-        }
-    }
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }
