@@ -24,9 +24,9 @@ public class Run {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(Run.class);
 
     public static final String AAPI_DIR =
-            "../e2immu-aapi-archive/src/main/java/org/e2immu/analyzer/aapi/archive/v2";
+            "../aapi-archive/src/main/java/org/e2immu/analyzer/aapi/archive/v2";
     public static final String APF_DIR =
-            "../e2immu-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles";
+            "../aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles";
 
     public static void main(String[] args) throws IOException {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);

@@ -33,8 +33,9 @@ public class TestAnnotatedApiParser {
                 List.of("example."));
         List<TypeInfo> types = annotatedApiParser.typesParsed();
         assertEquals(2, types.size());
-        TypeInfo t1 = types.getFirst();
-        assertEquals("org.e2immu.analyzer.aapi.parser.example.popular.OrgSlf4J", t1.fullyQualifiedName());
+        TypeInfo t1 = types.stream()
+                .filter(ti -> "org.e2immu.analyzer.aapi.parser.example.popular.OrgSlf4J".equals(ti.fullyQualifiedName()))
+                .findFirst().orElseThrow();
         String uri = t1.compilationUnitOrEnclosingType().getLeft().uri().toString();
         assertTrue(uri.endsWith("example/popular/OrgSlf4J.java"), "Have: "+uri);
 

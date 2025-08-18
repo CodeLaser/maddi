@@ -25,7 +25,7 @@ public class TestRunAnalyzer {
 
     @Test
     public void test() throws IOException {
-        File sourceDir = new File("../../util-internal/e2immu-internal-util/src/main/java");
+        File sourceDir = new File("../internal-util/src/main/java");
         assertTrue(sourceDir.isDirectory(), "Absolute = " + sourceDir.getAbsolutePath());
 
         Main.main(new String[]{
@@ -35,7 +35,7 @@ public class TestRunAnalyzer {
                 "--classpath=" + String.join(":", ToolChain.CLASSPATH_SLF4J_LOGBACK),
                 "--source=" + sourceDir.getPath(),
                 "--analysis-results-dir=build/e2immu",
-                "--analyzed-annotated-api-dir=../../analyzer-shallow/e2immu-shallow-aapi/src/main/resources/json",
+                "--analyzed-annotated-api-dir=../aapi-archive/src/main/resources/json",
         });
 
         File output = new File("build/e2immu/OrgE2ImmuUtilInternalUtil.json");

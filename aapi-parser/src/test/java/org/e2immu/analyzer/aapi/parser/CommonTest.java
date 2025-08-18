@@ -53,7 +53,7 @@ public class CommonTest {
                         JAR_WITH_PATH_PREFIX + "org/opentest4j",
                         "jmod:java.datatransfer",
                         "jmod:java.desktop"),
-                List.of("../e2immu-aapi-archive/src/main/java/org/e2immu/analyzer/aapi/archive/v2"),
+                List.of("../aapi-archive/src/main/java/org/e2immu/analyzer/aapi/archive/v2"),
                 List.of());
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(annotatedApiParser.runtime(), annotatedApiParser,
                 true);
