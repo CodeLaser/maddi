@@ -13,26 +13,9 @@
  */
 
 plugins {
-    `java-library`
-}
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(24)
-    }
-}
-
-tasks.test {
-    useJUnitPlatform()
+   id("java-library-conventions")
 }
 
 dependencies {
-    api(platform(project(":platform")))
-
     api(project(":external-support"))
-    implementation("org.slf4j:slf4j-api")
-
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
-    testRuntimeOnly("ch.qos.logback:logback-classic")
 }
