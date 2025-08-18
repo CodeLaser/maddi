@@ -1,0 +1,7 @@
+[
+{"name": "Torg.junit.jupiter.api.function.Executable", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"E":true},"independentType":2}, "sub":
+ {"name": "Mexecute(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}}},
+
+{"name": "Torg.junit.jupiter.api.function.ThrowingSupplier", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"0":"PT:0","E":true,"M":1}}, "sub":
+ {"name": "Mget(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}}}
+]

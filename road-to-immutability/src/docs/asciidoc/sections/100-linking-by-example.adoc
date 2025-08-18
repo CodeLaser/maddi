@@ -1,0 +1,212 @@
+= Linking by example
+
+Goal is to use this section as a reference: most linking situations should be
+described here.
+
+Let `X` be an unbound type parameter, and `M` be a mutable type.
+We'll use `String` as the archetypal recursively immutable type.
+Furthermore, we'll use the following methods in the examples:
+
+.Example {counter:example}, method annotations in AnnotationAPI format
+[source,java]
+----
+// implicitly mutable
+interface List$<X> {
+    @Modified // dependent implicitly
+    boolean add(@Independent(hc = true) X x);
+
+    @Independent(hc=true) // @NotModified implicitly
+    X get(int index);
+
+    // @NotModified, dependent implicitly
+    List<X> subList(int from, int to);
+
+    static List<X> copyOf(@Independent(hc=true) Collection<? extends X> c);
+}
+
+// implicitly mutable
+class ArrayList$<X> {
+    ArrayList(@Independent(hc = true) Collection<? extends X> c) {}
+}
+----
+
+== Operators
+
+Let us start with the absolute basics: the assignment operator generates a link at the _statically assigned_ level.
+
+.Example {counter:example}, assignments
+[source,java]
+----
+void method(int index, List<String> listS, List<X> listX, List<M> listM) {
+    // statically assigned
+    List<String> aS = listS;
+    List<X> aX = listX;
+    List<M> aM = listM;
+}
+----
+
+The only other operator to allow for meaningful linking is the _inline conditional operator_, which links to both conditions at the _statically assigned_ level:
+
+
+.Example {counter:example}, assignments
+[source,java]
+----
+void method(boolean b, String s1, String s2, X x1, X x2, M m1, M m2) {
+    // s is statically assigned to both s1 and s2
+    S s = b  ? s1 : s2;
+
+    // x is statically assigned to both x1 and x2
+    X x = b ? x1 : x2;
+
+    // m is statically assigned to both m1 and m2
+    M m = b ? m1 : m2;
+}
+----
+
+All other operators involve recursively immutable objects (primitives, or `String`), and do not link.
+Note that {maddi} will do expression evaluation, therefore, we will see
+statical assignments in the following situations:
+
+.Example {counter:example}, assignments
+[source,java]
+----
+void method(int i) {
+    // simplified to i1 = i, therefore statically assigned
+    int i1 = i + 0;
+
+    // simplified to i2 = i, therefore statically assigned
+    int i2 = 1 * i;
+}
+----
+
+== Methods
+
+The normal situation for well-designed, non-modifying instance methods is to link the method's object to the method's return value:
+
+.Example {counter:example}, from method object into method result
+[source,java]
+----
+void method(int index, List<String> listS, List<X> listX, List<M> listM) {
+    // independent (upgrade from independent HC)
+    String s = listS.get(index);
+
+    // independent HC, *-4-0
+    X x = listX.get(index);
+
+    // independent HC, *M-4-0M (no downgrade, modification travels)
+    M m = listM.get(index);
+
+    // dependent, irrespective of String, X, M
+    List<String> subS = listS.subList(0, 2);
+    List<X> subX = listX.subList(0, 2);
+    List<M> subM = listM.subList(0, 2);
+
+    // independent, upgrade from independent HC
+    List<String> copyS = new ArrayList<>(listS.subList(0, 2));
+
+    // independent HC, 0-4-0
+    List<X> copyX = new ArrayList<>(listX.subList(0, 2));
+
+    // independent HC, 0M-4-0M (no downgrade, modification travels)
+    List<M> copyM = new ArrayList<>(listM.subList(0, 2));
+
+    // independent, immutable
+    List<String> immS = List.copyOf(listS);
+
+    // independent HC, 0-4-0, immutable HC
+    List<X> immX = List.copyOf(listX);
+
+    // independent HC, 0M-4-0M (no downgrade, modification travels), mutable
+    List<M> immM = List.copyOf(listM);
+}
+----
+
+The normal situation for well-designed modifying methods is to link the method's arguments to the method's object.
+
+.Example {counter:example}, from method arguments into method object
+[source,java]
+----
+void method(String s, X x, M m, List<String> listS, List<X> listX, List<M> listM) {
+    // independent
+    listS.add(s);
+
+    // independent HC, *-4-0
+    listX.add(x);
+
+    // dependent
+    listM.add(m);
+}
+----
+
+Links from the method parameters directly into the method result are obviously possible, but recognized by the analyzer only in the case of an {identity} method:
+
+.Example {counter:example}, identity method links argument to method result
+[source,java]
+----
+void method(String s, X x, M m) {
+    // assigned
+    S s1 = Objects.requireNonNull(s);
+    X x1 = Objects.requireNonNull(x);
+    M m1 = Objects.requireNonNull(m);
+}
+----
+
+Links between parameters are not recognized by the analyzer, but can be added via the AnnotatedAPI files, as in `Collections.addAll()`:
+
+.Example {counter:example}, links between parameters
+[source,java]
+----
+
+----
+
+== Constructors
+
+The normal situation for constructors is to link the arguments to the newly constructed object.
+
+== Functional interfaces
+
+The situation becomes more complicated when we consider method arguments that are of functional interface type: method references, lambda's, anonymous classes, and any variable representing such objects.
+
+The analyzer applies the following linking rule:
+
+****
+* If the SAM is modifying, the argument containing the SAM will link to the SAM's object, in case of a method reference,
+or the non-local variables modified, in case of a lambda or anonymous type.
+* If the SAM is non-modifying, the argument containing the SAM will link to the return value of the SAM.
+****
+
+No other combinations have currently been implemented.
+
+.Example {counter:example}, forEach at independent HC level
+[source,java]
+----
+void method(List<X> inX, List<X> outX) {
+    // independent HC: 0-4-0
+    inX.forEach(outX::add);
+    inX.forEach(x -> outX.add(x));
+    inX.forEach(new Consumer<X> {
+        void accept(X x) {
+            outX.add(x);
+        }
+    });
+    Consumer<X> c = outX::add;
+    inX.forEach(c);
+}
+----
+
+.Example {counter:example}, forEach at independent HC level with a mutable type
+[source,java]
+----
+void method(List<M> inM, List<M> outM) {
+    // independent HC: inM 0M-4-0M outM (no downgrade, modifications travel)
+    inM.forEach(outM::add);
+    inM.forEach(x -> outM.add(x));
+    inM.forEach(new Consumer<X> {
+        void accept(X x) {
+            outM.add(x);
+        }
+    });
+    Consumer<X> c = outM::add;
+    inM.forEach(c);
+}
+----

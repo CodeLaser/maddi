@@ -1,0 +1,320 @@
+[
+{"name": "Tjava.nio.file.Files", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+ {"name": "SAcceptAllFilter(0)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "Maccept(0)", "data":{"hc":{"0":"Tjava.nio.file.Path"}}, "sub":
+   {"name": "Pentry(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+ {"name": "SFileTypeDetectors(1)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "McreateDefaultFileTypeDetector(0)", "data":{"hc":{"0":"Tjava.nio.file.spi.FileTypeDetector"},"hcsMethod":{"0":[[-1]]}}},
+  {"name": "MloadInstalledDetectors(1)", "data":{"hc":{"0":"Tjava.util.List","1":"Tjava.nio.file.spi.FileTypeDetector"},"hcsMethod":{"0":[[-1]],"1":[[0]]}}}]},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "Mprovider(0)", "data":{"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.spi.FileSystemProvider"},"hcsMethod":{"1":[[-1]]}}, "sub":
+  {"name": "Ppath(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MasUncheckedRunnable(1)", "data":{"hc":{"0":"Tjava.io.Closeable","1":"Tjava.lang.Runnable"},"hcsMethod":{"1":[[-1]]}}, "sub":
+  {"name": "Pc(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MnewInputStream(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.OpenOption","2":"Tjava.io.InputStream"},"hcsMethod":{"2":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MnewOutputStream(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.OpenOption","2":"Tjava.io.OutputStream"},"hcsMethod":{"2":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "MnewByteChannel(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.Set","2":"Tjava.nio.file.OpenOption","3":"Tjava.nio.file.attribute.FileAttribute","4":"Tjava.lang.Object","5":"Tjava.nio.channels.SeekableByteChannel"},"hcsMethod":{"5":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]],"2":[[0]]}}},
+  {"name": "Pattrs(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"3":[[3]]},"immutableParameter":1}}]},
+ {"name": "MnewByteChannel(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.OpenOption","2":"Tjava.nio.channels.SeekableByteChannel"},"hcsMethod":{"2":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "MnewDirectoryStream(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.DirectoryStream"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Pdir(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MnewDirectoryStream(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.DirectoryStream"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pdir(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pglob(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MnewDirectoryStream(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.DirectoryStream.Filter","2":"Tjava.nio.file.DirectoryStream"},"hcsMethod":{"0":[[0]],"2":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pdir(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pfilter(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]},"independentParameter":2}}]},
+ {"name": "McreateFile(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.FileAttribute","2":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pattrs(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "McreateDirectory(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.FileAttribute","2":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Pdir(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pattrs(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "McreateDirectories(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.FileAttribute","2":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Pdir(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pattrs(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "McreateAndCheckIsDirectory(12)", "data":{"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.FileAttribute","2":"Tjava.lang.Object"}}, "subs":[
+  {"name": "Pdir(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pattrs(1)", "data":{"hcsParameter":{"1":[[1]]}}}]},
+ {"name": "McreateTempFile(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.FileAttribute","2":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Pdir(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pprefix(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Psuffix(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pattrs(3)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "McreateTempFile(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.attribute.FileAttribute","1":"Tjava.lang.Object","2":"Tjava.nio.file.Path"},"hcsMethod":{"2":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Pprefix(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Psuffix(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pattrs(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]]},"immutableParameter":1}}]},
+ {"name": "McreateTempDirectory(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.FileAttribute","2":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Pdir(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pprefix(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pattrs(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "McreateTempDirectory(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.attribute.FileAttribute","1":"Tjava.lang.Object","2":"Tjava.nio.file.Path"},"hcsMethod":{"2":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Pprefix(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pattrs(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]]},"immutableParameter":1}}]},
+ {"name": "McreateSymbolicLink(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.FileAttribute","2":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Plink(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptarget(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pattrs(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "McreateLink(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Plink(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pexisting(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mdelete(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdeleteIfExists(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mcopy(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.CopyOption"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Psource(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptarget(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "Mmove(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.CopyOption"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Psource(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptarget(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "MreadSymbolicLink(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Plink(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetFileStore(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.FileStore"},"hcsMethod":{"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisSameFile(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Ppath2(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mmismatch(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Ppath2(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MisHidden(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MprobeContentType(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetFileAttributeView(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PV:0","1":"Tjava.nio.file.Path","2":"Tjava.lang.Class"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Ptype(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]],"2":[[-1]]},"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MreadAttributes(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PA:0","1":"Tjava.nio.file.Path","2":"Tjava.lang.Class"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Ptype(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]],"2":[[-1]]},"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MsetAttribute(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pattribute(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pvalue(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "MgetAttribute(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.lang.Object"},"hcsMethod":{"1":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pattribute(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MreadAttributes(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.Map","2":"Tjava.lang.Object"},"hcsMethod":{"1":[[-1]],"2":[[1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pattributes(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MgetPosixFilePermissions(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.Set"},"hcsMethod":{"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MsetPosixFilePermissions(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.Set"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pperms(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "MgetOwner(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.UserPrincipal"},"hcsMethod":{"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MsetOwner(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.attribute.UserPrincipal"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Powner(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "MisSymbolicLink(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisDirectory(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MisRegularFile(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MgetLastModifiedTime(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MsetLastModifiedTime(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Ptime(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Msize(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MfollowLinks(44)", "data":{"hc":{}}},
+ {"name": "Mexists(45)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MnotExists(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MisAccessible(47)", "data":{"hc":{"0":"Tjava.nio.file.Path"}}, "subs":[
+  {"name": "Ppath(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MisReadable(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisWritable(49)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisExecutable(50)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwalkFileTree(51)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.Set","2":"Tjava.nio.file.FileVisitor"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pstart(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"independentParameter":2}},
+  {"name": "PmaxDepth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pvisitor(3)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"2":[[-1]]},"independentParameter":2}}]},
+ {"name": "MwalkFileTree(52)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.FileVisitor"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pstart(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pvisitor(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]},"independentParameter":2}}]},
+ {"name": "MnewBufferedReader(53)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.charset.Charset","2":"Tjava.io.BufferedReader"},"hcsMethod":{"2":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcs(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"independentParameter":2}}]},
+ {"name": "MnewBufferedReader(54)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.io.BufferedReader"},"hcsMethod":{"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MnewBufferedWriter(55)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.charset.Charset","2":"Tjava.nio.file.OpenOption","3":"Tjava.io.BufferedWriter"},"hcsMethod":{"3":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcs(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"2":[[2]]},"immutableParameter":1}}]},
+ {"name": "MnewBufferedWriter(56)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.OpenOption","2":"Tjava.io.BufferedWriter"},"hcsMethod":{"2":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "Mcopy(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.io.InputStream","1":"Tjava.nio.file.Path","2":"Tjava.nio.file.CopyOption"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "subs":[
+  {"name": "Pin(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Ptarget(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"2":[[2]]},"immutableParameter":1}}]},
+ {"name": "Mcopy(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.io.OutputStream"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "subs":[
+  {"name": "Psource(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pout(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "Mread(59)", "data":{"hc":{"0":"Tjava.io.InputStream"}}, "subs":[
+  {"name": "Psource(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MreadAllBytes(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":1,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MreadString(61)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MreadString(62)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.charset.Charset"},"immutableMethod":3,"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcs(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"independentParameter":2}}]},
+ {"name": "MreadAllLines(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.charset.Charset","2":"Tjava.util.List"},"hcsMethod":{"2":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcs(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"independentParameter":2}}]},
+ {"name": "MreadAllLines(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.List"},"hcsMethod":{"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mwrite(65)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.OpenOption"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pbytes(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]},
+ {"name": "Mwrite(66)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.lang.Iterable","2":"Tjava.lang.CharSequence","3":"Tjava.nio.charset.Charset","4":"Tjava.nio.file.OpenOption"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plines(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]],"2":[[0]]}}},
+  {"name": "Pcs(2)", "data":{"annotatedApi":1,"hcsParameter":{"3":[[-1]]}}},
+  {"name": "Poptions(3)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"4":[[4]]},"immutableParameter":1}}]},
+ {"name": "Mwrite(67)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.lang.Iterable","2":"Tjava.lang.CharSequence","3":"Tjava.nio.file.OpenOption"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plines(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]],"2":[[0]]}}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"3":[[3]]},"immutableParameter":1}}]},
+ {"name": "MwriteString(68)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.lang.CharSequence","2":"Tjava.nio.file.OpenOption"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcsq(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"2":[[2]]},"immutableParameter":1}}]},
+ {"name": "MwriteString(69)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.lang.CharSequence","2":"Tjava.nio.charset.Charset","3":"Tjava.nio.file.OpenOption"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"methodAllowsInterrupts":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcsq(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcs(2)", "data":{"annotatedApi":1,"hcsParameter":{"2":[[-1]]}}},
+  {"name": "Poptions(3)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"3":[[3]]},"immutableParameter":1}}]},
+ {"name": "Mlist(70)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.stream.Stream"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Pdir(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mwalk(71)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.stream.Stream"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pstart(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PmaxDepth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "Mwalk(72)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.stream.Stream"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pstart(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "Mfind(73)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.function.BiPredicate","2":"Tjava.nio.file.attribute.BasicFileAttributes","3":"Tjava.util.stream.Stream"},"hcsMethod":{"0":[[0]],"3":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pstart(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PmaxDepth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmatcher(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]],"2":[[1]]},"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Poptions(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "Mlines(74)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.charset.Charset","2":"Tjava.util.stream.Stream"},"hcsMethod":{"2":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "subs":[
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcs(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"independentParameter":2}}]},
+ {"name": "McreateFileChannelLinesStream(75)", "data":{"hc":{"0":"Tjava.nio.channels.FileChannel","1":"Tjava.nio.charset.Charset","2":"Tjava.util.stream.Stream"},"hcsMethod":{"2":[[-1]]}}, "subs":[
+  {"name": "Pfc(0)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pcs(1)", "data":{"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "McreateBufferedReaderLinesStream(76)", "data":{"hc":{"0":"Tjava.io.BufferedReader","1":"Tjava.util.stream.Stream"},"hcsMethod":{"1":[[-1]]}}, "sub":
+  {"name": "Pbr(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mlines(77)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.util.stream.Stream"},"hcsMethod":{"1":[[-1]]},"independentMethod":2,"methodAllowsInterrupts":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}}]},
+
+{"name": "Tjava.nio.file.Path", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","E":true,"M":1},"immutableType":2,"independentType":2}, "subs":[
+ {"name": "Mof(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pfirst(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pmore(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "Mof(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Puri(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+ {"name": "MgetFileSystem(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.nio.file.FileSystem","M":1},"hcsMethod":{"1":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MisAbsolute(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MgetRoot(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetFileName(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetParent(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetNameCount(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MgetName(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Msubpath(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pi1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MstartsWith(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MstartsWith(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MendsWith(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MendsWith(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mnormalize(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mresolve(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mresolve(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mresolve(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pfirst(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pmore(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "Mresolve(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pfirst(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pmore(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "MresolveSibling(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MresolveSibling(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mrelativize(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoUri(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoAbsolutePath(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoRealPath(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PlinkOption(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "MtoFile(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.io.File","M":1},"hcsMethod":{"1":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mregister(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.nio.file.WatchService","2":"Tjava.nio.file.WatchEvent.Kind","3":"Tjava.lang.Object","4":"Tjava.nio.file.WatchEvent.Modifier","5":"Tjava.nio.file.WatchKey","M":1},"hcsMethod":{"5":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "PwatchService(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"independentParameter":2}},
+  {"name": "Pkind(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"2":[[2]]},"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pmodifier(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"4":[[4]]},"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "Mregister(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.nio.file.WatchService","2":"Tjava.nio.file.WatchEvent.Kind","3":"Tjava.lang.Object","4":"Tjava.nio.file.WatchKey","M":1},"hcsMethod":{"4":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pwatcher(0)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"independentParameter":2}},
+  {"name": "Pevents(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"2":[[2]]},"immutableParameter":1,"independentParameter":2}}]},
+ {"name": "Miterator(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.Iterator","M":1},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "McompareTo(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mequals(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.lang.Object","M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pobject(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoString(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
+
+{"name": "Tjava.nio.file.Watchable", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+ {"name": "Mregister(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.WatchService","1":"Tjava.nio.file.WatchEvent.Kind","2":"Tjava.lang.Object","3":"Tjava.nio.file.WatchEvent.Modifier","4":"Tjava.nio.file.WatchKey"},"hcsMethod":{"4":[[-1]]}}, "subs":[
+  {"name": "PwatchService(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pkind(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}},
+  {"name": "Pmodifier(2)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"3":[[3]]},"immutableParameter":1}}]},
+ {"name": "Mregister(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.WatchService","1":"Tjava.nio.file.WatchEvent.Kind","2":"Tjava.lang.Object","3":"Tjava.nio.file.WatchKey"},"hcsMethod":{"3":[[-1]]}}, "subs":[
+  {"name": "PwatchService(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pkind(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1}}]}]}
+]

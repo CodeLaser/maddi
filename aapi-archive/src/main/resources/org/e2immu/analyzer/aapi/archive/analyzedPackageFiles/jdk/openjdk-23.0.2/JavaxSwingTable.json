@@ -1,0 +1,65 @@
+[
+{"name": "Tjavax.swing.table.TableColumn", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+ {"name": "FCOLUMN_WIDTH_PROPERTY(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FHEADER_VALUE_PROPERTY(1)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FHEADER_RENDERER_PROPERTY(2)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FCELL_RENDERER_PROPERTY(3)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "C<init>(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PmodelIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "C<init>(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PmodelIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pwidth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "C<init>(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellRenderer","1":"Tjavax.swing.table.TableCellEditor"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PmodelIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pwidth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcellRenderer(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PcellEditor(3)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "MfirePropertyChange(0)", "data":{"hc":{"0":"Tjava.lang.Object"}}, "subs":[
+  {"name": "PoldValue(1)", "data":{"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PnewValue(2)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MfirePropertyChange(1)", "data":{"hc":{}}},
+ {"name": "MfirePropertyChange(2)", "data":{"hc":{}}},
+ {"name": "MsetModelIndex(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PmodelIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetModelIndex(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetIdentifier(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pidentifier(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetIdentifier(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetHeaderValue(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PheaderValue(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetHeaderValue(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetHeaderRenderer(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellRenderer"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PheaderRenderer(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetHeaderRenderer(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellRenderer"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetCellRenderer(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellRenderer"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PcellRenderer(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetCellRenderer(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellRenderer"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetCellEditor(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellEditor"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PcellEditor(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetCellEditor(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.swing.table.TableCellEditor"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MsetWidth(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pwidth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetWidth(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetPreferredWidth(17)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PpreferredWidth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetPreferredWidth(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetMinWidth(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PminWidth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetMinWidth(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetMaxWidth(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PmaxWidth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetMaxWidth(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetResizable(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PisResizable(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetResizable(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsizeWidthToFit(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MdisableResizedPosting(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MenableResizedPosting(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "MaddPropertyChangeListener(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.beans.PropertyChangeListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Plistener(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MremovePropertyChangeListener(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.beans.PropertyChangeListener"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Plistener(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetPropertyChangeListeners(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.beans.PropertyChangeListener"},"hcsMethod":{"0":[[0]]},"immutableMethod":1}},
+ {"name": "McreateDefaultHeaderRenderer(31)", "data":{"hc":{"0":"Tjavax.swing.table.TableCellRenderer"},"hcsMethod":{"0":[[-1]]}}}]}
+]

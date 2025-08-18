@@ -1,0 +1,249 @@
+[
+{"name": "Tjava.net.http.HttpClient", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"E":true},"immutableType":2,"independentType":2}, "subs":[
+ {"name": "SBuilder(0)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+  {"name": "FNO_PROXY(0)", "data":{"finalField":1}},
+  {"name": "McookieHandler(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.CookieHandler","1":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "PcookieHandler(0)", "data":{"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "MconnectTimeout(1)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "Pduration(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MsslContext(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.net.ssl.SSLContext","1":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "PsSLContext(0)", "data":{"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "MsslParameters(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjavax.net.ssl.SSLParameters","1":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "PsSLParameters(0)", "data":{"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "Mexecutor(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.concurrent.Executor","1":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "Pexecutor(0)", "data":{"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "MfollowRedirects(5)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "Predirect(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+  {"name": "Mversion(6)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "Pversion(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+  {"name": "Mpriority(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"0":[[-1]]}}, "sub":
+   {"name": "Pi(0)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Mproxy(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.ProxySelector","1":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "PproxySelector(0)", "data":{"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "Mauthenticator(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.Authenticator","1":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "Pauthenticator(0)", "data":{"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "MlocalAddress(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.InetAddress","1":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"1":[[-1]]}}, "sub":
+   {"name": "PlocalAddr(0)", "data":{"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "Mbuild(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpClient"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}}]},
+ {"name": "SRedirect(1)", "data":{"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "FNEVER(0)", "data":{"finalField":1,"notNullField":1}},
+  {"name": "FALWAYS(1)", "data":{"finalField":1,"notNullField":1}},
+  {"name": "FNORMAL(2)", "data":{"finalField":1,"notNullField":1}},
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "Mvalues(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":1}},
+  {"name": "MvalueOf(1)", "data":{"defaultsAnalyzer":1,"hc":{}}, "sub":
+   {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+ {"name": "SVersion(2)", "data":{"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "FHTTP_1_1(0)", "data":{"finalField":1,"notNullField":1}},
+  {"name": "FHTTP_2(1)", "data":{"finalField":1,"notNullField":1}},
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "Mvalues(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":1}},
+  {"name": "MvalueOf(1)", "data":{"defaultsAnalyzer":1,"hc":{}}, "sub":
+   {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "MnewHttpClient(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpClient"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MnewBuilder(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpClient.Builder"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "McookieHandler(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional","1":"Tjava.net.CookieHandler"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MconnectTimeout(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional"},"hcsMethod":{"0":[[-1]]},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MfollowRedirects(4)", "data":{"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mproxy(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional","1":"Tjava.net.ProxySelector"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MsslContext(6)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.net.ssl.SSLContext"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MsslParameters(7)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjavax.net.ssl.SSLParameters"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mauthenticator(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional","1":"Tjava.net.Authenticator"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mversion(9)", "data":{"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mexecutor(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional","1":"Tjava.util.concurrent.Executor"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Msend(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"PT:0","1":"Tjava.net.http.HttpRequest","2":"Tjava.net.http.HttpResponse.BodyHandler","3":"Tjava.net.http.HttpResponse"},"hcsMethod":{"0":[[0]],"3":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "PhttpRequest(0)", "data":{"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PbodyHandler(1)", "data":{"hcsParameter":{"0":[[0]],"2":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MsendAsync(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PT:0","1":"Tjava.net.http.HttpRequest","2":"Tjava.net.http.HttpResponse.BodyHandler","3":"Tjava.util.concurrent.CompletableFuture","4":"Tjava.net.http.HttpResponse"},"hcsMethod":{"0":[[0,0]],"3":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "PhttpRequest(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PbodyHandler(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"2":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MsendAsync(13)", "data":{"defaultsAnalyzer":1,"hc":{"0":"PT:0","1":"Tjava.net.http.HttpRequest","2":"Tjava.net.http.HttpResponse.BodyHandler","3":"Tjava.net.http.HttpResponse.PushPromiseHandler","4":"Tjava.util.concurrent.CompletableFuture","5":"Tjava.net.http.HttpResponse"},"hcsMethod":{"0":[[0,0]],"4":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "PhttpRequest(0)", "data":{"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PbodyHandler(1)", "data":{"hcsParameter":{"0":[[0]],"2":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PpushPromiseHandler(2)", "data":{"hcsParameter":{"0":[[0]],"3":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MnewWebSocketBuilder(14)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.WebSocket.Builder"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mshutdown(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MawaitTermination(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pduration(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisTerminated(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MshutdownNow(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Mclose(19)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
+
+{"name": "Tjava.net.http.HttpRequest", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"E":true},"immutableType":2,"independentType":2}, "subs":[
+ {"name": "SBodyPublisher(0)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.ByteBuffer","E":true,"M":1}}, "sub":
+  {"name": "McontentLength(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}}},
+ {"name": "SBodyPublishers(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true},"independentType":2}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MfromPublisher(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.concurrent.Flow.Publisher","1":"Tjava.nio.ByteBuffer","2":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"2":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Ppublisher(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]],"1":[[0]]},"independentParameter":2}}},
+  {"name": "MfromPublisher(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.concurrent.Flow.Publisher","1":"Tjava.nio.ByteBuffer","2":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"2":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Ppublisher(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]],"1":[[0]]},"independentParameter":2}},
+   {"name": "PcontentLength(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MofString(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pbody(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MofString(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.charset.Charset","1":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Ps(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+   {"name": "Pcharset(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2}}]},
+  {"name": "MofInputStream(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.function.Supplier","1":"Tjava.io.InputStream","2":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"2":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "PstreamSupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]],"1":[[0]]},"ignoreModsParameter":1,"independentParameter":2}}},
+  {"name": "MofByteArray(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pbuf(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+  {"name": "MofByteArray(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Pbuf(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+   {"name": "Poffset(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Plength(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MofFile(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Ppath(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MofByteArrays(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Iterable","1":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Piter(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2}}},
+  {"name": "MnoBody(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}},
+  {"name": "Mconcat(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Ppublishers(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]]},"immutableParameter":1,"independentParameter":2}}}]},
+ {"name": "SBuilder(2)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+  {"name": "Muri(0)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "PuRI(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+  {"name": "MexpectContinue(1)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Mversion(2)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "Pversion(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+  {"name": "Mheader(3)", "data":{"annotatedApi":1,"commutableMethods":["header,0","","headers"],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "subs":[
+   {"name": "Pstring(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+   {"name": "Pstring1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Mheaders(4)", "data":{"annotatedApi":1,"commutableMethods":["header","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "Pstring(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Mtimeout(5)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "Pduration(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MsetHeader(6)", "data":{"annotatedApi":1,"commutableMethods":["header,0","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}, "subs":[
+   {"name": "Pstring(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+   {"name": "Pstring1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "MGET(7)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}},
+  {"name": "MPOST(8)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.BodyPublisher","1":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"1":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "PbodyPublisher(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "MPUT(9)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.BodyPublisher","1":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"1":[[-1]]},"notNullMethod":1}, "sub":
+   {"name": "PbodyPublisher(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}},
+  {"name": "MDELETE(10)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}},
+  {"name": "MHEAD(11)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"notNullMethod":1}},
+  {"name": "Mmethod(12)", "data":{"annotatedApi":1,"commutableMethods":["","",""],"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"hc":{"0":"Tjava.net.http.HttpRequest.BodyPublisher","1":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"1":[[-1]]},"notNullMethod":1}, "subs":[
+   {"name": "Pstring(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+   {"name": "PbodyPublisher(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"unmodifiedParameter":1}}]},
+  {"name": "Mbuild(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+  {"name": "Mcopy(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]}}}]},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "MnewBuilder(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"getSetEquivalent":[[["P",["Tjava.net.http.HttpRequest","MnewBuilder(0)","Puri(0)"]]],["Tjava.net.http.HttpRequest","MnewBuilder(2)"]],"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Puri(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MnewBuilder(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest","1":"Tjava.util.function.BiPredicate","2":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"2":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Prequest(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pfilter(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "MnewBuilder(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpRequest.Builder"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MbodyPublisher(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional","1":"Tjava.net.http.HttpRequest.BodyPublisher"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mmethod(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mtimeout(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional"},"hcsMethod":{"0":[[-1]]},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MexpectContinue(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Muri(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mversion(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mheaders(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mequals(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
+
+{"name": "Tjava.net.http.HttpResponse", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"0":"PT:0","E":true,"M":1}}, "subs":[
+ {"name": "SBodyHandler(0)", "data":{"defaultsAnalyzer":1,"hc":{"0":"PT:0","E":true,"M":1}}, "sub":
+  {"name": "Mapply(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.net.http.HttpResponse.ResponseInfo","2":"Tjava.net.http.HttpResponse.BodySubscriber","M":1},"hcsMethod":{"0":[[0]],"2":[[-1]]}}, "sub":
+   {"name": "PresponseInfo(0)", "data":{"containerParameter":1,"hcsParameter":{"1":[[-1]]}}}}},
+ {"name": "SBodyHandlers(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true},"independentType":2}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MfromSubscriber(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.concurrent.Flow.Subscriber","1":"Tjava.util.List","2":"Tjava.nio.ByteBuffer","3":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"3":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Psubscriber(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]],"2":[[0,0]]},"independentParameter":2}}},
+  {"name": "MfromSubscriber(1)", "data":{"defaultsAnalyzer":1,"hc":{"0":"PS:0","1":"PT:1","2":"Tjava.util.function.Function","3":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"1":[[0]],"3":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Psubscriber(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}},
+   {"name": "Pfinisher(1)", "data":{"hcsParameter":{"0":[[0]],"1":[[1]],"2":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}}]},
+  {"name": "MfromLineSubscriber(2)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.concurrent.Flow.Subscriber","1":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Psubscriber(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}}},
+  {"name": "MfromLineSubscriber(3)", "data":{"defaultsAnalyzer":1,"hc":{"0":"PS:0","1":"PT:1","2":"Tjava.util.function.Function","3":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"1":[[0]],"3":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Psubscriber(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}},
+   {"name": "Pfinisher(1)", "data":{"hcsParameter":{"0":[[0]],"1":[[1]],"2":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}},
+   {"name": "PlineSeparator(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Mdiscarding(4)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}},
+  {"name": "Mreplacing(5)", "data":{"defaultsAnalyzer":1,"hc":{"0":"PU:0","1":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pvalue(0)", "data":{"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MofString(6)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.charset.Charset","1":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pcharset(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}}},
+  {"name": "MofFile(7)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.OpenOption","2":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"0":[[0]],"2":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Pfile(0)", "data":{"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+   {"name": "PopenOptions(1)", "data":{"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1,"independentParameter":2}}]},
+  {"name": "MofFile(8)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pfile(0)", "data":{"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MofFileDownload(9)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.OpenOption","2":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"0":[[0]],"2":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Pdirectory(0)", "data":{"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+   {"name": "PopenOptions(1)", "data":{"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1,"independentParameter":2}}]},
+  {"name": "MofInputStream(10)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodyHandler","1":"Tjava.io.InputStream"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"independentMethod":2}},
+  {"name": "MofLines(11)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodyHandler","1":"Tjava.util.stream.Stream"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}},
+  {"name": "MofByteArrayConsumer(12)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.function.Consumer","1":"Tjava.util.Optional","2":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"2":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pconsumer(0)", "data":{"hcsParameter":{"0":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}}},
+  {"name": "MofByteArray(13)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}},
+  {"name": "MofString(14)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}},
+  {"name": "MofPublisher(15)", "data":{"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodyHandler","1":"Tjava.util.concurrent.Flow.Publisher","2":"Tjava.util.List","3":"Tjava.nio.ByteBuffer"},"hcsMethod":{"0":[[-1]],"3":[[0,0,0]]},"independentMethod":2}},
+  {"name": "Mbuffering(16)", "data":{"defaultsAnalyzer":1,"hc":{"0":"PT:0","1":"Tjava.net.http.HttpResponse.BodyHandler"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "PdownstreamHandler(0)", "data":{"hcsParameter":{"0":[[0]],"1":[[-1]]},"independentParameter":2}},
+   {"name": "PbufferSize(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]}]},
+ {"name": "SBodySubscriber(2)", "data":{"containerType":1,"defaultsAnalyzer":1,"hc":{"0":"PT:0","1":"Tjava.util.List","E":true,"M":2}}, "sub":
+  {"name": "MgetBody(0)", "data":{"defaultsAnalyzer":1,"hc":{"2":"Tjava.util.concurrent.CompletionStage","M":2},"hcsMethod":{"0":[[0]],"2":[[-1]]}}}},
+ {"name": "SBodySubscribers(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true},"independentType":2}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{}}},
+  {"name": "MfromSubscriber(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.concurrent.Flow.Subscriber","1":"Tjava.util.List","2":"Tjava.nio.ByteBuffer","3":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"3":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Psubscriber(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]],"2":[[0,0]]},"independentParameter":2}}},
+  {"name": "MfromSubscriber(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"PS:0","1":"PT:1","2":"Tjava.util.function.Function","3":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"1":[[0]],"3":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Psubscriber(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}},
+   {"name": "Pfinisher(1)", "data":{"hcsParameter":{"0":[[0]],"1":[[1]],"2":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}}]},
+  {"name": "MfromLineSubscriber(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.concurrent.Flow.Subscriber","1":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Psubscriber(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}}},
+  {"name": "MfromLineSubscriber(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"PS:0","1":"PT:1","2":"Tjava.util.function.Function","3":"Tjava.nio.charset.Charset","4":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"1":[[0]],"4":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Psubscriber(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}},
+   {"name": "Pfinisher(1)", "data":{"hcsParameter":{"0":[[0]],"1":[[1]],"2":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}},
+   {"name": "Pcharset(2)", "data":{"hcsParameter":{"3":[[-1]]},"independentParameter":2}},
+   {"name": "PlineSeparator(3)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "MofString(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.charset.Charset","1":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pcharset(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}}},
+  {"name": "MofByteArray(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}},
+  {"name": "MofFile(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.nio.file.OpenOption","2":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"0":[[0]],"2":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Pfile(0)", "data":{"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+   {"name": "PopenOptions(1)", "data":{"containerParameter":1,"hcsParameter":{"1":[[1]]},"immutableParameter":1,"independentParameter":2}}]},
+  {"name": "MofFile(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.file.Path","1":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pfile(0)", "data":{"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MofByteArrayConsumer(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.function.Consumer","1":"Tjava.util.Optional","2":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"2":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pconsumer(0)", "data":{"hcsParameter":{"0":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}}},
+  {"name": "MofInputStream(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodySubscriber","1":"Tjava.io.InputStream"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"independentMethod":2}},
+  {"name": "MofLines(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.nio.charset.Charset","1":"Tjava.net.http.HttpResponse.BodySubscriber","2":"Tjava.util.stream.Stream"},"hcsMethod":{"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pcharset(0)", "data":{"hcsParameter":{"0":[[-1]]},"independentParameter":2}}},
+  {"name": "MofPublisher(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodySubscriber","1":"Tjava.util.concurrent.Flow.Publisher","2":"Tjava.util.List","3":"Tjava.nio.ByteBuffer"},"hcsMethod":{"0":[[-1]],"3":[[0,0,0]]},"independentMethod":2}},
+  {"name": "Mreplacing(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"PU:0","1":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2}, "sub":
+   {"name": "Pvalue(0)", "data":{"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Mdiscarding(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}},
+  {"name": "Mbuffering(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"PT:0","1":"Tjava.net.http.HttpResponse.BodySubscriber"},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Pdownstream(0)", "data":{"containerParameter":1,"hcsParameter":{"0":[[0]],"1":[[-1]]},"independentParameter":2}},
+   {"name": "PbufferSize(1)", "data":{"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Mmapping(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"PT:0","1":"PU:1","2":"Tjava.net.http.HttpResponse.BodySubscriber","3":"Tjava.util.function.Function"},"hcsMethod":{"1":[[0]],"2":[[-1]]},"independentMethod":2}, "subs":[
+   {"name": "Pupstream(0)", "data":{"containerParameter":1,"hcsParameter":{"0":[[0]],"2":[[-1]]},"independentParameter":2}},
+   {"name": "Pmapper(1)", "data":{"hcsParameter":{"0":[[0]],"1":[[1]],"3":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}}]}]},
+ {"name": "SPushPromiseHandler(4)", "data":{"defaultsAnalyzer":1,"hc":{"0":"PT:0","E":true,"M":1}}, "subs":[
+  {"name": "MapplyPushPromise(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.net.http.HttpRequest","2":"Tjava.util.function.Function","3":"Tjava.net.http.HttpResponse.BodyHandler","4":"Tjava.util.concurrent.CompletableFuture","5":"Tjava.net.http.HttpResponse","M":1},"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "PhttpRequest(0)", "data":{"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+   {"name": "PhttpRequest1(1)", "data":{"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pfunction(2)", "data":{"hcsParameter":{"0":[[0,0],[1,0,0]],"2":[[-1]]},"ignoreModsParameter":1}}]},
+  {"name": "Mof(1)", "data":{"defaultsAnalyzer":1,"hc":{"1":"PT:1","2":"Tjava.util.function.Function","3":"Tjava.net.http.HttpRequest","4":"Tjava.net.http.HttpResponse.BodyHandler","5":"Tjava.util.concurrent.ConcurrentMap","6":"Tjava.util.concurrent.CompletableFuture","7":"Tjava.net.http.HttpResponse","8":"Tjava.net.http.HttpResponse.PushPromiseHandler","M":1},"hcsMethod":{"1":[[0]],"8":[[-1]]}}, "subs":[
+   {"name": "PpushPromiseHandler(0)", "data":{"hcsParameter":{"1":[[1,0]],"2":[[-1]],"3":[[0]]},"ignoreModsParameter":1}},
+   {"name": "PpushPromisesMap(1)", "data":{"hcsParameter":{"1":[[1,0,0]],"3":[[0]],"5":[[-1]]}}}]}]},
+ {"name": "SResponseInfo(5)", "data":{"containerType":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+  {"name": "MstatusCode(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "Mheaders(1)", "data":{"defaultsAnalyzer":1,"hc":{}}},
+  {"name": "Mversion(2)", "data":{"defaultsAnalyzer":1,"hc":{}}}]},
+ {"name": "MstatusCode(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":1},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mrequest(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.net.http.HttpRequest","M":1},"hcsMethod":{"1":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MpreviousResponse(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.Optional","2":"Tjava.net.http.HttpResponse","M":1},"hcsMethod":{"0":[[0,0]],"1":[[-1]]}}},
+ {"name": "Mheaders(3)", "data":{"defaultsAnalyzer":1,"hc":{"M":1}}},
+ {"name": "Mbody(4)", "data":{"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsslSession(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.Optional","2":"Tjavax.net.ssl.SSLSession","M":1},"hcsMethod":{"1":[[-1]],"2":[[0]]}}},
+ {"name": "Muri(6)", "data":{"defaultsAnalyzer":1,"hc":{"M":1}}},
+ {"name": "Mversion(7)", "data":{"defaultsAnalyzer":1,"hc":{"M":1}}}]}
+]

@@ -1,0 +1,94 @@
+
+== Linking rules
+
+=== Hidden content
+
+Each object (graph) consists of accessible content and hidden content.
+
+- Recursively immutable objects have no hidden content, and their accessible content is not modifiable.
+- Immutable objects are characterized by non-modifiable accessible content. In practice, because the hidden content is not accessible neither, no modifications can be made to an immutable object by calling methods or accessing fields; that justifies its name.
+
+Two objects are independent when a modification in one object’s object graph can never imply a modification on the other, or vice versa.
+
+When two objects are not independent, they must share common, mutable sub-objects. We say they are independent HC when all common objects are part of the hidden content, and dependent when some common, mutable, content is accessible.
+
+Recursively immutable objects must be independent. Immutable objects cannot be dependent, because they have no mutable accessible content.
+
+Extensible objects (objects which can be extended via interface implementation, inheritance) have hidden content (think interface, type parameter, non-final class).
+
+Recursively immutable objects cannot be extensible. Almost by definition, java.lang.Object is extensible. It is immutable, but not recursively so. All primitives, and java.lang.String, are non-extensible, and recursively immutable, and independent of each other. Unbound type parameters are extensible, immutable HC, very much like JLO.
+
+Hidden content in a type is characterized by the types its fields, and an as yet unknown component if the type is extensible. Our implementation groups all hidden content by field type. This simplification will be apparent in the linking info to be discussed soon. The different hidden content types are numbered, starting with the indices of a type’s type parameters.
+
+Sealed classes must determine their subclasses; as such, the unknown hidden component is absent.
+
+A type's accessible content is determined by the concrete values of the type parameters.
+Unbound type parameters represent JLO, immutable with hidden content.
+
+Indexing (of hidden content in case of concrete instances of type parameters) is done via a ‘dot’ notation.
+
+=== Semantics of linking
+
+- linking reflects how a modification travels from one object to the next
+- linking is computed between variables, which each represent objects
+- modification = somewhere in my object graph, a (re)assignment occurs.
+- only (re)assignments and method calls cause modifications
+- linking is not applicable to recursively immutable objects
+
+There are 4 levels of linking
+
+- -0- indicates that two variables point to the same object, in a static way (assignment in the code)
+- -1- indicates that two variables point to the same object, computed, e.g., by means of an `@Identity` method or some other computation
+- -2- indicates that the two objects share some accessible content
+- -4- indicates that the two objects do not share accessible content, but do share hidden content
+
+Note:
+
+1. -0- and -1- are different only from an implementation point of view.
+2. -2- optionally takes linking info; -4- links always take linking info.
+
+Linking info describes how the relationship between the different hidden content types, and occurs in couples (mine-theirs), the order depending on the direction of the link.
+
+It is of the form n1,n2,n3-2/4-m1,m2,m3, where hidden content type n1 on the ‘mine’ side relates to hidden content type m1 on the ‘theirs’ side.
+
+Examples
+
+- -2- indicates that two objects share mutable accessible content, and there is either no information about how their hidden content (if present) is shared, or they have no hidden content in common
+- 0-2-1 indicates that two objects share mutable accessible content, and objects of the hidden content type with index 0 are shared with the other object, where the same (at least, assignable) type has index 1. A typical first example is List<T> sub = list.subList(0, 3). The result of this action is sub 0-2-0 list.
+
+=== Addition 1: decoration with M
+
+When the hidden content of a type is filled with mutable objects, in an accessible way, we append M:
+
+`List<Mutable> sub = list.subList(0, 3)` results in sub `0M-2-0M`.
+
+`Set<Map.Entry<Mutable, T>> entrySet = map.entrySet` results in `0.0M,0.1-2-0,1`.
+
+Why do this? Propagation of mutations.
+
+=== Addition 2: *
+
+When the whole object is included as part of the hidden content of the other, that side gets * instead of an index (which still is implicitly present).
+
+`X x = listX.get(3);` results in x `*-4-0` listX
+
+`M m = listM.get(3);` results in m `*M-2-0M` listM.
+
+Note that `X` and `M` do not share any accessible content with the actual list implementation.
+X's instances are part of the list's hidden content.
+M's instances are part of the list's accessible content: `List<M>` is fully accessible.
+
+=== Addition 3: M without index
+
+M without index represents the mutable part.
+
+Each component can be decorated with M; M without an index is also possible.
+
+Finally, the index can be replaced by an asterisk.
+
+Summary: how does a field link to its holding object?
+
+== Computing the propagation of modifications through a linking graph.
+
+ the convention is that modification on a functional interface type indicates that the SAM (single abstract method)
+    has been called.

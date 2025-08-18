@@ -1,0 +1,285 @@
+[[linking-dependence]]
+= Linking, dependence
+
+Let us now elaborate on how we will compute modifications, in a path towards immutability.
+Consider the following example:
+
+.Example {counter:example}, a field assigned to a constructor parameter
+[source,java]
+----
+class LinkExample1<X> {
+    private final Set<X> set;
+
+    public LinkExample1(Set<X> xs) {
+        this.set = xs;
+    }
+
+    public void add(X x) {
+        set.add(x);
+    }
+}
+----
+
+After construction, an instance of `LinkExample1` contains a reference to the set that was passed on as an argument to its constructor.
+We say the field `set` links to the parameter `xs` of the constructor.
+In this example, this is an expensive way of saying that there is an assignment from one to the other.
+However, linking can become more complicated.
+
+The {maddi} analyzer will add modification annotations to `LinkExample1` as follows:
+
+.Example {counter:example}, a field linked to a constructor parameter, with annotations
+[source,java]
+----
+class LinkExample1<X> {
+    @Modified
+    private final Set<X> set;
+
+    public LinkExample1(@Modified Set<X> xs) {
+        this.set = xs;
+    }
+
+    @Modified
+    public void add(X x) {
+        set.add(x);
+    }
+}
+----
+
+The parameter `x` of `LinkExample1.add` is {nm} because the first parameter of `Set.add` is {nm} (because its type is an unbound type parameter).
+The `LinkExample1.add` method modifies the field, which causes the annotation first on the method, then on the field, and finally on the parameter of the constructor.
+Because of the latter, `LinkExample1` cannot be marked {container}.
+
+Linking looks at the underlying object, and not at the variable.
+Consider the following alternative `add` method:
+
+.Example {counter:example}, alternative `add` method for `LinkExample1`
+[source,java]
+----
+@Modified
+public void add(X x) {
+    Set<X> theSet = this.set;
+    X theX = x;
+    theSet.add(theX);
+}
+----
+
+Nothing has changed, obviously.
+Finally, as an example of how linking can become more complicated than following assignments, consider a typical
+_view_ on a collection:
+
+.Example {counter:example}, linking using a method call
+[source,java]
+----
+List<X> list = createSomeLargeList();
+List<X> sub = list.subList(1, 5);
+sub.set(0, x); // <1>
+----
+
+<1> The modifying method call `set` will modify `sub`, and `list` as well!
+
+On the other side of the spectrum, linking does not work on objects that cannot be modified, like primitives or deeply immutable objects such as the primitives, or `java.lang.String`.
+
+Let us summarize by:
+
+****
+*Definition*: Two objects are independent of each other (or not linked to each other) when no modification to the first can imply a modification to the second, or vice versa.
+
+Conversely, two objects are dependent (or linked) when a modification to the first may imply a modification to the second, or vice versa.
+****
+
+Linked objects must share a common sub-object: the object returned by `subList`, for example, is "backed" by the original list, in other words, it maintains a reference to the original list.
+
+NOTE: (in)dependence is defined at the level of objects (instances of some class or interface).
+Two objects of the same class can be independent of each other.
+For two objects to be dependent on each other, they must have some common type in their respective type definitions.
+
+We will discuss linking in more detail in <<computing-dependence>>.
+For now, assume that a field links to another field, or to a parameter, if there is a possibility that both variables represent (part of) the same object (their object graphs overlap).
+
+Linking between fields and parameters, and fields and return values of methods, is important to us:
+
+****
+*Definition*:
+A method parameter or constructor parameter is not linked when it is not linked to any of the fields of the type.
+A method is *not linked* when its return value is not linked to any of the fields of the type.
+****
+
+When a constructor parameter is linked, any modification made to the object presented to this parameter as an argument may have an influence on the object graph of the fields of the constructor's type.
+But do all these modifications matter to the type?
+
+[#accessible-hidden-content]
+== Accessible and hidden content
+
+We will try to make our case using two examples.
+First, consider `Counter` and `Counters`:
+
+.Example {counter:example}, Counter, Counters
+[source,java]
+----
+interface Counter {
+
+  // @Modified implicit
+  void increment();
+
+  @NotModified
+  int getValue();
+
+  @NotModified
+  String getName();
+}
+
+@FinalFields @Container
+class Counters {
+  private final Map<String, Counter> counters;
+
+  public Counters(Collection<Counter> counterCollection) {
+    this.counters = counterCollection.stream().collect
+      (Collectors.toUnmodifiableMap(Counter::getName, c -> c));
+  }
+
+  @NotModified
+  public Counter getCounter(String name) {
+    return counters.get(name);
+  }
+
+  @NotModified
+  public int getValue(String name) {
+    return getCounter(name).getValue();
+  }
+}
+----
+
+The constructor `Counters` copies every counter in the `counterCollection` into a new, unmodifiable map.
+Clearly, external modifications to the collection itself (i.e., adding, removing a new `Counter` element) made after creation of the `Counters` object, will have no effect on the object graph of the field `counters`:
+
+[source,java]
+----
+List<Counter> list = new ArrayList<>();
+Collections.addAll(list, new CounterImpl("sunny days"), new CounterImpl("rainy days"));
+Counters counters = new Counters(list);
+Counter sunnyDays = list.remove(0);
+assert "sunny days".equals(sunnyDays.getName());
+assert sunnyDays == counters.getCounter("sunny days");
+----
+
+However, consider the following statements executed after creating a `Counters` object:
+
+.Example {counter:example}, after creating a Counters object
+[source,java]
+----
+int rainyDays = counters.getValue("rainy days");
+Counter c = counters.get("rainy days");
+c.increment();
+assert c.getValue() == rainyDays + 1;
+assert counters.getValue("rainy days") == rainyDays + 1;
+----
+
+An external modification (`c.increment()`) to an object presented to the constructor as part of the collection has an effect on the object graph of the fields, to the extent that an identical, non-modifying method call returns a different value!
+
+We must conclude that the parameter of the constructor `counterCollection` is linked to the field `counters`, even if modifications at the collection level have no effect.
+
+Now we put the `Counters` example in contrast with the `Levels` example, where the modifying method `increment()`
+has been removed from `Counter` to obtain `Level`:
+
+.Example {counter:example}, Level, Levels
+[source,java]
+----
+interface Level {
+
+  @NotModified
+  int getValue();
+
+  @NotModified
+  String getName();
+}
+
+class Levels {
+  private final Map<String, Level> levels;
+
+  public Levels(Collection<Level> levelCollection) {
+    this.levels = levelCollection.stream().collect
+      (Collectors.toUnmodifiableMap(Level::getName, c -> c));
+  }
+
+  public Level getLevel(String name) {
+    return levels.get(name);
+  }
+
+  public int getValue(String name) {
+    return getLevel(name).getValue();
+  }
+}
+----
+
+
+We propose to split the object graph of a field into two parts: its accessible part, and its hidden part.
+
+****
+*Definition:* A type `A`, part of the object graph of the fields of type `T`, is *accessible* inside the type `T` when any of its methods or fields is accessed.
+The methods of `java.lang.Object` are excluded from this definition.
+
+A type that is part of the object graph of the fields, but is not accessible, is *hidden* (when it is an unbound type parameter) or *transparent* (when it is not).
+****
+
+A type which is transparent can be replaced by an unbound type parameter, which is why we will use the term _hidden_
+from now on.
+Note: if it were not for transparent types, which are clearly accessible but are never accessed, we would not define something "accessible" in terms of "accessed".
+But we can argue that having transparent types in the code is poor programming practice (to the extent that the analyzer can be configured to raise an error when they are present), and "hidden" is the complement of "accessible".
+
+When a type `C` extends from a parent type `P`, we see an instance of `C` as being composed of two parts: the methods and fields of `P`, augmented by the methods and fields of `C`.
+Whilst the part of the parent, `P`, can be accessible, the part of the child `C` may remain hidden.
+Similarly, when `T` implements the interface `I`, but the interface is used as the formal type, then the methods and fields of `I` are accessible, but the ones augmented by the implementation `T` remain hidden.
+In the example of `Level`, implementations or extensions may be modifiable (such as `Counter`), but when presented with `Level` only, there are no modifications to be made.
+Inside `Levels`, where we are limited to `Level`, no such extensions are accessible.
+
+Armed with this definition, we split the combined object graph of the fields of a type into the accessible content, and the hidden content:
+
+****
+*Definition:* The *accessible content* of a type are those objects of the object graph of the fields that are of accessible type.
+
+The *hidden content* of a type are those objects of the object graph of the fields that are of hidden (or transparent) type.
+****
+
+Note that we must make this distinction, because every interface is meant to be implemented, and every type, unless explicitly marked `final` or `sealed` can be extended in Java.
+These extensions could be completely outside the control of the current implementation (even though we can use the analyzer to constrain them).
+
+In the first example of this section, `LinkExample1`, objects of the type `X` form the hidden content of `LinkExample1`, while the `Set` instance is the accessible content.
+In `Counters`, `Map`, `String` and `Counter` are accessible, but whatever augments to `Counter` by implementing it r emains hidden.
+Exactly the same applies to `Levels`: `Map`, `String` and `Level` are accessible, but whatever augments `Level` by implementing it remains hidden.
+
+One of the central tenets of our definition of immutability will be that
+
+****
+A type is not responsible for modifications to its hidden content.
+****
+
+Recall that by definition, any modifications to the hidden content must be external to the type.
+
+We end this section by defining what linking means with respect to the accessible and hidden content of the fields.
+The definition of linking given in the previous section is absolute, in the sense that it covers the whole object graph of the objects being linked.
+
+When a parameter is linked to a field, we could try to find out if the modifications affect the accessible content, given that we state that modifications to the hidden content are outside the scope of the type anyway.
+In other words, we could distinguish between different forms of linking:
+
+****
+*Definition:* a parameter or method return value is
+
+* *dependent* on the fields if and only if it is linked to the accessible content of the type.
+* *independent* of the fields if and only if it is at most linked to the hidden content of the type
+****
+
+In other words, a parameter or method return value is dependent when a modification on the argument or returned value has the possibility to cause a modification in the accessible part of the fields.
+
+Linking between parameters or return value and fields which does not involve the accessible part of the fields, is called independence.
+We will elaborate in <<hidden-content>>.
+In the following sections, we will often use the term 'independent' when we mean 'not-dependent', i.e., when there is no linking or only linking to the hidden part of the object graph of the fields.
+
+In terms of annotations, dependence will be the default state for objects of types where dependence is possible.
+We will not annotate it most of the time; if we do, we use the annotation `@Independent(absent=true)`.
+The annotation {independent} on parameters and methods will be used for absence of linking.
+When a type is deeply immutable, {independent} is the default state, and therefore it will be omitted.
+We use `@Independent(hc=true)` to stress the linking to the hidden part.
+
+Now, all pieces of the puzzle are available to introduce immutability of types.
+
+// end of line

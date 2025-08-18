@@ -1,0 +1,47 @@
+[
+{"name": "Tjava.util.zip.ZipOutputStream", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+ {"name": "SXEntry(0)", "data":{"hc":{"E":true}}, "subs":[
+  {"name": "C<init>(0)", "data":{"hc":{"0":"Tjava.util.zip.ZipEntry"}}, "subs":[
+   {"name": "Pentry(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]}]},
+ {"name": "FSTORED(12)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
+ {"name": "FDEFLATED(13)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
+ {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.io.OutputStream"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pout(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"notNullParameter":1}}},
+ {"name": "C<init>(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.io.OutputStream","1":"Tjava.nio.charset.Charset"},"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pout(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Pcharset(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "Mversion(0)", "data":{"hc":{"0":"Tjava.util.zip.ZipEntry"}}, "sub":
+  {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MensureOpen(1)", "data":{"hc":{}}},
+ {"name": "MsetComment(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pcomment(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MsetMethod(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pmethod(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetLevel(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Plevel(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MputNextEntry(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.zip.ZipEntry"},"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pe(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McloseEntry(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mwrite(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}, "subs":[
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Poff(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plen(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfinish(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mclose(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"methodAllowsInterrupts":1,"notNullMethod":1}},
+ {"name": "MwriteLOC(10)", "data":{"hc":{"0":"Tjava.util.zip.ZipOutputStream.XEntry"}}, "sub":
+  {"name": "Pxentry(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwriteEXT(11)", "data":{"hc":{"0":"Tjava.util.zip.ZipEntry"}}, "sub":
+  {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MversionMadeBy(12)", "data":{"hc":{"0":"Tjava.util.zip.ZipEntry"}}, "subs":[
+  {"name": "Pe(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MwriteCEN(13)", "data":{"hc":{"0":"Tjava.util.zip.ZipOutputStream.XEntry"}}, "sub":
+  {"name": "Pxentry(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwriteEND(14)", "data":{"hc":{}}},
+ {"name": "MgetExtraLen(15)", "data":{"hc":{}}},
+ {"name": "MwriteExtra(16)", "data":{"hc":{}}},
+ {"name": "MwriteByte(17)", "data":{"hc":{}}},
+ {"name": "MwriteShort(18)", "data":{"hc":{}}},
+ {"name": "MwriteInt(19)", "data":{"hc":{}}},
+ {"name": "MwriteLong(20)", "data":{"hc":{}}},
+ {"name": "MwriteBytes(21)", "data":{"hc":{}}}]}
+]

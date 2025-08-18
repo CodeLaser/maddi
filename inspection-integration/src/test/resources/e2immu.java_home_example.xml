@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>JVMArch</key>
+		<string>arm64</string>
+		<key>JVMBundleID</key>
+		<string>net.java.openjdk.jdk</string>
+		<key>JVMEnabled</key>
+		<true/>
+		<key>JVMHomePath</key>
+		<string>/opt/homebrew/Cellar/openjdk/24.0.2/libexec/openjdk.jdk/Contents/Home</string>
+		<key>JVMName</key>
+		<string>OpenJDK 24.0.2</string>
+		<key>JVMPlatformVersion</key>
+		<string>24.0.2</string>
+		<key>JVMVendor</key>
+		<string>Homebrew</string>
+		<key>JVMVersion</key>
+		<string>24.0.2</string>
+	</dict>
+	<dict>
+		<key>JVMArch</key>
+		<string>arm64</string>
+		<key>JVMBundleID</key>
+		<string>net.java.openjdk.jdk</string>
+		<key>JVMEnabled</key>
+		<true/>
+		<key>JVMHomePath</key>
+		<string>/Users/pvremort/Library/Java/JavaVirtualMachines/openjdk-21/Contents/Home</string>
+		<key>JVMName</key>
+		<string>OpenJDK 21</string>
+		<key>JVMPlatformVersion</key>
+		<string>21</string>
+		<key>JVMVendor</key>
+		<string>Oracle Corporation</string>
+		<key>JVMVersion</key>
+		<string>21</string>
+	</dict>
+	<dict>
+		<key>JVMArch</key>
+		<string>arm64</string>
+		<key>JVMBundleID</key>
+		<string>com.amazon.corretto.19</string>
+		<key>JVMEnabled</key>
+		<true/>
+		<key>JVMHomePath</key>
+		<string>/Users/pvremort/Library/Java/JavaVirtualMachines/corretto-19.0.2/Contents/Home</string>
+		<key>JVMName</key>
+		<string>Amazon Corretto 19</string>
+		<key>JVMPlatformVersion</key>
+		<string>19.0.2</string>
+		<key>JVMVendor</key>
+		<string>Amazon.com Inc.</string>
+		<key>JVMVersion</key>
+		<string>19.0.2</string>
+	</dict>
+	<dict>
+		<key>JVMArch</key>
+		<string>arm64</string>
+		<key>JVMBundleID</key>
+		<string>net.java.openjdk.jdk</string>
+		<key>JVMEnabled</key>
+		<true/>
+		<key>JVMHomePath</key>
+		<string>/opt/homebrew/Cellar/openjdk@17/17.0.14/libexec/openjdk.jdk/Contents/Home</string>
+		<key>JVMName</key>
+		<string>OpenJDK 17.0.14</string>
+		<key>JVMPlatformVersion</key>
+		<string>17.0.14</string>
+		<key>JVMVendor</key>
+		<string>Homebrew</string>
+		<key>JVMVersion</key>
+		<string>17.0.14</string>
+	</dict>
+	<dict>
+		<key>JVMArch</key>
+		<string>arm64</string>
+		<key>JVMBundleID</key>
+		<string>com.azul.zulu.13.0.14.jdk</string>
+		<key>JVMEnabled</key>
+		<true/>
+		<key>JVMHomePath</key>
+		<string>/Users/pvremort/Library/Java/JavaVirtualMachines/azul-13.0.14/Contents/Home</string>
+		<key>JVMName</key>
+		<string>Zulu 13.54.17</string>
+		<key>JVMPlatformVersion</key>
+		<string>13.0</string>
+		<key>JVMVendor</key>
+		<string>Azul Systems, Inc.</string>
+		<key>JVMVersion</key>
+		<string>13.0.14</string>
+	</dict>
+	<dict>
+		<key>JVMArch</key>
+		<string>x86_64</string>
+		<key>JVMBundleID</key>
+		<string>net.temurin.8.jdk</string>
+		<key>JVMEnabled</key>
+		<true/>
+		<key>JVMHomePath</key>
+		<string>/Library/Java/JavaVirtualMachines/temurin-8.jdk/Contents/Home</string>
+		<key>JVMName</key>
+		<string>Eclipse Temurin 8</string>
+		<key>JVMPlatformVersion</key>
+		<string>1.8.0_402-b06</string>
+		<key>JVMVendor</key>
+		<string>Eclipse Temurin</string>
+		<key>JVMVersion</key>
+		<string>1.8.0_402</string>
+	</dict>
+</array>
+</plist>

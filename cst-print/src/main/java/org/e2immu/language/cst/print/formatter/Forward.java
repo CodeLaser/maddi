@@ -1,0 +1,105 @@
+/*
+ * e2immu: a static code analyser for effective and eventual immutability
+ * Copyright 2020-2021, Bart Naudts, https://www.e2immu.org
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.cst.print.formatter;
+
+import org.e2immu.language.cst.api.output.FormattingOptions;
+import org.e2immu.language.cst.api.output.OutputElement;
+import org.e2immu.language.cst.api.output.element.*;
+import org.e2immu.language.cst.api.runtime.Runtime;
+
+import java.util.List;
+import java.util.function.Function;
+
+public class Forward {
+
+    /**
+     * Algorithm to iterate over the output elements.
+     *
+     * @param list     the source
+     * @param writer   all forward info sent to this writer; it returns true when this algorithm needs to stop
+     * @param start    position in the list where to start
+     * @param maxChars some sort of line length
+     * @return true when interrupted by a "true" from the writer; false in all other cases (end of list, exceeding maxChars,
+     * reaching maxChars using a guide)
+     */
+    public static boolean forward(Runtime runtime,
+                                  FormattingOptions options,
+                                  List<OutputElement> list,
+                                  Function<ForwardInfo, Boolean> writer,
+                                  int start,
+                                  int maxChars) {
+        OutputElement outputElement;
+        int pos = start;
+        int chars = 0;
+        int end = list.size();
+
+        ElementarySpace lastOneWasSpace = runtime.elementarySpaceNice(); // used to avoid writing double spaces
+        Split split = runtime.splitNever();
+        boolean wroteOnce = false; // don't write a space at the beginning of the line
+        while (pos < end && !(outputElement = list.get(pos)).isNewLine()) {
+            String string;
+
+            Split splitAfterWriting;
+            ElementarySpace spaceAfterWriting;
+            if (outputElement instanceof Symbol symbol) {
+                split = symbol.left().split();
+                lastOneWasSpace = combine(lastOneWasSpace, symbol.left().elementarySpace(options));
+                string = symbol.symbol();
+                spaceAfterWriting = symbol.right().elementarySpace(options);
+                splitAfterWriting = symbol.right().split();
+            } else {
+                spaceAfterWriting = runtime.elementarySpaceRelaxedNone();
+                splitAfterWriting = runtime.splitNever();
+                if (outputElement instanceof Guide) {
+                    string = "";
+                } else {
+                    string = outputElement.write(options);
+                }
+            }
+            // check for double spaces
+            if (outputElement instanceof Space space) {
+                lastOneWasSpace = combine(lastOneWasSpace, space.elementarySpace(options));
+                split = split.easiest(space.split());
+            } else if (outputElement instanceof Guide guide) {
+                if (chars >= maxChars) return false;
+                // empty string indicates that there is a Guide on this position
+                // split means nothing here
+                if (writer.apply(new ForwardInfo(pos, chars, null, runtime.splitNever(), guide, false))) {
+                    return true;
+                }
+            } else if (!string.isEmpty()) {
+                boolean writeSpace = !lastOneWasSpace.isNone() && !lastOneWasSpace.isRelaxedNone() && wroteOnce;
+                String stringToWrite = writeSpace ? (" " + string) : string;
+                if (writer.apply(new ForwardInfo(pos, chars, stringToWrite, split, null,
+                        outputElement instanceof Symbol))) return true;
+                lastOneWasSpace = spaceAfterWriting;
+                split = splitAfterWriting;
+                wroteOnce = true;
+                chars += string.length() + (writeSpace ? 1 : 0);
+            }
+            ++pos;
+        }
+        return false;
+    }
+
+    // main point: once we have an enforced ONE, wo do not let go
+    // otherwise we step to the spacing of the next one
+    private static ElementarySpace combine(ElementarySpace s1, ElementarySpace s2) {
+        if (s1.isOne() || s1.isNone()) {
+            return s1;
+        }
+        return s2;
+    }
+}

@@ -1,0 +1,73 @@
+= Annotation overview
+
+When annotating abstract types and methods, or types in the Annotated APIs, observe the following rules.
+
+A method is {nm} unless otherwise specified, its parameters are assumed to be {modified}, unless they are of
+immutable type.
+
+Due to the large amount of circular type dependencies in the JDK, combined with the current limitations of the analyser,
+the implementation of the Annotated API analyser requires contracted annotations about independence,
+immutability, and container on the type.
+The following combinations are possible with respect ot independence and immutability:
+
+* no independence information: (in)dependence according to the immutability value
+(not immutable -> dependent, {immutableHC} -> {independentHC}, {immutable} -> {independent})
+* {independentAbsent}: dependent; this requires that the type is not immutable
+* {independentHC}: this is the default for {immutableHC}, {immutableContainerHC}, so explicitly writing this annotation
+is only necessary on non-immutable types
+* {independent}: this is the default for {immutable}, {immutableContainer}, so so explicitly writing this annotation
+is only useful for mutable or {immutableHC} types
+
+Recall that abstract types always have hidden content, so the `hc=true` is always implicitly present on
+{independent} and {immutable}, {immutableContainer} on the type.
+We generally do not write `hc=false`, as that is the default value in the annotation.
+The analyser will complain when `hc=false` is present on the {immutable} annotation of an abstract type.
+
+To support the user, a warning will be raised when the independence value on the type is incompatible with
+that on its methods, parameters and fields.
+
+In a {container} type, all {fluent} methods and all void methods are assumed to be {modified}.
+Change this by explicitly marking the method {nm} or {sse}.
+
+Parameters of a non-modifying method are {independent} by default, regardless of an independence annotation on the type.
+This can be overwritten by {independentAbsent} or {independentHC} when the method exposes parts of the fields' object graph via its parameters.
+Parameters of a modifying method are assumed to be dependent when the type is not immutable, and independent when the type is immutable, the hidden content carrying over from immutable to independent.
+
+Dependence is only explicitly written as {independentAbsent} on a type after analysis, when this type has (eventually) final fields and no modifying methods, as a marker to the user to indicate that it is the independence property that is missing to reach immutability.
+Marking a non-immutable type with {independent} specifies that no parameter or return value can be dependent.
+The hidden content parameter given by the user is ignored: you will still have to mark any method or parameter which communicates hidden content with {independentHC}.
+
+When a type is immutable, {independent} becomes the default independence annotation for methods and parameters.
+You must still use {independentHC} to indicate communication of hidden content.
+
+Methods marked {fluent} are always {independent}, because returning the type itself does not expose any additional information.
+
+Following its definition, {utilityClass} on a type implies {immutable}.
+
+In application mode, the analyser will regard every class that is never extended as effectively final.
+This property is only relevant when the type is immutable; the absence of `hc=true` is a marker.
+
+Parameters of "official" functional interface type (i.e., the type is a functional interface type in the package
+`java.util.function`) have the {ignoreModifications} annotation, unless explicitly overwritten by {modified}.
+
+The default nullable annotation for parameters and return values of non-primitive type is {nullable}.
+
+A factory method is a static method returning an object of the type of the class.
+Independence of a factory method is always with respect to the method's parameters, rather than to the type.
+Independence of a factory method's parameters corresponds to the immutability of the parameter type.
+These two rules also applies to any static method in an immutable type.
+Note that utility classes are classes that are deeply immutable and cannot be instantiated, so it applies to their static methods.
+
+In general, annotations are inherited on types, methods and parameters.
+The properties can deviate,
+
+- from {modified} to {nm} is possible, from {nm} to {modified} is not
+- independence can go from left to right in {independentAbsent} -> {independentHC} -> {independent},
+but not from right to left
+- a type deriving from an immutable type does not need to be immutable; however, a type deriving from a
+non-immutable type can never be immutable
+
+When a method has a single statement, returning a constant value, the `@ImmutableContainer("value")` is implicit.
+Similarly, when a field is explicitly final (it has the `final` modifier) and it has an initialiser, then both {final}
+and, if relevant, `@ImmutableContainer("value")`, is implicit.
+
