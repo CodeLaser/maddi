@@ -11,16 +11,24 @@
  * more details. You should have received a copy of the GNU Lesser General Public
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-plugins {
-    id("java-library-conventions")
-}
 
-dependencies {
-    api(project(":inspection-api"))
-    implementation(project(":internal-graph"))
-    implementation(project(":internal-util"))
-    implementation(project(":cst-impl"))
-    implementation(project(":inspection-resource"))
-    implementation(project(":aapi-parser"))
-    implementation("com.fasterxml.jackson.core:jackson-databind")
+package org.e2immu.gradleplugin;
+
+import org.gradle.api.Action;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class ActionBroadcast<T> implements Action<T> {
+
+    private final List<Action<? super T>> actions = new ArrayList<>();
+
+    public void add(Action<? super T> action) {
+        actions.add(action);
+    }
+
+    @Override
+    public void execute(T t) {
+        actions.forEach(a -> a.execute(t));
+    }
 }

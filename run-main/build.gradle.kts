@@ -12,74 +12,36 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 plugins {
+    id("java-library-conventions")
     application
-    `maven-publish`
 }
-
-group = "org.e2immu"
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_24
-    targetCompatibility = JavaVersion.VERSION_24
-}
-
-repositories {
-    maven {
-        url = uri(project.findProperty("codeartifactPublicUri") as String)
-        credentials {
-            username = "aws"
-            password = project.findProperty("codeartifactToken") as String
-        }
-    }
-    mavenCentral()
-}
-
-val slf4jVersion = project.findProperty("slf4jVersion") as String
-val jupiterApiVersion = project.findProperty("jupiterApiVersion") as String
-val jupiterEngineVersion = project.findProperty("jupiterEngineVersion") as String
-val logbackClassicVersion = project.findProperty("logbackClassicVersion") as String
-val jacksonVersion = project.findProperty("jacksonVersion") as String
-
 dependencies {
-    implementation("org.e2immu:e2immu-external-support:$version")
-    implementation("org.e2immu:e2immu-internal-util:$version")
-    implementation("org.e2immu:e2immu-internal-graph:$version")
+    api(project(":inspection-api"))
+    implementation(project(":modification-common"))
+    implementation(project(":modification-io"))
+    implementation(project(":modification-prepwork"))
+    implementation(project(":modification-linkedvariables"))
+    implementation(project(":internal-graph"))
+    implementation(project(":internal-util"))
+    implementation(project(":cst-analysis"))
 
-    implementation("org.e2immu:e2immu-cst-api:$version")
-    implementation("org.e2immu:e2immu-cst-impl:$version")
-    implementation("org.e2immu:e2immu-cst-io:$version")
-    implementation("org.e2immu:e2immu-cst-print:$version")
-    implementation("org.e2immu:e2immu-cst-analysis:$version")
+    implementation(project(":cst-impl"))
+    implementation(project(":cst-io"))
+    implementation(project(":cst-print"))
+    implementation(project(":inspection-parser"))
+    implementation(project(":inspection-integration"))
+    implementation(project(":inspection-resource"))
+    implementation(project(":java-bytecode"))
+    implementation(project(":java-parser"))
+    implementation(project(":aapi-parser"))
+    testRuntimeOnly(project(":aapi-archive"))
 
-    implementation("org.e2immu:e2immu-java-parser:$version")
-    implementation("org.e2immu:e2immu-java-bytecode:$version")
+    implementation(project(":run-config"))
 
-    implementation("org.e2immu:e2immu-inspection-api:$version")
-    implementation("org.e2immu:e2immu-inspection-resource:$version")
-    implementation("org.e2immu:e2immu-inspection-integration:$version")
-    implementation("org.e2immu:e2immu-inspection-parser:$version")
-
-    implementation("org.e2immu:e2immu-modification-common:$version")
-    implementation("org.e2immu:e2immu-modification-io:$version")
-    implementation("org.e2immu:e2immu-aapi-parser:$version")
-
-    implementation("org.e2immu:e2immu-modification-prepwork:$version")
-    implementation("org.e2immu:e2immu-modification-linkedvariables:$version")
-
-    implementation("org.e2immu:e2immu-run-config:$version")
-
-    implementation("org.slf4j:slf4j-api:$slf4jVersion")
-    // we'll be setting log levels based on the debugTargets property
-    implementation("ch.qos.logback:logback-classic:$logbackClassicVersion")
-    implementation("commons-cli:commons-cli:1.4")
-
-    implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
-
-
-    testImplementation("org.junit.jupiter:junit-jupiter-api:$jupiterApiVersion")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$jupiterEngineVersion")
+    implementation("commons-cli:commons-cli")
+    implementation("ch.qos.logback:logback-classic")
+    implementation("com.fasterxml.jackson.core:jackson-databind")
 }
 
 application {
@@ -97,43 +59,3 @@ tasks.test {
     useJUnitPlatform()
 }
 
-
-publishing {
-    repositories {
-        maven {
-            url = uri(project.findProperty("publishPublicUri") as String)
-            credentials {
-                username = project.findProperty("publishUsername") as String
-                password = project.findProperty("publishPassword") as String
-            }
-        }
-    }
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-
-            pom {
-                name = "analyzer-run-main of e2immu analyser"
-                description = "Static code analyser focusing on modification and immutability. " +
-                        "This module contains a main method for running the analyzer."
-                url = "https://e2immu.org"
-                scm {
-                    url = "https://github.com/e2immu"
-                }
-                licenses {
-                    license {
-                        name = "GNU Lesser General Public License, version 3.0"
-                        url = "https://www.gnu.org/licenses/lgpl-3.0.html"
-                    }
-                }
-                developers {
-                    developer {
-                        id = "bnaudts"
-                        name = "Bart Naudts"
-                        email = "bart.naudts@e2immu.org"
-                    }
-                }
-            }
-        }
-    }
-}

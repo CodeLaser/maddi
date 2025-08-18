@@ -4,10 +4,6 @@ plugins {
     id("org.asciidoctor.jvm.gems") version "4.0.4"
 }
 
-repositories {
-    mavenCentral()
-}
-
 // Configure AsciiDoctor dependencies
 dependencies {
     // AsciiDoctor gems for PDF and syntax highlighting

@@ -15,6 +15,8 @@ dependencies {
         api("ch.qos.logback:logback-classic:1.5.18")
 
         api("org.jetbrains:annotations:26.0.2")
+        api("com.fasterxml.jackson.core:jackson-databind:2.18.2")
+        api("commons-cli:commons-cli:1.4")
     }
 }
 
