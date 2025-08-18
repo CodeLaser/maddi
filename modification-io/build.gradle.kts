@@ -24,6 +24,7 @@ dependencies {
     implementation(project(":java-bytecode"))
     implementation(project(":java-parser"))
 
+    testRuntimeOnly(project(":aapi-archive"))
     testImplementation("ch.qos.logback:logback-classic")
     testImplementation(project(":modification-linkedvariables"))
 }

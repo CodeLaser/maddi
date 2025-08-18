@@ -68,7 +68,7 @@ public class TestParseAnalyzeWrite {
                         .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
                         .addClassPath(ToolChain.CLASSPATH_JUNIT)
                         .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
-                        .addSources("../e2immu-aapi-archive/src/main/java")
+                        .addSources("../aapi-archive/src/main/java")
                         .addRestrictSourceToPackages(JDK_PACKAGE).build(),
                 new AnnotatedAPIConfigurationImpl.Builder().build());
 

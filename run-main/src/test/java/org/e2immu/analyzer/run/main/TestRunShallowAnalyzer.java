@@ -27,7 +27,7 @@ public class TestRunShallowAnalyzer {
 
     @Test
     public void test() {
-        File aapiSources = new File("../../analyzer-shallow/e2immu-shallow-aapi/src/main/java");
+        File aapiSources = new File("../aapi-archive/src/main/java");
         assertTrue(aapiSources.isDirectory(), "Absolute = " + aapiSources.getAbsolutePath());
 
         File file = new File("build/test-shallow-analyzer");

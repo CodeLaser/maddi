@@ -62,13 +62,13 @@ public class TestLoadAnalyzedPackageFiles {
 
         LoadAnalyzedPackageFiles loadAnalyzedPackageFiles = new LoadAnalyzedPackageFiles();
         String jdk = ToolChain.mapJreShortNameToAnalyzedPackageShortName(ToolChain.currentJre().shortName());
-        File jdkDir = new File("../../analyzer-aapi/e2immu-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk/" + jdk);
+        File jdkDir = new File("../aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk/" + jdk);
         LOGGER.info("JDK dir is {}", jdkDir);
         assertTrue(jdkDir.isDirectory());
         int countJdk = loadAnalyzedPackageFiles.goDir(javaInspector, jdkDir);
         assertTrue(countJdk > 1);
 
-        File libDir = new File("../../analyzer-aapi/e2immu-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs");
+        File libDir = new File("../aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs");
         LOGGER.info("Lib dir is {}", libDir);
         assertTrue(libDir.isDirectory());
         int countLib = loadAnalyzedPackageFiles.goDir(javaInspector, libDir);

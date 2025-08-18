@@ -8,6 +8,7 @@ plugins {
 }
 
 dependencies {
+    api(project(":external-support"))
     api(project(":inspection-api"))
     implementation(project(":modification-common"))
     implementation(project(":modification-io"))
@@ -28,6 +29,11 @@ dependencies {
     implementation("ch.qos.logback:logback-classic")
     testImplementation(project(":modification-io"))
 
+    testImplementation("org.apiguardian:apiguardian-api:1.1.2")
+    testRuntimeOnly("info.picocli:picocli:4.7.7")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter:5.9.2")
+    testRuntimeOnly("org.springframework.security:spring-security-config:6.3.9")
+    testRuntimeOnly("org.springframework.security:spring-security-web:6.3.9")
 }
 
 
