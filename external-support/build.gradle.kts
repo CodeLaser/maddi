@@ -15,3 +15,8 @@
 plugins {
     id("java-library-conventions")
 }
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}

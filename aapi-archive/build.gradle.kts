@@ -8,6 +8,12 @@ plugins {
     id("java-library-conventions")
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
+
 dependencies {
     api(project(":external-support"))
     implementation("org.junit.jupiter:junit-jupiter-api")

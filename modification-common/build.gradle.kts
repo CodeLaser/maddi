@@ -6,7 +6,11 @@
 plugins {
     id("java-library-conventions")
 }
-
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
 dependencies {
     api(project(":inspection-api"))
     implementation(project(":internal-graph"))
@@ -22,8 +26,6 @@ dependencies {
     testImplementation(project(":java-bytecode"))
     testImplementation(project(":java-parser"))
 }
-
-
 tasks.withType<Test> {
     maxHeapSize = "2G"
     maxParallelForks = 4

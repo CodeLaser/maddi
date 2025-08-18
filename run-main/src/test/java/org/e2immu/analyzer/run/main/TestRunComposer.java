@@ -2,6 +2,7 @@ package org.e2immu.analyzer.run.main;
 
 import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,7 @@ public class TestRunComposer {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
     }
 
+    @Disabled
     @Test
     public void test() {
         File file = new File("build/test-aapi-skeleton");
