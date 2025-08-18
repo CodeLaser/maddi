@@ -36,8 +36,8 @@ val jupiterEngineVersion = project.findProperty("jupiterEngineVersion") as Strin
 
 dependencies {
     implementation(gradleApi())
-    implementation("org.e2immu:e2immu-external-support:$version")
-    implementation("org.e2immu:e2immu-internal-util:$version")
+    implementation("io.codelaser:maddi-support:$version")
+    implementation("io.codelaser:maddi-util:$version")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:$jupiterApiVersion") // used in tests -> auto
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$jupiterEngineVersion")
