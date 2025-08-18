@@ -11,16 +11,52 @@
  * more details. You should have received a copy of the GNU Lesser General Public
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+
 plugins {
+    `java-gradle-plugin`
     id("java-library-conventions")
 }
 
 dependencies {
     api(project(":inspection-api"))
+    implementation(project(":modification-common"))
+    implementation(project(":modification-io"))
+    implementation(project(":modification-prepwork"))
+    implementation(project(":modification-linkedvariables"))
     implementation(project(":internal-graph"))
     implementation(project(":internal-util"))
+    implementation(project(":cst-analysis"))
+
     implementation(project(":cst-impl"))
+    implementation(project(":cst-io"))
+    implementation(project(":cst-print"))
+    implementation(project(":inspection-parser"))
+    implementation(project(":inspection-integration"))
     implementation(project(":inspection-resource"))
+    implementation(project(":java-bytecode"))
+    implementation(project(":java-parser"))
     implementation(project(":aapi-parser"))
+    testRuntimeOnly(project(":aapi-archive"))
+
+    implementation(project(":run-config"))
+    implementation(project(":run-main"))
+
+    implementation("ch.qos.logback:logback-classic")
     implementation("com.fasterxml.jackson.core:jackson-databind")
+
+    // GRADLE PLUGIN
+    implementation(gradleApi())
+}
+
+gradlePlugin {
+    plugins {
+        create("e2immuAnalyzerPlugin") {
+            id = "org.e2immu.analyzer-plugin"
+            implementationClass = "org.e2immu.gradleplugin.AnalyzerPlugin"
+            displayName = "e2immu's gradle plugin"
+        }
+        description = "Run the e2immu analyzer from Gradle"
+        isAutomatedPublishing = true
+    }
 }
