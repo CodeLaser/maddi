@@ -36,7 +36,6 @@ import java.lang.annotation.Target;
  *     </li>
  *     <li>
  *         A finalizer method can never be called on a parameter or any variable linked to it,
- *         with linking as in {@link Linked}.
  *     </li>
  * </ol>
  * These rules allow the analyser to enforce the final state of the object.

@@ -55,6 +55,7 @@ public @interface UtilityClass {
 
     /**
      * Any explanation for the presence of this annotion in this particular place.
+     * @return the comment
      */
     String comment() default "";
 }
