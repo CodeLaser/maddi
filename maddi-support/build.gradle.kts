@@ -14,9 +14,61 @@
 
 plugins {
     id("java-library-conventions")
+    id("org.jreleaser") version "1.19.0"
 }
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+version = "0.8.2"
+
+jreleaser {
+    gitRootSearch = true
+
+    project {
+        name.set("maddi-support")
+        description = "Support library for Maddi, a modification analyser for duplication detection and immutability."
+
+        // Maven Central requires SPDX identifier (not arbitrary text)
+        license.set("LGPL-3.0-or-later")
+
+        authors.set(listOf("Bart Naudts"))
+
+        copyright.set("2020-20205 Bart Naudts")
+
+        links {
+            homepage.set("https://github.com/CodeLaser/maddi")
+            documentation.set("hhttps://github.com/CodeLaser/maddi/road-to-immutability")
+        }
+    }
+
+    distributions {
+        create("maddi-support") {
+            artifact {
+                setPath("build/libs/maddi-support-${version}.jar")
+            }
+        }
+    }
+
+    signing {
+        active.set(org.jreleaser.model.Active.ALWAYS)
+        armored = true
+        mode = org.jreleaser.model.Signing.Mode.FILE
+
+    }
+
+    deploy {
+        maven {
+            mavenCentral {
+                create("sonatype") {
+                    active.set(org.jreleaser.model.Active.ALWAYS)
+                    url.set("https://central.sonatype.com/api/v1/publisher")
+                    stagingRepository("target/staging-deploy")
+                }
+            }
+        }
     }
 }
