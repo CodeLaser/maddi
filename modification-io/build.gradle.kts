@@ -6,7 +6,11 @@
 plugins {
     id("java-library-conventions")
 }
-
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
 dependencies {
     api(project(":inspection-api"))
     implementation(project(":modification-common"))
@@ -28,8 +32,6 @@ dependencies {
     testImplementation("ch.qos.logback:logback-classic")
     testImplementation(project(":modification-linkedvariables"))
 }
-
-
 tasks.withType<Test> {
     maxHeapSize = "2G"
     maxParallelForks = 4

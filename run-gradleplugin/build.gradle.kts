@@ -17,7 +17,11 @@ plugins {
     `java-gradle-plugin`
     id("java-library-conventions")
 }
-
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
 dependencies {
     api(project(":inspection-api"))
     implementation(project(":modification-common"))

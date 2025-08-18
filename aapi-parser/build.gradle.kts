@@ -7,6 +7,12 @@ plugins {
     id("java-library-conventions")
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
+
 dependencies {
     api(project(":external-support"))
     api(project(":inspection-api"))

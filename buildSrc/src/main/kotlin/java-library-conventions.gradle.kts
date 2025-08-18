@@ -3,15 +3,11 @@ plugins {
     `java-library`
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(24)
-    }
-}
-
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+group = "io.codelaser"
 
 dependencies {
     api(platform(project(":platform")))

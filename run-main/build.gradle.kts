@@ -16,6 +16,11 @@ plugins {
     id("java-library-conventions")
     application
 }
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
 dependencies {
     api(project(":inspection-api"))
     implementation(project(":modification-common"))

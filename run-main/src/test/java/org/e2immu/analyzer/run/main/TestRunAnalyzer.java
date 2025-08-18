@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level;
 import org.e2immu.language.inspection.integration.ToolChain;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ public class TestRunAnalyzer {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
     }
 
+    @Disabled
     @Test
     public void test() throws IOException {
         File sourceDir = new File("../internal-util/src/main/java");

@@ -7,7 +7,11 @@
 plugins {
     id("java-library-conventions")
 }
-
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
 dependencies {
     api(project(":cst-api"))
     implementation(project(":internal-util"))

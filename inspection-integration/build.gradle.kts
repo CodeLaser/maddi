@@ -6,7 +6,11 @@
 plugins {
     id("java-library-conventions")
 }
-
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
 dependencies {
     api(project(":inspection-api"))
     implementation(project(":internal-util"))
@@ -31,7 +35,6 @@ dependencies {
     testImplementation("org.springframework:spring-test:6.1.19")
     testImplementation("org.springframework:spring-core:6.1.19")
 }
-
 tasks.withType<Test> {
     maxParallelForks = 4
 }
