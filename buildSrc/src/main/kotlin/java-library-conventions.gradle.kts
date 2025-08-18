@@ -23,5 +23,7 @@ dependencies {
     // common test
     testImplementation("org.junit.jupiter:junit-jupiter-api")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+    testImplementation("org.jetbrains:annotations")
+
 }
 
