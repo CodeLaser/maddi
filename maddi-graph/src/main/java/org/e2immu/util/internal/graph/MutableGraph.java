@@ -8,7 +8,7 @@ public class MutableGraph<T> extends GraphImpl<T> implements G<T> {
     private final LongBinaryOperator sum;
 
     public MutableGraph(LongBinaryOperator sum) {
-        this(null, new HashMap<>(), sum);
+        this(null, new LinkedHashMap<>(), sum);
     }
 
     public MutableGraph(Map<T, V<T>> vertices, Map<V<T>, Map<V<T>, Long>> edges, LongBinaryOperator sum) {

@@ -62,6 +62,8 @@ public interface G<T> {
 
     Iterable<Map.Entry<V<T>, Map<V<T>, Long>>> edges();
 
+    Map<V<T>, Map<V<T>, Long>> edgeMap();
+
     Stream<E<T>> edgeStream();
 
     Iterator<Map<V<T>, Map<V<T>, Long>>> edgeIterator(Comparator<Long> comparator, Long limit);

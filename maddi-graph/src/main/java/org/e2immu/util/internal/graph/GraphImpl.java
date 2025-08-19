@@ -26,9 +26,14 @@ public abstract class GraphImpl<T> implements G<T> {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hashCode(edges);
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        return o instanceof G<?> g && Objects.equals(vertices, g.vertices()) && edges.equals(g.edges());
+        return o instanceof G<?> g && edges.equals(g.edgeMap());
     }
 
     protected G<T> reverse(Predicate<T> predicate, Factory<T> factory) {
@@ -158,6 +163,11 @@ public abstract class GraphImpl<T> implements G<T> {
     @Override
     public Iterable<Map.Entry<V<T>, Map<V<T>, Long>>> edges() {
         return () -> edges.entrySet().iterator();
+    }
+
+    @Override
+    public Map<V<T>, Map<V<T>, Long>> edgeMap() {
+        return edges;
     }
 
     @Override
