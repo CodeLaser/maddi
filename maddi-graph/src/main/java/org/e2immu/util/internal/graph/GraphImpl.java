@@ -12,8 +12,8 @@ This class uses linked maps and sets (as opposed to Map.copyOf, Set.copyOf, new 
 to behave in a consistent way across tests.
  */
 public abstract class GraphImpl<T> implements G<T> {
-    private final Map<T, V<T>> vertices;
-    private final Map<V<T>, Map<V<T>, Long>> edges;
+    protected final Map<T, V<T>> vertices;
+    protected final Map<V<T>, Map<V<T>, Long>> edges;
 
     protected GraphImpl(Map<T, V<T>> vertices,
                         Map<V<T>, Map<V<T>, Long>> edges) {
@@ -28,7 +28,7 @@ public abstract class GraphImpl<T> implements G<T> {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        return o instanceof G<?> g && vertices.equals(g.vertices()) && edges.equals(g.edges());
+        return o instanceof G<?> g && Objects.equals(vertices, g.vertices()) && edges.equals(g.edges());
     }
 
     protected G<T> reverse(Predicate<T> predicate, Factory<T> factory) {
@@ -126,7 +126,7 @@ public abstract class GraphImpl<T> implements G<T> {
     }
 
 
-    protected G<T> mutableReverseSubGraph(Set<V<T>> subSet, Factory<T> factory) {
+    protected G<T> internalMutableReverseSubGraph(Set<V<T>> subSet, Factory<T> factory) {
         Map<T, V<T>> subMap = new LinkedHashMap<>();
         Map<V<T>, Map<V<T>, Long>> newEdges = new LinkedHashMap<>();
         for (V<T> v : subSet) {

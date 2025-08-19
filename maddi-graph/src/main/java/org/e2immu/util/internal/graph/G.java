@@ -8,6 +8,12 @@ import java.util.stream.Stream;
 
 public interface G<T> {
 
+    Map<V<T>, Long> removeVertex(T t);
+
+    Map<V<T>, Long> ensureVertex(T t);
+
+    void mergeEdge(T from, T to, long weight);
+
     G<T> reverse(Predicate<T> predicate);
 
     V<T> vertex(T t);
@@ -42,7 +48,7 @@ public interface G<T> {
 
     G<T> subGraph(Set<V<T>> subSet, Predicate<Long> acceptEdgePredicate);
 
-    G<T> mutableReverseSubGraph(Set<V<T>> subSet);
+    G<T> mutableReverseSubGraph(Set<V<T>> subSet, LongBinaryOperator sum);
 
     Collection<V<T>> vertices();
 
