@@ -13,7 +13,7 @@
  */
 
 plugins {
-    `java-library`
+    id("java-library-conventions")
     id("org.jreleaser") version "1.19.0"
     `maven-publish`
 }
