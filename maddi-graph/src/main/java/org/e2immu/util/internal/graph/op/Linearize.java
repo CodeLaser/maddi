@@ -110,7 +110,7 @@ public class Linearize {
     }
 
     private static <T> Hierarchy<T> removeAsManyAsPossible(G<T> g, Set<V<T>> toDo) {
-        G<T> reverseSub = g.mutableReverseSubGraph(toDo);
+        G<T> reverseSub = g.mutableReverseSubGraph(toDo, Long::sum);
         Result<T> r = linearize(reverseSub, LinearizationMode.ONLY_LINEAR);
         return r.linearized.reversed();
     }

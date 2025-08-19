@@ -13,6 +13,8 @@ to behave in a consistent way across tests.
  */
 public class ImmutableGraph<T> extends GraphImpl<T> implements G<T> {
 
+    public static final String IMMUTABLE_GRAPH = "Immutable graph";
+
     private ImmutableGraph(Map<T, V<T>> vertices,
                            Map<V<T>, Map<V<T>, Long>> edges) {
         super(vertices, edges);
@@ -124,7 +126,36 @@ public class ImmutableGraph<T> extends GraphImpl<T> implements G<T> {
     }
 
     @Override
-    public G<T> mutableReverseSubGraph(Set<V<T>> subSet) {
-        return mutableReverseSubGraph(subSet, MutableGraph::new);
+    public G<T> mutableReverseSubGraph(Set<V<T>> subSet, LongBinaryOperator sum) {
+        Map<T, V<T>> subMap = new LinkedHashMap<>();
+        Map<V<T>, Map<V<T>, Long>> newEdges = new LinkedHashMap<>();
+        for (V<T> v : subSet) {
+            Map<V<T>, Long> localEdges = edges.get(v);
+            if (localEdges != null) {
+                for (Map.Entry<V<T>, Long> entry : localEdges.entrySet()) {
+                    V<T> to = entry.getKey();
+                    Map<V<T>, Long> newLocal = newEdges.computeIfAbsent(to, t -> new LinkedHashMap<>());
+                    newLocal.put(v, entry.getValue());
+                }
+            }
+            subMap.put(v.t(), v);
+        }
+        // freeze edge maps
+        return new ImmutableGraph<T>(subMap, newEdges);
+    }
+
+    @Override
+    public Map<V<T>, Long> removeVertex(T t) {
+        throw new UnsupportedOperationException(IMMUTABLE_GRAPH);
+    }
+
+    @Override
+    public Map<V<T>, Long> ensureVertex(T t) {
+        throw new UnsupportedOperationException(IMMUTABLE_GRAPH);
+    }
+
+    @Override
+    public void mergeEdge(T from, T to, long weight) {
+        throw new UnsupportedOperationException(IMMUTABLE_GRAPH);
     }
 }
