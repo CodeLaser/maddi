@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.LongBinaryOperator;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /*
 This class uses linked maps and sets (as opposed to Map.copyOf, Set.copyOf, new HashMap(), etc.)
@@ -18,6 +19,11 @@ public class ImmutableGraph<T> extends GraphImpl<T> implements G<T> {
     private ImmutableGraph(Map<T, V<T>> vertices,
                            Map<V<T>, Map<V<T>, Long>> edges) {
         super(vertices, edges);
+    }
+
+    @Override
+    public G<T> immutableCopy() {
+        return this;
     }
 
     public static <T> ImmutableGraph<T> create(Map<T, Map<T, Long>> initialGraph) {
@@ -36,6 +42,11 @@ public class ImmutableGraph<T> extends GraphImpl<T> implements G<T> {
             }
         }
         return new ImmutableGraph<>(vertices, edges);
+    }
+
+    static <T> G<T> createFromMutable(Map<V<T>, Map<V<T>, Long>> mutableGraphEdges) {
+        Map<T, V<T>> vertices = mutableGraphEdges.keySet().stream().collect(Collectors.toUnmodifiableMap(V::t, e -> e));
+        return new ImmutableGraph<>(vertices, Map.copyOf(mutableGraphEdges));
     }
 
     @Override

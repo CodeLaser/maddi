@@ -8,6 +8,8 @@ import java.util.stream.Stream;
 
 public interface G<T> {
 
+    G<T> immutableCopy();
+
     Map<V<T>, Long> removeVertex(T t);
 
     Map<V<T>, Long> ensureVertex(T t);
@@ -15,6 +17,10 @@ public interface G<T> {
     void mergeEdge(T from, T to, long weight);
 
     G<T> reverse(Predicate<T> predicate);
+
+    default int size() {
+        return vertices().size();
+    }
 
     V<T> vertex(T t);
 

@@ -21,6 +21,11 @@ public class MutableGraph<T> extends GraphImpl<T> implements G<T> {
     }
 
     @Override
+    public G<T> immutableCopy() {
+        return ImmutableGraph.createFromMutable(edges);
+    }
+
+    @Override
     public V<T> vertex(T t) {
         throw new UnsupportedOperationException();
     }
