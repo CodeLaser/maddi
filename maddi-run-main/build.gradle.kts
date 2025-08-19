@@ -17,9 +17,8 @@ plugins {
     application
 }
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(24)
-    }
+    sourceCompatibility = JavaVersion.VERSION_24
+    targetCompatibility = JavaVersion.VERSION_24
 }
 dependencies {
     api(project(":maddi-inspection-api"))
