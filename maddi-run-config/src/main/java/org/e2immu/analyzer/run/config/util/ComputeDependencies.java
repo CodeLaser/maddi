@@ -2,6 +2,7 @@ package org.e2immu.analyzer.run.config.util;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.ImmutableGraph;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -17,7 +18,7 @@ public class ComputeDependencies {
     }
 
     public G<String> go(SourceSetDependencies result) {
-        G.Builder<String> builder = new G.Builder<>(Long::sum);
+        G.Builder<String> builder = new ImmutableGraph.Builder<>(Long::sum);
 
         // jmods are common
         Set<String> jmods = new HashSet<>();

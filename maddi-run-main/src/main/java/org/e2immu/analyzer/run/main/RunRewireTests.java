@@ -8,6 +8,7 @@ import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.ImmutableGraph;
 import org.e2immu.util.internal.graph.V;
 import org.e2immu.util.internal.graph.op.Common;
 import org.slf4j.Logger;
@@ -98,7 +99,7 @@ public class RunRewireTests {
     }
 
     private static G<TypeInfo> primaryTypeUseGraph(G<Info> infoGraph) {
-        G.Builder<TypeInfo> typeUseBuilder = new G.Builder<>(Long::sum);
+        G.Builder<TypeInfo> typeUseBuilder = new ImmutableGraph.Builder<>(Long::sum);
         infoGraph.edgeStream().forEach(e -> {
             TypeInfo ptFrom = e.from().t().typeInfo().primaryType();
             TypeInfo ptTo = e.to().t().typeInfo().primaryType();

@@ -21,7 +21,7 @@ public class TestLinearize {
                 "v2", Map.of(),
                 "v3", Map.of("v4", 1L),
                 "v4", Map.of());
-        G<String> g = G.create(initialGraph);
+        G<String> g = ImmutableGraph.create(initialGraph);
         assertEquals("v1->1->v2, v1->1->v3, v3->1->v4", g.toString());
         Linearize.Result<String> r = Linearize.linearize(g);
         assertEquals("L=[v2, v4]; [v3]; [v1] P= R=", r.toString());
@@ -36,7 +36,7 @@ public class TestLinearize {
                 "v2", Map.of("v3", 1L),
                 "v3", Map.of("v4", 1L),
                 "v4", Map.of());
-        G<String> g = G.create(initialGraph);
+        G<String> g = ImmutableGraph.create(initialGraph);
         assertEquals("v1->1->v2, v2->1->v3, v3->1->v4", g.toString());
         Linearize.Result<String> r = Linearize.linearize(g);
         assertEquals("L=[v4]; [v3]; [v2]; [v1] P= R=", r.toString());
@@ -51,7 +51,7 @@ public class TestLinearize {
                 "v3", Map.of("v4", 1L),
                 "v2", Map.of("v3", 1L),
                 "v1", Map.of("v2", 1L));
-        G<String> g = G.create(initialGraph);
+        G<String> g = ImmutableGraph.create(initialGraph);
         assertEquals("v1->1->v2, v2->1->v3, v3->1->v4", g.toString());
         Linearize.Result<String> r = Linearize.linearize(g);
         assertEquals("L=[v4]; [v3]; [v2]; [v1] P= R=", r.toString());
@@ -72,7 +72,7 @@ public class TestLinearize {
                 "v8", Map.of(),
                 "v9", Map.of("v10", 9L),
                 "v10", Map.of("v9", 10L));
-        G<String> g = G.create(initialGraph);
+        G<String> g = ImmutableGraph.create(initialGraph);
         assertEquals("""
                 v1->1->v3, v10->10->v9, v2->2->v3, v3->3->v4, v4->4->v7, v5->5->v4, v6->6->v5, v7->7->v6, \
                 v7->8->v8, v9->9->v10\
@@ -149,7 +149,7 @@ public class TestLinearize {
                 "v4", Map.of("v5", 4L),
                 "v5", Map.of("v1", 5L, "v3", 5L));
 
-        G<String> g = G.create(initialGraph);
+        G<String> g = ImmutableGraph.create(initialGraph);
         assertEquals("""
                 v1->1->v2, v1->2->v3, v2->3->v3, v3->6->v4, v4->4->v5, v5->5->v1, v5->5->v3\
                 """, g.toString());
@@ -171,7 +171,7 @@ public class TestLinearize {
                 "v4", Map.of("v5", 4L),
                 "v5", Map.of("v1", 5L, "v3", 5L));
 
-        G<String> g = G.create(initialGraph);
+        G<String> g = ImmutableGraph.create(initialGraph);
         assertEquals("""
                 v1->1->v2, v2->3->v3, v3->2->v1, v3->6->v4, v4->4->v5, v5->5->v1, v5->5->v3\
                 """, g.toString());
