@@ -3,6 +3,7 @@ package org.e2immu.gradleplugin.inputconfig;
 import org.e2immu.analyzer.run.config.util.JavaModules;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.ImmutableGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +13,7 @@ public class ComputeDependencies {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComputeDependencies.class);
 
     public G<String> go(ComputeSourceSets.Result result) {
-        G.Builder<String> builder = new G.Builder<>(Long::sum);
+        G.Builder<String> builder = new ImmutableGraph.Builder<>(Long::sum);
 
         // jmods are common
         Set<String> jmods = new HashSet<>();

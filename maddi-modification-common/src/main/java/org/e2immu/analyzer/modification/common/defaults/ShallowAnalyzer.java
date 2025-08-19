@@ -7,6 +7,7 @@ import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.ImmutableGraph;
 import org.e2immu.util.internal.graph.op.Linearize;
 
 import java.util.*;
@@ -73,7 +74,7 @@ public class ShallowAnalyzer {
                 .toList();
         if (debugVisitor != null) debugVisitor.allTypes(allTypes);
 
-        G.Builder<TypeInfo> graphBuilder = new G.Builder<>(Long::sum);
+        G.Builder<TypeInfo> graphBuilder = new ImmutableGraph.Builder<>(Long::sum);
         for (TypeInfo typeInfo : allTypes) {
             List<TypeInfo> allSuperTypes = typeInfo.recursiveSuperTypeStream()
                     .filter(this::acceptAccess)

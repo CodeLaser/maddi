@@ -1,9 +1,6 @@
 package org.e2immu.util.internal.graph.analyser;
 
-import org.e2immu.util.internal.graph.EdgeIterator;
-import org.e2immu.util.internal.graph.EdgePrinter;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.V;
+import org.e2immu.util.internal.graph.*;
 import org.e2immu.util.internal.graph.op.BreakCycles;
 import org.e2immu.util.internal.graph.op.GreedyEdgeRemoval;
 import org.e2immu.util.internal.graph.op.ParallelGreedyEdgeRemoval;
@@ -52,7 +49,7 @@ public class Main {
         Graph<TypeGraphIO.Node, DefaultWeightedEdge> graph = TypeGraphIO.createPackageGraph();
         TypeGraphIO.importGraph(inputStream, graph);
         Map<TypeGraphIO.Node, Map<TypeGraphIO.Node, Long>> map = TypeGraphIO.convertGraphToMap(graph);
-        G<TypeGraphIO.Node> g = G.create(map);
+        G<TypeGraphIO.Node> g = ImmutableGraph.create(map);
         LOGGER.info("Have graph of {} nodes, {} edges", g.vertices().size(), g.edgeStream().count());
 
         BreakCycles.ActionComputer<TypeGraphIO.Node> actionComputer;

@@ -10,6 +10,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.ImmutableGraph;
 
 import java.util.*;
 
@@ -51,7 +52,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         Set<TypeInfo> primaryTypes = new HashSet<>();
         Set<TypeInfo> abstractTypes = new HashSet<>();
         List<TypeInfo> typesInOrder = new ArrayList<>(analysisOrder.size());
-        G.Builder<Info> builder = new G.Builder<>(Long::sum);
+        G.Builder<Info> builder = new ImmutableGraph.Builder<>(Long::sum);
         Map<String, Integer> infoHistogram = new HashMap<>();
 
         for (Info info : analysisOrder) {

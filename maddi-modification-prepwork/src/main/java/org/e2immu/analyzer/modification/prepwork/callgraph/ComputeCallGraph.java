@@ -17,6 +17,7 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.ImmutableGraph;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -34,7 +35,7 @@ public class ComputeCallGraph {
     private final Runtime runtime;
     private final Set<TypeInfo> primaryTypes;
     private final Set<MethodInfo> recursive = new HashSet<>();
-    private final G.Builder<Info> builder = new G.Builder<>(Long::sum);
+    private final G.Builder<Info> builder = new ImmutableGraph.Builder<>(Long::sum);
     private final Predicate<TypeInfo> externalsToAccept;
 
     private static final long CODE_STRUCTURE_BITS = 48;

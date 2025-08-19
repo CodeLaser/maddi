@@ -1,6 +1,7 @@
 package org.e2immu.util.internal.graph.op;
 
 import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.ImmutableGraph;
 import org.e2immu.util.internal.graph.V;
 import org.e2immu.util.internal.graph.analyser.TypeGraphIO;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ public class TestShortestCycleDijkstra {
                 3, Map.of(4, 1L),
                 4, Map.of(1, 4L)
         );
-        G.Builder<Integer> gb = new G.Builder<>(Long::sum);
+        G.Builder<Integer> gb = new ImmutableGraph.Builder<>(Long::sum);
         edges.forEach((from, m) ->
                 m.forEach((to, d) -> gb.mergeEdge(from, to, d)));
         G<Integer> graph = gb.build();
