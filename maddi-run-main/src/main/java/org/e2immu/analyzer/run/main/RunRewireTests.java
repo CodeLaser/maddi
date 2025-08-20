@@ -82,8 +82,8 @@ public class RunRewireTests {
                         LOGGER.info("Reparse");
                         ParseResult parseResult1 = javaInspector.parse(parseOptions).parseResult();
                         LOGGER.info("Recompute call graph");
-                        ComputeCallGraph ccg = new ComputeCallGraph(javaInspector.runtime(),
-                                parseResult1.primaryTypes(), _ -> false);
+                        ComputeCallGraph ccg = new ComputeCallGraph(javaInspector.runtime(), parseResult1,
+                                _ -> false);
                         infoGraph = ccg.go().graph();
                     }
                 } finally {

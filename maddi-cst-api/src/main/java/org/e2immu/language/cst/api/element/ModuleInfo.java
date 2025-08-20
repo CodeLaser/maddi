@@ -1,10 +1,11 @@
 package org.e2immu.language.cst.api.element;
 
+import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
 import java.util.List;
 
-public interface ModuleInfo extends Element {
+public interface ModuleInfo extends Info {
     List<Requires> requires();
 
     List<Exports> exports();
@@ -18,15 +19,17 @@ public interface ModuleInfo extends Element {
     String name();
 
     interface Builder extends Element.Builder<Builder> {
-        void addExports(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull);
+        Builder addExports(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull);
 
-        void addOpens(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull);
+        Builder addOpens(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull);
 
-        void addUses(Source source, List<Comment> comments, String api);
+        Builder addUses(Source source, List<Comment> comments, String api);
 
-        void addProvides(Source source, List<Comment> comments, String api, String implementation);
+        Builder addProvides(Source source, List<Comment> comments, String api, String implementation);
 
-        void addRequires(Source source, List<Comment> comments, String name, boolean isStatic, boolean isTransitive);
+        Builder addRequires(Source source, List<Comment> comments, String name, boolean isStatic, boolean isTransitive);
+
+        Builder setCompilationUnit(CompilationUnit compilationUnit);
 
         Builder setName(String name);
 

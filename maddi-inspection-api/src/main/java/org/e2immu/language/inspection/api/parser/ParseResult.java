@@ -1,5 +1,6 @@
 package org.e2immu.language.inspection.api.parser;
 
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
@@ -17,6 +18,10 @@ computed from a Summary object
 
  */
 public interface ParseResult {
+
+    ModuleInfo moduleInfo(SourceSet sourceSet);
+
+    Map<SourceSet, ModuleInfo> sourceSetToModuleInfoMap();
 
     Map<String, SourceSet> sourceSetsByName();
 

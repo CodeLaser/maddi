@@ -1,12 +1,17 @@
 package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
+import org.e2immu.language.cst.api.info.Access;
+import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
+import org.e2immu.language.cst.impl.output.TextImpl;
 import org.e2immu.support.SetOnce;
 
 import java.util.ArrayList;
@@ -16,6 +21,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
+    private final CompilationUnit compilationUnit;
     private final String name;
     private final List<Comment> comments;
     private final Source source;
@@ -25,9 +31,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     private final List<Uses> uses;
     private final List<Provides> provides;
 
-    public ModuleInfoImpl(List<Comment> comments, Source source, String name,
+    public ModuleInfoImpl(CompilationUnit compilationUnit,
+                          List<Comment> comments, Source source, String name,
                           List<Requires> requires, List<Exports> exports,
                           List<Opens> opens, List<Uses> uses, List<Provides> provides) {
+        this.compilationUnit = compilationUnit;
         this.name = name;
         this.comments = comments;
         this.source = source;
@@ -36,6 +44,57 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         this.opens = opens;
         this.uses = uses;
         this.provides = provides;
+
+    }
+
+    @Override
+    public String info() {
+        return "module";
+    }
+
+    @Override
+    public Access access() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompilationUnit compilationUnit() {
+        return compilationUnit;
+    }
+
+    @Override
+    public String simpleName() {
+        return name;
+    }
+
+    @Override
+    public String fullyQualifiedName() {
+        return name;
+    }
+
+    @Override
+    public boolean isSynthetic() {
+        return false;
+    }
+
+    @Override
+    public TypeInfo typeInfo() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean hasBeenAnalyzed() {
+        return false;
+    }
+
+    @Override
+    public JavaDoc javaDoc() {
+        return null;
+    }
+
+    @Override
+    public List<? extends Info> translate(TranslationMap translationMap) {
+        throw new UnsupportedOperationException("NYI");
     }
 
     private record RequiresImpl(Source source, List<Comment> comments, String name, boolean isStatic,
@@ -386,12 +445,19 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     }
 
     public static class BuilderImpl extends ElementImpl.Builder<ModuleInfo.Builder> implements ModuleInfo.Builder {
+        private CompilationUnit compilationUnit;
         private String name;
         private final List<Requires> requiresList = new ArrayList<>();
         private final List<Exports> exports = new ArrayList<>();
         private final List<Opens> opens = new ArrayList<>();
         private final List<Uses> uses = new ArrayList<>();
         private final List<Provides> provides = new ArrayList<>();
+
+        @Override
+        public ModuleInfo.Builder setCompilationUnit(CompilationUnit compilationUnit) {
+            this.compilationUnit = compilationUnit;
+            return this;
+        }
 
         @Override
         public ModuleInfo.Builder setName(String name) {
@@ -401,33 +467,38 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public ModuleInfo build() {
-            return new ModuleInfoImpl(comments, source, name, List.copyOf(requiresList), List.copyOf(exports),
-                    List.copyOf(opens), List.copyOf(uses), List.copyOf(provides));
+            return new ModuleInfoImpl(compilationUnit, comments, source, name, List.copyOf(requiresList),
+                    List.copyOf(exports), List.copyOf(opens), List.copyOf(uses), List.copyOf(provides));
         }
 
         @Override
-        public void addRequires(Source source, List<Comment> comments, String name, boolean isStatic, boolean isTransitive) {
+        public ModuleInfo.Builder addRequires(Source source, List<Comment> comments, String name, boolean isStatic, boolean isTransitive) {
             requiresList.add(new RequiresImpl(source, comments, name, isStatic, isTransitive));
+            return this;
         }
 
         @Override
-        public void addExports(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull) {
+        public ModuleInfo.Builder addExports(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull) {
             exports.add(new ExportsImpl(source, comments, packageName, toPackageNameOrNull));
+            return this;
         }
 
         @Override
-        public void addOpens(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull) {
+        public ModuleInfo.Builder addOpens(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull) {
             opens.add(new OpensImpl(source, comments, packageName, toPackageNameOrNull));
+            return this;
         }
 
         @Override
-        public void addUses(Source source, List<Comment> comments, String api) {
+        public ModuleInfo.Builder addUses(Source source, List<Comment> comments, String api) {
             uses.add(new UsesImpl(source, comments, api));
+            return this;
         }
 
         @Override
-        public void addProvides(Source source, List<Comment> comments, String api, String implementation) {
+        public ModuleInfo.Builder addProvides(Source source, List<Comment> comments, String api, String implementation) {
             provides.add(new ProvidesImpl(source, comments, api, implementation));
+            return this;
         }
     }
 
@@ -481,7 +552,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
     @Override
     public OutputBuilder print(Qualification qualification) {
-        return null;
+        return new OutputBuilderImpl().add(new TextImpl(name));
     }
 
     @Override

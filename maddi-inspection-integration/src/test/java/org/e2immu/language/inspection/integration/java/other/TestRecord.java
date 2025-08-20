@@ -65,7 +65,7 @@ public class TestRecord extends CommonTest {
         // also, verify the override
         assertTrue(RIset.overrides().contains(Rset));
 
-        ParseResult parseResult = new ParseResultImpl(Set.of(X), Map.of());
+        ParseResult parseResult = new ParseResultImpl(Set.of(X), Map.of(), null);
         assertEquals("[a.b.X.RI]", parseResult.descendants(R, false).toString());
     }
 }

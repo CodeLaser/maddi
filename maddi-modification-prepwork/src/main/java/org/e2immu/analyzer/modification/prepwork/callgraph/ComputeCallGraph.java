@@ -4,6 +4,7 @@ package org.e2immu.analyzer.modification.prepwork.callgraph;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.JavaDoc;
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.RecordPattern;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.Info;
@@ -16,9 +17,11 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.ImmutableGraph;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -37,6 +40,7 @@ public class ComputeCallGraph {
     private final Set<MethodInfo> recursive = new HashSet<>();
     private final G.Builder<Info> builder = new ImmutableGraph.Builder<>(Long::sum);
     private final Predicate<TypeInfo> externalsToAccept;
+    private final Collection<ModuleInfo> moduleInfos;
 
     private static final long CODE_STRUCTURE_BITS = 48;
     public static final long CODE_STRUCTURE = 1L << CODE_STRUCTURE_BITS;
@@ -51,15 +55,26 @@ public class ComputeCallGraph {
     private G<Info> graph;
 
     public ComputeCallGraph(Runtime runtime, TypeInfo primaryType) {
-        this(runtime, Set.of(primaryType), t -> false);
+        this(runtime, Set.of(primaryType), Set.of(), t -> false);
+    }
+
+    public ComputeCallGraph(Runtime runtime,
+                            ParseResult parseResult,
+                            Predicate<TypeInfo> externalsToAccept) {
+        this.runtime = runtime;
+        this.primaryTypes = parseResult.primaryTypes();
+        this.externalsToAccept = externalsToAccept;
+        this.moduleInfos = parseResult.sourceSetToModuleInfoMap().values();
     }
 
     public ComputeCallGraph(Runtime runtime,
                             Set<TypeInfo> primaryTypes,
+                            Collection<ModuleInfo> moduleInfos,
                             Predicate<TypeInfo> externalsToAccept) {
         this.runtime = runtime;
         this.primaryTypes = primaryTypes;
         this.externalsToAccept = externalsToAccept;
+        this.moduleInfos = moduleInfos;
     }
 
     public static boolean isAtLeastReference(long value) {
@@ -97,6 +112,7 @@ public class ComputeCallGraph {
 
     public ComputeCallGraph go() {
         primaryTypes.forEach(this::go);
+        moduleInfos.forEach(this::go);
         graph = builder.build();
         return this;
     }
@@ -188,6 +204,26 @@ public class ComputeCallGraph {
                 fi.initializer().visit(visitor); // D
             }
         });
+    }
+
+    private void go(ModuleInfo moduleInfo) {
+        builder.addVertex(moduleInfo);
+        for (ModuleInfo.Uses uses : moduleInfo.uses()) {
+            TypeInfo api = uses.apiResolved();
+            if (api != null) {
+                builder.mergeEdge(moduleInfo, api, REFERENCES);
+            }
+        }
+        for (ModuleInfo.Provides provides : moduleInfo.provides()) {
+            TypeInfo api = provides.apiResolved();
+            if (api != null) {
+                builder.mergeEdge(moduleInfo, api, REFERENCES);
+            }
+            TypeInfo implementation = provides.implementationResolved();
+            if (implementation != null) {
+                builder.mergeEdge(moduleInfo, implementation, REFERENCES);
+            }
+        }
     }
 
     private void doJavadoc(Info from) {

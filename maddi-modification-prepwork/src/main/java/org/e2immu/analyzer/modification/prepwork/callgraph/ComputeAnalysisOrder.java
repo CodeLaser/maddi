@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.prepwork.callgraph;
 
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.V;
@@ -28,6 +29,7 @@ public class ComputeAnalysisOrder {
     public List<Info> go(G<Info> callGraph, boolean parallel) {
         Stream<V<Info>> stream = parallel ? callGraph.vertices().parallelStream() : callGraph.vertices().stream();
         Set<V<Info>> subSet = stream
+                .filter(v -> !(v.t() instanceof ModuleInfo))
                 .filter(v -> !v.t().typeInfo().compilationUnit().externalLibrary())
                 .collect(Collectors.toUnmodifiableSet());
         LOGGER.info("Computed vertex subset");

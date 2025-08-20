@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.prepwork.callgraph;
 
 import org.e2immu.analyzer.modification.prepwork.CommonTest;
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -260,7 +261,7 @@ public class TestCallGraph extends CommonTest {
     @Test
     public void test6() {
         TypeInfo X = javaInspector.parse(INPUT6);
-        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), _ -> true);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), Set.of(), _ -> true);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
                 a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.m(), \
@@ -296,7 +297,7 @@ public class TestCallGraph extends CommonTest {
     @Test
     public void test7() {
         TypeInfo X = javaInspector.parse(INPUT7);
-        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), _ -> true);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(), _ -> true);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
                 a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.m(Exception), \
@@ -310,6 +311,39 @@ public class TestCallGraph extends CommonTest {
         List<Info> analysisOrder = cao.go(graph);
         assertEquals("""
                 [a.b.X.<init>(), a.b.X.m(Exception), a.b.X]\
+                """, analysisOrder.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            class X {
+                interface I { }
+            }
+            """;
+
+    @DisplayName("module")
+    @Test
+    public void test8() {
+        TypeInfo X = javaInspector.parse(INPUT8);
+        ModuleInfo moduleInfo = runtime.newModuleInfoBuilder()
+                .setName("a.b.module-info")
+                .addUses(runtime.noSource(), List.of(), "X.I")
+                .addProvides(runtime.noSource(), List.of(), "X.J", "X").build();
+        moduleInfo.provides().getFirst().setImplementationResolved(X);
+        moduleInfo.uses().getFirst().setApiResolved(X.findSubType("I"));
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(moduleInfo), _ -> true);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X.I->H->java.lang.Object, \
+                a.b.module-info->R->a.b.X, a.b.module-info->R->a.b.X.I\
+                """, ComputeCallGraph.print(graph));
+
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        List<Info> analysisOrder = cao.go(graph);
+        assertEquals("""
+                [a.b.X.<init>(), a.b.X.I, a.b.X]\
                 """, analysisOrder.toString());
     }
 }

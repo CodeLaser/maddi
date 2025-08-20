@@ -105,7 +105,7 @@ public class TestExplicitConstructorInvocation extends CommonTest {
             assertSame(C2Constructor1, eci.methodInfo());
         }
 
-        ParseResult parseResult = new ParseResultImpl(Set.of(typeInfo), Map.of());
+        ParseResult parseResult = new ParseResultImpl(Set.of(typeInfo), Map.of(), null);
         assertEquals("[org.e2immu.analyser.resolver.testexample.ExplicitConstructorInvocation_2.C2]",
                 parseResult.descendants(C1, false).toString());
         Set<TypeInfo> descendants = parseResult.descendants(C1, true);
