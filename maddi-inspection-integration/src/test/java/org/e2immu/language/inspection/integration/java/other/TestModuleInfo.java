@@ -11,6 +11,7 @@ import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.impl.parser.*;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,14 +44,14 @@ public class TestModuleInfo {
             
                 exports org.e2immu.language.inspection.integration;
                 exports a.b to c.d;
-             
+            
                 /*we must open*/
                 opens a.b to c.d;
-                
+            
                 uses a.b.C;
                 // usesComment
                 uses d.D;
-                
+            
                 provides a.b.C with c.d.E;
                 provides c.d.D with c.d.F;
             }
@@ -71,8 +73,8 @@ public class TestModuleInfo {
         TypeContextImpl typeContext = new TypeContextImpl(runtime, javaInspector.compiledTypesManager(),
                 new SourceTypeMapImpl(), true);
         Context rootContext = ContextImpl.create(runtime, summary, resolver, typeContext, true);
-
-        ModuleInfo moduleInfo = javaInspector.parseModuleInfo(MODULE_INFO, rootContext);
+        SourceFile sourceFile = new SourceFile("/", URI.create("file:/"), null, null);
+        ModuleInfo moduleInfo = javaInspector.parseModuleInfo(MODULE_INFO, sourceFile, rootContext);
 
         List<ModuleInfo.Requires> requires = moduleInfo.requires();
         assertEquals(5, requires.size());
@@ -123,8 +125,8 @@ public class TestModuleInfo {
         JavaInspector.ParseOptions options = JavaInspectorImpl.DETAILED_SOURCES;
         ParseResult parseResult = javaInspector.parse(options).parseResult();
         assertEquals(1, parseResult.sourceSetsByName().size());
-        SourceSet set = parseResult.sourceSetsByName().values().stream().findFirst().orElseThrow();
-        ModuleInfo moduleInfo = set.moduleInfo();
+        SourceSet sourceSet = parseResult.sourceSetsByName().values().stream().findFirst().orElseThrow();
+        ModuleInfo moduleInfo = parseResult.moduleInfo(sourceSet);
         assertEquals("[multiLineComment@1-1:3-3]", moduleInfo.comments().toString());
         assertEquals("org.e2immu.language.inspection.integration", moduleInfo.name());
         ModuleInfo.Requires req0 = moduleInfo.requires().getFirst();

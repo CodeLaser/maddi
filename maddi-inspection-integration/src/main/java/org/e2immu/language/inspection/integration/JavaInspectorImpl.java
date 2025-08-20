@@ -551,12 +551,12 @@ public class JavaInspectorImpl implements JavaInspector {
             TIMED_LOGGER.info("Phase 2: Scanning compilation units, done {}", count);
             try {
                 if (sourceFile.uri().toString().endsWith("module-info.java")) {
-                    ModuleInfo moduleInfo = parseModuleInfo(entry.getValue(), rootContext);
+                    ModuleInfo moduleInfo = parseModuleInfo(entry.getValue(), sourceFile, rootContext);
                     if (moduleInfo == null) {
                         summary.addParseException(new Summary.ParseException(sourceFile.uri(), sourceFile.uri(),
                                 "Expect ModularCompilationUnit", null));
                     } else {
-                        sourceFile.sourceSet().setModuleInfo(moduleInfo);
+                        summary.putSourceSetToModuleInfo(sourceFile.sourceSet(), moduleInfo);
                     }
                     return null;
                 } else {
@@ -689,31 +689,33 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     private void resolveModuleInfo(Summary summary) {
-        for (SourceSet sourceSet : summary.sourceSets()) {
-            if (sourceSet.moduleInfo() != null) {
-                for (ModuleInfo.Uses uses : sourceSet.moduleInfo().uses()) {
-                    TypeInfo resolved = sourceTypeMap.get(uses.api(), sourceSet);
-                    if (resolved != null) uses.setApiResolved(resolved);
-                }
-                for (ModuleInfo.Provides provides : sourceSet.moduleInfo().provides()) {
-                    TypeInfo r0 = sourceTypeMap.get(provides.api(), sourceSet);
-                    if (r0 != null) provides.setApiResolved(r0);
-                    TypeInfo r1 = sourceTypeMap.get(provides.implementation(), sourceSet);
-                    if (r1 != null) provides.setImplementationResolved(r1);
-                }
+        for (Map.Entry<SourceSet, ModuleInfo> entry : summary.sourceSetToModuleInfoMap().entrySet()) {
+            SourceSet sourceSet = entry.getKey();
+            ModuleInfo moduleInfo = entry.getValue();
+            for (ModuleInfo.Uses uses : moduleInfo.uses()) {
+                TypeInfo resolved = sourceTypeMap.get(uses.api(), sourceSet);
+                if (resolved != null) uses.setApiResolved(resolved);
+            }
+            for (ModuleInfo.Provides provides : moduleInfo.provides()) {
+                TypeInfo r0 = sourceTypeMap.get(provides.api(), sourceSet);
+                if (r0 != null) provides.setApiResolved(r0);
+                TypeInfo r1 = sourceTypeMap.get(provides.implementation(), sourceSet);
+                if (r1 != null) provides.setImplementationResolved(r1);
             }
         }
     }
 
     // public for testing, not in API
-    public ModuleInfo parseModuleInfo(String javaSource, Context rootContext) {
-
+    public ModuleInfo parseModuleInfo(String javaSource, SourceFile sourceFile, Context rootContext) {
         JavaParser parser = new JavaParser(javaSource);
         parser.setParserTolerant(false);
         parser.ModularCompilationUnit();
         Node root = parser.rootNode();
         if (root instanceof ModularCompilationUnit mcu) {
-            return new ParseModuleInfo(runtime, null).parse(mcu, rootContext);
+            CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
+                    .setURI(sourceFile.uri())
+                    .setSourceSet(sourceFile.sourceSet()).build();
+            return new ParseModuleInfo(runtime, null).parse(mcu, compilationUnit, rootContext);
         }
         return null;
     }

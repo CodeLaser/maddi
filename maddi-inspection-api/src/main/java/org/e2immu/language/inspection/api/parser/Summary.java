@@ -1,11 +1,13 @@
 package org.e2immu.language.inspection.api.parser;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /*
@@ -74,6 +76,10 @@ public interface Summary {
     void addParseException(ParseException parseException);
 
     List<ParseException> parseExceptions();
+
+    Map<SourceSet, ModuleInfo> sourceSetToModuleInfoMap();
+
+    void putSourceSetToModuleInfo(SourceSet sourceSet, ModuleInfo moduleInfo);
 
     Iterable<SourceSet> sourceSets();
 

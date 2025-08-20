@@ -5,7 +5,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Possible situations.
@@ -106,11 +105,6 @@ public interface SourceSet {
     SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri);
 
     SourceSet withSourceDirectories(List<Path> sourceDirectories);
-
-    // this is a set-once!
-    void setModuleInfo(ModuleInfo moduleInfo);
-
-    ModuleInfo moduleInfo();
 
     Set<SourceSet> recursiveDependenciesSameExternal();
 }

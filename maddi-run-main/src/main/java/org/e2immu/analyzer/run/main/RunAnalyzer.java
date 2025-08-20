@@ -110,6 +110,7 @@ public class RunAnalyzer implements Runnable {
             PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime());
             prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
             ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(Set.copyOf(parseResult.primaryTypes()),
+                    parseResult.sourceSetToModuleInfoMap().values(),
                     externalsToAccept, parseOptions.parallel());
             if (printMemory) {
                 printMemUse();

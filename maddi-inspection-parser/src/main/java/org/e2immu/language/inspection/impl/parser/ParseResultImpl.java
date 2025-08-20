@@ -1,5 +1,6 @@
 package org.e2immu.language.inspection.impl.parser;
 
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
@@ -21,8 +22,10 @@ public class ParseResultImpl implements ParseResult {
     private final Map<TypeInfo, Set<TypeInfo>> children;
     private final Map<String, List<TypeInfo>> typesBySimpleName;
     private final Map<String, SourceSet> sourceSetsByName;
+    private final Map<SourceSet, ModuleInfo> sourceSetToModuleInfo;
 
-    public ParseResultImpl(Set<TypeInfo> types, Map<String, SourceSet> sourceSetsByName) {
+    public ParseResultImpl(Set<TypeInfo> types, Map<String, SourceSet> sourceSetsByName, Map<SourceSet, ModuleInfo> sourceSetToModuleInfo) {
+        this.sourceSetToModuleInfo = sourceSetToModuleInfo;
         this.sourceSetsByName = sourceSetsByName;
         this.types = types;
         typesByFQN = types.stream()
@@ -277,5 +280,15 @@ public class ParseResultImpl implements ParseResult {
         if (primaryTypesOfPackage.containsKey(name)) return List.of(name);
         String nameLc = name.toLowerCase();
         return primaryTypesOfPackage.keySet().stream().filter(pkg -> pkg.toLowerCase().contains(nameLc)).toList();
+    }
+
+    @Override
+    public ModuleInfo moduleInfo(SourceSet sourceSet) {
+        return sourceSetToModuleInfo.get(sourceSet);
+    }
+
+    @Override
+    public Map<SourceSet, ModuleInfo> sourceSetToModuleInfoMap() {
+        return sourceSetToModuleInfo;
     }
 }

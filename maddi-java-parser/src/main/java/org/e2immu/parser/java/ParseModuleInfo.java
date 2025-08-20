@@ -1,5 +1,6 @@
 package org.e2immu.parser.java;
 
+import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.Source;
@@ -15,7 +16,7 @@ public class ParseModuleInfo extends CommonParse {
         super(runtime, parsers);
     }
 
-    public ModuleInfo parse(ModularCompilationUnit mcu, Context context) {
+    public ModuleInfo parse(ModularCompilationUnit mcu, CompilationUnit compilationUnit, Context context) {
         ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
         DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
         int i = 0;
@@ -42,6 +43,7 @@ public class ParseModuleInfo extends CommonParse {
         }
         Source source = source(mcu);
         return builder
+                .setCompilationUnit(compilationUnit)
                 .setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()))
                 .addComments(comments(mcu)).build();
     }

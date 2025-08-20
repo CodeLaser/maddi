@@ -1,5 +1,6 @@
 package org.e2immu.language.inspection.impl.parser;
 
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.parser.ParseResult;
@@ -16,6 +17,7 @@ public class SummaryImpl implements Summary {
     private final List<ParseException> parseExceptions = new LinkedList<>();
     private final boolean failFast;
     private final Map<String, SourceSet> sourceSetsByName = new HashMap<>();
+    private final Map<SourceSet, ModuleInfo> sourceSetToModuleInfo = new HashMap<>();
 
     public SummaryImpl(boolean failFast) {
         this.failFast = failFast;
@@ -24,6 +26,16 @@ public class SummaryImpl implements Summary {
     @Override
     public synchronized void ensureSourceSet(SourceSet sourceSet) {
         sourceSetsByName.putIfAbsent(sourceSet.name(), sourceSet);
+    }
+
+    @Override
+    public Map<SourceSet, ModuleInfo> sourceSetToModuleInfoMap() {
+        return sourceSetToModuleInfo;
+    }
+
+    @Override
+    public synchronized void putSourceSetToModuleInfo(SourceSet sourceSet, ModuleInfo moduleInfo) {
+        sourceSetToModuleInfo.put(sourceSet, moduleInfo);
     }
 
     @Override
@@ -41,7 +53,7 @@ public class SummaryImpl implements Summary {
         if (haveErrors()) {
             throw new UnsupportedOperationException("Can only switch to ParseResult when there are no parse exceptions");
         }
-        return new ParseResultImpl(types, sourceSetsByName);
+        return new ParseResultImpl(types, sourceSetsByName, Map.copyOf(sourceSetToModuleInfo));
     }
 
     @Override

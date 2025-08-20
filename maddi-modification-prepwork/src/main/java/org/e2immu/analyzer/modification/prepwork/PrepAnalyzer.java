@@ -7,17 +7,20 @@ import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstruc
 import org.e2immu.analyzer.modification.prepwork.hcs.ComputeHCS;
 import org.e2immu.analyzer.modification.prepwork.hct.ComputeHiddenContent;
 import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -113,15 +116,11 @@ public class PrepAnalyzer {
     }
 
     public G<Info> doPrimaryTypesReturnGraph(Set<TypeInfo> primaryTypes) {
-        return doPrimaryTypesReturnComputeCallGraph(primaryTypes, DO_NOT_ACCEPT_EXTERNALS).graph();
+        return doPrimaryTypesReturnComputeCallGraph(primaryTypes, List.of(), DO_NOT_ACCEPT_EXTERNALS, false).graph();
     }
 
     public ComputeCallGraph doPrimaryTypesReturnComputeCallGraph(Set<TypeInfo> primaryTypes,
-                                                                 Predicate<TypeInfo> externalsToAccept) {
-        return doPrimaryTypesReturnComputeCallGraph(primaryTypes, externalsToAccept, false);
-    }
-
-    public ComputeCallGraph doPrimaryTypesReturnComputeCallGraph(Set<TypeInfo> primaryTypes,
+                                                                 Collection<ModuleInfo> moduleInfos,
                                                                  Predicate<TypeInfo> externalsToAccept,
                                                                  boolean parallel) {
         AtomicInteger count = new AtomicInteger();
@@ -135,7 +134,7 @@ public class PrepAnalyzer {
         });
 
         LOGGER.info("Start compute call graph");
-        ComputeCallGraph ccg = new ComputeCallGraph(runtime, primaryTypes, externalsToAccept);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, primaryTypes, moduleInfos, externalsToAccept);
         G<Info> cg = ccg.go().graph();
         LOGGER.info("Set recursive methods");
         ccg.setRecursiveMethods();
