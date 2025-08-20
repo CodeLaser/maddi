@@ -73,8 +73,8 @@ public class TestInvalidate extends CommonTest2 {
         Map<String, String> sourcesByFqn2 = Map.of(ISOURCE_FQN, ISOURCE_CHANGED, "a.b.Source", SOURCE,
                 PROCESSOR_FQN, PROCESSOR);
         Map<String, String> sourcesByURIString = sourcesByURIString(sourcesByFqn2);
-        JavaInspector.ReloadResult rr = javaInspector.reloadSources(makeInputConfiguration(sourcesByURIString),
-                sourcesByURIString);
+        JavaInspector.ReloadResult rr = javaInspector.reloadSources(makeInputConfiguration(sourcesByURIString,
+                Map.of()), sourcesByURIString);
         assertEquals(0, rr.problems().size());
         assertEquals(1, rr.sourceHasChanged().size());
         assertEquals("[a.b.ISource]", rr.sourceHasChanged().toString());

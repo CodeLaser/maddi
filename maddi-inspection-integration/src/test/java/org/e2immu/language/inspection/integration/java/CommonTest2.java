@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -32,16 +33,26 @@ public abstract class CommonTest2 {
     }
 
     public ParseResult init(Map<String, String> sourcesByFqn) throws IOException {
+        return init(sourcesByFqn, Map.of());
+    }
+
+    public ParseResult init(Map<String, String> sourcesByFqn, Map<String, String> testSourcesByFqn)
+            throws IOException {
         Map<String, String> sourcesByURIString = sourcesByURIString(sourcesByFqn);
-        InputConfiguration inputConfiguration = makeInputConfiguration(sourcesByURIString);
+        Map<String, String> testSourcesByURIString = sourcesByURIString(testSourcesByFqn);
+
+        InputConfiguration inputConfiguration = makeInputConfiguration(sourcesByURIString, testSourcesByURIString);
         javaInspector = new JavaInspectorImpl(true, false);
         javaInspector.initialize(inputConfiguration);
-        return javaInspector.parse(sourcesByURIString,
+        Map<String,String> combined = new HashMap<>(sourcesByURIString);
+        combined.putAll(testSourcesByURIString);
+        return javaInspector.parse(combined,
                         new JavaInspectorImpl.ParseOptionsBuilder().setFailFast(true).setDetailedSources(true).build())
                 .parseResult();
     }
 
-    public static InputConfiguration makeInputConfiguration(Map<String, String> sourcesByURIString) {
+    public InputConfiguration makeInputConfiguration(Map<String, String> sourcesByURIString,
+                                                     Map<String, String> testSourcesByURIString) {
         InputConfiguration.Builder inputConfigurationBuilder = new InputConfigurationImpl.Builder()
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                 // NOTE: no access to ToolChain here; this is rather exceptional
@@ -53,6 +64,7 @@ public abstract class CommonTest2 {
                 .addClassPath(JAR_WITH_PATH_PREFIX + "ch/qos/logback/classic")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/opentest4j");
         sourcesByURIString.keySet().forEach(inputConfigurationBuilder::addSources);
+        testSourcesByURIString.keySet().forEach(inputConfigurationBuilder::addTestSources);
         return inputConfigurationBuilder.build();
     }
 }
