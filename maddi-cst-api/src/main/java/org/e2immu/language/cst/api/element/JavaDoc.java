@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -56,10 +57,10 @@ public interface JavaDoc extends MultiLineComment {
     }
 
     Map<String, TagIdentifier> TAG_IDENTIFIER_MAP = Arrays.stream(TagIdentifier.values())
-            .collect(Collectors.toUnmodifiableMap(v -> v.identifier, v -> v));
+            .collect(Collectors.toUnmodifiableMap(v -> v.identifier.toLowerCase(), v -> v));
 
     static TagIdentifier identifier(String string) {
-        return TAG_IDENTIFIER_MAP.get(string);
+        return TAG_IDENTIFIER_MAP.get(string.toLowerCase());
     }
 
 
