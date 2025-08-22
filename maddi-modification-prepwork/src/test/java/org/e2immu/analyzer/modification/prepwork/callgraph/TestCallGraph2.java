@@ -362,4 +362,43 @@ public class TestCallGraph2 extends CommonTest2 {
                 b.Annotation->S->b.Annotation.uses()\
                 """, r.dependencyGraph().toString("\n", ComputeCallGraph::edgeValuePrinter));
     }
+
+
+    @Language("java")
+    String A6 = """
+            package a;
+            
+            public class A {
+            }
+            """;
+
+    @Language("java")
+    String B6 = """
+            package b;
+            
+            public class A {
+            }
+            """;
+
+    @Language("java")
+    String C6 = """
+            package c;
+            import a.*;
+            import b.A;
+            
+            public class C extends A {
+            }
+            """;
+
+    @Test
+    public void testImportPriority() throws IOException {
+        Map<String, String> sourcesByFqn = Map.of("a.A", A6, "b.A", B6, "c.C", C6);
+        R r = init(sourcesByFqn);
+        assertEquals("""
+                a.A->S->a.A.<init>()
+                b.A->S->b.A.<init>()
+                c.C->H->b.A
+                c.C->S->c.C.<init>()\
+                """, r.dependencyGraph().toString("\n", ComputeCallGraph::edgeValuePrinter));
+    }
 }
