@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 
 public class TestImport2 extends CommonTest2 {
 
@@ -50,6 +52,40 @@ public class TestImport2 extends CommonTest2 {
                 "c.b.GrandChild", GRANDCHILD);
         ParseResult pr1 = init(sourcesByFqn);
         TypeInfo gc = pr1.findType("c.b.GrandChild");
+    }
+
+    @Language("java")
+    String A = """
+            package a;
+ 
+            public class A {
+            }
+            """;
+
+    @Language("java")
+    String B = """
+            package b;
+ 
+            public class A {
+            }
+            """;
+
+    @Language("java")
+    String C = """
+            package c;
+            import a.*;
+            import b.A;
+ 
+            public class C extends A {
+            }
+            """;
+
+    @Test
+    public void testImportPriority() throws IOException {
+        Map<String, String> sourcesByFqn = Map.of("a.A",A, "b.A",B,"c.C", C);
+        ParseResult pr1 = init(sourcesByFqn);
+        TypeInfo c = pr1.findType("c.C");
+        assertEquals("Type b.A", c.parentClass().toString());
     }
 
 }

@@ -17,9 +17,12 @@ public class ShortestCycleDijkstra {
     private record TwoVertices<T>(V<T> v1, V<T> v2) {
     }
 
-    private static final int MIN_CYCLE_SIZE = 3;
-
     public static <T> Cycle<T> shortestCycle(G<T> graph, V<T> startVertex) {
+        return shortestCycle(graph, startVertex, 3);
+    }
+
+    public static <T> Cycle<T> shortestCycle(G<T> graph, V<T> startVertex, int minCycleSize) {
+        int minPathSize = minCycleSize + 1; // end vertex == begin vertex, so a cycle of 2 types is a path of 3
         PriorityQueue<PathState<T>> pq = new PriorityQueue<>(Comparator.comparing(ps -> ps.distance));
         Map<TwoVertices<T>, Long> visited = new HashMap<>();
         Cycle<T> shortest = null;
@@ -36,7 +39,7 @@ public class ShortestCycleDijkstra {
             visited.put(stateKey, current.distance);
 
             // Check if we've found a cycle back to start
-            if (startVertex.equals(current.vertex) && current.path.size() >= MIN_CYCLE_SIZE) {
+            if (startVertex.equals(current.vertex) && current.path.size() >= minPathSize) {
                 // we've found a cycle
                 if (shortest == null || current.distance < shortest.distance) {
                     // no need to copy the path, it is immutable
@@ -47,13 +50,13 @@ public class ShortestCycleDijkstra {
             }
             // Try to expand
             Map<V<T>, Long> edges = graph.edges(current.vertex);
-            if(edges != null) {
+            if (edges != null) {
                 for (Map.Entry<V<T>, Long> edge : edges.entrySet()) {
                     // ensure that we don't visit one of the vertices we've already visited; exception: start
                     V<T> to = edge.getKey();
                     boolean isStart = to.equals(startVertex);
                     if (!isStart && current.path.contains(to)) continue;
-                    if (isStart && current.path.size() < MIN_CYCLE_SIZE) continue; //don't bother with small cycles
+                    if (isStart && current.path.size() < minPathSize) continue; //don't bother with small cycles
                     long newDistance = current.distance + edge.getValue();
                     List<V<T>> newPath = Stream.concat(current.path.stream(), Stream.of(to)).toList();
                     PathState<T> newState = new PathState<>(to, newDistance, newPath, current.firstDestination);

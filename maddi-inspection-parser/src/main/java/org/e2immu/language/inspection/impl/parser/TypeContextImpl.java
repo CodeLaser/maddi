@@ -376,11 +376,12 @@ public class TypeContextImpl implements TypeContext {
          */
         TypeInfo parent = data.staticImportMap.getStaticMemberToTypeInfo(name);
         if (parent != null) {
-            TypeInfo subType = parent.findSubType(name, false);
+            TypeInfo subType = subTypeOfRelated(parent, name);
             if (subType != null) {
                 addToContext(subType, STATIC_IMPORT_PRIORITY);
                 return subType;
             }
+            return null; // we should definitely not return "parent"
         }
         return parent;
     }
@@ -421,7 +422,7 @@ public class TypeContextImpl implements TypeContext {
 
     @Override
     public List<TypeInfo> typesInSamePackage(String packageName) {
-       return typesInSamePackage(packageName, data.sourceTypeMap, data.compiledTypesManager);
+        return typesInSamePackage(packageName, data.sourceTypeMap, data.compiledTypesManager);
     }
 
     public static List<TypeInfo> typesInSamePackage(String packageName,
