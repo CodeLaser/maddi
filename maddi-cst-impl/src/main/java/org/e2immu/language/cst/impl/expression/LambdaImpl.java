@@ -27,6 +27,7 @@ import org.e2immu.language.cst.impl.output.SpaceEnum;
 import org.e2immu.language.cst.impl.output.SymbolEnum;
 import org.e2immu.language.cst.impl.type.DiamondEnum;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -230,7 +231,10 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(methodInfo.parameters().stream().flatMap(ParameterInfo::typesReferenced),
+        return Stream.concat(methodInfo.parameters().stream().flatMap(
+                pi -> outputVariants.get(pi.index()).isTyped()
+                        ? pi.parameterizedType().typesReferenced(true, new HashSet<>())
+                        : pi.parameterizedType().typesReferenced()),
                 methodInfo.methodBody().typesReferenced());
     }
 
