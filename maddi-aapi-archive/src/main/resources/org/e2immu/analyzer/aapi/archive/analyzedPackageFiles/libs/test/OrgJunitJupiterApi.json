@@ -1,10 +1,10 @@
 [
 {"name": "Torg.junit.jupiter.api.Assertions", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true},"immutableType":2,"independentType":2}, "subs":[
  {"name": "STimeoutFailureFactory(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PT:0","E":true,"M":1}}, "sub":
-  {"name": "McreateTimeoutFailure(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.function.Supplier","2":"Tjava.lang.Throwable","M":1},"hcsMethod":{"0":[[-1]]}}, "subs":[
-   {"name": "Pduration(0)", "data":{"annotatedApi":1}},
-   {"name": "Psupplier(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]},"ignoreModsParameter":1}},
-   {"name": "Pthrowable(2)", "data":{"annotatedApi":1,"hcsParameter":{"2":[[-1]]}}}]}},
+  {"name": "McreateTimeoutFailure(0)", "data":{"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.function.Supplier","2":"Tjava.lang.Throwable","3":"Tjava.lang.Thread","M":1},"hcsMethod":{"0":[[-1]]}}, "subs":[
+   {"name": "Psupplier(1)", "data":{"hcsParameter":{"1":[[-1]]},"ignoreModsParameter":1}},
+   {"name": "Pthrowable(2)", "data":{"hcsParameter":{"2":[[-1]]}}},
+   {"name": "Pthread(3)", "data":{"hcsParameter":{"3":[[-1]]}}}]}},
  {"name": "C<init>(0)", "data":{"hc":{}}},
  {"name": "Mfail(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PV:0"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mfail(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PV:0"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
