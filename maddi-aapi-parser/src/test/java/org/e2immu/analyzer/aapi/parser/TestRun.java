@@ -21,6 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestRun {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestRun.class);
+    private static final String JDK_HOMEBREW_21 = "jdk-Homebrew-21.0.8";
+    private static final String JDK_HOMEBREW_24 = "jdk-Homebrew-24.0.2";
+    public static final String LIBS_MADDI_HOMEBREW_24 = "libs.e2immu-Homebrew-24.0.2";
+    public static final String LIBS_LOG_HOMEBREW_24 = "libs.log-Homebrew-24.0.2";
+    public static final String LIBS_TEST_HOMEBREW_24 = "libs.test-Homebrew-24.0.2";
 
     @BeforeAll
     public static void beforeAll() {
@@ -47,18 +52,18 @@ public class TestRun {
             @Override
             public void writeAnalysis(Set<TypeInfo> writeOut) {
                 int expect = switch (context()) {
-                    case "jdk-Homebrew-24.0.1", "jdk-Homebrew-21.0.7" -> 216;
-                    case "libs.e2immu-Homebrew-24.0.1" -> 0;
-                    case "libs.log-Homebrew-24.0.1" -> 3;
-                    case "libs.test-Homebrew-24.0.1" -> 4;
+                    case JDK_HOMEBREW_24, JDK_HOMEBREW_21 -> 216;
+                    case LIBS_MADDI_HOMEBREW_24 -> 0;
+                    case LIBS_LOG_HOMEBREW_24 -> 3;
+                    case LIBS_TEST_HOMEBREW_24 -> 4;
                     default -> -1;
                 };
                 assertEquals(expect, writeOut.size(), context());
 
                 int expectSub = switch (context()) {
-                    case "jdk-Homebrew-24.0.1", "jdk-Homebrew-21.0.7" -> 50;
-                    case "libs.e2immu-Homebrew-24.0.1", "libs.log-Homebrew-24.0.1" -> 0;
-                    case "libs.test-Homebrew-24.0.1" -> 1;
+                    case JDK_HOMEBREW_24, JDK_HOMEBREW_21 -> 50;
+                    case LIBS_MADDI_HOMEBREW_24, LIBS_LOG_HOMEBREW_24 -> 0;
+                    case LIBS_TEST_HOMEBREW_24 -> 1;
                     default -> -1;
                 };
                 int subTypes = (int) writeOut.stream()
@@ -69,11 +74,11 @@ public class TestRun {
             @Override
             public void afterAnnotatedApiParsing(JavaInspector javaInspector) {
                 int expectCt = switch (context()) {
-                    case "jdk-Homebrew-24.0.1" -> 3208;
-                    case "jdk-Homebrew-21.0.7" -> 3210;
-                    case "libs.e2immu-Homebrew-24.0.1" -> 448;
-                    case "libs.log-Homebrew-24.0.1" -> 457;
-                    case "libs.test-Homebrew-24.0.1" -> 465;
+                    case JDK_HOMEBREW_24 -> 3208;
+                    case JDK_HOMEBREW_21 -> 3210;
+                    case LIBS_MADDI_HOMEBREW_24 -> 448;
+                    case LIBS_LOG_HOMEBREW_24 -> 457;
+                    case LIBS_TEST_HOMEBREW_24 -> 465;
                     default -> -1;
                 };
                 assertEquals(expectCt, javaInspector.compiledTypesManager().typesLoaded().size(), context());
@@ -102,29 +107,29 @@ public class TestRun {
                         .filter(ti -> ti.parentClass() != null && !ti.parentClass().isJavaLangObject())
                         .count();
                 int expectParentNonNull = switch (context()) {
-                    case "jdk-Homebrew-24.0.1" -> 2746;
-                    case "jdk-Homebrew-21.0.7" -> 2736;
-                    case "libs.e2immu-Homebrew-24.0.1" -> 286;
-                    case "libs.log-Homebrew-24.0.1" -> 287;
-                    case "libs.test-Homebrew-24.0.1" -> 288;
+                    case JDK_HOMEBREW_24 -> 2746;
+                    case JDK_HOMEBREW_21 -> 2736;
+                    case LIBS_MADDI_HOMEBREW_24 -> 286;
+                    case LIBS_LOG_HOMEBREW_24 -> 287;
+                    case LIBS_TEST_HOMEBREW_24 -> 288;
                     default -> -1;
                 };
                 assertEquals(expectParentNonNull, typesWithParentNonNullNonJLO, context());
 
                 int expectSf = switch (context()) {
-                    case "jdk-Homebrew-24.0.1", "jdk-Homebrew-21.0.7" -> 25;
-                    case "libs.e2immu-Homebrew-24.0.1" -> 0;
-                    case "libs.log-Homebrew-24.0.1" -> 1;
-                    case "libs.test-Homebrew-24.0.1" -> 2;
+                    case JDK_HOMEBREW_24, JDK_HOMEBREW_21 -> 25;
+                    case LIBS_MADDI_HOMEBREW_24 -> 0;
+                    case LIBS_LOG_HOMEBREW_24 -> 1;
+                    case LIBS_TEST_HOMEBREW_24 -> 2;
                     default -> -1;
                 };
                 assertEquals(expectSf, javaInspector.sourceFiles().size(), context());
                 SourceTypeMapImpl sourceTypeMap = ((JavaInspectorImpl) javaInspector).getSourceTypeMap();
                 int stmSize = switch (context()) {
-                    case "jdk-Homebrew-24.0.1", "jdk-Homebrew-21.0.7" -> 241;
-                    case "libs.e2immu-Homebrew-24.0.1" -> 0;
-                    case "libs.log-Homebrew-24.0.1" -> 4;
-                    case "libs.test-Homebrew-24.0.1" -> 6;
+                    case JDK_HOMEBREW_24, JDK_HOMEBREW_21 -> 241;
+                    case LIBS_MADDI_HOMEBREW_24 -> 0;
+                    case LIBS_LOG_HOMEBREW_24 -> 4;
+                    case LIBS_TEST_HOMEBREW_24 -> 6;
                     default -> -1;
                 };
                 assertEquals(stmSize, sourceTypeMap.getMap().size(), context());
@@ -136,10 +141,10 @@ public class TestRun {
                     @Override
                     public void inputTypes(List<TypeInfo> allTypes) {
                         int expect = switch (context()) {
-                            case "jdk-Homebrew-24.0.1", "jdk-Homebrew-21.0.7" -> 216;
-                            case "libs.e2immu-Homebrew-24.0.1" -> 0;
-                            case "libs.log-Homebrew-24.0.1" -> 3;
-                            case "libs.test-Homebrew-24.0.1" -> 4;
+                            case JDK_HOMEBREW_24, JDK_HOMEBREW_21 -> 216;
+                            case LIBS_MADDI_HOMEBREW_24 -> 0;
+                            case LIBS_LOG_HOMEBREW_24 -> 3;
+                            case LIBS_TEST_HOMEBREW_24 -> 4;
                             default -> -1;
                         };
                         assertEquals(expect, allTypes.size(), context());
@@ -148,11 +153,11 @@ public class TestRun {
                     @Override
                     public void allTypes(List<TypeInfo> allTypes) {
                         int expect = switch (context()) {
-                            case "jdk-Homebrew-21.0.7" -> 297;// 235;
-                            case "jdk-Homebrew-24.0.1" -> 297;// 237;//277;// 235;
-                            case "libs.e2immu-Homebrew-24.0.1" -> 0;
-                            case "libs.log-Homebrew-24.0.1" -> 4;
-                            case "libs.test-Homebrew-24.0.1" -> 5;
+                            case JDK_HOMEBREW_21 -> 297;// 235;
+                            case JDK_HOMEBREW_24 -> 297;// 237;//277;// 235;
+                            case LIBS_MADDI_HOMEBREW_24 -> 0;
+                            case LIBS_LOG_HOMEBREW_24 -> 4;
+                            case LIBS_TEST_HOMEBREW_24 -> 5;
                             default -> -1;
                         };
                         //assertEquals(expect, allTypes.size(), context());
