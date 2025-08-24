@@ -20,6 +20,7 @@ import org.e2immu.language.cst.impl.variable.DescendModeEnum;
 import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
 import org.e2immu.support.EventuallyFinal;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -178,7 +179,12 @@ public class ParameterInfoImpl implements ParameterInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced() {
-        return parameterizedType.typesReferencedMadeExplicit();
+        return parameterizedType.typesReferenced();
+    }
+
+    @Override
+    public Stream<TypeReference> explicitTypesReferenced() {
+        return parameterizedType.typesReferenced(true, new HashSet<>());
     }
 
     @Override

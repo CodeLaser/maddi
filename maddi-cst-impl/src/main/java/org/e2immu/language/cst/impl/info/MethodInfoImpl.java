@@ -10,7 +10,6 @@ import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -224,7 +223,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     @Override
     public Stream<TypeReference> typesReferenced(boolean includeBody) {
         Stream<TypeReference> fromReturnType = returnType().typesReferencedMadeExplicit();
-        Stream<TypeReference> fromParameters = parameters().stream().flatMap(Element::typesReferenced);
+        Stream<TypeReference> fromParameters = parameters().stream().flatMap(pi -> pi.explicitTypesReferenced());
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
                 .flatMap(tp -> tp.typesReferenced(true, new HashSet<>()));
         Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);

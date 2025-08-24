@@ -6,8 +6,10 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 public interface ParameterInfo extends Variable, Info {
+
     int index();
 
     String name();
@@ -41,4 +43,7 @@ public interface ParameterInfo extends Variable, Info {
     Value.AssignedToField assignedToField();
 
     MethodInfo methodInfo();
+
+    Stream<TypeReference> explicitTypesReferenced();
+
 }
