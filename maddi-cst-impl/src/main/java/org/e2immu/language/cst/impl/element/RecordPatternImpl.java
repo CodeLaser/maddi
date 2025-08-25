@@ -98,6 +98,14 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
     }
 
     @Override
+    public ParameterizedType parameterizedType() {
+        if (localVariable != null) return localVariable.parameterizedType();
+        if (recordType != null) return recordType;
+        assert unnamedPattern;
+        return null;
+    }
+
+    @Override
     public int complexity() {
         return 0;
     }

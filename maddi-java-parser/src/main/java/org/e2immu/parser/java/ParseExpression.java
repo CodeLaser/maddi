@@ -178,6 +178,7 @@ public class ParseExpression extends CommonParse {
             if (detailedSourcesBuilder != null) detailedSourcesBuilder.put(patternVariable, source(nvd.get(1)));
             context.variableContext().add(patternVariable);
             recordPattern = runtime.newRecordPatternBuilder()
+                    .setSource(source(nvd))
                     .setLocalVariable(patternVariable)
                     .build();
         } else if (ioe2 instanceof org.parsers.java.ast.RecordPattern rp) {

@@ -164,8 +164,9 @@ public class ParseMethodDeclaration extends CommonParse {
             Source noSource = runtime.noSource();
             for (ParseTypeDeclaration.RecordField recordField : recordFields) {
                 ParameterInfo pi = builder.addParameter(recordField.fieldInfo().name(), recordField.fieldInfo().type());
-                pi.builder().setVarArgs(recordField.varargs());
-                pi.builder().setIsFinal(false);
+                pi.builder().setVarArgs(recordField.varargs())
+                        .setIsFinal(false)
+                        .setSynthetic(true);
                 FieldReference fr = runtime.newFieldReference(recordField.fieldInfo());
                 Assignment assignment = runtime.newAssignmentBuilder()
                         .setTarget(runtime.newVariableExpressionBuilder().setVariable(fr).setSource(noSource).build())
