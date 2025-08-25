@@ -21,6 +21,8 @@ public interface RecordPattern extends Element {
 
     List<RecordPattern> patterns();
 
+    ParameterizedType parameterizedType();
+
     RecordPattern translate(TranslationMap translationMap);
 
     interface Builder extends Element.Builder<Builder> {

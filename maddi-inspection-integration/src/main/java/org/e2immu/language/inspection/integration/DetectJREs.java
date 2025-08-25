@@ -126,7 +126,8 @@ public class DetectJREs {
             }
             return parseMacOsXml(xmlString);
         } catch (IOException | InterruptedException | ParserConfigurationException | SAXException e) {
-            throw new UnsupportedOperationException("Cannot detect JREs: ", e);
+            LOGGER.error("Cannot detect JREs: ", e);
+            return List.of();
         }
     }
 
