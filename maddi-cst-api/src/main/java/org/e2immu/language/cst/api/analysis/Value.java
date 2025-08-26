@@ -197,4 +197,10 @@ public interface Value extends Comparable<Value> {
     interface SetOfStrings extends Value {
         Set<String> set();
     }
+
+    interface Scope extends Value {
+        boolean isEmpty();
+
+        String scope();
+    }
 }

@@ -882,10 +882,16 @@ public class MethodAnalyzer {
                 return false;
             }
 
-            if (e instanceof InstanceOf instanceOf && instanceOf.patternVariable() != null) {
+            if (e instanceof InstanceOf instanceOf) {
                 String scope = computePatternVariableScope();
-                RecordPattern recordPattern = instanceOf.patternVariable();
-                processRecordPattern(recordPattern, scope);
+                if (instanceOf.patternVariable() != null) {
+                    RecordPattern recordPattern = instanceOf.patternVariable();
+                    processRecordPattern(recordPattern, scope);
+                }
+                if (instanceOf.expression() instanceof VariableExpression
+                    && !instanceOf.analysis().haveAnalyzedValueFor(PropertyImpl.INSTANCEOF_SCOPE)) {
+                    instanceOf.analysis().set(PropertyImpl.INSTANCEOF_SCOPE, new ValueImpl.ScopeImpl(scope));
+                }
             }
             if (e instanceof Assignment a) {
                 assignedAdd(a.variableTarget());

@@ -1,5 +1,6 @@
 package org.e2immu.language.cst.impl.expression;
 
+import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.InstanceOf;
@@ -11,14 +12,13 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
 import org.e2immu.language.cst.impl.element.ElementImpl;
 import org.e2immu.language.cst.impl.expression.util.ExpressionComparator;
 import org.e2immu.language.cst.impl.expression.util.InternalCompareToException;
 import org.e2immu.language.cst.impl.expression.util.PrecedenceEnum;
 import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.SpaceEnum;
 import org.e2immu.language.cst.impl.output.SymbolEnum;
 import org.e2immu.language.cst.impl.type.DiamondEnum;
 
@@ -32,6 +32,7 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
     private final ParameterizedType testType;
     private final RecordPattern patternVariable;
     private final ParameterizedType booleanParameterizedType;
+    private final PropertyValueMap propertyValueMap;
 
     public InstanceOfImpl(List<Comment> comments,
                           Source source,
@@ -39,16 +40,29 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
                           ParameterizedType testType,
                           RecordPattern patternVariable,
                           ParameterizedType booleanParameterizedType) {
+        this(comments, source, expression, testType, patternVariable, booleanParameterizedType,
+                new PropertyValueMapImpl());
+    }
+
+    private InstanceOfImpl(List<Comment> comments,
+                           Source source,
+                           Expression expression,
+                           ParameterizedType testType,
+                           RecordPattern patternVariable,
+                           ParameterizedType booleanParameterizedType,
+                           PropertyValueMap propertyValueMap) {
         super(comments, source, 2 + expression.complexity());
         this.expression = expression;
         this.testType = testType;
         this.patternVariable = patternVariable;
         this.booleanParameterizedType = booleanParameterizedType;
+        this.propertyValueMap = propertyValueMap;
     }
 
     @Override
     public Expression withSource(Source source) {
-        return new InstanceOfImpl(comments(), source, expression, testType, patternVariable, booleanParameterizedType);
+        return new InstanceOfImpl(comments(), source, expression, testType, patternVariable, booleanParameterizedType,
+                propertyValueMap);
     }
 
     public static class BuilderImpl extends ElementImpl.Builder<InstanceOf.Builder> implements InstanceOf.Builder {
@@ -91,8 +105,8 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
         if (this == o) return true;
         if (!(o instanceof InstanceOfImpl that)) return false;
         return Objects.equals(expression, that.expression)
-                && Objects.equals(testType, that.testType)
-                && Objects.equals(patternVariable, that.patternVariable);
+               && Objects.equals(testType, that.testType)
+               && Objects.equals(patternVariable, that.patternVariable);
     }
 
     @Override
@@ -129,7 +143,7 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
     public int internalCompareTo(Expression expression) {
         if (expression instanceof InstanceOf other) {
             if (expression instanceof VariableExpression ve
-                    && other.expression() instanceof VariableExpression ve2) {
+                && other.expression() instanceof VariableExpression ve2) {
                 int c = ve.variable().fullyQualifiedName().compareTo(ve2.variable().fullyQualifiedName());
                 if (c == 0)
                     c = testType.detailedString().compareTo(other.testType().detailedString());
@@ -152,11 +166,11 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
         RecordPattern translatedLv = patternVariable == null ? null
                 : patternVariable.translate(translationMap);
         if (translatedType == testType && translatedExpression == expression
-                && translatedLv == patternVariable) {
+            && translatedLv == patternVariable) {
             return this;
         }
         return new InstanceOfImpl(comments(), source(), translatedExpression, translatedType, translatedLv,
-                booleanParameterizedType);
+                booleanParameterizedType, propertyValueMap);
     }
 
     @Override
@@ -214,6 +228,12 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
     public Expression rewire(InfoMap infoMap) {
         return new InstanceOfImpl(comments(), source(), expression.rewire(infoMap), testType.rewire(infoMap),
                 patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
-                booleanParameterizedType);
+                booleanParameterizedType, propertyValueMap);
     }
+
+    @Override
+    public PropertyValueMap analysis() {
+        return propertyValueMap;
+    }
+
 }
