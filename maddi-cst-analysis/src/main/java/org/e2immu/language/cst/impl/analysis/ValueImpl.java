@@ -126,6 +126,26 @@ public abstract class ValueImpl implements Value {
         }
     }
 
+    public record ScopeImpl(String scope) implements Value.Scope {
+        public static final Scope EMPTY = new ScopeImpl("");
+
+        @Override
+        public boolean isDefault() {
+            return scope.isBlank();
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            if (scope.isEmpty()) return null;
+            return codec.encodeString(context, scope);
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return scope.isEmpty();
+        }
+    }
+
     public record ParameterParSeqImpl(ParSeq<ParameterInfo> parSeq) implements Value.ParameterParSeq {
         public static ParameterParSeqImpl EMPTY = new ValueImpl.ParameterParSeqImpl(new ParSeq<>() {
             @Override
@@ -589,7 +609,7 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-            if(map.isEmpty()) return null;
+            if (map.isEmpty()) return null;
             Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = map.entrySet().stream()
                     .collect(Collectors.toUnmodifiableMap(e -> codec.encodeVariable(context, e.getKey()),
                             e -> codec.encodeBoolean(context, e.getValue())));

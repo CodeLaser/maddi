@@ -91,6 +91,9 @@ public class PropertyImpl implements Property {
     public static final Property INDEPENDENT_TYPE_PARAMETER = new PropertyImpl("independentTypeParameter",
             ValueImpl.IndependentImpl.DEPENDENT);
 
+    // instanceof
+    public static final Property INSTANCEOF_SCOPE = new PropertyImpl("instanceOfScope", ValueImpl.ScopeImpl.EMPTY);
+
     private final String key;
     private final Value defaultValue;
 
