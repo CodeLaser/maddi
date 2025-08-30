@@ -5,9 +5,9 @@ import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -257,5 +257,32 @@ public class TestTypeParameter extends CommonTest {
         TypeInfo task = map.findSubType("Task");
         assertEquals(1, task.typeParameters().size());
         assertEquals("T=TP#0 in Task []", task.typeParameters().getFirst().toStringWithTypeBounds());
+    }
+
+    @Language("java")
+    public static final String INPUT7 = """
+            package a.b;
+            import java.util.Map;
+            import java.util.stream.Collectors;
+            public class C<K, V> {
+                Map<K, V> map;
+            
+                C(Map<K, V> map) { this.map = map; }
+            
+                private C<V, K> reverse() {
+                   return new C<>(map.entrySet().stream().collect(Collectors
+                        .toUnmodifiableMap(Map.Entry::getValue, Map.Entry::getKey)));
+                }
+            
+                public static <Y, X> C<Y, X> staticReverse(C<X,Y> c) {
+                     C<Y, X> r = c.reverse();
+                    return r;
+                }
+            }
+            """;
+
+    @Test
+    public void test7() {
+        javaInspector.parse(INPUT7);
     }
 }
