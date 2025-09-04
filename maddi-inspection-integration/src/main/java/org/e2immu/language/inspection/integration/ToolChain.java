@@ -54,7 +54,9 @@ public class ToolChain {
     };
 
     public static String currentJdkAnalyzedPackages() {
-        String currentJreShortName = currentJre().shortName();
+        JRE jre = currentJre();
+        if (jre == null) return "";
+        String currentJreShortName = jre.shortName();
         String analyzedPackageFile = mapJreShortNameToAnalyzedPackageShortName(currentJreShortName);
         return jdkAnalyzedPackages(analyzedPackageFile);
     }
@@ -80,14 +82,17 @@ public class ToolChain {
         String home = System.getProperty("java.home");
         return JRES.stream().filter(jre -> jre.path.equals(home))
                 .findFirst()
-                .orElseThrow(() -> new UnsupportedOperationException(
-                        String.format("Toolchain not found - expected JRE = %s, available JREs = %s\n",
-                                      home,
-                                      JRES.stream().map(jre -> jre.path).collect(Collectors.joining(",")))));
+                .orElseGet(() -> {
+                    LOGGER.warn("Toolchain not found - expected JRE = {}, available JREs = {}\n",
+                            home,
+                            JRES.stream().map(jre -> jre.path).collect(Collectors.joining(",")));
+                    return null;
+                });
     }
 
     public static int currentJdkMainVersion() {
-        return currentJre().mainVersion;
+        JRE jre = currentJre();
+        return jre == null ? 24 : jre.mainVersion;
     }
 
     private static final Pattern MAC_OPENJDK_PATTERN = Pattern.compile("openjdk(@\\d+)?/([\\d.]+)/libexec/openjdk.jdk");

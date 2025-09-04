@@ -65,6 +65,11 @@ public class ImmutableGraph<T> extends GraphImpl<T> implements G<T> {
         Map<T, Map<T, Long>> map = new LinkedHashMap<>();
 
         @Override
+        public int size() {
+            return map.size();
+        }
+
+        @Override
         public void addAll(G.Builder<T> other) {
             ((ImmutableGraph.Builder<T>) other).map.forEach((from, m) -> {
                 Map<T, Long> m2 = ensureVertex(from);
