@@ -40,6 +40,8 @@ public interface G<T> {
         Iterable<Map.Entry<T, Map<T, Long>>> edges();
 
         void add(T from, Iterable<? extends T> tos);
+
+        int size();
     }
 
     String toString(String delimiter);
