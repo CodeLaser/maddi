@@ -601,12 +601,16 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         ParameterizedType pt = this;
         if (pt.isTypeParameter()) {
             boolean add = false;
+            // we must have some form of cycle protection; when K->V and V->K;; // TestTypeParameter,7 as an example
+            Set<ParameterizedType> reached = new HashSet<>();
             while (pt.isTypeParameter() && translate.containsKey(pt.typeParameter())) {
                 ParameterizedType newPt = translate.get(pt.typeParameter());
                 if (newPt.equals(pt) || newPt.isTypeParameter() && pt.typeParameter().equals(newPt.typeParameter()))
                     break;
-                pt = newPt;
-                add = true;
+                if(reached.add(newPt)) {
+                    pt = newPt;
+                    add = true;
+                } else break;
             }
             // we want to add this.arrays only once, and only when there was a translation (MethodCall_61)
             if (add) {
