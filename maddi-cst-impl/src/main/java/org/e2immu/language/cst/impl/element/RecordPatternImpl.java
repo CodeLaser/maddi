@@ -204,6 +204,9 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
+        if (localVariable != null) return localVariable.typesReferenced();
+        if (recordType != null) return Stream.concat(recordType.typesReferenced(),
+                patterns.stream().flatMap(Element::typesReferenced));
         return Stream.empty();
     }
 }
