@@ -163,7 +163,7 @@ public class EvalAnd {
             // it may be interesting to run the inequality solver
             InequalitySolver inequalitySolver = new InequalitySolver(runtime, newConcat);
             Boolean resolve = inequalitySolver.evaluate(value);
-            if (resolve == Boolean.FALSE) return Action.FALSE;
+            if (resolve != null && !resolve) return Action.FALSE;
         }
 
         Equals ev1;
