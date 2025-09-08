@@ -4,8 +4,12 @@
 load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
 
 codelaser_java_library(
-    name = "maddi-cst-impl",
+    name = "maddi-cst-io",
     srcs = glob(["src/main/java/**/*.java"]),
+    javacopts = [
+        "--enable-preview",
+        #  "-source", "24",
+    ],
     visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
     #    resources = glob(["src/main/resources/**/*"]),
     deps = [
@@ -17,20 +21,18 @@ codelaser_java_library(
         "//maddi-cst-api",
         "//maddi-cst-analysis",
     ],
-      javacopts = [
-            "--enable-preview",
-          #  "-source", "24",
-        ],
 )
 
 codelaser_java_test(
-    name = "maddi-cst-impl_test",
+    name = "maddi-cst-io_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.language.cst.impl"],
+    test_packages = ["org.e2immu.language.cst.io"],
     deps = [
-        ":maddi-cst-impl",  # Depend on the main library
+        ":maddi-cst-io",  # Depend on the main library
+        "//maddi-cst-analysis",
         "//maddi-cst-api",
+        "//maddi-cst-impl",
         "//maddi-support",
         "//maddi-util",
     ],
