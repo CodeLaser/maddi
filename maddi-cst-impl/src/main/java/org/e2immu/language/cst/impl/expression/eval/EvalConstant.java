@@ -4,6 +4,8 @@ import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.util.internal.util.IntUtil;
 
+import java.util.Objects;
+
 public class EvalConstant {
     private final Runtime runtime;
 
@@ -19,10 +21,10 @@ public class EvalConstant {
             return runtime.newBoolean(ls.constant().equals(rs.constant()));
         }
         if (l instanceof BooleanConstant lb && r instanceof BooleanConstant lr) {
-            return runtime.newBoolean(lb.constant() == lr.constant());
+            return runtime.newBoolean(Objects.equals(lb.constant(), lr.constant()));
         }
         if (l instanceof CharConstant lc && r instanceof CharConstant rc) {
-            return runtime.newBoolean(lc.constant() == rc.constant());
+            return runtime.newBoolean(Objects.equals(lc.constant(), rc.constant()));
         }
         if (l instanceof CharConstant lc && r instanceof Numeric rc
             && IntUtil.isMathematicalInteger(rc.doubleValue())) {
