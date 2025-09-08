@@ -59,7 +59,7 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
 
     @Override
     public boolean conditionIsNotMoreSpecificThanAnyOf(Expression condition, Collection<Expression> bases) {
-        return conditionIsNotMoreSpecificThanAnyOf(condition, bases);
+        return eval.conditionIsNotMoreSpecificThanAnyOf(condition, bases);
     }
 
     @Override
