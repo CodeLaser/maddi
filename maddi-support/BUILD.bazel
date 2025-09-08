@@ -2,6 +2,8 @@
 # Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
 
 load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
+load("//:platform.bzl", "COMMON_JAVA_DEPS", "COMMON_JAVA_TEST_DEPS")
+
 
 # Main library target
 codelaser_java_library(
@@ -26,5 +28,5 @@ codelaser_java_test(
         # Add additional test-specific dependencies here
     ],
     size = "small",  # or "medium", "large"
-    test_class = "org.e2immu.support.Test*",
+    test_packages = [ "org.e2immu.support", ],
 )
