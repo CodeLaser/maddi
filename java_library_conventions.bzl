@@ -37,6 +37,7 @@ def codelaser_java_library(
         **kwargs
     )
 
+
 def codelaser_java_test(
         name,
         srcs = None,
@@ -45,18 +46,17 @@ def codelaser_java_test(
         data = None,
         resources = None,
         size = "medium",
+        test_packages = None,
         **kwargs):
     """
     Creates a Java test with common io.codelaser test conventions.
-    
-    Automatically includes JUnit Jupiter and other common test dependencies.
-    Uses JUnit Platform for test execution (equivalent to useJUnitPlatform()).
     """
-    
-    # Merge common test deps with provided deps
+
     all_deps = COMMON_JAVA_DEPS + COMMON_JAVA_TEST_DEPS + (deps or [])
     all_runtime_deps = (runtime_deps or [])
-    
+    select_packages = ["--select-package=" + pkg for pkg in test_packages]
+    all_args = [ "--reports-dir=bazel-testlogs/" + name ]  + select_packages + kwargs.pop("args", [])
+
     java_test(
         name = name,
         srcs = srcs or [],
@@ -65,6 +65,10 @@ def codelaser_java_test(
         data = data,
         resources = resources,
         size = size,
-        use_testrunner = True,
+        test_class = None,
+        # Force JUnit 5 platform runner
+        use_testrunner = False,  # Don't use Bazel's default JUnit 4 runner
+        main_class = "org.junit.platform.console.ConsoleLauncher",
+        args = all_args,
         **kwargs
     )

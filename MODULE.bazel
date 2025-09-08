@@ -37,7 +37,8 @@ maven.install(
         # JUnit
         "org.junit.jupiter:junit-jupiter-api:5.13.0",
         "org.junit.jupiter:junit-jupiter-engine:5.13.0",
-        "org.junit.platform:junit-platform-launcher:1.9.2",
+        "org.junit.platform:junit-platform-launcher:1.13.0",
+        "org.junit.platform:junit-platform-console:1.13.0",
 
         # Logging
         "org.slf4j:slf4j-api:2.0.17",

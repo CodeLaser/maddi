@@ -20,4 +20,5 @@ COMMON_JAVA_TEST_DEPS = [
     # Test runtime
     "@maven//:org_junit_jupiter_junit_jupiter_engine",
     "@maven//:org_junit_platform_junit_platform_launcher",
+    "@maven//:org_junit_platform_junit_platform_console",
 ]
