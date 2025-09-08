@@ -1,0 +1,46 @@
+# Bazel configuration file
+common --enable_bzlmod
+build --java_runtime_version=remotejdk_21
+build --java_language_version=21
+#
+# # Enable Bzlmod (modern dependency management)
+# common --enable_bzlmod
+#
+# # Java toolchain configuration - explicit toolchain resolution
+# build --incompatible_enable_cc_toolchain_resolution
+# build --java_runtime_version=remotejdk_24
+# build --tool_java_runtime_version=remotejdk_24
+#
+# # Use Java 24 for both compilation and runtime
+# build --java_language_version=24
+#
+# # Test configuration
+# test --test_output=errors
+# test --test_summary=short
+#
+# # Performance optimizations
+# build --spawn_strategy=local
+# build --strategy=Javac=local
+# build --strategy=JavaIjar=local
+#
+# # Disk cache for faster builds
+# build --disk_cache=~/.bazel-cache
+#
+# # Show more detailed progress
+# build --show_progress_rate_limit=1
+#
+# # Java-specific flags
+# build --javacopt="-Xlint:all"
+# build --javacopt="-Xlint:-processing"
+# build --javacopt="-Werror"
+#
+# # IDE support
+# build --java_header_compilation
+# build --java_deps
+#
+# # Test JVM flags
+# test --jvmopt="-XX:+UseG1GC"
+# test --jvmopt="-Xmx2g"
+#
+# # Ensure toolchain resolution works properly
+# build --incompatible_auto_configure_host_platform
