@@ -1,0 +1,32 @@
+# Example subproject BUILD.bazel file
+# Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
+
+load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
+
+# Main library target
+codelaser_java_library(
+    name = "maddi-util",
+    srcs = glob(["src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
+    #    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        # Add your specific dependencies here, e.g.:
+        # "@maven//:org_jgrapht_jgrapht_core",
+        # "//other-project:other-project",
+        "//maddi-support",
+    ],
+)
+
+# Test target
+codelaser_java_test(
+    name = "maddi-util_test",
+    size = "small",  # or "medium", "large"
+    srcs = glob(["src/test/java/**/*.java"]),
+    test_class = "org.e2immu.util.internal.util.TestStringUtil",
+    #    resources = glob(["src/test/resources/**/*"]),
+    deps = [
+        ":maddi-util",  # Depend on the main library
+        "//maddi-support",
+        # Add additional test-specific dependencies here
+    ],
+)

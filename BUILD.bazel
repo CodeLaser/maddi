@@ -1,0 +1,11 @@
+## empty
+# Root BUILD file
+
+# Export platform configuration
+exports_files(["platform.bzl", "java_library_conventions.bzl"])
+
+# Package group for internal visibility
+package_group(
+    name = "internal",
+    packages = ["//..."],
+)
