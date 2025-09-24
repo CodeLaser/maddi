@@ -8,6 +8,8 @@ import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 
 public interface Info extends Element {
 
@@ -32,6 +34,8 @@ public interface Info extends Element {
     List<? extends Info> translate(TranslationMap translationMap);
 
     interface Builder<B extends Builder<?>> extends Element.Builder<B> {
+        Stream<AnnotationExpression> annotationStream();
+
         @Fluent
         B setAccess(Access access);
 

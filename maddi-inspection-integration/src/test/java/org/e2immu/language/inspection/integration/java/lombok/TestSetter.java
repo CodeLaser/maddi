@@ -12,9 +12,9 @@ import java.util.NoSuchElementException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TestGetter extends CommonTest {
+public class TestSetter extends CommonTest {
 
-    public TestGetter() {
+    public TestSetter() {
         super(false);
     }
 
@@ -22,13 +22,13 @@ public class TestGetter extends CommonTest {
     private static final String INPUT1 = """
             package org.e2immu.test;
             
-            import lombok.Getter;
+            import lombok.Setter;
             import java.util.List;
             
             public class X {
             
-                @Getter private List<String> list;
-                @Getter static int i;
+                @Setter private List<String> list;
+                @Setter static int i;
             }
             """;
 
@@ -39,29 +39,32 @@ public class TestGetter extends CommonTest {
         FieldInfo fieldInfo = typeInfo.getFieldByName("list", true);
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
-            MethodInfo getList = typeInfo.findUniqueMethod("getList", 0);
-            assertTrue(getList.isSynthetic());
-            assertEquals("org.e2immu.test.X.getList()", getList.fullyQualifiedName());
-            assertEquals("{return this.list;}", getList.methodBody().toString());
+            MethodInfo m = typeInfo.findUniqueMethod("setList", 1);
+            assertTrue(m.isSynthetic());
+            assertFalse(m.isStatic());
+            assertEquals("org.e2immu.test.X.setList(java.util.List<String>)", m.fullyQualifiedName());
+            assertEquals("{this.list=list;}", m.methodBody().toString());
         }
         {
-            MethodInfo i = typeInfo.findUniqueMethod("getI", 0);
-            assertTrue(i.isSynthetic());
-            assertTrue(i.isStatic());
-            assertEquals("org.e2immu.test.X.getI()", i.fullyQualifiedName());
-            assertEquals("{return X.i;}", i.methodBody().toString());
+            MethodInfo m = typeInfo.findUniqueMethod("setI", 1);
+            assertTrue(m.isSynthetic());
+            assertTrue(m.isStatic());
+            assertEquals("org.e2immu.test.X.setI(int)", m.fullyQualifiedName());
+            assertEquals("{X.i=i;}", m.methodBody().toString());
         }
+
     }
 
     @Language("java")
     private static final String INPUT2 = """
             package org.e2immu.test;
             
-            import lombok.Getter;
+            import lombok.Setter;
             import java.util.List;
             
-            @Getter
+            @Setter
             public class X {
+            
                 private List<String> list;
                 static int i;
             }
@@ -74,11 +77,12 @@ public class TestGetter extends CommonTest {
         FieldInfo fieldInfo = typeInfo.getFieldByName("list", true);
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
-            MethodInfo getList = typeInfo.findUniqueMethod("getList", 0);
-            assertTrue(getList.isSynthetic());
-            assertEquals("org.e2immu.test.X.getList()", getList.fullyQualifiedName());
-            assertEquals("{return this.list;}", getList.methodBody().toString());
+            MethodInfo m = typeInfo.findUniqueMethod("setList", 1);
+            assertTrue(m.isSynthetic());
+            assertFalse(m.isStatic());
+            assertEquals("org.e2immu.test.X.setList(java.util.List<String>)", m.fullyQualifiedName());
+            assertEquals("{this.list=list;}", m.methodBody().toString());
         }
-        assertThrows(NoSuchElementException.class, () -> typeInfo.findUniqueMethod("getI", 0));
+        assertThrows(NoSuchElementException.class, () -> typeInfo.findUniqueMethod("setI", 1));
     }
 }

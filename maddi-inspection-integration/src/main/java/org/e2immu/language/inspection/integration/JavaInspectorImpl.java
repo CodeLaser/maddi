@@ -441,7 +441,7 @@ public class JavaInspectorImpl implements JavaInspector {
         TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, sourceTypeMap,
                 false);
         //TODO  allowCreationOfStubTypes); code in TypeContextImpl needs improving
-        Context rootContext = ContextImpl.create(runtime, summary, resolver, typeContext,
+        Context rootContext = ContextImpl.create(runtime, compiledTypesManager, summary, resolver, typeContext,
                 parseOptions.detailedSources(), parseOptions.lombok());
         ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(summary, runtime);
 
@@ -503,7 +503,7 @@ public class JavaInspectorImpl implements JavaInspector {
         TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, sourceTypeMap,
                 false);
         // TODO allowCreationOfStubTypes); would be better, but code in type context is not ready
-        Context rootContext = ContextImpl.create(runtime, summary, resolver, typeContext,
+        Context rootContext = ContextImpl.create(runtime, compiledTypesManager, summary, resolver, typeContext,
                 parseOptions.detailedSources(), parseOptions.lombok());
 
         // PHASE 1: scanning all the types, call CongoCC parser

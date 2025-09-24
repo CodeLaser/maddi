@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
 import static org.objectweb.asm.Opcodes.ASM9;
@@ -59,6 +60,11 @@ public class MyMethodVisitor extends MethodVisitor {
         @Override
         public ParameterInfo.Builder setAnnotationExpression(int index, AnnotationExpression annotationExpression) {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Stream<AnnotationExpression> annotationStream() {
+            return annotations.stream();
         }
 
         @Override

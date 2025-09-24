@@ -13,6 +13,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.inspection.api.parser.Context;
+import org.e2immu.language.inspection.api.parser.Lombok;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.parser.TypeContext;
 import org.e2immu.language.inspection.api.util.GetSetUtil;
@@ -276,6 +277,9 @@ public class ParseTypeDeclaration extends CommonParse {
                                                    int iStart,
                                                    List<Annotation> annotations,
                                                    List<RecordComponent> recordComponents) {
+        parseAnnotations(context, builder, annotations);
+        Lombok.Data lombokData = context.isLombok() ? context.lombok().handleType(typeInfo) : null;
+
         List<RecordField> recordFields;
         if (recordComponents != null) {
             recordFields = new ArrayList<>(recordComponents.size());
@@ -349,7 +353,7 @@ public class ParseTypeDeclaration extends CommonParse {
                 builder.setParentClass(runtime.newParameterizedType(enumTypeInfo, List.of(typeInfo.asSimpleParameterizedType())));
                 new EnumSynthetics(runtime, typeInfo, builder).create(newContext, enumFields);
             }
-            parseBody(contextForBody, body, typeNature, typeInfo, builder, recordFields);
+            parseBody(contextForBody, body, typeNature, typeInfo, builder, recordFields, lombokData);
         } else if (body instanceof AnnotationTypeBody) {
             for (Node child : body.children()) {
                 if (child instanceof TypeDeclaration subTd) {
@@ -365,10 +369,11 @@ public class ParseTypeDeclaration extends CommonParse {
             }
         } else throw new UnsupportedOperationException("node " + td.get(i).getClass());
 
+        // we can only do this when we know all the fields...
+        if (lombokData != null) {
+            context.lombok().addConstructors(typeInfo, lombokData);
+        }
         newContext.resolver().add(builder);
-
-        // now that we know the type builder, we can parse the annotations
-        parseAnnotations(context, builder, annotations);
 
         /*
         Ensure a constructor when the type is a record and there are no compact constructors.
@@ -521,7 +526,8 @@ public class ParseTypeDeclaration extends CommonParse {
                    TypeNature typeNature,
                    TypeInfo typeInfo,
                    TypeInfo.Builder builder,
-                   List<RecordField> recordFields) {
+                   List<RecordField> recordFields,
+                   Lombok.Data lombokData) {
         List<TypeDeclaration> typeDeclarations = new ArrayList<>();
         List<FieldDeclaration> fieldDeclarations = new ArrayList<>();
         int countNormalConstructors = 0;
@@ -604,7 +610,7 @@ public class ParseTypeDeclaration extends CommonParse {
 
         // FINALLY, do the fields
         for (FieldDeclaration fieldDeclaration : fieldDeclarations) {
-            parsers.parseFieldDeclaration().parse(newContext, fieldDeclaration).forEach(builder::addField);
+            parsers.parseFieldDeclaration().parse(newContext, fieldDeclaration, lombokData).forEach(builder::addField);
         }
     }
 
