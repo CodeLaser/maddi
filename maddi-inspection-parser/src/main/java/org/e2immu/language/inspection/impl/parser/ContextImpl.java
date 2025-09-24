@@ -9,6 +9,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.inspection.api.parser.*;
+import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,13 +32,14 @@ public class ContextImpl implements Context {
     private final ForwardType typeOfEnclosingSwitchExpression;
 
     public static Context create(Runtime runtime,
+                                 CompiledTypesManager compiledTypesManager,
                                  Summary summary,
                                  Resolver resolver,
                                  TypeContext typeContext,
                                  boolean detailedSources,
                                  boolean isLombok) {
         MethodResolutionImpl methodResolution = new MethodResolutionImpl(runtime);
-        Lombok lombok = isLombok ? new LombokImpl(runtime) : null;
+        Lombok lombok = isLombok ? new LombokImpl(runtime, compiledTypesManager) : null;
         Data d = new Data(runtime, summary, methodResolution, detailedSources, lombok);
         return new ContextImpl(d, null, null, resolver,
                 typeContext, new VariableContextImpl(), null);

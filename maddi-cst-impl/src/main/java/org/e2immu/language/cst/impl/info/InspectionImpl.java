@@ -10,6 +10,8 @@ import org.e2immu.language.cst.api.info.Info;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 
 public abstract class InspectionImpl implements Inspection {
     private final Access access;
@@ -135,6 +137,11 @@ public abstract class InspectionImpl implements Inspection {
             return annotations.stream()
                     .filter(ae -> fullyQualifiedName.equals(ae.typeInfo().fullyQualifiedName()))
                     .findFirst().orElse(null);
+        }
+
+        @Override
+        public Stream<AnnotationExpression> annotationStream() {
+            return annotations.stream();
         }
 
         @Fluent

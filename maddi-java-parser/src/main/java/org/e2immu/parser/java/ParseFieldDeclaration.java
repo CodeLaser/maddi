@@ -10,6 +10,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.ForwardType;
+import org.e2immu.language.inspection.api.parser.Lombok;
 import org.parsers.java.Node;
 import org.parsers.java.ast.*;
 
@@ -22,7 +23,7 @@ public class ParseFieldDeclaration extends CommonParse {
         super(runtime, parsers);
     }
 
-    public List<FieldInfo> parse(Context context, FieldDeclaration fd) {
+    public List<FieldInfo> parse(Context context, FieldDeclaration fd, Lombok.Data lombokData) {
         int i = 0;
         DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
         List<Annotation> annotations = new ArrayList<>();
@@ -62,7 +63,7 @@ public class ParseFieldDeclaration extends CommonParse {
         boolean first = true;
         while (i < fd.size() && fd.get(i) instanceof VariableDeclarator vd) {
             fields.add(makeField(context, fd, vd, typeNode, isStatic, parameterizedType, owner, detailedSourcesBuilder,
-                    fieldModifiers, annotations, first));
+                                fieldModifiers, annotations, lombokData, first));
             i += 2;
             first = false;
         }
@@ -79,6 +80,7 @@ public class ParseFieldDeclaration extends CommonParse {
                                 DetailedSources.Builder detailedSourcesBuilderMaster,
                                 List<FieldModifier> fieldModifiers,
                                 List<Annotation> annotations,
+                                Lombok.Data lombokData,
                                 boolean first) {
         ParameterizedType type;
         Node vd0 = vd.getFirst();
@@ -118,7 +120,7 @@ public class ParseFieldDeclaration extends CommonParse {
         // now that there is a builder, we can parse the annotations
         parseAnnotations(context, builder, annotations);
         if (context.isLombok()) {
-            context.lombok().handleField(fieldInfo);
+            context.lombok().handleField(lombokData, fieldInfo);
         }
         FieldReference fieldReference = runtime.newFieldReference(fieldInfo);
         context.variableContext().add(fieldReference);
