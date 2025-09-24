@@ -62,6 +62,13 @@ public class MyMethodVisitor extends MethodVisitor {
         }
 
         @Override
+        public AnnotationExpression haveAnnotation(String fullyQualifiedName) {
+            return annotations.stream()
+                    .filter(ae -> fullyQualifiedName.equals(ae.typeInfo().fullyQualifiedName()))
+                    .findFirst().orElse(null);
+        }
+
+        @Override
         public ParamBuilder setSource(Source source) {
             throw new UnsupportedOperationException();
         }

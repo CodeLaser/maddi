@@ -38,6 +38,8 @@ public interface Info extends Element {
         @Fluent
         B setAnnotationExpression(int index, AnnotationExpression annotationExpression);
 
+        AnnotationExpression haveAnnotation(String fullyQualifiedName);
+
         @Fluent
         B setSynthetic(boolean synthetic);
 

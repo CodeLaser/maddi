@@ -39,7 +39,7 @@ public abstract class CommonTest {
                 .addSources(InputConfigurationImpl.MAVEN_TEST)
                 .addRestrictSourceToPackages("org.e2immu.language.inspection.integration.java.importhelper.")
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                .addClassPath("../maddi-support/build/classes/java/main")
                 // NOTE: no access to ToolChain here; this is rather exceptional
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/apiguardian/api")
@@ -51,8 +51,12 @@ public abstract class CommonTest {
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/assertj/core")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/springframework/core")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/springframework/test")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "lombok")
                 .build();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.parse(new JavaInspectorImpl.ParseOptionsBuilder().setFailFast(true).setDetailedSources(true).build());
+        javaInspector.parse(new JavaInspectorImpl.ParseOptionsBuilder()
+                .setFailFast(true)
+                .setLombok(false)
+                .setDetailedSources(true).build());
     }
 }

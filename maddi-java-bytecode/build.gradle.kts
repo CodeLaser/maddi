@@ -12,7 +12,7 @@ java {
 }
 dependencies {
     api(project(":maddi-inspection-api"))
-    implementation("org.ow2.asm:asm:9.7.1")
+    implementation("org.ow2.asm:asm")
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-inspection-resource"))
