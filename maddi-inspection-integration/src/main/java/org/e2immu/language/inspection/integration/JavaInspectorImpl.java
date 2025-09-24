@@ -98,18 +98,25 @@ public class JavaInspectorImpl implements JavaInspector {
 
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions(true, false,
-            _ -> UNCHANGED, false);
+            _ -> UNCHANGED, false, false);
     public static final ParseOptions DETAILED_SOURCES = new ParseOptionsBuilder().setDetailedSources(true).build();
 
     public static class ParseOptionsBuilder implements JavaInspector.ParseOptionsBuilder {
         private boolean failFast;
         private boolean detailedSources;
         private boolean parallel;
+        private boolean lombok;
         private Invalidated invalidated;
 
         @Override
         public ParseOptionsBuilder setInvalidated(Invalidated invalidated) {
             this.invalidated = invalidated;
+            return this;
+        }
+
+        @Override
+        public ParseOptionsBuilder setLombok(boolean lombok) {
+            this.lombok = lombok;
             return this;
         }
 
@@ -133,7 +140,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         @Override
         public ParseOptions build() {
-            return new ParseOptions(failFast, detailedSources, invalidated, parallel);
+            return new ParseOptions(failFast, detailedSources, invalidated, parallel, lombok);
         }
     }
 
@@ -435,7 +442,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 false);
         //TODO  allowCreationOfStubTypes); code in TypeContextImpl needs improving
         Context rootContext = ContextImpl.create(runtime, summary, resolver, typeContext,
-                parseOptions.detailedSources());
+                parseOptions.detailedSources(), parseOptions.lombok());
         ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(summary, runtime);
 
         ScanCompilationUnit.ScanResult sr = scanCompilationUnit.scan(sourceFile.uri(), sourceFile.sourceSet(),
@@ -497,7 +504,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 false);
         // TODO allowCreationOfStubTypes); would be better, but code in type context is not ready
         Context rootContext = ContextImpl.create(runtime, summary, resolver, typeContext,
-                parseOptions.detailedSources());
+                parseOptions.detailedSources(), parseOptions.lombok());
 
         // PHASE 1: scanning all the types, call CongoCC parser
 

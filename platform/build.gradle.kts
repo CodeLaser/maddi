@@ -1,4 +1,3 @@
-
 plugins {
     `java-platform`
 }
@@ -16,6 +15,8 @@ dependencies {
         api("org.jetbrains:annotations:26.0.2")
         api("com.fasterxml.jackson.core:jackson-databind:2.19.2")
         api("commons-cli:commons-cli:1.10.0")
+
+        api("org.ow2.asm:asm:9.8")
     }
 }
 

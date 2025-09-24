@@ -117,7 +117,9 @@ public class ParseFieldDeclaration extends CommonParse {
 
         // now that there is a builder, we can parse the annotations
         parseAnnotations(context, builder, annotations);
-
+        if (context.isLombok()) {
+            context.lombok().handleField(fieldInfo);
+        }
         FieldReference fieldReference = runtime.newFieldReference(fieldInfo);
         context.variableContext().add(fieldReference);
         if (expression != null) {

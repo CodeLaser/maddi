@@ -33,6 +33,7 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("org.springframework:spring-test:6.1.19")
     testImplementation("org.springframework:spring-core:6.1.19")
+    testImplementation("org.projectlombok:lombok:1.18.42")
 }
 tasks.withType<Test> {
     maxParallelForks = 4

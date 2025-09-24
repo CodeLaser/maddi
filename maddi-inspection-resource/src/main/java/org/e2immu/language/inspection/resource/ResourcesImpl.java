@@ -9,10 +9,7 @@ import org.e2immu.util.internal.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.*;
 import java.nio.file.Path;
 import java.util.*;
@@ -118,6 +115,9 @@ public class ResourcesImpl implements Resources {
             URL url = roots.nextElement();
             String urlString = url.toString();
             int bangSlash = urlString.indexOf("!/");
+            if (bangSlash < 0) {
+                throw new UnsupportedEncodingException("? expect !/ in " + urlString);
+            }
             String strippedUrlString = urlString.substring(0, bangSlash + 2);
             return new URL(strippedUrlString);
         }

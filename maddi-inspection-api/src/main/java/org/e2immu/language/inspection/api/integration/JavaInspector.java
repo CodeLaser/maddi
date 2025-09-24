@@ -30,7 +30,8 @@ public interface JavaInspector {
 
     Invalidated INVALIDATED_ALL = t -> InvalidationState.INVALID;
 
-    record ParseOptions(boolean failFast, boolean detailedSources, Invalidated invalidated, boolean parallel) {
+    record ParseOptions(boolean failFast, boolean detailedSources, Invalidated invalidated, boolean parallel,
+                        boolean lombok) {
     }
 
     /*
@@ -51,6 +52,8 @@ public interface JavaInspector {
         ParseOptionsBuilder setDetailedSources(boolean detailedSources);
 
         ParseOptionsBuilder setInvalidated(Invalidated invalidated);
+
+        ParseOptionsBuilder setLombok(boolean lombok);
 
         ParseOptions build();
     }
