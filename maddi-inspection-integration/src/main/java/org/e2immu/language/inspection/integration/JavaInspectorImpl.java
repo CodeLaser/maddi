@@ -520,7 +520,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 typeInfos.forEach(sourceTypeMap::invalidate);
                 //noinspection ALL
                 String sourceCode = loadSource(sf, sourcesByTestProtocolURIString,
-                        sf.sourceSet().sourceEncoding(),
+                        Objects.requireNonNullElse(sf.sourceSet().sourceEncoding(), StandardCharsets.UTF_8),
                         ioe -> new Summary.ParseException(sf.uri(), sf.uri(), ioe.getMessage(), ioe));
                 if (sourceCode != null) {
                     FingerPrint fingerPrint = MD5FingerPrint.compute(sourceCode);
