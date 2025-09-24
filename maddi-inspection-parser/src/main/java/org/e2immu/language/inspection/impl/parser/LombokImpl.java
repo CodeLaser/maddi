@@ -34,6 +34,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         private boolean addGetters;
         private boolean addSetters;
         private boolean requiredArgsConstructor;
+        private boolean noArgsConstructor;
 
         @Override
         public boolean addGetters() {
@@ -48,6 +49,11 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         @Override
         public boolean requiredArgsConstructor() {
             return requiredArgsConstructor;
+        }
+
+        @Override
+        public boolean noArgsConstructor() {
+            return noArgsConstructor;
         }
     }
 
@@ -70,6 +76,10 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         if (rac != null) {
             d.requiredArgsConstructor = true;
         }
+        AnnotationExpression nac = lombokMap.get("NoArgsConstructor");
+        if (nac != null) {
+            d.noArgsConstructor = true;
+        }
         AnnotationExpression data = lombokMap.get("Data");
         if (data != null) {
             d.addGetters = true;
@@ -82,11 +92,23 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
             addLogField(typeInfo, "org.slf4j.Logger", "org.slf4j.LoggerFactory",
                     "getLogger", false);
         }
+        AnnotationExpression extSlf4j = lombokMap.get(EXTERN_DOT + "slf4j.XSlf4j");
+        if (extSlf4j != null) {
+            // private static final org.slf4j.ext.XLogger log = org.slf4j.ext.XLoggerFactory.getXLogger(LogExample.class);
+            addLogField(typeInfo, "org.slf4j.ext.XLogger", "org.slf4j.ext.XLoggerFactory",
+                    "getXLogger", false);
+        }
         AnnotationExpression log = lombokMap.get(EXTERN_DOT + "java.Log");
         if (log != null) {
             //private static final java.util.logging.Logger log = java.util.logging.Logger.getLogger(LogExample.class.getName());
             addLogField(typeInfo, "java.util.logging.Logger", "java.util.logging.Logger",
                     "getLogger", true);
+        }
+        AnnotationExpression commonsLog = lombokMap.get(EXTERN_DOT + "apachecommons.CommonsLog");
+        if (commonsLog != null) {
+            //private static final org.apache.commons.logging.Log log = org.apache.commons.logging.LogFactory.getLog(LogExample.class);
+            addLogField(typeInfo, "org.apache.commons.logging.Log", "org.apache.commons.logging.LogFactory",
+                    "getLog", false);
         }
         return d;
     }
@@ -158,7 +180,20 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         if (lombokData.requiredArgsConstructor()) {
 
         }
-
+        if (lombokData.noArgsConstructor() && typeInfo.builder().constructors().stream()
+                .noneMatch(mi -> mi.parameters().isEmpty())) {
+            Source source = runtime.noSource();
+            MethodInfo nac = runtime.newConstructor(typeInfo);
+            nac.builder().setMethodBody(runtime().emptyBlock())
+                    .commitParameters()
+                    .setSynthetic(true)
+                    .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                    .setAccess(runtime().accessPublic())
+                    .addMethodModifier(runtime.methodModifierPublic())
+                    .setSource(source)
+                    .commit();
+            typeInfo.builder().addConstructor(nac);
+        }
     }
 
     private void addGetter(FieldInfo fieldInfo) {
