@@ -14,10 +14,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSetter extends CommonTest {
 
-    public TestSetter() {
-        super(false);
-    }
-
     @Language("java")
     private static final String INPUT1 = """
             package org.e2immu.test;
