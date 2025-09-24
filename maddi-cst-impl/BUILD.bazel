@@ -17,10 +17,6 @@ codelaser_java_library(
         "//maddi-cst-api",
         "//maddi-cst-analysis",
     ],
-      javacopts = [
-            "--enable-preview",
-          #  "-source", "24",
-        ],
 )
 
 codelaser_java_test(

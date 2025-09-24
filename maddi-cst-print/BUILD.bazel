@@ -6,10 +6,6 @@ load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_jav
 codelaser_java_library(
     name = "maddi-cst-print",
     srcs = glob(["src/main/java/**/*.java"]),
-    javacopts = [
-        "--enable-preview",
-        #  "-source", "24",
-    ],
     visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
     #    resources = glob(["src/main/resources/**/*"]),
     deps = [
