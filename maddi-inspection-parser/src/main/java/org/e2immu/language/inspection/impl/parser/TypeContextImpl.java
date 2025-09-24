@@ -185,7 +185,8 @@ public class TypeContextImpl implements TypeContext {
                 if (inCompiledTypes != null) {
                     addToContext(inCompiledTypes, IMPORT_PRIORITY);
                 } else {
-                    LOGGER.error("Cannot handle import {}", importStatement.importString());
+                    LOGGER.error("Cannot handle import {} at line {} in {}", importStatement.importString(),
+                            importStatement.source().beginLine(), data.compilationUnit);
                 }
             } else {
                 addToContext(inSourceTypes, IMPORT_PRIORITY);
