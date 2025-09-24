@@ -27,6 +27,7 @@ import java.util.Map;
 
 public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesManager) implements Lombok {
     private static final String LOMBOK_DOT = "lombok.";
+    private static final String EXTERN_DOT = "extern.";
     private static final Logger LOGGER = LoggerFactory.getLogger(LombokImpl.class);
 
     private static class DataImpl implements Data {
@@ -75,13 +76,13 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
             d.addSetters = true;
             d.requiredArgsConstructor = true;
         }
-        AnnotationExpression slf4j = lombokMap.get("Slf4j");
+        AnnotationExpression slf4j = lombokMap.get(EXTERN_DOT + "slf4j.Slf4j");
         if (slf4j != null) {
             //private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LogExample.class);
             addLogField(typeInfo, "org.slf4j.Logger", "org.slf4j.LoggerFactory",
                     "getLogger", false);
         }
-        AnnotationExpression log = lombokMap.get("Log");
+        AnnotationExpression log = lombokMap.get(EXTERN_DOT + "java.Log");
         if (log != null) {
             //private static final java.util.logging.Logger log = java.util.logging.Logger.getLogger(LogExample.class.getName());
             addLogField(typeInfo, "java.util.logging.Logger", "java.util.logging.Logger",
@@ -93,10 +94,11 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
     private void addLogField(TypeInfo typeInfo, String logClass, String logFactoryClassName, String logFactoryMethodName, boolean addGetName) {
         Source source = runtime.noSource();
         SourceSet sourceSetOfRequest = typeInfo.compilationUnit().sourceSet();
-        TypeInfo logType = compiledTypesManager.get(logClass, sourceSetOfRequest);
-        TypeInfo logFactory = compiledTypesManager.get(logFactoryClassName, sourceSetOfRequest);
-        ParameterizedType expectedParameterType = addGetName ? runtime.stringParameterizedType()
-                : runtime.classTypeInfo().asParameterizedType();
+        TypeInfo logType = compiledTypesManager.getOrLoad(logClass, sourceSetOfRequest);
+        assert logType != null;
+        TypeInfo logFactory = compiledTypesManager.getOrLoad(logFactoryClassName, sourceSetOfRequest);
+        assert logFactory != null;
+        TypeInfo expectedParameterType = addGetName ? runtime.stringTypeInfo() : runtime.classTypeInfo();
         ClassExpression typeClass = runtime.newClassExpressionBuilder(typeInfo.asParameterizedType()).setSource(source).build();
         MethodInfo getName = addGetName ? runtime.classTypeInfo().findUniqueMethod("getName", 0) : null;
         Expression logNameOrClass = addGetName ?
@@ -110,18 +112,19 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         MethodInfo logFactoryMethod = logFactory.methodStream()
                 .filter(mi -> mi.name().equals(logFactoryMethodName)
                               && mi.parameters().size() == 1
-                              && mi.parameters().getFirst().parameterizedType().equals(expectedParameterType))
+                              && expectedParameterType.equals(mi.parameters().getFirst().parameterizedType().typeInfo()))
                 .findFirst()
                 .orElseThrow();
         ParameterizedType logFactoryPt = logFactory.asParameterizedType();
-        FieldInfo fieldInfo = runtime().newFieldInfo("log", true, logFactoryPt, typeInfo);
+        ParameterizedType logTypePt = logType.asParameterizedType();
+        FieldInfo fieldInfo = runtime().newFieldInfo("log", true, logTypePt, typeInfo);
         Expression initializer = runtime.newMethodCallBuilder()
                 .setSource(source)
                 .setMethodInfo(logFactoryMethod)
                 .setParameterExpressions(List.of(logNameOrClass))
                 .setObject(runtime.newTypeExpressionBuilder().setParameterizedType(logFactoryPt)
                         .setDiamond(runtime().diamondNo()).build())
-                .setConcreteReturnType(logType.asParameterizedType())
+                .setConcreteReturnType(logTypePt)
                 .build();
         fieldInfo.builder()
                 .setSynthetic(true)
