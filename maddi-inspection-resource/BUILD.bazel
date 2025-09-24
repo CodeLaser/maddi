@@ -4,32 +4,17 @@
 load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
 
 codelaser_java_library(
-    name = "maddi-cst-io",
+    name = "maddi-inspection-resource",
     srcs = glob(["src/main/java/**/*.java"]),
     visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
     #    resources = glob(["src/main/resources/**/*"]),
     deps = [
+        "//maddi-support",
         # Add your specific dependencies here, e.g.:
         # "@maven//:org_jgrapht_jgrapht_core",
         # "//other-project:other-project",
-        "//maddi-support",
         "//maddi-util",
         "//maddi-cst-api",
-        "//maddi-cst-analysis",
-    ],
-)
-
-codelaser_java_test(
-    name = "maddi-cst-io_test",
-    size = "small",  # or "medium", "large"
-    srcs = glob(["src/test/java/**/*.java"]),
-    test_packages = ["org.e2immu.language.cst.io"],
-    deps = [
-        ":maddi-cst-io",  # Depend on the main library
-        "//maddi-cst-analysis",
-        "//maddi-cst-api",
-        "//maddi-cst-impl",
-        "//maddi-support",
-        "//maddi-util",
+        "//maddi-inspection-api",
     ],
 )

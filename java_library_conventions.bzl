@@ -34,6 +34,10 @@ def codelaser_java_library(
         resources = resources,
         visibility = visibility,
         testonly = testonly,
+        javacopts = [
+            "--enable-preview",
+            #  "-source", "24",
+        ],
         **kwargs
     )
 
@@ -70,5 +74,9 @@ def codelaser_java_test(
         use_testrunner = False,  # Don't use Bazel's default JUnit 4 runner
         main_class = "org.junit.platform.console.ConsoleLauncher",
         args = all_args,
+        javacopts = [
+            "--enable-preview",
+            #  "-source", "24",
+        ],
         **kwargs
     )

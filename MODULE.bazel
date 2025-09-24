@@ -52,6 +52,9 @@ maven.install(
 
         # Commons CLI
         "commons-cli:commons-cli:1.10.0",
+
+        # ASM
+        "org.ow2.asm:asm:9.7.1",
     ],
     repositories = [
         "https://repo1.maven.org/maven2",
