@@ -18,6 +18,8 @@ public interface ModuleInfo extends Info {
 
     String name();
 
+    boolean open();
+
     interface Builder extends Element.Builder<Builder> {
         Builder addExports(Source source, List<Comment> comments, String packageName, String toPackageNameOrNull);
 
@@ -32,6 +34,8 @@ public interface ModuleInfo extends Info {
         Builder setCompilationUnit(CompilationUnit compilationUnit);
 
         Builder setName(String name);
+
+        Builder setOpen(boolean openModule);
 
         ModuleInfo build();
     }
