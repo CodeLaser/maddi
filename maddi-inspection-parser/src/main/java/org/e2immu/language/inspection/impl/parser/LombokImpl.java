@@ -18,6 +18,7 @@ import org.e2immu.util.internal.util.GetSetHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -220,16 +221,32 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         Source source = runtime.noSource();
         MethodInfo rac = runtime.newConstructor(typeInfo);
         Block.Builder bodyBuilder = runtime().newBlockBuilder().setSource(source);
+        List<ParameterizedType> types = new ArrayList<>();
         for (FieldInfo fieldInfo : typeInfo.builder().fields()) {
             if (!fieldInfo.isStatic() && canStillBeAssigned(fieldInfo, required)) {
                 ParameterInfo pi = rac.builder().addParameter(fieldInfo.name(), fieldInfo.type());
                 pi.builder().setSynthetic(true).setSource(source);
                 Statement s = assignFieldToParameter(fieldInfo, source, pi);
                 bodyBuilder.addStatement(s);
+                types.add(pi.parameterizedType());
             }
         }
-        rac.builder().setMethodBody(bodyBuilder.build()).addMethodModifier(access);
-        continueConstructor(typeInfo, rac, source);
+        if (typeInfo.constructors().stream().noneMatch(mi -> compatible(mi, types))) {
+            rac.builder().setMethodBody(bodyBuilder.build()).addMethodModifier(access);
+            continueConstructor(typeInfo, rac, source);
+        }
+    }
+
+    private boolean compatible(MethodInfo existing, List<ParameterizedType> newTypes) {
+        if (existing.parameters().size() != newTypes.size()) return false;
+        int i = 0;
+        for (ParameterizedType newType : newTypes) {
+            ParameterizedType existingTypeErased = existing.parameters().get(i).parameterizedType().erased();
+            ParameterizedType newTypeErased = newType.erased();
+            if (!existingTypeErased.equals(newTypeErased)) return false;
+            ++i;
+        }
+        return true;
     }
 
     private boolean canStillBeAssigned(FieldInfo fieldInfo, boolean required) {
