@@ -627,19 +627,24 @@ public class ParseStatement extends CommonParse {
                 statement.get(start + 2));
         ForwardType selectorTypeFwd = context.newForwardType(selector.parameterizedType());
         List<SwitchEntry> entries = new ArrayList<>();
-        Context newContext = context.newVariableContext("switch-new-style");
+
+        Context enumContext;
         TypeInfo selectorTypeInfo = selector.parameterizedType().bestTypeInfo();
         if (selectorTypeInfo.typeNature().isEnum()) {
+            enumContext = context.newVariableContext("switch-new-style-enum");
             selectorTypeInfo.fields().stream().filter(Info::isSynthetic)
-                    .forEach(f -> newContext.variableContext().add(runtime.newFieldReference(f)));
+                    .forEach(f -> enumContext.variableContext().add(runtime.newFieldReference(f)));
+        } else {
+            enumContext = null;
         }
         int count = 0;
         for (Node child : statement) {
             if (child instanceof NewCaseStatement ncs) {
+                Context newContext = context.newVariableContext("switch-new-style");
                 SwitchEntry.Builder entryBuilder = runtime.newSwitchEntryBuilder()
                         .setSource(source(ncs)).addComments(comments(ncs));
                 if (ncs.getFirst() instanceof NewSwitchLabel nsl) {
-                    parseNewSwitchLabel(index, nsl, newContext, entryBuilder, selectorTypeFwd);
+                    parseNewSwitchLabel(index, nsl, newContext, entryBuilder, selectorTypeFwd, enumContext);
                 } else throw new Summary.ParseException(newContext, "Expect NewCaseStatement");
                 if (ncs.get(1) instanceof CodeBlock cb) {
                     String newIndex = index + "." + StringUtil.pad(count, n);

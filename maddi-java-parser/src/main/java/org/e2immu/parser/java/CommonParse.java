@@ -318,7 +318,13 @@ public abstract class CommonParse {
     }
 
 
-    protected void parseNewSwitchLabel(String index, NewSwitchLabel nsl, Context newContext, SwitchEntry.Builder entryBuilder, ForwardType selectorTypeFwd) {
+    protected void parseNewSwitchLabel(String index,
+                                       NewSwitchLabel nsl,
+                                       Context context,
+                                       SwitchEntry.Builder entryBuilder,
+                                       ForwardType selectorTypeFwd,
+                                       Context enumContext) {
+        Context newContext = Objects.requireNonNullElse(enumContext, context);
         org.e2immu.language.cst.api.expression.Expression whenExpression = runtime.newEmptyExpression();
         List<org.e2immu.language.cst.api.expression.Expression> conditions = new ArrayList<>();
         int j = 0;
