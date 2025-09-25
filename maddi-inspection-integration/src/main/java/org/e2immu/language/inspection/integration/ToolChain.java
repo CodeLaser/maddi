@@ -95,6 +95,7 @@ public class ToolChain {
         return jre == null ? 24 : jre.mainVersion;
     }
 
+    private static final Pattern JDK_PATTERN = Pattern.compile("jdk-([0-9]+(\\.[0-9]+)*)\\.jdk");
     private static final Pattern MAC_OPENJDK_PATTERN = Pattern.compile("openjdk(@\\d+)?/([\\d.]+)/libexec/openjdk.jdk");
     private static final Pattern LINUX_OPENJDK_PATTERN = Pattern.compile("/usr/lib/jvm/java-(\\d+)-openjdk");
 
@@ -102,6 +103,10 @@ public class ToolChain {
     // Mac: jar:file:/opt/homebrew/Cellar/openjdk/23.0.2/libexec/openjdk.jdk/Contents/Home/jmods/java.base.jmod!/classes/java/io/BufferedInputStream.class
 
     public static String extractJdkName(String jdkHome) {
+        Matcher m0 = JDK_PATTERN.matcher(jdkHome);
+        if (m0.find()) {
+            return "jdk-" + m0.group(1);
+        }
         Matcher m = MAC_OPENJDK_PATTERN.matcher(jdkHome);
         if (m.find()) {
             return "openjdk-" + m.group(2);

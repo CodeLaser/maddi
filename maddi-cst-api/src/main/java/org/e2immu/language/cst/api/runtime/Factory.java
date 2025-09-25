@@ -475,6 +475,8 @@ public interface Factory {
 
     void setModificationComponent(MethodInfo methodInfo, FieldInfo component);
 
+    void setNonNullProperty(FieldInfo fieldInfo);
+
     Split splitNever();
 
     OutputElement symbolColon();

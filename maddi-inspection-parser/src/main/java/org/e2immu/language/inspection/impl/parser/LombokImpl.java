@@ -173,27 +173,51 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         } else if (!fieldInfo.isStatic() && lombokData != null && lombokData.addSetters()) {
             addSetter(fieldInfo);
         }
+        AnnotationExpression nonNull = fieldInfo.builder().haveAnnotation(LOMBOK_DOT + "NonNull");
+        if (nonNull != null) {
+            runtime.setNonNullProperty(fieldInfo);
+        }
     }
 
     @Override
     public void addConstructors(TypeInfo typeInfo, Data lombokData) {
         if (lombokData.requiredArgsConstructor()) {
-
+            Source source = runtime.noSource();
+            MethodInfo rac = runtime.newConstructor(typeInfo);
+            rac.builder().setMethodBody(runtime().emptyBlock());
+            for (FieldInfo fieldInfo : typeInfo.builder().fields()) {
+                if (!fieldInfo.isStatic() && canStillBeAssigned(fieldInfo)) {
+                    ParameterInfo pi = rac.builder().addParameter(fieldInfo.name(), fieldInfo.type());
+                    pi.builder().setSynthetic(true).setSource(source);
+                }
+            }
+            continueConstructor(typeInfo, rac, source);
         }
         if (lombokData.noArgsConstructor() && typeInfo.builder().constructors().stream()
                 .noneMatch(mi -> mi.parameters().isEmpty())) {
             Source source = runtime.noSource();
             MethodInfo nac = runtime.newConstructor(typeInfo);
-            nac.builder().setMethodBody(runtime().emptyBlock())
-                    .commitParameters()
-                    .setSynthetic(true)
-                    .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
-                    .setAccess(runtime().accessPublic())
-                    .addMethodModifier(runtime.methodModifierPublic())
-                    .setSource(source)
-                    .commit();
-            typeInfo.builder().addConstructor(nac);
+            nac.builder().setMethodBody(runtime().emptyBlock());
+            continueConstructor(typeInfo, nac, source);
         }
+    }
+
+    private boolean canStillBeAssigned(FieldInfo fieldInfo) {
+        if (!fieldInfo.hasBeenInspected()) return false;// there is an initializer, to be parsed
+        if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) return false;
+        if (fieldInfo.isFinal()) return true; // has no initializer
+        return !fieldInfo.type().isPrimitiveExcludingVoid() && fieldInfo.isPropertyNotNull();
+    }
+
+    private void continueConstructor(TypeInfo typeInfo, MethodInfo nac, Source source) {
+        nac.builder().commitParameters()
+                .setSynthetic(true)
+                .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                .setAccess(runtime().accessPublic())
+                .addMethodModifier(runtime.methodModifierPublic())
+                .setSource(source)
+                .commit();
+        typeInfo.builder().addConstructor(nac);
     }
 
     private void addGetter(FieldInfo fieldInfo) {
@@ -216,6 +240,8 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     .setSource(source)
                     .commitParameters().commit();
             owner.builder().addMethod(method);
+
+            runtime.setGetSetField(method, fieldInfo, false, -1);
         }
     }
 
@@ -228,6 +254,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
             MethodInfo method = runtime.newMethod(owner, setterName,
                     fieldInfo.isStatic() ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
             ParameterInfo pi = method.builder().addParameter(fieldInfo.name(), fieldInfo.type());
+            pi.builder().setSynthetic(true).setSource(source);
             FieldReference fr = runtime.newFieldReference(fieldInfo);
             VariableExpression veFr = runtime.newVariableExpressionBuilder().setSource(source).setVariable(fr).build();
             VariableExpression vePi = runtime.newVariableExpressionBuilder().setSource(source).setVariable(pi).build();
@@ -242,6 +269,8 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     .setSource(source)
                     .commitParameters().commit();
             owner.builder().addMethod(method);
+
+            runtime.setGetSetField(method, fieldInfo, true, -1);
         }
     }
 }
