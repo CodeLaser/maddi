@@ -84,7 +84,9 @@ public class TestConstructor extends CommonTest {
         ParameterInfo p1 = rac.parameters().get(1);
         assertEquals("k", p1.name());
         ParameterInfo p2 = rac.parameters().get(2);
-        assertEquals("clazz", p2.name());
+        assertEquals("Type Class<?>", p2.parameterizedType().toString());
+
+        assertEquals("{this.s=s;this.k=k;this.clazz=clazz;}", rac.methodBody().toString());
         MethodInfo nac = typeInfo.findConstructor(0);
         assertEquals("org.e2immu.test.X.<init>()", nac.fullyQualifiedName());
     }
@@ -94,5 +96,40 @@ public class TestConstructor extends CommonTest {
         TypeInfo typeInfo = javaInspector.parse(INPUT2,
                 new JavaInspectorImpl.ParseOptionsBuilder().setLombok(false).build());
         assertThrows(NoSuchElementException.class, () -> typeInfo.findConstructor(2));
+    }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package org.e2immu.test;
+            
+            import lombok.AllArgsConstructor;
+            import lombok.NonNull;
+            
+            @AllArgsConstructor
+            public class X {
+                private final String s; // yes
+                private final int k; // yes
+                private final String t = "T"; // no
+                private int l; // yes
+                private int m = 3; // yes
+                private Class<?> variableClazz; // yes
+                @NonNull private Class<?> clazz; // yes
+            }
+            """;
+
+    @Test
+    public void test3() {
+        TypeInfo typeInfo = javaInspector.parse(INPUT3,
+                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+
+        MethodInfo aac = typeInfo.findConstructor(6);
+        assertTrue(aac.isSynthetic());
+        assertEquals("org.e2immu.test.X.<init>(String,int,int,int,Class<?>,Class<?>)",
+                aac.fullyQualifiedName());
+        assertEquals("{this.s=s;this.k=k;this.l=l;this.m=m;this.variableClazz=variableClazz;this.clazz=clazz;}",
+                aac.methodBody().toString());
+        MethodInfo nac = typeInfo.findConstructor(0);
+        assertEquals("org.e2immu.test.X.<init>()", nac.fullyQualifiedName());
     }
 }
