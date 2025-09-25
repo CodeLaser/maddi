@@ -15,6 +15,8 @@ public interface Lombok {
         boolean allArgsConstructor();
         boolean requiredArgsConstructor();
         boolean noArgsConstructor();
+
+        boolean builder();
     }
 
     void handleField(Data lombokData, FieldInfo fieldInfo);
