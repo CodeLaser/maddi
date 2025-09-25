@@ -790,7 +790,7 @@ public class ParseExpression extends CommonParse {
 
     private Expression parseMultiplicative(Context context, String index, Node me) {
         ForwardType fwd = context.newForwardType(runtime.intParameterizedType());
-        Expression accumulated = parse(context, index, fwd, me.get(0));
+        Expression accumulated = parse(context, index, fwd, me.getFirst());
         int i = 2;
         while (i < me.size()) {
             Expression rhs = parse(context, index, fwd, me.get(i));

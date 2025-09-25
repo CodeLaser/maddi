@@ -138,4 +138,23 @@ public class TestMethodCall11 extends CommonTest {
     public void test3() {
         javaInspector.parse(INPUT3);
     }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.concurrent.Future;
+            import org.junit.jupiter.api.Assertions;
+            class Container {
+                void method(Future<Boolean> f1, Future<Boolean> f2) {
+                    Assertions.assertTrue(f1.get() ^ f2.get());
+                }
+            }
+            """;
+
+    @DisplayName("boolean operator and futures")
+    @Test
+    public void test4() {
+        javaInspector.parse(INPUT4);
+    }
 }

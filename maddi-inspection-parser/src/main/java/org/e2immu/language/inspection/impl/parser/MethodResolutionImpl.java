@@ -567,9 +567,11 @@ public class MethodResolutionImpl implements MethodResolution {
         // finally, look at the return type
         ParameterizedType formalReturnType = method.methodInfo().returnType();
         if (forwardedReturnType != null) {
+            // see MethodCall11,4; we want Boolean to override the forward type 'int'
+            mapExpansion.putAll(method.concreteTypes());
             Map<NamedType, ParameterizedType> map = formalReturnType.formalToConcrete(forwardedReturnType);
             // see TestMethodCall0,3 for the "ifAbsent" aspect; TestVar,1 for the put.
-            // FIXME it is not immediately clear to my why 2 successive genericsHelper.translateMap calls don't work
+            // FIXME it is not immediately clear to me why 2 successive genericsHelper.translateMap calls don't work
             map.forEach(mapExpansion::putIfAbsent);
         }
 

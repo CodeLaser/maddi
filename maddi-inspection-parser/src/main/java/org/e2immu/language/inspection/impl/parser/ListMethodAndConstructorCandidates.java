@@ -79,7 +79,8 @@ public class ListMethodAndConstructorCandidates {
                 if (!staticOnly) visited.add(typeInfo);
                 visitedStatic.add(typeInfo);
                 resolveOverloadedMethodsSingleType(typeInfo, staticOnly, scopeNature, methodName, parametersPresented,
-                        decrementWhenNotStatic, typeMap, result, visited, visitedStatic, distance + 2);
+                        decrementWhenNotStatic, typeMap, result, visited, visitedStatic, distance + 2,
+                        typeOfObject);
             }
         }
         // it is possible that we find the method in one of the statically imported types... with * import
@@ -90,7 +91,7 @@ public class ListMethodAndConstructorCandidates {
                 visitedStatic.add(typeInfo);
                 resolveOverloadedMethodsSingleType(typeInfo, true, scopeNature, methodName,
                         parametersPresented, decrementWhenNotStatic, typeMap, result, visited, visitedStatic,
-                        distance + 1);
+                        distance + 1, typeOfObject);
             }
         }
         // or import by name
@@ -100,7 +101,8 @@ public class ListMethodAndConstructorCandidates {
             if (scopeNature != ScopeNature.INSTANCE || multipleTypeInfoObjects.contains(byName)) {
                 visitedStatic.add(byName);
                 resolveOverloadedMethodsSingleType(byName, true, scopeNature, methodName,
-                        parametersPresented, decrementWhenNotStatic, typeMap, result, visited, visitedStatic, distance);
+                        parametersPresented, decrementWhenNotStatic, typeMap, result, visited, visitedStatic, distance,
+                        typeOfObject);
             }
         }
     }
@@ -115,13 +117,17 @@ public class ListMethodAndConstructorCandidates {
                                                     Map<MethodTypeParameterMap, Integer> result,
                                                     Set<TypeInfo> visited,
                                                     Set<TypeInfo> visitedStatic,
-                                                    int distance) {
+                                                    int distance,
+                                                    ParameterizedType typeOfObject) {
         typeInfo.methodStream()
                 .filter(m -> m.name().equals(methodName))
                 .filter(m -> !staticOnly || m.isStatic())
                 .filter(m -> parametersPresented == IGNORE_PARAMETER_NUMBERS ||
                              compatibleNumberOfParameters(m, parametersPresented +
                                                              (!m.isStatic() && decrementWhenNotStatic ? -1 : 0)))
+                // see TestMethodCall12; you can call a static method from an instance context, but the type must agree
+                .filter(m -> !m.isStatic() || scopeNature != ScopeNature.INSTANCE
+                             || m.typeInfo().equals(typeOfObject.typeInfo()))
                 .forEach(m -> {
                     MethodTypeParameterMap mt = new MethodTypeParameterMapImpl(m, typeMap);
                     int score = distance + (m.isStatic() && scopeNature == ScopeNature.INSTANCE ? 100 : 0);
