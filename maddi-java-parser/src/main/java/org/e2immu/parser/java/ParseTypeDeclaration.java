@@ -365,6 +365,8 @@ public class ParseTypeDeclaration extends CommonParse {
                 if (child instanceof AnnotationMethodDeclaration amd) {
                     MethodInfo methodInfo = parsers.parseAnnotationMethodDeclaration().parse(newContext, amd);
                     builder.addMethod(methodInfo);
+                } else if (child instanceof FieldDeclaration fieldDeclaration) {
+                    parsers.parseFieldDeclaration().parse(newContext, fieldDeclaration, lombokData).forEach(builder::addField);
                 }
             }
         } else throw new UnsupportedOperationException("node " + td.get(i).getClass());

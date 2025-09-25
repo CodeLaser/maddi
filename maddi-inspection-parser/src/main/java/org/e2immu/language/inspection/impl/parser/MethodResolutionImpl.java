@@ -59,9 +59,12 @@ public class MethodResolutionImpl implements MethodResolution {
 
         FilterResult filterResult = filterMethodCandidatesInErasureMode(context, methodCandidates, unparsedArguments);
         if (methodCandidates.size() > 1) {
-            trimMethodsWithBestScore(methodCandidates, filterResult.compatibilityScore);
+            trimMethodsByCandidateScore(methodCandidates);
             if (methodCandidates.size() > 1) {
-                trimVarargsVsMethodsWithFewerParameters(methodCandidates);
+                trimMethodsWithBestScore(methodCandidates, filterResult.compatibilityScore);
+                if (methodCandidates.size() > 1) {
+                    trimVarargsVsMethodsWithFewerParameters(methodCandidates);
+                }
             }
         }
         sortRemainingCandidatesByShallowPublic(methodCandidates);
@@ -1120,6 +1123,14 @@ public class MethodResolutionImpl implements MethodResolution {
         }
     }
 
+    private void trimMethodsByCandidateScore(Map<MethodTypeParameterMap, Integer> methodCandidates) {
+        int min = methodCandidates.values().stream()
+                .mapToInt(i -> i)
+                .min().orElseThrow();
+        if (min == notAssignable) throw new UnsupportedOperationException();
+        methodCandidates.entrySet().removeIf(e -> e.getValue() > min);
+    }
+
     private void trimMethodsWithBestScore(Map<MethodTypeParameterMap, Integer> methodCandidates,
                                           Map<MethodInfo, Integer> compatibilityScore) {
         int min = methodCandidates.keySet().stream()
@@ -1396,7 +1407,11 @@ public class MethodResolutionImpl implements MethodResolution {
             if (pt.bestTypeInfo() != middle.typeInfo()) {
                 Map<NamedType, ParameterizedType> map2 = genericsHelper
                         .mapInTermsOfParametersOfSubType(pt.bestTypeInfo(), middle);
-                map = genericsHelper.combineMaps(map1, map2);
+                if(map2 == null) {
+                    map = map1;
+                } else {
+                    map = genericsHelper.combineMaps(map1, map2);
+                }
             } else {
                 map = map1;
             }

@@ -85,6 +85,7 @@ public class RunAnalyzer implements Runnable {
                 .setDetailedSources(true)
                 .setFailFast(true)
                 .setParallel(configuration.generalConfiguration().parallel())
+                .setLombok(configuration.inputConfiguration().containsLombok())
                 .build();
         Summary summary = javaInspector.parse(parseOptions);
         boolean printMemory = configuration.generalConfiguration().debugTargets().contains("memory");
