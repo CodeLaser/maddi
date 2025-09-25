@@ -6,10 +6,7 @@ import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.ClassExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.Statement;
@@ -36,6 +33,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         private boolean requiredArgsConstructor;
         private boolean noArgsConstructor;
         private boolean allArgsConstructor;
+        private boolean builder;
 
         @Override
         public boolean addGetters() {
@@ -61,6 +59,11 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         public boolean allArgsConstructor() {
             return allArgsConstructor;
         }
+
+        @Override
+        public boolean builder() {
+            return builder;
+        }
     }
 
     @Override
@@ -70,8 +73,12 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         typeInfo.builder().annotationStream()
                 .filter(ae -> ae.typeInfo().fullyQualifiedName().startsWith(LOMBOK_DOT))
                 .forEach(ae -> lombokMap.put(ae.typeInfo().fullyQualifiedName().substring(LOMBOK_DOT.length()), ae));
-        AnnotationExpression getter0 = lombokMap.get("Getter");
-        if (getter0 != null) {
+        AnnotationExpression builder = lombokMap.get("Builder");
+        if (builder != null) {
+            d.builder = true;
+        }
+        AnnotationExpression getter = lombokMap.get("Getter");
+        if (getter != null) {
             d.addGetters = true;
         }
         AnnotationExpression setter = lombokMap.get("Setter");
@@ -192,21 +199,24 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
     @Override
     public void addConstructors(TypeInfo typeInfo, Data lombokData) {
         if (lombokData.allArgsConstructor()) {
-            argsConstructor(typeInfo, false);
+            argsConstructor(typeInfo, false, runtime.methodModifierPublic());
         }
         if (lombokData.requiredArgsConstructor()) {
-            argsConstructor(typeInfo, true);
+            argsConstructor(typeInfo, true, runtime.methodModifierPublic());
         }
         if (lombokData.noArgsConstructor() && typeInfo.builder().constructors().stream()
                 .noneMatch(mi -> mi.parameters().isEmpty())) {
             Source source = runtime.noSource();
             MethodInfo nac = runtime.newConstructor(typeInfo);
-            nac.builder().setMethodBody(runtime().emptyBlock());
+            nac.builder().setMethodBody(runtime().emptyBlock()).addMethodModifier(runtime.methodModifierPublic());
             continueConstructor(typeInfo, nac, source);
+        }
+        if (lombokData.builder()) {
+            createBuilder(typeInfo, lombokData);
         }
     }
 
-    private void argsConstructor(TypeInfo typeInfo, boolean required) {
+    private void argsConstructor(TypeInfo typeInfo, boolean required, MethodModifier access) {
         Source source = runtime.noSource();
         MethodInfo rac = runtime.newConstructor(typeInfo);
         Block.Builder bodyBuilder = runtime().newBlockBuilder().setSource(source);
@@ -218,7 +228,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                 bodyBuilder.addStatement(s);
             }
         }
-        rac.builder().setMethodBody(bodyBuilder.build());
+        rac.builder().setMethodBody(bodyBuilder.build()).addMethodModifier(access);
         continueConstructor(typeInfo, rac, source);
     }
 
@@ -241,7 +251,6 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                 .setSynthetic(true)
                 .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
                 .setAccess(runtime().accessPublic())
-                .addMethodModifier(runtime.methodModifierPublic())
                 .setSource(source)
                 .commit();
         typeInfo.builder().addConstructor(nac);
@@ -276,7 +285,8 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         String setterName = GetSetHelper.setterName(fieldInfo.name());
         TypeInfo owner = fieldInfo.owner();
         LOGGER.debug("Handle setter for {}", fieldInfo);
-        if (owner.methodStream().noneMatch(mi -> setterName.equals(mi.name()) && mi.parameters().size() == 1)) {
+        if (owner.methodStream().noneMatch(mi -> setterName.equals(mi.name()) && mi.parameters().size() == 1)
+            && canStillBeAssigned(fieldInfo, false)) {
             Source source = runtime.noSource();
             MethodInfo method = runtime.newMethod(owner, setterName,
                     fieldInfo.isStatic() ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
@@ -304,4 +314,88 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         Expression assignment = runtime.newAssignmentBuilder().setTarget(veFr).setValue(vePi).setSource(source).build();
         return runtime.newExpressionAsStatementBuilder().setSource(source).setExpression(assignment).build();
     }
+
+    private void createBuilder(TypeInfo typeInfo, Data lombokData) {
+        Source source = runtime.noSource();
+        TypeInfo builder = runtime.newTypeInfo(typeInfo, "Builder");
+        List<FieldInfo> fields = determineBuilderFields(typeInfo);
+
+        for (FieldInfo fieldInfo : fields) {
+            FieldInfo buildField = createBuilderField(builder, source, fieldInfo);
+            addSetterToBuilder(builder, source, buildField);
+        }
+        argsConstructor(builder, true, runtime.methodModifierPrivate());
+        createBuildMethod(typeInfo, builder, source);
+        builder.builder()
+                .setTypeNature(runtime.typeNatureClass())
+                .setParentClass(runtime.objectParameterizedType())
+                .setSource(source)
+                .setSynthetic(true)
+                .addTypeModifier(runtime.typeModifierPublic())
+                .addTypeModifier(runtime.typeModifierStatic())
+                .setAccess(runtime.accessPublic())
+                .commit();
+        typeInfo.builder().addSubType(builder);
+    }
+
+    private void addSetterToBuilder(TypeInfo builder, Source source, FieldInfo buildField) {
+        String setterName = GetSetHelper.setterName(buildField.name());
+        MethodInfo method = runtime.newMethod(builder, setterName, runtime.methodTypeMethod());
+        ParameterInfo pi = method.builder().addParameter(buildField.name(), buildField.type());
+        pi.builder().setSynthetic(true).setSource(source);
+        Statement eas = assignFieldToParameter(buildField, source, pi);
+        Statement returnStatement = runtime.newReturnBuilder()
+                .setSource(source)
+                .setExpression(runtime.newVariableExpressionBuilder().setSource(source)
+                        .setVariable(runtime.newThis(builder.asParameterizedType()))
+                        .build())
+                .build();
+        Block body = runtime.newBlockBuilder().addStatement(eas).addStatement(returnStatement).setSource(source).build();
+
+        method.builder()
+                .setMethodBody(body)
+                .setReturnType(runtime.voidParameterizedType())
+                .setSynthetic(true)
+                .setSource(source)
+                .commitParameters().commit();
+        builder.builder().addMethod(method);
+
+        runtime.setGetSetField(method, buildField, true, -1);
+    }
+
+    private FieldInfo createBuilderField(TypeInfo builder, Source source, FieldInfo fieldInfo) {
+        FieldInfo builderField = runtime.newFieldInfo(fieldInfo.name(), false, fieldInfo.type(), builder);
+        builderField.builder()
+                .setSource(source)
+                .setSynthetic(true)
+                .addFieldModifier(runtime.fieldModifierPrivate())
+                .setInitializer(runtime.newEmptyExpression())
+                .setAccess(runtime.accessPrivate())
+                .commit();
+        builder.builder().addField(builderField);
+        return builderField;
+    }
+
+    private List<FieldInfo> determineBuilderFields(TypeInfo typeInfo) {
+        return typeInfo.builder().fields().stream()
+                .filter(f -> !f.isStatic())
+                .toList();
+    }
+
+    private void createBuildMethod(TypeInfo typeInfo, TypeInfo builder, Source source) {
+        MethodInfo build = runtime.newMethod(builder, "build", runtime().methodTypeMethod());
+        // TODO add call to constructor
+        Block methodBody = runtime().emptyBlock();
+        build.builder()
+                .setMethodBody(methodBody)
+                .setReturnType(typeInfo.asParameterizedType())
+                .setSource(source)
+                .setSynthetic(true)
+                .addMethodModifier(runtime.methodModifierPublic())
+                .setAccess(runtime.accessPublic())
+                .commitParameters().commit();
+        builder.builder().addMethod(build);
+    }
+
+
 }
