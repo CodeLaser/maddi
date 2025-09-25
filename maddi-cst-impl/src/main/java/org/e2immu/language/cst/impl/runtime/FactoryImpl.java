@@ -1239,6 +1239,13 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public void setNonNullProperty(FieldInfo fieldInfo) {
+        if (!fieldInfo.analysis().haveAnalyzedValueFor(PropertyImpl.NOT_NULL_FIELD)) {
+            fieldInfo.analysis().set(PropertyImpl.NOT_NULL_FIELD, ValueImpl.NotNullImpl.NOT_NULL);
+        }
+    }
+
+    @Override
     public Split splitNever() {
         return SplitEnum.NEVER;
     }

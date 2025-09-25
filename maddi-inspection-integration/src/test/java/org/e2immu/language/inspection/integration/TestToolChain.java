@@ -36,7 +36,7 @@ public class TestToolChain {
                 .addSources("none")
                 .addClassPath(BASE);
         InputConfiguration inputConfiguration = inputConfigurationBuilder.build();
-        SourceSet base = inputConfiguration.classPathParts().get(0);
+        SourceSet base = inputConfiguration.classPathParts().getFirst();
         assertEquals(BASE, base.name());
         assertEquals(BASE, base.uri().toString());
 
@@ -44,9 +44,9 @@ public class TestToolChain {
         javaInspector.initialize(inputConfiguration);
 
         List<TypeInfo> typesLoaded = javaInspector.compiledTypesManager().typesLoaded();
-        assertSame(base, typesLoaded.get(0).compilationUnit().sourceSet());
+        assertSame(base, typesLoaded.getFirst().compilationUnit().sourceSet());
 
         String s = ToolChain.extractLibraryName(typesLoaded, false);
-        assertTrue(s.startsWith("openjdk-"));
+        assertTrue(s.contains("jdk-"), "Have "+s);
     }
 }

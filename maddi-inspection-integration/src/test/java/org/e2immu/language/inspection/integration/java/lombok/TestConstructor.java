@@ -2,14 +2,16 @@ package org.e2immu.language.inspection.integration.java.lombok;
 
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.NoSuchElementException;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestConstructor extends CommonTest {
 
@@ -37,5 +39,60 @@ public class TestConstructor extends CommonTest {
                 new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
         MethodInfo nac = typeInfo.findConstructor(0);
         assertTrue(nac.isSynthetic());
+    }
+
+    @Test
+    public void test1neg() {
+        TypeInfo typeInfo = javaInspector.parse(INPUT1,
+                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(false).build());
+        assertThrows(NoSuchElementException.class, () -> typeInfo.findConstructor(0));
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package org.e2immu.test;
+            
+            import lombok.RequiredArgsConstructor;
+            import lombok.NonNull;
+            
+            @RequiredArgsConstructor
+            public class X {
+                private final String s; // yes
+                private final int k; // yes
+                private final String t = "T"; // no
+                private int l; // no
+                private int m = 3; // no
+                private Class<?> variableClazz; // no
+                @NonNull private Class<?> clazz; // yes
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = javaInspector.parse(INPUT2,
+                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+        FieldInfo variableClazz = typeInfo.getFieldByName("variableClazz", true);
+        assertFalse(variableClazz.isPropertyNotNull());
+        FieldInfo clazz = typeInfo.getFieldByName("clazz", true);
+        assertTrue(clazz.isPropertyNotNull());
+
+        MethodInfo rac = typeInfo.findConstructor(3);
+        assertTrue(rac.isSynthetic());
+        assertEquals("org.e2immu.test.X.<init>(String,int,Class<?>)", rac.fullyQualifiedName());
+        ParameterInfo p0 = rac.parameters().get(0);
+        assertEquals("s", p0.name());
+        ParameterInfo p1 = rac.parameters().get(1);
+        assertEquals("k", p1.name());
+        ParameterInfo p2 = rac.parameters().get(2);
+        assertEquals("clazz", p2.name());
+        MethodInfo nac = typeInfo.findConstructor(0);
+        assertEquals("org.e2immu.test.X.<init>()", nac.fullyQualifiedName());
+    }
+
+    @Test
+    public void test2neg() {
+        TypeInfo typeInfo = javaInspector.parse(INPUT2,
+                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(false).build());
+        assertThrows(NoSuchElementException.class, () -> typeInfo.findConstructor(2));
     }
 }
