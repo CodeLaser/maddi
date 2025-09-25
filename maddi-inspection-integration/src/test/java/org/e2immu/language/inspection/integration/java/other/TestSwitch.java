@@ -1,12 +1,16 @@
 package org.e2immu.language.inspection.integration.java.other;
 
+import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.expression.SwitchExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.SwitchEntry;
 import org.e2immu.language.cst.api.statement.SwitchStatementNewStyle;
+import org.e2immu.language.cst.api.statement.SwitchStatementOldStyle;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -168,5 +172,110 @@ public class TestSwitch extends CommonTest {
     @Test
     public void test7() {
         javaInspector.parse(INPUT7);
+    }
+
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            
+            class X {
+                static final int A = 3;
+                static final int B = 4;
+                enum E { A, B, C }
+                void method(E e) {
+                    switch(e) {
+                        case A -> go(A);
+                        case B -> go(B);
+                        default -> go(0);
+                    }
+                }
+                void go(int i) {
+                    System.out.println("Have "+i);
+                }
+            }
+            """;
+
+    @DisplayName("Field name vs switch constant")
+    @Test
+    public void test8() {
+        TypeInfo X = javaInspector.parse(INPUT8);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        SwitchStatementNewStyle ssns = (SwitchStatementNewStyle) method.methodBody().statements().getFirst();
+        SwitchEntry se = ssns.entries().getFirst();
+        // ensure E.A, and not X.A, while, at the same time, go(A) uses X.A
+        assertEquals("E.A", se.conditions().getFirst().toString());
+        MethodCall mc = (MethodCall) se.statement().expression();
+        assertEquals("this.go(X.A)", mc.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT8B = """
+            package a.b;
+            
+            class X {
+                static final int A = 3;
+                static final int B = 4;
+                enum E { A, B, C }
+                void method(E e) {
+                    switch(e) {
+                        case A: go(A); break;
+                        case B: go(B); break;
+                        default: go(0);
+                    }
+                }
+                void go(int i) {
+                    System.out.println("Have "+i);
+                }
+            }
+            """;
+
+    @DisplayName("Field name vs switch constant, old style")
+    @Test
+    public void test8B() {
+        TypeInfo X = javaInspector.parse(INPUT8B);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        SwitchStatementOldStyle ssos = (SwitchStatementOldStyle) method.methodBody().statements().getFirst();
+        SwitchStatementOldStyle.SwitchLabel sl = ssos.switchLabels().getFirst();
+        // ensure E.A, and not X.A, while, at the same time, go(A) uses X.A
+        assertEquals("E.A", sl.literal().toString());
+        MethodCall mc = (MethodCall) ssos.block().statements().getFirst().expression();
+        assertEquals("this.go(X.A)", mc.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT8C = """
+            package a.b;
+            
+            class X {
+                static final int A = 3;
+                static final int B = 4;
+                enum E { A, B, C }
+                int method(E e) {
+                    return switch(e) {
+                        case A -> go(A);
+                        case B -> go(B);
+                        default -> go(0);
+                    };
+                }
+                int go(int i) {
+                    System.out.println("Have "+i);
+                    return i+1;
+                }
+            }
+            """;
+
+    @DisplayName("Field name vs switch constant, expression")
+    @Test
+    public void test8C() {
+        TypeInfo X = javaInspector.parse(INPUT8C);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        SwitchExpression sw = (SwitchExpression) method.methodBody().statements().getFirst().expression();
+        SwitchEntry se = sw.entries().getFirst();
+        // ensure E.A, and not X.A, while, at the same time, go(A) uses X.A
+        assertEquals("E.A", se.conditions().getFirst().toString());
+        MethodCall mc = (MethodCall) se.statement().expression();
+        assertEquals("this.go(X.A)", mc.toString());
     }
 }

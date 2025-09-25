@@ -212,20 +212,24 @@ public class ParseExpression extends CommonParse {
                 .count();
         ForwardType selectorTypeFwd = context.newForwardType(selector.parameterizedType());
         List<SwitchEntry> entries = new ArrayList<>();
-        Context newContext = context.newVariableContext("switch-expression");
         TypeInfo selectorTypeInfo = selector.parameterizedType().bestTypeInfo();
+        Context enumContext;
         if (selectorTypeInfo.typeNature().isEnum()) {
+            enumContext = context.newVariableContext("switch-expression-enum");
             selectorTypeInfo.fields().stream().filter(Info::isSynthetic)
-                    .forEach(f -> newContext.variableContext().add(runtime.newFieldReference(f)));
+                    .forEach(f -> enumContext.variableContext().add(runtime.newFieldReference(f)));
+        } else {
+            enumContext = null;
         }
         int count = 0;
         ParameterizedType commonType = null;
         for (Node child : node) {
             if (child instanceof NewCaseStatement ncs) {
+                Context newContext = context.newVariableContext("switch-expression");
                 SwitchEntry.Builder entryBuilder = runtime.newSwitchEntryBuilder()
                         .setSource(source(ncs)).addComments(comments(ncs));
                 if (ncs.get(0) instanceof NewSwitchLabel nsl) {
-                    parseNewSwitchLabel(index, nsl, newContext, entryBuilder, selectorTypeFwd);
+                    parseNewSwitchLabel(index, nsl, newContext, entryBuilder, selectorTypeFwd, enumContext);
                 } else throw new Summary.ParseException(newContext, "Expect NewCaseStatement");
                 Node ncs1 = ncs.get(1);
                 switch (ncs1) {
