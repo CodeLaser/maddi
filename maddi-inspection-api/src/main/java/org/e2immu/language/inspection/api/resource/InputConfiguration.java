@@ -31,6 +31,10 @@ public interface InputConfiguration {
      */
     List<SourceSet> classPathParts();
 
+    default boolean containsLombok() {
+        return classPathParts().stream().anyMatch(cp -> cp.externalLibrary() && cp.name().startsWith("lombok-"));
+    }
+
     /**
      * this directory must be absolute. It is not prefixed by the <code>workingDirectory</code>.
      *
@@ -91,7 +95,9 @@ public interface InputConfiguration {
     // helper
 
     InputConfiguration withDefaultModules();
+
     InputConfiguration withE2ImmuSupportFromClasspath();
+
     List<SourceSet> findMostLikelySourceSet(String name);
 
 }

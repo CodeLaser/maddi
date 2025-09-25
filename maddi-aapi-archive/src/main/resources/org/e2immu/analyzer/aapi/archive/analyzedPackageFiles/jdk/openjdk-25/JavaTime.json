@@ -1,0 +1,818 @@
+[
+{"name": "Tjava.time.DayOfWeek", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+ {"name": "FMONDAY(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+ {"name": "FTUESDAY(1)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+ {"name": "FWEDNESDAY(2)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+ {"name": "FTHURSDAY(3)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+ {"name": "FFRIDAY(4)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+ {"name": "FSATURDAY(5)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+ {"name": "FSUNDAY(6)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "Mvalues(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":1}},
+ {"name": "MvalueOf(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pname(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mof(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdayOfWeek(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mfrom(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAccessor"}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetValue(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetDisplayName(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "Pstyle(0)", "data":{"annotatedApi":1}},
+  {"name": "Plocale(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MisSupported(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mrange(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mget(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetLong(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mplus(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pdays(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mminus(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pdays(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mquery(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PR:0","1":"Tjava.time.temporal.TemporalQuery"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Pquery(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "MadjustInto(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal"},"hcsMethod":{"0":[[-1]]}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}}]},
+
+{"name": "Tjava.time.Duration", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{},"immutableType":3,"independentType":2}, "subs":[
+ {"name": "FZERO(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "MofDays(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pdays(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MofHours(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Phours(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MofMinutes(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pminutes(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MofSeconds(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pseconds(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MofSeconds(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pseconds(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pl(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MofMillis(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pmillis(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MofNanos(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pnanos(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mof(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pamount(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mfrom(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pamount(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mparse(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.CharSequence"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "McharMatch(10)", "data":{"hc":{"0":"Tjava.lang.CharSequence"}}, "subs":[
+  {"name": "Ptext(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MparseNumber(11)", "data":{"hc":{"0":"Tjava.lang.CharSequence"}}, "subs":[
+  {"name": "Ptext(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MparseFraction(12)", "data":{"hc":{"0":"Tjava.lang.CharSequence"}}, "subs":[
+  {"name": "Ptext(0)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "Mcreate(13)", "data":{"hc":{}}},
+ {"name": "Mbetween(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "PstartInclusive(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PendExclusive(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mcreate(15)", "data":{"hc":{}}},
+ {"name": "Mget(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetUnits(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.List","1":"Tjava.time.temporal.TemporalUnit"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MisPositive(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisZero(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisNegative(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MgetSeconds(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MgetNano(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MwithSeconds(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pseconds(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithNanos(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PnanoOfSecond(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mplus(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pduration(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mplus(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MplusDays(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PdaysToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusHours(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PhoursToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusMinutes(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PminutesToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusSeconds(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PsecondsToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusMillis(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PmillisToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusNanos(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PnanosToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mplus(33)", "data":{"hc":{}}},
+ {"name": "Mminus(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pduration(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mminus(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MminusDays(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PdaysToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusHours(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PhoursToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusMinutes(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PminutesToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusSeconds(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PsecondsToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusMillis(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PmillisToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusNanos(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "PnanosToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MmultipliedBy(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pmultiplicand(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdividedBy(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pdivisor(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdividedBy(44)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pdivisor(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoBigDecimalSeconds(45)", "data":{"hc":{"0":"Tjava.math.BigDecimal"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "Mcreate(46)", "data":{"hc":{"0":"Tjava.math.BigDecimal"}}, "sub":
+  {"name": "Pseconds(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mnegated(47)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mabs(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MaddTo(49)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MsubtractFrom(50)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal"},"hcsMethod":{"0":[[-1]]},"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoDays(51)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoHours(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoMinutes(53)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoSeconds(54)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoMillis(55)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoNanos(56)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoDaysPart(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoHoursPart(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoMinutesPart(59)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoSecondsPart(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoMillisPart(61)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoNanosPart(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtruncatedTo(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "McompareTo(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "PotherDuration(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mequals(65)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoString(67)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MwriteReplace(68)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MreadObject(69)", "data":{"hc":{"0":"Tjava.io.ObjectInputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwriteExternal(70)", "data":{"hc":{"0":"Tjava.io.DataOutput"}}, "sub":
+  {"name": "Pout(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MreadExternal(71)", "data":{"hc":{"0":"Tjava.io.DataInput"}}, "sub":
+  {"name": "Pin(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+
+{"name": "Tjava.time.Instant", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+ {"name": "FEPOCH(0)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "FMIN(3)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "FMAX(4)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "Mnow(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "Mnow(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.Clock"}}, "sub":
+  {"name": "Pclock(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MofEpochSecond(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PepochSecond(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MofEpochSecond(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "PepochSecond(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pl(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MofEpochMilli(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PepochMilli(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mfrom(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAccessor"}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mparse(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.CharSequence"}}, "sub":
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mcreate(7)", "data":{"hc":{}}},
+ {"name": "MisSupported(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisSupported(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mrange(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mget(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetLong(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetEpochSecond(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetNano(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mwith(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAdjuster"}}, "sub":
+  {"name": "Padjuster(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mwith(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "subs":[
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PnewValue(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtruncatedTo(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mplus(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"}}, "sub":
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mplus(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "subs":[
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MplusSeconds(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PsecondsToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusMillis(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PmillisToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusNanos(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PnanosToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mplus(23)", "data":{"hc":{}}},
+ {"name": "Mminus(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"}}, "sub":
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mminus(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "subs":[
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MminusSeconds(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PsecondsToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusMillis(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PmillisToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusNanos(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PnanosToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mquery(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PR:0","1":"Tjava.time.temporal.TemporalQuery"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Pquery(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "MadjustInto(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal"},"hcsMethod":{"0":[[-1]]}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Muntil(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal","1":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PendExclusive(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Punit(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "Muntil(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "PendExclusive(0)", "data":{"annotatedApi":1}}},
+ {"name": "MnanosUntil(33)", "data":{"hc":{}}},
+ {"name": "MmicrosUntil(34)", "data":{"hc":{}}},
+ {"name": "MmillisUntil(35)", "data":{"hc":{}}},
+ {"name": "MsecondsUntil(36)", "data":{"hc":{}}},
+ {"name": "MatOffset(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Poffset(0)", "data":{"annotatedApi":1}}},
+ {"name": "MatZone(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "sub":
+  {"name": "Pzone(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MtoEpochMilli(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "McompareTo(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "PotherInstant(0)", "data":{"annotatedApi":1,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisAfter(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PotherInstant(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisBefore(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PotherInstant(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mequals(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(44)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoString(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MwriteReplace(46)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MreadObject(47)", "data":{"hc":{"0":"Tjava.io.ObjectInputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwriteExternal(48)", "data":{"hc":{"0":"Tjava.io.DataOutput"}}, "sub":
+  {"name": "Pout(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MreadExternal(49)", "data":{"hc":{"0":"Tjava.io.DataInput"}}, "sub":
+  {"name": "Pin(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+
+{"name": "Tjava.time.LocalDate", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+ {"name": "FMIN(0)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "FMAX(1)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "FEPOCH(2)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "Mnow(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "Mnow(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "sub":
+  {"name": "Pzone(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mnow(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.Clock"}}, "sub":
+  {"name": "Pclock(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mof(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mof(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MofYearDay(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdayOfYear(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MofInstant(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "Pinstant(0)", "data":{"annotatedApi":1}},
+  {"name": "Pzone(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MofEpochDay(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PepochDay(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mfrom(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAccessor"}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mparse(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.CharSequence"}}, "sub":
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mparse(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.CharSequence"}}, "subs":[
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pformatter(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mcreate(11)", "data":{"hc":{}}},
+ {"name": "MresolvePreviousValid(12)", "data":{"hc":{}}},
+ {"name": "MisSupported(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisSupported(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mrange(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mget(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetLong(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mget0(18)", "data":{"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "sub":
+  {"name": "Pfield(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetProlepticMonth(19)", "data":{"hc":{}}},
+ {"name": "MgetChronology(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetEra(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetYear(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetMonthValue(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetMonth(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetDayOfMonth(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetDayOfYear(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetDayOfWeek(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MisLeapYear(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MlengthOfMonth(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MlengthOfYear(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mwith(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAdjuster"}}, "sub":
+  {"name": "Padjuster(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mwith(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "subs":[
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PnewValue(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwithYear(33)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithMonth(34)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pmonth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithDayOfMonth(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdayOfMonth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithDayOfYear(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdayOfYear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mplus(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"}}, "sub":
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mplus(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "subs":[
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MplusYears(39)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PyearsToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusMonths(40)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PmonthsToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusWeeks(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PweeksToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusDays(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdaysToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mminus(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"}}, "sub":
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mminus(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "subs":[
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MminusYears(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PyearsToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusMonths(46)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PmonthsToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusWeeks(47)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PweeksToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusDays(48)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdaysToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mquery(49)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PR:0","1":"Tjava.time.temporal.TemporalQuery"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Pquery(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "MadjustInto(50)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal"},"hcsMethod":{"0":[[-1]]}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Muntil(51)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal","1":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PendExclusive(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Punit(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "MdaysUntil(52)", "data":{"hc":{}}},
+ {"name": "MmonthsUntil(53)", "data":{"hc":{}}},
+ {"name": "Muntil(54)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDate"}}, "sub":
+  {"name": "PendDateExclusive(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MdatesUntil(55)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.stream.Stream"},"hcsMethod":{"0":[[-1]]}}, "sub":
+  {"name": "PendExclusive(0)", "data":{"annotatedApi":1}}},
+ {"name": "MdatesUntil(56)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.stream.Stream"},"hcsMethod":{"0":[[-1]]}}, "subs":[
+  {"name": "PendExclusive(0)", "data":{"annotatedApi":1}},
+  {"name": "Pstep(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mformat(57)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Pformatter(0)", "data":{"annotatedApi":1}}},
+ {"name": "MatTime(58)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Ptime(0)", "data":{"annotatedApi":1}}},
+ {"name": "MatTime(59)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Phour(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MatTime(60)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Phour(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Psecond(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MatTime(61)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Phour(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Psecond(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PnanoOfSecond(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MatTime(62)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Ptime(0)", "data":{"annotatedApi":1}}},
+ {"name": "MatStartOfDay(63)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MatStartOfDay(64)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "sub":
+  {"name": "Pzone(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MtoEpochDay(65)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MtoEpochSecond(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Ptime(0)", "data":{"annotatedApi":1}},
+  {"name": "Poffset(1)", "data":{"annotatedApi":1}}]},
+ {"name": "McompareTo(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDate"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McompareTo0(68)", "data":{"hc":{}}},
+ {"name": "MisAfter(69)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDate"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisBefore(70)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDate"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisEqual(71)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDate"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mequals(72)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(73)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoString(74)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MwriteReplace(75)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MreadObject(76)", "data":{"hc":{"0":"Tjava.io.ObjectInputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwriteExternal(77)", "data":{"hc":{"0":"Tjava.io.DataOutput"}}, "sub":
+  {"name": "Pout(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MreadExternal(78)", "data":{"hc":{"0":"Tjava.io.DataInput"}}, "sub":
+  {"name": "Pin(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+
+{"name": "Tjava.time.LocalDateTime", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+ {"name": "FMIN(0)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "FMAX(1)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "Mnow(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "Mnow(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "sub":
+  {"name": "Pzone(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mnow(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.Clock"}}, "sub":
+  {"name": "Pclock(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mof(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Phour(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mof(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Phour(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Psecond(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mof(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Phour(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Psecond(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PnanoOfSecond(6)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mof(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Phour(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mof(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Phour(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Psecond(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mof(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Phour(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Psecond(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PnanoOfSecond(6)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mof(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "Pdate(0)", "data":{"annotatedApi":1}},
+  {"name": "Ptime(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MofInstant(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "Pinstant(0)", "data":{"annotatedApi":1}},
+  {"name": "Pzone(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MofEpochSecond(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+  {"name": "PepochSecond(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pi(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PnanoOfSecond(2)", "data":{"annotatedApi":1}}]},
+ {"name": "Mfrom(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAccessor"}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mparse(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.CharSequence"}}, "sub":
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mparse(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.CharSequence"}}, "subs":[
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pformatter(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mwith(15)", "data":{"hc":{}}},
+ {"name": "MisSupported(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisSupported(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mrange(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mget(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetLong(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MtoLocalDate(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetYear(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetMonthValue(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetMonth(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetDayOfMonth(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetDayOfYear(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetDayOfWeek(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MtoLocalTime(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetHour(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetMinute(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetSecond(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetNano(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mwith(33)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAdjuster"}}, "sub":
+  {"name": "Padjuster(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mwith(34)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "subs":[
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PnewValue(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwithYear(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithMonth(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pmonth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithDayOfMonth(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdayOfMonth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithDayOfYear(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdayOfYear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithHour(39)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Phour(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithMinute(40)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pminute(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithSecond(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Psecond(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithNano(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PnanoOfSecond(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MtruncatedTo(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mplus(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"}}, "sub":
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mplus(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "subs":[
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MplusYears(46)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pyears(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusMonths(47)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pmonths(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusWeeks(48)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pweeks(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusDays(49)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pdays(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusHours(50)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Phours(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusMinutes(51)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pminutes(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusSeconds(52)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pseconds(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusNanos(53)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pnanos(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mminus(54)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"}}, "sub":
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mminus(55)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "subs":[
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MminusYears(56)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pyears(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusMonths(57)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pmonths(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusWeeks(58)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pweeks(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusDays(59)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pdays(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusHours(60)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Phours(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusMinutes(61)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pminutes(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusSeconds(62)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pseconds(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusNanos(63)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pnanos(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusWithOverflow(64)", "data":{"hc":{}}},
+ {"name": "Mquery(65)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PR:0","1":"Tjava.time.temporal.TemporalQuery"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Pquery(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "MadjustInto(66)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal"},"hcsMethod":{"0":[[-1]]}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Muntil(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal","1":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PendExclusive(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Punit(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "Mformat(68)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Pformatter(0)", "data":{"annotatedApi":1}}},
+ {"name": "MatOffset(69)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Poffset(0)", "data":{"annotatedApi":1}}},
+ {"name": "MatZone(70)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "sub":
+  {"name": "Pzone(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "McompareTo(71)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDateTime","1":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]},"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McompareTo0(72)", "data":{"hc":{}}},
+ {"name": "MisAfter(73)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDateTime","1":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisBefore(74)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDateTime","1":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisEqual(75)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.chrono.ChronoLocalDateTime","1":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mequals(76)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(77)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoString(78)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MwriteReplace(79)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MreadObject(80)", "data":{"hc":{"0":"Tjava.io.ObjectInputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwriteExternal(81)", "data":{"hc":{"0":"Tjava.io.DataOutput"}}, "sub":
+  {"name": "Pout(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MreadExternal(82)", "data":{"hc":{"0":"Tjava.io.DataInput"}}, "sub":
+  {"name": "Pin(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+
+{"name": "Tjava.time.ZoneId", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"E":true}}, "subs":[
+ {"name": "FSHORT_IDS(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1}},
+ {"name": "C<init>(0)", "data":{"hc":{}}},
+ {"name": "MsystemDefault(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MgetAvailableZoneIds(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Set"},"hcsMethod":{"0":[[-1]]},"independentMethod":2}},
+ {"name": "Mof(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Map","1":"Tjava.time.ZoneId"},"hcsMethod":{"1":[[-1]]}}, "subs":[
+  {"name": "PzoneId(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PaliasMap(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "Mof(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"},"hcsMethod":{"0":[[-1]]}}, "sub":
+  {"name": "PzoneId(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MofOffset(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"},"hcsMethod":{"0":[[-1]]}}, "subs":[
+  {"name": "Pprefix(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poffset(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mof(5)", "data":{"hc":{"0":"Tjava.time.ZoneId"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MofWithPrefix(6)", "data":{"hc":{"0":"Tjava.time.ZoneId"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "Mfrom(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAccessor","1":"Tjava.time.ZoneId"},"hcsMethod":{"1":[[-1]]}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetId(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}},
+ {"name": "MgetDisplayName(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "Pstyle(0)", "data":{"annotatedApi":1}},
+  {"name": "Plocale(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MtoTemporal(10)", "data":{"hc":{"0":"Tjava.time.temporal.TemporalAccessor"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MgetRules(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "Mnormalized(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MgetOffset(13)", "data":{"hc":{}}},
+ {"name": "Mequals(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MreadObject(16)", "data":{"hc":{"0":"Tjava.io.ObjectInputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MtoString(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MwriteReplace(18)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "Mwrite(19)", "data":{"hc":{"0":"Tjava.io.DataOutput"}}, "sub":
+  {"name": "PdataOutput(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]},
+
+{"name": "Tjava.time.ZonedDateTime", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "subs":[
+ {"name": "C<init>(0)", "data":{"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "Pzone(2)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "Mnow(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "Mnow(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "sub":
+  {"name": "Pzone(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mnow(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.Clock"}}, "sub":
+  {"name": "Pclock(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mof(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "Pdate(0)", "data":{"annotatedApi":1}},
+  {"name": "Ptime(1)", "data":{"annotatedApi":1}},
+  {"name": "Pzone(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "Mof(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "PlocalDateTime(0)", "data":{"annotatedApi":1}},
+  {"name": "Pzone(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "Mof(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pmonth(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdayOfMonth(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Phour(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pminute(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Psecond(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PnanoOfSecond(6)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pzone(7)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MofLocal(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "PlocalDateTime(0)", "data":{"annotatedApi":1}},
+  {"name": "Pzone(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PpreferredOffset(2)", "data":{"annotatedApi":1}}]},
+ {"name": "MofInstant(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "Pinstant(0)", "data":{"annotatedApi":1}},
+  {"name": "Pzone(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MofInstant(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "PlocalDateTime(0)", "data":{"annotatedApi":1}},
+  {"name": "Poffset(1)", "data":{"annotatedApi":1}},
+  {"name": "Pzone(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "Mcreate(9)", "data":{"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "PnanoOfSecond(2)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MofStrict(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "PlocalDateTime(0)", "data":{"annotatedApi":1}},
+  {"name": "Poffset(1)", "data":{"annotatedApi":1}},
+  {"name": "Pzone(2)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MofLenient(11)", "data":{"hc":{"0":"Tjava.time.ZoneId"}}, "subs":[
+  {"name": "Pzone(2)", "data":{"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "Mfrom(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAccessor"}}, "sub":
+  {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mparse(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.CharSequence"}}, "sub":
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mparse(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.CharSequence"}}, "subs":[
+  {"name": "Ptext(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pformatter(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MresolveLocal(15)", "data":{"hc":{}}},
+ {"name": "MresolveInstant(16)", "data":{"hc":{}}},
+ {"name": "MresolveOffset(17)", "data":{"hc":{}}},
+ {"name": "MisSupported(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MisSupported(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mrange(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mget(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetLong(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MgetOffset(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MwithEarlierOffsetAtOverlap(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MwithLaterOffsetAtOverlap(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetZone(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MwithZoneSameLocal(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "sub":
+  {"name": "Pzone(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwithZoneSameInstant(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.ZoneId"}}, "sub":
+  {"name": "Pzone(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwithFixedOffsetZone(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MtoLocalDateTime(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MtoLocalDate(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetYear(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetMonthValue(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetMonth(34)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetDayOfMonth(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetDayOfYear(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetDayOfWeek(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MtoLocalTime(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "MgetHour(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetMinute(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetSecond(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetNano(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mwith(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAdjuster"}}, "sub":
+  {"name": "Padjuster(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mwith(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalField"}}, "subs":[
+  {"name": "Pfield(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "PnewValue(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwithYear(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pyear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithMonth(46)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pmonth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithDayOfMonth(47)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdayOfMonth(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithDayOfYear(48)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PdayOfYear(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithHour(49)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Phour(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithMinute(50)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pminute(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithSecond(51)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Psecond(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithNano(52)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "PnanoOfSecond(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MtruncatedTo(53)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "sub":
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mplus(54)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"}}, "sub":
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mplus(55)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "subs":[
+  {"name": "PamountToAdd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MplusYears(56)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pyears(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusMonths(57)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pmonths(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusWeeks(58)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pweeks(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusDays(59)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pdays(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusHours(60)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Phours(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusMinutes(61)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pminutes(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusSeconds(62)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pseconds(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MplusNanos(63)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pnanos(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mminus(64)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalAmount"}}, "sub":
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "Mminus(65)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.TemporalUnit"}}, "subs":[
+  {"name": "PamountToSubtract(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtemporalUnit(1)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}}]},
+ {"name": "MminusYears(66)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pyears(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusMonths(67)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pmonths(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusWeeks(68)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pweeks(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusDays(69)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pdays(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusHours(70)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Phours(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusMinutes(71)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pminutes(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusSeconds(72)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pseconds(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminusNanos(73)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}, "sub":
+  {"name": "Pnanos(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mquery(74)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"0":"PR:0","1":"Tjava.time.temporal.TemporalQuery"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Pquery(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[-1]]}}}},
+ {"name": "Muntil(75)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.time.temporal.Temporal","1":"Tjava.time.temporal.TemporalUnit"},"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PendExclusive(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[-1]]}}},
+  {"name": "Punit(1)", "data":{"annotatedApi":1,"hcsParameter":{"1":[[-1]]}}}]},
+ {"name": "Mformat(76)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Pformatter(0)", "data":{"annotatedApi":1}}},
+ {"name": "MtoOffsetDateTime(77)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{}}},
+ {"name": "Mequals(78)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(79)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoString(80)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MwriteReplace(81)", "data":{"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]}}},
+ {"name": "MreadObject(82)", "data":{"hc":{"0":"Tjava.io.ObjectInputStream"}}, "sub":
+  {"name": "Ps(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MwriteExternal(83)", "data":{"hc":{"0":"Tjava.io.DataOutput"}}, "sub":
+  {"name": "Pout(0)", "data":{"hcsParameter":{"0":[[-1]]}}}},
+ {"name": "MreadExternal(84)", "data":{"hc":{"0":"Tjava.io.ObjectInput"}}, "sub":
+  {"name": "Pin(0)", "data":{"hcsParameter":{"0":[[-1]]}}}}]}
+]
