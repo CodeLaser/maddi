@@ -59,9 +59,9 @@ public class MethodResolutionImpl implements MethodResolution {
 
         FilterResult filterResult = filterMethodCandidatesInErasureMode(context, methodCandidates, unparsedArguments);
         if (methodCandidates.size() > 1) {
-            trimMethodsByCandidateScore(methodCandidates);
+            trimMethodsWithBestScore(methodCandidates, filterResult.compatibilityScore);
             if (methodCandidates.size() > 1) {
-                trimMethodsWithBestScore(methodCandidates, filterResult.compatibilityScore);
+                trimMethodsByCandidateScore(methodCandidates);
                 if (methodCandidates.size() > 1) {
                     trimVarargsVsMethodsWithFewerParameters(methodCandidates);
                 }

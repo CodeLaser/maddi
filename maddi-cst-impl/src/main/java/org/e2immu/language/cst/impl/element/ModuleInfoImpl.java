@@ -30,11 +30,13 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     private final List<Opens> opens;
     private final List<Uses> uses;
     private final List<Provides> provides;
+    private final boolean open;
 
     public ModuleInfoImpl(CompilationUnit compilationUnit,
                           List<Comment> comments, Source source, String name,
                           List<Requires> requires, List<Exports> exports,
-                          List<Opens> opens, List<Uses> uses, List<Provides> provides) {
+                          List<Opens> opens, List<Uses> uses, List<Provides> provides,
+                          boolean open) {
         this.compilationUnit = compilationUnit;
         this.name = name;
         this.comments = comments;
@@ -44,7 +46,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         this.opens = opens;
         this.uses = uses;
         this.provides = provides;
-
+        this.open = open;
     }
 
     @Override
@@ -447,11 +449,18 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     public static class BuilderImpl extends ElementImpl.Builder<ModuleInfo.Builder> implements ModuleInfo.Builder {
         private CompilationUnit compilationUnit;
         private String name;
+        private boolean open;
         private final List<Requires> requiresList = new ArrayList<>();
         private final List<Exports> exports = new ArrayList<>();
         private final List<Opens> opens = new ArrayList<>();
         private final List<Uses> uses = new ArrayList<>();
         private final List<Provides> provides = new ArrayList<>();
+
+        @Override
+        public BuilderImpl setOpen(boolean open) {
+            this.open = open;
+            return this;
+        }
 
         @Override
         public ModuleInfo.Builder setCompilationUnit(CompilationUnit compilationUnit) {
@@ -468,7 +477,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         @Override
         public ModuleInfo build() {
             return new ModuleInfoImpl(compilationUnit, comments, source, name, List.copyOf(requiresList),
-                    List.copyOf(exports), List.copyOf(opens), List.copyOf(uses), List.copyOf(provides));
+                    List.copyOf(exports), List.copyOf(opens), List.copyOf(uses), List.copyOf(provides), open);
         }
 
         @Override
@@ -569,6 +578,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     @Override
     public String name() {
         return name;
+    }
+
+    @Override
+    public boolean open() {
+        return open;
     }
 
     @Override

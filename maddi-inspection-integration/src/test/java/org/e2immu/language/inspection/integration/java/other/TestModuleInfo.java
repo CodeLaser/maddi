@@ -35,7 +35,7 @@ public class TestModuleInfo {
 
     @Language("java")
     private static final String MODULE_INFO = """
-            module org.e2immu.language.inspection.integration {
+            open module org.e2immu.language.inspection.integration {
                 requires org.e2immu.util.external.support;
                 requires transitive org.e2immu.util.internal.util;
                 requires static org.e2immu.language.cst.analysis;
@@ -112,6 +112,8 @@ public class TestModuleInfo {
         ModuleInfo.Provides p0 = provides.getFirst();
         assertEquals("a.b.C", p0.api());
         assertEquals("c.d.E", p0.implementation());
+
+        assertTrue(moduleInfo.open());
     }
 
     @Test
@@ -128,6 +130,7 @@ public class TestModuleInfo {
         assertEquals(1, parseResult.sourceSetsByName().size());
         SourceSet sourceSet = parseResult.sourceSetsByName().values().stream().findFirst().orElseThrow();
         ModuleInfo moduleInfo = parseResult.moduleInfo(sourceSet);
+        assertFalse(moduleInfo.open());
         assertEquals("[multiLineComment@1-1:3-3]", moduleInfo.comments().toString());
         assertEquals("org.e2immu.language.inspection.integration", moduleInfo.name());
         ModuleInfo.Requires req0 = moduleInfo.requires().getFirst();

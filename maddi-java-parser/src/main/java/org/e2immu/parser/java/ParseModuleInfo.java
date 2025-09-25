@@ -20,6 +20,13 @@ public class ParseModuleInfo extends CommonParse {
         ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
         DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
         int i = 0;
+        boolean openModule;
+        if (mcu.get(i) instanceof Token kwOpen && kwOpen.getType() == Token.TokenType.OPEN) {
+            ++i;
+            openModule = true;
+        } else {
+            openModule = false;
+        }
         if (mcu.get(i) instanceof Token kw && kw.getType() == Token.TokenType.MODULE) {
             ++i;
         } else throw new Summary.ParseException(context, "Expect keyword 'module'");
@@ -43,6 +50,7 @@ public class ParseModuleInfo extends CommonParse {
         }
         Source source = source(mcu);
         return builder
+                .setOpen(openModule)
                 .setCompilationUnit(compilationUnit)
                 .setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()))
                 .addComments(comments(mcu)).build();

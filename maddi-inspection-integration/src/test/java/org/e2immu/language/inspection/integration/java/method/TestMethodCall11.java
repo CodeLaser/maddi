@@ -3,6 +3,7 @@ package org.e2immu.language.inspection.integration.java.method;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -94,5 +95,47 @@ public class TestMethodCall11 extends CommonTest {
         TypeInfo typeInfo = javaInspector.parse(INPUT2);
         TypeInfo publisher = typeInfo.findSubType("Publisher");
         assertTrue(publisher.isFunctionalInterface());
+    }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            
+            class Container {
+                interface TypeX {}
+                interface XX {}
+                interface TypeY {}
+                interface YY {}
+            
+                static class P {
+                    YY toProto(TypeY y) {
+                        return null;
+                    }
+                    XX toProto(TypeX x) {
+                        return null;
+                    }
+                }
+                static class C extends P {
+                    String toProto(Object o) {
+                        return "s";
+                    }
+                }
+                static class I {
+                    void method(C c, TypeY y) {
+                       acceptYY(c.toProto(y));
+                    }
+                    YY acceptYY(YY yy) {
+                      return yy;
+                    }
+            
+                }
+            }
+            """;
+
+    @DisplayName("Balance hierarchy vs argument fit")
+    @Test
+    public void test3() {
+        javaInspector.parse(INPUT3);
     }
 }
