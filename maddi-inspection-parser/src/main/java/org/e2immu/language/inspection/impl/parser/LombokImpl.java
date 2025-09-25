@@ -35,6 +35,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         private boolean addSetters;
         private boolean requiredArgsConstructor;
         private boolean noArgsConstructor;
+        private boolean allArgsConstructor;
 
         @Override
         public boolean addGetters() {
@@ -54,6 +55,11 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         @Override
         public boolean noArgsConstructor() {
             return noArgsConstructor;
+        }
+
+        @Override
+        public boolean allArgsConstructor() {
+            return allArgsConstructor;
         }
     }
 
@@ -79,6 +85,10 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         AnnotationExpression nac = lombokMap.get("NoArgsConstructor");
         if (nac != null) {
             d.noArgsConstructor = true;
+        }
+        AnnotationExpression aac = lombokMap.get("AllArgsConstructor");
+        if (aac != null) {
+            d.allArgsConstructor = true;
         }
         AnnotationExpression data = lombokMap.get("Data");
         if (data != null) {
@@ -181,17 +191,11 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
 
     @Override
     public void addConstructors(TypeInfo typeInfo, Data lombokData) {
+        if (lombokData.allArgsConstructor()) {
+            argsConstructor(typeInfo, false);
+        }
         if (lombokData.requiredArgsConstructor()) {
-            Source source = runtime.noSource();
-            MethodInfo rac = runtime.newConstructor(typeInfo);
-            rac.builder().setMethodBody(runtime().emptyBlock());
-            for (FieldInfo fieldInfo : typeInfo.builder().fields()) {
-                if (!fieldInfo.isStatic() && canStillBeAssigned(fieldInfo)) {
-                    ParameterInfo pi = rac.builder().addParameter(fieldInfo.name(), fieldInfo.type());
-                    pi.builder().setSynthetic(true).setSource(source);
-                }
-            }
-            continueConstructor(typeInfo, rac, source);
+            argsConstructor(typeInfo, true);
         }
         if (lombokData.noArgsConstructor() && typeInfo.builder().constructors().stream()
                 .noneMatch(mi -> mi.parameters().isEmpty())) {
@@ -202,11 +206,34 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
         }
     }
 
-    private boolean canStillBeAssigned(FieldInfo fieldInfo) {
-        if (!fieldInfo.hasBeenInspected()) return false;// there is an initializer, to be parsed
-        if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) return false;
-        if (fieldInfo.isFinal()) return true; // has no initializer
-        return !fieldInfo.type().isPrimitiveExcludingVoid() && fieldInfo.isPropertyNotNull();
+    private void argsConstructor(TypeInfo typeInfo, boolean required) {
+        Source source = runtime.noSource();
+        MethodInfo rac = runtime.newConstructor(typeInfo);
+        Block.Builder bodyBuilder = runtime().newBlockBuilder().setSource(source);
+        for (FieldInfo fieldInfo : typeInfo.builder().fields()) {
+            if (!fieldInfo.isStatic() && canStillBeAssigned(fieldInfo, required)) {
+                ParameterInfo pi = rac.builder().addParameter(fieldInfo.name(), fieldInfo.type());
+                pi.builder().setSynthetic(true).setSource(source);
+                Statement s = assignFieldToParameter(fieldInfo, source, pi);
+                bodyBuilder.addStatement(s);
+            }
+        }
+        rac.builder().setMethodBody(bodyBuilder.build());
+        continueConstructor(typeInfo, rac, source);
+    }
+
+    private boolean canStillBeAssigned(FieldInfo fieldInfo, boolean required) {
+        if (required) {
+            if (hasInitializer(fieldInfo)) return false;
+            if (fieldInfo.isFinal()) return true; // has no initializer
+            return !fieldInfo.type().isPrimitiveExcludingVoid() && fieldInfo.isPropertyNotNull();
+        }
+        return !(fieldInfo.isFinal() && hasInitializer(fieldInfo));
+    }
+
+    private boolean hasInitializer(FieldInfo fieldInfo) {
+        if (!fieldInfo.hasBeenInspected()) return true;// there is an initializer, to be parsed
+        return fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty();
     }
 
     private void continueConstructor(TypeInfo typeInfo, MethodInfo nac, Source source) {
@@ -255,11 +282,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     fieldInfo.isStatic() ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
             ParameterInfo pi = method.builder().addParameter(fieldInfo.name(), fieldInfo.type());
             pi.builder().setSynthetic(true).setSource(source);
-            FieldReference fr = runtime.newFieldReference(fieldInfo);
-            VariableExpression veFr = runtime.newVariableExpressionBuilder().setSource(source).setVariable(fr).build();
-            VariableExpression vePi = runtime.newVariableExpressionBuilder().setSource(source).setVariable(pi).build();
-            Expression assignment = runtime.newAssignmentBuilder().setTarget(veFr).setValue(vePi).setSource(source).build();
-            Statement eas = runtime.newExpressionAsStatementBuilder().setSource(source).setExpression(assignment).build();
+            Statement eas = assignFieldToParameter(fieldInfo, source, pi);
             Block body = runtime.newBlockBuilder().addStatement(eas).setSource(source).build();
 
             method.builder()
@@ -272,5 +295,13 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
 
             runtime.setGetSetField(method, fieldInfo, true, -1);
         }
+    }
+
+    private Statement assignFieldToParameter(FieldInfo fieldInfo, Source source, ParameterInfo pi) {
+        FieldReference fr = runtime.newFieldReference(fieldInfo);
+        VariableExpression veFr = runtime.newVariableExpressionBuilder().setSource(source).setVariable(fr).build();
+        VariableExpression vePi = runtime.newVariableExpressionBuilder().setSource(source).setVariable(pi).build();
+        Expression assignment = runtime.newAssignmentBuilder().setTarget(veFr).setValue(vePi).setSource(source).build();
+        return runtime.newExpressionAsStatementBuilder().setSource(source).setExpression(assignment).build();
     }
 }

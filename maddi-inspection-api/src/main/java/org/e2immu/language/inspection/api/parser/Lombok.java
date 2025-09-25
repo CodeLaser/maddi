@@ -11,6 +11,8 @@ public interface Lombok {
     interface Data {
         boolean addGetters();
         boolean addSetters();
+
+        boolean allArgsConstructor();
         boolean requiredArgsConstructor();
         boolean noArgsConstructor();
     }
