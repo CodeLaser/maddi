@@ -1,12 +1,10 @@
 package org.e2immu.parser.java;
 
-import org.e2immu.language.cst.api.expression.BinaryOperator;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.Negation;
-import org.e2immu.language.cst.api.expression.Sum;
+import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.intellij.lang.annotations.Language;
@@ -173,5 +171,29 @@ public class TestParseBinaryOperator extends CommonTestParse {
         MethodInfo mi = C.findUniqueMethod("method", 2);
         LocalVariableCreation iLvc = (LocalVariableCreation) mi.methodBody().statements().get(0);
         assertEquals("int i=j+k-1;", iLvc.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            class C {
+              public void method(boolean a, boolean b) {
+                assertTrue(a ^ b);
+              }
+              private void assertTrue(boolean b) {
+                  System.out.println(b);
+              }
+            }
+            """;
+
+    @Test
+    public void test5() {
+        TypeInfo C = parse(INPUT5);
+        MethodInfo mi = C.findUniqueMethod("method", 2);
+        ExpressionAsStatement eas = (ExpressionAsStatement) mi.methodBody().statements().getFirst();
+        MethodCall mc = (MethodCall) eas.expression();
+        assertEquals("Type boolean",
+                mc.parameterExpressions().getFirst().parameterizedType().toString());
     }
 }
