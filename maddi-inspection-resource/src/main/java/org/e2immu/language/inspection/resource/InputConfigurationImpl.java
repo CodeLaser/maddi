@@ -171,6 +171,18 @@ public record InputConfigurationImpl(Path workingDirectory,
         }
 
         @Override
+        public Builder addClassPathParts(Collection<SourceSet> classPathParts) {
+            this.classPathParts.addAll(classPathParts);
+            return this;
+        }
+
+        @Override
+        public Builder addSourceSets(Collection<SourceSet> sourceSets) {
+            this.sourceSets.addAll(sourceSets);
+            return this;
+        }
+
+        @Override
         @Fluent
         public Builder addSources(String... sources) {
             sourceDirs.addAll(Arrays.asList(sources));

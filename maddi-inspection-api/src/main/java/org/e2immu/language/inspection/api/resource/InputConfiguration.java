@@ -4,6 +4,7 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.SourceSet;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 
 public interface InputConfiguration {
@@ -52,6 +53,12 @@ public interface InputConfiguration {
 
         @Fluent
         Builder addClassPathParts(SourceSet... classPathParts);
+
+        @Fluent
+        Builder addSourceSets(Collection<SourceSet> sourceSets);
+
+        @Fluent
+        Builder addClassPathParts(Collection<SourceSet> classPathParts);
 
         // --- alternatives to addSourceSets
 
