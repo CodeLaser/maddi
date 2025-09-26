@@ -21,6 +21,7 @@ import org.e2immu.language.inspection.impl.parser.*;
 import org.e2immu.language.inspection.resource.CompiledTypesManagerImpl;
 import org.e2immu.language.inspection.resource.ResourcesImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.parser.java.*;
 import org.e2immu.support.Either;
 import org.e2immu.util.internal.graph.util.TimedLogger;
@@ -68,7 +69,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     private Runtime runtime;
     private Map<SourceFile, List<TypeInfo>> sourceFiles;
-    private final SourceTypeMapImpl sourceTypeMap = new SourceTypeMapImpl();
+    private final TypeMapImpl sourceTypeMap = new TypeMapImpl();
     private CompiledTypesManager compiledTypesManager;
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
@@ -798,7 +799,7 @@ public class JavaInspectorImpl implements JavaInspector {
         return formatter.write(ob);
     }
 
-    public SourceTypeMapImpl getSourceTypeMap() {
+    public TypeMapImpl getSourceTypeMap() {
         return sourceTypeMap;
     }
 }

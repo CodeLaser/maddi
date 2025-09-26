@@ -1,12 +1,12 @@
-package org.e2immu.language.inspection.impl.parser;
+package org.e2immu.language.inspection.resource;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.parser.SourceTypeMap;
+import org.e2immu.language.inspection.api.parser.TypeMap;
 
 import java.util.*;
 
-public class SourceTypeMapImpl implements SourceTypeMap {
+public class TypeMapImpl implements TypeMap {
     private final TreeMap<String, Object> map = new TreeMap<>();
 
     @Override

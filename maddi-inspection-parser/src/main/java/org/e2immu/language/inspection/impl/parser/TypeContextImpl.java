@@ -11,7 +11,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.inspection.api.parser.SourceTypeMap;
+import org.e2immu.language.inspection.api.parser.TypeMap;
 import org.e2immu.language.inspection.api.parser.StaticImportMap;
 import org.e2immu.language.inspection.api.parser.TypeContext;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
@@ -32,7 +32,7 @@ public class TypeContextImpl implements TypeContext {
 
     private record Data(Runtime runtime,
                         CompiledTypesManager compiledTypesManager,
-                        SourceTypeMap sourceTypeMap,
+                        TypeMap sourceTypeMap,
                         StaticImportMap staticImportMap,
                         CompilationUnit compilationUnit,
                         StubTypeMap stubTypeMap) {
@@ -57,7 +57,7 @@ public class TypeContextImpl implements TypeContext {
     /*
     the packageInfo should already contain all the types of the current package
      */
-    public TypeContextImpl(Runtime runtime, CompiledTypesManager compiledTypesManager, SourceTypeMap sourceTypeMap,
+    public TypeContextImpl(Runtime runtime, CompiledTypesManager compiledTypesManager, TypeMap sourceTypeMap,
                            boolean allowCreationOfStubTypes) {
         this(null, new Data(runtime, compiledTypesManager, sourceTypeMap, null,
                 null, allowCreationOfStubTypes ? new StubTypeMap(new HashMap<>()) : null));
@@ -427,7 +427,7 @@ public class TypeContextImpl implements TypeContext {
     }
 
     public static List<TypeInfo> typesInSamePackage(String packageName,
-                                                    SourceTypeMap sourceTypeMap,
+                                                    TypeMap sourceTypeMap,
                                                     CompiledTypesManager compiledTypesManager) {
         List<TypeInfo> list1 = sourceTypeMap.primaryTypesInPackage(packageName);
         Set<String> fqnToAvoid = list1.stream().map(Info::fullyQualifiedName).collect(Collectors.toUnmodifiableSet());
