@@ -76,6 +76,7 @@ public class TestCast extends CommonTest {
                     }
                 }
                 """;
-        assertEquals(expected, javaInspector.print2(B, new DecoratorImpl(runtime), javaInspector.importComputer(4)));
+        assertEquals(expected, javaInspector.print2(B, new DecoratorImpl(runtime),
+                javaInspector.importComputer(4, null)));
     }
 }

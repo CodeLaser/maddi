@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.parser.TypeMap;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 public class TypeMapImpl implements TypeMap {
     private final TreeMap<String, Object> map = new TreeMap<>();
@@ -97,5 +98,18 @@ public class TypeMapImpl implements TypeMap {
 
     public TreeMap<String, Object> getMap() {
         return map;
+    }
+
+    @Override
+    public synchronized Stream<TypeInfo> typeStream() {
+        return map.values().stream().flatMap(object -> {
+            if (object instanceof TypeInfo ti) return Stream.of(ti);
+            if (object instanceof Map<?, ?> map1) {
+                //noinspection ALL
+                Map<SourceSet, TypeInfo> map = (Map<SourceSet, TypeInfo>) map1;
+                return map.values().stream();
+            }
+            throw new UnsupportedOperationException();
+        });
     }
 }

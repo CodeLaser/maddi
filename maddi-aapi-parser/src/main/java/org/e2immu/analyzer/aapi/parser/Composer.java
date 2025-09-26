@@ -80,23 +80,14 @@ public class Composer {
     private final Function<SourceSet, String> destinationPackage;
     private final Predicate<Info> predicate;
     private final Map<Element, Element> translateFromDollarToReal = new HashMap<>();
-    private final ImportComputer importComputer;
 
     public Composer(JavaInspector javaInspector,
-                    Function<SourceSet, String> destinationPackage,
-                    Predicate<Info> predicate) {
-        this(javaInspector, javaInspector.importComputer(4), destinationPackage, predicate);
-    }
-
-    public Composer(JavaInspector javaInspector,
-                    ImportComputer importComputer,
                     Function<SourceSet, String> destinationPackage,
                     Predicate<Info> predicate) {
         this.runtime = javaInspector.runtime();
         this.javaInspector = javaInspector;
         this.destinationPackage = destinationPackage;
         this.predicate = predicate;
-        this.importComputer = importComputer;
     }
 
     public Collection<TypeInfo> compose(Collection<TypeInfo> primaryTypes) {
@@ -376,6 +367,8 @@ public class Composer {
                 File outputFile = new File(directory, apiType.simpleName() + ".java");
                 try (OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(outputFile),
                         StandardCharsets.UTF_8)) {
+                    ImportComputer importComputer = javaInspector.importComputer(4,
+                            apiType.compilationUnit().sourceSet());
                     outputStreamWriter.write(javaInspector.print2(apiType, decorator, importComputer));
                 }
                 LOGGER.info("Wrote {}", apiType);

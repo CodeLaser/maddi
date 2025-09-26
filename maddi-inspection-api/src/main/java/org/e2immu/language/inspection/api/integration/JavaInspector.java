@@ -1,6 +1,7 @@
 package org.e2immu.language.inspection.api.integration;
 
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -58,7 +59,7 @@ public interface JavaInspector {
         ParseOptions build();
     }
 
-    ImportComputer importComputer(int minStar);
+    ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest);
 
     record InitializationProblem(String errorMsg, Throwable throwable) {
     }

@@ -404,7 +404,7 @@ public class TestComposer {
         MethodInfo not = authorizedUrl.findUniqueMethod("not", 0);
         Map<MethodInfo, Integer> freq = Map.of(not, 1);
         assertEquals(expected, javaInspector.print2(newType, new DecoratorWithComments(javaInspector.runtime(), freq),
-                javaInspector.importComputer(4)));
+                javaInspector.importComputer(4, newType.compilationUnit().sourceSet())));
     }
 
 

@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.resource;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.inspection.api.parser.TypeMap;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.Resources;
@@ -21,14 +22,15 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     private final Resources classPath;
     private final SetOnce<ByteCodeInspector> byteCodeInspector = new SetOnce<>();
-    private final Map<String, TypeInfo> typeMap = new HashMap<>();
-    private final ReentrantReadWriteLock typeMapLock = new ReentrantReadWriteLock();
+    private final TypeMap typeMap;
+    private final ReentrantReadWriteLock trieLock = new ReentrantReadWriteLock();
     private final Trie<TypeInfo> typeTrie = new Trie<>();
     private final Set<String> allTypesInThisPackageHaveBeenLoaded = new HashSet<>();
     private final ReentrantReadWriteLock allTypesLock = new ReentrantReadWriteLock();
 
-    public CompiledTypesManagerImpl(Resources classPath) {
+    public CompiledTypesManagerImpl(Resources classPath, TypeMap typeMap) {
         this.classPath = classPath;
+        this.typeMap = typeMap;
     }
 
     @Override
@@ -38,14 +40,13 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public void add(TypeInfo typeInfo) {
-        typeMapLock.writeLock().lock();
+        typeMap.put(typeInfo);
+        trieLock.writeLock().lock();
         try {
-            TypeInfo previous = typeMap.put(typeInfo.fullyQualifiedName(), typeInfo);
-            assert previous == null;
             String[] parts = typeInfo.fullyQualifiedName().split("\\.");
             typeTrie.add(parts, typeInfo);
         } finally {
-            typeMapLock.writeLock().unlock();
+            trieLock.writeLock().unlock();
         }
     }
 
@@ -56,23 +57,14 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        typeMapLock.readLock().lock();
-        try {
-            return typeMap.get(fullyQualifiedName);
-        } finally {
-            typeMapLock.readLock().unlock();
-        }
+        return typeMap.get(fullyQualifiedName, sourceSetOfRequest);
     }
 
     @Override
     public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        typeMapLock.readLock().lock();
-        try {
-            TypeInfo typeInfo = typeMap.get(fullyQualifiedName);
-            if (typeInfo != null) return typeInfo;
-        } finally {
-            typeMapLock.readLock().unlock();
-        }
+        TypeInfo typeInfo = typeMap.get(fullyQualifiedName, sourceSetOfRequest);
+        if (typeInfo != null) return typeInfo;
+
         SourceFile path = fqnToPath(fullyQualifiedName, ".class");
         if (path == null) return null;
         synchronized (byteCodeInspector) {
@@ -106,35 +98,33 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     @Override
     public void preload(String thePackage) {
         LOGGER.info("Start pre-loading {}", thePackage);
-        int inspected = loadAllTypesInPackage(thePackage, Set.of());
+        int inspected = loadAllTypesInPackage(thePackage, null);
         LOGGER.info("... inspected {} paths", inspected);
     }
 
-    private int loadAllTypesInPackage(String thePackage, Set<String> fqnsToAvoid) {
+    private int loadAllTypesInPackage(String thePackage, SourceSet sourceSetOfRequest) {
         AtomicInteger inspected = new AtomicInteger();
         classPath.expandLeaves(thePackage, ".class", (expansion, _) -> {
             // we'll loop over the primary types only
             if (!expansion[expansion.length - 1].contains("$")) {
                 String fqn = fqnOfClassFile(thePackage, expansion);
-                if (!fqnsToAvoid.contains(fqn)) {
-                    assert acceptFQN(fqn);
-                    typeMapLock.readLock().lock();
-                    TypeInfo typeInfo;
-                    try {
-                        typeInfo = typeMap.get(fqn);
-                    } finally {
-                        typeMapLock.readLock().unlock();
-                    }
-                    if (typeInfo == null) {
-                        SourceFile path = fqnToPath(fqn, ".class");
-                        if (path != null) {
-                            synchronized (byteCodeInspector) {
-                                byteCodeInspector.get().load(path);
-                            }
-                            inspected.incrementAndGet();
+                assert acceptFQN(fqn);
+                trieLock.readLock().lock();
+                TypeInfo typeInfo;
+                try {
+                    typeInfo = typeMap.get(fqn, sourceSetOfRequest);
+                } finally {
+                    trieLock.readLock().unlock();
+                }
+                if (typeInfo == null) {
+                    SourceFile path = fqnToPath(fqn, ".class");
+                    if (path != null) {
+                        synchronized (byteCodeInspector) {
+                            byteCodeInspector.get().load(path);
                         }
+                        inspected.incrementAndGet();
                     }
-                } // else: we have a source type with this FQN, will not load the binary type.
+                }
             }
         });
         return inspected.get();
@@ -150,33 +140,28 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public List<TypeInfo> typesLoaded() {
-        typeMapLock.readLock().lock();
-        try {
-            return typeMap.values().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
-        } finally {
-            typeMapLock.readLock().unlock();
-        }
+        return typeMap.typeStream()
+                .filter(ti -> ti.compilationUnit().externalLibrary())
+                .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
     }
 
     @Override
-    public Collection<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, Set<String> fqnToAvoid) {
-        ensureAllTypesInThisPackageHaveBeenLoaded(packageName, fqnToAvoid);
+    public Collection<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
+        ensureAllTypesInThisPackageHaveBeenLoaded(packageName, sourceSetOfRequest);
         String[] packages = packageName.split("\\.");
         List<TypeInfo> result = new ArrayList<>();
-        typeMapLock.readLock().lock();
+        trieLock.readLock().lock();
         try {
             typeTrie.visit(packages, (_, list) -> list.stream()
-                    .filter(ti -> ti.isPrimaryType()
-                                  && packageName.equals(ti.packageName())
-                                  && !fqnToAvoid.contains(ti.fullyQualifiedName()))
+                    .filter(ti -> ti.isPrimaryType() && packageName.equals(ti.packageName()))
                     .forEach(result::add));
             return List.copyOf(result);
         } finally {
-            typeMapLock.readLock().unlock();
+            trieLock.readLock().unlock();
         }
     }
 
-    private void ensureAllTypesInThisPackageHaveBeenLoaded(String packageName, Set<String> fqnToAvoid) {
+    private void ensureAllTypesInThisPackageHaveBeenLoaded(String packageName, SourceSet sourceSetOfRequest) {
         allTypesLock.readLock().lock();
         try {
             if (!allTypesInThisPackageHaveBeenLoaded.contains(packageName)) {
@@ -185,7 +170,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 try {
                     try {
                         if (allTypesInThisPackageHaveBeenLoaded.add(packageName)) {
-                            loadAllTypesInPackage(packageName, fqnToAvoid);
+                            loadAllTypesInPackage(packageName, sourceSetOfRequest);
                         }
                     } finally {
                         allTypesLock.readLock().lock();

@@ -32,7 +32,7 @@ public class TypeContextImpl implements TypeContext {
 
     private record Data(Runtime runtime,
                         CompiledTypesManager compiledTypesManager,
-                        TypeMap sourceTypeMap,
+                        TypeMap sourceTypeMap, // FIXME remove this one, always go via CTM
                         StaticImportMap staticImportMap,
                         CompilationUnit compilationUnit,
                         StubTypeMap stubTypeMap) {
@@ -422,16 +422,16 @@ public class TypeContextImpl implements TypeContext {
     }
 
     @Override
-    public List<TypeInfo> typesInSamePackage(String packageName) {
-        return typesInSamePackage(packageName, data.sourceTypeMap, data.compiledTypesManager);
+    public List<TypeInfo> typesInSamePackage(String packageName, SourceSet sourceSetOfRequest) {
+        return typesInSamePackage(packageName, data.sourceTypeMap, data.compiledTypesManager, sourceSetOfRequest);
     }
 
     public static List<TypeInfo> typesInSamePackage(String packageName,
                                                     TypeMap sourceTypeMap,
-                                                    CompiledTypesManager compiledTypesManager) {
+                                                    CompiledTypesManager compiledTypesManager,
+                                                    SourceSet sourceSetOfRequest) {
         List<TypeInfo> list1 = sourceTypeMap.primaryTypesInPackage(packageName);
-        Set<String> fqnToAvoid = list1.stream().map(Info::fullyQualifiedName).collect(Collectors.toUnmodifiableSet());
-        Collection<TypeInfo> list2 = compiledTypesManager.primaryTypesInPackageEnsureLoaded(packageName, fqnToAvoid);
+        Collection<TypeInfo> list2 = compiledTypesManager.primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest);
         return Stream.concat(list1.stream(), list2.stream()).toList();
     }
 

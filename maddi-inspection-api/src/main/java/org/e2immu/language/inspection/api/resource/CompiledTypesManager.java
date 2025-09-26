@@ -57,7 +57,7 @@ public interface CompiledTypesManager {
         throw new UnsupportedOperationException();
     }
 
-    default Collection<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, Set<String> fqnToAvoid) {
+    default Collection<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
         throw new UnsupportedOperationException();
     }
 

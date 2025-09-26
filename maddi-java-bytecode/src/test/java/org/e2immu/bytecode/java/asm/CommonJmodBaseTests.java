@@ -7,6 +7,7 @@ import org.e2immu.language.inspection.api.resource.Resources;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.CompiledTypesManagerImpl;
 import org.e2immu.language.inspection.resource.ResourcesImpl;
+import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.junit.jupiter.api.BeforeAll;
 
 import java.io.IOException;
@@ -27,7 +28,7 @@ public abstract class CommonJmodBaseTests {
         URL url = new URL("jar:file:" + System.getProperty("java.home") + "/jmods/java.base.jmod!/");
         SourceFile sourceFile = new SourceFile(url.getPath(), url.toURI(), null, null);
         cp.addJmod(sourceFile);
-        CompiledTypesManagerImpl mgr = new CompiledTypesManagerImpl(classPath);
+        CompiledTypesManagerImpl mgr = new CompiledTypesManagerImpl(classPath, new TypeMapImpl());
         compiledTypesManager = mgr;
         runtime = new RuntimeImpl();
         byteCodeInspector = new ByteCodeInspectorImpl(runtime, compiledTypesManager, true,
