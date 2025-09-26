@@ -11,6 +11,7 @@ module org.e2immu.analyzer.aapi.parser {
     requires org.e2immu.util.external.support;
     requires org.e2immu.util.internal.util;
     requires org.slf4j;
+    requires org.e2immu.language.cst.impl;
 
     exports org.e2immu.analyzer.aapi.parser;
 }

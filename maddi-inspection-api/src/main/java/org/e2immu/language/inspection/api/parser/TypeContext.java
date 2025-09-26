@@ -3,6 +3,7 @@ package org.e2immu.language.inspection.api.parser;
 import org.e2immu.annotation.NotNull;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.ImportStatement;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -59,5 +60,5 @@ public interface TypeContext {
 
     TypeContext newTypeContext();
 
-    List<TypeInfo> typesInSamePackage(String packageName);
+    List<TypeInfo> typesInSamePackage(String packageName, SourceSet sourceSetOfRequest);
 }

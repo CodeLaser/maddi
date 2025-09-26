@@ -11,7 +11,10 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.impl.parser.*;
+import org.e2immu.language.inspection.impl.parser.ContextImpl;
+import org.e2immu.language.inspection.impl.parser.ResolverImpl;
+import org.e2immu.language.inspection.impl.parser.SummaryImpl;
+import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.support.Either;
 import org.parsers.java.JavaParser;
@@ -92,7 +95,7 @@ public class CommonTestParse {
         }
 
         @Override
-        public Collection<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, Set<String> fqnToAvoid) {
+        public Collection<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
             return Set.of();
         }
     }

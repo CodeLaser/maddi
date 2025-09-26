@@ -17,7 +17,10 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.*;
-import org.e2immu.language.inspection.impl.parser.*;
+import org.e2immu.language.inspection.impl.parser.ContextImpl;
+import org.e2immu.language.inspection.impl.parser.ResolverImpl;
+import org.e2immu.language.inspection.impl.parser.SummaryImpl;
+import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.resource.CompiledTypesManagerImpl;
 import org.e2immu.language.inspection.resource.ResourcesImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
@@ -153,7 +156,8 @@ public class JavaInspectorImpl implements JavaInspector {
             Resources classPath = assembleClassPath(inputConfiguration.workingDirectory(),
                     inputConfiguration.classPathParts(), inputConfiguration.alternativeJREDirectory(),
                     initializationProblems);
-            CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(classPath);
+            // FIXME we want a unified typemap!!
+            CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(classPath, new TypeMapImpl());
             runtime = new RuntimeWithCompiledTypesManager(ctm);
             ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, computeFingerPrints,
                     allowCreationOfStubTypes);
@@ -781,14 +785,14 @@ public class JavaInspectorImpl implements JavaInspector {
 
 
     @Override
-    public ImportComputer importComputer(int minStar) {
+    public ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest) {
         return runtime.newImportComputer(minStar, packageName ->
-                TypeContextImpl.typesInSamePackage(packageName, sourceTypeMap, compiledTypesManager));
+                TypeContextImpl.typesInSamePackage(packageName, sourceTypeMap, compiledTypesManager, sourceSetOfRequest));
     }
 
     @Override
     public String print2(TypeInfo typeInfo) {
-        return print2(typeInfo, null, importComputer(4));
+        return print2(typeInfo, null, importComputer(4, typeInfo.compilationUnit().sourceSet()));
     }
 
     @Override

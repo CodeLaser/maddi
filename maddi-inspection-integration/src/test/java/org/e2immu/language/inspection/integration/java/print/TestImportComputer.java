@@ -28,7 +28,7 @@ public class TestImportComputer extends CommonTest {
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
-        ImportComputer importComputer = javaInspector.importComputer(4);
+        ImportComputer importComputer = javaInspector.importComputer(4, null);
         Set<String> imports = importComputer.go(X, javaInspector.runtime().qualificationQualifyFromPrimaryType()).imports();
         assertEquals("[java.util.Date]", imports.toString());
     }

@@ -143,7 +143,8 @@ public class TestWriteAnalysis2 extends CommonTest {
         List<Info> analysisOrder = prepWork(X);
         modAnalyzer.go(analysisOrder);
 
-        String s = javaInspector.print2(X, new DecoratorImpl(runtime), javaInspector.importComputer(4));
+        String s = javaInspector.print2(X, new DecoratorImpl(runtime), javaInspector.importComputer(4,
+                null));
         assertEquals(output, s);
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(X.fullyQualifiedName().split("\\."), X);
