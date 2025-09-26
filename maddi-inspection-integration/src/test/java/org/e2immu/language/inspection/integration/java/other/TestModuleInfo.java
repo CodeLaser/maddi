@@ -12,10 +12,12 @@ import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.language.inspection.impl.parser.*;
+import org.e2immu.language.inspection.impl.parser.ContextImpl;
+import org.e2immu.language.inspection.impl.parser.ResolverImpl;
+import org.e2immu.language.inspection.impl.parser.SummaryImpl;
+import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.parser.java.ParseHelperImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,8 +73,7 @@ public class TestModuleInfo {
         Summary summary = new SummaryImpl(true); // once stable, change to false
         Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
 
-        TypeContextImpl typeContext = new TypeContextImpl(runtime, javaInspector.compiledTypesManager(),
-                new TypeMapImpl(), true);
+        TypeContextImpl typeContext = new TypeContextImpl(runtime, javaInspector.compiledTypesManager(), true);
         Context rootContext = ContextImpl.create(runtime, javaInspector.compiledTypesManager(), summary, resolver,
                 typeContext, true, false);
         SourceFile sourceFile = new SourceFile("/", URI.create("file:/"), null, null);

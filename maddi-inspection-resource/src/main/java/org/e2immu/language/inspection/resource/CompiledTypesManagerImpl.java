@@ -76,7 +76,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     public void ensureInspection(TypeInfo typeInfo) {
         if (!typeInfo.hasBeenInspected()) {
             SourceFile sourceFile = fqnToPath(typeInfo.fullyQualifiedName(), ".class");
-            if (sourceFile == null) throw new UnsupportedOperationException("Cannot find .class file for " + typeInfo);
+            if (sourceFile == null) {
+                throw new UnsupportedOperationException("Cannot find .class file for " + typeInfo);
+            }
             synchronized (byteCodeInspector) {
                 byteCodeInspector.get().load(typeInfo);
             }
@@ -146,7 +148,12 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public Collection<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
+    public List<TypeInfo> primaryTypesInPackage(String fullyQualified) {
+        return typeMap.primaryTypesInPackage(fullyQualified);
+    }
+
+    @Override
+    public List<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
         ensureAllTypesInThisPackageHaveBeenLoaded(packageName, sourceSetOfRequest);
         String[] packages = packageName.split("\\.");
         List<TypeInfo> result = new ArrayList<>();
@@ -187,7 +194,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     @Override
     public boolean packageContainsTypes(String packageName) {
         AtomicBoolean found = new AtomicBoolean();
-        classPath.expandLeaves(packageName, ".class", (s, l) -> {
+        classPath.expandLeaves(packageName, ".class", (_, l) -> {
             if (!l.isEmpty()) found.set(true);
         });
         return found.get();

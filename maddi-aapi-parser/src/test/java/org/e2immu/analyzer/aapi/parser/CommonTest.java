@@ -38,8 +38,9 @@ public class CommonTest {
 
     public static Runtime runtime() {
         return runtime;
-        
+
     }
+
     @BeforeAll
     public static void beforeAll() throws IOException {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
@@ -57,7 +58,7 @@ public class CommonTest {
                 List.of());
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(annotatedApiParser.runtime(), annotatedApiParser,
                 true);
-       ShallowAnalyzer.Result sr = shallowAnalyzer.go(annotatedApiParser.types());
+        ShallowAnalyzer.Result sr = shallowAnalyzer.go(annotatedApiParser.types());
 
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(annotatedApiParser.runtime());
         prepAnalyzer.initialize(annotatedApiParser.javaInspector().compiledTypesManager().typesLoaded());

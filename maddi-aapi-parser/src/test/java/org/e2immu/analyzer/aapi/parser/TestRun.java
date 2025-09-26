@@ -139,7 +139,16 @@ public class TestRun {
                     case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 6;
                     default -> -1;
                 };
-                assertEquals(stmSize, sourceTypeMap.getMap().size(), context());
+                int sizeFiltered = (int)sourceTypeMap.getMap()
+                        .entrySet().stream()
+                        .filter(e -> {
+                            if(e.getValue() instanceof TypeInfo ti) {
+                                return !ti.compilationUnit().externalLibrary();
+                            }
+                            return false; // don't think there are duplicates here
+                        })
+                        .count();
+                assertEquals(stmSize, sizeFiltered, context());
             }
 
             @Override

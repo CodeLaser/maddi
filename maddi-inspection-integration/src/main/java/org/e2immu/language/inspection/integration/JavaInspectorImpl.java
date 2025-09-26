@@ -156,8 +156,8 @@ public class JavaInspectorImpl implements JavaInspector {
             Resources classPath = assembleClassPath(inputConfiguration.workingDirectory(),
                     inputConfiguration.classPathParts(), inputConfiguration.alternativeJREDirectory(),
                     initializationProblems);
-            // FIXME we want a unified typemap!!
-            CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(classPath, new TypeMapImpl());
+            // we have a unified type map: both sources and compiled types are in the same map
+            CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(classPath, sourceTypeMap);
             runtime = new RuntimeWithCompiledTypesManager(ctm);
             ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, computeFingerPrints,
                     allowCreationOfStubTypes);
@@ -443,8 +443,7 @@ public class JavaInspectorImpl implements JavaInspector {
                                                     ParseOptions parseOptions) {
         Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime),
                 parseOptions.parallel());
-        TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, sourceTypeMap,
-                false);
+        TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, false);
         //TODO  allowCreationOfStubTypes); code in TypeContextImpl needs improving
         Context rootContext = ContextImpl.create(runtime, compiledTypesManager, summary, resolver, typeContext,
                 parseOptions.detailedSources(), parseOptions.lombok());
@@ -465,13 +464,12 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public Summary parse(URI uri, ParseOptions parseOptions) {
+    public Summary parse(URI uri, SourceSet sourceSet, ParseOptions parseOptions) {
         Summary summary = new SummaryImpl(true); // once stable, change to false
-
         try (InputStreamReader isr = makeInputStreamReader(uri, StandardCharsets.UTF_8); StringWriter sw = new StringWriter()) {
             isr.transferTo(sw);
             String sourceCode = sw.toString();
-            SourceFile sourceFile = new SourceFile(uri.toString(), uri, null, MD5FingerPrint.compute(sourceCode));
+            SourceFile sourceFile = new SourceFile(uri.toString(), uri, sourceSet, MD5FingerPrint.compute(sourceCode));
             internalParseSingleInput(summary, sourceFile, () -> {
                 JavaParser parser = new JavaParser(sourceCode);
                 parser.setParserTolerant(false);
@@ -505,8 +503,7 @@ public class JavaInspectorImpl implements JavaInspector {
         Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime),
                 parseOptions.parallel());
 
-        TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, sourceTypeMap,
-                false);
+        TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, false);
         // TODO allowCreationOfStubTypes); would be better, but code in type context is not ready
         Context rootContext = ContextImpl.create(runtime, compiledTypesManager, summary, resolver, typeContext,
                 parseOptions.detailedSources(), parseOptions.lombok());
@@ -787,7 +784,7 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest) {
         return runtime.newImportComputer(minStar, packageName ->
-                TypeContextImpl.typesInSamePackage(packageName, sourceTypeMap, compiledTypesManager, sourceSetOfRequest));
+                TypeContextImpl.typesInSamePackage(packageName, compiledTypesManager, sourceSetOfRequest));
     }
 
     @Override
@@ -803,6 +800,7 @@ public class JavaInspectorImpl implements JavaInspector {
         return formatter.write(ob);
     }
 
+    // for testing
     public TypeMapImpl getSourceTypeMap() {
         return sourceTypeMap;
     }
