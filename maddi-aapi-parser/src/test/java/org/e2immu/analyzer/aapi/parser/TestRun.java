@@ -5,7 +5,7 @@ import org.e2immu.analyzer.modification.common.defaults.DebugVisitor;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.impl.parser.SourceTypeMapImpl;
+import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.ToolChain;
 import org.junit.jupiter.api.BeforeAll;
@@ -131,7 +131,7 @@ public class TestRun {
                     default -> -1;
                 };
                 assertEquals(expectSf, javaInspector.sourceFiles().size(), context());
-                SourceTypeMapImpl sourceTypeMap = ((JavaInspectorImpl) javaInspector).getSourceTypeMap();
+                TypeMapImpl sourceTypeMap = ((JavaInspectorImpl) javaInspector).getSourceTypeMap();
                 int stmSize = switch (context()) {
                     case JDK_HOMEBREW_24, JDK_HOMEBREW_21, JDK_HOMEBREW_25 -> 241;
                     case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 0;

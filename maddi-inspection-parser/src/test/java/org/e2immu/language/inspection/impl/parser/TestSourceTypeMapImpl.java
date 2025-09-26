@@ -3,12 +3,11 @@ package org.e2immu.language.inspection.impl.parser;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.element.CompilationUnitImpl;
-import org.e2immu.language.cst.impl.element.SourceImpl;
 import org.e2immu.language.cst.impl.info.TypeInfoImpl;
-import org.e2immu.language.inspection.api.parser.SourceTypeMap;
+import org.e2immu.language.inspection.api.parser.TypeMap;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -35,12 +34,12 @@ public class TestSourceTypeMapImpl {
 
     @Test
     public void test() {
-        SourceTypeMap stm = new SourceTypeMapImpl();
+        TypeMap stm = new TypeMapImpl();
         sequence(stm);
         sequence(stm);
     }
 
-    private void sequence(SourceTypeMap stm) {
+    private void sequence(TypeMap stm) {
         stm.put(abT1);
         assertSame(abT1, stm.get(A_B_T, set1));
         assertSame(abT1, stm.get(A_B_T, set2));

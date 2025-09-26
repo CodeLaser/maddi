@@ -15,6 +15,7 @@ import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.impl.parser.*;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.parser.java.ParseHelperImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -71,7 +72,7 @@ public class TestModuleInfo {
         Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
 
         TypeContextImpl typeContext = new TypeContextImpl(runtime, javaInspector.compiledTypesManager(),
-                new SourceTypeMapImpl(), true);
+                new TypeMapImpl(), true);
         Context rootContext = ContextImpl.create(runtime, javaInspector.compiledTypesManager(), summary, resolver,
                 typeContext, true, false);
         SourceFile sourceFile = new SourceFile("/", URI.create("file:/"), null, null);

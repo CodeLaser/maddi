@@ -12,6 +12,7 @@ import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.impl.parser.*;
+import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.support.Either;
 import org.parsers.java.JavaParser;
 
@@ -334,7 +335,7 @@ public class CommonTestParse {
             return p;
         };
         CompiledTypesManager compiledTypesManager = new CompiledTypesManagerImpl();
-        SourceTypeMapImpl stm = new SourceTypeMapImpl();
+        TypeMapImpl stm = new TypeMapImpl();
         TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, stm, false);
         Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
         Context rootContext = ContextImpl.create(runtime, compiledTypesManager, failFastSummary, resolver, typeContext,
