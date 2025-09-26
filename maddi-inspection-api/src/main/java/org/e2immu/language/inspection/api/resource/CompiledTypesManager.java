@@ -45,6 +45,8 @@ public interface CompiledTypesManager {
         // do nothing
     }
 
+    default void invalidate(TypeInfo typeInfo) { throw new UnsupportedOperationException(); }
+
     default TypeInfo load(SourceFile path) {
         throw new UnsupportedOperationException();
     }
@@ -67,7 +69,7 @@ public interface CompiledTypesManager {
         return !fqn.startsWith("jdk.internal.");
     }
 
-    default List<TypeInfo> typesLoaded() {
+    default List<TypeInfo> typesLoaded(Boolean external) {
         throw new UnsupportedOperationException();
     }
 }

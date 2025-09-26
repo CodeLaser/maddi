@@ -240,7 +240,7 @@ public class TestComputeHCS extends CommonTest {
     public void test3() {
         TypeInfo X = javaInspector.parse(INPUT3);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
 
         TypeInfo string = runtime.stringTypeInfo();
@@ -320,7 +320,7 @@ public class TestComputeHCS extends CommonTest {
     public void test4() {
         TypeInfo X = javaInspector.parse(INPUT4);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
 
         assertEquals("0=List, 1=Object, 2=Comparable, 3=X",
@@ -365,7 +365,7 @@ public class TestComputeHCS extends CommonTest {
     public void test4b() {
         TypeInfo X = javaInspector.parse(INPUT4b);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
 
         assertEquals("0=T, 1=List, 2=Comparable",
@@ -407,7 +407,7 @@ public class TestComputeHCS extends CommonTest {
     public void test5() {
         TypeInfo X = javaInspector.parse(INPUT5);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
 
         assertEquals("0=Object, 1=Comparable, 2=X",
@@ -451,7 +451,7 @@ public class TestComputeHCS extends CommonTest {
 
         TypeInfo X = javaInspector.parse(INPUT6);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
         TypeInfo R = X.findSubType("R");
         HiddenContentTypes hctR = R.analysis().getOrDefault(HIDDEN_CONTENT_TYPES, NO_VALUE);
@@ -530,7 +530,7 @@ public class TestComputeHCS extends CommonTest {
     public void test7() {
         TypeInfo X = javaInspector.parse(INPUT7);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
         TypeInfo LL = X.findSubType("LL");
         HiddenContentTypes hctLL = LL.analysis().getOrDefault(HIDDEN_CONTENT_TYPES, NO_VALUE);
@@ -589,7 +589,7 @@ public class TestComputeHCS extends CommonTest {
     public void test8() {
         TypeInfo X = javaInspector.parse(INPUT8);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
 
         TypeInfo L = X.findSubType("L");
@@ -664,7 +664,7 @@ public class TestComputeHCS extends CommonTest {
     public void test9() {
         TypeInfo X = javaInspector.parse(INPUT9);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
 
         TypeInfo L = X.findSubType("L");

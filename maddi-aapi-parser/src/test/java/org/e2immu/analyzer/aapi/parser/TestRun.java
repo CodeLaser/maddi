@@ -5,8 +5,6 @@ import org.e2immu.analyzer.modification.common.defaults.DebugVisitor;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.resource.TypeMapImpl;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.ToolChain;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -87,7 +85,7 @@ public class TestRun {
                     case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 465;
                     default -> -1;
                 };
-                assertEquals(expectCt, javaInspector.compiledTypesManager().typesLoaded().size(), context());
+                assertEquals(expectCt, javaInspector.compiledTypesManager().typesLoaded(true).size(), context());
 
                 /*
                 IMPORTANT: as soon as this query runs, the values for 'parent' change
@@ -108,7 +106,7 @@ public class TestRun {
                 };
                 assertEquals(expectEnclosing, typesWithEnclosing, context());
                 */
-                int typesWithParentNonNullNonJLO = (int) javaInspector.compiledTypesManager().typesLoaded()
+                int typesWithParentNonNullNonJLO = (int) javaInspector.compiledTypesManager().typesLoaded(true)
                         .stream().flatMap(TypeInfo::recursiveSubTypeStream)
                         .filter(ti -> ti.parentClass() != null && !ti.parentClass().isJavaLangObject())
                         .count();
@@ -131,7 +129,7 @@ public class TestRun {
                     default -> -1;
                 };
                 assertEquals(expectSf, javaInspector.sourceFiles().size(), context());
-                TypeMapImpl sourceTypeMap = ((JavaInspectorImpl) javaInspector).getSourceTypeMap();
+
                 int stmSize = switch (context()) {
                     case JDK_HOMEBREW_24, JDK_HOMEBREW_21, JDK_HOMEBREW_25 -> 241;
                     case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 0;
@@ -139,15 +137,7 @@ public class TestRun {
                     case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 6;
                     default -> -1;
                 };
-                int sizeFiltered = (int)sourceTypeMap.getMap()
-                        .entrySet().stream()
-                        .filter(e -> {
-                            if(e.getValue() instanceof TypeInfo ti) {
-                                return !ti.compilationUnit().externalLibrary();
-                            }
-                            return false; // don't think there are duplicates here
-                        })
-                        .count();
+                int sizeFiltered = javaInspector.compiledTypesManager().typesLoaded(false).size();
                 assertEquals(stmSize, sizeFiltered, context());
             }
 

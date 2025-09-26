@@ -35,7 +35,7 @@ public class TestStream extends CommonTest {
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         prepAnalyzer.doPrimaryType(X);
 
         TypeInfo stream = javaInspector.compiledTypesManager().get(Stream.class);
