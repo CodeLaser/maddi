@@ -52,7 +52,7 @@ public class TestComposer {
 
         Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         List<TypeInfo> primaryTypes = javaInspector.compiledTypesManager()
-                .typesLoaded().stream().filter(TypeInfo::isPrimaryType).toList();
+                .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
         LOGGER.info("Have {} primary types loaded", primaryTypes.size());
         Collection<TypeInfo> apiTypes = composer.compose(primaryTypes);
 

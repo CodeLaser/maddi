@@ -272,7 +272,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         } catch (RuntimeException | AssertionError re) {
             LOGGER.error("Path = {}", path);
             LOGGER.error("FQN  = {}", fqn);
-            LOGGER.error("Number of compiled types = {}", compiledTypesManager.typesLoaded().size());
+            LOGGER.error("Number of compiled types = {}", compiledTypesManager.typesLoaded(true).size());
             throw re;
         }
     }

@@ -28,7 +28,7 @@ public abstract class CommonJmodBaseTests {
         URL url = new URL("jar:file:" + System.getProperty("java.home") + "/jmods/java.base.jmod!/");
         SourceFile sourceFile = new SourceFile(url.getPath(), url.toURI(), null, null);
         cp.addJmod(sourceFile);
-        CompiledTypesManagerImpl mgr = new CompiledTypesManagerImpl(classPath, new TypeMapImpl());
+        CompiledTypesManagerImpl mgr = new CompiledTypesManagerImpl(classPath);
         compiledTypesManager = mgr;
         runtime = new RuntimeImpl();
         byteCodeInspector = new ByteCodeInspectorImpl(runtime, compiledTypesManager, true,

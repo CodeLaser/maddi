@@ -43,7 +43,7 @@ public class TestToolChain {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
 
-        List<TypeInfo> typesLoaded = javaInspector.compiledTypesManager().typesLoaded();
+        List<TypeInfo> typesLoaded = javaInspector.compiledTypesManager().typesLoaded(true);
         assertSame(base, typesLoaded.getFirst().compilationUnit().sourceSet());
 
         String s = ToolChain.extractLibraryName(typesLoaded, false);

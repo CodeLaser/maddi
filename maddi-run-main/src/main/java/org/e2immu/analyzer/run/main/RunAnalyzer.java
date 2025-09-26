@@ -109,7 +109,7 @@ public class RunAnalyzer implements Runnable {
             Predicate<TypeInfo> externalsToAccept = t -> false;
             LOGGER.info("Running prep analyzer on {} types", summary.types().size());
             PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime());
-            prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded());
+            prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
             ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(Set.copyOf(parseResult.primaryTypes()),
                     parseResult.sourceSetToModuleInfoMap().values(),
                     externalsToAccept, parseOptions.parallel());
@@ -201,7 +201,7 @@ public class RunAnalyzer implements Runnable {
         }
         Composer composer = new Composer(javaInspector, set -> destinationPackage, filter);
         List<TypeInfo> compiledPrimaryTypes = javaInspector.compiledTypesManager()
-                .typesLoaded().stream().filter(TypeInfo::isPrimaryType).toList();
+                .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
         LOGGER.info("Loaded {} compiled primary types", compiledPrimaryTypes.size());
 
         JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder().setFailFast(true).build();

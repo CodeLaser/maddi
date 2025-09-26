@@ -72,7 +72,6 @@ public class JavaInspectorImpl implements JavaInspector {
 
     private Runtime runtime;
     private Map<SourceFile, List<TypeInfo>> sourceFiles;
-    private final TypeMapImpl sourceTypeMap = new TypeMapImpl();
     private CompiledTypesManager compiledTypesManager;
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
@@ -157,7 +156,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     inputConfiguration.classPathParts(), inputConfiguration.alternativeJREDirectory(),
                     initializationProblems);
             // we have a unified type map: both sources and compiled types are in the same map
-            CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(classPath, sourceTypeMap);
+            CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(classPath);
             runtime = new RuntimeWithCompiledTypesManager(ctm);
             ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, computeFingerPrints,
                     allowCreationOfStubTypes);
@@ -452,7 +451,7 @@ public class JavaInspectorImpl implements JavaInspector {
         ScanCompilationUnit.ScanResult sr = scanCompilationUnit.scan(sourceFile.uri(), sourceFile.sourceSet(),
                 sourceFile.fingerPrint(), parser.get().CompilationUnit(),
                 parseOptions.detailedSources());
-        sourceTypeMap.putAll(sr.sourceTypes());
+        sr.sourceTypes().forEach((_, typeInfo) -> compiledTypesManager.add(typeInfo));
         CompilationUnit cu = sr.compilationUnit();
 
         ParseCompilationUnit parseCompilationUnit = new ParseCompilationUnit(rootContext);
@@ -526,7 +525,7 @@ public class JavaInspectorImpl implements JavaInspector {
             // TODO if there are multiple primary types here, and only one is invalid, we must make sure that
             //   all the descendants of the other must be rewired. This is an edge case.
             if (typeInfos.isEmpty() || typeInfos.stream().anyMatch(ti -> invalidated.apply(ti) == INVALID)) {
-                typeInfos.forEach(sourceTypeMap::invalidate);
+                typeInfos.forEach(compiledTypesManager::invalidate);
                 //noinspection ALL
                 String sourceCode = loadSource(sf, sourcesByTestProtocolURIString,
                         Objects.requireNonNullElse(sf.sourceSet().sourceEncoding(), StandardCharsets.UTF_8),
@@ -660,7 +659,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         if (infoMap != null) {
             Set<TypeInfo> rewired = infoMap.rewireAll();
-            rewired.forEach(sourceTypeMap::put);
+            rewired.forEach(compiledTypesManager::add);
             rewired.forEach(summary::addType);
         }
 
@@ -702,13 +701,13 @@ public class JavaInspectorImpl implements JavaInspector {
             SourceSet sourceSet = entry.getKey();
             ModuleInfo moduleInfo = entry.getValue();
             for (ModuleInfo.Uses uses : moduleInfo.uses()) {
-                TypeInfo resolved = sourceTypeMap.get(uses.api(), sourceSet);
+                TypeInfo resolved = compiledTypesManager.get(uses.api(), sourceSet);
                 if (resolved != null) uses.setApiResolved(resolved);
             }
             for (ModuleInfo.Provides provides : moduleInfo.provides()) {
-                TypeInfo r0 = sourceTypeMap.get(provides.api(), sourceSet);
+                TypeInfo r0 = compiledTypesManager.get(provides.api(), sourceSet);
                 if (r0 != null) provides.setApiResolved(r0);
-                TypeInfo r1 = sourceTypeMap.get(provides.implementation(), sourceSet);
+                TypeInfo r1 = compiledTypesManager.get(provides.implementation(), sourceSet);
                 if (r1 != null) provides.setImplementationResolved(r1);
             }
         }
@@ -760,7 +759,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 ? MD5FingerPrint.compute(sourceCode) : sourceFile.fingerPrint();
         ScanCompilationUnit.ScanResult sr = scanCompilationUnit.scan(sourceFile.uri(), sourceSet, fingerPrint, cu,
                 addDetailedSources);
-        sourceTypeMap.putAll(sr.sourceTypes());
+        sr.sourceTypes().values().forEach(compiledTypesManager::add);
         CompilationUnit compilationUnit = sr.compilationUnit();
         return new SourceFileCompilationUnit(sourceFile, cu, compilationUnit);
     }
@@ -798,11 +797,6 @@ public class JavaInspectorImpl implements JavaInspector {
                 runtime.qualificationQualifyFromPrimaryType(decorator), true);
         Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         return formatter.write(ob);
-    }
-
-    // for testing
-    public TypeMapImpl getSourceTypeMap() {
-        return sourceTypeMap;
     }
 }
 

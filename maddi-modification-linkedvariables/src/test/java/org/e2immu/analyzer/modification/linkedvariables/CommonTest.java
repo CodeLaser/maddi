@@ -76,7 +76,7 @@ public class CommonTest {
     }
 
     protected List<Info> prepWork(TypeInfo typeInfo) {
-        List<TypeInfo> typesLoaded = javaInspector.compiledTypesManager().typesLoaded();
+        List<TypeInfo> typesLoaded = javaInspector.compiledTypesManager().typesLoaded(true);
         assertTrue(typesLoaded.stream().anyMatch(ti -> "java.util.ArrayList".equals(ti.fullyQualifiedName())));
         prepAnalyzer.initialize(typesLoaded);
 

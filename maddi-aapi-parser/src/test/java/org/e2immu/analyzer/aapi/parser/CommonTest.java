@@ -61,7 +61,7 @@ public class CommonTest {
         ShallowAnalyzer.Result sr = shallowAnalyzer.go(annotatedApiParser.types());
 
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(annotatedApiParser.runtime());
-        prepAnalyzer.initialize(annotatedApiParser.javaInspector().compiledTypesManager().typesLoaded());
+        prepAnalyzer.initialize(annotatedApiParser.javaInspector().compiledTypesManager().typesLoaded(true));
 
         sorted = sr.sorted();
         graph = sr.typeGraph();

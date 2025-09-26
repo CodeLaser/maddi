@@ -28,9 +28,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final Set<String> allTypesInThisPackageHaveBeenLoaded = new HashSet<>();
     private final ReentrantReadWriteLock allTypesLock = new ReentrantReadWriteLock();
 
-    public CompiledTypesManagerImpl(Resources classPath, TypeMap typeMap) {
+    public CompiledTypesManagerImpl(Resources classPath) {
         this.classPath = classPath;
-        this.typeMap = typeMap;
+        this.typeMap = new TypeMapImpl();
     }
 
     @Override
@@ -83,6 +83,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 byteCodeInspector.get().load(typeInfo);
             }
         }
+    }
+
+    @Override
+    public void invalidate(TypeInfo typeInfo) {
+        typeMap.invalidate(typeInfo);
     }
 
     @Override
@@ -141,9 +146,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public List<TypeInfo> typesLoaded() {
+    public List<TypeInfo> typesLoaded(Boolean external) {
         return typeMap.typeStream()
-                .filter(ti -> ti.compilationUnit().externalLibrary())
+                .filter(ti -> external == null || external == ti.compilationUnit().externalLibrary())
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
     }
 
