@@ -81,7 +81,7 @@ public interface JavaInspector {
     TypeInfo parse(String input, ParseOptions parseOptions);
 
     // only for testing, after general parse();
-    Summary parse(URI typeInfo, ParseOptions parseOptions);
+    Summary parse(URI typeInfo, SourceSet sourceSet, ParseOptions parseOptions);
 
     // only for testing, after general parse();
     List<TypeInfo> parseReturnAll(String input, ParseOptions parseOptions);

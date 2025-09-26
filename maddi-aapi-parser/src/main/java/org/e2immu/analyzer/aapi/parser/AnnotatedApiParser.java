@@ -72,7 +72,8 @@ public class AnnotatedApiParser implements AnnotationProvider {
     }
 
     private void load(SourceFile sourceFile) {
-        ParseResult parseResult = javaInspector.parse(sourceFile.uri(), JavaInspectorImpl.FAIL_FAST).parseResult();
+        ParseResult parseResult = javaInspector.parse(sourceFile.uri(), sourceFile.sourceSet(),
+                JavaInspectorImpl.FAIL_FAST).parseResult();
         TypeInfo typeInfo = parseResult.firstType();
         typesParsed.add(typeInfo);
         FieldInfo packageName = typeInfo.getFieldByName("PACKAGE_NAME", false);

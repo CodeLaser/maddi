@@ -5,23 +5,19 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.inspection.api.parser.TypeMap;
 import org.e2immu.language.inspection.api.parser.StaticImportMap;
 import org.e2immu.language.inspection.api.parser.TypeContext;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.api.resource.Resources;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class TypeContextImpl implements TypeContext {
@@ -32,7 +28,6 @@ public class TypeContextImpl implements TypeContext {
 
     private record Data(Runtime runtime,
                         CompiledTypesManager compiledTypesManager,
-                        TypeMap sourceTypeMap, // FIXME remove this one, always go via CTM
                         StaticImportMap staticImportMap,
                         CompilationUnit compilationUnit,
                         StubTypeMap stubTypeMap) {
@@ -42,7 +37,7 @@ public class TypeContextImpl implements TypeContext {
         }
 
         Data withCompilationUnit(CompilationUnit cu) {
-            return new Data(runtime, compiledTypesManager, sourceTypeMap, new StaticImportMapImpl(), cu, stubTypeMap);
+            return new Data(runtime, compiledTypesManager, new StaticImportMapImpl(), cu, stubTypeMap);
         }
     }
 
@@ -57,9 +52,8 @@ public class TypeContextImpl implements TypeContext {
     /*
     the packageInfo should already contain all the types of the current package
      */
-    public TypeContextImpl(Runtime runtime, CompiledTypesManager compiledTypesManager, TypeMap sourceTypeMap,
-                           boolean allowCreationOfStubTypes) {
-        this(null, new Data(runtime, compiledTypesManager, sourceTypeMap, null,
+    public TypeContextImpl(Runtime runtime, CompiledTypesManager compiledTypesManager, boolean allowCreationOfStubTypes) {
+        this(null, new Data(runtime, compiledTypesManager, null,
                 null, allowCreationOfStubTypes ? new StubTypeMap(new HashMap<>()) : null));
     }
 
@@ -152,76 +146,64 @@ public class TypeContextImpl implements TypeContext {
             LOGGER.debug("Need to parse package {}", fullyQualified);
             String packageName = data.compilationUnit.packageName();
             if (!fullyQualified.equals(packageName)) { // would be our own package; they are already there
-                // we either have a type, a subtype, or a package
-                TypeInfo inSourceTypes = data.sourceTypeMap.get(fullyQualified, sourceSet());
-                if (inSourceTypes == null) {
-                    // deal with package
-                    for (TypeInfo typeInfo : data.sourceTypeMap.primaryTypesInPackage(fullyQualified)) {
-                        if (typeInfo.fullyQualifiedName().equals(fullyQualified + "." + typeInfo.simpleName())) {
-                            addToContext(typeInfo, IMPORT_ASTERISK_PACKAGE_PRIORITY);
+                TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(fullyQualified, sourceSet());
+                if (typeInfo != null) {
+                    // we must add all the subtypes
+                    for (TypeInfo sub : typeInfo.subTypes()) {
+                        addToContext(sub, IMPORT_ASTERISK_SUBTYPE_PRIORITY);
+                    }
+                } else {
+                    data.compiledTypesManager.primaryTypesInPackageEnsureLoaded(fullyQualified, sourceSet());
+
+                    // FIXME no point in having this 2x
+                    for (TypeInfo ti : data.compiledTypesManager.primaryTypesInPackage(fullyQualified)) {
+                        if (ti.fullyQualifiedName().equals(fullyQualified + "." + ti.simpleName())) {
+                            addToContext(ti, IMPORT_ASTERISK_PACKAGE_PRIORITY);
                         }
                     }
-                } else {
-                    // we must import all subtypes
-                    inSourceTypes.subTypes().forEach(st -> addToContext(st, IMPORT_ASTERISK_SUBTYPE_PRIORITY));
-                }
-                TypeInfo inCompiledTypes = data.compiledTypesManager.getOrLoad(fullyQualified, sourceSet());
-                if (inCompiledTypes != null) {
-                    // we must add all the subtypes
-                    for (TypeInfo sub : inCompiledTypes.subTypes()) {
-                        addToContext(sub, IMPORT_ASTERISK_PACKAGE_PRIORITY);
-                    }
-                } else {
-                    // all types in a package
+                    /*
+                    // FIXME
                     data.compiledTypesManager.classPath().expandLeaves(fullyQualified, ".class",
                             (expansion, sourceFiles) ->
-                                    expanded(expansion, sourceFiles, fullyQualified));
+                                    expanded(expansion, sourceFiles, fullyQualified));*/
                 }
             }
         } else {
-            TypeInfo inSourceTypes = data.sourceTypeMap.get(importStatement.importString(), sourceSet());
-            if (inSourceTypes == null) {
-                TypeInfo inCompiledTypes = data.compiledTypesManager.getOrLoad(importStatement.importString(), sourceSet());
-                if (inCompiledTypes != null) {
-                    addToContext(inCompiledTypes, IMPORT_PRIORITY);
+            TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(importStatement.importString(), sourceSet());
+            if (typeInfo != null) {
+                addToContext(typeInfo, IMPORT_PRIORITY);
+            } else {
+                LOGGER.error("Cannot handle import {} at line {} in {}", importStatement.importString(),
+                        importStatement.source().beginLine(), data.compilationUnit);
+            }
+        }
+    }
+
+    /*
+        private void expanded(String[] expansion, List<SourceFile> sourceFiles, String fullyQualified) {
+            String leaf = expansion[expansion.length - 1];
+            if (!leaf.contains("$")) {
+                // primary type
+                String simpleName = Resources.stripDotClass(leaf);
+                SourceFile sourceFile = sourceFiles.getFirst();
+                String path = fullyQualified.replace(".", "/") + "/" + simpleName + ".class";
+                TypeInfo newTypeInfo = data.compiledTypesManager.load(sourceFile.withPath(path));
+                if (newTypeInfo != null) {
+                    LOGGER.debug("Registering inspection handler for {}", newTypeInfo);
+                    addToContext(newTypeInfo, IMPORT_ASTERISK_PACKAGE_PRIORITY);
                 } else {
-                    LOGGER.error("Cannot handle import {} at line {} in {}", importStatement.importString(),
-                            importStatement.source().beginLine(), data.compilationUnit);
+                    LOGGER.error("Could not load {}, URI {}", path, sourceFile.uri());
                 }
-            } else {
-                addToContext(inSourceTypes, IMPORT_PRIORITY);
             }
         }
-    }
-
-    private void expanded(String[] expansion, List<SourceFile> sourceFiles, String fullyQualified) {
-        String leaf = expansion[expansion.length - 1];
-        if (!leaf.contains("$")) {
-            // primary type
-            String simpleName = Resources.stripDotClass(leaf);
-            SourceFile sourceFile = sourceFiles.getFirst();
-            String path = fullyQualified.replace(".", "/") + "/" + simpleName + ".class";
-            TypeInfo newTypeInfo = data.compiledTypesManager.load(sourceFile.withPath(path));
-            if (newTypeInfo != null) {
-                LOGGER.debug("Registering inspection handler for {}", newTypeInfo);
-                addToContext(newTypeInfo, IMPORT_ASTERISK_PACKAGE_PRIORITY);
-            } else {
-                LOGGER.error("Could not load {}, URI {}", path, sourceFile.uri());
-            }
-        }
-    }
-
+    */
     private TypeInfo loadTypeDoNotImport(String fqn) {
-        TypeInfo inSourceTypes = data.sourceTypeMap.get(fqn, sourceSet());
-        if (inSourceTypes != null) {
-            return inSourceTypes;
-        }
-        TypeInfo compiled = data.compiledTypesManager.get(fqn, sourceSet());
-        if (compiled != null) {
-            if (!compiled.hasBeenInspected()) {
-                data.compiledTypesManager.ensureInspection(compiled);
+        TypeInfo typeInfo = data.compiledTypesManager.get(fqn, sourceSet());
+        if (typeInfo != null) {
+            if (!typeInfo.hasBeenInspected() && typeInfo.compilationUnit().externalLibrary()) {
+                data.compiledTypesManager.ensureInspection(typeInfo);
             }
-            return compiled;
+            return typeInfo;
         }
         SourceFile path = data.compiledTypesManager.fqnToPath(fqn, ".class");
         if (path == null) {
@@ -257,13 +239,11 @@ public class TypeContextImpl implements TypeContext {
      * @return the type
      */
     private TypeInfo getFullyQualified(String fullyQualifiedName) {
-        TypeInfo sourceType = data.sourceTypeMap.get(fullyQualifiedName, sourceSet());
-        if (sourceType != null) {
-            return sourceType;
-        }
         TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(fullyQualifiedName, sourceSet());
         if (typeInfo != null) {
-            data.compiledTypesManager.ensureInspection(typeInfo);
+            if (typeInfo.compilationUnit().externalLibrary()) {
+                data.compiledTypesManager.ensureInspection(typeInfo);
+            }
             return typeInfo;
         }
         return null;
@@ -382,9 +362,9 @@ public class TypeContextImpl implements TypeContext {
                 addToContext(subType, STATIC_IMPORT_PRIORITY);
                 return subType;
             }
-            return null; // we should definitely not return "parent"
+            // we should definitely not return "parent"
         }
-        return parent;
+        return null;
     }
 
 
@@ -423,16 +403,14 @@ public class TypeContextImpl implements TypeContext {
 
     @Override
     public List<TypeInfo> typesInSamePackage(String packageName, SourceSet sourceSetOfRequest) {
-        return typesInSamePackage(packageName, data.sourceTypeMap, data.compiledTypesManager, sourceSetOfRequest);
+        return typesInSamePackage(packageName, data.compiledTypesManager, sourceSetOfRequest);
     }
 
     public static List<TypeInfo> typesInSamePackage(String packageName,
-                                                    TypeMap sourceTypeMap,
                                                     CompiledTypesManager compiledTypesManager,
                                                     SourceSet sourceSetOfRequest) {
-        List<TypeInfo> list1 = sourceTypeMap.primaryTypesInPackage(packageName);
-        Collection<TypeInfo> list2 = compiledTypesManager.primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest);
-        return Stream.concat(list1.stream(), list2.stream()).toList();
+        compiledTypesManager.primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest);
+        return compiledTypesManager.primaryTypesInPackage(packageName);
     }
 
     @Override

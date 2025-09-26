@@ -10,17 +10,20 @@ import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
+import org.e2immu.language.inspection.api.parser.TypeMap;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.impl.parser.ContextImpl;
 import org.e2immu.language.inspection.impl.parser.ResolverImpl;
 import org.e2immu.language.inspection.impl.parser.SummaryImpl;
 import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.support.Either;
 import org.parsers.java.JavaParser;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -88,24 +91,49 @@ public class CommonTestParse {
     protected final TypeInfo annotationClass;
 
     class CompiledTypesManagerImpl implements CompiledTypesManager {
+        private final TypeMap typeMap;
+
+        CompiledTypesManagerImpl(TypeMap typeMap) {
+            this.typeMap = typeMap;
+        }
+
+        @Override
+        public void add(TypeInfo typeInfo) {
+            typeMap.put(typeInfo);
+        }
 
         @Override
         public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+            TypeInfo inMap = typeMap.get(fullyQualifiedName, sourceSetOfRequest);
+            if (inMap != null) return inMap;
             return predefined(fullyQualifiedName, false);
         }
 
         @Override
-        public Collection<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
-            return Set.of();
+        public List<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
+            return List.of();
+        }
+
+        @Override
+        public List<TypeInfo> primaryTypesInPackage(String fullyQualified) {
+            return typeMap.primaryTypesInPackage(fullyQualified);
         }
     }
 
     protected CommonTestParse() {
-        CompilationUnit javaLang = runtime.newCompilationUnitBuilder().setPackageName("java.lang").build();
-        CompilationUnit javaIo = runtime.newCompilationUnitBuilder().setPackageName("java.io").build();
-        CompilationUnit javaUtil = runtime.newCompilationUnitBuilder().setPackageName("java.util").build();
-        CompilationUnit javaUtilFunction = runtime.newCompilationUnitBuilder().setPackageName("java.util.function").build();
-        CompilationUnit javaLangAnnotation = runtime.newCompilationUnitBuilder().setPackageName("java.lang.annotation").build();
+        SourceSet sourceSet = new SourceSetImpl("hardcoded", List.of(), URI.create("file:/"),
+                StandardCharsets.UTF_8, false, true, true, true, false,
+                Set.of(), Set.of());
+        CompilationUnit javaLang = runtime.newCompilationUnitBuilder().setPackageName("java.lang")
+                .setSourceSet(sourceSet).build();
+        CompilationUnit javaIo = runtime.newCompilationUnitBuilder().setPackageName("java.io")
+                .setSourceSet(sourceSet).build();
+        CompilationUnit javaUtil = runtime.newCompilationUnitBuilder().setPackageName("java.util")
+                .setSourceSet(sourceSet).build();
+        CompilationUnit javaUtilFunction = runtime.newCompilationUnitBuilder().setPackageName("java.util.function")
+                .setSourceSet(sourceSet).build();
+        CompilationUnit javaLangAnnotation = runtime.newCompilationUnitBuilder().setPackageName("java.lang.annotation")
+                .setSourceSet(sourceSet).build();
 
         suppressWarnings = runtime.newTypeInfo(javaLang, "SuppressWarnings");
         enumTypeInfo = runtime.newTypeInfo(javaLang, "Enum");
@@ -337,18 +365,19 @@ public class CommonTestParse {
             p.setParserTolerant(false);
             return p;
         };
-        CompiledTypesManager compiledTypesManager = new CompiledTypesManagerImpl();
         TypeMapImpl stm = new TypeMapImpl();
-        TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, stm, false);
+        CompiledTypesManager compiledTypesManager = new CompiledTypesManagerImpl(stm);
+        TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, false);
         Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
         Context rootContext = ContextImpl.create(runtime, compiledTypesManager, failFastSummary, resolver, typeContext,
                 detailedSources, false);
-
+        SourceSet sourceSet = new SourceSetImpl("main", List.of(), URI.create("file:/"), StandardCharsets.UTF_8,
+                false, false, false, false, false, Set.of(), Set.of());
         ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(failFastSummary, runtime);
         CompilationUnit cu;
         try {
             ScanCompilationUnit.ScanResult sr = scanCompilationUnit.scan(new URI("input"),
-                    null, null, parser.get().CompilationUnit(), detailedSources);
+                    sourceSet, null, parser.get().CompilationUnit(), detailedSources);
             stm.putAll(sr.sourceTypes());
             cu = sr.compilationUnit();
         } catch (URISyntaxException e) {

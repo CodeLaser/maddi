@@ -1,6 +1,8 @@
 package org.e2immu.language.cst.impl.runtime;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.FingerPrint;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -15,14 +17,122 @@ import org.e2immu.language.cst.impl.info.MethodInfoImpl;
 import org.e2immu.language.cst.impl.info.TypeInfoImpl;
 import org.e2immu.language.cst.impl.info.TypeNatureEnum;
 
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.*;
 
 public class PredefinedImpl implements Predefined {
+    private static final SourceSet PREDEFINED_SOURCESET = new SourceSet() {
+
+        @Override
+        public Charset sourceEncoding() {
+            return StandardCharsets.UTF_8;
+        }
+
+        @Override
+        public String name() {
+            return "<predefined>";
+        }
+
+        @Override
+        public List<Path> sourceDirectories() {
+            return List.of();
+        }
+
+        @Override
+        public URI uri() {
+            return null;
+        }
+
+        @Override
+        public boolean test() {
+            return false;
+        }
+
+        @Override
+        public boolean runtimeOnly() {
+            return false;
+        }
+
+        @Override
+        public boolean library() {
+            return true;
+        }
+
+        @Override
+        public boolean externalLibrary() {
+            return true;
+        }
+
+        @Override
+        public boolean partOfJdk() {
+            return true;
+        }
+
+        @Override
+        public Set<String> restrictToPackages() {
+            return Set.of();
+        }
+
+        @Override
+        public Set<SourceSet> dependencies() {
+            return Set.of();
+        }
+
+        @Override
+        public FingerPrint fingerPrintOrNull() {
+            return null;
+        }
+
+        @Override
+        public void setFingerPrint(FingerPrint fingerPrint) {
+            // nothing here
+        }
+
+        @Override
+        public FingerPrint analysisFingerPrintOrNull() {
+            return null;
+        }
+
+        @Override
+        public void setAnalysisFingerPrint(FingerPrint fingerPrint) {
+            // nothing here
+        }
+
+        @Override
+        public boolean acceptSource(String packageName, String typeName) {
+            return false;
+        }
+
+        @Override
+        public SourceSet withDependencies(Set<SourceSet> dependencies) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SourceSet withSourceDirectories(List<Path> sourceDirectories) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Set<SourceSet> recursiveDependenciesSameExternal() {
+            return Set.of();
+        }
+    };
     private static final CompilationUnit JAVA_PRIMITIVE = new CompilationUnitImpl.Builder()
             .setURIString("predefined://primitive")
+            .setSourceSet(PREDEFINED_SOURCESET)
             .build();
     private static final CompilationUnit JAVA_LANG = new CompilationUnitImpl.Builder()
             .setURIString("predefined://java/lang")
+            .setSourceSet(PREDEFINED_SOURCESET)
             .setPackageName("java.lang").build();
 
     private final TypeInfo intTypeInfo = new TypeInfoImpl(JAVA_PRIMITIVE, "int");
