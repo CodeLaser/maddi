@@ -132,7 +132,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
     }
 
     @Override
-    public TypeInfo load(TypeInfo knownType) {
+    public TypeInfo load(SourceFile sourceFile, TypeInfo knownType) {
         String fqn = knownType.fullyQualifiedName();
         TypeData local = localTypeMapGet(fqn);
         TypeInfo typeInfo;
@@ -147,9 +147,8 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             typeInfo = knownType;
             typeParameterContext = new TypeParameterContext();
         }
-        SourceFile source = compiledTypesManager.classPath().sourceFileOfType(typeInfo, ".class");
-        assert source != null;
-        return inspectFromPath(typeInfo, source, typeParameterContext, LoadMode.NOW);
+        assert sourceFile != null;
+        return inspectFromPath(typeInfo, sourceFile, typeParameterContext, LoadMode.NOW);
     }
 
     @Override
@@ -266,7 +265,6 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
                     typeParameterContext, path);
             classReader.accept(myClassVisitor, 0);
             LOGGER.debug("Finished bytecode inspection of {}", fqn);
-            compiledTypesManager.add(typeInfo);
             localTypeMapPut(fqn, new TypeData(typeInfo, Status.DONE, typeParameterContext));
             return typeInfo;
         } catch (RuntimeException | AssertionError re) {

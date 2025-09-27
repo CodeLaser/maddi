@@ -154,17 +154,12 @@ public class TypeContextImpl implements TypeContext {
                         addToContext(sub, IMPORT_ASTERISK_SUBTYPE_PRIORITY);
                     }
                 } else {
-                    List<TypeInfo> typesInPackage = data.compiledTypesManager.primaryTypesInPackageEnsureLoaded(fullyQualified, sourceSet());
+                    List<TypeInfo> typesInPackage = data.compiledTypesManager
+                            .primaryTypesInPackageEnsureLoaded(fullyQualified, sourceSet());
                     for (TypeInfo ti : typesInPackage) {
-                        if (ti.fullyQualifiedName().equals(fullyQualified + "." + ti.simpleName())) {
-                            addToContext(ti, IMPORT_ASTERISK_PACKAGE_PRIORITY);
-                        }
+                        assert ti.fullyQualifiedName().equals(fullyQualified + "." + ti.simpleName());
+                        addToContext(ti, IMPORT_ASTERISK_PACKAGE_PRIORITY);
                     }
-
-                    // FIXME do we need this code???
-                    data.compiledTypesManager.classPath().expandLeaves(fullyQualified, ".class",
-                            (expansion, sourceFiles) ->
-                                    expanded(expansion, sourceFiles, fullyQualified));
                 }
             }
         } else {
@@ -178,38 +173,16 @@ public class TypeContextImpl implements TypeContext {
         }
     }
 
-
-    private void expanded(String[] expansion, List<SourceFile> sourceFiles, String fullyQualified) {
-        String leaf = expansion[expansion.length - 1];
-        if (!leaf.contains("$")) {
-            // primary type
-            String simpleName = Resources.stripDotClass(leaf);
-            SourceFile sourceFile = sourceFiles.getFirst();
-            String path = fullyQualified.replace(".", "/") + "/" + simpleName + ".class";
-            TypeInfo newTypeInfo = data.compiledTypesManager.load(sourceFile.withPath(path));
-            if (newTypeInfo != null) {
-                LOGGER.debug("Registering inspection handler for {}", newTypeInfo);
-                addToContext(newTypeInfo, IMPORT_ASTERISK_PACKAGE_PRIORITY);
-            } else {
-                LOGGER.error("Could not load {}, URI {}", path, sourceFile.uri());
-            }
-        }
-    }
-
     private TypeInfo loadTypeDoNotImport(String fqn) {
-        TypeInfo typeInfo = data.compiledTypesManager.get(fqn, sourceSet());
+        TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(fqn, sourceSet());
         if (typeInfo != null) {
             if (!typeInfo.hasBeenInspected() && typeInfo.compilationUnit().externalLibrary()) {
                 data.compiledTypesManager.ensureInspection(typeInfo);
             }
             return typeInfo;
         }
-        SourceFile path = data.compiledTypesManager.fqnToPath(fqn, ".class");
-        if (path == null) {
-            LOGGER.error("ERROR: Cannot find type '{}'", fqn);
-            throw new UnsupportedOperationException(fqn);
-        }
-        return data.compiledTypesManager.load(path);
+        LOGGER.error("ERROR: Cannot find type '{}'", fqn);
+        throw new UnsupportedOperationException(fqn);
     }
 
     @Override

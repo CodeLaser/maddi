@@ -19,17 +19,11 @@ public interface CompiledTypesManager {
         throw new UnsupportedOperationException();
     }
 
-    default void add(TypeInfo typeInfo) {
-        // do nothing
-    }
-
-    default SourceFile fqnToPath(String fqn, String suffix) {
-        throw new UnsupportedOperationException("Don't know how to load " + fqn);
-    }
-
     default TypeInfo get(Class<?> clazz) {
         return get(clazz.getCanonicalName(), null);
     }
+
+    void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo);
 
     TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest);
 
@@ -67,7 +61,7 @@ public interface CompiledTypesManager {
         return !fqn.startsWith("jdk.internal.");
     }
 
-    default List<TypeInfo> typesLoaded(Boolean external) {
+    default List<TypeInfo> typesLoaded(Boolean compiled) {
         throw new UnsupportedOperationException();
     }
 }

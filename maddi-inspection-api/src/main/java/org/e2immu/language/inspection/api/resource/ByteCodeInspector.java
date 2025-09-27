@@ -7,5 +7,5 @@ public interface ByteCodeInspector {
 
     TypeInfo load(SourceFile sourceFile);
 
-    TypeInfo load(TypeInfo typeInfo);
+    TypeInfo load(SourceFile sourceFile, TypeInfo typeInfo);
 }

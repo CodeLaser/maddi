@@ -12,23 +12,44 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final Logger LOGGER = LoggerFactory.getLogger(CompiledTypesManagerImpl.class);
 
+    private static class Candidate {
+        private final SourceFile sourceFile;
+        private TypeInfo typeInfo;
+
+        Candidate(SourceFile sourceFile) {
+            this.sourceFile = sourceFile;
+        }
+
+        boolean isCompiled() {
+            return sourceFile.sourceSet().externalLibrary();
+        }
+    }
+
     private final Resources classPath;
     private final SetOnce<ByteCodeInspector> byteCodeInspector = new SetOnce<>();
     private final Map<String, TypeInfo> mapSingleTypeForFQN = new HashMap<>();
     private final ReentrantReadWriteLock trieLock = new ReentrantReadWriteLock();
-    private final Trie<TypeInfo> typeTrie = new Trie<>();
-    private final Set<String> allTypesInThisPackageHaveBeenLoaded = new HashSet<>();
-    private final ReentrantReadWriteLock allTypesLock = new ReentrantReadWriteLock();
+    private final Trie<Candidate> typeTrie = new Trie<>();
 
     public CompiledTypesManagerImpl(Resources classPath) {
         this.classPath = classPath;
+        addToTrie(classPath, false);
+    }
+
+
+    // we must also call this for the sources, after the classpath
+    // clearExisting == true when you want the sources to override any same FQN type in the class path
+    public void addToTrie(Resources resources, boolean removeCompiled) {
+        resources.visit(new String[0], (parts, sourceFiles) -> {
+            List<Candidate> candidates = sourceFiles.stream().map(Candidate::new).toList();
+            List<Candidate> all = typeTrie.addAll(parts, candidates);
+            if (removeCompiled) all.removeIf(Candidate::isCompiled);
+        });
     }
 
     @Override
@@ -36,31 +57,20 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         return classPath;
     }
 
-    /*
-    add to trie.
-    if this is the first one with this FQN: add to map.
-    if there is already one with this FQN: remove from map again.
-     */
     @Override
-    public void add(TypeInfo typeInfo) {
+    public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
         trieLock.writeLock().lock();
         try {
             String fullyQualifiedName = typeInfo.fullyQualifiedName();
             String[] parts = fullyQualifiedName.split("\\.");
-            List<TypeInfo> types = typeTrie.add(parts, typeInfo);
+            List<Candidate> types = typeTrie.get(parts);
+
             if (types.size() == 1) {
                 mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
-            } else if (types.size() == 2) {
-                mapSingleTypeForFQN.remove(fullyQualifiedName);
             }
         } finally {
             trieLock.writeLock().unlock();
         }
-    }
-
-    @Override
-    public SourceFile fqnToPath(String fqn, String suffix) {
-        return classPath.fqnToPath(fqn, suffix);
     }
 
     @Override
@@ -69,32 +79,57 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
             if (single != null) return single;
-            String[] parts = fullyQualifiedName.split("\\.");
-            List<TypeInfo> types = typeTrie.get(parts);
-            if (types == null || types.isEmpty()) return null;
-            assert types.size() > 1 : "Otherwise, would have been in mapSingleTypeForFQN";
-            return chooseAccordingToSourceSet(types, sourceSetOfRequest);
+            Candidate candidate = candidateOrNull(fullyQualifiedName, sourceSetOfRequest);
+            return candidate == null ? null : candidate.typeInfo;
         } finally {
             trieLock.readLock().unlock();
         }
     }
 
-    private TypeInfo chooseAccordingToSourceSet(List<TypeInfo> types, SourceSet sourceSetOfRequest) {
+    private Candidate candidateOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        String[] parts = fullyQualifiedName.split("\\.");
+        List<Candidate> candidates = typeTrie.get(parts);
+        if (candidates == null || candidates.isEmpty()) return null;
+        assert candidates.size() > 1 : "Otherwise, would have been in mapSingleTypeForFQN";
         Set<SourceSet> sourceSets = sourceSetOfRequest.recursiveDependenciesSameExternal();
-        return types.stream()
-                .filter(ti -> sourceSets.contains(ti.compilationUnit().sourceSet()))
+        return candidates.stream()
+                .filter(candidate -> sourceSets.contains(candidate.sourceFile.sourceSet()))
                 .findFirst().orElse(null);
+    }
+
+    private Candidate candidateExactSourceSet(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        String[] parts = fullyQualifiedName.split("\\.");
+        List<Candidate> candidates = typeTrie.get(parts);
+        Candidate candidate;
+        if (candidates != null) {
+            candidate = candidates.stream()
+                    .filter(c -> c.sourceFile.sourceSet().equals(sourceSetOfRequest))
+                    .findFirst().orElse(null);
+        } else {
+            candidate = null;
+        }
+        if (candidate == null) {
+            throw new UnsupportedOperationException("Cannot find .class file for " + fullyQualifiedName + " in "
+                                                    + sourceSetOfRequest);
+        }
+        return candidate;
     }
 
     @Override
     public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        TypeInfo typeInfo = get(fullyQualifiedName, sourceSetOfRequest);
-        if (typeInfo != null) return typeInfo;
-
-        SourceFile path = fqnToPath(fullyQualifiedName, ".class");
-        if (path == null) return null;
+        trieLock.readLock().lock();
+        Candidate candidate;
+        try {
+            TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
+            if (single != null) return single;
+            candidate = candidateOrNull(fullyQualifiedName, sourceSetOfRequest);
+            if (candidate == null) return null;
+            if (candidate.typeInfo != null) return candidate.typeInfo;
+        } finally {
+            trieLock.readLock().unlock();
+        }
         synchronized (byteCodeInspector) {
-            return byteCodeInspector.get().load(path);
+            return byteCodeInspector.get().load(candidate.sourceFile);
         }
     }
 
@@ -102,12 +137,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     public void ensureInspection(TypeInfo typeInfo) {
         assert typeInfo.compilationUnit().externalLibrary();
         if (!typeInfo.hasBeenInspected()) {
-            SourceFile sourceFile = fqnToPath(typeInfo.fullyQualifiedName(), ".class");
-            if (sourceFile == null) {
-                throw new UnsupportedOperationException("Cannot find .class file for " + typeInfo);
-            }
+            Candidate candidate = candidateExactSourceSet(typeInfo.fullyQualifiedName(),
+                    typeInfo.compilationUnit().sourceSet());
             synchronized (byteCodeInspector) {
-                byteCodeInspector.get().load(typeInfo);
+                byteCodeInspector.get().load(candidate.sourceFile, typeInfo);
             }
         }
     }
@@ -119,8 +152,14 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         try {
             String fullyQualifiedName = typeInfo.fullyQualifiedName();
             String[] parts = fullyQualifiedName.split("\\.");
-            typeTrie.removeByIdentity(parts, typeInfo);
-            mapSingleTypeForFQN.remove(fullyQualifiedName);
+            List<Candidate> candidates = typeTrie.get(parts);
+            Candidate candidate = candidates.stream()
+                    .filter(c -> c.typeInfo == typeInfo)
+                    .findFirst().orElse(null);
+            if (candidate != null) {
+                candidate.typeInfo = null;
+                mapSingleTypeForFQN.remove(fullyQualifiedName);
+            }
         } finally {
             trieLock.writeLock().unlock();
         }
@@ -128,10 +167,14 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public TypeInfo load(SourceFile path) {
-        // only to be used when the type does not yet exist!
+        TypeInfo typeInfo;
         synchronized (byteCodeInspector) {
-            return byteCodeInspector.get().load(path);
+            typeInfo = byteCodeInspector.get().load(path);
         }
+        if (typeInfo != null) {
+            addTypeInfo(path, typeInfo);
+        }
+        return typeInfo;
     }
 
     public void setByteCodeInspector(ByteCodeInspector byteCodeInspector) {
@@ -141,48 +184,19 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     @Override
     public void preload(String thePackage) {
         LOGGER.info("Start pre-loading {}", thePackage);
-        int inspected = loadAllTypesInPackage(thePackage, null);
-        LOGGER.info("... inspected {} paths", inspected);
-    }
-
-    private int loadAllTypesInPackage(String thePackage, SourceSet sourceSetOfRequest) {
-        AtomicInteger inspected = new AtomicInteger();
-        classPath.expandLeaves(thePackage, ".class", (expansion, _) -> {
-            // we'll loop over the primary types only
-            if (!expansion[expansion.length - 1].contains("$")) {
-                String fqn = fqnOfClassFile(thePackage, expansion);
-                assert acceptFQN(fqn);
-                TypeInfo typeInfo = get(fqn, sourceSetOfRequest);
-                if (typeInfo == null) {
-                    SourceFile path = fqnToPath(fqn, ".class");
-                    if (path != null) {
-                        synchronized (byteCodeInspector) {
-                            byteCodeInspector.get().load(path);
-                        }
-                        inspected.incrementAndGet();
-                    }
-                }
-            }
-        });
-        return inspected.get();
-    }
-
-    private String fqnOfClassFile(String prefix, String[] suffixes) {
-        String combined = prefix + "." + String.join(".", suffixes).replaceAll("\\$", ".");
-        if (combined.endsWith(".class")) {
-            return combined.substring(0, combined.length() - 6);
-        }
-        throw new UnsupportedOperationException("Expected .class or .java file, but got " + combined);
+        List<TypeInfo> types = primaryTypesInPackageEnsureLoaded(thePackage, null);
+        LOGGER.info("... loaded {} types", types.size());
     }
 
     @Override
-    public List<TypeInfo> typesLoaded(Boolean external) {
+    public List<TypeInfo> typesLoaded(Boolean compiled) {
         List<TypeInfo> result = new ArrayList<>();
         trieLock.readLock().lock();
         try {
             typeTrie.visit(new String[]{}, (_, list) -> list.stream()
-                    .filter(ti -> external == null || external == ti.compilationUnit().externalLibrary())
-                    .forEach(result::add));
+                    .filter(candidate -> candidate.typeInfo != null
+                                         && (compiled == null || compiled == candidate.isCompiled()))
+                    .forEach(candidate -> result.add(candidate.typeInfo)));
             return result.stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
         } finally {
             trieLock.readLock().unlock();
@@ -191,49 +205,42 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public List<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
-        ensureAllTypesInThisPackageHaveBeenLoaded(packageName, sourceSetOfRequest);
-        String[] packages = packageName.split("\\.");
         List<TypeInfo> result = new ArrayList<>();
         trieLock.readLock().lock();
         try {
-            typeTrie.visit(packages, (_, list) -> list.stream()
-                    .filter(ti -> ti.isPrimaryType() && packageName.equals(ti.packageName()))
-                    .forEach(result::add));
-            return List.copyOf(result);
+            Set<SourceSet> sourceSets = sourceSetOfRequest == null ? null
+                    : sourceSetOfRequest.recursiveDependenciesSameExternal();
+            String[] parts = packageName.split("\\.");
+            typeTrie.visitLeaves(parts, (_, candidates) -> {
+                Candidate candidate;
+                if (candidates.isEmpty()) {
+                    candidate = null;
+                } else if (sourceSetOfRequest == null) {
+                    candidate = candidates.getFirst();// we cannot know
+                } else {
+                    candidate = candidates.stream().filter(c -> sourceSets.contains(c.sourceFile.sourceSet()))
+                            .findFirst().orElse(null);
+                }
+                if (candidate != null) {
+                    TypeInfo typeInfo;
+                    if (candidate.typeInfo != null) {
+                        typeInfo = candidate.typeInfo;
+                    } else {
+                        typeInfo = load(candidate.sourceFile);
+                    }
+                    if (typeInfo != null) {
+                        result.add(typeInfo);
+                    }
+                }
+            });
         } finally {
             trieLock.readLock().unlock();
         }
-    }
-
-    private void ensureAllTypesInThisPackageHaveBeenLoaded(String packageName, SourceSet sourceSetOfRequest) {
-        allTypesLock.readLock().lock();
-        try {
-            if (!allTypesInThisPackageHaveBeenLoaded.contains(packageName)) {
-                allTypesLock.readLock().unlock();
-                allTypesLock.writeLock().lock();
-                try {
-                    try {
-                        if (allTypesInThisPackageHaveBeenLoaded.add(packageName)) {
-                            loadAllTypesInPackage(packageName, sourceSetOfRequest);
-                        }
-                    } finally {
-                        allTypesLock.readLock().lock();
-                    }
-                } finally {
-                    allTypesLock.writeLock().unlock();
-                }
-            }
-        } finally {
-            allTypesLock.readLock().unlock();
-        }
+        return result;
     }
 
     @Override
     public boolean packageContainsTypes(String packageName) {
-        AtomicBoolean found = new AtomicBoolean();
-        classPath.expandLeaves(packageName, ".class", (_, l) -> {
-            if (!l.isEmpty()) found.set(true);
-        });
-        return found.get();
+        return !primaryTypesInPackageEnsureLoaded(packageName, null).isEmpty();
     }
 }

@@ -153,7 +153,8 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         tp2.builder().commit();
         context.add(tp2);
 
-        compiledTypesManager.add(typeInfo);
+        // FIXME
+        compiledTypesManager.addTypeInfo(null, typeInfo);
 
         String signature = "<K:Ljava/lang/Object;>Ljdk/internal/loader/AbstractClassLoaderValue<Ljdk/internal/loader/AbstractClassLoaderValue<TCLV;TV;>.Sub<TK;>;TV;>;";
         ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, context, typeInfo, byteCodeInspector,
