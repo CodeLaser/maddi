@@ -168,6 +168,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
             Resources sourcePath = assembleSourcePath(inputConfiguration.workingDirectory(),
                     inputConfiguration.sourceSets(), initializationProblems);
+            ctm.addToTrie(sourcePath, true); // FIXME parameterize, add to input configuration?
             List<SourceFile> sourceFiles = computeSourceURIs(sourcePath);
             this.sourceFiles = new HashMap<>();
             sourceFiles.forEach(sf -> this.sourceFiles.put(sf, List.of()));
@@ -450,7 +451,7 @@ public class JavaInspectorImpl implements JavaInspector {
         ScanCompilationUnit.ScanResult sr = scanCompilationUnit.scan(sourceFile.uri(), sourceFile.sourceSet(),
                 sourceFile.fingerPrint(), parser.get().CompilationUnit(),
                 parseOptions.detailedSources());
-        sr.sourceTypes().forEach((_, typeInfo) -> compiledTypesManager.add(typeInfo));
+        sr.sourceTypes().forEach((_, typeInfo) -> compiledTypesManager.addTypeInfo(sourceFile, typeInfo));
         CompilationUnit cu = sr.compilationUnit();
 
         ParseCompilationUnit parseCompilationUnit = new ParseCompilationUnit(rootContext);
@@ -658,7 +659,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         if (infoMap != null) {
             Set<TypeInfo> rewired = infoMap.rewireAll();
-            rewired.forEach(compiledTypesManager::add);
+           // FIXME rewiring, implement!! rewired.forEach(compiledTypesManager::set);
             rewired.forEach(summary::addType);
         }
 
@@ -758,7 +759,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 ? MD5FingerPrint.compute(sourceCode) : sourceFile.fingerPrint();
         ScanCompilationUnit.ScanResult sr = scanCompilationUnit.scan(sourceFile.uri(), sourceSet, fingerPrint, cu,
                 addDetailedSources);
-        sr.sourceTypes().values().forEach(compiledTypesManager::add);
+        sr.sourceTypes().values().forEach(ti -> compiledTypesManager.addTypeInfo(sourceFile, ti));
         CompilationUnit compilationUnit = sr.compilationUnit();
         return new SourceFileCompilationUnit(sourceFile, cu, compilationUnit);
     }

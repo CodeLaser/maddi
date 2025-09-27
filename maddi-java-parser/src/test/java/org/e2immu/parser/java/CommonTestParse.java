@@ -11,6 +11,7 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
+import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.impl.parser.ContextImpl;
 import org.e2immu.language.inspection.impl.parser.ResolverImpl;
 import org.e2immu.language.inspection.impl.parser.SummaryImpl;
@@ -94,7 +95,7 @@ public class CommonTestParse {
         }
 
         @Override
-        public void add(TypeInfo typeInfo) {
+        public void addTypeInfo(SourceFile sf, TypeInfo typeInfo) {
             typeMap.put(typeInfo.fullyQualifiedName(), typeInfo);
         }
 
