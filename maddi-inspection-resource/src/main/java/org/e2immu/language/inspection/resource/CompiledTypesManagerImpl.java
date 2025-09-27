@@ -2,7 +2,6 @@ package org.e2immu.language.inspection.resource;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.parser.TypeMap;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.Resources;
@@ -22,7 +21,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     private final Resources classPath;
     private final SetOnce<ByteCodeInspector> byteCodeInspector = new SetOnce<>();
-    private final TypeMap typeMap;
+    private final Map<String, TypeInfo> mapSingleTypeForFQN = new HashMap<>();
     private final ReentrantReadWriteLock trieLock = new ReentrantReadWriteLock();
     private final Trie<TypeInfo> typeTrie = new Trie<>();
     private final Set<String> allTypesInThisPackageHaveBeenLoaded = new HashSet<>();
@@ -30,7 +29,6 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     public CompiledTypesManagerImpl(Resources classPath) {
         this.classPath = classPath;
-        this.typeMap = new TypeMapImpl();
     }
 
     @Override
@@ -38,13 +36,23 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         return classPath;
     }
 
+    /*
+    add to trie.
+    if this is the first one with this FQN: add to map.
+    if there is already one with this FQN: remove from map again.
+     */
     @Override
     public void add(TypeInfo typeInfo) {
-        typeMap.put(typeInfo);
         trieLock.writeLock().lock();
         try {
-            String[] parts = typeInfo.fullyQualifiedName().split("\\.");
-            typeTrie.add(parts, typeInfo);
+            String fullyQualifiedName = typeInfo.fullyQualifiedName();
+            String[] parts = fullyQualifiedName.split("\\.");
+            List<TypeInfo> types = typeTrie.add(parts, typeInfo);
+            if (types.size() == 1) {
+                mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+            } else if (types.size() == 2) {
+                mapSingleTypeForFQN.remove(fullyQualifiedName);
+            }
         } finally {
             trieLock.writeLock().unlock();
         }
@@ -57,12 +65,30 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        return typeMap.get(fullyQualifiedName, sourceSetOfRequest);
+        trieLock.readLock().lock();
+        try {
+            TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
+            if (single != null) return single;
+            String[] parts = fullyQualifiedName.split("\\.");
+            List<TypeInfo> types = typeTrie.get(parts);
+            if (types == null || types.isEmpty()) return null;
+            assert types.size() > 1 : "Otherwise, would have been in mapSingleTypeForFQN";
+            return chooseAccordingToSourceSet(types, sourceSetOfRequest);
+        } finally {
+            trieLock.readLock().unlock();
+        }
+    }
+
+    private TypeInfo chooseAccordingToSourceSet(List<TypeInfo> types, SourceSet sourceSetOfRequest) {
+        Set<SourceSet> sourceSets = sourceSetOfRequest.recursiveDependenciesSameExternal();
+        return types.stream()
+                .filter(ti -> sourceSets.contains(ti.compilationUnit().sourceSet()))
+                .findFirst().orElse(null);
     }
 
     @Override
     public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        TypeInfo typeInfo = typeMap.get(fullyQualifiedName, sourceSetOfRequest);
+        TypeInfo typeInfo = get(fullyQualifiedName, sourceSetOfRequest);
         if (typeInfo != null) return typeInfo;
 
         SourceFile path = fqnToPath(fullyQualifiedName, ".class");
@@ -74,6 +100,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public void ensureInspection(TypeInfo typeInfo) {
+        assert typeInfo.compilationUnit().externalLibrary();
         if (!typeInfo.hasBeenInspected()) {
             SourceFile sourceFile = fqnToPath(typeInfo.fullyQualifiedName(), ".class");
             if (sourceFile == null) {
@@ -87,7 +114,16 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public void invalidate(TypeInfo typeInfo) {
-        typeMap.invalidate(typeInfo);
+        assert !typeInfo.compilationUnit().externalLibrary();
+        trieLock.writeLock().lock();
+        try {
+            String fullyQualifiedName = typeInfo.fullyQualifiedName();
+            String[] parts = fullyQualifiedName.split("\\.");
+            typeTrie.removeByIdentity(parts, typeInfo);
+            mapSingleTypeForFQN.remove(fullyQualifiedName);
+        } finally {
+            trieLock.writeLock().unlock();
+        }
     }
 
     @Override
@@ -116,13 +152,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             if (!expansion[expansion.length - 1].contains("$")) {
                 String fqn = fqnOfClassFile(thePackage, expansion);
                 assert acceptFQN(fqn);
-                trieLock.readLock().lock();
-                TypeInfo typeInfo;
-                try {
-                    typeInfo = typeMap.get(fqn, sourceSetOfRequest);
-                } finally {
-                    trieLock.readLock().unlock();
-                }
+                TypeInfo typeInfo = get(fqn, sourceSetOfRequest);
                 if (typeInfo == null) {
                     SourceFile path = fqnToPath(fqn, ".class");
                     if (path != null) {
@@ -147,14 +177,16 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public List<TypeInfo> typesLoaded(Boolean external) {
-        return typeMap.typeStream()
-                .filter(ti -> external == null || external == ti.compilationUnit().externalLibrary())
-                .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
-    }
-
-    @Override
-    public List<TypeInfo> primaryTypesInPackage(String fullyQualified) {
-        return typeMap.primaryTypesInPackage(fullyQualified);
+        List<TypeInfo> result = new ArrayList<>();
+        trieLock.readLock().lock();
+        try {
+            typeTrie.visit(new String[]{}, (_, list) -> list.stream()
+                    .filter(ti -> external == null || external == ti.compilationUnit().externalLibrary())
+                    .forEach(result::add));
+            return result.stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
+        } finally {
+            trieLock.readLock().unlock();
+        }
     }
 
     @Override

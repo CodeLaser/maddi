@@ -7,7 +7,6 @@ import org.e2immu.language.inspection.api.resource.Resources;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.CompiledTypesManagerImpl;
 import org.e2immu.language.inspection.resource.ResourcesImpl;
-import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.junit.jupiter.api.BeforeAll;
 
 import java.io.IOException;
