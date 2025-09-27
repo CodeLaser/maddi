@@ -117,6 +117,11 @@ public class Trie<T> extends Freezable {
         }
     }
 
+    public void removeByIdentity(String[] parts, T data) {
+        TrieNode<T> node = ensureTrieNode(parts);
+        node.data.removeIf(t -> t == data);
+    }
+
     @Modified
     public T addIfNodeDataEmpty(String[] strings, T data) {
         TrieNode<T> node = ensureTrieNode(strings);
@@ -128,9 +133,10 @@ public class Trie<T> extends Freezable {
     }
 
     @Modified
-    public void add(String[] strings, T data) {
+    public List<T> add(String[] strings, T data) {
         TrieNode<T> node = ensureTrieNode(strings);
         node.data.add(Objects.requireNonNull(data));
+        return node.data;
     }
 
     private TrieNode<T> ensureTrieNode(String[] strings) {

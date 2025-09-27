@@ -24,7 +24,6 @@ import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.resource.CompiledTypesManagerImpl;
 import org.e2immu.language.inspection.resource.ResourcesImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.parser.java.*;
 import org.e2immu.support.Either;
 import org.e2immu.util.internal.graph.util.TimedLogger;
@@ -783,7 +782,7 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest) {
         return runtime.newImportComputer(minStar, packageName ->
-                TypeContextImpl.typesInSamePackage(packageName, compiledTypesManager, sourceSetOfRequest));
+                compiledTypesManager.primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest));
     }
 
     @Override

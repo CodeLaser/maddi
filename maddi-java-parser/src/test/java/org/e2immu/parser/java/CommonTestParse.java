@@ -10,23 +10,19 @@ import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.api.parser.TypeMap;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.impl.parser.ContextImpl;
 import org.e2immu.language.inspection.impl.parser.ResolverImpl;
 import org.e2immu.language.inspection.impl.parser.SummaryImpl;
 import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.language.inspection.resource.TypeMapImpl;
 import org.e2immu.support.Either;
 import org.parsers.java.JavaParser;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 
 
@@ -91,32 +87,27 @@ public class CommonTestParse {
     protected final TypeInfo annotationClass;
 
     class CompiledTypesManagerImpl implements CompiledTypesManager {
-        private final TypeMap typeMap;
+        private final Map<String, TypeInfo> typeMap;
 
-        CompiledTypesManagerImpl(TypeMap typeMap) {
+        CompiledTypesManagerImpl(Map<String, TypeInfo> typeMap) {
             this.typeMap = typeMap;
         }
 
         @Override
         public void add(TypeInfo typeInfo) {
-            typeMap.put(typeInfo);
+            typeMap.put(typeInfo.fullyQualifiedName(), typeInfo);
         }
 
         @Override
         public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-            TypeInfo inMap = typeMap.get(fullyQualifiedName, sourceSetOfRequest);
+            TypeInfo inMap = typeMap.get(fullyQualifiedName);
             if (inMap != null) return inMap;
             return predefined(fullyQualifiedName, false);
         }
 
         @Override
         public List<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
-            return List.of();
-        }
-
-        @Override
-        public List<TypeInfo> primaryTypesInPackage(String fullyQualified) {
-            return typeMap.primaryTypesInPackage(fullyQualified);
+            return typeMap.values().stream().filter(ti -> packageName.equals(ti.packageName())).toList();
         }
     }
 
@@ -365,8 +356,8 @@ public class CommonTestParse {
             p.setParserTolerant(false);
             return p;
         };
-        TypeMapImpl stm = new TypeMapImpl();
-        CompiledTypesManager compiledTypesManager = new CompiledTypesManagerImpl(stm);
+        Map<String, TypeInfo> typeMap = new HashMap<>();
+        CompiledTypesManager compiledTypesManager = new CompiledTypesManagerImpl(typeMap);
         TypeContextImpl typeContext = new TypeContextImpl(runtime, compiledTypesManager, false);
         Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
         Context rootContext = ContextImpl.create(runtime, compiledTypesManager, failFastSummary, resolver, typeContext,
@@ -378,7 +369,7 @@ public class CommonTestParse {
         try {
             ScanCompilationUnit.ScanResult sr = scanCompilationUnit.scan(new URI("input"),
                     sourceSet, null, parser.get().CompilationUnit(), detailedSources);
-            stm.putAll(sr.sourceTypes());
+            typeMap.putAll(sr.sourceTypes());
             cu = sr.compilationUnit();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);

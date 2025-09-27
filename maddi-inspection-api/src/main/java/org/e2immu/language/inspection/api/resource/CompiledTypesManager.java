@@ -59,8 +59,6 @@ public interface CompiledTypesManager {
         throw new UnsupportedOperationException();
     }
 
-    default List<TypeInfo> primaryTypesInPackage(String fullyQualified) { throw new UnsupportedOperationException(); }
-
     default List<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
         throw new UnsupportedOperationException();
     }

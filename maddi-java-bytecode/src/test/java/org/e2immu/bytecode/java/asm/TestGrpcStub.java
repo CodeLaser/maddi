@@ -77,7 +77,7 @@ public class TestGrpcStub {
                 true, false, false, false, false, Set.of(), Set.of(set73));
 
         TypeInfo clientCalls73 = ctm.getOrLoad("io.grpc.stub.ClientCalls", want73);
-        //FIXME assertNotEquals(clientCalls67, clientCalls73);
+        assertNotEquals(clientCalls67, clientCalls73);
     }
 
     private static SourceSet addJar(String name, Resources cp) throws IOException {
