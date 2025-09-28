@@ -82,6 +82,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             return;
         }
         List<Candidate> types = typeTrie.get(parts);
+        if (types == null) {
+            // FIXME this is not an elegant solution for "additional sources to be tested"
+            LOGGER.warn("Unknown source file: {}", sourceFile);
+            types = typeTrie.add(parts, new Candidate(sourceFile, typeInfo));
+        }
         assert types != null : "We should know about " + fullyQualifiedName;
         if (types.size() == 1) {
             mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
@@ -226,17 +231,20 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         List<TypeInfo> result = new ArrayList<>();
         trieLock.readLock().lock();
         try {
-            Set<SourceSet> sourceSets = sourceSetOfRequest == null ? null
-                    : sourceSetOfRequest.recursiveDependenciesSameExternal();
+            // we ignore "test" situations where there are no actual dependencies (simplified test setup in
+            // inspection/integration)
+            boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.dependencies().isEmpty();
+            Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
             String[] parts = packageName.split("\\.");
-            typeTrie.visit(parts, (ps, candidates) -> {
+            typeTrie.visitDoNotRecurse(parts, candidates -> {
                 Candidate candidate;
-                if (candidates.isEmpty()) {
+                if (candidates == null || candidates.isEmpty()) {
                     candidate = null;
-                } else if (sourceSetOfRequest == null) {
+                } else if (ignoreRequest) {
                     candidate = candidates.getFirst();// we cannot know
                 } else {
-                    candidate = candidates.stream().filter(c -> sourceSets.contains(c.sourceFile.sourceSet()))
+                    candidate = candidates.stream()
+                            .filter(c -> sourceSets.contains(c.sourceFile.sourceSet()))
                             .findFirst().orElse(null);
                 }
                 if (candidate != null) {

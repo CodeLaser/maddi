@@ -187,16 +187,14 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public Set<SourceSet> recursiveDependenciesSameExternal() {
         Set<SourceSet> result = new HashSet<>();
-        recursiveDependencies(result, externalLibrary);
+        recursiveDependencies(result);
         return result;
     }
 
-    void recursiveDependencies(Set<SourceSet> result, boolean external) {
-        if (this.externalLibrary == external && result.add(this)) {
-            if (dependencies != null) {
-                for (SourceSet set : dependencies) {
-                    ((SourceSetImpl) set).recursiveDependencies(result, external);
-                }
+    void recursiveDependencies(Set<SourceSet> result) {
+        if (result.add(this) && dependencies != null) {
+            for (SourceSet set : dependencies) {
+                ((SourceSetImpl) set).recursiveDependencies(result);
             }
         }
     }
