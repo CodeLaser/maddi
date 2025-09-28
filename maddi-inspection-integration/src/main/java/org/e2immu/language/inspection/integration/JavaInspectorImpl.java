@@ -424,7 +424,7 @@ public class JavaInspectorImpl implements JavaInspector {
             SourceSet dummy = new SourceSetImpl("test", List.of(), URI.create("file:doesNotExist"),
                     StandardCharsets.UTF_8, false, false, false, false,
                     false, Set.of(), Set.of());
-            SourceFile sourceFile = new SourceFile(null, uri, dummy, MD5FingerPrint.compute(input));
+            SourceFile sourceFile = new SourceFile("input", uri, dummy, MD5FingerPrint.compute(input));
             return internalParseSingleInput(failFastSummary, sourceFile, () -> {
                 JavaParser parser = new JavaParser(input);
                 parser.setParserTolerant(false);

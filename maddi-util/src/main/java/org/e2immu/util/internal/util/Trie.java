@@ -21,6 +21,7 @@ import org.e2immu.support.Freezable;
 
 import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /*
 to make this class @ImmutableContainer, we have to secure the get() methods
@@ -79,6 +80,15 @@ public class Trie<T> extends Freezable {
                     visitor.accept(new String[]{s}, n.data);
                 }
             });
+        }
+    }
+
+    @Modified
+    public void visitDoNotRecurse(String[] strings, Consumer<List<T>> visitor) {
+        TrieNode<T> node = goTo(strings);
+        if (node == null) return;
+        if (node.map != null) {
+            node.map.values().forEach(n -> visitor.accept(n.data));
         }
     }
 
