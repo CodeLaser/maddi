@@ -158,13 +158,12 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
 
     @Override
     public TypeInfo inspectFromPath(TypeInfo typeInfoOrNull,
-                                    SourceFile path,
+                                    SourceFile sourceFile,
                                     TypeParameterContext typeParameterContext,
                                     LoadMode loadMode) {
-        assert path != null && path.path().endsWith(".class");
         String fqn;
         if (typeInfoOrNull != null) fqn = typeInfoOrNull.fullyQualifiedName();
-        else fqn = pathToFqn(path.stripDotClass());
+        else fqn = sourceFile.fullyQualifiedName();
         TypeData td = localTypeMapGet(fqn);
         if (td != null && (td.status == Status.DONE || td.status == Status.BEING_LOADED)) {
             return td.typeInfo; // already working on it
@@ -172,7 +171,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         TypeInfo typeInfo;
         if (td == null) {
             // may trigger recursion
-            typeInfo = typeInfoOrNull != null ? typeInfoOrNull : createTypeInfo(path, fqn, typeParameterContext, loadMode);
+            typeInfo = typeInfoOrNull != null ? typeInfoOrNull : createTypeInfo(sourceFile, fqn, typeParameterContext, loadMode);
         } else {
             typeInfo = td.typeInfo;
             assert typeInfoOrNull == null || typeInfoOrNull == typeInfo;
@@ -189,7 +188,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         // jump to the typeInfo object in inMapAgain
         TypeInfo typeInfo1 = inMapAgain != null ? inMapAgain.typeInfo : typeInfo;
         if (loadMode == LoadMode.NOW) {
-            return continueLoadByteCodeAndStartASM(path, fqn, typeInfo1, typeParameterContext);
+            return continueLoadByteCodeAndStartASM(sourceFile, fqn, typeInfo1, typeParameterContext);
         }
         Status newStatus = loadMode == LoadMode.QUEUE ? Status.IN_QUEUE : Status.ON_DEMAND;
         if (td == null || newStatus != td.status) {
@@ -198,7 +197,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         if (!typeInfo1.haveOnDemandInspection()) {
             typeInfo1.setOnDemandInspection(ti -> {
                 synchronized (ByteCodeInspectorImpl.this) {
-                    inspectFromPath(ti, path, typeParameterContext, LoadMode.NOW);
+                    inspectFromPath(ti, sourceFile, typeParameterContext, LoadMode.NOW);
                 }
             });
         }
