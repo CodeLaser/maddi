@@ -163,7 +163,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
                                     LoadMode loadMode) {
         String fqn;
         if (typeInfoOrNull != null) fqn = typeInfoOrNull.fullyQualifiedName();
-        else fqn = sourceFile.fullyQualifiedName();
+        else fqn = sourceFile.fullyQualifiedNameFromPath();
         TypeData td = localTypeMapGet(fqn);
         if (td != null && (td.status == Status.DONE || td.status == Status.BEING_LOADED)) {
             return td.typeInfo; // already working on it

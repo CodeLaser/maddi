@@ -157,7 +157,7 @@ public class ResourcesImpl implements Resources {
                 String[] split = je.getRealName().split("/");
                 try {
                     URI fullUrl = new URL(url, je.getRealName()).toURI();
-                    data.add(split, jarSourceFile.withURI(fullUrl));
+                    data.add(split, jarSourceFile.withPathURI(realName, fullUrl));
                     entries.incrementAndGet();
                 } catch (MalformedURLException | URISyntaxException e) {
                     throw new RuntimeException(e);
@@ -208,7 +208,7 @@ public class ResourcesImpl implements Resources {
                     String[] split = realName.split("/");
                     try {
                         URL fullUrl = new URL(jmodUrl, je.getRealName());
-                        data.add(split, jmodSourceFile.withURI(fullUrl.toURI()));
+                        data.add(split, jmodSourceFile.withPathURI(realName, fullUrl.toURI()));
                         entries.incrementAndGet();
                     } catch (MalformedURLException | URISyntaxException e) {
                         throw new RuntimeException(e);
@@ -319,17 +319,18 @@ public class ResourcesImpl implements Resources {
             File[] files = dir.listFiles(f -> !f.isDirectory());
             if (files != null) { // 1.0.3
                 String pathString = dirRelativeToBase.getPath(); // 1.0.3.0.0
+                String pathString1 = pathString.startsWith("/") ? pathString.substring(1) : pathString;
                 String[] packageParts =
-                        pathString.isEmpty() ? new String[0] :
-                                (pathString.startsWith("/") ? pathString.substring(1) : pathString)
-                                        .split("/");
+                        pathString.isEmpty() ? new String[0] : pathString1.split("/");
                 for (File file : files) {
                     String name = file.getName();
                     String packageName = String.join(".", packageParts);
                     LOGGER.debug("File {} in package {}", name, packageName);
                     if (sourceSet.acceptSource(packageName, Resources.stripNameSuffix(name))) {
+                        String pathName = pathString1.isEmpty() ? name : pathString1 + "/" + name;
+                        SourceFile sourceFile = new SourceFile(pathName, file.toURI(), sourceSet, null);
                         data.add(Stream.concat(Arrays.stream(packageParts), Stream.of(name)).toArray(String[]::new),
-                                new SourceFile(file.getPath(), file.toURI(), sourceSet, null));
+                                sourceFile);
                     }
                 }
             }
