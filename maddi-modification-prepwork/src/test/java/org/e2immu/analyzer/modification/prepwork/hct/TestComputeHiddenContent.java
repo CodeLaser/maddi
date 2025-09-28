@@ -36,7 +36,7 @@ public class TestComputeHiddenContent extends CommonTest {
         Codec.EncodedValue ev = hctList.encode(codec, context);
         assertEquals("{\"0\":\"PE:0\",\"E\":true,\"M\":1}", ev.toString());
 
-        TypeInfo mapEntry = javaInspector.compiledTypesManager().get(Map.Entry.class);
+        TypeInfo mapEntry = javaInspector.compiledTypesManager().getOrLoad(Map.Entry.class);
         HiddenContentTypes hctMapEntry = chc.compute(mapEntry);
         assertEquals("0=K, 1=V", hctMapEntry.detailedSortedTypes());
 

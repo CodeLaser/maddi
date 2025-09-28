@@ -114,9 +114,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         if (candidates == null || candidates.isEmpty()) return null;
         assert !(candidates.size() == 1 && candidates.getFirst().typeInfo != null)
                 : "Otherwise, would have been in mapSingleTypeForFQN: " + fullyQualifiedName;
-        Set<SourceSet> sourceSets = sourceSetOfRequest == null ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
+        boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
+        Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
         return candidates.stream()
-                .filter(candidate -> sourceSetOfRequest == null || sourceSets.contains(candidate.sourceFile.sourceSet()))
+                .filter(candidate -> ignoreRequest || sourceSets.contains(candidate.sourceFile.sourceSet()))
                 .findFirst().orElse(null);
     }
 
@@ -151,9 +152,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         } finally {
             trieLock.readLock().unlock();
         }
-        synchronized (byteCodeInspector) {
-            return byteCodeInspector.get().load(candidate.sourceFile);
-        }
+        return load(candidate.sourceFile);
     }
 
     @Override
@@ -233,7 +232,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         try {
             // we ignore "test" situations where there are no actual dependencies (simplified test setup in
             // inspection/integration)
-            boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.dependencies().isEmpty();
+            boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
             Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
             String[] parts = packageName.split("\\.");
             typeTrie.visitDoNotRecurse(parts, candidates -> {
@@ -272,5 +271,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     @Override
     public boolean packageContainsTypes(String packageName) {
         return !primaryTypesInPackageEnsureLoaded(packageName, null).isEmpty();
+    }
+
+    public List<SourceFile> sourceFiles(String path) {
+        String[] parts = path.split("/");
+        List<Candidate> candidates = typeTrie.get(parts);
+        return candidates == null ? null : candidates.stream().map(c -> c.sourceFile).toList();
     }
 }

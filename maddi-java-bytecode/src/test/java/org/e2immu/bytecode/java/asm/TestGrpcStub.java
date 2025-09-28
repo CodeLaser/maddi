@@ -43,6 +43,11 @@ public class TestGrpcStub {
         SourceSet set73 = addJar("grpc-stub-1.73.0", cp);
 
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(cp);
+        List<SourceFile> sourceFiles = ctm.sourceFiles("io/grpc/stub/ClientCalls");
+        assertEquals(2, sourceFiles.size());
+        assertEquals(set67, sourceFiles.getFirst().sourceSet());
+        assertEquals(set73, sourceFiles.getLast().sourceSet());
+
         Runtime runtime = new RuntimeImpl();
         ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, true,
                 true);

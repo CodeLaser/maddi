@@ -25,6 +25,10 @@ import java.util.*;
 
 public class PredefinedImpl implements Predefined {
     private static final SourceSet PREDEFINED_SOURCESET = new SourceSet() {
+        @Override
+        public boolean inTestSetup() {
+            return true;
+        }
 
         @Override
         public Charset sourceEncoding() {

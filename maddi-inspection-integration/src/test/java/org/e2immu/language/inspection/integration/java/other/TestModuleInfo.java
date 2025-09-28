@@ -76,7 +76,7 @@ public class TestModuleInfo {
         TypeContextImpl typeContext = new TypeContextImpl(runtime, javaInspector.compiledTypesManager(), true);
         Context rootContext = ContextImpl.create(runtime, javaInspector.compiledTypesManager(), summary, resolver,
                 typeContext, true, false);
-        SourceFile sourceFile = new SourceFile("/", URI.create("file:/"), null, null);
+        SourceFile sourceFile = new SourceFile("ignore", URI.create("file:ignore"), null, null);
         ModuleInfo moduleInfo = javaInspector.parseModuleInfo(MODULE_INFO, sourceFile, rootContext);
 
         List<ModuleInfo.Requires> requires = moduleInfo.requires();
