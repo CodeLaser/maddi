@@ -17,6 +17,7 @@ package org.e2immu.bytecode.java.asm;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.parser.TypeContext;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.slf4j.Logger;
@@ -30,10 +31,10 @@ public class MyFieldVisitor extends FieldVisitor {
     private final FieldInfo fieldInfo;
     private final Runtime runtime;
     private final LocalTypeMap localTypeMap;
-    private final TypeParameterContext typeContext;
+    private final ByteCodeInspector.TypeParameterContext typeContext;
 
     public MyFieldVisitor(Runtime runtime,
-                          TypeParameterContext typeContext,
+                          ByteCodeInspector.TypeParameterContext typeContext,
                           FieldInfo fieldInfo,
                           LocalTypeMap localTypeMap) {
         super(ASM9);

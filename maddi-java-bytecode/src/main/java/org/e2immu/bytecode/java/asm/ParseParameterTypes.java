@@ -16,6 +16,7 @@ package org.e2immu.bytecode.java.asm;
 
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +31,7 @@ record ParseParameterTypes(Runtime runtime,
                   List<ParameterizedType> exceptionTypes) {
     }
 
-    Result parseParameterTypesOfMethod(TypeParameterContext typeContext, String signature, boolean createStub) {
+    Result parseParameterTypesOfMethod(ByteCodeInspector.TypeParameterContext typeContext, String signature, boolean createStub) {
         List<ParameterizedType> parameterTypes = new ArrayList<>();
         List<ParameterizedType> exceptionTypes = new ArrayList<>();
         ParameterizedType returnType = null;

@@ -15,6 +15,10 @@ import java.util.Set;
  */
 public interface CompiledTypesManager {
 
+    interface TypeData {
+
+    }
+
     default Resources classPath() {
         throw new UnsupportedOperationException();
     }

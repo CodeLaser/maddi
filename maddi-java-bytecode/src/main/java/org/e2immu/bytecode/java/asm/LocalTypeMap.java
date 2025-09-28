@@ -3,6 +3,7 @@ package org.e2immu.bytecode.java.asm;
 
 import org.e2immu.annotation.Modified;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 
 import java.util.List;
@@ -42,7 +43,7 @@ public interface LocalTypeMap {
     // do actual byte code inspection
     @Modified
     TypeInfo inspectFromPath(TypeInfo typeInfo, SourceFile name,
-                             TypeParameterContext typeParameterContext, LoadMode loadMode);
+                             ByteCodeInspector.TypeParameterContext typeParameterContext, LoadMode loadMode);
 
     boolean allowCreationOfStubTypes();
 

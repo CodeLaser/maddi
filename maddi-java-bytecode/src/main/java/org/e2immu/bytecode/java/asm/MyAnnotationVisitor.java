@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.objectweb.asm.AnnotationVisitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +40,7 @@ public class MyAnnotationVisitor<T extends Info.Builder<? extends Info.Builder<T
     private final AnnotationExpression.Builder expressionBuilder;
 
     public MyAnnotationVisitor(Runtime runtime,
-                               TypeParameterContext typeParameterContext,
+                               ByteCodeInspector.TypeParameterContext typeParameterContext,
                                LocalTypeMap localTypeMap,
                                String descriptor,
                                Info.Builder<T> inspectionBuilder) {

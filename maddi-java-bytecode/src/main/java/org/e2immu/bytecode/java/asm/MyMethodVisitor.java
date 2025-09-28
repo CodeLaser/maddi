@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -140,7 +141,7 @@ public class MyMethodVisitor extends MethodVisitor {
     }
 
     private final Runtime runtime;
-    private final TypeParameterContext typeContext;
+    private final ByteCodeInspector.TypeParameterContext typeContext;
     private final LocalTypeMap localTypeMap;
     private final TypeInfo typeInfo;
     private final MethodInfo methodInfo;
@@ -152,7 +153,7 @@ public class MyMethodVisitor extends MethodVisitor {
     private final Set<String> isFinalSet = new HashSet<>();
 
     public MyMethodVisitor(Runtime runtime,
-                           TypeParameterContext typeContext,
+                           ByteCodeInspector.TypeParameterContext typeContext,
                            LocalTypeMap localTypeMap,
                            TypeInfo typeInfo,
                            MethodInfo methodInfo,
