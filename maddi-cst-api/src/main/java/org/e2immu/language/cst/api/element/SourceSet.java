@@ -15,6 +15,8 @@ import java.util.Set;
  */
 public interface SourceSet {
 
+    boolean inTestSetup();
+
     Charset sourceEncoding();
 
     String name();

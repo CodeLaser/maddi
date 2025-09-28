@@ -56,11 +56,12 @@ public class TestPreloadJavaBase {
         assertTrue(list2.hasBeenInspected());
 
         TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
-        assertNotNull(map);
+        assertNull(map);
+        /* in re-implementation end of September 2025
         TypeInfo entry = map.findSubType("Entry");
         assertTrue(entry.hasBeenInspected());
         assertFalse(entry.haveOnDemandInspection());
-
+         */
         TypeInfo string = javaInspector.compiledTypesManager().get(String.class);
         assertFalse(string.isExtensible());
 
@@ -105,8 +106,11 @@ public class TestPreloadJavaBase {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
         javaInspector.preload("java.net.http");
+        TypeInfo httpResponse = javaInspector.compiledTypesManager().get("java.net.http.HttpResponse",
+                null);
+        assertNotNull(httpResponse);
         TypeInfo bodyHandler = javaInspector.compiledTypesManager().get("java.net.http.HttpResponse.BodyHandler",
                 null);
-        assertNotNull(bodyHandler);
+        assertNull(bodyHandler);
     }
 }

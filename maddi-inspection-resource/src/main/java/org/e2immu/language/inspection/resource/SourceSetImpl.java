@@ -51,6 +51,11 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
+    public boolean inTestSetup() {
+        return dependencies.isEmpty() || uri.getScheme().equals("test-protocol");
+    }
+
+    @Override
     public boolean equals(Object object) {
         if (!(object instanceof SourceSetImpl sourceSet)) return false;
         return Objects.equals(name, sourceSet.name);
