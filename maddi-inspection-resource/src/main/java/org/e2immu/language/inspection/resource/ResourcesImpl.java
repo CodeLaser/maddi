@@ -276,24 +276,16 @@ public class ResourcesImpl implements Resources {
     }
 
     @Override
-    public byte[] loadBytes(String path) {
-        String[] prefix = path.split("/");
-        List<SourceFile> sourceFiles = data.get(prefix);
-        if (sourceFiles != null) {
-            for (SourceFile sourceFile : sourceFiles) {
-                URI absolute = relativeToAbsolute(sourceFile.uri());
-                try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                     InputStream inputStream = absolute.toURL().openStream()) {
-                    inputStream.transferTo(byteArrayOutputStream);
-                    return byteArrayOutputStream.toByteArray();
-                } catch (IOException e) {
-                    throw new ResourceAccessException("URI = " + absolute + ", from " + workingDirectory
-                                                      + " and " + sourceFile.uri() + ", Cannot read? " + e.getMessage());
-                }
-            }
+    public byte[] loadBytes(URI uri) {
+        URI absolute = relativeToAbsolute(uri);
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+             InputStream inputStream = absolute.toURL().openStream()) {
+            inputStream.transferTo(byteArrayOutputStream);
+            return byteArrayOutputStream.toByteArray();
+        } catch (IOException e) {
+            throw new ResourceAccessException("URI = " + absolute + ", from " + workingDirectory
+                                              + " and " + uri + ", Cannot read? " + e.getMessage());
         }
-        LOGGER.debug("{} not found in class path", path);
-        return null;
     }
 
     @Override

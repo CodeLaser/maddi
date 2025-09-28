@@ -2,11 +2,9 @@ package org.e2immu.bytecode.java.asm;
 
 
 import org.e2immu.annotation.Modified;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
-import org.e2immu.language.inspection.api.resource.SourceFile;
-
-import java.util.List;
+import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 
 /*
 In the local type map, types are either
@@ -16,11 +14,10 @@ public interface LocalTypeMap {
     // delegate to CTM
     boolean acceptFQN(String fqName);
 
-    // get from local map, null otherwise
-    TypeInfo getLocal(String fqName);
-
     // delegate to CTM
     String pathToFqn(String name);
+
+    CompiledTypesManager.TypeData typeData(String fqn, SourceSet sourceSet);
 
     /*
     now = directly
@@ -34,7 +31,7 @@ public interface LocalTypeMap {
     actual loading
      */
     @Modified
-    TypeInfo getOrCreate(String fqn, LoadMode loadMode);
+    TypeInfo getOrCreate(String fqn, SourceSet sourceSetOfRequest, LoadMode loadMode);
 
     /*
      Call from My*Visitor back to ByteCodeInspector, as part of a `inspectFromPath(Source)` call.
@@ -42,8 +39,7 @@ public interface LocalTypeMap {
 
     // do actual byte code inspection
     @Modified
-    TypeInfo inspectFromPath(TypeInfo typeInfo, SourceFile name,
-                             ByteCodeInspector.TypeParameterContext typeParameterContext, LoadMode loadMode);
+    TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, LoadMode loadMode);
 
     boolean allowCreationOfStubTypes();
 

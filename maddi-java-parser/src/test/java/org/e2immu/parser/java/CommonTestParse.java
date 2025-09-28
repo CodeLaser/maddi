@@ -100,6 +100,11 @@ public class CommonTestParse {
         }
 
         @Override
+        public TypeData typeDataOrNull(String fqn, SourceSet sourceSet) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
             TypeInfo inMap = typeMap.get(fullyQualifiedName);
             if (inMap != null) return inMap;

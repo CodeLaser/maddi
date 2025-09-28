@@ -15,8 +15,21 @@ import java.util.Set;
  */
 public interface CompiledTypesManager {
 
+    TypeData typeDataOrNull(String fqn, SourceSet sourceSet);
+
     interface TypeData {
 
+        boolean isCompiled();
+
+        void setTypeInfo(TypeInfo typeInfo);
+
+        SourceFile sourceFile();
+
+        TypeInfo typeInfo();
+
+        ByteCodeInspector.Data byteCodeInspectorData();
+
+        void updateByteCodeInspectorData(ByteCodeInspector.Data data);
     }
 
     default Resources classPath() {
@@ -44,11 +57,7 @@ public interface CompiledTypesManager {
     }
 
     default void invalidate(TypeInfo typeInfo) { throw new UnsupportedOperationException(); }
-
-    default TypeInfo load(SourceFile path) {
-        throw new UnsupportedOperationException();
-    }
-
+    
     default boolean packageContainsTypes(String packageName) {
         throw new UnsupportedOperationException();
     }
