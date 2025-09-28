@@ -2,14 +2,18 @@ package org.e2immu.language.inspection.api.resource;
 
 import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.util.internal.util.StringUtil;
 
 import java.net.URI;
 import java.util.Objects;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.e2immu.util.internal.util.StringUtil.replaceSlashDollar;
+
 public record SourceFile(String path, URI uri, SourceSet sourceSet, FingerPrint fingerPrint) {
+
+    public SourceFile {
+        assert !path.startsWith("/");
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -19,15 +23,28 @@ public record SourceFile(String path, URI uri, SourceSet sourceSet, FingerPrint 
 
     private static final Pattern PATTERN = Pattern.compile(".+(!/|:)(.+)\\.class");
 
-    public String fullyQualifiedName() {
-        String uri  = uri().toString();
-        // go bock until !/ or :
-        Matcher m = PATTERN.matcher(uri);
-        if(m.matches()) {
-            String pathWithoutDotClass = m.group(2);
-            return StringUtil.replaceSlashDollar(pathWithoutDotClass);
+    public String fullyQualifiedNameFromPath() {
+        assert !path.startsWith("/");
+        if (path.endsWith(".java")) {
+            String stripDotJava = Resources.stripNameSuffix(path);
+            return stripDotJava.replaceAll("[/$]", ".");
         }
-        throw new UnsupportedOperationException();
+        String stripDotClass = Resources.stripDotClass(path);
+        if (stripDotClass.endsWith("$")) {
+            // scala
+            return stripDotClass.substring(0, stripDotClass.length() - 1).replaceAll("[/$]", ".") + ".object";
+        }
+        if (stripDotClass.endsWith("$class")) {
+            // scala; keep it as is, ending in .class
+            return stripDotClass.replaceAll("[/$]", ".");
+        }
+        int anon;
+        if ((anon = stripDotClass.indexOf("$$anonfun")) > 0) {
+            // scala
+            String random = Integer.toString(Math.abs(stripDotClass.hashCode()));
+            return stripDotClass.substring(0, anon).replaceAll("[/$]", ".") + "." + random;
+        }
+        return replaceSlashDollar(stripDotClass);
     }
 
     @Override
@@ -54,7 +71,7 @@ public record SourceFile(String path, URI uri, SourceSet sourceSet, FingerPrint 
         return new SourceFile(path, uri, sourceSet, fingerPrint);
     }
 
-    public SourceFile withURI(URI uri) {
+    public SourceFile withPathURI(String path, URI uri) {
         return new SourceFile(path, uri, sourceSet, fingerPrint);
     }
 }

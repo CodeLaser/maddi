@@ -51,19 +51,13 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     // clearExisting == true when you want the sources to override any same FQN type in the class path
     public void addToTrie(Resources resources, boolean removeCompiled) {
         resources.visit(new String[0], (parts, sourceFiles) -> {
-            List<Candidate> candidates = sourceFiles.stream()
-                    .filter(sf -> {
-                        String uriString = sf.uri().toString();
-                        return uriString.endsWith(".class") || uriString.endsWith(".java");
-                    })
-                    .map(Candidate::new).toList();
-            if (!candidates.isEmpty()) {
-                int last = parts.length - 1;
-                int dot = parts[last].lastIndexOf('.');
-                assert dot > 0;
-                parts[last] = parts[last].substring(0, dot);
-                List<Candidate> all = typeTrie.addAll(parts, candidates);
-                if (removeCompiled) all.removeIf(Candidate::isCompiled);
+            for (SourceFile sourceFile : sourceFiles) {
+                if (sourceFile.path().endsWith(".class") || sourceFile.path().endsWith(".java")) {
+                    Candidate candidate = new Candidate(sourceFile);
+                    String fqn = sourceFile.fullyQualifiedNameFromPath();
+                    String[] newParts = fqn.split("\\.");
+                    typeTrie.add(newParts, candidate);
+                }
             }
         });
     }
@@ -75,30 +69,25 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
-        trieLock.writeLock().lock();
-        try {
-            String fullyQualifiedName = typeInfo.fullyQualifiedName();
-            String[] parts = fullyQualifiedName.split("\\.");
-            if (!typeInfo.isPrimaryType() && !typeInfo.compilationUnit().externalLibrary()) {
-                // we cannot know beforehand the subtypes of a source type. those we should add now
-                List<Candidate> subTypes = typeTrie.add(parts, new Candidate(sourceFile, typeInfo));
-                if (subTypes.size() == 1) {
-                    mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
-                } else if (subTypes.size() == 2) {
-                    mapSingleTypeForFQN.remove(fullyQualifiedName); // multiple
-                }
-                return;
-            }
-            List<Candidate> types = typeTrie.get(parts);
-            assert types != null : "We should know about " + fullyQualifiedName;
-            if (types.size() == 1) {
+        String fullyQualifiedName = typeInfo.fullyQualifiedName();
+        String[] parts = fullyQualifiedName.split("\\.");
+        if (!typeInfo.isPrimaryType() && !typeInfo.compilationUnit().externalLibrary()) {
+            // we cannot know beforehand the subtypes of a source type. those we should add now
+            List<Candidate> subTypes = typeTrie.add(parts, new Candidate(sourceFile, typeInfo));
+            if (subTypes.size() == 1) {
                 mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+            } else if (subTypes.size() == 2) {
+                mapSingleTypeForFQN.remove(fullyQualifiedName); // multiple
             }
-            Candidate candidate = types.stream().filter(c -> c.sourceFile.equals(sourceFile)).findFirst().orElseThrow();
-            candidate.typeInfo = typeInfo;
-        } finally {
-            trieLock.writeLock().unlock();
+            return;
         }
+        List<Candidate> types = typeTrie.get(parts);
+        assert types != null : "We should know about " + fullyQualifiedName;
+        if (types.size() == 1) {
+            mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+        }
+        Candidate candidate = types.stream().filter(c -> c.sourceFile.equals(sourceFile)).findFirst().orElseThrow();
+        candidate.typeInfo = typeInfo;
     }
 
     @Override
@@ -118,7 +107,8 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         String[] parts = fullyQualifiedName.split("\\.");
         List<Candidate> candidates = typeTrie.get(parts);
         if (candidates == null || candidates.isEmpty()) return null;
-       // assert candidates.size() > 1 : "Otherwise, would have been in mapSingleTypeForFQN";
+        assert !(candidates.size() == 1 && candidates.getFirst().typeInfo != null)
+                : "Otherwise, would have been in mapSingleTypeForFQN: " + fullyQualifiedName;
         Set<SourceSet> sourceSets = sourceSetOfRequest == null ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
         return candidates.stream()
                 .filter(candidate -> sourceSetOfRequest == null || sourceSets.contains(candidate.sourceFile.sourceSet()))
@@ -239,7 +229,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             Set<SourceSet> sourceSets = sourceSetOfRequest == null ? null
                     : sourceSetOfRequest.recursiveDependenciesSameExternal();
             String[] parts = packageName.split("\\.");
-            typeTrie.visitLeaves(parts, (_, candidates) -> {
+            typeTrie.visit(parts, (ps, candidates) -> {
                 Candidate candidate;
                 if (candidates.isEmpty()) {
                     candidate = null;
