@@ -70,7 +70,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
         String signature = "<K:Ljava/lang/Enum<TK;>;V:Ljava/lang/Object;>Ljava/util/AbstractMap<TK;TV;>;Ljava/io/Serializable;Ljava/lang/Cloneable;";
         ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime,
-                new ByteCodeInspectorImpl.TypeParameterContextImpl(), typeInfo,
+                new ByteCodeInspectorImpl.TypeParameterContextImpl(), null, typeInfo,
                 byteCodeInspector, LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter,
                 typeInfo.builder()::addOrSetTypeParameter, signature, false);
         int expected = "<K:Ljava/lang/Enum<TK;>;V:Ljava/lang/Object;>".length();
@@ -159,7 +159,8 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         compiledTypesManager.addTypeInfo(null, typeInfo);
 
         String signature = "<K:Ljava/lang/Object;>Ljdk/internal/loader/AbstractClassLoaderValue<Ljdk/internal/loader/AbstractClassLoaderValue<TCLV;TV;>.Sub<TK;>;TV;>;";
-        ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, context, typeInfo, byteCodeInspector,
+        ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, context, null,
+                typeInfo, byteCodeInspector,
                 LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter,
                 typeInfo.builder()::addOrSetTypeParameter, signature, false);
 
@@ -193,7 +194,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         MethodInfo.Builder mib = mi.builder();
         String signature = "<C::Ljava/util/concurrent/Callable<TT;>;T:Ljava/lang/Object;>(TC;[Ljava/lang/String;)TT;";
         ByteCodeInspector.TypeParameterContext typeContext = new ByteCodeInspectorImpl.TypeParameterContextImpl();
-        ParseGenerics<MethodInfo> parseGenerics = new ParseGenerics<>(runtime, typeContext, mi,
+        ParseGenerics<MethodInfo> parseGenerics = new ParseGenerics<>(runtime, typeContext, null, mi,
                 byteCodeInspector, LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter,
                 mib::addTypeParameter, signature, false);
         parseGenerics.goReturnEndPos();
@@ -204,7 +205,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
     public void testParse() {
         ByteCodeInspector.TypeParameterContext typeContext = new ByteCodeInspectorImpl.TypeParameterContextImpl();
         ParseParameterTypes ppt = new ParseParameterTypes(runtime, byteCodeInspector, LocalTypeMap.LoadMode.NOW);
-        ParseParameterTypes.Result r = ppt.parseParameterTypesOfMethod(typeContext,
+        ParseParameterTypes.Result r = ppt.parseParameterTypesOfMethod(typeContext, null,
                 "(Ljava/lang/CharSequence;[Ljava/lang/CharSequence;)Ljava/lang/String;", false);
         assertNotNull(r);
         assertEquals(2, r.parameterTypes().size());

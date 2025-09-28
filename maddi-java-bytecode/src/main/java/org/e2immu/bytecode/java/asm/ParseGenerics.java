@@ -14,10 +14,11 @@
 
 package org.e2immu.bytecode.java.asm;
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import java.util.function.Consumer;
 class ParseGenerics<T extends Info> {
     private final Runtime runtime;
     private final ByteCodeInspector.TypeParameterContext typeParameterContext;
+    private final SourceSet sourceSetOfRequest;
     private final T owner;
     private final LocalTypeMap localTypeMap;
     private final LocalTypeMap.LoadMode loadMode;
@@ -51,6 +53,7 @@ class ParseGenerics<T extends Info> {
 
     ParseGenerics(Runtime runtime,
                   ByteCodeInspector.TypeParameterContext typeParameterContext,
+                  SourceSet sourceSetOfRequest,
                   T owner,
                   LocalTypeMap localTypeMap,
                   LocalTypeMap.LoadMode loadMode,
@@ -67,6 +70,7 @@ class ParseGenerics<T extends Info> {
         this.newTypeParameterCreator = newTypeParameterCreator;
         this.addTypeParameter = addTypeParameter;
         this.createStub = createStub;
+        this.sourceSetOfRequest = sourceSetOfRequest;
     }
 
     int goReturnEndPos() {
@@ -118,8 +122,8 @@ class ParseGenerics<T extends Info> {
             if (charAfterColon == COLON) { // this can happen max. once, when there is no class extension, but there are interface extensions
                 end++;
             }
-            ParameterizedTypeFactory.Result result = ParameterizedTypeFactory.from(runtime, typeParameterContext,
-                    localTypeMap, loadMode, signature.substring(end + 1), createStub);
+            ParameterizedTypeFactory.Result result = ParameterizedTypeFactory.from(runtime, sourceSetOfRequest,
+                    typeParameterContext, localTypeMap, loadMode, signature.substring(end + 1), createStub);
             if (result == null) return true; // unable to load type
             if (result.parameterizedType.typeInfo() == null
                 || !result.parameterizedType.typeInfo().isJavaLangObject()) {

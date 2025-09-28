@@ -6,9 +6,9 @@ import org.e2immu.language.cst.api.info.TypeParameter;
 
 public interface ByteCodeInspector {
 
-    TypeInfo load(SourceFile sourceFile);
+    Data defaultData();
 
-    TypeInfo load(SourceFile sourceFile, TypeInfo typeInfo);
+    TypeInfo load(CompiledTypesManager.TypeData typeData);
 
     interface TypeParameterContext {
         void add(TypeParameter typeParameter);
@@ -27,8 +27,6 @@ public interface ByteCodeInspector {
 
     interface Data {
         Status status();
-
-        void setStatus(Status status);
 
         TypeParameterContext typeParameterContext();
     }

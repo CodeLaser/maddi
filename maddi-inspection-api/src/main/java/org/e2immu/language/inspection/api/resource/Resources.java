@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
@@ -54,5 +55,5 @@ public interface Resources {
 
     SourceFile fqnToPath(String fqn, String s);
 
-    byte[] loadBytes(String path);
+    byte[] loadBytes(URI uri);
 }

@@ -168,7 +168,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
             Resources sourcePath = assembleSourcePath(inputConfiguration.workingDirectory(),
                     inputConfiguration.sourceSets(), initializationProblems);
-            ctm.addToTrie(sourcePath, true); // FIXME parameterize, add to input configuration?
+            ctm.addToTrie(sourcePath, false);
             List<SourceFile> sourceFiles = computeSourceURIs(sourcePath);
             this.sourceFiles = new HashMap<>();
             sourceFiles.forEach(sf -> this.sourceFiles.put(sf, List.of()));

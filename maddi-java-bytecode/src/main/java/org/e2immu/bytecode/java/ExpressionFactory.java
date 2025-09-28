@@ -15,6 +15,7 @@
 package org.e2immu.bytecode.java;
 
 import org.e2immu.bytecode.java.asm.LocalTypeMap;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.ArrayInitializer;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.TypeExpression;
@@ -29,21 +30,21 @@ import java.util.List;
 
 public class ExpressionFactory {
 
-    public static Expression from(Runtime runtime, LocalTypeMap localTypeMap, Object value) {
+    public static Expression from(Runtime runtime, SourceSet sourceSetOfRequest, LocalTypeMap localTypeMap, Object value) {
         return switch (value) {
             case null -> runtime.nullConstant();
             case String s -> runtime.newStringConstant(s);
             case int[] intArray -> parseArray(runtime, runtime.intParameterizedType(), Arrays.stream(intArray)
-                    .mapToObj(i -> from(runtime, localTypeMap, i)).toList());
+                    .mapToObj(i -> from(runtime, sourceSetOfRequest, localTypeMap, i)).toList());
             case Integer i -> runtime.newInt(i);
             case Short s -> runtime.newShort(s);
             case long[] longArray -> parseArray(runtime, runtime.longParameterizedType(), Arrays.stream(longArray)
-                    .mapToObj(i -> from(runtime, localTypeMap, i)).toList());
+                    .mapToObj(i -> from(runtime, sourceSetOfRequest, localTypeMap, i)).toList());
             case Long l -> runtime.newLong(l);
             case Byte b -> runtime.newByte(b);
             case double[] doubleArray ->
                     parseArray(runtime, runtime.doubleParameterizedType(), Arrays.stream(doubleArray)
-                            .mapToObj(i -> from(runtime, localTypeMap, i)).toList());
+                            .mapToObj(i -> from(runtime, sourceSetOfRequest, localTypeMap, i)).toList());
             case Double d -> runtime.newDouble(d);
             case Float f -> runtime.newFloat(f);
             case char[] chars -> parseCharArray(runtime, chars);
@@ -51,8 +52,8 @@ public class ExpressionFactory {
             case Boolean b -> runtime.newBoolean(b);
             case Object[] objectArray ->
                     parseArray(runtime, runtime.objectParameterizedType(), Arrays.stream(objectArray)
-                            .map(i -> from(runtime, localTypeMap, i)).toList());
-            case Type t -> parseTypeExpression(runtime, localTypeMap, t);
+                            .map(i -> from(runtime, sourceSetOfRequest, localTypeMap, i)).toList());
+            case Type t -> parseTypeExpression(runtime, sourceSetOfRequest, localTypeMap, t);
             default -> runtime.newEmptyExpression(); // will trigger a warning
         };
     }
@@ -69,7 +70,10 @@ public class ExpressionFactory {
         return builder.setExpressions(expressions).build();
     }
 
-    private static TypeExpression parseTypeExpression(Runtime runtime, LocalTypeMap localTypeMap, Type t) {
+    private static TypeExpression parseTypeExpression(Runtime runtime,
+                                                      SourceSet sourceSetOfRequest,
+                                                      LocalTypeMap localTypeMap,
+                                                      Type t) {
         ParameterizedType parameterizedType =
                 switch (t.getClassName()) {
                     case "boolean" -> runtime.booleanParameterizedType();
@@ -82,7 +86,8 @@ public class ExpressionFactory {
                     case "short" -> runtime.shortParameterizedType();
                     case "void" -> runtime.voidParameterizedType();
                     default -> {
-                        TypeInfo ti = localTypeMap.getOrCreate(t.getClassName(), LocalTypeMap.LoadMode.TRIGGER);
+                        TypeInfo ti = localTypeMap.getOrCreate(t.getClassName(), sourceSetOfRequest,
+                                LocalTypeMap.LoadMode.TRIGGER);
                         if (ti == null) {
                             throw new UnsupportedOperationException("Cannot load type " + t.getClassName());
                         }

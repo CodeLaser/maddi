@@ -178,13 +178,16 @@ public class MyMethodVisitor extends MethodVisitor {
     @Override
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
         LOGGER.debug("Have method annotation {} {}", descriptor, visible);
-        return new MyAnnotationVisitor<>(runtime, typeContext, localTypeMap, descriptor, methodInfo.builder());
+        return new MyAnnotationVisitor<>(runtime, methodInfo.typeInfo().compilationUnit().sourceSet(),
+                typeContext, localTypeMap, descriptor, methodInfo.builder());
     }
 
     @Override
     public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
         LOGGER.debug("Have parameter annotation {} on parameter {}", descriptor, parameter);
-        return new MyAnnotationVisitor<>(runtime, typeContext, localTypeMap, descriptor,
+        return new MyAnnotationVisitor<>(runtime,
+                methodInfo.typeInfo().compilationUnit().sourceSet(),
+                typeContext, localTypeMap, descriptor,
                 parameterInspectionBuilders[parameter]);
     }
 
