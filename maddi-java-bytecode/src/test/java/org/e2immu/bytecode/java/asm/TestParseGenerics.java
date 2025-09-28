@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.output.QualificationImpl;
 import org.e2immu.language.cst.impl.type.DiamondEnum;
 import org.e2immu.language.cst.impl.type.ParameterizedTypePrinter;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collection;
@@ -68,7 +69,8 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         TypeInfo typeInfo = runtime.newTypeInfo(cu, "EnumMap");
 
         String signature = "<K:Ljava/lang/Enum<TK;>;V:Ljava/lang/Object;>Ljava/util/AbstractMap<TK;TV;>;Ljava/io/Serializable;Ljava/lang/Cloneable;";
-        ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, new TypeParameterContext(), typeInfo,
+        ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime,
+                new ByteCodeInspectorImpl.TypeParameterContextImpl(), typeInfo,
                 byteCodeInspector, LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter,
                 typeInfo.builder()::addOrSetTypeParameter, signature, false);
         int expected = "<K:Ljava/lang/Enum<TK;>;V:Ljava/lang/Object;>".length();
@@ -142,7 +144,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
     @Test
     public void testGenericsAbstractClassLoaderValue() {
-        TypeParameterContext context = new TypeParameterContext();
+        ByteCodeInspector.TypeParameterContext context = new ByteCodeInspectorImpl.TypeParameterContextImpl();
         TypeInfo typeInfo = runtime.newTypeInfo(runtime.newCompilationUnitBuilder().
                 setPackageName("jdk.internal.loader")
                 .build(), "AbstractClassLoaderValue");
@@ -190,7 +192,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         MethodInfo mi = runtime.newMethod(typeInfo, "call", runtime.methodTypeStaticMethod());
         MethodInfo.Builder mib = mi.builder();
         String signature = "<C::Ljava/util/concurrent/Callable<TT;>;T:Ljava/lang/Object;>(TC;[Ljava/lang/String;)TT;";
-        TypeParameterContext typeContext = new TypeParameterContext();
+        ByteCodeInspector.TypeParameterContext typeContext = new ByteCodeInspectorImpl.TypeParameterContextImpl();
         ParseGenerics<MethodInfo> parseGenerics = new ParseGenerics<>(runtime, typeContext, mi,
                 byteCodeInspector, LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter,
                 mib::addTypeParameter, signature, false);
@@ -200,7 +202,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
     @Test
     public void testParse() {
-        TypeParameterContext typeContext = new TypeParameterContext();
+        ByteCodeInspector.TypeParameterContext typeContext = new ByteCodeInspectorImpl.TypeParameterContextImpl();
         ParseParameterTypes ppt = new ParseParameterTypes(runtime, byteCodeInspector, LocalTypeMap.LoadMode.NOW);
         ParseParameterTypes.Result r = ppt.parseParameterTypesOfMethod(typeContext,
                 "(Ljava/lang/CharSequence;[Ljava/lang/CharSequence;)Ljava/lang/String;", false);

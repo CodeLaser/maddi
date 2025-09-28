@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.api.util.GetSetUtil;
 import org.objectweb.asm.*;
@@ -35,7 +36,7 @@ import static org.objectweb.asm.Opcodes.ASM9;
 
 public class MyClassVisitor extends ClassVisitor {
     private static final Logger LOGGER = LoggerFactory.getLogger(MyClassVisitor.class);
-    private final TypeParameterContext typeParameterContext;
+    private final ByteCodeInspector.TypeParameterContext typeParameterContext;
     private final LocalTypeMap localTypeMap;
     private final SourceFile pathAndURI;
     private final Runtime runtime;
@@ -47,7 +48,7 @@ public class MyClassVisitor extends ClassVisitor {
     public MyClassVisitor(Runtime runtime,
                           TypeInfo typeInfo,
                           LocalTypeMap localTypeMap,
-                          TypeParameterContext typeParameterContext,
+                          ByteCodeInspector.TypeParameterContext typeParameterContext,
                           SourceFile pathAndURI) {
         super(ASM9);
         this.runtime = runtime;
@@ -280,7 +281,7 @@ public class MyClassVisitor extends ClassVisitor {
 
         boolean lastParameterIsVarargs = (access & Opcodes.ACC_VARARGS) != 0;
 
-        TypeParameterContext methodContext = typeParameterContext.newContext();
+        ByteCodeInspector.TypeParameterContext methodContext = typeParameterContext.newContext();
 
         String signatureOrDescription = signature != null ? signature : descriptor;
         if (signatureOrDescription.startsWith("<")) {
@@ -360,7 +361,7 @@ public class MyClassVisitor extends ClassVisitor {
                     TypeInfo subType = runtime.newTypeInfo(enclosing, innerName);
                     checkTypeFlags(access, subType.builder());
                     SourceFile newPath = pathAndURI.withPath(name + ".class");
-                    TypeParameterContext newTypeParameterContext = typeParameterContext.newContext();
+                    ByteCodeInspector.TypeParameterContext newTypeParameterContext = typeParameterContext.newContext();
                     localTypeMap.inspectFromPath(subType, newPath, newTypeParameterContext, LocalTypeMap.LoadMode.NOW);
                     if (stepDown) {
                         currentTypeBuilder.addSubType(subType);

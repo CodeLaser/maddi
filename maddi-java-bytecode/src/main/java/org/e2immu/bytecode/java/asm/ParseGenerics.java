@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +26,7 @@ import java.util.function.Consumer;
 
 class ParseGenerics<T extends Info> {
     private final Runtime runtime;
-    private final TypeParameterContext typeParameterContext;
+    private final ByteCodeInspector.TypeParameterContext typeParameterContext;
     private final T owner;
     private final LocalTypeMap localTypeMap;
     private final LocalTypeMap.LoadMode loadMode;
@@ -49,7 +50,7 @@ class ParseGenerics<T extends Info> {
     }
 
     ParseGenerics(Runtime runtime,
-                  TypeParameterContext typeParameterContext,
+                  ByteCodeInspector.TypeParameterContext typeParameterContext,
                   T owner,
                   LocalTypeMap localTypeMap,
                   LocalTypeMap.LoadMode loadMode,

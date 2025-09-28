@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.Wildcard;
+import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +56,7 @@ public class ParameterizedTypeFactory {
     }
 
     static Result from(Runtime runtime,
-                       TypeParameterContext typeContext,
+                       ByteCodeInspector.TypeParameterContext typeContext,
                        LocalTypeMap findType,
                        LocalTypeMap.LoadMode loadMode,
                        String signature,
@@ -128,7 +129,7 @@ public class ParameterizedTypeFactory {
     // shows that we need to make this recursive or get the generics in a while loop
 
     private static Result normalType(Runtime runtime,
-                                     TypeParameterContext typeContext,
+                                     ByteCodeInspector.TypeParameterContext typeContext,
                                      LocalTypeMap localTypeMap,
                                      LocalTypeMap.LoadMode loadMode,
                                      String signature,
@@ -224,7 +225,7 @@ public class ParameterizedTypeFactory {
     }
 
     private static IterativeParsing iterativelyParseTypes(Runtime runtime,
-                                                          TypeParameterContext typeContext,
+                                                          ByteCodeInspector.TypeParameterContext typeContext,
                                                           LocalTypeMap findType,
                                                           LocalTypeMap.LoadMode loadMode,
                                                           String signature,

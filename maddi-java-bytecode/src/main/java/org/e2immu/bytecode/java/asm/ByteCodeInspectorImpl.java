@@ -17,6 +17,7 @@ package org.e2immu.bytecode.java.asm;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
@@ -28,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -40,14 +42,38 @@ Its access is protected in CompiledTypesManager
 public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
     private static final Logger LOGGER = LoggerFactory.getLogger(ByteCodeInspectorImpl.class);
 
-    private enum Status {
-        BEING_LOADED, DONE, IN_QUEUE, ON_DEMAND
-    }
-
     private record TypeData(TypeInfo typeInfo,
                             Status status,
                             TypeParameterContext typeParameterContext) {
     }
+
+    static class TypeParameterContextImpl implements ByteCodeInspector.TypeParameterContext {
+        private final Map<String, TypeParameter> map = new HashMap<>();
+        private final ByteCodeInspector.TypeParameterContext parent;
+
+        public TypeParameterContextImpl() {
+            this(null);
+        }
+
+        private TypeParameterContextImpl(ByteCodeInspector.TypeParameterContext parent) {
+            this.parent = parent;
+        }
+
+        public void add(TypeParameter typeParameter) {
+            map.put(typeParameter.simpleName(), typeParameter);
+        }
+
+        public TypeParameter get(String typeParamName) {
+            TypeParameter here = map.get(typeParamName);
+            if (here != null || parent == null) return here;
+            return parent.get(typeParamName);
+        }
+
+        public ByteCodeInspector.TypeParameterContext newContext() {
+            return new TypeParameterContextImpl(this);
+        }
+    }
+
 
     private final ReentrantReadWriteLock localTypeMapLock = new ReentrantReadWriteLock();
     private final Map<String, TypeData> localTypeMap = new LinkedHashMap<>();
@@ -65,7 +91,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         this.allowCreationOfStubTypes = allowCreationOfStubTypes;
         for (TypeInfo ti : runtime.predefinedObjects()) {
             localTypeMap.put(ti.fullyQualifiedName(),
-                    new TypeData(ti, Status.IN_QUEUE, new TypeParameterContext()));
+                    new TypeData(ti, Status.IN_QUEUE, new TypeParameterContextImpl()));
         }
         if (computeFingerPrints) {
             try {
@@ -119,7 +145,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             typeParameterContext = local.typeParameterContext;
         } else {
             typeInfo = null;
-            typeParameterContext = new TypeParameterContext();
+            typeParameterContext = new TypeParameterContextImpl();
         }
         SourceFile source = typeInfo == null
                 ? compiledTypesManager.classPath().fqnToPath(fqn, ".class")
@@ -145,7 +171,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             typeParameterContext = local.typeParameterContext;
         } else {
             typeInfo = knownType;
-            typeParameterContext = new TypeParameterContext();
+            typeParameterContext = new TypeParameterContextImpl();
         }
         assert sourceFile != null;
         return inspectFromPath(typeInfo, sourceFile, typeParameterContext, LoadMode.NOW);
@@ -153,7 +179,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
 
     @Override
     public TypeInfo load(SourceFile sourceFile) {
-        return inspectFromPath(null, sourceFile, new TypeParameterContext(), LoadMode.NOW);
+        return inspectFromPath(null, sourceFile, new TypeParameterContextImpl(), LoadMode.NOW);
     }
 
     @Override
@@ -192,7 +218,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         }
         Status newStatus = loadMode == LoadMode.QUEUE ? Status.IN_QUEUE : Status.ON_DEMAND;
         if (td == null || newStatus != td.status) {
-            localTypeMapPut(fqn, new TypeData(typeInfo1, newStatus, new TypeParameterContext()));
+            localTypeMapPut(fqn, new TypeData(typeInfo1, newStatus, new TypeParameterContextImpl()));
         }
         if (!typeInfo1.haveOnDemandInspection()) {
             typeInfo1.setOnDemandInspection(ti -> {

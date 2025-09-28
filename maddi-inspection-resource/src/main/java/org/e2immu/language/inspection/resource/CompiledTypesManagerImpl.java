@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.resource;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.Resources;
@@ -17,15 +18,37 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final Logger LOGGER = LoggerFactory.getLogger(CompiledTypesManagerImpl.class);
 
-    private static class Candidate {
+    private static class ByteCodeInspectorDataImpl implements ByteCodeInspector.Data {
+        private ByteCodeInspector.Status status = ByteCodeInspector.Status.ON_DEMAND;
+        private ByteCodeInspector.TypeParameterContext typeParameterContext;
+
+        @Override
+        public ByteCodeInspector.Status status() {
+            return status;
+        }
+
+        @Override
+        public void setStatus(ByteCodeInspector.Status status) {
+            this.status = status;
+        }
+
+        @Override
+        public ByteCodeInspector.TypeParameterContext typeParameterContext() {
+            return typeParameterContext;
+        }
+    }
+
+    private static class TypeDataImpl implements CompiledTypesManager.TypeData {
         private final SourceFile sourceFile;
         private TypeInfo typeInfo;
 
-        Candidate(SourceFile sourceFile) {
+        private ByteCodeInspector.Data byteCodeInspectorData;
+
+        TypeDataImpl(SourceFile sourceFile) {
             this.sourceFile = sourceFile;
         }
 
-        public Candidate(SourceFile sourceFile, TypeInfo typeInfo) {
+        public TypeDataImpl(SourceFile sourceFile, TypeInfo typeInfo) {
             this.sourceFile = sourceFile;
             this.typeInfo = typeInfo;
         }
@@ -33,13 +56,15 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         boolean isCompiled() {
             return sourceFile.sourceSet().externalLibrary();
         }
+
+
     }
 
     private final Resources classPath;
     private final SetOnce<ByteCodeInspector> byteCodeInspector = new SetOnce<>();
     private final Map<String, TypeInfo> mapSingleTypeForFQN = new HashMap<>();
     private final ReentrantReadWriteLock trieLock = new ReentrantReadWriteLock();
-    private final Trie<Candidate> typeTrie = new Trie<>();
+    private final Trie<TypeDataImpl> typeTrie = new Trie<>();
 
     public CompiledTypesManagerImpl(Resources classPath) {
         this.classPath = classPath;
@@ -53,10 +78,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         resources.visit(new String[0], (parts, sourceFiles) -> {
             for (SourceFile sourceFile : sourceFiles) {
                 if (sourceFile.path().endsWith(".class") || sourceFile.path().endsWith(".java")) {
-                    Candidate candidate = new Candidate(sourceFile);
+                    TypeDataImpl typeData = new TypeDataImpl(sourceFile);
                     String fqn = sourceFile.fullyQualifiedNameFromPath();
                     String[] newParts = fqn.split("\\.");
-                    typeTrie.add(newParts, candidate);
+                    typeTrie.add(newParts, typeData);
                 }
             }
         });
@@ -73,7 +98,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         String[] parts = fullyQualifiedName.split("\\.");
         if (!typeInfo.isPrimaryType() && !typeInfo.compilationUnit().externalLibrary()) {
             // we cannot know beforehand the subtypes of a source type. those we should add now
-            List<Candidate> subTypes = typeTrie.add(parts, new Candidate(sourceFile, typeInfo));
+            List<TypeDataImpl> subTypes = typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
             if (subTypes.size() == 1) {
                 mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
             } else if (subTypes.size() == 2) {
@@ -81,18 +106,18 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             }
             return;
         }
-        List<Candidate> types = typeTrie.get(parts);
+        List<TypeDataImpl> types = typeTrie.get(parts);
         if (types == null) {
             // FIXME this is not an elegant solution for "additional sources to be tested"
             LOGGER.warn("Unknown source file: {}", sourceFile);
-            types = typeTrie.add(parts, new Candidate(sourceFile, typeInfo));
+            types = typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
         }
         assert types != null : "We should know about " + fullyQualifiedName;
         if (types.size() == 1) {
             mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
         }
-        Candidate candidate = types.stream().filter(c -> c.sourceFile.equals(sourceFile)).findFirst().orElseThrow();
-        candidate.typeInfo = typeInfo;
+        TypeDataImpl typeData = types.stream().filter(c -> c.sourceFile.equals(sourceFile)).findFirst().orElseThrow();
+        typeData.typeInfo = typeInfo;
     }
 
     @Override
@@ -101,68 +126,68 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
             if (single != null) return single;
-            Candidate candidate = candidateOrNull(fullyQualifiedName, sourceSetOfRequest);
-            return candidate == null ? null : candidate.typeInfo;
+            TypeDataImpl typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest);
+            return typeData == null ? null : typeData.typeInfo;
         } finally {
             trieLock.readLock().unlock();
         }
     }
 
-    private Candidate candidateOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+    private TypeDataImpl typeDataOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
         String[] parts = fullyQualifiedName.split("\\.");
-        List<Candidate> candidates = typeTrie.get(parts);
-        if (candidates == null || candidates.isEmpty()) return null;
-        assert !(candidates.size() == 1 && candidates.getFirst().typeInfo != null)
+        List<TypeDataImpl> typeDataList = typeTrie.get(parts);
+        if (typeDataList == null || typeDataList.isEmpty()) return null;
+        assert !(typeDataList.size() == 1 && typeDataList.getFirst().typeInfo != null)
                 : "Otherwise, would have been in mapSingleTypeForFQN: " + fullyQualifiedName;
         boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
         Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
-        return candidates.stream()
-                .filter(candidate -> ignoreRequest || sourceSets.contains(candidate.sourceFile.sourceSet()))
+        return typeDataList.stream()
+                .filter(typeData -> ignoreRequest || sourceSets.contains(typeData.sourceFile.sourceSet()))
                 .findFirst().orElse(null);
     }
 
-    private Candidate candidateExactSourceSet(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+    private TypeDataImpl typeDataExactSourceSet(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
         String[] parts = fullyQualifiedName.split("\\.");
-        List<Candidate> candidates = typeTrie.get(parts);
-        Candidate candidate;
-        if (candidates != null) {
-            candidate = candidates.stream()
+        List<TypeDataImpl> typeDataList = typeTrie.get(parts);
+        TypeDataImpl typeData;
+        if (typeDataList != null) {
+            typeData = typeDataList.stream()
                     .filter(c -> c.sourceFile.sourceSet().equals(sourceSetOfRequest))
                     .findFirst().orElse(null);
         } else {
-            candidate = null;
+            typeData = null;
         }
-        if (candidate == null) {
+        if (typeData == null) {
             throw new UnsupportedOperationException("Cannot find .class file for " + fullyQualifiedName + " in "
                                                     + sourceSetOfRequest);
         }
-        return candidate;
+        return typeData;
     }
 
     @Override
     public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
         trieLock.readLock().lock();
-        Candidate candidate;
+        TypeDataImpl typeData;
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
             if (single != null) return single;
-            candidate = candidateOrNull(fullyQualifiedName, sourceSetOfRequest);
-            if (candidate == null) return null;
-            if (candidate.typeInfo != null) return candidate.typeInfo;
+            typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest);
+            if (typeData == null) return null;
+            if (typeData.typeInfo != null) return typeData.typeInfo;
         } finally {
             trieLock.readLock().unlock();
         }
-        return load(candidate.sourceFile);
+        return load(typeData.sourceFile);
     }
 
     @Override
     public void ensureInspection(TypeInfo typeInfo) {
         assert typeInfo.compilationUnit().externalLibrary();
         if (!typeInfo.hasBeenInspected()) {
-            Candidate candidate = candidateExactSourceSet(typeInfo.fullyQualifiedName(),
+            TypeDataImpl typeData = typeDataExactSourceSet(typeInfo.fullyQualifiedName(),
                     typeInfo.compilationUnit().sourceSet());
             synchronized (byteCodeInspector) {
-                byteCodeInspector.get().load(candidate.sourceFile, typeInfo);
+                byteCodeInspector.get().load(typeData.sourceFile, typeInfo);
             }
         }
     }
@@ -174,12 +199,12 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         try {
             String fullyQualifiedName = typeInfo.fullyQualifiedName();
             String[] parts = fullyQualifiedName.split("\\.");
-            List<Candidate> candidates = typeTrie.get(parts);
-            Candidate candidate = candidates.stream()
+            List<TypeDataImpl> typeDataList = typeTrie.get(parts);
+            TypeDataImpl typeData = typeDataList.stream()
                     .filter(c -> c.typeInfo == typeInfo)
                     .findFirst().orElse(null);
-            if (candidate != null) {
-                candidate.typeInfo = null;
+            if (typeData != null) {
+                typeData.typeInfo = null;
                 mapSingleTypeForFQN.remove(fullyQualifiedName);
             }
         } finally {
@@ -216,9 +241,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         trieLock.readLock().lock();
         try {
             typeTrie.visit(new String[]{}, (_, list) -> list.stream()
-                    .filter(candidate -> candidate.typeInfo != null
-                                         && (compiled == null || compiled == candidate.isCompiled()))
-                    .forEach(candidate -> result.add(candidate.typeInfo)));
+                    .filter(typeData -> typeData.typeInfo != null
+                                        && (compiled == null || compiled == typeData.isCompiled()))
+                    .forEach(typeData -> result.add(typeData.typeInfo)));
             return result.stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
         } finally {
             trieLock.readLock().unlock();
@@ -235,27 +260,27 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
             Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
             String[] parts = packageName.split("\\.");
-            typeTrie.visitDoNotRecurse(parts, candidates -> {
-                Candidate candidate;
-                if (candidates == null || candidates.isEmpty()) {
-                    candidate = null;
+            typeTrie.visitDoNotRecurse(parts, typeDataList -> {
+                TypeDataImpl typeData;
+                if (typeDataList == null || typeDataList.isEmpty()) {
+                    typeData = null;
                 } else if (ignoreRequest) {
-                    candidate = candidates.getFirst();// we cannot know
+                    typeData = typeDataList.getFirst();// we cannot know
                 } else {
-                    candidate = candidates.stream()
+                    typeData = typeDataList.stream()
                             .filter(c -> sourceSets.contains(c.sourceFile.sourceSet()))
                             .findFirst().orElse(null);
                 }
-                if (candidate != null) {
+                if (typeData != null) {
                     TypeInfo typeInfo;
-                    if (candidate.typeInfo != null) {
-                        typeInfo = candidate.typeInfo;
-                    } else if (candidate.isCompiled()) {
+                    if (typeData.typeInfo != null) {
+                        typeInfo = typeData.typeInfo;
+                    } else if (typeData.isCompiled()) {
                         // All the primary source types should be known; only compiled types can be loaded
-                        typeInfo = load(candidate.sourceFile);
+                        typeInfo = load(typeData.sourceFile);
                     } else {
                         typeInfo = null;
-                        assert candidate.sourceFile.uri().toString().endsWith("package-info.java");
+                        assert typeData.sourceFile.uri().toString().endsWith("package-info.java");
                     }
                     if (typeInfo != null) {
                         result.add(typeInfo);
@@ -275,7 +300,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     public List<SourceFile> sourceFiles(String path) {
         String[] parts = path.split("/");
-        List<Candidate> candidates = typeTrie.get(parts);
-        return candidates == null ? null : candidates.stream().map(c -> c.sourceFile).toList();
+        List<TypeDataImpl> typeDataList = typeTrie.get(parts);
+        return typeDataList == null ? null : typeDataList.stream().map(c -> c.sourceFile).toList();
     }
 }
