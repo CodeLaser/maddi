@@ -275,7 +275,9 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
 
     @Override
     public boolean isStatic() {
-        return typeNature().isStatic()  // interface, enum, etc.. otherwise: CLASS
+        TypeNature typeNature = typeNature();
+        assert typeNature != null : "Type nature of " + fullyQualifiedName + " has not yet been set";
+        return typeNature.isStatic()  // interface, enum, etc.. otherwise: CLASS
                || isPrimaryType() // otherwise: subtype
                || inspection.get().modifiers().stream().anyMatch(TypeModifier::isStatic);
     }

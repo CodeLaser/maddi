@@ -33,6 +33,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             this.typeInfo = typeInfo;
         }
 
+        public void clearTypeInfo() {
+            this.typeInfo = null;
+        }
+
         @Override
         public boolean isCompiled() {
             return sourceFile.sourceSet().externalLibrary();
@@ -53,8 +57,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             return byteCodeInspectorData;
         }
 
-        @Override
+
         public void setTypeInfo(TypeInfo typeInfo) {
+            assert typeInfo != null && this.typeInfo == null;
             this.typeInfo = typeInfo;
         }
 
@@ -124,7 +129,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
         }
         TypeData typeData = types.stream().filter(c -> c.sourceFile().equals(sourceFile)).findFirst().orElseThrow();
-        typeData.setTypeInfo(typeInfo);
+        ((TypeDataImpl) typeData).setTypeInfo(typeInfo);
     }
 
     @Override
@@ -212,7 +217,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                     .filter(c -> c.typeInfo() == typeInfo)
                     .findFirst().orElse(null);
             if (typeData != null) {
-                typeData.setTypeInfo(null);
+                ((TypeDataImpl) typeData).clearTypeInfo();
                 mapSingleTypeForFQN.remove(fullyQualifiedName);
             }
         } finally {
@@ -224,10 +229,6 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         TypeInfo typeInfo;
         synchronized (byteCodeInspector) {
             typeInfo = byteCodeInspector.get().load(typeData);
-        }
-        if (typeInfo != null) {
-            // TODO can be optimized
-            addTypeInfo(typeData.sourceFile(), typeInfo);
         }
         return typeInfo;
     }

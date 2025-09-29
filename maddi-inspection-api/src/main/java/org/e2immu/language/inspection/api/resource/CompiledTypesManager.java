@@ -21,8 +21,6 @@ public interface CompiledTypesManager {
 
         boolean isCompiled();
 
-        void setTypeInfo(TypeInfo typeInfo);
-
         SourceFile sourceFile();
 
         TypeInfo typeInfo();
