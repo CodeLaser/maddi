@@ -50,10 +50,6 @@ public interface CompiledTypesManager {
         return getOrLoad(clazz.getCanonicalName(), null);
     }
 
-    default void ensureInspection(TypeInfo typeInfo) {
-        // do nothing
-    }
-
     default void invalidate(TypeInfo typeInfo) { throw new UnsupportedOperationException(); }
 
     default boolean packageContainsTypes(String packageName) {

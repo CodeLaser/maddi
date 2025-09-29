@@ -50,8 +50,10 @@ public class TestPreloadJavaBase {
         // because it has not yet appeared in a type hierarchy (but it has appeared as a field type
         // in some private field of java.lang.Throwable)
         TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
-        assertNotNull(list);
-        assertTrue(list.hasBeenInspected());
+        assertNull(list);
+        TypeInfo list2 = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        assertNotNull(list2);
+        assertTrue(list2.hasBeenInspected());
 
         TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
         assertNotNull(map);

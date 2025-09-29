@@ -13,8 +13,6 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.parser.StaticImportMap;
 import org.e2immu.language.inspection.api.parser.TypeContext;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.api.resource.Resources;
-import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -175,14 +173,11 @@ public class TypeContextImpl implements TypeContext {
 
     private TypeInfo loadTypeDoNotImport(String fqn) {
         TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(fqn, sourceSet());
-        if (typeInfo != null) {
-            if (!typeInfo.hasBeenInspected() && typeInfo.compilationUnit().externalLibrary()) {
-                data.compiledTypesManager.ensureInspection(typeInfo);
-            }
-            return typeInfo;
+        if (typeInfo == null) {
+            LOGGER.error("ERROR: Cannot find type '{}'", fqn);
+            throw new UnsupportedOperationException(fqn);
         }
-        LOGGER.error("ERROR: Cannot find type '{}'", fqn);
-        throw new UnsupportedOperationException(fqn);
+        return typeInfo;
     }
 
     @Override
@@ -211,14 +206,7 @@ public class TypeContextImpl implements TypeContext {
      * @return the type
      */
     private TypeInfo getFullyQualified(String fullyQualifiedName) {
-        TypeInfo typeInfo = data.compiledTypesManager.getOrLoad(fullyQualifiedName, sourceSet());
-        if (typeInfo != null) {
-            if (typeInfo.compilationUnit().externalLibrary()) {
-                data.compiledTypesManager.ensureInspection(typeInfo);
-            }
-            return typeInfo;
-        }
-        return null;
+        return data.compiledTypesManager.getOrLoad(fullyQualifiedName, sourceSet());
     }
 
     /*
@@ -282,6 +270,7 @@ public class TypeContextImpl implements TypeContext {
             }
         }
 
+        // have been pre-loaded, so we can use "get" and continue with null if it wasn't the one we're looking for
         NamedType javaLang = data.compiledTypesManager.get("java.lang." + name, null);
         if (javaLang != null) return List.of(javaLang);
         if (data.allowCreationOfStubTypes()) {

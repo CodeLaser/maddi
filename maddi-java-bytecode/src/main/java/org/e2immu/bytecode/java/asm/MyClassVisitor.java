@@ -362,11 +362,13 @@ public class MyClassVisitor extends ClassVisitor {
                 CompiledTypesManager.TypeData typeDataOfSubType = localTypeMap.typeData(fqn, typeData.sourceFile().sourceSet());
                 assert typeDataOfSubType != null : "CompiledTypeManager knows the path of all sub-types: " + fqn;
                 if (typeDataOfSubType.typeInfo() == null) {
-                //    TypeInfo enclosing = stepDown ? currentType
-                //            : currentType.compilationUnitOrEnclosingType().getRight();
-                //    TypeInfo subType = runtime.newTypeInfo(enclosing, innerName);
-                //    checkTypeFlags(access, subType.builder());
-                 TypeInfo subType =   localTypeMap.inspectFromPath(typeDataOfSubType, LocalTypeMap.LoadMode.NOW);
+                    //    TypeInfo enclosing = stepDown ? currentType
+                    //            : currentType.compilationUnitOrEnclosingType().getRight();
+                    //    TypeInfo subType = runtime.newTypeInfo(enclosing, innerName);
+                    //    checkTypeFlags(access, subType.builder());
+                    typeDataOfSubType.updateByteCodeInspectorData(typeDataOfSubType.byteCodeInspectorData()
+                            .withParentTypeParameterContext(typeParameterContext));
+                    TypeInfo subType = localTypeMap.inspectFromPath(typeDataOfSubType, LocalTypeMap.LoadMode.NOW);
                     if (stepDown) {
                         currentTypeBuilder.addSubType(subType);
                     }
@@ -392,7 +394,7 @@ public class MyClassVisitor extends ClassVisitor {
         if (currentType == null) return null;
 
         LOGGER.debug("Have class annotation {} {}", descriptor, visible);
-        return new MyAnnotationVisitor<>(runtime, typeData.sourceFile(). sourceSet(),
+        return new MyAnnotationVisitor<>(runtime, typeData.sourceFile().sourceSet(),
                 typeParameterContext, localTypeMap, descriptor, currentTypeBuilder);
     }
 
