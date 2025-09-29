@@ -16,6 +16,7 @@ package org.e2immu.bytecode.java.asm;
 
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
@@ -24,12 +25,13 @@ import org.e2immu.language.cst.impl.output.QualificationImpl;
 import org.e2immu.language.cst.impl.type.DiamondEnum;
 import org.e2immu.language.cst.impl.type.ParameterizedTypePrinter;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
+import org.e2immu.language.inspection.api.resource.SourceFile;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.SortedSet;
-import java.util.Spliterator;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -155,8 +157,11 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         tp2.builder().commit();
         context.add(tp2);
 
-        // FIXME
-        compiledTypesManager.addTypeInfo(null, typeInfo);
+        SourceSet sourceSet = new SourceSetImpl("test", List.of(), URI.create("file:test"),
+                StandardCharsets.UTF_8, false, true, true, false, false,
+                Set.of(), Set.of());
+        SourceFile sourceFile = new SourceFile("test", URI.create("file:/"), sourceSet, null);
+        compiledTypesManager.addTypeInfo(sourceFile, typeInfo);
 
         String signature = "<K:Ljava/lang/Object;>Ljdk/internal/loader/AbstractClassLoaderValue<Ljdk/internal/loader/AbstractClassLoaderValue<TCLV;TV;>.Sub<TK;>;TV;>;";
         ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, context, null,

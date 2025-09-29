@@ -130,7 +130,6 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         TypeData typeData = types == null ? null
                 : types.stream().filter(c -> c.sourceFile().equals(sourceFile)).findFirst().orElse(null);
         if (typeData == null) {
-            assert !sourceFile.sourceSet().externalLibrary() : "Only meant for 'additional test types'";
             typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
             mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
             return;
@@ -296,7 +295,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 }
                 if (typeData != null) {
                     TypeInfo typeInfo;
-                    if (typeData.typeInfo() != null) {
+                    if (typeData.typeInfo() != null && (!typeData.isCompiled() || typeData.typeInfo().hasBeenInspected()))  {
                         typeInfo = typeData.typeInfo();
                     } else if (typeData.isCompiled()) {
                         // All the primary source types should be known; only compiled types can be loaded

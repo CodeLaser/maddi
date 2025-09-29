@@ -21,8 +21,6 @@ public record SourceFile(String path, URI uri, SourceSet sourceSet, FingerPrint 
         return Objects.equals(uri(), that.uri()) && Objects.equals(sourceSet(), that.sourceSet());
     }
 
-    private static final Pattern PATTERN = Pattern.compile(".+(!/|:)(.+)\\.class");
-
     public String fullyQualifiedNameFromPath() {
         assert !path.startsWith("/");
         if (path.endsWith(".java")) {

@@ -6,7 +6,6 @@ import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.Resources;
 import org.e2immu.language.inspection.integration.java.CommonTest;
-import org.e2immu.language.inspection.resource.CompiledTypesManagerImpl;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,28 +35,28 @@ public class TestByteCode extends CommonTest {
         AtomicInteger knownJavaUtil = new AtomicInteger();
         classpath.visit(new String[0], (parts, list) -> {
             known.addAndGet(list.size());
-            if(String.join(".", parts).startsWith("java.util.")) {
+            if (String.join(".", parts).startsWith("java.util.")) {
                 knownJavaUtil.addAndGet(list.size());
             }
         });
         List<TypeInfo> loaded = ctm.typesLoaded(true);
 
-        AtomicInteger inspected = new AtomicInteger();
-        AtomicInteger inspectedJavaUtil = new AtomicInteger();
-        loaded.forEach(ti -> {
+        int inspected = 0;
+        int inspectedJavaUtil = 0;
+        for (TypeInfo ti : loaded) {
             if (ti.hasBeenInspected()) {
-                inspected.incrementAndGet();
-                if(ti.packageName().startsWith("java.util")) {
-                    inspectedJavaUtil.incrementAndGet();
+                inspected++;
+                if (ti.packageName().startsWith("java.util")) {
+                    inspectedJavaUtil++;
                 }
             } else {
                 assertTrue(ti.haveOnDemandInspection());
             }
-        });
-        LOGGER.info("Known {}, inspected {} loaded {}; java.util*: {}, {}", known.get(), inspected.get(), loaded.size(),
-                knownJavaUtil.get(), inspectedJavaUtil.get());
-        assertTrue(known.get() > inspected.get());
-        assertEquals(inspected.get(), loaded.size());
+        }
+        LOGGER.info("Known {}, inspected {} loaded {}; java.util*: {}, {}", known.get(), inspected, loaded.size(),
+                knownJavaUtil.get(), inspectedJavaUtil);
+        assertTrue(known.get() > inspected);
+        assertTrue(inspected < loaded.size());
     }
 
     @Test
@@ -117,7 +115,8 @@ public class TestByteCode extends CommonTest {
         MethodInfo getInt = arrayList.findUniqueMethod("get", 1);
         assertEquals("java.util.ArrayList.get(int)", getInt.fullyQualifiedName());
         assertEquals("""
-                """, getInt.overrides().stream().map(Object::toString).collect(Collectors.joining(", ")));
+                java.util.AbstractList.get(int), java.util.List.get(int)\
+                """, getInt.overrides().stream().map(Object::toString).sorted().collect(Collectors.joining(", ")));
     }
 
     @Test

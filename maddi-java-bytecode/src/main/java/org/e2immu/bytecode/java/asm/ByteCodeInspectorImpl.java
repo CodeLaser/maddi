@@ -129,7 +129,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             LOGGER.warn("Not in classpath: {}", fqn);
             return null;
         }
-        return inspectFromPath(typeData, LoadMode.NOW);
+        return inspectFromPath(typeData, loadMode);
     }
 
     @Override
