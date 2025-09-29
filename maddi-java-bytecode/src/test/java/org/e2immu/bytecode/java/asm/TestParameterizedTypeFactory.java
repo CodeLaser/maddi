@@ -40,7 +40,8 @@ public class TestParameterizedTypeFactory extends CommonJmodBaseTests {
     @Test
     public void testString() {
         ParameterizedType pt = create("[Ljava/lang/String;").parameterizedType;
-        // NOTE: we're not demanding "same", because
+        // This is an important test, the predefined type "java.lang.String" must be the same object
+        // as the type that has been loaded by the bytecode inspector.
         TypeInfo string = pt.typeInfo();
         assertSame(runtime.stringTypeInfo(), string);
         assertEquals(1, pt.arrays());
