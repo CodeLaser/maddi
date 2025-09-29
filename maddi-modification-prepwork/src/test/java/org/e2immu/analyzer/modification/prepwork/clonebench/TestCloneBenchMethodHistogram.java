@@ -63,7 +63,7 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
             throws IOException {
         String input = Files.readString(javaFile.toPath());
         LOGGER.info("Start parsing {}, file of size {}", javaFile, input.length());
-        TypeInfo typeInfo = javaInspector.parse(input, setName);
+        TypeInfo typeInfo = javaInspector.parse(input, javaFile.getName(), setName);
         List<Info> analysisOrder = analyzer.doPrimaryType(typeInfo);
         LOGGER.info("-    analysis order size {}", analysisOrder.size());
         analysisOrder.stream().filter(info -> info instanceof MethodInfo)

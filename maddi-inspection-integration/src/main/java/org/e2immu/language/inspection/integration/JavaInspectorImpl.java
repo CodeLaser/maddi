@@ -419,19 +419,23 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public TypeInfo parse(String input, String sourceSetName) {
-        return parseReturnAll(input, sourceSetName, FAIL_FAST).getFirst();
+    public TypeInfo parse(String input, String inputName, String sourceSetName) {
+        return parseReturnAll(input, inputName, sourceSetName, FAIL_FAST).getFirst();
+    }
+    @Override
+    public List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions) {
+        return parseReturnAll(input, "input", sourceSetName, parseOptions);
     }
 
     @Override
-    public List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions) {
+    public List<TypeInfo> parseReturnAll(String input, String inputName, String sourceSetName, ParseOptions parseOptions) {
         Summary failFastSummary = new SummaryImpl(true);
         try {
-            URI uri = new URI("input");
-            SourceSet dummy = new SourceSetImpl(sourceSetName, List.of(), URI.create("file:doesNotExist"),
+            SourceSet dummy = new SourceSetImpl(sourceSetName, List.of(), URI.create("file:"+sourceSetName),
                     StandardCharsets.UTF_8, false, false, false, false,
                     false, Set.of(), Set.of());
-            SourceFile sourceFile = new SourceFile("input", uri, dummy, MD5FingerPrint.compute(input));
+            SourceFile sourceFile = new SourceFile(inputName, new URI("file:" + inputName), dummy,
+                    MD5FingerPrint.compute(input));
             return internalParseSingleInput(failFastSummary, sourceFile, () -> {
                 JavaParser parser = new JavaParser(input);
                 parser.setParserTolerant(false);
