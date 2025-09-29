@@ -150,9 +150,14 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         trieLock.readLock().lock();
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
-            if (single != null) return single;
+            if (single != null) {
+                return single.hasBeenInspected() || !single.compilationUnit().externalLibrary() ? single : null; // needs loading
+            }
             TypeData typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, true);
-            return typeData == null ? null : typeData.typeInfo();
+            if (typeData != null && typeData.typeInfo() != null
+                && (!typeData.typeInfo().compilationUnit().externalLibrary()
+                    || typeData.typeInfo().hasBeenInspected())) return typeData.typeInfo();
+            return null;
         } finally {
             trieLock.readLock().unlock();
         }
@@ -163,31 +168,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         String[] parts = fullyQualifiedName.split("\\.");
         List<TypeData> typeDataList = typeTrie.get(parts);
         if (typeDataList == null || typeDataList.isEmpty()) return null;
-        assert !complainSingle || !(typeDataList.size() == 1 && typeDataList.getFirst().typeInfo() != null)
-                : "Otherwise, would have been in mapSingleTypeForFQN: " + fullyQualifiedName;
         boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
         Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
         return typeDataList.stream()
                 .filter(typeData -> ignoreRequest || sourceSets.contains(typeData.sourceFile().sourceSet()))
                 .findFirst().orElse(null);
-    }
-
-    private TypeData typeDataExactSourceSet(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        String[] parts = fullyQualifiedName.split("\\.");
-        List<TypeData> typeDataList = typeTrie.get(parts);
-        TypeData typeData;
-        if (typeDataList != null) {
-            typeData = typeDataList.stream()
-                    .filter(c -> c.sourceFile().sourceSet().equals(sourceSetOfRequest))
-                    .findFirst().orElse(null);
-        } else {
-            typeData = null;
-        }
-        if (typeData == null) {
-            throw new UnsupportedOperationException("Cannot find .class file for " + fullyQualifiedName + " in "
-                                                    + sourceSetOfRequest);
-        }
-        return typeData;
     }
 
     @Override
@@ -196,26 +181,15 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         TypeData typeData;
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
-            if (single != null) return single;
+            if (single != null && (!single.compilationUnit().sourceSet().externalLibrary() || single.hasBeenInspected())) return single;
             typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, true);
             if (typeData == null) return null;
-            if (typeData.typeInfo() != null) return typeData.typeInfo();
+            if (typeData.typeInfo() != null
+                && (!typeData.typeInfo().compilationUnit().externalLibrary() || typeData.typeInfo().hasBeenInspected())) return typeData.typeInfo();
         } finally {
             trieLock.readLock().unlock();
         }
         return load(typeData);
-    }
-
-    @Override
-    public void ensureInspection(TypeInfo typeInfo) {
-        assert typeInfo.compilationUnit().externalLibrary();
-        if (!typeInfo.hasBeenInspected()) {
-            TypeData typeData = typeDataExactSourceSet(typeInfo.fullyQualifiedName(),
-                    typeInfo.compilationUnit().sourceSet());
-            synchronized (byteCodeInspector) {
-                byteCodeInspector.get().load(typeData);
-            }
-        }
     }
 
     @Override
@@ -295,7 +269,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 }
                 if (typeData != null) {
                     TypeInfo typeInfo;
-                    if (typeData.typeInfo() != null && (!typeData.isCompiled() || typeData.typeInfo().hasBeenInspected()))  {
+                    if (typeData.typeInfo() != null && (!typeData.isCompiled() || typeData.typeInfo().hasBeenInspected())) {
                         typeInfo = typeData.typeInfo();
                     } else if (typeData.isCompiled()) {
                         // All the primary source types should be known; only compiled types can be loaded

@@ -310,6 +310,7 @@ public class TestComposer {
                 .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
                 .addClassPath(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/springframework/security/config")
                 .addClassPath(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/springframework/security/web")
+                .addClassPath(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/springframework/security/authorization")
                 .addClassPath("jmod:java.base");
 
         JavaInspector javaInspector = new JavaInspectorImpl();

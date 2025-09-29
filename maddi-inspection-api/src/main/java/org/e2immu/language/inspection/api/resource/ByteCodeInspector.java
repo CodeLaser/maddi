@@ -29,5 +29,7 @@ public interface ByteCodeInspector {
         Status status();
 
         TypeParameterContext typeParameterContext();
+
+        Data withParentTypeParameterContext(TypeParameterContext typeParameterContext);
     }
 }

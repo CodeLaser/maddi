@@ -44,6 +44,10 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
 
     public record DataImpl(Status status,
                            TypeParameterContext typeParameterContext) implements ByteCodeInspector.Data {
+        @Override
+        public Data withParentTypeParameterContext(TypeParameterContext parent) {
+            return new DataImpl(status, new TypeParameterContextImpl(parent));
+        }
     }
 
     @Override
