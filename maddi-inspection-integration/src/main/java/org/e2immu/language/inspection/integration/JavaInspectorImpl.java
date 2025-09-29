@@ -410,20 +410,25 @@ public class JavaInspectorImpl implements JavaInspector {
     // used for testing
     @Override
     public TypeInfo parse(String input, ParseOptions parseOptions) {
-        return parseReturnAll(input, parseOptions).getFirst();
+        return parseReturnAll(input, "main", parseOptions).getFirst();
     }
 
     @Override
     public TypeInfo parse(String input) {
-        return parseReturnAll(input, FAIL_FAST).getFirst();
+        return parseReturnAll(input, "main", FAIL_FAST).getFirst();
     }
 
     @Override
-    public List<TypeInfo> parseReturnAll(String input, ParseOptions parseOptions) {
+    public TypeInfo parse(String input, String sourceSetName) {
+        return parseReturnAll(input, sourceSetName, FAIL_FAST).getFirst();
+    }
+
+    @Override
+    public List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions) {
         Summary failFastSummary = new SummaryImpl(true);
         try {
             URI uri = new URI("input");
-            SourceSet dummy = new SourceSetImpl("test", List.of(), URI.create("file:doesNotExist"),
+            SourceSet dummy = new SourceSetImpl(sourceSetName, List.of(), URI.create("file:doesNotExist"),
                     StandardCharsets.UTF_8, false, false, false, false,
                     false, Set.of(), Set.of());
             SourceFile sourceFile = new SourceFile("input", uri, dummy, MD5FingerPrint.compute(input));
@@ -661,7 +666,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         if (infoMap != null) {
             Set<TypeInfo> rewired = infoMap.rewireAll();
-           // FIXME rewiring, implement!! rewired.forEach(compiledTypesManager::set);
+            // FIXME rewiring, implement!! rewired.forEach(compiledTypesManager::set);
             rewired.forEach(summary::addType);
         }
 

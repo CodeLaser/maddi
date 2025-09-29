@@ -36,7 +36,7 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = javaInspector.parseReturnAll(INPUT, JavaInspectorImpl.FAIL_FAST).get(0);
+        TypeInfo typeInfo = javaInspector.parse(INPUT, JavaInspectorImpl.FAIL_FAST);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
@@ -48,11 +48,11 @@ public class TestVariableData extends CommonTest {
         List<VariableInfo> vis = vd.variableInfoStream().toList();
         assertEquals(1, vis.size());
 
-        VariableData statementVd = method1.methodBody().statements().get(0).analysis()
+        VariableData statementVd = method1.methodBody().statements().getFirst().analysis()
                 .getOrNull(VariableDataImpl.VARIABLE_DATA, VariableData.class);
         assertSame(vd, statementVd);
 
-        ParameterInfo pi = method1.parameters().get(0);
+        ParameterInfo pi = method1.parameters().getFirst();
         VariableInfo vi0 = vd.variableInfo(pi.fullyQualifiedName());
         assertEquals("0", vi0.reads().toString());
         assertTrue(vi0.assignments().hasNotYetBeenAssigned());
@@ -71,7 +71,7 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = javaInspector.parseReturnAll(INPUT2, JavaInspectorImpl.FAIL_FAST).get(0);
+        TypeInfo typeInfo = javaInspector.parse(INPUT2, JavaInspectorImpl.FAIL_FAST);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
@@ -125,7 +125,7 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = javaInspector.parseReturnAll(INPUT3, JavaInspectorImpl.FAIL_FAST).get(0);
+        TypeInfo typeInfo = javaInspector.parse(INPUT3, JavaInspectorImpl.FAIL_FAST);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
@@ -190,7 +190,7 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo typeInfo = javaInspector.parseReturnAll(INPUT4, JavaInspectorImpl.FAIL_FAST).get(0);
+        TypeInfo typeInfo = javaInspector.parse(INPUT4, JavaInspectorImpl.FAIL_FAST);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
@@ -258,7 +258,7 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test5() {
-        TypeInfo typeInfo = javaInspector.parseReturnAll(INPUT5, JavaInspectorImpl.FAIL_FAST).get(0);
+        TypeInfo typeInfo = javaInspector.parse(INPUT5, JavaInspectorImpl.FAIL_FAST);
         MethodInfo method1 = typeInfo.findUniqueMethod("run", 0);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);

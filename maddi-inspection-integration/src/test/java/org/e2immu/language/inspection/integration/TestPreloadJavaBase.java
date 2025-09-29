@@ -39,7 +39,7 @@ public class TestPreloadJavaBase {
         MethodInfo iterator = iterable.singleAbstractMethod();
         assertEquals("java.lang.Iterable.iterator()", iterator.fullyQualifiedName());
         MethodInfo forEach = iterable.findUniqueMethod("forEach", 1);
-        ParameterInfo forEach0 = forEach.parameters().get(0);
+        ParameterInfo forEach0 = forEach.parameters().getFirst();
         assertSame(consumer, forEach0.parameterizedType().typeInfo());
 
         TypeInfo biConsumer = javaInspector.compiledTypesManager().get(BiConsumer.class);
@@ -50,18 +50,16 @@ public class TestPreloadJavaBase {
         // because it has not yet appeared in a type hierarchy (but it has appeared as a field type
         // in some private field of java.lang.Throwable)
         TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
-        assertNull(list);
-        TypeInfo list2 = javaInspector.compiledTypesManager().getOrLoad(List.class);
-        assertNotNull(list2);
-        assertTrue(list2.hasBeenInspected());
+        assertNotNull(list);
+        assertTrue(list.hasBeenInspected());
 
         TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
-        assertNull(map);
-        /* in re-implementation end of September 2025
+        assertNotNull(map);
+        //in re-implementation end of September 2025
         TypeInfo entry = map.findSubType("Entry");
         assertTrue(entry.hasBeenInspected());
         assertFalse(entry.haveOnDemandInspection());
-         */
+
         TypeInfo string = javaInspector.compiledTypesManager().get(String.class);
         assertFalse(string.isExtensible());
 
@@ -88,14 +86,14 @@ public class TestPreloadJavaBase {
         assertNotNull(spinedBuffer);
         assertFalse(spinedBuffer.isPublic());
         TypeInfo ofPrimitive = spinedBuffer.findSubType("OfPrimitive");
-        TypeParameter ofPrimitive0 = ofPrimitive.typeParameters().get(0);
+        TypeParameter ofPrimitive0 = ofPrimitive.typeParameters().getFirst();
         TypeInfo baseSpliterator = ofPrimitive.findSubType("BaseSpliterator");
-        TypeParameter tp0 = baseSpliterator.typeParameters().get(0);
+        TypeParameter tp0 = baseSpliterator.typeParameters().getFirst();
         assertEquals("T_SPLITR=TP#0 in BaseSpliterator", tp0.toString());
         assertEquals("Type java.util.Spliterator.OfPrimitive<E,T_CONS,T_SPLITR extends java.util.Spliterator.OfPrimitive<E,T_CONS,T_SPLITR>>",
-                tp0.typeBounds().get(0).toString());
+                tp0.typeBounds().getFirst().toString());
         // check that the E in the type bound is indeed the E of OfPrimitive
-        assertEquals(ofPrimitive0, tp0.typeBounds().get(0).parameters().get(0).typeParameter());
+        assertEquals(ofPrimitive0, tp0.typeBounds().getFirst().parameters().getFirst().typeParameter());
     }
 
     @Test
@@ -111,6 +109,6 @@ public class TestPreloadJavaBase {
         assertNotNull(httpResponse);
         TypeInfo bodyHandler = javaInspector.compiledTypesManager().get("java.net.http.HttpResponse.BodyHandler",
                 null);
-        assertNull(bodyHandler);
+        assertNotNull(bodyHandler);
     }
 }
