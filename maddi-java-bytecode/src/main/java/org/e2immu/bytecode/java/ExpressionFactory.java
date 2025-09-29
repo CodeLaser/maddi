@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.expression.TypeExpression;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.util.internal.util.StringUtil;
 import org.objectweb.asm.Type;
 
 import java.util.ArrayList;
@@ -74,8 +75,9 @@ public class ExpressionFactory {
                                                       SourceSet sourceSetOfRequest,
                                                       LocalTypeMap localTypeMap,
                                                       Type t) {
+        String className = StringUtil.replaceSlashDollar(t.getClassName());
         ParameterizedType parameterizedType =
-                switch (t.getClassName()) {
+                switch (className) {
                     case "boolean" -> runtime.booleanParameterizedType();
                     case "byte" -> runtime.byteParameterizedType();
                     case "char" -> runtime.charParameterizedType();
@@ -86,10 +88,9 @@ public class ExpressionFactory {
                     case "short" -> runtime.shortParameterizedType();
                     case "void" -> runtime.voidParameterizedType();
                     default -> {
-                        TypeInfo ti = localTypeMap.getOrCreate(t.getClassName(), sourceSetOfRequest,
-                                LocalTypeMap.LoadMode.TRIGGER);
+                        TypeInfo ti = localTypeMap.getOrCreate(className, sourceSetOfRequest, LocalTypeMap.LoadMode.NOW);
                         if (ti == null) {
-                            throw new UnsupportedOperationException("Cannot load type " + t.getClassName());
+                            throw new UnsupportedOperationException("Cannot load type " + className);
                         }
                         yield ti.asParameterizedType();
                     }

@@ -11,6 +11,7 @@ java {
     targetCompatibility = JavaVersion.VERSION_24
 }
 dependencies {
+    implementation(project(":maddi-util"))
     api(project(":maddi-inspection-api"))
     implementation("org.ow2.asm:asm")
 

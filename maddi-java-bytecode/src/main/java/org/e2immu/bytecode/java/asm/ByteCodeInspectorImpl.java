@@ -152,6 +152,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             assert data.status() != Status.BEING_LOADED && data.status() != Status.DONE;
             String fqn = typeData.sourceFile().fullyQualifiedNameFromPath();
             TypeInfo typeInfo = createTypeInfo(typeData.sourceFile(), fqn, loadMode);
+            if (typeInfo == null) return null;// type missing
             if (typeData.typeInfo() == null) {
                 // note: do not directly call setTypeInfo,
                 compiledTypesManager.addTypeInfo(typeData.sourceFile(), typeInfo);
@@ -189,14 +190,18 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             String simpleName = path.substring(dollar + 1);
             int lastDot = fqn.lastIndexOf('.');
             assert lastDot > 0;
-            String parentFqn = fqn.substring(0, lastDot);
-            TypeInfo parent = getOrCreate(parentFqn, source.sourceSet(), loadMode);
+            String enclosingFqn = fqn.substring(0, lastDot);
+            TypeInfo enclosing = getOrCreate(enclosingFqn, source.sourceSet(), loadMode);
+            if (enclosing == null) {
+                LOGGER.warn("Cannot find enclosing type {} of {}", enclosingFqn, fqn);
+                return null;
+            }
             // this may trigger the creation of the sub-type... so we must check
-            TypeInfo alreadyCreated = parent.findSubType(simpleName, false);
+            TypeInfo alreadyCreated = enclosing.findSubType(simpleName, false);
             if (alreadyCreated != null) {
                 typeInfo = alreadyCreated;
             } else {
-                typeInfo = runtime.newTypeInfo(parent, simpleName);
+                typeInfo = runtime.newTypeInfo(enclosing, simpleName);
             }
         } else {
             int lastDot = fqn.lastIndexOf(".");
