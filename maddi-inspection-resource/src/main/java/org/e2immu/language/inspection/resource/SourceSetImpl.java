@@ -7,10 +7,7 @@ import org.e2immu.support.SetOnce;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 public class SourceSetImpl implements SourceSet {
     private final String name;
@@ -26,6 +23,7 @@ public class SourceSetImpl implements SourceSet {
     private final Set<SourceSet> dependencies;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<FingerPrint> analysisFingerPrint = new SetOnce<>();
+    private final SetOnce<Map<SourceSet, Integer>> priorityDependencies = new SetOnce<>();
 
     public SourceSetImpl(String name,
                          List<Path> sourceDirectories, URI uri,
@@ -190,16 +188,25 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
-    public Set<SourceSet> recursiveDependenciesSameExternal() {
-        Set<SourceSet> result = new HashSet<>();
-        recursiveDependencies(result);
-        return result;
+    public Map<SourceSet, Integer> priorityDependencies() {
+        return priorityDependencies.get();
     }
 
-    void recursiveDependencies(Set<SourceSet> result) {
-        if (result.add(this) && dependencies != null) {
-            for (SourceSet set : dependencies) {
-                ((SourceSetImpl) set).recursiveDependencies(result);
+    @Override
+    public void computePriorityDependencies() {
+        if (!priorityDependencies.isSet()) {
+            Map<SourceSet, Integer> map = new HashMap<>();
+            recursiveDependencies(map, 1);
+            priorityDependencies.set(Map.copyOf(map));
+        }
+    }
+
+    void recursiveDependencies(Map<SourceSet, Integer> result, int distance) {
+        for (SourceSet dependency : dependencies) {
+            Integer current = result.get(dependency);
+            if (current == null || current > distance) {
+                result.put(dependency, distance);
+                ((SourceSetImpl) dependency).recursiveDependencies(result, distance + 1);
             }
         }
     }

@@ -168,10 +168,26 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         String[] parts = fullyQualifiedName.split("\\.");
         List<TypeData> typeDataList = typeTrie.get(parts);
         if (typeDataList == null || typeDataList.isEmpty()) return null;
+        return bestCandidate(sourceSetOfRequest, typeDataList);
+    }
+
+    private static TypeData bestCandidate(SourceSet sourceSetOfRequest, List<TypeData> typeDataList) {
         boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
-        Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
+        if (ignoreRequest) return typeDataList.stream().findFirst().orElse(null);
+        Map<SourceSet, Integer> priorityMap = sourceSetOfRequest.priorityDependencies();
         return typeDataList.stream()
-                .filter(typeData -> ignoreRequest || sourceSets.contains(typeData.sourceFile().sourceSet()))
+                .map(td -> {
+                    Integer priority;
+                    if (td.sourceFile().sourceSet().equals(sourceSetOfRequest)) {
+                        priority = 1_000_000;
+                    } else {
+                        priority = priorityMap.get(td.sourceFile().sourceSet());
+                    }
+                    return priority == null ? null : new AbstractMap.SimpleEntry<>(td, priority);
+                })
+                .filter(Objects::nonNull)
+                .sorted(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
                 .findFirst().orElse(null);
     }
 
@@ -181,11 +197,13 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         TypeData typeData;
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
-            if (single != null && (!single.compilationUnit().sourceSet().externalLibrary() || single.hasBeenInspected())) return single;
+            if (single != null && (!single.compilationUnit().sourceSet().externalLibrary() || single.hasBeenInspected()))
+                return single;
             typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, true);
             if (typeData == null) return null;
             if (typeData.typeInfo() != null
-                && (!typeData.typeInfo().compilationUnit().externalLibrary() || typeData.typeInfo().hasBeenInspected())) return typeData.typeInfo();
+                && (!typeData.typeInfo().compilationUnit().externalLibrary() || typeData.typeInfo().hasBeenInspected()))
+                return typeData.typeInfo();
         } finally {
             trieLock.readLock().unlock();
         }
@@ -254,7 +272,6 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             // we ignore "test" situations where there are no actual dependencies (simplified test setup in
             // inspection/integration)
             boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
-            Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
             String[] parts = packageName.split("\\.");
             typeTrie.visitDoNotRecurse(parts, typeDataList -> {
                 TypeData typeData;
@@ -263,9 +280,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 } else if (ignoreRequest) {
                     typeData = typeDataList.getFirst();// we cannot know
                 } else {
-                    typeData = typeDataList.stream()
-                            .filter(c -> sourceSets.contains(c.sourceFile().sourceSet()))
-                            .findFirst().orElse(null);
+                    typeData = bestCandidate(sourceSetOfRequest, typeDataList);
                 }
                 if (typeData != null) {
                     TypeInfo typeInfo;

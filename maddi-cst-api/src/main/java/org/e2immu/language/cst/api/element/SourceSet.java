@@ -4,6 +4,7 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -108,5 +109,7 @@ public interface SourceSet {
 
     SourceSet withSourceDirectories(List<Path> sourceDirectories);
 
-    Set<SourceSet> recursiveDependenciesSameExternal();
+    void computePriorityDependencies();
+
+    Map<SourceSet, Integer> priorityDependencies();
 }
