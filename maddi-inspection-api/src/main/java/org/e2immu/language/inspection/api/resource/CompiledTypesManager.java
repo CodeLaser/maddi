@@ -15,7 +15,7 @@ import java.util.Set;
  */
 public interface CompiledTypesManager {
 
-    TypeData typeDataOrNull(String fqn, SourceSet sourceSet);
+    TypeData typeDataOrNull(String fqn, SourceSet sourceSet, boolean complainSingle);
 
     interface TypeData {
 
@@ -57,7 +57,7 @@ public interface CompiledTypesManager {
     }
 
     default void invalidate(TypeInfo typeInfo) { throw new UnsupportedOperationException(); }
-    
+
     default boolean packageContainsTypes(String packageName) {
         throw new UnsupportedOperationException();
     }
