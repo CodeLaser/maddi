@@ -126,8 +126,13 @@ public class PredefinedImpl implements Predefined {
         }
 
         @Override
-        public Set<SourceSet> recursiveDependenciesSameExternal() {
-            return Set.of();
+        public void computePriorityDependencies() {
+            // nothing here
+        }
+
+        @Override
+        public Map<SourceSet, Integer> priorityDependencies() {
+            return Map.of();
         }
     };
     private static final CompilationUnit JAVA_PRIMITIVE = new CompilationUnitImpl.Builder()

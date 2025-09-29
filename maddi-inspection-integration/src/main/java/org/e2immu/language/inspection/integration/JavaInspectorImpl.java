@@ -148,6 +148,9 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
+        inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
+        inputConfiguration.sourceSets().forEach(SourceSet::computePriorityDependencies);
+
         List<InitializationProblem> initializationProblems = new LinkedList<>();
         try {
 
