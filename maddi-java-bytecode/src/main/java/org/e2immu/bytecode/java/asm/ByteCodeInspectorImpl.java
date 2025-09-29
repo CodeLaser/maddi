@@ -144,6 +144,10 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
     @Override
     public TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, LoadMode loadMode) {
         Data data = typeData.byteCodeInspectorData();
+        if (data == null) {
+            LOGGER.warn("Not in classpath? {}", typeData.sourceFile());
+            return null;
+        }
         if (typeData.typeInfo() != null) {
             if (data.status() == Status.BEING_LOADED || data.status() == Status.DONE) {
                 return typeData.typeInfo();

@@ -85,7 +85,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     public void addToTrie(Resources resources, boolean compiled) {
         resources.visit(new String[0], (parts, sourceFiles) -> {
             for (SourceFile sourceFile : sourceFiles) {
-                if (sourceFile.path().endsWith(".class") || sourceFile.path().endsWith(".java")) {
+                boolean dotClass = sourceFile.path().endsWith(".class");
+                boolean dotJava = sourceFile.path().endsWith(".java");
+                if (dotClass && compiled || dotJava && !compiled) {
                     TypeDataImpl typeData = new TypeDataImpl(sourceFile);
                     if (compiled) {
                         typeData.byteCodeInspectorData = byteCodeInspector.get().defaultData();
@@ -179,7 +181,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 .map(td -> {
                     Integer priority;
                     if (td.sourceFile().sourceSet().equals(sourceSetOfRequest)) {
-                        priority = 1_000_000;
+                        priority = -1; // top prio
+                    } else if(td.sourceFile().sourceSet().partOfJdk()) {
+                        priority = 1_000; // bottom prio
                     } else {
                         priority = priorityMap.get(td.sourceFile().sourceSet());
                     }
