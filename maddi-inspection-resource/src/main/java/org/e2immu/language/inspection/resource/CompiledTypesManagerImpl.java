@@ -130,8 +130,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         TypeData typeData = types == null ? null
                 : types.stream().filter(c -> c.sourceFile().equals(sourceFile)).findFirst().orElse(null);
         if (typeData == null) {
-            // FIXME this is not an elegant solution for "additional sources to be tested"
-            addTestType(sourceFile, typeInfo, parts, fullyQualifiedName);
+            assert !sourceFile.sourceSet().externalLibrary() : "Only meant for 'additional test types'";
+            typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
+            mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
             return;
         }
         if (types.size() == 1) {
@@ -142,8 +143,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     private void addTestType(SourceFile sourceFile, TypeInfo typeInfo, String[] parts, String fullyQualifiedName) {
         LOGGER.warn("Unknown source file: {}", sourceFile);
-        typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
-        mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+
     }
 
     @Override

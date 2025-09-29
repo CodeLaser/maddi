@@ -78,10 +78,12 @@ public interface JavaInspector {
     TypeInfo parse(String input);
 
     // only for testing, uses FAIL_FAST default
-    TypeInfo parse(String input, String sourceSetName);
+    TypeInfo parse(String input, String inputName, String sourceSetName);
 
     // only for testing, after general parse()
     TypeInfo parse(String input, ParseOptions parseOptions);
+
+    List<TypeInfo> parseReturnAll(String input, String inputName, String sourceSetName, ParseOptions parseOptions);
 
     // only for testing, after general parse();
     Summary parse(URI typeInfo, SourceSet sourceSet, ParseOptions parseOptions);

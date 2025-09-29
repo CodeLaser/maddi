@@ -53,15 +53,16 @@ public class TestCloneBench extends CommonTest {
         LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
         for (File javaFile : javaFiles) {
             File outFile = new File(analyzedDir, javaFile.getName());
-            process(javaFile, outFile, counter.incrementAndGet(), typeHistogram);
+            process(name, javaFile, outFile, counter.incrementAndGet(), typeHistogram);
         }
     }
 
-    private void process(File javaFile, File outFile, int count, Map<MethodInfo, Integer> typeHistogram) throws IOException {
+    private void process(String setName, File javaFile, File outFile, int count,
+                         Map<MethodInfo, Integer> typeHistogram) throws IOException {
         String input = Files.readString(javaFile.toPath());
         LOGGER.info("Start parsing #{}, {}, file of size {}", count, javaFile, input.length());
 
-        TypeInfo typeInfo = javaInspector.parse(input);
+        TypeInfo typeInfo = javaInspector.parse(input, javaFile.getName(), setName);
 
         List<Info> analysisOrder = prepWork(typeInfo);
         analyzer.go(analysisOrder);

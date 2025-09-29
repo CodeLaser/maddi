@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.test.web.servlet.setup.AbstractMockMvcBuilder;
 
 import java.io.FileOutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -31,7 +32,7 @@ public class TestByteCode extends CommonTest {
     @Test
     public void testOnDemand() {
         CompiledTypesManager ctm = javaInspector.compiledTypesManager();
-        Resources classpath = ((CompiledTypesManagerImpl) ctm).classPath();
+        Resources classpath = ctm.classPath();
         AtomicInteger known = new AtomicInteger();
         AtomicInteger knownJavaUtil = new AtomicInteger();
         classpath.visit(new String[0], (parts, list) -> {
@@ -106,12 +107,17 @@ public class TestByteCode extends CommonTest {
     }
 
     @Test
-    public void testOnDemandInspection() {
-        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
-        assertTrue(stream.parentClass().isJavaLangObject());
-        MethodInfo flatMapToDouble = stream.findUniqueMethod("flatMapToDouble", 1);
-        TypeInfo doubleStream = flatMapToDouble.returnType().bestTypeInfo();
-        assertFalse(doubleStream.haveOnDemandInspection());
+    public void testOverrides() {
+        TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
+        assertEquals("java.util.AbstractList<E>", arrayList.parentClass().fullyQualifiedName());
+        assertEquals("""
+                Type Cloneable, Type java.io.Serializable, Type java.util.List<E>, Type java.util.RandomAccess\
+                """, arrayList.interfacesImplemented()
+                .stream().map(Object::toString).sorted().collect(Collectors.joining(", ")));
+        MethodInfo getInt = arrayList.findUniqueMethod("get", 1);
+        assertEquals("java.util.ArrayList.get(int)", getInt.fullyQualifiedName());
+        assertEquals("""
+                """, getInt.overrides().stream().map(Object::toString).collect(Collectors.joining(", ")));
     }
 
     @Test
