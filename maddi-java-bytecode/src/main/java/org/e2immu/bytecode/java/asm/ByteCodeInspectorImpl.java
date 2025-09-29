@@ -110,7 +110,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
 
     @Override
     public CompiledTypesManager.TypeData typeData(String fqn, SourceSet sourceSet) {
-        return compiledTypesManager.typeDataOrNull(fqn, sourceSet);
+        return compiledTypesManager.typeDataOrNull(fqn, sourceSet, false);
     }
 
     @Override
@@ -120,11 +120,15 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
 
     @Override
     public TypeInfo getOrCreate(String fqn, SourceSet sourceSetOfRequest, LoadMode loadMode) {
+        assert !fqn.contains("/");
         if (!compiledTypesManager.acceptFQN(fqn)) {
             return null;
         }
-        CompiledTypesManager.TypeData typeData = compiledTypesManager.typeDataOrNull(fqn, sourceSetOfRequest);
-        assert typeData != null;
+        CompiledTypesManager.TypeData typeData = typeData(fqn, sourceSetOfRequest);
+        if (typeData == null) {
+            LOGGER.warn("Not in classpath: {}", fqn);
+            return null;
+        }
         Data data = typeData.byteCodeInspectorData();
         if (data.status() == Status.DONE || data.status() == Status.BEING_LOADED) {
             return typeData.typeInfo();
@@ -146,22 +150,15 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
 
     @Override
     public TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, LoadMode loadMode) {
-        String fqn;
-        TypeInfo typeInfo;
         if (typeData.typeInfo() != null) {
             Data data = typeData.byteCodeInspectorData();
             if (data.status() == Status.BEING_LOADED || data.status() == Status.DONE) return typeData.typeInfo();
-            fqn = typeData.typeInfo().fullyQualifiedName();
-            typeInfo = typeData.typeInfo();
         } else {
-            fqn = typeData.sourceFile().fullyQualifiedNameFromPath();
-            typeInfo = createTypeInfo(typeData.sourceFile(), fqn, loadMode);
+            String fqn = typeData.sourceFile().fullyQualifiedNameFromPath();
+            TypeInfo typeInfo = createTypeInfo(typeData.sourceFile(), fqn, loadMode);
+            typeData.setTypeInfo(typeInfo);
         }
-        if (typeInfo.compilationUnitOrEnclosingType().isRight()) {
-            // may trigger recursion; ensure that the parent is loaded as well
-            getOrCreate(typeInfo.compilationUnitOrEnclosingType().getRight().fullyQualifiedName(),
-                    typeData.sourceFile().sourceSet(), loadMode);
-        }
+
         // because both the above if and else clause can trigger recursion, we must check again
         Data dataAgain = typeData.byteCodeInspectorData();
         if (dataAgain.status() == Status.DONE || dataAgain.status() == Status.BEING_LOADED) {
@@ -192,7 +189,10 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         TypeInfo typeInfo;
         if (dollar >= 0) {
             String simpleName = path.substring(dollar + 1);
-            TypeInfo parent = getOrCreate(fqn, source.sourceSet(), loadMode);
+            int lastDot = fqn.lastIndexOf('.');
+            assert lastDot > 0;
+            String parentFqn = fqn.substring(0, lastDot);
+            TypeInfo parent = getOrCreate(parentFqn, source.sourceSet(), loadMode);
             typeInfo = runtime.newTypeInfo(parent, simpleName);
         } else {
             int lastDot = fqn.lastIndexOf(".");

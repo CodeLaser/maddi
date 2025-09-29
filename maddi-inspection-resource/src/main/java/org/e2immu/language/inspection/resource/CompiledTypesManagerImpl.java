@@ -72,7 +72,6 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     public CompiledTypesManagerImpl(Resources classPath) {
         this.classPath = classPath;
-        addToTrie(classPath, true);
     }
 
 
@@ -134,7 +133,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
             if (single != null) return single;
-            TypeData typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest);
+            TypeData typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, true);
             return typeData == null ? null : typeData.typeInfo();
         } finally {
             trieLock.readLock().unlock();
@@ -142,11 +141,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public TypeData typeDataOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+    public TypeData typeDataOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest, boolean complainSingle) {
         String[] parts = fullyQualifiedName.split("\\.");
         List<TypeData> typeDataList = typeTrie.get(parts);
         if (typeDataList == null || typeDataList.isEmpty()) return null;
-        assert !(typeDataList.size() == 1 && typeDataList.getFirst().typeInfo() != null)
+        assert !complainSingle || !(typeDataList.size() == 1 && typeDataList.getFirst().typeInfo() != null)
                 : "Otherwise, would have been in mapSingleTypeForFQN: " + fullyQualifiedName;
         boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
         Set<SourceSet> sourceSets = ignoreRequest ? null : sourceSetOfRequest.recursiveDependenciesSameExternal();
@@ -180,7 +179,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         try {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
             if (single != null) return single;
-            typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest);
+            typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, true);
             if (typeData == null) return null;
             if (typeData.typeInfo() != null) return typeData.typeInfo();
         } finally {

@@ -31,27 +31,24 @@ public class TestGrpcStub {
     @Test
     public void test() throws IOException, URISyntaxException {
         Resources cp = new ResourcesImpl(Path.of("."));
-        {
-            URL url = ResourcesImpl.constructJModURL("java.base", null);
-            SourceSet jmodBase = new SourceSetImpl("jmod:java.base", List.of(), url.toURI(), StandardCharsets.UTF_8,
-                    false, true, true, true, false, Set.of(), Set.of());
-            cp.addJmod(new SourceFile("jmod:java.base", url.toURI(), jmodBase, null));
-        }
+        addJmod("java.base", cp);
+        addJmod("java.logging", cp);
         addJar("guava-33.3.0-jre", cp);
         addJar("grpc-api-1.67.1", cp);
         SourceSet set67 = addJar("grpc-stub-1.67.1", cp);
         SourceSet set73 = addJar("grpc-stub-1.73.0", cp);
 
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(cp);
-        List<SourceFile> sourceFiles = ctm.sourceFiles("io/grpc/stub/ClientCalls");
-        assertEquals(2, sourceFiles.size());
-        assertEquals(set67, sourceFiles.getFirst().sourceSet());
-        assertEquals(set73, sourceFiles.getLast().sourceSet());
-
         Runtime runtime = new RuntimeImpl();
         ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, true,
                 true);
         ctm.setByteCodeInspector(byteCodeInspector);
+        ctm.addToTrie(cp, true);
+
+        List<SourceFile> sourceFiles = ctm.sourceFiles("io/grpc/stub/ClientCalls");
+        assertEquals(2, sourceFiles.size());
+        assertEquals(set67, sourceFiles.getFirst().sourceSet());
+        assertEquals(set73, sourceFiles.getLast().sourceSet());
 
         SourceSet want67 = new SourceSetImpl("want67", List.of(), URI.create("file:/"), StandardCharsets.UTF_8,
                 true, false, false, false, false, Set.of(), Set.of(set67));
@@ -83,6 +80,13 @@ public class TestGrpcStub {
 
         TypeInfo clientCalls73 = ctm.getOrLoad("io.grpc.stub.ClientCalls", want73);
         assertNotEquals(clientCalls67, clientCalls73);
+    }
+
+    private static void addJmod(String name, Resources cp) throws URISyntaxException, IOException {
+        URL url = ResourcesImpl.constructJModURL(name, null);
+        SourceSet jmodBase = new SourceSetImpl("jmod:" + name, List.of(), url.toURI(), StandardCharsets.UTF_8,
+                false, true, true, true, false, Set.of(), Set.of());
+        cp.addJmod(new SourceFile("jmod:" + name, url.toURI(), jmodBase, null));
     }
 
     private static SourceSet addJar(String name, Resources cp) throws IOException {
