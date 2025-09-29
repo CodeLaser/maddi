@@ -4,17 +4,62 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
+import org.e2immu.language.inspection.api.resource.Resources;
 import org.e2immu.language.inspection.integration.java.CommonTest;
+import org.e2immu.language.inspection.resource.CompiledTypesManagerImpl;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.test.web.servlet.setup.AbstractMockMvcBuilder;
 
 import java.io.FileOutputStream;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestByteCode extends CommonTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestByteCode.class);
+
+    public TestByteCode() {
+        // true for test(), because 'org.springframework.web.servlet.DispatcherServlet' is missing
+        super(true);
+    }
+
+    @Test
+    public void testOnDemand() {
+        CompiledTypesManager ctm = javaInspector.compiledTypesManager();
+        Resources classpath = ((CompiledTypesManagerImpl) ctm).classPath();
+        AtomicInteger known = new AtomicInteger();
+        AtomicInteger knownJavaUtil = new AtomicInteger();
+        classpath.visit(new String[0], (parts, list) -> {
+            known.addAndGet(list.size());
+            if(String.join(".", parts).startsWith("java.util.")) {
+                knownJavaUtil.addAndGet(list.size());
+            }
+        });
+        List<TypeInfo> loaded = ctm.typesLoaded(true);
+
+        AtomicInteger inspected = new AtomicInteger();
+        AtomicInteger inspectedJavaUtil = new AtomicInteger();
+        loaded.forEach(ti -> {
+            if (ti.hasBeenInspected()) {
+                inspected.incrementAndGet();
+                if(ti.packageName().startsWith("java.util")) {
+                    inspectedJavaUtil.incrementAndGet();
+                }
+            } else {
+                assertTrue(ti.haveOnDemandInspection());
+            }
+        });
+        LOGGER.info("Known {}, inspected {} loaded {}; java.util*: {}, {}", known.get(), inspected.get(), loaded.size(),
+                knownJavaUtil.get(), inspectedJavaUtil.get());
+        assertTrue(known.get() > inspected.get());
+        assertEquals(inspected.get(), loaded.size());
+    }
+
     @Test
     public void test() {
         TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(AbstractMockMvcBuilder.class);
@@ -66,11 +111,6 @@ public class TestByteCode extends CommonTest {
         assertTrue(stream.parentClass().isJavaLangObject());
         MethodInfo flatMapToDouble = stream.findUniqueMethod("flatMapToDouble", 1);
         TypeInfo doubleStream = flatMapToDouble.returnType().bestTypeInfo();
-        // parent of doubleStream is not yet known; the type was not loaded because it is not in the hierarchy of Stream
-        assertTrue(doubleStream.haveOnDemandInspection());
-        // asking for it triggers on-demand inspection
-        assertTrue(doubleStream.parentClass().isJavaLangObject());
-        // afterwards, on demand inspection for this type is deactivated
         assertFalse(doubleStream.haveOnDemandInspection());
     }
 

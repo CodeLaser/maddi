@@ -2,7 +2,6 @@ package org.e2immu.language.inspection.resource;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.Resources;
@@ -101,9 +100,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     public void addPredefinedTypeInfoObjects(List<TypeInfo> predefinedTypes) {
-        for(TypeInfo predefined: predefinedTypes) {
+        for (TypeInfo predefined : predefinedTypes) {
             TypeData typeData = typeDataOrNull(predefined.fullyQualifiedName(), null, true);
-            ((TypeDataImpl)typeData).setTypeInfo(predefined);
+            ((TypeDataImpl) typeData).setTypeInfo(predefined);
             mapSingleTypeForFQN.put(predefined.fullyQualifiedName(), predefined);
         }
     }
@@ -128,18 +127,23 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             return;
         }
         List<TypeData> types = typeTrie.get(parts);
-        if (types == null) {
+        TypeData typeData = types == null ? null
+                : types.stream().filter(c -> c.sourceFile().equals(sourceFile)).findFirst().orElse(null);
+        if (typeData == null) {
             // FIXME this is not an elegant solution for "additional sources to be tested"
-            LOGGER.warn("Unknown source file: {}", sourceFile);
-            typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
-            mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+            addTestType(sourceFile, typeInfo, parts, fullyQualifiedName);
             return;
         }
         if (types.size() == 1) {
             mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
         }
-        TypeData typeData = types.stream().filter(c -> c.sourceFile().equals(sourceFile)).findFirst().orElseThrow();
         ((TypeDataImpl) typeData).setTypeInfo(typeInfo);
+    }
+
+    private void addTestType(SourceFile sourceFile, TypeInfo typeInfo, String[] parts, String fullyQualifiedName) {
+        LOGGER.warn("Unknown source file: {}", sourceFile);
+        typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
+        mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
     }
 
     @Override

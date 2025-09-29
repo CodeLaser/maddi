@@ -49,7 +49,7 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
         assertNotNull(javaFiles);
         LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
         for (File javaFile : javaFiles) {
-            process(analyzer, javaFile, methodHistogram);
+            process(name, analyzer, javaFile, methodHistogram);
         }
     }
 
@@ -59,10 +59,11 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
         return PROCESSED.matcher(name).matches();
     }
 
-    private void process(PrepAnalyzer analyzer, File javaFile, Map<String, Integer> methodHistogram) throws IOException {
+    private void process(String setName, PrepAnalyzer analyzer, File javaFile, Map<String, Integer> methodHistogram)
+            throws IOException {
         String input = Files.readString(javaFile.toPath());
         LOGGER.info("Start parsing {}, file of size {}", javaFile, input.length());
-        TypeInfo typeInfo = javaInspector.parse(input);
+        TypeInfo typeInfo = javaInspector.parse(input, setName);
         List<Info> analysisOrder = analyzer.doPrimaryType(typeInfo);
         LOGGER.info("-    analysis order size {}", analysisOrder.size());
         analysisOrder.stream().filter(info -> info instanceof MethodInfo)
