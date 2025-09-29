@@ -181,7 +181,18 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         assertSame(enumSet.typeParameters().getFirst(), tp0.typeParameter());
 
         TypeInfo enumSetProxy = enumSet.findSubType("SerializationProxy");
+        assertSame(enumSet, enumSetProxy.compilationUnitOrEnclosingType().getRight());
+        assertEquals(1, enumSetProxy.typeParameters().size());
         assertEquals("E=TP#0 in SerializationProxy", enumSetProxy.typeParameters().getFirst().toString());
+
+        TypeInfo enumSetProxy2 = compiledTypesManager.getOrLoad("java.util.EnumSet.SerializationProxy", null);
+        assertSame(enumSet, enumSetProxy2.compilationUnitOrEnclosingType().getRight());
+
+        assertEquals("E=TP#0 in SerializationProxy", enumSetProxy2.typeParameters().getFirst().toString());
+        assertFalse(enumSetProxy2.isPublic());
+
+
+        assertSame(enumSetProxy, enumSetProxy2);
     }
 
 

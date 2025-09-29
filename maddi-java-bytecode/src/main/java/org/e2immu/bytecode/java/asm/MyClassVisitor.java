@@ -359,20 +359,20 @@ public class MyClassVisitor extends ClassVisitor {
                 LOGGER.debug("Processing sub-type {} of/in {}, step side? {} step down? {}", fqn,
                         currentType.fullyQualifiedName(), stepSide, stepDown);
 
-                CompiledTypesManager.TypeData localOrRemote = localTypeMap.typeData(fqn, typeData.sourceFile().sourceSet());
-                assert localOrRemote != null : "CompiledTypeManager knows the path of all sub-types: " + fqn;
-                if (localOrRemote.typeInfo() == null) {
-                    TypeInfo enclosing = stepDown ? currentType
-                            : currentType.compilationUnitOrEnclosingType().getRight();
-                    TypeInfo subType = runtime.newTypeInfo(enclosing, innerName);
-                    checkTypeFlags(access, subType.builder());
-                    localTypeMap.inspectFromPath(localOrRemote, LocalTypeMap.LoadMode.NOW);
+                CompiledTypesManager.TypeData typeDataOfSubType = localTypeMap.typeData(fqn, typeData.sourceFile().sourceSet());
+                assert typeDataOfSubType != null : "CompiledTypeManager knows the path of all sub-types: " + fqn;
+                if (typeDataOfSubType.typeInfo() == null) {
+                //    TypeInfo enclosing = stepDown ? currentType
+                //            : currentType.compilationUnitOrEnclosingType().getRight();
+                //    TypeInfo subType = runtime.newTypeInfo(enclosing, innerName);
+                //    checkTypeFlags(access, subType.builder());
+                 TypeInfo subType =   localTypeMap.inspectFromPath(typeDataOfSubType, LocalTypeMap.LoadMode.NOW);
                     if (stepDown) {
                         currentTypeBuilder.addSubType(subType);
                     }
                 } else {
                     if (stepDown) {
-                        currentTypeBuilder.addSubType(localOrRemote.typeInfo());
+                        currentTypeBuilder.addSubType(typeDataOfSubType.typeInfo());
                     }
                 }
             } //else? potentially add: String fqn = pathToFqn(name); localTypeMap.getOrCreate(fqn, true);

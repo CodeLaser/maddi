@@ -81,6 +81,30 @@ public class TestGrpcStub {
 
         TypeInfo clientCalls73 = ctm.getOrLoad("io.grpc.stub.ClientCalls", want73);
         assertNotEquals(clientCalls67, clientCalls73);
+
+        assertEquals(19, clientCalls73.methods().size());
+        assertEquals("""
+                io.grpc.stub.ClientCalls.asyncUnaryCall(io.grpc.ClientCall<ReqT,RespT>,ReqT,io.grpc.stub.StreamObserver<RespT>)
+                io.grpc.stub.ClientCalls.asyncServerStreamingCall(io.grpc.ClientCall<ReqT,RespT>,ReqT,io.grpc.stub.StreamObserver<RespT>)
+                io.grpc.stub.ClientCalls.asyncClientStreamingCall(io.grpc.ClientCall<ReqT,RespT>,io.grpc.stub.StreamObserver<RespT>)
+                io.grpc.stub.ClientCalls.asyncBidiStreamingCall(io.grpc.ClientCall<ReqT,RespT>,io.grpc.stub.StreamObserver<RespT>)
+                io.grpc.stub.ClientCalls.blockingUnaryCall(io.grpc.ClientCall<ReqT,RespT>,ReqT)
+                io.grpc.stub.ClientCalls.blockingUnaryCall(io.grpc.Channel,io.grpc.MethodDescriptor<ReqT,RespT>,io.grpc.CallOptions,ReqT)
+                io.grpc.stub.ClientCalls.blockingServerStreamingCall(io.grpc.ClientCall<ReqT,RespT>,ReqT)
+                io.grpc.stub.ClientCalls.blockingServerStreamingCall(io.grpc.Channel,io.grpc.MethodDescriptor<ReqT,RespT>,io.grpc.CallOptions,ReqT)
+                io.grpc.stub.ClientCalls.blockingV2ServerStreamingCall(io.grpc.Channel,io.grpc.MethodDescriptor<ReqT,RespT>,io.grpc.CallOptions,ReqT)
+                io.grpc.stub.ClientCalls.blockingClientStreamingCall(io.grpc.Channel,io.grpc.MethodDescriptor<ReqT,RespT>,io.grpc.CallOptions)
+                io.grpc.stub.ClientCalls.blockingBidiStreamingCall(io.grpc.Channel,io.grpc.MethodDescriptor<ReqT,RespT>,io.grpc.CallOptions)
+                io.grpc.stub.ClientCalls.futureUnaryCall(io.grpc.ClientCall<ReqT,RespT>,ReqT)
+                io.grpc.stub.ClientCalls.getUnchecked(java.util.concurrent.Future<V>)
+                io.grpc.stub.ClientCalls.toStatusRuntimeException(Throwable)
+                io.grpc.stub.ClientCalls.cancelThrow(io.grpc.ClientCall<?,?>,Throwable)
+                io.grpc.stub.ClientCalls.asyncUnaryRequestCall(io.grpc.ClientCall<ReqT,RespT>,ReqT,io.grpc.stub.StreamObserver<RespT>,boolean)
+                io.grpc.stub.ClientCalls.asyncUnaryRequestCall(io.grpc.ClientCall<ReqT,RespT>,ReqT,io.grpc.stub.ClientCalls.StartableListener<RespT>)
+                io.grpc.stub.ClientCalls.asyncStreamingRequestCall(io.grpc.ClientCall<ReqT,RespT>,io.grpc.stub.StreamObserver<RespT>,boolean)
+                io.grpc.stub.ClientCalls.startCall(io.grpc.ClientCall<ReqT,RespT>,io.grpc.stub.ClientCalls.StartableListener<RespT>)\
+                """, clientCalls73.methods().stream().map(MethodInfo::fullyQualifiedName).collect(Collectors.joining("\n")));
+        assertEquals(set73, clientCalls73.compilationUnit().sourceSet());
     }
 
     private static void addJmod(String name, Resources cp) throws URISyntaxException, IOException {

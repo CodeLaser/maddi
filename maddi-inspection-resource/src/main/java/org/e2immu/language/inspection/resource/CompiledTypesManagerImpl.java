@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.resource;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.Resources;
@@ -99,6 +100,14 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         });
     }
 
+    public void addPredefinedTypeInfoObjects(List<TypeInfo> predefinedTypes) {
+        for(TypeInfo predefined: predefinedTypes) {
+            TypeData typeData = typeDataOrNull(predefined.fullyQualifiedName(), null, true);
+            ((TypeDataImpl)typeData).setTypeInfo(predefined);
+            mapSingleTypeForFQN.put(predefined.fullyQualifiedName(), predefined);
+        }
+    }
+
     @Override
     public Resources classPath() {
         return classPath;
@@ -122,9 +131,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         if (types == null) {
             // FIXME this is not an elegant solution for "additional sources to be tested"
             LOGGER.warn("Unknown source file: {}", sourceFile);
-            types = typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
+            typeTrie.add(parts, new TypeDataImpl(sourceFile, typeInfo));
+            mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+            return;
         }
-        assert types != null : "We should know about " + fullyQualifiedName;
         if (types.size() == 1) {
             mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
         }

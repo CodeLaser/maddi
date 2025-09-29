@@ -160,6 +160,8 @@ public class JavaInspectorImpl implements JavaInspector {
             ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, computeFingerPrints,
                     allowCreationOfStubTypes);
             ctm.setByteCodeInspector(byteCodeInspector);
+            ctm.addToTrie(classPath, true);
+            ctm.addPredefinedTypeInfoObjects(runtime.predefinedObjects());
             this.compiledTypesManager = ctm;
 
             for (String packageName : new String[]{"java.lang", "java.util.function"}) {
