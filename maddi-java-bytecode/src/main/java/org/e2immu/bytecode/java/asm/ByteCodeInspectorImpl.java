@@ -129,34 +129,29 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             LOGGER.warn("Not in classpath: {}", fqn);
             return null;
         }
-        Data data = typeData.byteCodeInspectorData();
-        if (data.status() == Status.DONE || data.status() == Status.BEING_LOADED) {
-            return typeData.typeInfo();
-        }
-        return inspectFromPath(typeData, loadMode);
+        return inspectFromPath(typeData, LoadMode.NOW);
     }
 
     @Override
     public TypeInfo load(CompiledTypesManager.TypeData typeData) {
-        Data data = typeData.byteCodeInspectorData();
-        if ((data.status() == Status.BEING_LOADED || data.status() == Status.DONE) && typeData.typeInfo() != null) {
-            return typeData.typeInfo();
-        }
-        if (data.typeParameterContext() == null) {
-            typeData.updateByteCodeInspectorData(new DataImpl(data.status(), new TypeParameterContextImpl()));
-        }
         return inspectFromPath(typeData, LoadMode.NOW);
     }
 
     @Override
     public TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, LoadMode loadMode) {
+        Data data = typeData.byteCodeInspectorData();
         if (typeData.typeInfo() != null) {
-            Data data = typeData.byteCodeInspectorData();
-            if (data.status() == Status.BEING_LOADED || data.status() == Status.DONE) return typeData.typeInfo();
+            if (data.status() == Status.BEING_LOADED || data.status() == Status.DONE) {
+                return typeData.typeInfo();
+            }
         } else {
+            assert data.status() != Status.BEING_LOADED && data.status() != Status.DONE;
             String fqn = typeData.sourceFile().fullyQualifiedNameFromPath();
             TypeInfo typeInfo = createTypeInfo(typeData.sourceFile(), fqn, loadMode);
-            typeData.setTypeInfo(typeInfo);
+            if (typeData.typeInfo() == null) {
+                // note: do not directly call setTypeInfo,
+                compiledTypesManager.addTypeInfo(typeData.sourceFile(), typeInfo);
+            } // else: already set in recursion
         }
 
         // because both the above if and else clause can trigger recursion, we must check again
@@ -166,6 +161,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         }
         // jump to the typeInfo object in inMapAgain
         TypeInfo typeInfo1 = typeData.typeInfo();
+        assert typeInfo1 != null;
         if (loadMode == LoadMode.NOW) {
             return continueLoadByteCodeAndStartASM(typeData, typeInfo1, dataAgain.typeParameterContext());
         }
@@ -181,9 +177,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         return typeInfo1;
     }
 
-    private TypeInfo createTypeInfo(SourceFile source,
-                                    String fqn,
-                                    LoadMode loadMode) {
+    private TypeInfo createTypeInfo(SourceFile source, String fqn, LoadMode loadMode) {
         String path = source.stripDotClass();
         int dollar = path.lastIndexOf('$');
         TypeInfo typeInfo;
@@ -193,7 +187,13 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             assert lastDot > 0;
             String parentFqn = fqn.substring(0, lastDot);
             TypeInfo parent = getOrCreate(parentFqn, source.sourceSet(), loadMode);
-            typeInfo = runtime.newTypeInfo(parent, simpleName);
+            // this may trigger the creation of the sub-type... so we must check
+            TypeInfo alreadyCreated = parent.findSubType(simpleName, false);
+            if (alreadyCreated != null) {
+                typeInfo = alreadyCreated;
+            } else {
+                typeInfo = runtime.newTypeInfo(parent, simpleName);
+            }
         } else {
             int lastDot = fqn.lastIndexOf(".");
             String packageName = fqn.substring(0, lastDot);
@@ -232,7 +232,6 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             classReader.accept(myClassVisitor, 0);
             LOGGER.debug("Finished bytecode inspection of {}", fqn);
             typeData.updateByteCodeInspectorData(new DataImpl(Status.DONE, typeParameterContext));
-            typeData.setTypeInfo(typeInfo);
             return typeInfo;
         } catch (RuntimeException | AssertionError re) {
             LOGGER.error("Path = {}", typeData.sourceFile());

@@ -95,13 +95,13 @@ public class CommonTestParse {
         }
 
         @Override
-        public void addTypeInfo(SourceFile sf, TypeInfo typeInfo) {
-            typeMap.put(typeInfo.fullyQualifiedName(), typeInfo);
+        public TypeData typeDataOrNull(String fqn, SourceSet sourceSet, boolean complainSingle) {
+            return null;
         }
 
         @Override
-        public TypeData typeDataOrNull(String fqn, SourceSet sourceSet) {
-            throw new UnsupportedOperationException();
+        public void addTypeInfo(SourceFile sf, TypeInfo typeInfo) {
+            typeMap.put(typeInfo.fullyQualifiedName(), typeInfo);
         }
 
         @Override
