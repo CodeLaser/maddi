@@ -9,6 +9,12 @@ import java.util.List;
 
 public interface InputConfiguration {
 
+    default SourceSet javaBase() {
+        return classPathParts().stream()
+                .filter(set -> "java.base".equals(set.name()))
+                .findFirst().orElseThrow();
+    }
+
     /**
      * By default, this value is ".", representing the operating system's current working directory.
      * All relative paths in the source sets and class path parts are prefixed with this directory.

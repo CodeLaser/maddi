@@ -61,7 +61,8 @@ public class TestByteCode extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(AbstractMockMvcBuilder.class);
+        TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(AbstractMockMvcBuilder.class,
+                javaInspector.mainSources());
         assertEquals("""
                 B=TP#0 in AbstractMockMvcBuilder [Type org.springframework.test.web.servlet.setup.AbstractMockMvcBuilder<\
                 B extends org.springframework.test.web.servlet.setup.AbstractMockMvcBuilder<B>>]\

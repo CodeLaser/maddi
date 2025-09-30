@@ -11,11 +11,16 @@ import org.e2immu.util.internal.util.Trie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
-    private final Logger LOGGER = LoggerFactory.getLogger(CompiledTypesManagerImpl.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CompiledTypesManagerImpl.class);
+    private final SourceSet ANY = new SourceSetImpl("any source set will do", List.of(), URI.create("file:/"),
+            StandardCharsets.UTF_8, false, false, false, false, false,
+            Set.of(), Set.of());
 
     private static class TypeDataImpl implements CompiledTypesManager.TypeData {
         private final SourceFile sourceFile;
@@ -73,11 +78,17 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final Map<String, TypeInfo> mapSingleTypeForFQN = new HashMap<>();
     private final ReentrantReadWriteLock trieLock = new ReentrantReadWriteLock();
     private final Trie<TypeData> typeTrie = new Trie<>();
+    private final SourceSet javaBase;
 
-    public CompiledTypesManagerImpl(Resources classPath) {
+    public CompiledTypesManagerImpl(SourceSet javaBase, Resources classPath) {
         this.classPath = classPath;
+        this.javaBase = javaBase;
     }
 
+    @Override
+    public SourceSet javaBase() {
+        return javaBase;
+    }
 
     // we must also call this for the sources, after the classpath
     // clearExisting == true when you want the sources to override any same FQN type in the class path
@@ -99,9 +110,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         });
     }
 
-    public void addPredefinedTypeInfoObjects(List<TypeInfo> predefinedTypes) {
+    public void addPredefinedTypeInfoObjects(List<TypeInfo> predefinedTypes, SourceSet javaBase) {
         for (TypeInfo predefined : predefinedTypes) {
-            TypeData typeData = typeDataOrNull(predefined.fullyQualifiedName(), null, true);
+            TypeData typeData = typeDataOrNull(predefined.fullyQualifiedName(), javaBase, true);
             ((TypeDataImpl) typeData).setTypeInfo(predefined);
             mapSingleTypeForFQN.put(predefined.fullyQualifiedName(), predefined);
         }
@@ -176,9 +187,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         return typeTrie.get(parts);
     }
 
-    private static TypeData bestCandidate(SourceSet sourceSetOfRequest, List<TypeData> typeDataList) {
-        boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
-        if (ignoreRequest) return typeDataList.stream().findFirst().orElse(null);
+    private TypeData bestCandidate(SourceSet sourceSetOfRequest, List<TypeData> typeDataList) {
+        if (sourceSetOfRequest == ANY) {
+            // only for the call packageContainsTypes()
+            return typeDataList.stream().findFirst().orElse(null);
+        }
         Map<SourceSet, Integer> priorityMap = sourceSetOfRequest.priorityDependencies();
         return typeDataList.stream()
                 .map(td -> {
@@ -250,9 +263,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public void preload(String thePackage) {
+    public void preload(String thePackage, SourceSet sourceSetOfRequest) {
         LOGGER.info("Start pre-loading {}", thePackage);
-        List<TypeInfo> types = primaryTypesInPackageEnsureLoaded(thePackage, null);
+        List<TypeInfo> types = primaryTypesInPackageEnsureLoaded(thePackage, sourceSetOfRequest);
         LOGGER.info("... loaded {} types", types.size());
     }
 
@@ -278,14 +291,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         try {
             // we ignore "test" situations where there are no actual dependencies (simplified test setup in
             // inspection/integration)
-            boolean ignoreRequest = sourceSetOfRequest == null || sourceSetOfRequest.inTestSetup();
             String[] parts = packageName.split("\\.");
             typeTrie.visitDoNotRecurse(parts, typeDataList -> {
                 TypeData typeData;
                 if (typeDataList == null || typeDataList.isEmpty()) {
                     typeData = null;
-                } else if (ignoreRequest) {
-                    typeData = typeDataList.getFirst();// we cannot know
                 } else {
                     typeData = bestCandidate(sourceSetOfRequest, typeDataList);
                 }
@@ -313,7 +323,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public boolean packageContainsTypes(String packageName) {
-        return !primaryTypesInPackageEnsureLoaded(packageName, null).isEmpty();
+        return !primaryTypesInPackageEnsureLoaded(packageName, ANY).isEmpty();
     }
 
     public List<SourceFile> sourceFiles(String path) {

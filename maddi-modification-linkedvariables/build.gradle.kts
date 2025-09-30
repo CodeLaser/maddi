@@ -27,6 +27,8 @@ dependencies {
     implementation(project(":maddi-java-bytecode"))
     implementation(project(":maddi-java-parser"))
 
+    testImplementation("org.apiguardian:apiguardian-api:1.1.2")
+    testImplementation("org.assertj:assertj-core:3.27.3")
     testImplementation("ch.qos.logback:logback-classic")
     testImplementation(project(":maddi-modification-io"))
 

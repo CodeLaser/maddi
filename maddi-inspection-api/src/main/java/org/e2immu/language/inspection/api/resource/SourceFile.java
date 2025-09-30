@@ -5,14 +5,14 @@ import org.e2immu.language.cst.api.element.SourceSet;
 
 import java.net.URI;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 import static org.e2immu.util.internal.util.StringUtil.replaceSlashDollar;
 
 public record SourceFile(String path, URI uri, SourceSet sourceSet, FingerPrint fingerPrint) {
 
     public SourceFile {
-        assert !path.startsWith("/");
+        assert !(path.endsWith(".class") || path.endsWith(".java")) ||
+               !path.startsWith("/");
     }
 
     @Override

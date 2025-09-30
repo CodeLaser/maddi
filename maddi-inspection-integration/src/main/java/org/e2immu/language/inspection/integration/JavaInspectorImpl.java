@@ -72,6 +72,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private Runtime runtime;
     private Map<SourceFile, List<TypeInfo>> sourceFiles;
     private CompiledTypesManager compiledTypesManager;
+    private InputConfiguration inputConfiguration; // kept for tests
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
 
@@ -148,8 +149,10 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
-        inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
+        this.inputConfiguration = inputConfiguration;
         inputConfiguration.sourceSets().forEach(SourceSet::computePriorityDependencies);
+        inputConfiguration.classPathParts()
+                .forEach(set -> set.computePriorityDependencies(inputConfiguration.sourceSets()));
 
         List<InitializationProblem> initializationProblems = new LinkedList<>();
         try {
@@ -158,17 +161,18 @@ public class JavaInspectorImpl implements JavaInspector {
                     inputConfiguration.classPathParts(), inputConfiguration.alternativeJREDirectory(),
                     initializationProblems);
             // we have a unified type map: both sources and compiled types are in the same map
-            CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(classPath);
+            CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase(), classPath);
             runtime = new RuntimeWithCompiledTypesManager(ctm);
             ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, computeFingerPrints,
                     allowCreationOfStubTypes);
             ctm.setByteCodeInspector(byteCodeInspector);
             ctm.addToTrie(classPath, true);
-            ctm.addPredefinedTypeInfoObjects(runtime.predefinedObjects());
+            SourceSet javaBase = inputConfiguration.javaBase();
+            ctm.addPredefinedTypeInfoObjects(runtime.predefinedObjects(), javaBase);
             this.compiledTypesManager = ctm;
 
             for (String packageName : new String[]{"java.lang", "java.util.function"}) {
-                preload(packageName);
+                preload(packageName, javaBase);
             }
 
             Resources sourcePath = assembleSourcePath(inputConfiguration.workingDirectory(),
@@ -279,8 +283,8 @@ public class JavaInspectorImpl implements JavaInspector {
      * <code>initializeClassPath</code> will be present
      */
     @Override
-    public void preload(String thePackage) {
-        compiledTypesManager.preload(thePackage);
+    public void preload(String thePackage, SourceSet sourceSetOfRequest) {
+        compiledTypesManager.preload(thePackage, sourceSetOfRequest);
     }
 
     private Resources assembleClassPath(Path workingDirectory,
@@ -434,9 +438,12 @@ public class JavaInspectorImpl implements JavaInspector {
     public List<TypeInfo> parseReturnAll(String input, String inputName, String sourceSetName, ParseOptions parseOptions) {
         Summary failFastSummary = new SummaryImpl(true);
         try {
+            Set<SourceSet> dependencies = inputConfiguration.classPathParts().stream()
+                    .collect(Collectors.toUnmodifiableSet());
             SourceSet dummy = new SourceSetImpl(sourceSetName, List.of(), URI.create("file:"+sourceSetName),
                     StandardCharsets.UTF_8, false, false, false, false,
-                    false, Set.of(), Set.of());
+                    false, Set.of(), dependencies);
+            dummy.computePriorityDependencies();
             SourceFile sourceFile = new SourceFile(inputName, new URI("file:" + inputName), dummy,
                     MD5FingerPrint.compute(input));
             return internalParseSingleInput(failFastSummary, sourceFile, () -> {
@@ -811,6 +818,16 @@ public class JavaInspectorImpl implements JavaInspector {
                 runtime.qualificationQualifyFromPrimaryType(decorator), true);
         Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         return formatter.write(ob);
+    }
+
+    @Override
+    public SourceSet javaBase() {
+        return inputConfiguration.javaBase();
+    }
+
+    @Override
+    public SourceSet mainSources() {
+        return inputConfiguration.sourceSets().stream().filter(set -> !set.test()).findFirst().orElse(null);
     }
 }
 

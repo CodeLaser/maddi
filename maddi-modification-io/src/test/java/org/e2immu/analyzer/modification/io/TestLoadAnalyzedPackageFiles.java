@@ -60,7 +60,7 @@ public class TestLoadAnalyzedPackageFiles {
         classPath.forEach(inputConfiguration::addClassPath);
         javaInspector.initialize(inputConfiguration.build());
 
-        LoadAnalyzedPackageFiles loadAnalyzedPackageFiles = new LoadAnalyzedPackageFiles();
+        LoadAnalyzedPackageFiles loadAnalyzedPackageFiles = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
         String jdk = ToolChain.mapJreShortNameToAnalyzedPackageShortName(ToolChain.currentJre().shortName());
         File jdkDir = new File("../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk/" + jdk);
         LOGGER.info("JDK dir is {}", jdkDir);
@@ -88,7 +88,7 @@ public class TestLoadAnalyzedPackageFiles {
                 .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT);
         javaInspector.initialize(inputConfiguration.build());
 
-        LoadAnalyzedPackageFiles loadAnalyzedPackageFiles = new LoadAnalyzedPackageFiles();
+        LoadAnalyzedPackageFiles loadAnalyzedPackageFiles = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
         int count = loadAnalyzedPackageFiles.go(javaInspector, List.of(ToolChain.currentJdkAnalyzedPackages(),
                 ToolChain.commonLibsAnalyzedPackages()));
         assertTrue(count > 1);

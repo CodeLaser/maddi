@@ -40,13 +40,13 @@ public class TestGrpcStub {
         SourceSet set73 = addJar("grpc-stub-1.73.0", cp, Set.of(base, logging, guava, api));
         set73.computePriorityDependencies();
 
-        CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(cp);
+        CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(base, cp);
         Runtime runtime = new RuntimeImpl();
         ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, true,
                 true);
         ctm.setByteCodeInspector(byteCodeInspector);
         ctm.addToTrie(cp, true);
-        ctm.preload("java.lang");
+        ctm.preload("java.lang", base);
 
         List<SourceFile> sourceFiles = ctm.sourceFiles("io/grpc/stub/ClientCalls");
         assertEquals(2, sourceFiles.size());

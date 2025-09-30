@@ -3,7 +3,10 @@ package org.e2immu.analyzer.modification.linkedvariables;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.io.LoadAnalyzedPackageFiles;
-import org.e2immu.analyzer.modification.linkedvariables.impl.*;
+import org.e2immu.analyzer.modification.linkedvariables.impl.CommonAnalyzerImpl;
+import org.e2immu.analyzer.modification.linkedvariables.impl.IteratingAnalyzerImpl;
+import org.e2immu.analyzer.modification.linkedvariables.impl.ModAnalyzerForTesting;
+import org.e2immu.analyzer.modification.linkedvariables.impl.SingleIterationAnalyzerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -54,16 +57,17 @@ public class CommonTest {
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                 .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
                 .addClassPath(ToolChain.CLASSPATH_JUNIT)
-                .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK);
+                .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
+                .addSources("src/main/java");
         for (String extra : extraClassPath) {
             builder.addClassPath(extra);
         }
         InputConfiguration inputConfiguration = builder.build();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.preload("java.util");
+        javaInspector.preload("java.util", inputConfiguration.javaBase());
 
-        new LoadAnalyzedPackageFiles().go(javaInspector, List.of(ToolChain.currentJdkAnalyzedPackages(),
-                ToolChain.commonLibsAnalyzedPackages()));
+        new LoadAnalyzedPackageFiles(javaInspector.mainSources()).go(javaInspector,
+                List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages()));
 
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);
         runtime = javaInspector.runtime();

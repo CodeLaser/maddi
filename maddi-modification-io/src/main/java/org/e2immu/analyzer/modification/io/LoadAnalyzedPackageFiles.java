@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.io;
 
 import org.e2immu.language.cst.api.analysis.Codec;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.io.CodecImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -19,15 +20,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.stream.Stream;
 
 public class LoadAnalyzedPackageFiles {
     private static final Logger LOGGER = LoggerFactory.getLogger(LoadAnalyzedPackageFiles.class);
+    private final SourceSet sourceSetOfRequest; // for loading types
 
-    public int go(JavaInspector javaInspector,  List<String> directories) throws IOException {
-        Codec codec = new PrepWorkCodec(javaInspector.runtime()).codec();
+    public LoadAnalyzedPackageFiles(SourceSet sourceSetOfRequest) {
+        this.sourceSetOfRequest = Objects.requireNonNull(sourceSetOfRequest);
+    }
+
+    public int go(JavaInspector javaInspector, List<String> directories) throws IOException {
+        Codec codec = new PrepWorkCodec(javaInspector.runtime(), sourceSetOfRequest).codec();
         return go(codec, directories);
     }
 
@@ -90,7 +97,7 @@ public class LoadAnalyzedPackageFiles {
     }
 
     public int goDir(JavaInspector javaInspector, File directory) throws IOException {
-        Codec codec = new PrepWorkCodec(javaInspector.runtime()).codec();
+        Codec codec = new PrepWorkCodec(javaInspector.runtime(), sourceSetOfRequest).codec();
         return goDir(codec, directory);
     }
 

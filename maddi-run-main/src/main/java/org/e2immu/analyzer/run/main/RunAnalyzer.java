@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Summary;
+import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.util.internal.util.Trie;
 import org.slf4j.Logger;
@@ -77,15 +78,16 @@ public class RunAnalyzer implements Runnable {
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
 
         JavaInspector javaInspector = new JavaInspectorImpl(true, true);
-        javaInspector.initialize(configuration.inputConfiguration());
+        InputConfiguration inputConfiguration = configuration.inputConfiguration();
+        javaInspector.initialize(inputConfiguration);
         AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
-        new LoadAnalyzedPackageFiles().go(javaInspector, ac.analyzedAnnotatedApiDirs());
+        new LoadAnalyzedPackageFiles(javaInspector.mainSources()).go(javaInspector, ac.analyzedAnnotatedApiDirs());
 
         JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
                 .setDetailedSources(true)
                 .setFailFast(true)
                 .setParallel(configuration.generalConfiguration().parallel())
-                .setLombok(configuration.inputConfiguration().containsLombok())
+                .setLombok(inputConfiguration.containsLombok())
                 .build();
         Summary summary = javaInspector.parse(parseOptions);
         boolean printMemory = configuration.generalConfiguration().debugTargets().contains("memory");
@@ -118,7 +120,7 @@ public class RunAnalyzer implements Runnable {
             }
             if (rewireTests) {
                 LOGGER.info("Start rewire tests");
-                new RunRewireTests(configuration.inputConfiguration(), javaInspector, summary.parseResult(), ccg.graph())
+                new RunRewireTests(inputConfiguration, javaInspector, summary.parseResult(), ccg.graph())
                         .go();
                 if (printMemory) {
                     printMemUse();

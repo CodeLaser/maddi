@@ -72,7 +72,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
         String signature = "<K:Ljava/lang/Enum<TK;>;V:Ljava/lang/Object;>Ljava/util/AbstractMap<TK;TV;>;Ljava/io/Serializable;Ljava/lang/Cloneable;";
         ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime,
-                new ByteCodeInspectorImpl.TypeParameterContextImpl(), null, typeInfo,
+                new ByteCodeInspectorImpl.TypeParameterContextImpl(), compiledTypesManager.javaBase(), typeInfo,
                 byteCodeInspector, LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter,
                 typeInfo.builder()::addOrSetTypeParameter, signature, false);
         int expected = "<K:Ljava/lang/Enum<TK;>;V:Ljava/lang/Object;>".length();
@@ -127,7 +127,8 @@ public class TestParseGenerics extends CommonJmodBaseTests {
     @Test
     public void testExtends4() {
         TypeInfo SliceSpliterator = compiledTypesManager
-                .getOrLoad("java.util.stream.StreamSpliterators.SliceSpliterator", null);
+                .getOrLoad("java.util.stream.StreamSpliterators.SliceSpliterator",
+                        compiledTypesManager.javaBase());
         assertEquals(2, SliceSpliterator.typeParameters().size());
 
         TypeInfo OfPrimitive = SliceSpliterator.findSubType("OfPrimitive");
@@ -164,7 +165,8 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         compiledTypesManager.addTypeInfo(sourceFile, typeInfo);
 
         String signature = "<K:Ljava/lang/Object;>Ljdk/internal/loader/AbstractClassLoaderValue<Ljdk/internal/loader/AbstractClassLoaderValue<TCLV;TV;>.Sub<TK;>;TV;>;";
-        ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, context, null,
+        ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, context,
+                compiledTypesManager.javaBase(),
                 typeInfo, byteCodeInspector,
                 LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter,
                 typeInfo.builder()::addOrSetTypeParameter, signature, false);
@@ -210,7 +212,8 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         MethodInfo.Builder mib = mi.builder();
         String signature = "<C::Ljava/util/concurrent/Callable<TT;>;T:Ljava/lang/Object;>(TC;[Ljava/lang/String;)TT;";
         ByteCodeInspector.TypeParameterContext typeContext = new ByteCodeInspectorImpl.TypeParameterContextImpl();
-        ParseGenerics<MethodInfo> parseGenerics = new ParseGenerics<>(runtime, typeContext, null, mi,
+        ParseGenerics<MethodInfo> parseGenerics = new ParseGenerics<>(runtime, typeContext,
+                compiledTypesManager.javaBase(), mi,
                 byteCodeInspector, LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter,
                 mib::addTypeParameter, signature, false);
         parseGenerics.goReturnEndPos();
@@ -221,7 +224,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
     public void testParse() {
         ByteCodeInspector.TypeParameterContext typeContext = new ByteCodeInspectorImpl.TypeParameterContextImpl();
         ParseParameterTypes ppt = new ParseParameterTypes(runtime, byteCodeInspector, LocalTypeMap.LoadMode.NOW);
-        ParseParameterTypes.Result r = ppt.parseParameterTypesOfMethod(typeContext, null,
+        ParseParameterTypes.Result r = ppt.parseParameterTypesOfMethod(typeContext, compiledTypesManager.javaBase(),
                 "(Ljava/lang/CharSequence;[Ljava/lang/CharSequence;)Ljava/lang/String;", false);
         assertNotNull(r);
         assertEquals(2, r.parameterTypes().size());

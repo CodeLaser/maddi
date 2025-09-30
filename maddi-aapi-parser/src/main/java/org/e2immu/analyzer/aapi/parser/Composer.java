@@ -91,10 +91,6 @@ public class Composer {
     }
 
     public Collection<TypeInfo> compose(Collection<TypeInfo> primaryTypes) {
-        SourceSet javaBase = javaInspector.compiledTypesManager().get(AutoCloseable.class).compilationUnit().sourceSet();
-        if (javaBase == null || !javaBase.name().contains("java.base")) {
-            throw new RuntimeException("?");
-        }
 
         Map<String, TypeInfo> typesPerPackage = new HashMap<>();
         for (TypeInfo primaryType : primaryTypes) {
@@ -102,7 +98,7 @@ public class Composer {
                 assert primaryType.isPrimaryType();
                 String packageName = primaryType.packageName();
                 TypeInfo packageType = typesPerPackage.computeIfAbsent(packageName,
-                        pn -> newPackageType(Objects.requireNonNullElse(primaryType.compilationUnit().sourceSet(), javaBase), pn));
+                        pn -> newPackageType(primaryType.compilationUnit().sourceSet(), pn));
                 appendType(packageType, primaryType, null);
             }
         }
@@ -312,9 +308,12 @@ public class Composer {
     }
 
     private TypeInfo newPackageType(SourceSet sourceSet, String packageName) {
+        assert sourceSet != null;
         String camelCasePackageName = convertToCamelCase(packageName);
         CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
-                .setPackageName(destinationPackage.apply(sourceSet)).build();
+                .setPackageName(destinationPackage.apply(sourceSet))
+                .setSourceSet(sourceSet)
+                .build();
         TypeInfo typeInfo = runtime.newTypeInfo(compilationUnit, camelCasePackageName);
         TypeInfo.Builder builder = typeInfo.builder();
         builder.setTypeNature(runtime.typeNatureClass())
@@ -367,8 +366,9 @@ public class Composer {
                 File outputFile = new File(directory, apiType.simpleName() + ".java");
                 try (OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(outputFile),
                         StandardCharsets.UTF_8)) {
+                    SourceSet sourceSetOfRequest = Objects.requireNonNull(apiType.compilationUnit().sourceSet());
                     ImportComputer importComputer = javaInspector.importComputer(4,
-                            apiType.compilationUnit().sourceSet());
+                            sourceSetOfRequest);
                     outputStreamWriter.write(javaInspector.print2(apiType, decorator, importComputer));
                 }
                 LOGGER.info("Wrote {}", apiType);

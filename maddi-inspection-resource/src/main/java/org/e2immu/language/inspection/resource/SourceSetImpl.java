@@ -49,11 +49,6 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
-    public boolean inTestSetup() {
-        return dependencies.isEmpty() || uri.getScheme().equals("test-protocol");
-    }
-
-    @Override
     public boolean equals(Object object) {
         if (!(object instanceof SourceSetImpl sourceSet)) return false;
         return Objects.equals(name, sourceSet.name);
@@ -190,6 +185,27 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public Map<SourceSet, Integer> priorityDependencies() {
         return priorityDependencies.get();
+    }
+
+    @Override
+    public void computePriorityDependencies(List<SourceSet> sourceSets) {
+        if (dependencies.isEmpty() && !sourceSets.isEmpty()) {
+            Map<SourceSet, Integer> map = null;
+            for (SourceSet sourceSet : sourceSets) {
+                Map<SourceSet, Integer> priorityMap = sourceSet.priorityDependencies();
+                if (priorityMap.containsKey(this)) {
+                    if (map == null) {
+                        map = new HashMap<>(priorityMap);
+                        map.remove(this); // cannot depend on myself
+                    } else {
+                        map.keySet().retainAll(priorityMap.keySet());
+                    }
+                } // ignore those dependency lists where I'm not present!!!
+            }
+            priorityDependencies.set(map == null ? Map.of() : Map.copyOf(map));
+        } else {
+            computePriorityDependencies();
+        }
     }
 
     @Override
