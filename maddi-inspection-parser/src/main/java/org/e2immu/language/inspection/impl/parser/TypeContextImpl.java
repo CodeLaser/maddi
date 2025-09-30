@@ -271,7 +271,8 @@ public class TypeContextImpl implements TypeContext {
         }
 
         // have been pre-loaded, so we can use "get" and continue with null if it wasn't the one we're looking for
-        NamedType javaLang = data.compiledTypesManager.get("java.lang." + name, null);
+        NamedType javaLang = data.compiledTypesManager.get("java.lang." + name,
+                data.compiledTypesManager.javaBase());
         if (javaLang != null) return List.of(javaLang);
         if (data.allowCreationOfStubTypes()) {
             return List.of(getOrCreateStubType(name));
