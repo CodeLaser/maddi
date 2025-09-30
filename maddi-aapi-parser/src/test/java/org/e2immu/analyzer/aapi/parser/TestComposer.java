@@ -3,13 +3,11 @@ package org.e2immu.analyzer.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.modification.io.DecoratorImpl;
-import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
@@ -66,7 +64,8 @@ public class TestComposer {
         }
 
         Map<Element, Element> dollarMap = composer.translateFromDollarToReal();
-        composer.write(apiTypes, TEST_DIR, new DecoratorImpl(javaInspector.runtime(), dollarMap));
+        composer.write(apiTypes, TEST_DIR, new DecoratorImpl(javaInspector.runtime(),
+                javaInspector.mainSources(), dollarMap));
 
         String ju = Files.readString(new File(TEST_DIR, "org/e2immu/testannotatedapi/JavaUtil.java").toPath());
         assertTrue(ju.contains("//public abstract class AbstractSet extends AbstractCollection<E> implements Set<E>"));
@@ -132,7 +131,7 @@ public class TestComposer {
 
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
-
+        javaInspector.javaBase().computePriorityDependencies();
         Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
 
         TypeInfo arrays = javaInspector.compiledTypesManager().getOrLoad(Arrays.class);

@@ -17,7 +17,7 @@ public interface LocalTypeMap {
     // delegate to CTM
     String pathToFqn(String name);
 
-    CompiledTypesManager.TypeData typeData(String fqn, SourceSet sourceSet);
+    CompiledTypesManager.TypeData typeData(String fqn, SourceSet sourceSet, SourceSet nearestSourceSet);
 
     /*
     now = directly
@@ -31,7 +31,7 @@ public interface LocalTypeMap {
     actual loading
      */
     @Modified
-    TypeInfo getOrCreate(String fqn, SourceSet sourceSetOfRequest, LoadMode loadMode);
+    TypeInfo getOrCreate(String fqn, SourceSet sourceSetOfRequest, SourceSet nearestSourceSet, LoadMode loadMode);
 
     /*
      Call from My*Visitor back to ByteCodeInspector, as part of a `inspectFromPath(Source)` call.

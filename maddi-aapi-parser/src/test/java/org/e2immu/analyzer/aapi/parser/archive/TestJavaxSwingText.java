@@ -13,7 +13,7 @@ public class TestJavaxSwingText extends CommonTest {
 
     @Test
     public void testJTextComponentSetText() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTextComponent.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTextComponent.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setText", 1);
         assertTrue(methodInfo.isModifying());
     }

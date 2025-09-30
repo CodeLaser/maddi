@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -76,7 +77,8 @@ public class TestCast extends CommonTest {
                     }
                 }
                 """;
-        assertEquals(expected, javaInspector.print2(B, new DecoratorImpl(runtime),
-                javaInspector.importComputer(4, null)));
+        SourceSet sourceSetOfRequest = javaInspector.mainSources();
+        assertEquals(expected, javaInspector.print2(B, new DecoratorImpl(runtime, sourceSetOfRequest),
+                javaInspector.importComputer(4, sourceSetOfRequest)));
     }
 }

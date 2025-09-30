@@ -58,5 +58,6 @@ public abstract class CommonTest {
                 .setFailFast(true)
                 .setLombok(false)
                 .setDetailedSources(true).build());
+        javaInspector.javaBase().computePriorityDependencies();
     }
 }

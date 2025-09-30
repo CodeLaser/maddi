@@ -31,21 +31,23 @@ import java.util.List;
 
 public class ExpressionFactory {
 
-    public static Expression from(Runtime runtime, SourceSet sourceSetOfRequest, LocalTypeMap localTypeMap, Object value) {
+    public static Expression from(Runtime runtime, SourceSet sourceSetOfRequest,
+                                  SourceSet nearestSourceSet,
+                                  LocalTypeMap localTypeMap, Object value) {
         return switch (value) {
             case null -> runtime.nullConstant();
             case String s -> runtime.newStringConstant(s);
             case int[] intArray -> parseArray(runtime, runtime.intParameterizedType(), Arrays.stream(intArray)
-                    .mapToObj(i -> from(runtime, sourceSetOfRequest, localTypeMap, i)).toList());
+                    .mapToObj(i -> from(runtime, sourceSetOfRequest, nearestSourceSet, localTypeMap, i)).toList());
             case Integer i -> runtime.newInt(i);
             case Short s -> runtime.newShort(s);
             case long[] longArray -> parseArray(runtime, runtime.longParameterizedType(), Arrays.stream(longArray)
-                    .mapToObj(i -> from(runtime, sourceSetOfRequest, localTypeMap, i)).toList());
+                    .mapToObj(i -> from(runtime, sourceSetOfRequest, nearestSourceSet, localTypeMap, i)).toList());
             case Long l -> runtime.newLong(l);
             case Byte b -> runtime.newByte(b);
             case double[] doubleArray ->
                     parseArray(runtime, runtime.doubleParameterizedType(), Arrays.stream(doubleArray)
-                            .mapToObj(i -> from(runtime, sourceSetOfRequest, localTypeMap, i)).toList());
+                            .mapToObj(i -> from(runtime, sourceSetOfRequest, nearestSourceSet, localTypeMap, i)).toList());
             case Double d -> runtime.newDouble(d);
             case Float f -> runtime.newFloat(f);
             case char[] chars -> parseCharArray(runtime, chars);
@@ -53,8 +55,8 @@ public class ExpressionFactory {
             case Boolean b -> runtime.newBoolean(b);
             case Object[] objectArray ->
                     parseArray(runtime, runtime.objectParameterizedType(), Arrays.stream(objectArray)
-                            .map(i -> from(runtime, sourceSetOfRequest, localTypeMap, i)).toList());
-            case Type t -> parseTypeExpression(runtime, sourceSetOfRequest, localTypeMap, t);
+                            .map(i -> from(runtime, sourceSetOfRequest, nearestSourceSet, localTypeMap, i)).toList());
+            case Type t -> parseTypeExpression(runtime, sourceSetOfRequest, nearestSourceSet, localTypeMap, t);
             default -> runtime.newEmptyExpression(); // will trigger a warning
         };
     }
@@ -73,6 +75,7 @@ public class ExpressionFactory {
 
     private static TypeExpression parseTypeExpression(Runtime runtime,
                                                       SourceSet sourceSetOfRequest,
+                                                      SourceSet nearestSourceSet,
                                                       LocalTypeMap localTypeMap,
                                                       Type t) {
         String className = StringUtil.replaceSlashDollar(t.getClassName());
@@ -88,7 +91,8 @@ public class ExpressionFactory {
                     case "short" -> runtime.shortParameterizedType();
                     case "void" -> runtime.voidParameterizedType();
                     default -> {
-                        TypeInfo ti = localTypeMap.getOrCreate(className, sourceSetOfRequest, LocalTypeMap.LoadMode.NOW);
+                        TypeInfo ti = localTypeMap.getOrCreate(className, sourceSetOfRequest, nearestSourceSet,
+                                LocalTypeMap.LoadMode.NOW);
                         if (ti == null) {
                             throw new UnsupportedOperationException("Cannot load type " + className);
                         }

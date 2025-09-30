@@ -16,7 +16,7 @@ public class TestJavaAwt extends CommonTest {
 
     @Test
     public void testContainerAdd() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("add", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);
@@ -24,7 +24,7 @@ public class TestJavaAwt extends CommonTest {
 
     @Test
     public void testContainerAddWithConstraints() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class, mainSources());
         MethodInfo methodInfo = typeInfo.methods().stream()
                                         .filter(m -> m.simpleName().equals("add")
                                                              && m.parameters().size() == 2
@@ -38,7 +38,7 @@ public class TestJavaAwt extends CommonTest {
 
     @Test
     public void testContainerSetLayout() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setLayout", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);
@@ -46,7 +46,7 @@ public class TestJavaAwt extends CommonTest {
 
     @Test
     public void testComponentAddMouseListener() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Component.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(Component.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("addMouseListener", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);

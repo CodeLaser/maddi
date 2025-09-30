@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.io.DecoratorImpl;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -31,10 +32,11 @@ class DecoratorWithComments extends DecoratorImpl {
     private final Qualification simpleNames;
 
     public DecoratorWithComments(Runtime runtime,
+                                 SourceSet sourceSetOfRequest,
                                  Map<Element, Element> translationMap,
                                  Function<Element, ShallowAnalyzer.InfoData> infoDataProvider,
                                  Function<Element, AnnotatedApiParser.Data> dataProvider) {
-        super(runtime, translationMap);
+        super(runtime, sourceSetOfRequest, translationMap);
         this.translationMap = translationMap;
         this.runtime = runtime;
         this.dataProvider = dataProvider;

@@ -32,7 +32,8 @@ record ParseParameterTypes(Runtime runtime,
                   List<ParameterizedType> exceptionTypes) {
     }
 
-    Result parseParameterTypesOfMethod(ByteCodeInspector.TypeParameterContext typeContext, SourceSet sourceSetOfRequest,
+    Result parseParameterTypesOfMethod(ByteCodeInspector.TypeParameterContext typeContext,
+                                       SourceSet sourceSetOfRequest, SourceSet nearestSourceSet,
                                        String signature, boolean createStub) {
         List<ParameterizedType> parameterTypes = new ArrayList<>();
         List<ParameterizedType> exceptionTypes = new ArrayList<>();
@@ -51,7 +52,7 @@ record ParseParameterTypes(Runtime runtime,
         while (true) {
             String startOfType = signature.substring(startPos);
             ParameterizedTypeFactory.Result result = ParameterizedTypeFactory.from(runtime, sourceSetOfRequest,
-                    typeContext, findType, loadMode, startOfType, createStub);
+                    nearestSourceSet, typeContext, findType, loadMode, startOfType, createStub);
             if (result == null) return null;
             int end = startPos + result.nextPos;
 

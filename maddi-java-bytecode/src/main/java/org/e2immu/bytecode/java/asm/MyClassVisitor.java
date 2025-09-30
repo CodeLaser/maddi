@@ -44,6 +44,7 @@ public class MyClassVisitor extends ClassVisitor {
     private final TypeInfo currentType;
     private final SourceSet sourceSetOfRequest;
 
+    private SourceSet nearestSourceSet;
     private TypeInfo.Builder currentTypeBuilder;
     private String currentTypePath;
     private boolean currentTypeIsInterface;
@@ -80,6 +81,7 @@ public class MyClassVisitor extends ClassVisitor {
         assert currentType != null;
         currentTypeBuilder = currentType.builder();
         currentTypePath = name;
+        nearestSourceSet = currentType.compilationUnit().sourceSet();
 
         // may be overwritten, but this is the default UNLESS it's JLO itself
         if (!currentType.isJavaLangObject()) {
@@ -136,7 +138,7 @@ public class MyClassVisitor extends ClassVisitor {
                 int pos = 0;
                 if (signature.charAt(0) == '<') {
                     ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, typeParameterContext,
-                            sourceSetOfRequest,
+                            sourceSetOfRequest, nearestSourceSet,
                             currentType, localTypeMap,
                             LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter, currentTypeBuilder::addOrSetTypeParameter, signature,
                             localTypeMap.allowCreationOfStubTypes());
@@ -145,7 +147,7 @@ public class MyClassVisitor extends ClassVisitor {
                 {
                     String substring = signature.substring(pos);
                     ParameterizedTypeFactory.Result res = ParameterizedTypeFactory.from(runtime,
-                            sourceSetOfRequest, typeParameterContext,
+                            sourceSetOfRequest, nearestSourceSet, typeParameterContext,
                             localTypeMap, LocalTypeMap.LoadMode.NOW, substring, localTypeMap.allowCreationOfStubTypes());
                     if (res == null) {
                         LOGGER.error("Stop inspection of {}, parent type unknown", currentType);
@@ -159,7 +161,8 @@ public class MyClassVisitor extends ClassVisitor {
                     for (int i = 0; i < interfaces.length; i++) {
                         String interfaceSignature = signature.substring(pos);
                         ParameterizedTypeFactory.Result interFaceRes = ParameterizedTypeFactory.from(runtime,
-                                sourceSetOfRequest, typeParameterContext, localTypeMap, LocalTypeMap.LoadMode.NOW,
+                                sourceSetOfRequest, nearestSourceSet,
+                                typeParameterContext, localTypeMap, LocalTypeMap.LoadMode.NOW,
                                 interfaceSignature, localTypeMap.allowCreationOfStubTypes());
                         if (interFaceRes == null) {
                             LOGGER.error("Stop inspection of {}, interface type unknown", currentType);
@@ -190,7 +193,8 @@ public class MyClassVisitor extends ClassVisitor {
         if (path.equals(currentTypePath)) {
             return currentType;
         }
-        TypeInfo fromMap = localTypeMap.getOrCreate(fqn, sourceSetOfRequest, LocalTypeMap.LoadMode.NOW);
+        TypeInfo fromMap = localTypeMap.getOrCreate(fqn, sourceSetOfRequest, nearestSourceSet,
+                LocalTypeMap.LoadMode.NOW);
         if (fromMap == null) {
             if (localTypeMap.allowCreationOfStubTypes()) {
                 int lastDot = fqn.lastIndexOf('.');
@@ -222,7 +226,7 @@ public class MyClassVisitor extends ClassVisitor {
         if (synthetic) return null;
 
         ParameterizedTypeFactory.Result from = ParameterizedTypeFactory.from(runtime,
-                sourceSetOfRequest, typeParameterContext, localTypeMap,
+                sourceSetOfRequest, nearestSourceSet, typeParameterContext, localTypeMap,
                 LocalTypeMap.LoadMode.QUEUE,
                 signature != null ? signature : descriptor,
                 false);
@@ -245,7 +249,7 @@ public class MyClassVisitor extends ClassVisitor {
 
         Expression expression;
         if (value != null) {
-            expression = ExpressionFactory.from(runtime, sourceSetOfRequest, localTypeMap, value);
+            expression = ExpressionFactory.from(runtime, sourceSetOfRequest, nearestSourceSet, localTypeMap, value);
             if (expression.isEmpty()) {
                 LOGGER.warn("Ignoring unparsed field initializer of type {}, for field {}", value.getClass(), fieldInfo);
             }
@@ -293,7 +297,7 @@ public class MyClassVisitor extends ClassVisitor {
         String signatureOrDescription = signature != null ? signature : descriptor;
         if (signatureOrDescription.startsWith("<")) {
             ParseGenerics<MethodInfo> parseGenerics = new ParseGenerics<>(runtime, methodContext,
-                    sourceSetOfRequest, methodInfo,
+                    sourceSetOfRequest, nearestSourceSet, methodInfo,
                     localTypeMap, LocalTypeMap.LoadMode.QUEUE, runtime::newTypeParameter,
                     methodInspectionBuilder::addTypeParameter, signatureOrDescription,
                     localTypeMap.allowCreationOfStubTypes());
@@ -308,7 +312,7 @@ public class MyClassVisitor extends ClassVisitor {
 
         ParseParameterTypes ppt = new ParseParameterTypes(runtime, localTypeMap, LocalTypeMap.LoadMode.QUEUE);
         ParseParameterTypes.Result r = ppt.parseParameterTypesOfMethod(methodContext, sourceSetOfRequest,
-                signatureOrDescription, false);
+                nearestSourceSet, signatureOrDescription, false);
         if (r == null) {
             return null; // jdk
         }
@@ -362,7 +366,8 @@ public class MyClassVisitor extends ClassVisitor {
                 LOGGER.debug("Processing sub-type {} of/in {}, step side? {} step down? {}", fqn,
                         currentType.fullyQualifiedName(), stepSide, stepDown);
 
-                CompiledTypesManager.TypeData typeDataOfSubType = localTypeMap.typeData(fqn, sourceSetOfRequest);
+                CompiledTypesManager.TypeData typeDataOfSubType = localTypeMap.typeData(fqn, sourceSetOfRequest,
+                        nearestSourceSet);
                 assert typeDataOfSubType != null : "CompiledTypeManager knows the path of all sub-types: " + fqn;
                 if (typeDataOfSubType.typeInfo() == null) {
                     //    TypeInfo enclosing = stepDown ? currentType
@@ -398,7 +403,7 @@ public class MyClassVisitor extends ClassVisitor {
         if (currentType == null) return null;
 
         LOGGER.debug("Have class annotation {} {}", descriptor, visible);
-        return new MyAnnotationVisitor<>(runtime, sourceSetOfRequest,
+        return new MyAnnotationVisitor<>(runtime, sourceSetOfRequest, nearestSourceSet,
                 typeParameterContext, localTypeMap, descriptor, currentTypeBuilder);
     }
 

@@ -115,8 +115,8 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
     }
 
     @Override
-    public CompiledTypesManager.TypeData typeData(String fqn, SourceSet sourceSet) {
-        return compiledTypesManager.typeDataOrNull(fqn, sourceSet, false);
+    public CompiledTypesManager.TypeData typeData(String fqn, SourceSet sourceSetOfRequest, SourceSet nearestSourceSet) {
+        return compiledTypesManager.typeDataOrNull(fqn, sourceSetOfRequest, nearestSourceSet, false);
     }
 
     @Override
@@ -125,12 +125,12 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
     }
 
     @Override
-    public TypeInfo getOrCreate(String fqn, SourceSet sourceSetOfRequest, LoadMode loadMode) {
+    public TypeInfo getOrCreate(String fqn, SourceSet sourceSetOfRequest, SourceSet nearestSourceSet, LoadMode loadMode) {
         assert !fqn.contains("/");
         if (!compiledTypesManager.acceptFQN(fqn)) {
             return null;
         }
-        CompiledTypesManager.TypeData typeData = typeData(fqn, sourceSetOfRequest);
+        CompiledTypesManager.TypeData typeData = typeData(fqn, sourceSetOfRequest, nearestSourceSet);
         if (typeData == null) {
             if (duplicateWarnings.merge(fqn, 1, Integer::sum) == 1) {
                 LOGGER.warn("Not in classpath: {}, request from {}, with dependencies {}",
@@ -151,7 +151,8 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
     }
 
     @Override
-    public TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, SourceSet sourceSetOfRequest, LoadMode loadMode) {
+    public TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, SourceSet sourceSetOfRequest,
+                                    LoadMode loadMode) {
         Data data = typeData.byteCodeInspectorData();
         if (data == null) {
             LOGGER.warn("Not in classpath? {}", typeData.sourceFile());
@@ -181,7 +182,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         TypeInfo typeInfo1 = typeData.typeInfo();
         assert typeInfo1 != null;
         if (loadMode == LoadMode.NOW) {
-            return continueLoadByteCodeAndStartASM(typeData, sourceSetOfRequest, typeInfo1, dataAgain.typeParameterContext());
+            return continueLoadByteCodeAndStartASM(typeData, sourceSetOfRequest, dataAgain.typeParameterContext());
         }
         Status newStatus = loadMode == LoadMode.QUEUE ? Status.IN_QUEUE : Status.ON_DEMAND;
         typeData.updateByteCodeInspectorData(new DataImpl(newStatus, new TypeParameterContextImpl()));
@@ -204,7 +205,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             int lastDot = fqn.lastIndexOf('.');
             assert lastDot > 0;
             String enclosingFqn = fqn.substring(0, lastDot);
-            TypeInfo enclosing = getOrCreate(enclosingFqn, sourceSetOfRequest, loadMode);
+            TypeInfo enclosing = getOrCreate(enclosingFqn, sourceSetOfRequest, source.sourceSet(), loadMode);
             if (enclosing == null) {
                 LOGGER.warn("Cannot find enclosing type {} of {}", enclosingFqn, fqn);
                 return null;
@@ -233,7 +234,6 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
 
     private TypeInfo continueLoadByteCodeAndStartASM(CompiledTypesManager.TypeData typeData,
                                                      SourceSet sourceSetOfRequest,
-                                                     TypeInfo typeInfo,
                                                      TypeParameterContext typeParameterContext) {
         assert typeData.byteCodeInspectorData().status() != Status.DONE;
         typeData.updateByteCodeInspectorData(new DataImpl(Status.BEING_LOADED, typeParameterContext));
@@ -242,6 +242,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             if (classBytes == null) {
                 return null;
             }
+            TypeInfo typeInfo = typeData.typeInfo();
             // NOTE: the fingerprint null check is there for java.lang.String and the boxed types.
             if (typeInfo.isPrimaryType() && typeInfo.compilationUnit().fingerPrintOrNull() == null) {
                 FingerPrint fingerPrint = makeFingerPrint(classBytes);
@@ -259,7 +260,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             return typeInfo;
         } catch (RuntimeException | AssertionError re) {
             LOGGER.error("Path = {}", typeData.sourceFile());
-            LOGGER.error("FQN  = {}", typeInfo.fullyQualifiedName());
+            LOGGER.error("FQN  = {}", typeData.typeInfo().fullyQualifiedName());
             LOGGER.error("Number of compiled types = {}", compiledTypesManager.typesLoaded(true).size());
             throw re;
         }

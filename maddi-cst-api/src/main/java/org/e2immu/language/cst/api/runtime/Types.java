@@ -13,6 +13,9 @@ public interface Types {
     default TypeInfo getFullyQualified(Class<?> clazz, boolean complain) {
         return getFullyQualified(clazz.getCanonicalName(), complain);
     }
+    default TypeInfo getFullyQualified(Class<?> clazz, boolean complain, SourceSet sourceSetOfRequest) {
+        return getFullyQualified(clazz.getCanonicalName(), complain, sourceSetOfRequest);
+    }
 
     default TypeInfo getFullyQualified(String name, boolean complain, SourceSet sourceSetOfRequest) {
        return getFullyQualified(name, complain); // ignore the request

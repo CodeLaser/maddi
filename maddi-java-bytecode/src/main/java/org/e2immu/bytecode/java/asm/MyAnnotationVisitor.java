@@ -39,10 +39,12 @@ public class MyAnnotationVisitor<T extends Info.Builder<? extends Info.Builder<T
     private final LocalTypeMap localTypeMap;
     private final Info.Builder<T> inspectionBuilder;
     private final AnnotationExpression.Builder expressionBuilder;
-    private final SourceSet sourceSet;
+    private final SourceSet sourceSetOfRequest;
+    private final SourceSet nearestSourceSet;
 
     public MyAnnotationVisitor(Runtime runtime,
                                SourceSet sourceSetOfRequest,
+                               SourceSet nearestSourceSet,
                                ByteCodeInspector.TypeParameterContext typeParameterContext,
                                LocalTypeMap localTypeMap,
                                String descriptor,
@@ -51,11 +53,13 @@ public class MyAnnotationVisitor<T extends Info.Builder<? extends Info.Builder<T
         this.runtime = runtime;
         this.localTypeMap = localTypeMap;
         this.inspectionBuilder = Objects.requireNonNull(inspectionBuilder);
-        this.sourceSet = sourceSetOfRequest;
+        this.sourceSetOfRequest = sourceSetOfRequest;
+        this.nearestSourceSet = nearestSourceSet;
 
         LOGGER.debug("My annotation visitor: {}", descriptor);
 
-        ParameterizedTypeFactory.Result from = ParameterizedTypeFactory.from(runtime, sourceSetOfRequest, typeParameterContext,
+        ParameterizedTypeFactory.Result from = ParameterizedTypeFactory.from(runtime, sourceSetOfRequest,
+                nearestSourceSet, typeParameterContext,
                 localTypeMap, LocalTypeMap.LoadMode.TRIGGER, descriptor, false);
         if (from == null) {
             expressionBuilder = null;
@@ -75,7 +79,8 @@ public class MyAnnotationVisitor<T extends Info.Builder<? extends Info.Builder<T
     public void visit(String name, Object value) {
         if (expressionBuilder != null) {
             LOGGER.debug("Assignment: {} to {}", name, value);
-            Expression expression = ExpressionFactory.from(runtime, sourceSet, localTypeMap, value);
+            Expression expression = ExpressionFactory.from(runtime, sourceSetOfRequest, nearestSourceSet,
+                    localTypeMap, value);
             if (!expression.isEmpty()) {
                 expressionBuilder.addKeyValuePair(name, expression);
             } else {

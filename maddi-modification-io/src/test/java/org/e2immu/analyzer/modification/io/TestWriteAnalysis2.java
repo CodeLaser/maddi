@@ -143,14 +143,14 @@ public class TestWriteAnalysis2 extends CommonTest {
         List<Info> analysisOrder = prepWork(X);
         modAnalyzer.go(analysisOrder);
 
-        String s = javaInspector.print2(X, new DecoratorImpl(runtime), javaInspector.importComputer(4,
-                javaInspector.mainSources()));
+        String s = javaInspector.print2(X, new DecoratorImpl(runtime, javaInspector.mainSources()),
+                javaInspector.importComputer(4, javaInspector.mainSources()));
         assertEquals(output, s);
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(X.fullyQualifiedName().split("\\."), X);
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
         File dest = new File("build/json");
-        if(dest.mkdirs()) LOGGER.info("Created {}", dest);
+        if (dest.mkdirs()) LOGGER.info("Created {}", dest);
         Codec codec = new LinkedVariablesCodec(runtime).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());

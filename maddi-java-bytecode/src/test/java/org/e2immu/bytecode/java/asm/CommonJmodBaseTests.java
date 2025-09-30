@@ -43,7 +43,7 @@ public abstract class CommonJmodBaseTests {
         mgr.setByteCodeInspector(byteCodeInspector);
         mgr.addToTrie(cp, true);
         mgr.addPredefinedTypeInfoObjects(runtime.predefinedObjects(), sourceSet);
-        mgr.preload("java.lang", sourceSet);
+        mgr.preload("java.lang");
     }
 
 }

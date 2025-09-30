@@ -64,7 +64,7 @@ public class CommonTest {
         }
         InputConfiguration inputConfiguration = builder.build();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.preload("java.util", inputConfiguration.javaBase());
+        javaInspector.preload("java.util");
 
         new LoadAnalyzedPackageFiles(javaInspector.mainSources()).go(javaInspector,
                 List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages()));

@@ -12,13 +12,13 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.ImportStatement;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
@@ -53,39 +53,39 @@ public class DecoratorImpl implements Qualification.Decorator {
 
     private final Map<Element, Element> translationMap;
 
-    public DecoratorImpl(Runtime runtime) {
-        this(runtime, null);
+    public DecoratorImpl(Runtime runtime, SourceSet sourceSetOfRequest) {
+        this(runtime, sourceSetOfRequest, null);
     }
 
-    public DecoratorImpl(Runtime runtime, Map<Element, Element> translationMap) {
+    public DecoratorImpl(Runtime runtime, SourceSet sourceSetOfRequest, Map<Element, Element> translationMap) {
         this.runtime = runtime;
-        TypeInfo notModifiedTi = runtime.getFullyQualified(NotModified.class, true);
+        TypeInfo notModifiedTi = runtime.getFullyQualified(NotModified.class, true, sourceSetOfRequest);
         notModifiedAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(notModifiedTi).build();
-        modifiedTi = runtime.getFullyQualified(Modified.class, true);
+        modifiedTi = runtime.getFullyQualified(Modified.class, true, sourceSetOfRequest);
         modifiedAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(modifiedTi).build();
-        independentTi = runtime.getFullyQualified(Independent.class, true);
-        immutableTi = runtime.getFullyQualified(Immutable.class, true);
-        TypeInfo finalTi = runtime.getFullyQualified(Final.class, true);
-        TypeInfo containerTi = runtime.getFullyQualified(Container.class, true);
-        immutableContainerTi = runtime.getFullyQualified(ImmutableContainer.class, true);
+        independentTi = runtime.getFullyQualified(Independent.class, true, sourceSetOfRequest);
+        immutableTi = runtime.getFullyQualified(Immutable.class, true, sourceSetOfRequest);
+        TypeInfo finalTi = runtime.getFullyQualified(Final.class, true, sourceSetOfRequest);
+        TypeInfo containerTi = runtime.getFullyQualified(Container.class, true, sourceSetOfRequest);
+        immutableContainerTi = runtime.getFullyQualified(ImmutableContainer.class, true, sourceSetOfRequest);
         finalAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(finalTi).build();
         containerAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(containerTi).build();
-        TypeInfo identityTi = runtime.getFullyQualified(Identity.class, true);
+        TypeInfo identityTi = runtime.getFullyQualified(Identity.class, true, sourceSetOfRequest);
         identityAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(identityTi).build();
-        TypeInfo fluentTi = runtime.getFullyQualified(Fluent.class, true);
+        TypeInfo fluentTi = runtime.getFullyQualified(Fluent.class, true, sourceSetOfRequest);
         fluentAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(fluentTi).build();
-        notNullTi = runtime.getFullyQualified(NotNull.class, true);
+        notNullTi = runtime.getFullyQualified(NotNull.class, true, sourceSetOfRequest);
         this.translationMap = translationMap;
-        TypeInfo utilityClassTi = runtime.getFullyQualified(UtilityClass.class, true);
+        TypeInfo utilityClassTi = runtime.getFullyQualified(UtilityClass.class, true, sourceSetOfRequest);
         utilityClassAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(utilityClassTi).build();
-        TypeInfo ignoreModsTi = runtime.getFullyQualified(IgnoreModifications.class, true);
+        TypeInfo ignoreModsTi = runtime.getFullyQualified(IgnoreModifications.class, true, sourceSetOfRequest);
         ignoreModifications = runtime.newAnnotationExpressionBuilder().setTypeInfo(ignoreModsTi).build();
-        TypeInfo allowInterruptTi = runtime.getFullyQualified(AllowsInterrupt.class, true);
+        TypeInfo allowInterruptTi = runtime.getFullyQualified(AllowsInterrupt.class, true, sourceSetOfRequest);
         allowInterruptAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(allowInterruptTi).build();
-        TypeInfo finalizerTi = runtime.getFullyQualified(Finalizer.class, true);
+        TypeInfo finalizerTi = runtime.getFullyQualified(Finalizer.class, true, sourceSetOfRequest);
         finalizerAnnotation = runtime.newAnnotationExpressionBuilder().setTypeInfo(finalizerTi).build();
-        commutableTi = runtime.getFullyQualified(Commutable.class, true);
-        getSetTi = runtime.getFullyQualified(GetSet.class, true);
+        commutableTi = runtime.getFullyQualified(Commutable.class, true, sourceSetOfRequest);
+        getSetTi = runtime.getFullyQualified(GetSet.class, true, sourceSetOfRequest);
     }
 
     @Override
