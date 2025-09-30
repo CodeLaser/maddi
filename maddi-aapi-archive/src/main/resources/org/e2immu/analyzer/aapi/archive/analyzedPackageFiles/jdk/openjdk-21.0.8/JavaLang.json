@@ -1476,8 +1476,8 @@
  {"name": "McheckBoundsBeginEnd(138)", "data":{"hc":{}}},
  {"name": "MvalueOfCodePoint(139)", "data":{"hc":{}}},
  {"name": "MdescribeConstable(140)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional"},"hcsMethod":{"0":[[-1]]},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MresolveConstantDesc(141)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Plookup(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}}]},
+ {"name": "MresolveConstantDesc(141)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Plookup(0)", "data":{"annotatedApi":1,"independentParameter":2}}}]},
 
 {"name": "Tjava.lang.StringBuilder", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{},"independentType":2}, "subs":[
  {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{},"independentMethod":2,"notNullMethod":1}},
