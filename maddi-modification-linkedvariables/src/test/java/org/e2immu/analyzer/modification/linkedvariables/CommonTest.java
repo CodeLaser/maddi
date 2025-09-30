@@ -58,7 +58,7 @@ public class CommonTest {
                 .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
                 .addClassPath(ToolChain.CLASSPATH_JUNIT)
                 .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
-                .addSources("src/main/java");
+                .addSources("none");
         for (String extra : extraClassPath) {
             builder.addClassPath(extra);
         }

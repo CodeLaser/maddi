@@ -26,7 +26,7 @@ public class TestComputeHiddenContent extends CommonTest {
     public void test() {
         ComputeHiddenContent chc = new ComputeHiddenContent(javaInspector.runtime());
 
-        TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
+        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
         HiddenContentTypes hctList = chc.compute(list);
         assertEquals("0=E", hctList.detailedSortedTypes());
 
