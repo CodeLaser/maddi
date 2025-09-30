@@ -23,6 +23,7 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
     private final Eval eval;
     private final E2ImmuAnnotationsImpl e2ImmuAnnotations = new E2ImmuAnnotationsImpl();
     private final LanguageConfiguration lc = new LanguageConfigurationImpl(true);
+    private final ComputeMethodOverrides computeMethodOverrides = new ComputeMethodOverridesImpl();
 
     public RuntimeImpl() {
         this(EvalOptions.DEFAULT);
@@ -288,7 +289,7 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
 
     @Override
     public ComputeMethodOverrides computeMethodOverrides() {
-        return new ComputeMethodOverridesImpl();
+        return computeMethodOverrides;
     }
 
     /* given a getter call, create the corresponding (indexed) variable */
