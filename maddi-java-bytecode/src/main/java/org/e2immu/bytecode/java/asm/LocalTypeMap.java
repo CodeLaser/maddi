@@ -39,7 +39,7 @@ public interface LocalTypeMap {
 
     // do actual byte code inspection
     @Modified
-    TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, LoadMode loadMode);
+    TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, SourceSet sourceSetOfRequest, LoadMode loadMode);
 
     boolean allowCreationOfStubTypes();
 

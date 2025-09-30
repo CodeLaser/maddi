@@ -142,16 +142,16 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         if (typeInfo != null && !typeInfo.compilationUnit().externalLibrary()) {
             return typeInfo;
         }
-        return inspectFromPath(typeData, loadMode);
+        return inspectFromPath(typeData, sourceSetOfRequest, loadMode);
     }
 
     @Override
-    public TypeInfo load(CompiledTypesManager.TypeData typeData) {
-        return inspectFromPath(typeData, LoadMode.NOW);
+    public TypeInfo load(CompiledTypesManager.TypeData typeData, SourceSet sourceSetOfRequest) {
+        return inspectFromPath(typeData, sourceSetOfRequest, LoadMode.NOW);
     }
 
     @Override
-    public TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, LoadMode loadMode) {
+    public TypeInfo inspectFromPath(CompiledTypesManager.TypeData typeData, SourceSet sourceSetOfRequest, LoadMode loadMode) {
         Data data = typeData.byteCodeInspectorData();
         if (data == null) {
             LOGGER.warn("Not in classpath? {}", typeData.sourceFile());
@@ -164,7 +164,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         } else {
             assert data.status() != Status.BEING_LOADED && data.status() != Status.DONE;
             String fqn = typeData.sourceFile().fullyQualifiedNameFromPath();
-            TypeInfo typeInfo = createTypeInfo(typeData.sourceFile(), fqn, loadMode);
+            TypeInfo typeInfo = createTypeInfo(typeData.sourceFile(), fqn, sourceSetOfRequest, loadMode);
             if (typeInfo == null) return null;// type missing
             if (typeData.typeInfo() == null) {
                 // note: do not directly call setTypeInfo,
@@ -181,21 +181,21 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         TypeInfo typeInfo1 = typeData.typeInfo();
         assert typeInfo1 != null;
         if (loadMode == LoadMode.NOW) {
-            return continueLoadByteCodeAndStartASM(typeData, typeInfo1, dataAgain.typeParameterContext());
+            return continueLoadByteCodeAndStartASM(typeData, sourceSetOfRequest, typeInfo1, dataAgain.typeParameterContext());
         }
         Status newStatus = loadMode == LoadMode.QUEUE ? Status.IN_QUEUE : Status.ON_DEMAND;
         typeData.updateByteCodeInspectorData(new DataImpl(newStatus, new TypeParameterContextImpl()));
         if (!typeInfo1.haveOnDemandInspection()) {
             typeInfo1.setOnDemandInspection(_ -> {
                 synchronized (ByteCodeInspectorImpl.this) {
-                    inspectFromPath(typeData, LoadMode.NOW);
+                    inspectFromPath(typeData, sourceSetOfRequest, LoadMode.NOW);
                 }
             });
         }
         return typeInfo1;
     }
 
-    private TypeInfo createTypeInfo(SourceFile source, String fqn, LoadMode loadMode) {
+    private TypeInfo createTypeInfo(SourceFile source, String fqn, SourceSet sourceSetOfRequest, LoadMode loadMode) {
         String path = source.stripDotClass();
         int dollar = path.lastIndexOf('$');
         TypeInfo typeInfo;
@@ -204,7 +204,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             int lastDot = fqn.lastIndexOf('.');
             assert lastDot > 0;
             String enclosingFqn = fqn.substring(0, lastDot);
-            TypeInfo enclosing = getOrCreate(enclosingFqn, source.sourceSet(), loadMode);
+            TypeInfo enclosing = getOrCreate(enclosingFqn, sourceSetOfRequest, loadMode);
             if (enclosing == null) {
                 LOGGER.warn("Cannot find enclosing type {} of {}", enclosingFqn, fqn);
                 return null;
@@ -232,6 +232,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
     }
 
     private TypeInfo continueLoadByteCodeAndStartASM(CompiledTypesManager.TypeData typeData,
+                                                     SourceSet sourceSetOfRequest,
                                                      TypeInfo typeInfo,
                                                      TypeParameterContext typeParameterContext) {
         assert typeData.byteCodeInspectorData().status() != Status.DONE;
@@ -250,7 +251,8 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             String fqn = typeInfo.fullyQualifiedName();
             LOGGER.debug("Constructed class reader for {} with {} bytes", fqn, classBytes.length);
 
-            MyClassVisitor myClassVisitor = new MyClassVisitor(runtime, this, typeParameterContext, typeData);
+            MyClassVisitor myClassVisitor = new MyClassVisitor(runtime, this, typeParameterContext, typeData,
+                    sourceSetOfRequest);
             classReader.accept(myClassVisitor, 0);
             LOGGER.debug("Finished bytecode inspection of {}", fqn);
             typeData.updateByteCodeInspectorData(new DataImpl(Status.DONE, typeParameterContext));

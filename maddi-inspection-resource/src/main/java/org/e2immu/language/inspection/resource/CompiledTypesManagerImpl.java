@@ -105,6 +105,13 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                     String fqn = sourceFile.fullyQualifiedNameFromPath();
                     String[] newParts = fqn.split("\\.");
                     typeTrie.add(newParts, typeData);
+                    // remove all compiled types if we add a source type here
+                    // not that this has an effect on missing dependencies, see correction in 'bestCandidate()'
+                    if (!compiled) {
+                        typeTrie.visit(newParts, (_, list) -> {
+                            list.removeIf(TypeData::isCompiled);
+                        });
+                    }
                 }
             }
         });
@@ -112,7 +119,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     public void addPredefinedTypeInfoObjects(List<TypeInfo> predefinedTypes, SourceSet javaBase) {
         for (TypeInfo predefined : predefinedTypes) {
-            TypeData typeData = typeDataOrNull(predefined.fullyQualifiedName(), javaBase, true);
+            TypeData typeData = typeDataOrNull(predefined.fullyQualifiedName(), ANY, true);
             ((TypeDataImpl) typeData).setTypeInfo(predefined);
             mapSingleTypeForFQN.put(predefined.fullyQualifiedName(), predefined);
         }
@@ -201,7 +208,14 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                     } else if (td.sourceFile().sourceSet().partOfJdk()) {
                         priority = 1_000; // bottom prio
                     } else {
-                        priority = priorityMap.get(td.sourceFile().sourceSet());
+                        Integer inMap = priorityMap.get(td.sourceFile().sourceSet());
+                        if (inMap != null) {
+                            priority = inMap;
+                        } else if (!td.isCompiled()) {
+                            priority = 10; // low; we have removed entries from classes with a corresponding source file
+                        } else {
+                            priority = null;
+                        }
                     }
                     return priority == null ? null : new AbstractMap.SimpleEntry<>(td, priority);
                 })
@@ -227,7 +241,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         } finally {
             trieLock.readLock().unlock();
         }
-        return load(typeData);
+        return load(typeData, sourceSetOfRequest);
     }
 
     @Override
@@ -250,10 +264,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         }
     }
 
-    private TypeInfo load(TypeData typeData) {
+    private TypeInfo load(TypeData typeData, SourceSet sourceSetOfRequest) {
         TypeInfo typeInfo;
         synchronized (byteCodeInspector) {
-            typeInfo = byteCodeInspector.get().load(typeData);
+            typeInfo = byteCodeInspector.get().load(typeData, sourceSetOfRequest);
         }
         return typeInfo;
     }
@@ -263,9 +277,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public void preload(String thePackage, SourceSet sourceSetOfRequest) {
+    public void preload(String thePackage) {
         LOGGER.info("Start pre-loading {}", thePackage);
-        List<TypeInfo> types = primaryTypesInPackageEnsureLoaded(thePackage, sourceSetOfRequest);
+        List<TypeInfo> types = primaryTypesInPackageEnsureLoaded(thePackage, ANY);
         LOGGER.info("... loaded {} types", types.size());
     }
 
@@ -305,7 +319,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                         typeInfo = typeData.typeInfo();
                     } else if (typeData.isCompiled()) {
                         // All the primary source types should be known; only compiled types can be loaded
-                        typeInfo = load(typeData);
+                        typeInfo = load(typeData, sourceSetOfRequest);
                     } else {
                         typeInfo = null;
                         // is either a package-info.java, an annotated API file, ...

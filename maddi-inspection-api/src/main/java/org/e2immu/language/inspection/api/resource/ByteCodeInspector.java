@@ -1,5 +1,6 @@
 package org.e2immu.language.inspection.api.resource;
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 
@@ -8,7 +9,7 @@ public interface ByteCodeInspector {
 
     Data defaultData();
 
-    TypeInfo load(CompiledTypesManager.TypeData typeData);
+    TypeInfo load(CompiledTypesManager.TypeData typeData, SourceSet sourceSetOfRequest);
 
     interface TypeParameterContext {
         void add(TypeParameter typeParameter);

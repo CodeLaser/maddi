@@ -16,6 +16,7 @@ package org.e2immu.bytecode.java.asm;
 
 import org.e2immu.bytecode.java.ExpressionFactory;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -41,6 +42,8 @@ public class MyClassVisitor extends ClassVisitor {
     private final CompiledTypesManager.TypeData typeData;
     private final Runtime runtime;
     private final TypeInfo currentType;
+    private final SourceSet sourceSetOfRequest;
+
     private TypeInfo.Builder currentTypeBuilder;
     private String currentTypePath;
     private boolean currentTypeIsInterface;
@@ -48,13 +51,15 @@ public class MyClassVisitor extends ClassVisitor {
     public MyClassVisitor(Runtime runtime,
                           LocalTypeMap localTypeMap,
                           ByteCodeInspector.TypeParameterContext typeParameterContext,
-                          CompiledTypesManager.TypeData typeData) {
+                          CompiledTypesManager.TypeData typeData,
+                          SourceSet sourceSetOfRequest) {
         super(ASM9);
         this.runtime = runtime;
         this.localTypeMap = localTypeMap;
         this.typeData = typeData;
         this.typeParameterContext = typeParameterContext;
         this.currentType = typeData.typeInfo();
+        this.sourceSetOfRequest = sourceSetOfRequest;
     }
 
     private TypeNature typeNatureFromOpCode(int opCode) {
@@ -131,7 +136,7 @@ public class MyClassVisitor extends ClassVisitor {
                 int pos = 0;
                 if (signature.charAt(0) == '<') {
                     ParseGenerics<TypeInfo> parseGenerics = new ParseGenerics<>(runtime, typeParameterContext,
-                            typeData.sourceFile().sourceSet(),
+                            sourceSetOfRequest,
                             currentType, localTypeMap,
                             LocalTypeMap.LoadMode.NOW, runtime::newTypeParameter, currentTypeBuilder::addOrSetTypeParameter, signature,
                             localTypeMap.allowCreationOfStubTypes());
@@ -140,8 +145,7 @@ public class MyClassVisitor extends ClassVisitor {
                 {
                     String substring = signature.substring(pos);
                     ParameterizedTypeFactory.Result res = ParameterizedTypeFactory.from(runtime,
-                            typeData.sourceFile().sourceSet(),
-                            typeParameterContext,
+                            sourceSetOfRequest, typeParameterContext,
                             localTypeMap, LocalTypeMap.LoadMode.NOW, substring, localTypeMap.allowCreationOfStubTypes());
                     if (res == null) {
                         LOGGER.error("Stop inspection of {}, parent type unknown", currentType);
@@ -155,9 +159,8 @@ public class MyClassVisitor extends ClassVisitor {
                     for (int i = 0; i < interfaces.length; i++) {
                         String interfaceSignature = signature.substring(pos);
                         ParameterizedTypeFactory.Result interFaceRes = ParameterizedTypeFactory.from(runtime,
-                                typeData.sourceFile().sourceSet(),
-                                typeParameterContext, localTypeMap, LocalTypeMap.LoadMode.NOW, interfaceSignature,
-                                localTypeMap.allowCreationOfStubTypes());
+                                sourceSetOfRequest, typeParameterContext, localTypeMap, LocalTypeMap.LoadMode.NOW,
+                                interfaceSignature, localTypeMap.allowCreationOfStubTypes());
                         if (interFaceRes == null) {
                             LOGGER.error("Stop inspection of {}, interface type unknown", currentType);
                             errorStateForType(interfaceSignature);
@@ -187,7 +190,7 @@ public class MyClassVisitor extends ClassVisitor {
         if (path.equals(currentTypePath)) {
             return currentType;
         }
-        TypeInfo fromMap = localTypeMap.getOrCreate(fqn, typeData.sourceFile().sourceSet(), LocalTypeMap.LoadMode.NOW);
+        TypeInfo fromMap = localTypeMap.getOrCreate(fqn, sourceSetOfRequest, LocalTypeMap.LoadMode.NOW);
         if (fromMap == null) {
             if (localTypeMap.allowCreationOfStubTypes()) {
                 int lastDot = fqn.lastIndexOf('.');
@@ -219,7 +222,7 @@ public class MyClassVisitor extends ClassVisitor {
         if (synthetic) return null;
 
         ParameterizedTypeFactory.Result from = ParameterizedTypeFactory.from(runtime,
-                typeData.sourceFile().sourceSet(), typeParameterContext, localTypeMap,
+                sourceSetOfRequest, typeParameterContext, localTypeMap,
                 LocalTypeMap.LoadMode.QUEUE,
                 signature != null ? signature : descriptor,
                 false);
@@ -242,7 +245,7 @@ public class MyClassVisitor extends ClassVisitor {
 
         Expression expression;
         if (value != null) {
-            expression = ExpressionFactory.from(runtime, typeData.sourceFile().sourceSet(), localTypeMap, value);
+            expression = ExpressionFactory.from(runtime, sourceSetOfRequest, localTypeMap, value);
             if (expression.isEmpty()) {
                 LOGGER.warn("Ignoring unparsed field initializer of type {}, for field {}", value.getClass(), fieldInfo);
             }
@@ -250,7 +253,7 @@ public class MyClassVisitor extends ClassVisitor {
             expression = runtime.newEmptyExpression();
         }
         fieldInspectionBuilder.setInitializer(expression);
-        return new MyFieldVisitor(runtime, typeParameterContext, fieldInfo, localTypeMap);
+        return new MyFieldVisitor(runtime, typeParameterContext, sourceSetOfRequest, fieldInfo, localTypeMap);
     }
 
     @Override
@@ -290,7 +293,7 @@ public class MyClassVisitor extends ClassVisitor {
         String signatureOrDescription = signature != null ? signature : descriptor;
         if (signatureOrDescription.startsWith("<")) {
             ParseGenerics<MethodInfo> parseGenerics = new ParseGenerics<>(runtime, methodContext,
-                    typeData.sourceFile().sourceSet(), methodInfo,
+                    sourceSetOfRequest, methodInfo,
                     localTypeMap, LocalTypeMap.LoadMode.QUEUE, runtime::newTypeParameter,
                     methodInspectionBuilder::addTypeParameter, signatureOrDescription,
                     localTypeMap.allowCreationOfStubTypes());
@@ -304,7 +307,7 @@ public class MyClassVisitor extends ClassVisitor {
         }
 
         ParseParameterTypes ppt = new ParseParameterTypes(runtime, localTypeMap, LocalTypeMap.LoadMode.QUEUE);
-        ParseParameterTypes.Result r = ppt.parseParameterTypesOfMethod(methodContext, typeData.sourceFile().sourceSet(),
+        ParseParameterTypes.Result r = ppt.parseParameterTypesOfMethod(methodContext, sourceSetOfRequest,
                 signatureOrDescription, false);
         if (r == null) {
             return null; // jdk
@@ -320,8 +323,8 @@ public class MyClassVisitor extends ClassVisitor {
                 methodInspectionBuilder.addExceptionType(typeInfo.asSimpleParameterizedType());
             }
         }
-        return new MyMethodVisitor(runtime, typeParameterContext, localTypeMap, currentType, methodInfo,
-                r.parameterTypes(), lastParameterIsVarargs);
+        return new MyMethodVisitor(runtime, typeParameterContext, sourceSetOfRequest, localTypeMap, currentType,
+                methodInfo, r.parameterTypes(), lastParameterIsVarargs);
     }
 
     private MethodInfo.MethodType extractMethodType(int access) {
@@ -359,7 +362,7 @@ public class MyClassVisitor extends ClassVisitor {
                 LOGGER.debug("Processing sub-type {} of/in {}, step side? {} step down? {}", fqn,
                         currentType.fullyQualifiedName(), stepSide, stepDown);
 
-                CompiledTypesManager.TypeData typeDataOfSubType = localTypeMap.typeData(fqn, typeData.sourceFile().sourceSet());
+                CompiledTypesManager.TypeData typeDataOfSubType = localTypeMap.typeData(fqn, sourceSetOfRequest);
                 assert typeDataOfSubType != null : "CompiledTypeManager knows the path of all sub-types: " + fqn;
                 if (typeDataOfSubType.typeInfo() == null) {
                     //    TypeInfo enclosing = stepDown ? currentType
@@ -368,7 +371,8 @@ public class MyClassVisitor extends ClassVisitor {
                     //    checkTypeFlags(access, subType.builder());
                     typeDataOfSubType.updateByteCodeInspectorData(typeDataOfSubType.byteCodeInspectorData()
                             .withParentTypeParameterContext(typeParameterContext));
-                    TypeInfo subType = localTypeMap.inspectFromPath(typeDataOfSubType, LocalTypeMap.LoadMode.NOW);
+                    TypeInfo subType = localTypeMap.inspectFromPath(typeDataOfSubType, sourceSetOfRequest,
+                            LocalTypeMap.LoadMode.NOW);
                     if (stepDown) {
                         currentTypeBuilder.addSubType(subType);
                     }
@@ -394,7 +398,7 @@ public class MyClassVisitor extends ClassVisitor {
         if (currentType == null) return null;
 
         LOGGER.debug("Have class annotation {} {}", descriptor, visible);
-        return new MyAnnotationVisitor<>(runtime, typeData.sourceFile().sourceSet(),
+        return new MyAnnotationVisitor<>(runtime, sourceSetOfRequest,
                 typeParameterContext, localTypeMap, descriptor, currentTypeBuilder);
     }
 

@@ -17,6 +17,7 @@ package org.e2immu.bytecode.java.asm;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.element.Source;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -151,9 +152,11 @@ public class MyMethodVisitor extends MethodVisitor {
     private final boolean lastParameterIsVarargs;
     private final ComputeMethodOverrides computeMethodOverrides;
     private final Set<String> isFinalSet = new HashSet<>();
+    private final SourceSet sourceSetOfRequest;
 
     public MyMethodVisitor(Runtime runtime,
                            ByteCodeInspector.TypeParameterContext typeContext,
+                           SourceSet sourceSetOfRequest,
                            LocalTypeMap localTypeMap,
                            TypeInfo typeInfo,
                            MethodInfo methodInfo,
@@ -166,6 +169,7 @@ public class MyMethodVisitor extends MethodVisitor {
         this.methodInfo = methodInfo;
         this.typeInfo = typeInfo;
         this.types = types;
+        this.sourceSetOfRequest = sourceSetOfRequest;
         numberOfParameters = types.size();
         parameterInspectionBuilders = new ParamBuilder[numberOfParameters];
         for (int i = 0; i < numberOfParameters; i++) {
@@ -178,16 +182,14 @@ public class MyMethodVisitor extends MethodVisitor {
     @Override
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
         LOGGER.debug("Have method annotation {} {}", descriptor, visible);
-        return new MyAnnotationVisitor<>(runtime, methodInfo.typeInfo().compilationUnit().sourceSet(),
+        return new MyAnnotationVisitor<>(runtime, sourceSetOfRequest,
                 typeContext, localTypeMap, descriptor, methodInfo.builder());
     }
 
     @Override
     public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
         LOGGER.debug("Have parameter annotation {} on parameter {}", descriptor, parameter);
-        return new MyAnnotationVisitor<>(runtime,
-                methodInfo.typeInfo().compilationUnit().sourceSet(),
-                typeContext, localTypeMap, descriptor,
+        return new MyAnnotationVisitor<>(runtime, sourceSetOfRequest, typeContext, localTypeMap, descriptor,
                 parameterInspectionBuilders[parameter]);
     }
 

@@ -109,7 +109,5 @@ public interface SourceSet {
 
     void computePriorityDependencies();
 
-    void computePriorityDependencies(List<SourceSet> sourceSets);
-
     Map<SourceSet, Integer> priorityDependencies();
 }

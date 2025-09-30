@@ -126,11 +126,6 @@ public class PredefinedImpl implements Predefined {
         }
 
         @Override
-        public void computePriorityDependencies(List<SourceSet> sourceSets) {
-            // nothing here
-        }
-
-        @Override
         public Map<SourceSet, Integer> priorityDependencies() {
             return Map.of();
         }

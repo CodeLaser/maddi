@@ -42,7 +42,7 @@ public class MyAnnotationVisitor<T extends Info.Builder<? extends Info.Builder<T
     private final SourceSet sourceSet;
 
     public MyAnnotationVisitor(Runtime runtime,
-                               SourceSet sourceSet,
+                               SourceSet sourceSetOfRequest,
                                ByteCodeInspector.TypeParameterContext typeParameterContext,
                                LocalTypeMap localTypeMap,
                                String descriptor,
@@ -51,11 +51,11 @@ public class MyAnnotationVisitor<T extends Info.Builder<? extends Info.Builder<T
         this.runtime = runtime;
         this.localTypeMap = localTypeMap;
         this.inspectionBuilder = Objects.requireNonNull(inspectionBuilder);
-        this.sourceSet = sourceSet;
+        this.sourceSet = sourceSetOfRequest;
 
         LOGGER.debug("My annotation visitor: {}", descriptor);
 
-        ParameterizedTypeFactory.Result from = ParameterizedTypeFactory.from(runtime, sourceSet, typeParameterContext,
+        ParameterizedTypeFactory.Result from = ParameterizedTypeFactory.from(runtime, sourceSetOfRequest, typeParameterContext,
                 localTypeMap, LocalTypeMap.LoadMode.TRIGGER, descriptor, false);
         if (from == null) {
             expressionBuilder = null;
