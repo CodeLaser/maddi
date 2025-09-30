@@ -144,7 +144,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         modAnalyzer.go(analysisOrder);
 
         String s = javaInspector.print2(X, new DecoratorImpl(runtime), javaInspector.importComputer(4,
-                null));
+                javaInspector.mainSources()));
         assertEquals(output, s);
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(X.fullyQualifiedName().split("\\."), X);

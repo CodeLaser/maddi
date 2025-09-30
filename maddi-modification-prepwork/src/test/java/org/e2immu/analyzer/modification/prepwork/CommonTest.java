@@ -53,6 +53,7 @@ public class CommonTest {
         for (String extra : extraClassPath) {
             builder.addClassPath(extra);
         }
+        builder.addSources("none");
         InputConfiguration inputConfiguration = builder.build();
         javaInspector.initialize(inputConfiguration);
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);

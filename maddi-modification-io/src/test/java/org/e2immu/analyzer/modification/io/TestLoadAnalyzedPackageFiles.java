@@ -56,9 +56,10 @@ public class TestLoadAnalyzedPackageFiles {
                 JAR_WITH_PATH_PREFIX + "org/opentest4j"
         );
         JavaInspectorImpl javaInspector = new JavaInspectorImpl();
-        InputConfigurationImpl.Builder inputConfiguration = new InputConfigurationImpl.Builder();
-        classPath.forEach(inputConfiguration::addClassPath);
-        javaInspector.initialize(inputConfiguration.build());
+        InputConfigurationImpl.Builder inputConfigurationBuilder = new InputConfigurationImpl.Builder();
+        classPath.forEach(inputConfigurationBuilder::addClassPath);
+        inputConfigurationBuilder.addSources("none");
+        javaInspector.initialize(inputConfigurationBuilder.build());
 
         LoadAnalyzedPackageFiles loadAnalyzedPackageFiles = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
         String jdk = ToolChain.mapJreShortNameToAnalyzedPackageShortName(ToolChain.currentJre().shortName());
@@ -85,7 +86,8 @@ public class TestLoadAnalyzedPackageFiles {
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                 .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
                 .addClassPath(ToolChain.CLASSPATH_JUNIT)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT);
+                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                .addSources("none");
         javaInspector.initialize(inputConfiguration.build());
 
         LoadAnalyzedPackageFiles loadAnalyzedPackageFiles = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
