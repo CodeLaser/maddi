@@ -32,17 +32,18 @@ public abstract class CommonJmodBaseTests {
         URI uri = URI.create("jar:file:" + System.getProperty("java.home") + "/jmods/java.base.jmod!/");
         SourceSet sourceSet = new SourceSetImpl("java.base", List.of(), URI.create("file:unknown"), StandardCharsets.UTF_8,
                 false, true, true, true, false, Set.of(), Set.of());
+        sourceSet.computePriorityDependencies();
         SourceFile sourceFile = new SourceFile(uri.getRawSchemeSpecificPart(), uri, sourceSet, null);
         cp.addJmod(sourceFile);
-        CompiledTypesManagerImpl mgr = new CompiledTypesManagerImpl(classPath);
+        CompiledTypesManagerImpl mgr = new CompiledTypesManagerImpl(sourceSet, classPath);
         compiledTypesManager = mgr;
         runtime = new RuntimeImpl();
         byteCodeInspector = new ByteCodeInspectorImpl(runtime, compiledTypesManager, true,
                 false);
         mgr.setByteCodeInspector(byteCodeInspector);
         mgr.addToTrie(cp, true);
-        mgr.addPredefinedTypeInfoObjects(runtime.predefinedObjects());
-        mgr.preload("java.lang");
+        mgr.addPredefinedTypeInfoObjects(runtime.predefinedObjects(), sourceSet);
+        mgr.preload("java.lang", sourceSet);
     }
 
 }

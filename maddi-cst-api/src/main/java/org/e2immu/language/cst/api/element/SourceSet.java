@@ -16,8 +16,6 @@ import java.util.Set;
  */
 public interface SourceSet {
 
-    boolean inTestSetup();
-
     Charset sourceEncoding();
 
     String name();
@@ -110,6 +108,8 @@ public interface SourceSet {
     SourceSet withSourceDirectories(List<Path> sourceDirectories);
 
     void computePriorityDependencies();
+
+    void computePriorityDependencies(List<SourceSet> sourceSets);
 
     Map<SourceSet, Integer> priorityDependencies();
 }

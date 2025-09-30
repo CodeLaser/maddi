@@ -186,7 +186,7 @@ public class TestComputeHiddenContent extends CommonTest {
     @Test
     public void test2b() {
         TypeInfo StreamSpliterators = javaInspector.compiledTypesManager()
-                .getOrLoad("java.util.stream.StreamSpliterators", null);
+                .getOrLoad("java.util.stream.StreamSpliterators", javaInspector.javaBase());
         TypeInfo SliceSpliterator = StreamSpliterators.findSubType("SliceSpliterator");
         test(SliceSpliterator);
     }

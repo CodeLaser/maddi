@@ -32,7 +32,7 @@ public class TestParameterizedTypeFactory extends CommonJmodBaseTests {
     }
 
     private ParameterizedTypeFactory.Result create(String signature) {
-        return ParameterizedTypeFactory.from(runtime, null,
+        return ParameterizedTypeFactory.from(runtime, compiledTypesManager.javaBase(),
                 new ByteCodeInspectorImpl.TypeParameterContextImpl(), byteCodeInspector,
                 LocalTypeMap.LoadMode.NOW, signature, false);
     }

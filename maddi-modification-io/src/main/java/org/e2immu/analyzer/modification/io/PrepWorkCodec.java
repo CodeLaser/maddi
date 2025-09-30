@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -21,8 +22,8 @@ public class PrepWorkCodec {
     private final Codec.PropertyProvider propertyProvider;
     private final Runtime runtime;
 
-    public PrepWorkCodec(Runtime runtime) {
-        this.typeProvider = fqn -> runtime.getFullyQualified(fqn, true);
+    public PrepWorkCodec(Runtime runtime, SourceSet sourceSetOfRequest) {
+        this.typeProvider = fqn -> runtime.getFullyQualified(fqn, true, sourceSetOfRequest);
         decoderProvider = new D();
         this.propertyProvider = new P();
         this.runtime = runtime;

@@ -187,7 +187,8 @@ public class TestComposer {
 
         Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
 
-        TypeInfo commandLine = javaInspector.compiledTypesManager().getOrLoad("picocli.CommandLine", null);
+        TypeInfo commandLine = javaInspector.compiledTypesManager().getOrLoad("picocli.CommandLine",
+                javaInspector.mainSources());
         MethodInfo call = commandLine.findUniqueMethod("call", 2);
         assertEquals("picocli.CommandLine.call(C extends java.util.concurrent.Callable<T>,String...)",
                 call.fullyQualifiedName());
@@ -236,7 +237,8 @@ public class TestComposer {
 
         Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         TypeInfo annotationConsumer = javaInspector.compiledTypesManager()
-                .getOrLoad("org.junit.jupiter.params.support.AnnotationConsumer", null);
+                .getOrLoad("org.junit.jupiter.params.support.AnnotationConsumer",
+                        javaInspector.mainSources());
         Collection<TypeInfo> res = composer.compose(Set.of(annotationConsumer));
         assertEquals(1, res.size());
 
@@ -268,7 +270,7 @@ public class TestComposer {
         Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(
                 "org.springframework.security.config.annotation.web.configurers.AbstractInterceptUrlConfigurer",
-                null);
+                javaInspector.mainSources());
         assertNotNull(typeInfo);
         Collection<TypeInfo> res = composer.compose(Set.of(typeInfo));
         assertEquals(1, res.size());

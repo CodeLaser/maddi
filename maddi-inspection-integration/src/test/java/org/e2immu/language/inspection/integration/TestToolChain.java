@@ -17,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class TestToolChain {
 
-    public static final String BASE = "jmod:java.base";
+    public static final String JMOD_BASE = "jmod:java.base";
+    public static final String BASE = "java.base";
 
     @BeforeAll
     public static void beforeAll() {
@@ -34,11 +35,11 @@ public class TestToolChain {
     public void test() throws IOException {
         InputConfigurationImpl.Builder inputConfigurationBuilder = new InputConfigurationImpl.Builder()
                 .addSources("none")
-                .addClassPath(BASE);
+                .addClassPath(JMOD_BASE);
         InputConfiguration inputConfiguration = inputConfigurationBuilder.build();
         SourceSet base = inputConfiguration.classPathParts().getFirst();
         assertEquals(BASE, base.name());
-        assertEquals(BASE, base.uri().toString());
+        assertEquals(JMOD_BASE, base.uri().toString());
 
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);

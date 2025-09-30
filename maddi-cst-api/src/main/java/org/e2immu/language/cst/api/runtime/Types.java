@@ -1,5 +1,6 @@
 package org.e2immu.language.cst.api.runtime;
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
@@ -11,6 +12,10 @@ public interface Types {
 
     default TypeInfo getFullyQualified(Class<?> clazz, boolean complain) {
         return getFullyQualified(clazz.getCanonicalName(), complain);
+    }
+
+    default TypeInfo getFullyQualified(String name, boolean complain, SourceSet sourceSetOfRequest) {
+       return getFullyQualified(name, complain); // ignore the request
     }
 
     TypeInfo syntheticFunctionalType(int inputParameters, boolean hasReturnValue);

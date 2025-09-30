@@ -25,6 +25,12 @@ public interface JavaInspector {
 
     String TEST_PROTOCOL = "test-protocol";
 
+    // for tests
+    SourceSet javaBase();
+
+    // for tests
+    SourceSet mainSources();
+
     @FunctionalInterface
     interface Invalidated extends Function<TypeInfo, InvalidationState> {
     }
@@ -66,7 +72,7 @@ public interface JavaInspector {
 
     List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException;
 
-    void preload(String thePackage);
+    void preload(String thePackage, SourceSet sourceSetOfRequest);
 
     // main parse method, from sources specified in InputConfiguration
     Summary parse(ParseOptions parseOptions);

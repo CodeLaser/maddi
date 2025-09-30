@@ -5,8 +5,8 @@ import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
@@ -33,7 +33,12 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
 
     @Override
     public TypeInfo getFullyQualified(String name, boolean complain) {
-        TypeInfo typeInfo = compiledTypesManager.getOrLoad(name, null);
+        return getFullyQualified(name, complain, compiledTypesManager.javaBase());
+    }
+
+    @Override
+    public TypeInfo getFullyQualified(String name, boolean complain, SourceSet sourceSetOfRequest) {
+        TypeInfo typeInfo = compiledTypesManager.getOrLoad(name, sourceSetOfRequest);
         if (typeInfo == null && complain) {
             throw new UnsupportedOperationException("Cannot find " + name);
         }

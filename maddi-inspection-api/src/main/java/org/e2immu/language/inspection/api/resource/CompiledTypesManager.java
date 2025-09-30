@@ -3,9 +3,7 @@ package org.e2immu.language.inspection.api.resource;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
-import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /**
  * manages all types that come in byte-code form.
@@ -14,6 +12,10 @@ import java.util.Set;
  * lots of defaults because we make stubs.
  */
 public interface CompiledTypesManager {
+
+    default SourceSet javaBase() {
+        throw new UnsupportedOperationException();
+    }
 
     TypeData typeDataOrNull(String fqn, SourceSet sourceSet, boolean complainSingle);
 
@@ -35,7 +37,7 @@ public interface CompiledTypesManager {
     }
 
     default TypeInfo get(Class<?> clazz) {
-        return get(clazz.getCanonicalName(), null);
+        return get(clazz.getCanonicalName(), javaBase());
     }
 
     void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo);
@@ -46,17 +48,23 @@ public interface CompiledTypesManager {
         return get(fullyQualifiedName, sourceSetOfRequest);
     }
 
-    default TypeInfo getOrLoad(Class<?> clazz) {
-        return getOrLoad(clazz.getCanonicalName(), null);
+    default TypeInfo getOrLoad(Class<?> clazz, SourceSet sourceSetOfRequest) {
+        return getOrLoad(clazz.getCanonicalName(), sourceSetOfRequest);
     }
 
-    default void invalidate(TypeInfo typeInfo) { throw new UnsupportedOperationException(); }
+    default TypeInfo getOrLoad(Class<?> clazz) {
+        return getOrLoad(clazz.getCanonicalName(), javaBase());
+    }
+
+    default void invalidate(TypeInfo typeInfo) {
+        throw new UnsupportedOperationException();
+    }
 
     default boolean packageContainsTypes(String packageName) {
         throw new UnsupportedOperationException();
     }
 
-    default void preload(String thePackage) {
+    default void preload(String thePackage, SourceSet sourceSetOfRequest) {
         throw new UnsupportedOperationException();
     }
 

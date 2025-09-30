@@ -81,7 +81,7 @@ public class TestPreloadJavaBase {
                 .build();
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.preload("java.util.stream");
+        javaInspector.preload("java.util.stream", inputConfiguration.javaBase());
 
         TypeInfo spinedBuffer = javaInspector.compiledTypesManager().get("java.util.stream.SpinedBuffer",
                 null);
@@ -105,7 +105,7 @@ public class TestPreloadJavaBase {
                 .build();
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.preload("java.net.http");
+        javaInspector.preload("java.net.http", inputConfiguration.javaBase());
         TypeInfo httpResponse = javaInspector.compiledTypesManager().get("java.net.http.HttpResponse",
                 null);
         assertNotNull(httpResponse);

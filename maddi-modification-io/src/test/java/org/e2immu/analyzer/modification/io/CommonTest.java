@@ -60,9 +60,10 @@ public class CommonTest {
         }
         InputConfiguration inputConfiguration = builder.build();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.preload("java.util");
+        javaInspector.preload("java.util", inputConfiguration.javaBase());
 
-        new LoadAnalyzedPackageFiles().go(javaInspector, List.of(ToolChain.currentJdkAnalyzedPackages(),
+        new LoadAnalyzedPackageFiles(javaInspector.mainSources())
+                .go(javaInspector, List.of(ToolChain.currentJdkAnalyzedPackages(),
                 ToolChain.commonLibsAnalyzedPackages()));
 
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);

@@ -26,11 +26,6 @@ import java.util.*;
 public class PredefinedImpl implements Predefined {
     private static final SourceSet PREDEFINED_SOURCESET = new SourceSet() {
         @Override
-        public boolean inTestSetup() {
-            return true;
-        }
-
-        @Override
         public Charset sourceEncoding() {
             return StandardCharsets.UTF_8;
         }
@@ -127,6 +122,11 @@ public class PredefinedImpl implements Predefined {
 
         @Override
         public void computePriorityDependencies() {
+            // nothing here
+        }
+
+        @Override
+        public void computePriorityDependencies(List<SourceSet> sourceSets) {
             // nothing here
         }
 

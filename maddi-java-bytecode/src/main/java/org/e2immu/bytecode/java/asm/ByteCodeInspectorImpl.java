@@ -33,6 +33,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /*
@@ -87,6 +88,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
     private final CompiledTypesManager compiledTypesManager;
     private final MessageDigest md;
     private final boolean allowCreationOfStubTypes;
+    private final Map<String, Integer> duplicateWarnings = new ConcurrentHashMap<String, Integer>();
 
     public ByteCodeInspectorImpl(Runtime runtime,
                                  CompiledTypesManager compiledTypesManager,
@@ -130,7 +132,10 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         }
         CompiledTypesManager.TypeData typeData = typeData(fqn, sourceSetOfRequest);
         if (typeData == null) {
-            LOGGER.warn("Not in classpath: {}", fqn);
+            if (duplicateWarnings.merge(fqn, 1, Integer::sum) == 1) {
+                LOGGER.warn("Not in classpath: {}, request from {}, with dependencies {}",
+                        fqn, sourceSetOfRequest.name(), sourceSetOfRequest.priorityDependencies());
+            }
             return null;
         }
         return inspectFromPath(typeData, loadMode);

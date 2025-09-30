@@ -71,9 +71,9 @@ public record InputConfigurationImpl(Path workingDirectory,
     @Override
     public String toString() {
         return "InputConfiguration:" +
-                NL_TAB + "sourcesSets=" + sourceSets +
-                NL_TAB + "classPathParts=" + classPathParts +
-                NL_TAB + "alternativeJREDirectory=" + (alternativeJREDirectory == null ? "<default>"
+               NL_TAB + "sourcesSets=" + sourceSets +
+               NL_TAB + "classPathParts=" + classPathParts +
+               NL_TAB + "alternativeJREDirectory=" + (alternativeJREDirectory == null ? "<default>"
                 : alternativeJREDirectory);
     }
 
@@ -99,19 +99,23 @@ public record InputConfigurationImpl(Path workingDirectory,
             Charset sourceCharset = sourceEncoding == null ? StandardCharsets.UTF_8 : Charset.forName(sourceEncoding);
 
             for (String cpp : classPathStringParts) {
-                classPathParts.add(new SourceSetImpl(cpp, null, createURI(cpp), null,
+                String cppName = removeJmod(cpp);
+                classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
                         false, true, true, isJmod(cpp), false, Set.of(), Set.of()));
             }
             for (String cpp : runtimeClassPathParts) {
-                classPathParts.add(new SourceSetImpl(cpp, null, createURI(cpp), null,
+                String cppName = removeJmod(cpp);
+                classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
                         false, true, true, isJmod(cpp), true, Set.of(), Set.of()));
             }
             for (String cpp : testClassPathParts) {
-                classPathParts.add(new SourceSetImpl(cpp, null, createURI(cpp), null,
+                String cppName = removeJmod(cpp);
+                classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
                         true, true, true, isJmod(cpp), false, Set.of(), Set.of()));
             }
             for (String cpp : testRuntimeClassPathParts) {
-                classPathParts.add(new SourceSetImpl(cpp, null, createURI(cpp), null,
+                String cppName = removeJmod(cpp);
+                classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
                         true, true, true, isJmod(cpp), true, Set.of(), Set.of()));
             }
             for (String sourceDir : sourceDirs) {
@@ -137,6 +141,13 @@ public record InputConfigurationImpl(Path workingDirectory,
                     List.copyOf(sourceSets), List.copyOf(classPathParts),
                     alternativeJREDirectory == null || alternativeJREDirectory.isBlank()
                             ? null : Path.of(alternativeJREDirectory));
+        }
+
+        // so that InputConfiguration.javaBase() recognizes the java.base java module
+        // when DEFAULT_MODULES is used in a test setup
+        private String removeJmod(String cpp) {
+            if (cpp.startsWith("jmod:")) return cpp.substring(5);
+            return cpp;
         }
 
         private static final Pattern SCHEME = Pattern.compile("([A-Za-z-]+):.+");
