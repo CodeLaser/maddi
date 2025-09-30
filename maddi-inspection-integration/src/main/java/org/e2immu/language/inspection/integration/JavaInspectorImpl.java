@@ -151,8 +151,6 @@ public class JavaInspectorImpl implements JavaInspector {
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
         this.inputConfiguration = inputConfiguration;
         inputConfiguration.sourceSets().forEach(SourceSet::computePriorityDependencies);
-        inputConfiguration.classPathParts()
-                .forEach(set -> set.computePriorityDependencies(inputConfiguration.sourceSets()));
 
         List<InitializationProblem> initializationProblems = new LinkedList<>();
         try {
@@ -172,7 +170,7 @@ public class JavaInspectorImpl implements JavaInspector {
             this.compiledTypesManager = ctm;
 
             for (String packageName : new String[]{"java.lang", "java.util.function"}) {
-                preload(packageName, javaBase);
+                preload(packageName);
             }
 
             Resources sourcePath = assembleSourcePath(inputConfiguration.workingDirectory(),
@@ -283,8 +281,8 @@ public class JavaInspectorImpl implements JavaInspector {
      * <code>initializeClassPath</code> will be present
      */
     @Override
-    public void preload(String thePackage, SourceSet sourceSetOfRequest) {
-        compiledTypesManager.preload(thePackage, sourceSetOfRequest);
+    public void preload(String thePackage) {
+        compiledTypesManager.preload(thePackage);
     }
 
     private Resources assembleClassPath(Path workingDirectory,

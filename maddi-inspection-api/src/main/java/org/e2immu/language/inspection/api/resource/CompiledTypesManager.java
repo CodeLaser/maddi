@@ -64,7 +64,7 @@ public interface CompiledTypesManager {
         throw new UnsupportedOperationException();
     }
 
-    default void preload(String thePackage, SourceSet sourceSetOfRequest) {
+    default void preload(String thePackage) {
         throw new UnsupportedOperationException();
     }
 

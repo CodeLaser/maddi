@@ -14,9 +14,9 @@
 
 package org.e2immu.bytecode.java.asm;
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.parser.TypeContext;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -32,9 +32,11 @@ public class MyFieldVisitor extends FieldVisitor {
     private final Runtime runtime;
     private final LocalTypeMap localTypeMap;
     private final ByteCodeInspector.TypeParameterContext typeContext;
+    private final SourceSet sourceSetOfRequest;
 
     public MyFieldVisitor(Runtime runtime,
                           ByteCodeInspector.TypeParameterContext typeContext,
+                          SourceSet sourceSetOfRequest,
                           FieldInfo fieldInfo,
                           LocalTypeMap localTypeMap) {
         super(ASM9);
@@ -42,13 +44,13 @@ public class MyFieldVisitor extends FieldVisitor {
         this.fieldInfo = fieldInfo;
         this.localTypeMap = localTypeMap;
         this.typeContext = typeContext;
+        this.sourceSetOfRequest = sourceSetOfRequest;
     }
 
     @Override
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
         LOGGER.debug("Have field annotation {} {}", descriptor, visible);
-        return new MyAnnotationVisitor<>(runtime,
-                fieldInfo.owner().compilationUnit().sourceSet(),
+        return new MyAnnotationVisitor<>(runtime, sourceSetOfRequest,
                 typeContext, localTypeMap, descriptor, fieldInfo.builder());
     }
 

@@ -72,7 +72,7 @@ public interface JavaInspector {
 
     List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException;
 
-    void preload(String thePackage, SourceSet sourceSetOfRequest);
+    void preload(String thePackage);
 
     // main parse method, from sources specified in InputConfiguration
     Summary parse(ParseOptions parseOptions);

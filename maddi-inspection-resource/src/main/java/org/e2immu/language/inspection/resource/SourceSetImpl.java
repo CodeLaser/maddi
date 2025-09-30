@@ -188,27 +188,6 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
-    public void computePriorityDependencies(List<SourceSet> sourceSets) {
-        if (dependencies.isEmpty() && !sourceSets.isEmpty()) {
-            Map<SourceSet, Integer> map = null;
-            for (SourceSet sourceSet : sourceSets) {
-                Map<SourceSet, Integer> priorityMap = sourceSet.priorityDependencies();
-                if (priorityMap.containsKey(this)) {
-                    if (map == null) {
-                        map = new HashMap<>(priorityMap);
-                    } else {
-                        map.putAll(priorityMap);
-                    }
-                } // ignore those dependency lists where I'm not present!!!
-            }
-            if (map != null) map.remove(this); // cannot depend on myself
-            priorityDependencies.set(map == null ? Map.of() : Map.copyOf(map));
-        } else {
-            computePriorityDependencies();
-        }
-    }
-
-    @Override
     public void computePriorityDependencies() {
         if (!priorityDependencies.isSet()) {
             Map<SourceSet, Integer> map = new HashMap<>();
