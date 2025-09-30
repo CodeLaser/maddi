@@ -196,12 +196,12 @@ public class SourceSetImpl implements SourceSet {
                 if (priorityMap.containsKey(this)) {
                     if (map == null) {
                         map = new HashMap<>(priorityMap);
-                        map.remove(this); // cannot depend on myself
                     } else {
-                        map.keySet().retainAll(priorityMap.keySet());
+                        map.putAll(priorityMap);
                     }
                 } // ignore those dependency lists where I'm not present!!!
             }
+            if (map != null) map.remove(this); // cannot depend on myself
             priorityDependencies.set(map == null ? Map.of() : Map.copyOf(map));
         } else {
             computePriorityDependencies();
