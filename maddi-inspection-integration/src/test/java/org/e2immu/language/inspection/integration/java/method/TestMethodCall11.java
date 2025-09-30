@@ -1,12 +1,14 @@
 package org.e2immu.language.inspection.integration.java.method;
 
+import org.e2immu.language.cst.api.expression.Lambda;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodCall11 extends CommonTest {
 
@@ -156,5 +158,41 @@ public class TestMethodCall11 extends CommonTest {
     @Test
     public void test4() {
         javaInspector.parse(INPUT4);
+    }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            
+            class C {
+                interface JBuilder {
+                    JBuilder setSize(int i);
+                    JBuilder setLabel(String label);
+                }
+                interface Customizer {
+                    void customize(JBuilder jBuilder);
+                }
+                static class Configuration {
+                    public Customizer customizer() {
+                        return jBuilder -> jBuilder.setSize(30);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("type forwarding")
+    @Test
+    public void test5() {
+        TypeInfo C = javaInspector.parse(INPUT5);
+        TypeInfo JBuilder = C.findSubType("JBuilder");
+        assertFalse(JBuilder.isFunctionalInterface());
+        TypeInfo Customizer = C.findSubType("Customizer");
+        assertTrue(Customizer.isFunctionalInterface());
+        TypeInfo Configuration = C.findSubType("Configuration");
+        assertFalse(Configuration.isFunctionalInterface());
+        MethodInfo customizer = Configuration.findUniqueMethod("customizer", 0);
+        Lambda lambda = (Lambda) customizer.methodBody().statements().getFirst().expression();
+        assertEquals("a.b.C.Customizer", lambda.abstractFunctionalTypeInfo().toString());
     }
 }

@@ -3,7 +3,6 @@ package org.e2immu.analyzer.modification.prepwork;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
-import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -11,7 +10,6 @@ import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.util.internal.graph.G;
 import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.LoggerFactory;
@@ -55,9 +53,8 @@ public class CommonTest2 {
                 .addClassPath(JAR_WITH_PATH_PREFIX + "ch/qos/logback/core")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "ch/qos/logback/classic")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/opentest4j");
-        SourceSet main = new SourceSetImpl("main",
-
-                )
+        sourcesByURIString.keySet().forEach(builder::addSources);
+        // FIXME we'd rather have a single source set containing all the testprotocol: sources
         InputConfiguration inputConfiguration = builder.build();
         javaInspector.initialize(inputConfiguration);
         runtime = javaInspector.runtime();
