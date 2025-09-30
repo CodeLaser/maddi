@@ -138,6 +138,10 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
             }
             return null;
         }
+        TypeInfo typeInfo = typeData.typeInfo();
+        if (typeInfo != null && !typeInfo.compilationUnit().externalLibrary()) {
+            return typeInfo;
+        }
         return inspectFromPath(typeData, loadMode);
     }
 

@@ -1,20 +1,18 @@
 package org.e2immu.language.cst.impl.info;
 
-import org.e2immu.language.cst.api.info.ComputeMethodOverrides;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComputeMethodOverridesImpl.class);
+    private final Map<String, Integer> duplication = new ConcurrentHashMap<>();
 
     @Override
     public MethodInfo computeFunctionalInterface(TypeInfo typeInfo) {
@@ -73,14 +71,17 @@ public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
 
     @Override
     public Set<MethodInfo> overrides(MethodInfo methodInfo) {
-        return Set.copyOf(recursiveOverridesCall(methodInfo.typeInfo(), methodInfo, Map.of()));
+        return Set.copyOf(recursiveOverridesCall(methodInfo.typeInfo(), methodInfo, Map.of(),
+                methodInfo.typeInfo().compilationUnit().externalLibrary()));
     }
 
     private Set<MethodInfo> recursiveOverridesCall(TypeInfo typeToSearch,
                                                    MethodInfo targetMethod,
-                                                   Map<NamedType, ParameterizedType> translationMap) {
+                                                   Map<NamedType, ParameterizedType> translationMap,
+                                                   boolean isCompiled) {
         Set<MethodInfo> result = new HashSet<>();
-        for (ParameterizedType superType : directSuperTypes(typeToSearch)) {
+        List<ParameterizedType> parameterizedTypes = directSuperTypes(typeToSearch, isCompiled);
+        for (ParameterizedType superType : parameterizedTypes) {
             if (superType == null) {
                 throw new UnsupportedOperationException("Supertype of " + typeToSearch + " is null");
             }
@@ -92,7 +93,8 @@ public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
                 result.add(override);
             }
             if (!superType.typeInfo().isJavaLangObject()) {
-                result.addAll(recursiveOverridesCall(superType.typeInfo(), targetMethod, translationMapOfSuperType));
+                result.addAll(recursiveOverridesCall(superType.typeInfo(), targetMethod, translationMapOfSuperType,
+                        isCompiled));
             }
         }
         return result;
@@ -234,6 +236,26 @@ public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
         if (typeInfo.isJavaLangObject()) return List.of();
         List<ParameterizedType> list = new ArrayList<>();
         if (typeInfo.parentClass() == null) {
+            throw new UnsupportedOperationException("Only java.lang.Object can have null as the parentClass. Problem with: "
+                                                    + typeInfo.fullyQualifiedName());
+        }
+        list.add(typeInfo.parentClass());
+        list.addAll(typeInfo.interfacesImplemented());
+        return list;
+    }
+
+
+    private List<ParameterizedType> directSuperTypes(TypeInfo typeInfo, boolean isCompiled) {
+        if (typeInfo.isJavaLangObject()) return List.of();
+        List<ParameterizedType> list = new ArrayList<>();
+        if (typeInfo.parentClass() == null) {
+            if (isCompiled && !typeInfo.compilationUnit().externalLibrary()) {
+                if (duplication.merge(typeInfo.fullyQualifiedName(), 1, Integer::sum) == 1) {
+                    LOGGER.warn("Ignoring parent class of {}, not yet inspected, going from compiled to source code",
+                            typeInfo.fullyQualifiedName());
+                }
+                return list;
+            }
             throw new UnsupportedOperationException("Only java.lang.Object can have null as the parentClass. Problem with: "
                                                     + typeInfo.fullyQualifiedName());
         }
