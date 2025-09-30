@@ -17,7 +17,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final Logger LOGGER = LoggerFactory.getLogger(CompiledTypesManagerImpl.class);
 
-
     private static class TypeDataImpl implements CompiledTypesManager.TypeData {
         private final SourceFile sourceFile;
         private TypeInfo typeInfo;
@@ -95,7 +94,6 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                     String fqn = sourceFile.fullyQualifiedNameFromPath();
                     String[] newParts = fqn.split("\\.");
                     typeTrie.add(newParts, typeData);
-
                 }
             }
         });
@@ -167,10 +165,15 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public TypeData typeDataOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest, boolean complainSingle) {
-        String[] parts = fullyQualifiedName.split("\\.");
-        List<TypeData> typeDataList = typeTrie.get(parts);
+        List<TypeData> typeDataList = typeDataList(fullyQualifiedName);
         if (typeDataList == null || typeDataList.isEmpty()) return null;
         return bestCandidate(sourceSetOfRequest, typeDataList);
+    }
+
+    // public for testing
+    public List<TypeData> typeDataList(String fullyQualifiedName) {
+        String[] parts = fullyQualifiedName.split("\\.");
+        return typeTrie.get(parts);
     }
 
     private static TypeData bestCandidate(SourceSet sourceSetOfRequest, List<TypeData> typeDataList) {
@@ -182,7 +185,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                     Integer priority;
                     if (td.sourceFile().sourceSet().equals(sourceSetOfRequest)) {
                         priority = -1; // top prio
-                    } else if(td.sourceFile().sourceSet().partOfJdk()) {
+                    } else if (td.sourceFile().sourceSet().partOfJdk()) {
                         priority = 1_000; // bottom prio
                     } else {
                         priority = priorityMap.get(td.sourceFile().sourceSet());
@@ -217,18 +220,18 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     @Override
     public void invalidate(TypeInfo typeInfo) {
         assert !typeInfo.compilationUnit().externalLibrary();
+        assert typeInfo.isPrimaryType();
         trieLock.writeLock().lock();
         try {
             String fullyQualifiedName = typeInfo.fullyQualifiedName();
             String[] parts = fullyQualifiedName.split("\\.");
-            List<TypeData> typeDataList = typeTrie.get(parts);
-            TypeData typeData = typeDataList.stream()
-                    .filter(c -> c.typeInfo() == typeInfo)
-                    .findFirst().orElse(null);
-            if (typeData != null) {
-                ((TypeDataImpl) typeData).clearTypeInfo();
-                mapSingleTypeForFQN.remove(fullyQualifiedName);
-            }
+            typeTrie.visit(parts, (_, list) -> {
+                // this is the primary type and all its subtypes
+                for (TypeData typeData : list) {
+                    ((TypeDataImpl) typeData).clearTypeInfo();
+                    mapSingleTypeForFQN.remove(fullyQualifiedName);
+                }
+            });
         } finally {
             trieLock.writeLock().unlock();
         }
@@ -295,7 +298,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                         typeInfo = load(typeData);
                     } else {
                         typeInfo = null;
-                        assert typeData.sourceFile().uri().toString().endsWith("package-info.java");
+                        // is either a package-info.java, an annotated API file, ...
                     }
                     if (typeInfo != null) {
                         result.add(typeInfo);

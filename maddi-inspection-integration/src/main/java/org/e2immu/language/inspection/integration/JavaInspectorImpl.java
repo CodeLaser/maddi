@@ -187,7 +187,7 @@ public class JavaInspectorImpl implements JavaInspector {
     /*
     Strategy:
     Load all sourceFiles from the source path.
-    On the basis of the source fingerprints, eep track of
+    On the basis of the source fingerprints, keep track of
     - types that are new. Action: add to sourceFiles; no need to report, since the code compiles.
     - types that have been removed. Action: remove from sourceFiles; no need to report, since the code compiles.
     - types that have been changed. Report this change, so that the Invalidated parse option can return

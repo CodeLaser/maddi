@@ -78,11 +78,11 @@ public class TestRun {
             public void afterAnnotatedApiParsing(JavaInspector javaInspector) {
                 int expectCt = switch (context()) {
                     case JDK_HOMEBREW_24 -> 3208;
-                    case JDK_HOMEBREW_21 -> 3210;
-                    case JDK_HOMEBREW_25 -> 3232;
-                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 448;
-                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 457;
-                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 465;
+                    case JDK_HOMEBREW_21 -> 3557;
+                    case JDK_HOMEBREW_25 -> 3600;
+                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 590;
+                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 605;
+                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 615;
                     default -> -1;
                 };
                 assertEquals(expectCt, javaInspector.compiledTypesManager().typesLoaded(true).size(), context());
@@ -112,11 +112,11 @@ public class TestRun {
                         .count();
                 int expectParentNonNull = switch (context()) {
                     case JDK_HOMEBREW_24 -> 2746;
-                    case JDK_HOMEBREW_21 -> 2736;
-                    case JDK_HOMEBREW_25 -> 2775;
-                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 286;
-                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 287;
-                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 288;
+                    case JDK_HOMEBREW_21 -> 2926;
+                    case JDK_HOMEBREW_25 -> 2982;
+                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 520;
+                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 521;
+                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 525;
                     default -> -1;
                 };
                 assertEquals(expectParentNonNull, typesWithParentNonNullNonJLO, context());

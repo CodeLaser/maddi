@@ -48,6 +48,7 @@ public class AnnotatedApiParser implements AnnotationProvider {
 
     public void initialize(InputConfiguration inputConfiguration, AnnotatedAPIConfiguration annotatedAPIConfiguration) throws IOException {
         javaInspector.initialize(inputConfiguration);
+        // we must register the
         new LoadAnalyzedPackageFiles().go(javaInspector, annotatedAPIConfiguration.analyzedAnnotatedApiDirs());
         javaInspector.sourceFiles().forEach(sf -> {
             LOGGER.info("Loading {}", sf.uri());
