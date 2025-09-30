@@ -58,6 +58,7 @@ public class ParameterizedTypeFactory {
 
     static Result from(Runtime runtime,
                        SourceSet sourceSetOfRequest,
+                       SourceSet nearestSourceSet,
                        ByteCodeInspector.TypeParameterContext typeContext,
                        LocalTypeMap findType,
                        LocalTypeMap.LoadMode loadMode,
@@ -94,7 +95,8 @@ public class ParameterizedTypeFactory {
 
             // normal class or interface type
             if (CHAR_L == firstChar) {
-                return normalType(runtime, typeContext, sourceSetOfRequest, findType, loadMode, signature, arrays,
+                return normalType(runtime, typeContext, sourceSetOfRequest, nearestSourceSet,
+                        findType, loadMode, signature, arrays,
                         wildCard, firstCharPos, createStub);
             }
 
@@ -133,6 +135,7 @@ public class ParameterizedTypeFactory {
     private static Result normalType(Runtime runtime,
                                      ByteCodeInspector.TypeParameterContext typeContext,
                                      SourceSet sourceSetOfRequest,
+                                     SourceSet nearestSourceSet,
                                      LocalTypeMap localTypeMap,
                                      LocalTypeMap.LoadMode loadMode,
                                      String signature,
@@ -158,7 +161,8 @@ public class ParameterizedTypeFactory {
                 IterativeParsing iterativeParsing = new IterativeParsing();
                 iterativeParsing.startPos = openGenerics + 1;
                 do {
-                    iterativeParsing = iterativelyParseTypes(runtime, typeContext, sourceSetOfRequest, localTypeMap,
+                    iterativeParsing = iterativelyParseTypes(runtime, typeContext, sourceSetOfRequest,
+                            nearestSourceSet, localTypeMap,
                             loadMode, signature, iterativeParsing, createStub);
                     if (iterativeParsing == null) return null;
                     typeParameters.add(iterativeParsing.result);
@@ -178,7 +182,7 @@ public class ParameterizedTypeFactory {
         }
         String fqn = path.toString().replaceAll("[/$]", ".");
 
-        TypeInfo typeInfo1 = localTypeMap.getOrCreate(fqn, sourceSetOfRequest, loadMode);
+        TypeInfo typeInfo1 = localTypeMap.getOrCreate(fqn, sourceSetOfRequest, nearestSourceSet, loadMode);
         TypeInfo typeInfo;
         if (typeInfo1 == null) {
             if (createStub) {
@@ -230,12 +234,14 @@ public class ParameterizedTypeFactory {
     private static IterativeParsing iterativelyParseTypes(Runtime runtime,
                                                           ByteCodeInspector.TypeParameterContext typeContext,
                                                           SourceSet sourceSetOfRequest,
+                                                          SourceSet nearestSourceSet,
                                                           LocalTypeMap findType,
                                                           LocalTypeMap.LoadMode loadMode,
                                                           String signature,
                                                           IterativeParsing iterativeParsing,
                                                           boolean createStub) {
-        ParameterizedTypeFactory.Result result = ParameterizedTypeFactory.from(runtime, sourceSetOfRequest, typeContext,
+        ParameterizedTypeFactory.Result result = ParameterizedTypeFactory.from(runtime, sourceSetOfRequest,
+                nearestSourceSet, typeContext,
                 findType, loadMode, signature.substring(iterativeParsing.startPos), createStub);
         if (result == null) return null;
         int end = iterativeParsing.startPos + result.nextPos;

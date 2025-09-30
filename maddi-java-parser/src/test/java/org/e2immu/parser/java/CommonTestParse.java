@@ -57,6 +57,10 @@ public class CommonTestParse {
         };
     }
 
+    protected final SourceSet sourceSet = new SourceSetImpl("hardcoded", List.of(), URI.create("file:/"),
+            StandardCharsets.UTF_8, false, true, true, true, false,
+            Set.of(), Set.of());
+
     protected final Runtime runtime = new RuntimeImpl() {
         @Override
         public TypeInfo getFullyQualified(String name, boolean complain) {
@@ -95,7 +99,12 @@ public class CommonTestParse {
         }
 
         @Override
-        public TypeData typeDataOrNull(String fqn, SourceSet sourceSet, boolean complainSingle) {
+        public SourceSet javaBase() {
+            return sourceSet;
+        }
+
+        @Override
+        public TypeData typeDataOrNull(String fqn, SourceSet sourceSet, SourceSet nearestSourceSet, boolean complainSingle) {
             return null;
         }
 
@@ -118,9 +127,6 @@ public class CommonTestParse {
     }
 
     protected CommonTestParse() {
-        SourceSet sourceSet = new SourceSetImpl("hardcoded", List.of(), URI.create("file:/"),
-                StandardCharsets.UTF_8, false, true, true, true, false,
-                Set.of(), Set.of());
         CompilationUnit javaLang = runtime.newCompilationUnitBuilder().setPackageName("java.lang")
                 .setSourceSet(sourceSet).build();
         CompilationUnit javaIo = runtime.newCompilationUnitBuilder().setPackageName("java.io")

@@ -2,7 +2,6 @@ package org.e2immu.analyzer.aapi.parser;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.util.internal.util.Trie;
@@ -58,8 +57,8 @@ public class WriteDecoratedAAPI {
         Collection<TypeInfo> apiTypes = composer.compose(list);
 
         Map<Element, Element> dollarMap = composer.translateFromDollarToReal();
-        composer.write(apiTypes, directory, new DecoratorWithComments(javaInspector.runtime(), dollarMap,
-                infoDataProvider, dataProvider));
+        composer.write(apiTypes, directory, new DecoratorWithComments(javaInspector.runtime(),
+                javaInspector.mainSources(), dollarMap, infoDataProvider, dataProvider));
 
     }
 

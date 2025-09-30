@@ -17,7 +17,7 @@ public interface CompiledTypesManager {
         throw new UnsupportedOperationException();
     }
 
-    TypeData typeDataOrNull(String fqn, SourceSet sourceSet, boolean complainSingle);
+    TypeData typeDataOrNull(String fqn, SourceSet sourceSetOfRequest, SourceSet nearestSourceSet, boolean complainSingle);
 
     interface TypeData {
 

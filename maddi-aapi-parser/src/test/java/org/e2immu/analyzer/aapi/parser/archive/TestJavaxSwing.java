@@ -17,41 +17,41 @@ public class TestJavaxSwing extends CommonTest {
 
     @Test
     public void testDefaultComboBoxRemoveAllElements() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(DefaultComboBoxModel.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(DefaultComboBoxModel.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("removeAllElements", 0);
         assertTrue(methodInfo.isModifying());
     }
 
     @Test
     public void testDefaultComboBoxAddAll() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(DefaultComboBoxModel.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(DefaultComboBoxModel.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("addAll", 2);
         assertTrue(methodInfo.isModifying());
     }
     @Test
     public void testJLabelSetText() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JLabel.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JLabel.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setText", 1);
         assertTrue(methodInfo.isModifying());
     }
 
     @Test
     public void testJComboBoxAddActionListener() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JComboBox.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JComboBox.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("addActionListener", 1);
         assertTrue(methodInfo.isModifying());
     }
 
     @Test
     public void testAbstractButtonAddActionListener() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(AbstractButton.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(AbstractButton.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("addActionListener", 1);
         assertTrue(methodInfo.isModifying());
     }
 
     @Test
     public void testJTableSetDefaultRenderer() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTable.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTable.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setDefaultRenderer", 2);
         assertTrue(methodInfo.isModifying());
         Value.CommutableData cd = methodInfo.analysis().getOrNull(COMMUTABLE_METHODS, ValueImpl.CommutableData.class);
@@ -61,7 +61,7 @@ public class TestJavaxSwing extends CommonTest {
 
     @Test
     public void testJTableSetFillsViewportHeight() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTable.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTable.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setFillsViewportHeight", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);
@@ -69,7 +69,7 @@ public class TestJavaxSwing extends CommonTest {
 
     @Test
     public void setJTableRowSelectionAllowed() {
-        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTable.class);
+        TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTable.class, mainSources());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setRowSelectionAllowed", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);

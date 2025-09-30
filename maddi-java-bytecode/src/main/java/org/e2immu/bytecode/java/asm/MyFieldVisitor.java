@@ -50,7 +50,7 @@ public class MyFieldVisitor extends FieldVisitor {
     @Override
     public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
         LOGGER.debug("Have field annotation {} {}", descriptor, visible);
-        return new MyAnnotationVisitor<>(runtime, sourceSetOfRequest,
+        return new MyAnnotationVisitor<>(runtime, sourceSetOfRequest, fieldInfo.owner().compilationUnit().sourceSet(),
                 typeContext, localTypeMap, descriptor, fieldInfo.builder());
     }
 

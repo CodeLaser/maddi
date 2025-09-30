@@ -26,6 +26,7 @@ public class TestPreloadJavaBase {
                 .build();
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
+        javaInspector.javaBase().computePriorityDependencies();
 
         // NOTE: this may be very dependent on the current JDK and pre-loading settings.
 
@@ -81,7 +82,7 @@ public class TestPreloadJavaBase {
                 .build();
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.preload("java.util.stream", inputConfiguration.javaBase());
+        javaInspector.preload("java.util.stream");
 
         TypeInfo spinedBuffer = javaInspector.compiledTypesManager().get("java.util.stream.SpinedBuffer",
                 null);
@@ -105,7 +106,7 @@ public class TestPreloadJavaBase {
                 .build();
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.preload("java.net.http", inputConfiguration.javaBase());
+        javaInspector.preload("java.net.http");
         TypeInfo httpResponse = javaInspector.compiledTypesManager().get("java.net.http.HttpResponse",
                 null);
         assertNotNull(httpResponse);

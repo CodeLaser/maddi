@@ -58,5 +58,6 @@ public class CommonTest {
         javaInspector.initialize(inputConfiguration);
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);
         runtime = javaInspector.runtime();
+        javaInspector.javaBase().computePriorityDependencies();
     }
 }

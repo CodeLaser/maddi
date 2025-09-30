@@ -5,9 +5,11 @@ import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.util.internal.graph.G;
@@ -31,6 +33,7 @@ public class CommonTest {
     static List<TypeInfo> sorted;
     static G<TypeInfo> graph;
     private static Runtime runtime;
+    private static JavaInspector javaInspector;
 
     public static CompiledTypesManager compiledTypesManager() {
         return compiledTypesManager;
@@ -38,7 +41,10 @@ public class CommonTest {
 
     public static Runtime runtime() {
         return runtime;
+    }
 
+    public  static SourceSet mainSources() {
+        return javaInspector.mainSources();
     }
 
     @BeforeAll
@@ -56,6 +62,7 @@ public class CommonTest {
                         "jmod:java.desktop"),
                 List.of("../maddi-aapi-archive/src/main/java/org/e2immu/analyzer/aapi/archive/v2"),
                 List.of());
+        javaInspector = annotatedApiParser.javaInspector();
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(annotatedApiParser.runtime(), annotatedApiParser,
                 true);
         ShallowAnalyzer.Result sr = shallowAnalyzer.go(annotatedApiParser.types());

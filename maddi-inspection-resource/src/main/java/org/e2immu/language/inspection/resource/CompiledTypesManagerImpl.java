@@ -119,7 +119,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     public void addPredefinedTypeInfoObjects(List<TypeInfo> predefinedTypes, SourceSet javaBase) {
         for (TypeInfo predefined : predefinedTypes) {
-            TypeData typeData = typeDataOrNull(predefined.fullyQualifiedName(), ANY, true);
+            TypeData typeData = typeDataOrNull(predefined.fullyQualifiedName(), ANY, null, true);
             ((TypeDataImpl) typeData).setTypeInfo(predefined);
             mapSingleTypeForFQN.put(predefined.fullyQualifiedName(), predefined);
         }
@@ -171,7 +171,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             if (single != null) {
                 return single.hasBeenInspected() || !single.compilationUnit().externalLibrary() ? single : null; // needs loading
             }
-            TypeData typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, true);
+            TypeData typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, null, true);
             if (typeData != null && typeData.typeInfo() != null
                 && (!typeData.typeInfo().compilationUnit().externalLibrary()
                     || typeData.typeInfo().hasBeenInspected())) return typeData.typeInfo();
@@ -182,10 +182,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public TypeData typeDataOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest, boolean complainSingle) {
+    public TypeData typeDataOrNull(String fullyQualifiedName, SourceSet sourceSetOfRequest, SourceSet nearestSourceSet,
+                                   boolean complainSingle) {
         List<TypeData> typeDataList = typeDataList(fullyQualifiedName);
         if (typeDataList == null || typeDataList.isEmpty()) return null;
-        return bestCandidate(sourceSetOfRequest, typeDataList);
+        return bestCandidate(sourceSetOfRequest, typeDataList, nearestSourceSet);
     }
 
     // public for testing
@@ -194,7 +195,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         return typeTrie.get(parts);
     }
 
-    private TypeData bestCandidate(SourceSet sourceSetOfRequest, List<TypeData> typeDataList) {
+    private TypeData bestCandidate(SourceSet sourceSetOfRequest, List<TypeData> typeDataList, SourceSet nearestSourceSet) {
         if (sourceSetOfRequest == ANY) {
             // only for the call packageContainsTypes()
             return typeDataList.stream().findFirst().orElse(null);
@@ -204,7 +205,9 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 .map(td -> {
                     Integer priority;
                     if (td.sourceFile().sourceSet().equals(sourceSetOfRequest)) {
-                        priority = -1; // top prio
+                        priority = -2; // top prio
+                    } else if (td.sourceFile().sourceSet().equals(nearestSourceSet)) {
+                        priority = -1; // 2nd highest prio
                     } else if (td.sourceFile().sourceSet().partOfJdk()) {
                         priority = 1_000; // bottom prio
                     } else {
@@ -233,7 +236,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
             TypeInfo single = mapSingleTypeForFQN.get(fullyQualifiedName);
             if (single != null && (!single.compilationUnit().sourceSet().externalLibrary() || single.hasBeenInspected()))
                 return single;
-            typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, true);
+            typeData = typeDataOrNull(fullyQualifiedName, sourceSetOfRequest, null, true);
             if (typeData == null) return null;
             if (typeData.typeInfo() != null
                 && (!typeData.typeInfo().compilationUnit().externalLibrary() || typeData.typeInfo().hasBeenInspected()))
@@ -311,7 +314,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 if (typeDataList == null || typeDataList.isEmpty()) {
                     typeData = null;
                 } else {
-                    typeData = bestCandidate(sourceSetOfRequest, typeDataList);
+                    typeData = bestCandidate(sourceSetOfRequest, typeDataList, null);
                 }
                 if (typeData != null) {
                     TypeInfo typeInfo;

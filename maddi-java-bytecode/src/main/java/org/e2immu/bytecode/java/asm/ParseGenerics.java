@@ -29,6 +29,7 @@ class ParseGenerics<T extends Info> {
     private final Runtime runtime;
     private final ByteCodeInspector.TypeParameterContext typeParameterContext;
     private final SourceSet sourceSetOfRequest;
+    private final SourceSet nearestSourceSet;
     private final T owner;
     private final LocalTypeMap localTypeMap;
     private final LocalTypeMap.LoadMode loadMode;
@@ -54,6 +55,7 @@ class ParseGenerics<T extends Info> {
     ParseGenerics(Runtime runtime,
                   ByteCodeInspector.TypeParameterContext typeParameterContext,
                   SourceSet sourceSetOfRequest,
+                  SourceSet nearestSourceSet,
                   T owner,
                   LocalTypeMap localTypeMap,
                   LocalTypeMap.LoadMode loadMode,
@@ -71,6 +73,7 @@ class ParseGenerics<T extends Info> {
         this.addTypeParameter = addTypeParameter;
         this.createStub = createStub;
         this.sourceSetOfRequest = sourceSetOfRequest;
+        this.nearestSourceSet = nearestSourceSet;
     }
 
     int goReturnEndPos() {
@@ -123,6 +126,7 @@ class ParseGenerics<T extends Info> {
                 end++;
             }
             ParameterizedTypeFactory.Result result = ParameterizedTypeFactory.from(runtime, sourceSetOfRequest,
+                    nearestSourceSet,
                     typeParameterContext, localTypeMap, loadMode, signature.substring(end + 1), createStub);
             if (result == null) return true; // unable to load type
             if (result.parameterizedType.typeInfo() == null

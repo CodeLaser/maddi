@@ -46,7 +46,7 @@ public class TestGrpcStub {
                 true);
         ctm.setByteCodeInspector(byteCodeInspector);
         ctm.addToTrie(cp, true);
-        ctm.preload("java.lang", base);
+        ctm.preload("java.lang");
 
         List<SourceFile> sourceFiles = ctm.sourceFiles("io/grpc/stub/ClientCalls");
         assertEquals(2, sourceFiles.size());
