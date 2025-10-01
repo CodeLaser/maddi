@@ -961,6 +961,9 @@ public class ParseExpression extends CommonParse {
         if (src.startsWith("0x")) {
             return Long.parseLong(src.substring(2), 16);
         }
+        if (src.startsWith("0b")) {
+            return Long.parseLong(src.substring(2), 2);
+        }
         if (src.startsWith("0") && src.length() > 1 && Character.isDigit(src.charAt(1))) {
             return Long.parseLong(src.substring(1), 8);
         }
