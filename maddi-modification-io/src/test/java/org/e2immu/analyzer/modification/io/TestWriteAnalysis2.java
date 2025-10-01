@@ -151,7 +151,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
-        Codec codec = new LinkedVariablesCodec(runtime).codec();
+        Codec codec = new LinkedVariablesCodec(runtime, javaInspector.mainSources()).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());
         assertEquals(json, written);
