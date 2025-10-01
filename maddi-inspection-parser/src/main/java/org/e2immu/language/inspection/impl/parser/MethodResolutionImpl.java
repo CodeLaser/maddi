@@ -1213,7 +1213,21 @@ public class MethodResolutionImpl implements MethodResolution {
     }
 
     private int callIsAssignableFrom(ParameterizedType actualType, ParameterizedType typeOfParameter) {
-        return runtime.isAssignableFromCovariantErasure(typeOfParameter, actualType);
+        int c = runtime.isAssignableFromCovariantErasure(typeOfParameter, actualType);
+        if (c == -1) {
+            TypeInfo actual = actualType.typeInfo();
+            TypeInfo formal = typeOfParameter.typeInfo();
+            if (actual != null && formal != null
+                && actual.fullyQualifiedName().equals(formal.fullyQualifiedName())
+                && !actual.compilationUnit().sourceSet().equals(formal.compilationUnit().sourceSet())) {
+                LOGGER.warn("Incompatible types; still, accepting the method: {} in {}, {}",
+                        actual.fullyQualifiedName(),
+                        actual.compilationUnit().sourceSet().name(),
+                        formal.compilationUnit().sourceSet().name());
+                return 0;
+            }
+        }
+        return c;
     }
 
     private static boolean containsErasedExpressions(Expression start) {
@@ -1409,7 +1423,7 @@ public class MethodResolutionImpl implements MethodResolution {
             if (pt.bestTypeInfo() != middle.typeInfo()) {
                 Map<NamedType, ParameterizedType> map2 = genericsHelper
                         .mapInTermsOfParametersOfSubType(pt.bestTypeInfo(), middle);
-                if(map2 == null) {
+                if (map2 == null) {
                     map = map1;
                 } else {
                     map = genericsHelper.combineMaps(map1, map2);
