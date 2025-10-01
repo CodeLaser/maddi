@@ -26,6 +26,9 @@ public interface JavaInspector {
     String TEST_PROTOCOL = "test-protocol";
 
     // for tests
+    void invalidateAllSources();
+
+    // for tests
     SourceSet javaBase();
 
     // for tests

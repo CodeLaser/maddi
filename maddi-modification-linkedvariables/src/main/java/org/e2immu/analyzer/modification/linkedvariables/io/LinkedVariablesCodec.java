@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -15,9 +16,9 @@ import java.util.Map;
 import java.util.function.BiFunction;
 
 import static org.e2immu.analyzer.modification.linkedvariables.lv.StaticValuesImpl.*;
+import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
 import static org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector.HCS_METHOD;
 import static org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector.HCS_PARAMETER;
-import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
 import static org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes.HIDDEN_CONTENT_TYPES;
 
 public class LinkedVariablesCodec {
@@ -27,8 +28,8 @@ public class LinkedVariablesCodec {
     private final Codec.PropertyProvider propertyProvider;
     private final Runtime runtime;
 
-    public LinkedVariablesCodec(Runtime runtime) {
-        this.typeProvider = fqn -> runtime.getFullyQualified(fqn, true);
+    public LinkedVariablesCodec(Runtime runtime, SourceSet sourceSetOfRequest) {
+        this.typeProvider = fqn -> runtime.getFullyQualified(fqn, true, sourceSetOfRequest);
         decoderProvider = new D();
         this.propertyProvider = new P();
         this.runtime = runtime;

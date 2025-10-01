@@ -446,11 +446,13 @@ public class JavaInspectorImpl implements JavaInspector {
             dummy.computePriorityDependencies();
             SourceFile sourceFile = new SourceFile(inputName, new URI("file:" + inputName), dummy,
                     MD5FingerPrint.compute(input));
-            return internalParseSingleInput(failFastSummary, sourceFile, () -> {
+            List<TypeInfo> typeInfos = internalParseSingleInput(failFastSummary, sourceFile, () -> {
                 JavaParser parser = new JavaParser(input);
                 parser.setParserTolerant(false);
                 return parser;
             }, parseOptions);
+            sourceFiles.put(sourceFile, typeInfos);
+            return typeInfos;
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
@@ -828,6 +830,12 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public SourceSet mainSources() {
         return inputConfiguration.sourceSets().stream().filter(set -> !set.test()).findFirst().orElse(null);
+    }
+
+    @Override
+    public void invalidateAllSources() {
+        sourceFiles.values().stream().flatMap(Collection::stream).forEach(ti ->
+                compiledTypesManager.invalidate(ti));
     }
 }
 
