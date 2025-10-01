@@ -378,11 +378,11 @@ public class MyClassVisitor extends ClassVisitor {
                             .withParentTypeParameterContext(typeParameterContext));
                     TypeInfo subType = localTypeMap.inspectFromPath(typeDataOfSubType, sourceSetOfRequest,
                             LocalTypeMap.LoadMode.NOW);
-                    if (stepDown) {
+                    if (stepDown && subType != null) {
                         currentTypeBuilder.addSubType(subType);
                     }
                 } else {
-                    if (stepDown) {
+                    if (stepDown && typeDataOfSubType.typeInfo() != null) {
                         currentTypeBuilder.addSubType(typeDataOfSubType.typeInfo());
                     }
                 }

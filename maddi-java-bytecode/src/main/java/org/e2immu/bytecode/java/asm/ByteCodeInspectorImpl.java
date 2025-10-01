@@ -179,7 +179,10 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         }
         // jump to the typeInfo object in inMapAgain
         TypeInfo typeInfo1 = typeData.typeInfo();
-        assert typeInfo1 != null;
+        if (typeInfo1 == null) {
+            LOGGER.warn("Ignoring {}, request from {}", typeData.sourceFile(), sourceSetOfRequest.name());
+            return null;
+        }
         if (loadMode == LoadMode.NOW) {
             return continueLoadByteCodeAndStartASM(typeData, sourceSetOfRequest, dataAgain.typeParameterContext());
         }

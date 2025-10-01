@@ -63,7 +63,8 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
 
         public void setTypeInfo(TypeInfo typeInfo) {
-            assert typeInfo != null && this.typeInfo == null;
+            //assert typeInfo != null && this.typeInfo == null;
+            // FIXME spring-core issues with some $$serializer magic type
             this.typeInfo = typeInfo;
         }
 
