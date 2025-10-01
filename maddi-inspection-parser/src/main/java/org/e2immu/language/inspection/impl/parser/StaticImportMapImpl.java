@@ -8,7 +8,7 @@ import java.util.*;
 public class StaticImportMapImpl implements StaticImportMap {
 
     private final Set<TypeInfo> staticAsterisk = new LinkedHashSet<>();
-    private final Map<String, TypeInfo> staticMemberToTypeInfo = new HashMap<>();
+    private final Map<String, List<TypeInfo>> staticMemberToTypeInfo = new HashMap<>();
 
     @Override
     public void addStaticAsterisk(TypeInfo typeInfo) {
@@ -16,16 +16,8 @@ public class StaticImportMapImpl implements StaticImportMap {
     }
 
     @Override
-    public void putStaticMemberToTypeInfo(String member, TypeInfo typeInfo) {
-        staticMemberToTypeInfo.put(member, typeInfo);
-    }
-
-    /*
-     used in TypeContextImpl.staticFieldImports
-    */
-    @Override
-    public Iterable<? extends Map.Entry<String, TypeInfo>> staticMemberToTypeInfoEntrySet() {
-        return staticMemberToTypeInfo.entrySet();
+    public void addStaticMemberToTypeInfo(String member, TypeInfo typeInfo) {
+        staticMemberToTypeInfo.computeIfAbsent(member, s -> new ArrayList<>()).add(typeInfo);
     }
 
     /*
@@ -40,7 +32,7 @@ public class StaticImportMapImpl implements StaticImportMap {
     used in ListMethodAndConstructorCandidates, and TypeContextImpl.staticFieldImports
     */
     @Override
-    public TypeInfo getStaticMemberToTypeInfo(String methodName) {
-        return staticMemberToTypeInfo.get(methodName);
+    public Iterable<TypeInfo> getStaticMemberToTypeInfo(String methodName) {
+        return Objects.requireNonNullElse(staticMemberToTypeInfo.get(methodName), List.of());
     }
 }
