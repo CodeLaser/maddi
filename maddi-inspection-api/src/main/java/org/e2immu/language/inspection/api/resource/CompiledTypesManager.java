@@ -42,6 +42,8 @@ public interface CompiledTypesManager {
 
     void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo);
 
+    default void setRewiredType(TypeInfo typeInfo) { throw new UnsupportedOperationException(); }
+
     TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest);
 
     default TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {

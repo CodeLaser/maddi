@@ -678,7 +678,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         if (infoMap != null) {
             Set<TypeInfo> rewired = infoMap.rewireAll();
-            // FIXME rewiring, implement!! rewired.forEach(compiledTypesManager::set);
+            rewired.forEach(compiledTypesManager::setRewiredType);
             rewired.forEach(summary::addType);
         }
 
