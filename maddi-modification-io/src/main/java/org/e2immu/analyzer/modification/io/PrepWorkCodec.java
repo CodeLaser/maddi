@@ -21,12 +21,14 @@ public class PrepWorkCodec {
     private final Codec.DecoderProvider decoderProvider;
     private final Codec.PropertyProvider propertyProvider;
     private final Runtime runtime;
+    private final SourceSet sourceSetOfRequest;
 
     public PrepWorkCodec(Runtime runtime, SourceSet sourceSetOfRequest) {
         this.typeProvider = fqn -> runtime.getFullyQualified(fqn, true, sourceSetOfRequest);
         decoderProvider = new D();
         this.propertyProvider = new P();
         this.runtime = runtime;
+        this.sourceSetOfRequest = sourceSetOfRequest;
     }
 
     public Codec codec() {
@@ -35,7 +37,7 @@ public class PrepWorkCodec {
 
     class C extends CodecImpl {
         public C(Runtime runtime) {
-            super(runtime, propertyProvider, decoderProvider, typeProvider);
+            super(runtime, propertyProvider, decoderProvider, typeProvider, sourceSetOfRequest);
         }
     }
 

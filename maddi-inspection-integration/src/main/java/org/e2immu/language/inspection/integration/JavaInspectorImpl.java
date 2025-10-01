@@ -151,7 +151,7 @@ public class JavaInspectorImpl implements JavaInspector {
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
         this.inputConfiguration = inputConfiguration;
         inputConfiguration.sourceSets().forEach(SourceSet::computePriorityDependencies);
-
+        inputConfiguration.javaBase().computePriorityDependencies(); // for TypeContext, java.lang
         List<InitializationProblem> initializationProblems = new LinkedList<>();
         try {
 
