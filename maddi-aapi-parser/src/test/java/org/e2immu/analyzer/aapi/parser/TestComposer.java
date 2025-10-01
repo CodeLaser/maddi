@@ -4,11 +4,13 @@ package org.e2immu.analyzer.aapi.parser;
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.modification.io.DecoratorImpl;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.intellij.lang.annotations.Language;
@@ -46,7 +48,9 @@ public class TestComposer {
                 .addClassPath("jmod:java.base");
 
         JavaInspector javaInspector = new JavaInspectorImpl();
-        javaInspector.initialize(inputConfigurationBuilder.build());
+        InputConfiguration inputConfiguration = inputConfigurationBuilder.build();
+        javaInspector.initialize(inputConfiguration);
+        inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
 
         Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         List<TypeInfo> primaryTypes = javaInspector.compiledTypesManager()
@@ -182,7 +186,9 @@ public class TestComposer {
                 .addClassPath("jmod:java.base");
 
         JavaInspector javaInspector = new JavaInspectorImpl();
-        javaInspector.initialize(inputConfigurationBuilder.build());
+        InputConfiguration inputConfiguration = inputConfigurationBuilder.build();
+        javaInspector.initialize(inputConfiguration);
+        inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
 
         Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
 

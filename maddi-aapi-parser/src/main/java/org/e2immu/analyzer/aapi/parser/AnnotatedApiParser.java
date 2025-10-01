@@ -2,10 +2,7 @@ package org.e2immu.analyzer.aapi.parser;
 
 import org.e2immu.analyzer.modification.common.defaults.AnnotationProvider;
 import org.e2immu.analyzer.modification.io.LoadAnalyzedPackageFiles;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.MultiLineComment;
-import org.e2immu.language.cst.api.element.SingleLineComment;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.StringConstant;
 import org.e2immu.language.cst.api.info.*;
@@ -48,7 +45,13 @@ public class AnnotatedApiParser implements AnnotationProvider {
 
     public void initialize(InputConfiguration inputConfiguration, AnnotatedAPIConfiguration annotatedAPIConfiguration) throws IOException {
         javaInspector.initialize(inputConfiguration);
-        // we must register the
+
+        // why the following? new annotated source types will be created from the classpath (e.g. java.security.XYZ);
+        // they have the sourceSet of the jdk module. These will later be stored in a compiled types manager as SOURCES
+        // and then the class path parts will need to act as source source sets; they need dependencies computed;
+        // if only formally.
+        inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
+
         new LoadAnalyzedPackageFiles(javaInspector().mainSources())
                 .go(javaInspector, annotatedAPIConfiguration.analyzedAnnotatedApiDirs());
         javaInspector.sourceFiles().forEach(sf -> {

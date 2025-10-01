@@ -106,7 +106,8 @@ public class TestParseAnalyzeWrite {
                 org.slf4j.Logger.class, LoggerFactory.class, ILoggerFactory.class,
                 Assertions.class, ThrowingSupplier.class, Executable.class);
         Stream<TypeInfo> extra = extraClasses.stream()
-                .map(c -> annotatedApiParser.javaInspector().compiledTypesManager().getOrLoad(c));
+                .map(c -> annotatedApiParser.javaInspector().compiledTypesManager()
+                        .getOrLoad(c, annotatedApiParser.javaInspector().mainSources()));
         List<TypeInfo> typesToAnalyze = Stream.concat(annotatedApiParser.types().stream(), extra).distinct().toList();
         LOGGER.info("Have {} types for the shallow analyzer", typesToAnalyze.size());
         ShallowAnalyzer.Result rs = shallowAnalyzer.go(typesToAnalyze);

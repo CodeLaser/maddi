@@ -158,9 +158,23 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         ((TypeDataImpl) typeData).setTypeInfo(typeInfo);
     }
 
-    private void addTestType(SourceFile sourceFile, TypeInfo typeInfo, String[] parts, String fullyQualifiedName) {
-        LOGGER.warn("Unknown source file: {}", sourceFile);
-
+    @Override
+    public void setRewiredType(TypeInfo typeInfo) {
+        String fullyQualifiedName = typeInfo.fullyQualifiedName();
+        String[] parts = fullyQualifiedName.split("\\.");
+        SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
+        TypeData typeData = typeTrie.get(parts).stream()
+                .filter(td -> td.sourceFile().sourceSet().equals(sourceSet))
+                .findFirst().orElse(null);
+        if (typeData != null) {
+            ((TypeDataImpl) typeData).typeInfo = typeInfo;
+            if (mapSingleTypeForFQN.containsKey(fullyQualifiedName)) {
+                mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
+            }
+        } else {
+            // FIXME when a type moves to a different source set...?
+            throw new UnsupportedOperationException("New types must be 'registered' with addType/a SourceFile object");
+        }
     }
 
     @Override
