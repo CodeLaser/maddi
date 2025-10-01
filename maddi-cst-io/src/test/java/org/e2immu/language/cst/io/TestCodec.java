@@ -46,7 +46,7 @@ public class TestCodec {
 
         Codec.DecoderProvider decoderProvider = ValueImpl::decoder;
         Codec codec = new CodecImpl(runtime, PropertyProviderImpl::get,
-                decoderProvider, fqn -> runtime.getFullyQualified(fqn, true));
+                decoderProvider, fqn -> runtime.getFullyQualified(fqn, true), cu.sourceSet());
         List<Property> properties = List.of(
                 PropertyImpl.IMMUTABLE_TYPE,
                 PropertyImpl.DEFAULTS_ANALYZER,

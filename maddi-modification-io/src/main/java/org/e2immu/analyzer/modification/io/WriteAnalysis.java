@@ -49,7 +49,8 @@ public class WriteAnalysis {
         if (directory.mkdirs()) {
             LOGGER.info("Created directory {}", directory.getAbsolutePath());
         }
-        Codec codec = new CodecImpl(runtime, PropertyProviderImpl::get, null, null); // we don't have to decode
+        Codec codec = new CodecImpl(runtime, PropertyProviderImpl::get, null, null,
+                null); // we don't have to decode
         write(directory, typeTrie, codec, subDirectory);
     }
 
@@ -90,7 +91,7 @@ public class WriteAnalysis {
             osw.write("[");
             AtomicBoolean first = new AtomicBoolean(true);
             for (TypeInfo typeInfo : list) {
-                if(typePredicate.test(typeInfo)) {
+                if (typePredicate.test(typeInfo)) {
                     writePrimary(osw, codec, first, typeInfo);
                 }
             }
@@ -162,9 +163,9 @@ public class WriteAnalysis {
     }
 
     private void writePrimary(OutputStreamWriter osw,
-                                     Codec codec,
-                                     AtomicBoolean first,
-                                     TypeInfo primaryType) throws IOException {
+                              Codec codec,
+                              AtomicBoolean first,
+                              TypeInfo primaryType) throws IOException {
         Codec.Context context = new CodecImpl.ContextImpl();
         context.push(primaryType);
         Codec.EncodedValue ev = writeType(codec, context, primaryType, 0);

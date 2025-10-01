@@ -4,6 +4,7 @@ import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.*;
@@ -39,12 +40,18 @@ public class CodecImpl implements Codec {
     private final TypeProvider typeProvider;
     private final PropertyProvider propertyProvider;
     private final Runtime runtime;
+    private final SourceSet sourceSetOfRequest;
 
-    public CodecImpl(Runtime runtime, PropertyProvider propertyProvider, DecoderProvider decoderProvider, TypeProvider typeProvider) {
+    public CodecImpl(Runtime runtime,
+                     PropertyProvider propertyProvider,
+                     DecoderProvider decoderProvider,
+                     TypeProvider typeProvider,
+                     SourceSet sourceSetOfRequest) {
         this.decoderProvider = decoderProvider;
         this.typeProvider = typeProvider;
         this.propertyProvider = propertyProvider;
         this.runtime = runtime;
+        this.sourceSetOfRequest = sourceSetOfRequest;
     }
 
     public static String potentiallyUnquote(String s) {
@@ -141,7 +148,7 @@ public class CodecImpl implements Codec {
         } else {
             Matcher m2 = FIELD_NAME_PATTERN.matcher(nameIndex);
             if (m2.matches()) {
-                TypeInfo owner = runtime.getFullyQualified(m2.group(1), true);
+                TypeInfo owner = runtime.getFullyQualified(m2.group(1), true, sourceSetOfRequest);
                 return owner.getFieldByName(m2.group(2), true);
             } else {
                 throw new UnsupportedOperationException();
