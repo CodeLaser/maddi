@@ -117,8 +117,7 @@ public class TypeContextImpl implements TypeContext {
     @Override
     public Variable findStaticFieldImport(String name) {
         if (data.staticImportMap != null) {
-            TypeInfo typeInfo = data.staticImportMap.getStaticMemberToTypeInfo(name);
-            if (typeInfo != null) {
+            for (TypeInfo typeInfo : data.staticImportMap.getStaticMemberToTypeInfo(name)) {
                 FieldInfo fieldInfo = typeInfo.getFieldByName(name, false);
                 if (fieldInfo != null) {
                     return data.runtime.newFieldReference(fieldInfo);
@@ -317,8 +316,7 @@ public class TypeContextImpl implements TypeContext {
         On-demand: subtype from import static statement (see e.g. Import_2)
         This is done on-demand to fight cyclic dependencies if we do eager inspection.
          */
-        TypeInfo parent = data.staticImportMap.getStaticMemberToTypeInfo(name);
-        if (parent != null) {
+        for (TypeInfo parent : data.staticImportMap.getStaticMemberToTypeInfo(name)) {
             TypeInfo subType = subTypeOfRelated(parent, name);
             if (subType != null) {
                 addToContext(subType, STATIC_IMPORT_PRIORITY);
@@ -353,7 +351,7 @@ public class TypeContextImpl implements TypeContext {
     }
 
     public void addImportStatic(TypeInfo typeInfo, String member) {
-        data.staticImportMap.putStaticMemberToTypeInfo(member, typeInfo);
+        data.staticImportMap.addStaticMemberToTypeInfo(member, typeInfo);
     }
 
     @Override

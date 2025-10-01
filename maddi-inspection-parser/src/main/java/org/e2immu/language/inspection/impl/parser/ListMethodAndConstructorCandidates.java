@@ -95,14 +95,15 @@ public class ListMethodAndConstructorCandidates {
             }
         }
         // or import by name
-        TypeInfo byName = staticImportMap.getStaticMemberToTypeInfo(methodName);
-        if (byName != null && !visited.contains(byName) && !visitedStatic.contains(byName)) {
-            // see TestMethodCall10,1
-            if (scopeNature != ScopeNature.INSTANCE || multipleTypeInfoObjects.contains(byName)) {
-                visitedStatic.add(byName);
-                resolveOverloadedMethodsSingleType(byName, true, scopeNature, methodName,
-                        parametersPresented, decrementWhenNotStatic, typeMap, result, visited, visitedStatic, distance,
-                        typeOfObject);
+        for (TypeInfo byName : staticImportMap.getStaticMemberToTypeInfo(methodName)) {
+            if (!visited.contains(byName) && !visitedStatic.contains(byName)) {
+                // see TestMethodCall10,1
+                if (scopeNature != ScopeNature.INSTANCE || multipleTypeInfoObjects.contains(byName)) {
+                    visitedStatic.add(byName);
+                    resolveOverloadedMethodsSingleType(byName, true, scopeNature, methodName,
+                            parametersPresented, decrementWhenNotStatic, typeMap, result, visited, visitedStatic,
+                            distance, typeOfObject);
+                }
             }
         }
     }
