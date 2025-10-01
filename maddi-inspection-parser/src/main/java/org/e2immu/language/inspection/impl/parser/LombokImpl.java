@@ -291,6 +291,8 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     .setReturnType(fieldInfo.type())
                     .setSynthetic(true)
                     .setSource(source)
+                    .addMethodModifier(runtime.methodModifierPublic())
+                    .setAccess(runtime().accessPublic())
                     .commitParameters().commit();
             owner.builder().addMethod(method);
 
@@ -317,6 +319,8 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     .setReturnType(runtime.voidParameterizedType())
                     .setSynthetic(true)
                     .setSource(source)
+                    .addMethodModifier(runtime.methodModifierPublic())
+                    .setAccess(runtime.accessPublic())
                     .commitParameters().commit();
             owner.builder().addMethod(method);
 
@@ -374,6 +378,8 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                 .setReturnType(runtime.voidParameterizedType())
                 .setSynthetic(true)
                 .setSource(source)
+                .addMethodModifier(runtime.methodModifierPublic())
+                .setAccess(runtime.accessPublic())
                 .commitParameters().commit();
         builder.builder().addMethod(method);
 

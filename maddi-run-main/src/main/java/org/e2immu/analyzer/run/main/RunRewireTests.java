@@ -25,7 +25,7 @@ import static org.e2immu.language.inspection.api.integration.JavaInspector.Inval
 public class RunRewireTests {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RunRewireTests.class);
-    private static final int ITERATIONS = 150;
+    private static final int ITERATIONS = 200;
     public static final long SEED = 15;
 
     private final InputConfiguration inputConfiguration;
@@ -48,10 +48,9 @@ public class RunRewireTests {
         List<TypeInfo> list = parseResult.primaryTypes().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
         G<Info> infoGraph = initialGraph;
         for (int i = 0; i < ITERATIONS; ++i) {
-            LOGGER.info("Compute primary type use graph");
-            G<TypeInfo> primaryTypeUseGraph = primaryTypeUseGraph(infoGraph);
-            TypeInfo pt = list.get(random.nextInt(list.size()));
-            Path path = Path.of(pt.compilationUnit().uri().getSchemeSpecificPart());
+            LOGGER.info("Compute primary type use graph, iteration {}", i);
+            TypeInfo typeToRewire = list.get(random.nextInt(list.size()));
+            Path path = Path.of(typeToRewire.compilationUnit().uri().getSchemeSpecificPart());
             Path absolutePath = path.toAbsolutePath();
             LOGGER.info("Modifying {}", absolutePath);
             boolean stop = false;
@@ -62,29 +61,7 @@ public class RunRewireTests {
                     // this will trigger a change of fingerprint
                     stop |= write(path, updatedContent);
                     if (!stop) {
-                        LOGGER.info("Calling javaInspector.reloadSources");
-                        JavaInspector.ReloadResult rr = javaInspector.reloadSources(inputConfiguration, Map.of());
-                        assert rr.sourceHasChanged().contains(pt);
-                        Set<TypeInfo> dependentPrimaryTypes = dependent(primaryTypeUseGraph, rr.sourceHasChanged(), rr.sourceHasChanged());
-                        assert Collections.disjoint(dependentPrimaryTypes, rr.sourceHasChanged());
-                        LOGGER.info("{} has {} dependent types", pt, dependentPrimaryTypes.size());
-                        JavaInspector.Invalidated invalidated = ti -> {
-                            if (rr.sourceHasChanged().contains(ti)) return INVALID;
-                            if (dependentPrimaryTypes.contains(ti)) return REWIRE;
-                            return UNCHANGED;
-                        };
-                        JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
-                                .setDetailedSources(true)
-                                .setFailFast(true)
-                                .setInvalidated(invalidated)
-                                .setParallel(true)
-                                .build();
-                        LOGGER.info("Reparse");
-                        ParseResult parseResult1 = javaInspector.parse(parseOptions).parseResult();
-                        LOGGER.info("Recompute call graph");
-                        ComputeCallGraph ccg = new ComputeCallGraph(javaInspector.runtime(), parseResult1,
-                                _ -> false);
-                        infoGraph = ccg.go().graph();
+                        infoGraph = reloadSources(typeToRewire, infoGraph);
                     }
                 } finally {
                     LOGGER.info("Restoring {}", absolutePath);
@@ -96,6 +73,34 @@ public class RunRewireTests {
             }
             if (stop) return;
         }
+    }
+
+    private G<Info> reloadSources(TypeInfo pt, G<Info> infoGraph) throws IOException {
+        LOGGER.info("Calling javaInspector.reloadSources");
+        JavaInspector.ReloadResult rr = javaInspector.reloadSources(inputConfiguration, Map.of());
+        assert rr.sourceHasChanged().contains(pt);
+        G<TypeInfo> primaryTypeUseGraph = primaryTypeUseGraph(infoGraph);
+        Set<TypeInfo> dependentPrimaryTypes = dependent(primaryTypeUseGraph, rr.sourceHasChanged(), rr.sourceHasChanged());
+        assert Collections.disjoint(dependentPrimaryTypes, rr.sourceHasChanged());
+        LOGGER.info("{} has {} dependent types", pt, dependentPrimaryTypes.size());
+        JavaInspector.Invalidated invalidated = ti -> {
+            if (rr.sourceHasChanged().contains(ti)) return INVALID;
+            if (dependentPrimaryTypes.contains(ti)) return REWIRE;
+            return UNCHANGED;
+        };
+        JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
+                .setLombok(inputConfiguration.containsLombok())
+                .setDetailedSources(true)
+                .setFailFast(true)
+                .setInvalidated(invalidated)
+                .setParallel(true)
+                .build();
+        LOGGER.info("Reparse");
+        ParseResult parseResult1 = javaInspector.parse(parseOptions).parseResult();
+        LOGGER.info("Recompute call graph");
+        ComputeCallGraph ccg = new ComputeCallGraph(javaInspector.runtime(), parseResult1,
+                _ -> false);
+        return ccg.go().graph();
     }
 
     private static G<TypeInfo> primaryTypeUseGraph(G<Info> infoGraph) {
