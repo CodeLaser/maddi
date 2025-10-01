@@ -133,8 +133,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
         CompiledTypesManager.TypeData typeData = typeData(fqn, sourceSetOfRequest, nearestSourceSet);
         if (typeData == null) {
             if (duplicateWarnings.merge(fqn, 1, Integer::sum) == 1) {
-                LOGGER.warn("Not in classpath: {}, request from {}, with dependencies {}",
-                        fqn, sourceSetOfRequest.name(), sourceSetOfRequest.priorityDependencies());
+                LOGGER.warn("Not in classpath: {}, request from {}", fqn, sourceSetOfRequest.name());
             }
             return null;
         }
@@ -155,7 +154,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
                                     LoadMode loadMode) {
         Data data = typeData.byteCodeInspectorData();
         if (data == null) {
-            LOGGER.warn("Not in classpath? {}", typeData.sourceFile());
+            LOGGER.warn("Not in classpath: {}, request from {}", typeData.sourceFile(), sourceSetOfRequest.name());
             return null;
         }
         if (typeData.typeInfo() != null) {
