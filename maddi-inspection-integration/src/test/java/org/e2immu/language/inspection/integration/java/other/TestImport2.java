@@ -57,7 +57,7 @@ public class TestImport2 extends CommonTest2 {
     @Language("java")
     String A = """
             package a;
- 
+            
             public class A {
             }
             """;
@@ -65,7 +65,7 @@ public class TestImport2 extends CommonTest2 {
     @Language("java")
     String B = """
             package b;
- 
+            
             public class A {
             }
             """;
@@ -75,17 +75,52 @@ public class TestImport2 extends CommonTest2 {
             package c;
             import a.*;
             import b.A;
- 
+            
             public class C extends A {
             }
             """;
 
     @Test
     public void testImportPriority() throws IOException {
-        Map<String, String> sourcesByFqn = Map.of("a.A",A, "b.A",B,"c.C", C);
+        Map<String, String> sourcesByFqn = Map.of("a.A", A, "b.A", B, "c.C", C);
         ParseResult pr1 = init(sourcesByFqn);
         TypeInfo c = pr1.findType("c.C");
         assertEquals("Type b.A", c.parentClass().toString());
+    }
+
+
+    @Language("java")
+    String BF = """
+            package a;
+            public interface BF {
+                interface L {
+                }
+            }
+            """;
+
+    @Language("java")
+    String CF = """
+            package b;
+            import a.BF;
+            public interface CF extends BF {
+            }
+            """;
+
+    @Language("java")
+    String CCF = """
+            package c;
+            import b.CF;
+            
+            public class CCF implements CF, CF.L {
+            }
+            """;
+
+    @Test
+    public void testImportSub() throws IOException {
+        Map<String, String> sourcesByFqn = Map.of("a.BF", BF, "b.CF", CF, "c.CCF", CCF);
+        ParseResult pr1 = init(sourcesByFqn);
+        TypeInfo c = pr1.findType("c.CCF");
+        assertEquals("[Type b.CF, Type a.BF.L]", c.interfacesImplemented().toString());
     }
 
 }
