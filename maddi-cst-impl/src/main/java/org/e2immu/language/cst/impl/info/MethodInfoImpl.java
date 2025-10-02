@@ -15,6 +15,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.impl.translate.TranslationMapImpl;
+import org.e2immu.support.IEventuallyFinal;
 import org.e2immu.support.EventuallyFinal;
 
 import java.util.*;
@@ -69,7 +70,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     private final TypeInfo typeInfo; // back reference, only @ContextClass after...
     private final String name;
     private final MethodInfo.MethodType methodType;
-    private final EventuallyFinal<MethodInspection> inspection = new EventuallyFinal<>();
+    private final IEventuallyFinal<MethodInspection> inspection = new EventuallyFinal<>();
 
     public MethodInfoImpl(TypeInfo typeInfo) {
         this(MethodTypeEnum.CONSTRUCTOR, CONSTRUCTOR_NAME, typeInfo);

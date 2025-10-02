@@ -15,6 +15,7 @@ import org.e2immu.language.cst.impl.info.InfoImpl;
 import org.e2immu.language.cst.impl.info.TypeParameterInspection;
 import org.e2immu.language.cst.impl.info.TypeParameterInspectionImpl;
 import org.e2immu.language.cst.impl.output.*;
+import org.e2immu.support.IEventuallyFinal;
 import org.e2immu.support.Either;
 import org.e2immu.support.EventuallyFinal;
 
@@ -26,7 +27,7 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     private final int index;
     private final String name;
     private final Either<TypeInfo, MethodInfo> owner;
-    private final EventuallyFinal<TypeParameterInspection> inspection = new EventuallyFinal<>();
+    private final IEventuallyFinal<TypeParameterInspection> inspection = new EventuallyFinal<>();
     private final PropertyValueMap analysis = new PropertyValueMapImpl();
 
     public TypeParameterImpl(int index, String name, Either<TypeInfo, MethodInfo> owner) {
