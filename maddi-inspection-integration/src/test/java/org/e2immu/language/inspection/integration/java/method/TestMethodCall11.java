@@ -195,4 +195,38 @@ public class TestMethodCall11 extends CommonTest {
         Lambda lambda = (Lambda) customizer.methodBody().statements().getFirst().expression();
         assertEquals("a.b.C.Customizer", lambda.abstractFunctionalTypeInfo().toString());
     }
+
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            
+            import java.util.Arrays;
+            
+            class C {
+                interface CommandArguments {
+                    default CommandArguments add(byte[] b) { return this; }
+                    default CommandArguments add(int i) { return this; }
+                    default CommandArguments addObjects(Object... objects) { return this; }
+                    default CommandArguments processKeys(byte[]... keys) { return this; }
+                    default CommandArguments processKeys(String... keys) { return this; }
+                 }
+                static class CommandObject<T> {
+                    public CommandObject(CommandArguments args) { }
+                }
+                int EVAL = 1;
+                CommandArguments commandArguments(int i) { return new CommandArguments() {}; }
+
+                public final CommandObject<Object> eval(byte[] script, int keyCount, byte[]... params) {
+                    return new CommandObject<>(commandArguments(EVAL).add(script).add(keyCount)
+                        .addObjects((Object[]) params).processKeys(Arrays.copyOf(params, keyCount)));
+                }
+            }
+            """;
+
+    @DisplayName("vararg arrays")
+    @Test
+    public void test6() {
+        TypeInfo C = javaInspector.parse(INPUT6);
+    }
 }
