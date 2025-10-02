@@ -959,13 +959,16 @@ public class ParseExpression extends CommonParse {
     private static long parseLong(String s) {
         String src = s.toLowerCase().replace("_", "").replace("l", "");
         if (src.startsWith("0x")) {
-            return Long.parseLong(src.substring(2), 16);
+            String substring = src.substring(2);
+            return Long.parseLong(substring, 16);
         }
         if (src.startsWith("0b")) {
-            return Long.parseLong(src.substring(2), 2);
+            String substring = src.substring(2);
+            return Long.parseLong(substring, 2);
         }
         if (src.startsWith("0") && src.length() > 1 && Character.isDigit(src.charAt(1))) {
-            return Long.parseLong(src.substring(1), 8);
+            String substring = src.substring(1);
+            return Long.parseLong(substring, 8);
         }
         return Long.parseLong(src);
     }

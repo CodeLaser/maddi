@@ -94,6 +94,43 @@ public class TestParseLiteral extends CommonTestParse {
         } else fail();
     }
 
+    @Language("java")
+    public static final String INPUT3b = """
+            package a.b;
+            public class X {
+                public long parse(long l) {
+                    long m = 0xC6a4_A793_5BD1_E99L;
+                    return m & l;
+                }
+            }
+            """;
+
+    @Test
+    public void test3b() {
+        TypeInfo typeInfo = parse(INPUT3b);
+        MethodInfo parse = typeInfo.findUniqueMethod("parse", 1);
+        if (parse.methodBody().statements().getFirst() instanceof LocalVariableCreation lvc
+            && lvc.localVariable().assignmentExpression() instanceof LongConstant a) {
+            assertEquals(0xc6a4a7935bd1e99L, a.constant());
+        } else fail();
+    }
+
+    @Language("java")
+    public static final String INPUT3c = """
+            package a.b;
+            public class X {
+                public long parse(long l) {
+                    long m = 0xC6A4_A793_5BD1_E995L;
+                    return m & l;
+                }
+            }
+            """;
+
+    @DisplayName("Don't understand at all, the constant should be a valid long")
+    @Test
+    public void test3c() {
+        assertThrows(RuntimeException.class, () -> parse(INPUT3c));
+    }
 
     public static final String INPUT4 = "package a.b; public class X { public void parse() { String s = \"a \\\" and \\\" b\"; } }";
 
