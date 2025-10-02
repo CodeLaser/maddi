@@ -602,6 +602,17 @@ public class MethodAnalyzer {
                 }
                 vici.setMerge(merge);
             });
+
+            // variables in vdStatement, not in map
+            // see TestAssignment,13, source[i-min]
+            vdStatement.variableInfoContainerStream()
+                    .filter(vic -> !map.containsKey(vic.variable()) && vic.hasEvaluation() && vic.hasMerge())
+                    .forEach(vic -> {
+                        Variable variable = vic.variable();
+                        LOGGER.debug("Copying from E -> M: {}", variable);
+                        VariableInfoContainerImpl vici = (VariableInfoContainerImpl) vic;
+                        vici.setMerge((VariableInfoImpl) vic.best(Stage.EVALUATION));
+                    });
         }
     }
 
