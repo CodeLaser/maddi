@@ -1,6 +1,6 @@
 package org.e2immu.analyzer.run.main;
 
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -97,12 +97,10 @@ public class RunRewireTests {
                 .build();
         LOGGER.info("Reparse");
         ParseResult parseResult1 = javaInspector.parse(parseOptions).parseResult();
-        LOGGER.info("Run prep-analyzer");
-        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime());
-        G<Info> graph = prepAnalyzer.doPrimaryTypesReturnGraph(parseResult1.primaryTypes());
-        LOGGER.info(".... {} processed, {} already done", prepAnalyzer.getTypesProcessed(),
-                prepAnalyzer.getTypesAlreadyDone());
-        return graph;
+        LOGGER.info("Recompute call graph");
+        ComputeCallGraph ccg = new ComputeCallGraph(javaInspector.runtime(), parseResult1,
+                _ -> false);
+        return ccg.go().graph();
     }
 
     private static G<TypeInfo> primaryTypeUseGraph(G<Info> infoGraph) {
