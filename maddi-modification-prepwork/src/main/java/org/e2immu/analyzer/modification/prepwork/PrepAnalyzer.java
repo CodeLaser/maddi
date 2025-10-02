@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstruc
 import org.e2immu.analyzer.modification.prepwork.hcs.ComputeHCS;
 import org.e2immu.analyzer.modification.prepwork.hct.ComputeHiddenContent;
 import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
+import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.Info;
@@ -14,7 +15,8 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.inspection.api.parser.ParseResult;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.slf4j.Logger;
@@ -43,6 +45,8 @@ at the level of the method
 - simple modification status
  */
 public class PrepAnalyzer {
+    private static final Property PREP_ANALYZER = new PropertyImpl("prepAnalyzer");
+
     private static final Logger LOGGER = LoggerFactory.getLogger(PrepAnalyzer.class);
     private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000);
     public static final Predicate<TypeInfo> DO_NOT_ACCEPT_EXTERNALS =
@@ -54,6 +58,7 @@ public class PrepAnalyzer {
     private final Runtime runtime;
     final Options options;
     private int typesProcessed;
+    private int typesAlreadyDone;
 
     public PrepAnalyzer(Runtime runtime) {
         this(runtime, new Options.Builder().build());
@@ -151,22 +156,27 @@ public class PrepAnalyzer {
 
     void doType(TypeInfo typeInfo) {
         try {
-            List<MethodInfo> gettersAndSetters = new LinkedList<>();
-            List<MethodInfo> otherConstructorsAndMethods = new LinkedList<>();
+            if (typeInfo.analysis().getOrNull(PREP_ANALYZER, ValueImpl.BoolImpl.class) == null) {
+                List<MethodInfo> gettersAndSetters = new LinkedList<>();
+                List<MethodInfo> otherConstructorsAndMethods = new LinkedList<>();
 
-            doType(typeInfo, gettersAndSetters, otherConstructorsAndMethods);
+                doType(typeInfo, gettersAndSetters, otherConstructorsAndMethods);
 
-        /* now do the methods: first getters and setters, then the others
-           why? because we must create variables in VariableData for each call to a getter
-           therefore, all getters need to be known before they are being used.
+                /* now do the methods: first getters and setters, then the others
+                   why? because we must create variables in VariableData for each call to a getter
+                   therefore, all getters need to be known before they are being used.
 
-           this is the simplest form of analysis order required here.
-           the "linked variables" analyzer requires a more complicated one, computed in the statements below.
-        */
+                   this is the simplest form of analysis order required here.
+                   the "linked variables" analyzer requires a more complicated one, computed in the statements below.
+                */
 
-            gettersAndSetters.forEach(this::doMethod);
-            otherConstructorsAndMethods.forEach(this::doMethod);
-            ++typesProcessed;
+                gettersAndSetters.forEach(this::doMethod);
+                otherConstructorsAndMethods.forEach(this::doMethod);
+                ++typesProcessed;
+                typeInfo.analysis().set(PREP_ANALYZER, ValueImpl.BoolImpl.TRUE);
+            } else {
+                ++typesAlreadyDone;
+            }
         } catch (RuntimeException re) {
             LOGGER.error("Caught exception in prep analyzer. Processed {}, failing on type {}", typesProcessed, typeInfo);
             throw re;
@@ -208,5 +218,13 @@ public class PrepAnalyzer {
         computeHCS.doPrimitives();
         // while the annotated APIs have HCT/HCS values for a number of types, this line takes care of the rest
         typesLoaded.stream().filter(TypeInfo::isPrimaryType).forEach(computeHCS::doType);
+    }
+
+    public int getTypesAlreadyDone() {
+        return typesAlreadyDone;
+    }
+
+    public int getTypesProcessed() {
+        return typesProcessed;
     }
 }
