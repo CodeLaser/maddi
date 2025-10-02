@@ -90,7 +90,10 @@ public class ParseTypeDeclaration extends CommonParse {
     public record RecordField(FieldInfo fieldInfo, boolean varargs) {
     }
 
-    public record DelayedParsingInformation(TypeInfo typeInfo, TypeInfo.Builder builder, TypeDeclaration td,
+    public record DelayedParsingInformation(int iHierarchy,
+                                            TypeInfo typeInfo,
+                                            TypeInfo.Builder builder,
+                                            TypeDeclaration td,
                                             Context context,
                                             TypeNature typeNature,
                                             Context newContext,
@@ -191,14 +194,46 @@ public class ParseTypeDeclaration extends CommonParse {
             recordComponents = null;
         }
 
+        Hierarchy hierarchy = doHierarchy(i, builder, td, newContext, typeNature, detailedSourcesBuilder);
+
+        if (typeNature.isAnnotation()) {
+            TypeInfo annotationTypeInfo = runtime.getFullyQualified("java.lang.annotation.Annotation", true);
+            builder.addInterfaceImplemented(annotationTypeInfo.asParameterizedType());
+        }
+        if (hierarchy.done) {
+            builder.hierarchyIsDone();
+        }
+        // IMPORTANT: delaying is only done at the top-level; not for subtypes. See inspection-integration/
+        // do not change the order in the OR disjunction; we must add the subtypes!
+        if (hierarchy.done && !mustDelayForStaticStarImport
+            && (newContext.typeContext().addSubTypesOfHierarchyReturnAllDefined(typeInfo, SUBTYPE_HIERARCHY_PRIORITY)
+                && hierarchyOfImportsAllDefined(typeInfo.compilationUnit(), context.typeContext())
+                || packageNameOrEnclosing.isRight())) {
+            return Either.left(continueParsingTypeDeclaration(typeInfo, builder, td, context, typeNature, newContext,
+                    detailedSourcesBuilder, hierarchy.i, annotations, recordComponents));
+        }
+        return Either.right(new DelayedParsingInformation(hierarchy.hierarchyStart, typeInfo, builder, td, context, typeNature,
+                newContext, detailedSourcesBuilder, hierarchy.i, annotations, recordComponents));
+    }
+
+    private record Hierarchy(int hierarchyStart, int i, boolean done) {
+    }
+
+    private Hierarchy doHierarchy(int i, TypeInfo.Builder builder, TypeDeclaration td, Context newContext,
+                                  TypeNature typeNature, DetailedSources.Builder detailedSourcesBuilder) {
+        boolean hierarchyDone = true;
+        int hierarchyStart = i;
         builder.setParentClass(runtime.objectParameterizedType());
         if (td.get(i) instanceof ExtendsList extendsList) {
             if (detailedSourcesBuilder != null) {
                 detailedSourcesBuilder.put(DetailedSources.EXTENDS, source(extendsList.getFirst()));
             }
             for (int j = 1; j < extendsList.size(); j += 2) {
-                ParameterizedType pt = parsers.parseType().parse(newContext, extendsList.get(j), detailedSourcesBuilder);
-                if (typeNature.isInterface()) {
+                ParameterizedType pt = parsers.parseType().parse(newContext, extendsList.get(j),
+                        false, null, detailedSourcesBuilder);
+                if (pt == null) {
+                    hierarchyDone = false;
+                } else if (typeNature.isInterface()) {
                     builder.addInterfaceImplemented(pt);
                 } else {
                     builder.setParentClass(pt);
@@ -209,27 +244,17 @@ public class ParseTypeDeclaration extends CommonParse {
 
         if (td.get(i) instanceof ImplementsList implementsList) {
             for (int j = 1; j < implementsList.size(); j += 2) {
-                ParameterizedType pt = parsers.parseType().parse(newContext, implementsList.get(j), detailedSourcesBuilder);
-                builder.addInterfaceImplemented(pt);
+                ParameterizedType pt = parsers.parseType().parse(newContext, implementsList.get(j),
+                        false, null, detailedSourcesBuilder);
+                if (pt == null) {
+                    hierarchyDone = false;
+                } else {
+                    builder.addInterfaceImplemented(pt);
+                }
             }
             i++;
         }
-        if (typeNature.isAnnotation()) {
-            TypeInfo annotationTypeInfo = runtime.getFullyQualified("java.lang.annotation.Annotation", true);
-            builder.addInterfaceImplemented(annotationTypeInfo.asParameterizedType());
-        }
-        builder.hierarchyIsDone();
-        // IMPORTANT: delaying is only done at the top-level; not for subtypes. See inspection-integration/
-        // do not change the order in the OR disjunction; we must add the subtypes!
-        if (!mustDelayForStaticStarImport
-            && (newContext.typeContext().addSubTypesOfHierarchyReturnAllDefined(typeInfo, SUBTYPE_HIERARCHY_PRIORITY)
-                && hierarchyOfImportsAllDefined(typeInfo.compilationUnit(), context.typeContext())
-                || packageNameOrEnclosing.isRight())) {
-            return Either.left(continueParsingTypeDeclaration(typeInfo, builder, td, context, typeNature, newContext,
-                    detailedSourcesBuilder, i, annotations, recordComponents));
-        }
-        return Either.right(new DelayedParsingInformation(typeInfo, builder, td, context, typeNature, newContext,
-                detailedSourcesBuilder, i, annotations, recordComponents));
+        return new Hierarchy(hierarchyStart, i, hierarchyDone);
     }
 
     private boolean hierarchyOfImportsAllDefined(CompilationUnit compilationUnit, TypeContext typeContext) {
@@ -259,7 +284,17 @@ public class ParseTypeDeclaration extends CommonParse {
 
     public Either<TypeInfo, DelayedParsingInformation> continueParsingTypeDeclaration(DelayedParsingInformation d) {
         // try again...
-        if (d.newContext.typeContext().addSubTypesOfHierarchyReturnAllDefined(d.typeInfo, SUBTYPE_HIERARCHY_PRIORITY)
+        boolean hierarchyDone;
+        if (d.builder.hierarchyNotYetDone()) {
+            d.builder.clearInterfacesImplemented();
+            Hierarchy hierarchy = doHierarchy(d.iHierarchy, d.builder, d.td, d.newContext, d.typeNature, d.detailedSourcesBuilder);
+            hierarchyDone = hierarchy.done;
+            if(hierarchyDone) d.builder.hierarchyIsDone();
+        } else {
+            hierarchyDone = true;
+        }
+        if (hierarchyDone
+            && d.newContext.typeContext().addSubTypesOfHierarchyReturnAllDefined(d.typeInfo, SUBTYPE_HIERARCHY_PRIORITY)
             && d.typeInfo.compilationUnit().importStatements().stream()
                     .allMatch(is -> !is.isStatic()
                                     || d.context.typeContext().addToStaticImportMap(d.typeInfo.compilationUnit(), is))) {

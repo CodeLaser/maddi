@@ -277,6 +277,11 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         }
 
         @Override
+        public void clearInterfacesImplemented() {
+            interfacesImplemented.clear();
+        }
+
+        @Override
         public void commit() {
             List<TypeInfo> sortedSubTypes = subTypes.stream().sorted(Comparator.comparing(TypeInfo::simpleName)).toList();
             TypeInspection ti = new TypeInspectionImpl(this, Set.copyOf(typeModifiers), List.copyOf(methods),
