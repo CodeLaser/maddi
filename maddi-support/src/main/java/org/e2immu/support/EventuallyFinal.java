@@ -29,7 +29,7 @@ import org.e2immu.annotation.eventual.TestMark;
  * @param <T> The type of the value to hold.
  */
 @ImmutableContainer(after = "isFinal", hc = true)
-public class EventuallyFinal<T> implements IEventuallyFinal<T> {
+public class EventuallyFinal<T> {
     private T value;
     private boolean isFinal;
 
@@ -38,7 +38,6 @@ public class EventuallyFinal<T> implements IEventuallyFinal<T> {
      *
      * @return the current value.
      */
-    @Override
     public T get() {
         return value;
     }
@@ -49,7 +48,6 @@ public class EventuallyFinal<T> implements IEventuallyFinal<T> {
      * @param value the final value
      * @throws IllegalStateException when a final value had been written before.
      */
-    @Override
     @Mark("isFinal")
     public void setFinal(T value) {
         if (this.isFinal) {
@@ -65,7 +63,6 @@ public class EventuallyFinal<T> implements IEventuallyFinal<T> {
      * @param value the variable value
      * @throws IllegalStateException when the object was already in the <em>after</em> state.
      */
-    @Override
     @Only(before = "isFinal")
     public void setVariable(T value) {
         if (this.isFinal) throw new IllegalStateException("Value is already final");
@@ -77,7 +74,6 @@ public class EventuallyFinal<T> implements IEventuallyFinal<T> {
      *
      * @return <code>true</code> when in the final or <em>after</em> state.
      */
-    @Override
     @TestMark("isFinal")
     public boolean isFinal() {
         return isFinal;
@@ -88,7 +84,6 @@ public class EventuallyFinal<T> implements IEventuallyFinal<T> {
      *
      * @return <code>true</code> when in the variable or <em>before</em> state.
      */
-    @Override
     @TestMark(value = "isFinal", before = true)
     public boolean isVariable() {
         return !isFinal;

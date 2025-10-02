@@ -13,7 +13,6 @@ import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.support.IEventuallyFinal;
 import org.e2immu.support.EventuallyFinal;
 
 import java.util.List;
@@ -29,7 +28,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     private final ParameterizedType type;
     private final String fullyQualifiedName;
     private final TypeInfo owner;
-    private final IEventuallyFinal<FieldInspection> inspection;
+    private final EventuallyFinal<FieldInspection> inspection;
 
     public FieldInfoImpl(String name, boolean isStatic, ParameterizedType type, TypeInfo owner) {
         this.name = name;

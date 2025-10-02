@@ -23,7 +23,7 @@ public class TestEventuallyFinal {
 
     @Test
     public void test1() {
-        IEventuallyFinal<String> e = new EventuallyFinal<>();
+        EventuallyFinal<String> e = new EventuallyFinal<>();
         assertNull(e.get());
         assertTrue(e.isVariable());
         assertFalse(e.isFinal());
