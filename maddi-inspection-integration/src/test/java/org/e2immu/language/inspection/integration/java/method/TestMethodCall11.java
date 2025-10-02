@@ -229,4 +229,34 @@ public class TestMethodCall11 extends CommonTest {
     public void test6() {
         TypeInfo C = javaInspector.parse(INPUT6);
     }
+    
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.concurrent.atomic.AtomicLong;
+            import java.util.function.ToDoubleFunction;
+            class C {
+                interface ApplicationMetric { }
+                Map<ApplicationMetric, AtomicLong> stringAtomicLongMap;
+                interface MetricSample { }
+                static class GaugeMetricSample<T> implements MetricSample {
+                    public GaugeMetricSample(T value, ToDoubleFunction<T> apply) { }
+                }
+                public List<MetricSample> export(ApplicationMetric registerKeyMetric) {
+                    List<MetricSample> list = new ArrayList<>();
+                    list.add(new GaugeMetricSample<>(stringAtomicLongMap, value -> value.get(registerKeyMetric).get()));
+                    return list;
+                }
+            }
+            """;
+
+    @DisplayName("forwards again")
+    @Test
+    public void test7() {
+        TypeInfo C = javaInspector.parse(INPUT7);
+    }
 }
