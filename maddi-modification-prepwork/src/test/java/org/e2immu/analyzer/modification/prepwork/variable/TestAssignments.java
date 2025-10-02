@@ -767,4 +767,42 @@ public class TestAssignments extends CommonTest {
         Assignments assignments = vdLast.variableInfo("i").assignments();
         assertEquals("D:0, A:[0, 1.0.0]", assignments.toString());
     }
+
+    @Language("java")
+    public static final String INPUT13 = """
+            import java.util.Random;
+            class X {
+                public static int[] getRandomArray(int min, int max, int n) {
+                    int len = max - min + 1;
+                    if (max >= min && n <= len) {
+                        int[] source = new int[len];
+            
+                        for (int i = min; i < min + len; source[i - min] = i++) {
+                        }
+            
+                        int[] result = new int[n];
+                        Random rd = new Random();
+            
+                        for (int i = 0; i < result.length; ++i) {
+                            int index = Math.abs(rd.nextInt() % len--);
+                            result[i] = source[index];
+                            source[index] = source[len];
+                        }
+            
+                        return result;
+                    } else {
+                        return null;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("array element in for-loop")
+    @Test
+    public void test13() {
+        TypeInfo X = javaInspector.parse(INPUT13);
+        MethodInfo method = X.findUniqueMethod("getRandomArray", 3);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
+        analyzer.doMethod(method);
+    }
 }
