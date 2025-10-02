@@ -18,6 +18,7 @@ import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
 import org.e2immu.language.cst.impl.output.TextImpl;
 import org.e2immu.language.cst.impl.variable.DescendModeEnum;
 import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
+import org.e2immu.support.IEventuallyFinal;
 import org.e2immu.support.EventuallyFinal;
 
 import java.util.HashSet;
@@ -31,7 +32,7 @@ public class ParameterInfoImpl implements ParameterInfo {
     private final String name;
     private final MethodInfo methodInfo;
     private final ParameterizedType parameterizedType;
-    private final EventuallyFinal<ParameterInspection> inspection;
+    private final IEventuallyFinal<ParameterInspection> inspection;
     private final PropertyValueMap analysis = new PropertyValueMapImpl();
 
     public ParameterInfoImpl(MethodInfo methodInfo, int index, String name, ParameterizedType parameterizedType) {
