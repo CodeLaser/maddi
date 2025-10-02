@@ -164,8 +164,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         String fullyQualifiedName = typeInfo.fullyQualifiedName();
         String[] parts = fullyQualifiedName.split("\\.");
         SourceSet sourceSet = typeInfo.compilationUnit().sourceSet();
-        List<TypeData> typeDataList = typeTrie.get(parts);
-        TypeData typeData = typeDataList == null ? null : typeDataList.stream()
+        TypeData typeData = typeTrie.get(parts).stream()
                 .filter(td -> td.sourceFile().sourceSet().equals(sourceSet))
                 .findFirst().orElse(null);
         if (typeData != null) {
@@ -174,7 +173,8 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
                 mapSingleTypeForFQN.put(fullyQualifiedName, typeInfo);
             }
         } else {
-            LOGGER.warn("Rewiring: no type data for {}", fullyQualifiedName);
+            // FIXME when a type moves to a different source set...?
+            throw new UnsupportedOperationException("New types must be 'registered' with addType/a SourceFile object");
         }
     }
 
