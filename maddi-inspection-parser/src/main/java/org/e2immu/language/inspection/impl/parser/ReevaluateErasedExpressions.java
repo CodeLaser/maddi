@@ -171,24 +171,34 @@ public class ReevaluateErasedExpressions {
                                                        TypeParameterMap extra) {
         Objects.requireNonNull(method);
         ParameterizedType parameterType = method.getConcreteTypeOfParameter(runtime, i);
+        if (!parameterType.hasTypeParameters()) {
+            // when there are no parameters to be determined, there is nothing to do
+            return new ForwardTypeImpl(parameterType, false, extra);
+        }
         if (outsideContext == null || outsideContext.isVoid() || outsideContext.typeInfo() == null) {
-            // Cannot do better than parameter type, have no outside context;
+            // Cannot do better than parameterType, have no outside context. Simply apply extra.
+            // "outside context" is the return type that we expect from the evaluation of the outer method
+            // see TestMethodCall4,9 for an example where "parameterType" gets a concrete type parameter from "extra"
             ParameterizedType translated = parameterType.applyTranslation(runtime, extra.map());
             return new ForwardTypeImpl(translated, false, extra);
         }
-        Set<TypeParameter> typeParameters = parameterType.extractTypeParameters();
-        Map<NamedType, ParameterizedType> outsideMap = outsideContext.initialTypeParameterMap();
         Map<NamedType, ParameterizedType> map = new HashMap<>(extra.map());
         ParameterizedType returnType = method.getConcreteReturnType(runtime);
-            /* here we test whether the return type of the method is a method type parameter. If so,
-               we have and outside type that we can assign to it. See MethodCall_68, assigning B to type parameter T
-               See TestParseMethods,6
-             */
+        /* now we test whether the return type of the method is a method type parameter. If so,
+           we have an outside type that we can assign to it. See MethodCall_68, assigning B to type parameter T
+           See TestParseMethods,6
+         */
         if (returnType.typeParameter() != null) {
             map.put(returnType.typeParameter(), outsideContext);
         } // else e.g. TestMethodCall9,4
         ParameterizedType translated = parameterType.applyTranslation(runtime, map);
+        if (!translated.hasTypeParameters()) {
+            // e.g. TestMethodCall11,7
+            return new ForwardTypeImpl(translated, false, extra);
+        }
 
+        Map<NamedType, ParameterizedType> outsideMap = outsideContext.initialTypeParameterMap();
+        Set<TypeParameter> typeParameters = parameterType.extractTypeParameters();
         for (TypeParameter typeParameter : typeParameters) {
             // can we match? if both are functional interfaces, we know exactly which parameter to match
 
