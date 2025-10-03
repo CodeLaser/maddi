@@ -716,23 +716,13 @@ public class MethodResolutionImpl implements MethodResolution {
                     if (pos == parameters.size() - 1) {
                         // this one can be either the array matching the type, an element of the array
                         ParameterizedType arrayType = parameterInfo.parameterizedType();
-
-                        // here comes a bit of code duplication...
                         for (ParameterizedType actualType : acceptedErased) {
-
-                            int compatible;
-                            if (isUnboundMethodTypeParameter(actualType) && actualType.arrays() == arrayType.arrays()) {
-                                compatible = 5;
-                            } else {
-                                compatible = callIsAssignableFrom(actualType, arrayType);
-                            }
+                            int compatible = callIsAssignableFrom(actualType, arrayType);
                             if (compatible >= 0 && (bestCompatible == Integer.MIN_VALUE || compatible < bestCompatible)) {
                                 bestCompatible = compatible;
                                 bestAcceptedType = actualType;
                             }
                         }
-
-                        // and break off the code duplication, because we cannot set foundCombination to false
                         if (bestCompatible >= 0) {
                             sumScore += bestCompatible;
                             thisAcceptedErasedTypesCombination.put(pos, bestAcceptedType);

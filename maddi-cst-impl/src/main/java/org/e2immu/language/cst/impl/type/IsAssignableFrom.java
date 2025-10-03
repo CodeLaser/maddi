@@ -3,9 +3,9 @@ package org.e2immu.language.cst.impl.type;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Predefined;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.util.internal.util.ListUtil;
 
@@ -391,7 +391,7 @@ public class IsAssignableFrom {
                 steps = 1;
             }
         }
-        return steps + type.arrays();
+        return steps;// do not add number of arrays: TestMethodCall11,6
     }
 
     private boolean compatibleWildcards(Mode mode, Wildcard w1, Wildcard w2) {
