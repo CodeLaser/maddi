@@ -4,6 +4,7 @@ import org.e2immu.annotation.NotNull;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -38,6 +39,8 @@ public interface TypeContext {
     or this was not a * import.
      */
     boolean addToStaticImportMap(CompilationUnit currentCompilationUnit, ImportStatement importStatement);
+
+    FieldInfo findFieldRecursively(TypeInfo typeInfo, String name);
 
     void addNonStaticImportToContext(ImportStatement importStatement);
 

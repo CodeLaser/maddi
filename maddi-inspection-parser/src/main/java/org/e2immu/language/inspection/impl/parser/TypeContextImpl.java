@@ -119,8 +119,8 @@ public class TypeContextImpl implements TypeContext {
     public Variable findStaticFieldImport(String name) {
         if (data.staticImportMap != null) {
             for (TypeInfo typeInfo : data.staticImportMap.getStaticMemberToTypeInfo(name)) {
-                FieldInfo fieldInfo = typeInfo.getFieldByName(name, false);
-                if (fieldInfo != null) {
+                FieldInfo fieldInfo = findFieldRecursively(typeInfo, name);
+                if(fieldInfo != null) {
                     return data.runtime.newFieldReference(fieldInfo);
                 }
             }
@@ -130,6 +130,28 @@ public class TypeContextImpl implements TypeContext {
                     return data.runtime.newFieldReference(fieldInfo);
                 }
             }
+        }
+        return null;
+    }
+
+    @Override
+    public FieldInfo findFieldRecursively(TypeInfo typeInfo, String name) {
+        FieldInfo fieldInfo = typeInfo.getFieldByName(name, false);
+        if (fieldInfo != null) return fieldInfo;
+        if (typeInfo.parentClass() != null && !typeInfo.parentClass().isJavaLangObject()) {
+            FieldInfo fi = findFieldRecursively(typeInfo.parentClass().typeInfo(), name);
+            if (fi != null) return fi;
+        }
+        if (typeInfo.compilationUnitOrEnclosingType().isRight()) {
+            FieldInfo fi = findFieldRecursively(typeInfo.compilationUnitOrEnclosingType().getRight(), name);
+            if (fi != null) return fi;
+        }
+        if (typeInfo.enclosingMethod() != null) {
+            return findFieldRecursively(typeInfo.enclosingMethod().typeInfo(), name);
+        }
+        for (ParameterizedType interfaceImplemented : typeInfo.interfacesImplemented()) {
+            FieldInfo fi = findFieldRecursively(interfaceImplemented.typeInfo(), name);
+            if (fi != null) return fi;
         }
         return null;
     }
