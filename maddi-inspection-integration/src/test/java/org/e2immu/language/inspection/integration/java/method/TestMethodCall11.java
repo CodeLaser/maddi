@@ -258,15 +258,13 @@ public class TestMethodCall11 extends CommonTest {
     @DisplayName("forwards again")
     @Test
     public void test7() {
-        TypeInfo C = javaInspector.parse(INPUT7);
+        javaInspector.parse(INPUT7);
     }
 
 
     @Language("java")
     private static final String INPUT8 = """
             package a.b;
-            
-            
             class X {
                 interface SetKv {
                     void set(String k, String v);
@@ -288,6 +286,33 @@ public class TestMethodCall11 extends CommonTest {
     @DisplayName("lambda in super call")
     @Test
     public void test8() {
-        TypeInfo C = javaInspector.parse(INPUT8);
+        javaInspector.parse(INPUT8);
+    }
+
+    @Language("java")
+    private static final String INPUT8b = """
+            package a.b;
+            class X {
+                interface SetKv {
+                    void set(String k, String v);
+                }
+                interface Setter<C> { void set(C c, String s1, String s2); }
+                static class SetterClass<C> {
+                    void callSetter(Setter<C> setter, int k) {
+                        // nothing here
+                    }
+                }
+                static class Use extends SetterClass<SetKv> {
+                    Use(SetKv d) {
+                        callSetter((s, k, v)-> s.set(k, v), 1);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("lambda in normal method call")
+    @Test
+    public void test8b() {
+        javaInspector.parse(INPUT8b);
     }
 }
