@@ -46,4 +46,39 @@ public class TestImport3 extends CommonTest2 {
         assertEquals("Type a.b.Parent.SubInterface", si.type().toString());
     }
 
+
+    @Language("java")
+    String PARENT2 = """
+            package a.b;
+            public class Parent {
+                public static String[] STRINGS = { "a", "b", "c" };
+            }
+            """;
+    @Language("java")
+    String CHILD2 = """
+            package a.b;
+            public class Child extends Parent {
+            }
+            """;
+
+    @Language("java")
+    String USE2 = """
+            package c;
+            import static a.b.Child.STRINGS;
+            public class Use {
+                void method() {
+                    for(String s: STRINGS) {
+                        System.out.println(s);
+                    }
+                }
+            }
+            """;
+
+    @Test
+    public void testImport2() throws IOException {
+        Map<String, String> sourcesByFqn = Map.of("a.b.Parent", PARENT2, "a.b.Child", CHILD2, "c.Use", USE2);
+        ParseResult pr = init(sourcesByFqn);
+
+    }
+
 }

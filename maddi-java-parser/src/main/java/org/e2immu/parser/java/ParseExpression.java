@@ -358,7 +358,9 @@ public class ParseExpression extends CommonParse {
             }
         } // else: see for example parsing of annotation '...importhelper.a.Resources', line 6
         List<? extends NamedType> nts = context.typeContext().getWithQualification(name, false);
-        if (nts == null) throw new Summary.ParseException(context, "Unknown identifier '" + name + "'");
+        if (nts == null) {
+            throw new Summary.ParseException(context, "Unknown identifier '" + name + "'");
+        }
         assert nts.size() == 1; // identifier does not contain '.', so simple name
         NamedType namedType = nts.getLast();
         TypeInfo typeInfo;
@@ -393,7 +395,7 @@ public class ParseExpression extends CommonParse {
             }
             return null;
         }
-        FieldInfo fieldInfo = findRecursively(typeInfo, name);
+        FieldInfo fieldInfo = context.typeContext().findFieldRecursively(typeInfo, name);
         if (fieldInfo == null) {
             if (complain) {
                 throw new Summary.ParseException(context, "Cannot find field named '" + name + "' in hierarchy of " + pt);
@@ -425,27 +427,6 @@ public class ParseExpression extends CommonParse {
         ParameterizedType concreteType = map == null || map.isEmpty() ? fieldInfo.type()
                 : fieldInfo.type().applyTranslation(runtime, map);
         return runtime.newFieldReference(fieldInfo, scope, concreteType);
-    }
-
-    private FieldInfo findRecursively(TypeInfo typeInfo, String name) {
-        FieldInfo fieldInfo = typeInfo.getFieldByName(name, false);
-        if (fieldInfo != null) return fieldInfo;
-        if (typeInfo.parentClass() != null && !typeInfo.parentClass().isJavaLangObject()) {
-            FieldInfo fi = findRecursively(typeInfo.parentClass().typeInfo(), name);
-            if (fi != null) return fi;
-        }
-        if (typeInfo.compilationUnitOrEnclosingType().isRight()) {
-            FieldInfo fi = findRecursively(typeInfo.compilationUnitOrEnclosingType().getRight(), name);
-            if (fi != null) return fi;
-        }
-        if (typeInfo.enclosingMethod() != null) {
-            return findRecursively(typeInfo.enclosingMethod().typeInfo(), name);
-        }
-        for (ParameterizedType interfaceImplemented : typeInfo.interfacesImplemented()) {
-            FieldInfo fi = findRecursively(interfaceImplemented.typeInfo(), name);
-            if (fi != null) return fi;
-        }
-        return null;
     }
 
     private Expression parseDottedVariable(Context context, List<Comment> comments, Source source, Name name, int end,
