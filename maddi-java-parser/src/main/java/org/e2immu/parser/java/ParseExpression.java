@@ -946,7 +946,7 @@ public class ParseExpression extends CommonParse {
                     .setSource(source).addComments(comments)
                     .setVariable(thisVar).build();
         }
-        if (!le.children().isEmpty() && le.get(0) instanceof KeyWord kw && SUPER.equals(kw.getType())) {
+        if (!le.children().isEmpty() && le.getFirst() instanceof KeyWord kw && SUPER.equals(kw.getType())) {
             This thisVar = runtime.newThis(context.enclosingType().parentClass().typeInfo().asParameterizedType(),
                     null, true);
             return runtime.newVariableExpressionBuilder()
@@ -957,19 +957,20 @@ public class ParseExpression extends CommonParse {
     }
 
     private static long parseLong(String s) {
+        assert !s.startsWith("-");
         String src = s.toLowerCase().replace("_", "").replace("l", "");
         if (src.startsWith("0x")) {
             String substring = src.substring(2);
-            return Long.parseLong(substring, 16);
+            return Long.parseUnsignedLong(substring, 16);
         }
         if (src.startsWith("0b")) {
             String substring = src.substring(2);
-            return Long.parseLong(substring, 2);
+            return Long.parseUnsignedLong(substring, 2);
         }
         if (src.startsWith("0") && src.length() > 1 && Character.isDigit(src.charAt(1))) {
             String substring = src.substring(1);
-            return Long.parseLong(substring, 8);
+            return Long.parseUnsignedLong(substring, 8);
         }
-        return Long.parseLong(src);
+        return Long.parseUnsignedLong(src);
     }
 }
