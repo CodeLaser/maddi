@@ -26,6 +26,7 @@ import org.parsers.java.ast.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.util.internal.util.StringUtil.pad;
@@ -239,9 +240,15 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
         } else throw new UnsupportedOperationException();
         TypeInfo typeInfo = isSuper ? context.enclosingType().parentClass().typeInfo() : context.enclosingType();
         ParameterizedType formalType = typeInfo.asParameterizedType();
-
+        // see TestMethodCall11,8; a super call
+        ParameterizedType expectedConcreteType;
+        if (isSuper) {
+            expectedConcreteType = context.enclosingType().parentClass();
+        } else {
+            expectedConcreteType = formalType;
+        }
         Expression constructorCall = context.methodResolution().resolveConstructor(context, comments, source,
-                pad(0, n), formalType, formalType, runtime.diamondNo(), null, runtime.noSource(),
+                pad(0, n), formalType, expectedConcreteType, runtime.diamondNo(), null, runtime.noSource(),
                 unparsedArguments, List.of(), true, false);
         if (constructorCall instanceof ConstructorCall cc) {
             assert cc.constructor() != null;
