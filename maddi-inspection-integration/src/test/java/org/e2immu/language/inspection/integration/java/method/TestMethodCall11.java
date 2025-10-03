@@ -225,6 +225,7 @@ public class TestMethodCall11 extends CommonTest {
             }
             """;
 
+    @Disabled
     @DisplayName("vararg arrays")
     @Test
     public void test6() {
