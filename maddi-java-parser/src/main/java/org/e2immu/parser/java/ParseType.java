@@ -190,9 +190,12 @@ public class ParseType extends CommonParse {
                 detailedSourcesBuilder.put(withoutTypeParameters.typeInfo(), details.pop());
                 List<DetailedSources.Builder.TypeInfoSource> associatedList = new ArrayList<>();
                 for (int j = nts.size() - 2; j >= 0; --j) {
-                    TypeInfo qualifier = (TypeInfo) nts.get(j);
-                    Source source = details.pop();
-                    associatedList.add(new DetailedSources.Builder.TypeInfoSource(qualifier, source));
+                    if (nts.get(j) instanceof TypeInfo qualifier) {
+                        Source source = details.pop();
+                        associatedList.add(new DetailedSources.Builder.TypeInfoSource(qualifier, source));
+                    } else if (nts.get(j) instanceof TypeParameter tp) {
+                        // TODO dubbo OSS project
+                    }
                 }
                 if (!details.isEmpty()) {
                     detailedSourcesBuilder.put(withoutTypeParameters.typeInfo().packageName(), details.pop());

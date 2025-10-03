@@ -14,6 +14,7 @@ import java.util.List;
 NOT to be used by byte code inspection: exclusive to parser system!
  */
 public interface TypeContext {
+    int METHOD_TYPE_PARAMETER_PRIORITY = 21; // see TestConstructor2,2
     int CURRENT_TYPE_PRIORITY = 20;
     int TYPE_PARAMETER_PRIORITY = 19;
     int SUBTYPE_PRIORITY = 17;

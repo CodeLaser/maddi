@@ -17,12 +17,15 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.parser.GenericsHelper;
 import org.e2immu.language.inspection.api.parser.MethodTypeParameterMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GenericsHelperImpl.class);
 
     @Override
     public MethodTypeParameterMap newMethodTypeParameterMap(MethodInfo methodInfo, Map<NamedType, ParameterizedType> concreteTypes) {
@@ -182,10 +185,12 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
         List<ParameterInfo> concreteTypeAbstractParams = concreteTypeMap.methodInfo().parameters();
 
         if (methodParams.size() != concreteTypeAbstractParams.size()) {
-            throw new UnsupportedOperationException("Have different param sizes for functional interface " +
+            // TODO dubbo OSS project encounters this
+            LOGGER.debug("Have different param sizes for functional interface " +
                                                     formalType.detailedString() + " method " +
                                                     methodTypeParameterMap.methodInfo().fullyQualifiedName() + " and " +
                                                     concreteTypeMap.methodInfo().fullyQualifiedName());
+            return res;
         }
         for (int i = 0; i < methodParams.size(); i++) {
             ParameterizedType abstractTypeParameter = methodParams.get(i).parameterizedType();

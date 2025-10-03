@@ -52,6 +52,9 @@ public class IsAssignableFrom {
     public static final int FUNCTIONAL_TYPE_EQUIVALENCE = 3;
     public static final int TYPE_BOUND = 5;
     public static final int IN_HIERARCHY = 10;
+    public static final int EQUALS_FQN = 100;
+    // FIXME hack? currently needed for multiple versions of the same type, when jar dependencies are a mess
+    // dubbo OSS project
     private static final int UNBOUND_WILDCARD = 100;
     private static final int ARRAY_PENALTY = 1000;
     private static final int PENALTY_VOID = 10;
@@ -89,6 +92,7 @@ public class IsAssignableFrom {
 
     private int internalExecute(boolean ignoreArrays, boolean strictTypeParameterTargets, Mode mode) {
         if (target == from || target.equals(from) || ignoreArrays && target.equalsIgnoreArrays(from)) return EQUALS;
+        if (target.equalsFQN(from)) return EQUALS_FQN;
 
         // NULL
         if (from.isTypeOfNullConstant()) {

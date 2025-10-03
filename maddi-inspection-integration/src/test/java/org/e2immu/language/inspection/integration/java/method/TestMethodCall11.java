@@ -260,4 +260,34 @@ public class TestMethodCall11 extends CommonTest {
     public void test7() {
         TypeInfo C = javaInspector.parse(INPUT7);
     }
+
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            
+            
+            class X {
+                interface SetKv {
+                    void set(String k, String v);
+                }
+                interface Setter<C> { void set(C c, String s1, String s2); }
+                static class SetterClass<C> {
+                    SetterClass(Setter<C> setter, int k) {
+                        // nothing here
+                    }
+                }
+                static class Use extends SetterClass<SetKv> {
+                    Use(SetKv d) {
+                        super((s, k, v)-> s.set(k, v), 1);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("lambda in super call")
+    @Test
+    public void test8() {
+        TypeInfo C = javaInspector.parse(INPUT8);
+    }
 }

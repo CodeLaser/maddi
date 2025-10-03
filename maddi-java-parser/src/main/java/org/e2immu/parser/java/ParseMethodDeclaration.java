@@ -133,7 +133,7 @@ public class ParseMethodDeclaration extends CommonParse {
                 TypeParameter typeParameter = parseTypeParameterDoNotInspect(tp, methodInfo, typeParameterIndex++);
                 typeParameters.add(typeParameter);
                 builder.addTypeParameter(typeParameter);
-                contextWithTP.typeContext().addToContext(typeParameter, TypeContext.TYPE_PARAMETER_PRIORITY);
+                contextWithTP.typeContext().addToContext(typeParameter, TypeContext.METHOD_TYPE_PARAMETER_PRIORITY);
             }
             parseAndResolveTypeParameterBounds(typeParametersToParse, typeParameters, contextWithTP);
         }
