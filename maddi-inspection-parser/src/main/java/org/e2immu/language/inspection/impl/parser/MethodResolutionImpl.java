@@ -508,7 +508,11 @@ public class MethodResolutionImpl implements MethodResolution {
                 ParameterInfo parameterInfo = parameters.get(i);
                 pt = parameterInfo.parameterizedType();
             }
-            score += compatibleParameter(res.evaluated(), pt);
+            int c = compatibleParameter(res.evaluated(), pt);
+            if (c == -1) {
+                return -1; // incompatible, so no point in continuing
+            }
+            score += c;
         }
         return score;
     }
