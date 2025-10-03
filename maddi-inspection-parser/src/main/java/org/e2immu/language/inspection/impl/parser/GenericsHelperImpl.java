@@ -125,17 +125,10 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
         }
         if (formalType.parameters().isEmpty()) {
             if (formalType.isTypeParameter()) {
-                if (formalType.arrays() > 0) {
-                    if (concreteType.isFunctionalInterface()) {
-                        // T[], Expression[]::new == IntFunction<Expression>
-                        ParameterizedType arrayType = findSingleAbstractMethodOfInterface(concreteType)
-                                .getConcreteReturnType(runtime);
-                        return Map.of(formalType.typeParameter(), arrayType.copyWithFewerArrays(formalType.arrays()));
-                    }
-                    // T <-- String,  T[],String[] -> T <-- String, T[],String[][] -> T <- String[]
-                    if (concreteType.arrays() > 0) {
-                        return Map.of(formalType.typeParameter(), concreteType.copyWithFewerArrays(formalType.arrays()));
-                    }
+                if (formalType.arrays() > 0
+                    && concreteType.arrays() >= formalType.arrays()
+                    && !concreteType.isFunctionalInterface()) {
+                    return Map.of(formalType.typeParameter(), concreteType.copyWithFewerArrays(formalType.arrays()));
                 }
                 return Map.of(formalType.typeParameter(), concreteType);
             }
@@ -207,15 +200,15 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
                 res.put(formalMapped.typeParameter(), concreteTypeParameter);
             }
         }
-        if(!res.isEmpty() && !methodTypeParameterMap.concreteTypes().isEmpty()) {
+        if (!res.isEmpty() && !methodTypeParameterMap.concreteTypes().isEmpty()) {
             // See TestMethodCall11,2
             // in res: T in pub -> ResourceRegion
             // in concreteTypes: T in pub -> T in Mono
             // we need T in Mono -> ResourceRegion
             Map<NamedType, ParameterizedType> addToRes = new HashMap<>();
-            for(Map.Entry<NamedType, ParameterizedType> entry: res.entrySet()) {
+            for (Map.Entry<NamedType, ParameterizedType> entry : res.entrySet()) {
                 ParameterizedType pt = methodTypeParameterMap.concreteTypes().get(entry.getKey());
-                if(pt != null && pt.isTypeParameter()) { // FIXME and check: type parameter that we're interested in
+                if (pt != null && pt.isTypeParameter()) { // FIXME and check: type parameter that we're interested in
                     addToRes.put(pt.typeParameter(), entry.getValue());
                 }
             }
