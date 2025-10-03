@@ -92,6 +92,18 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
+    public boolean equalsFQN(ParameterizedType o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ParameterizedTypeImpl that = (ParameterizedTypeImpl) o;
+        return arrays == that.arrays
+               && typeParameter == null && that.typeParameter == null
+               && typeInfo != null && that.typeInfo != null && typeInfo.fullyQualifiedName().equals(that.typeInfo.fullyQualifiedName())
+               && Objects.equals(wildcard, that.wildcard)
+               && parameters.isEmpty() && that.parameters.isEmpty();
+    }
+
+    @Override
     public int hashCode() {
         return Objects.hash(typeParameter, typeInfo, arrays, wildcard, parameters);
     }
@@ -607,7 +619,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                 ParameterizedType newPt = translate.get(pt.typeParameter());
                 if (newPt.equals(pt) || newPt.isTypeParameter() && pt.typeParameter().equals(newPt.typeParameter()))
                     break;
-                if(reached.add(newPt)) {
+                if (reached.add(newPt)) {
                     pt = newPt;
                     add = true;
                 } else break;

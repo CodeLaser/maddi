@@ -538,37 +538,39 @@ public class MethodResolutionImpl implements MethodResolution {
 
         for (Expression expression : newParameterExpressions) {
             LOGGER.debug("Examine parameter {}", i);
-            ParameterizedType concreteParameterType;
-            ParameterizedType formalParameterType;
-            ParameterInfo formalParameter = formalParameters.get(i);
-            if (formalParameters.size() - 1 == i && formalParameter.isVarArgs()) {
-                formalParameterType = formalParameter.parameterizedType().copyWithOneFewerArrays();
-                if (newParameterExpressions.size() > formalParameters.size()
-                    || formalParameterType.arrays() == expression.parameterizedType().arrays()) {
-                    concreteParameterType = expression.parameterizedType();
+            if (!expression.isNullConstant()) {
+                ParameterizedType concreteParameterType;
+                ParameterizedType formalParameterType;
+                ParameterInfo formalParameter = formalParameters.get(i);
+                if (formalParameters.size() - 1 == i && formalParameter.isVarArgs()) {
+                    formalParameterType = formalParameter.parameterizedType().copyWithOneFewerArrays();
+                    if (newParameterExpressions.size() > formalParameters.size()
+                        || formalParameterType.arrays() == expression.parameterizedType().arrays()) {
+                        concreteParameterType = expression.parameterizedType();
+                    } else {
+                        concreteParameterType = expression.parameterizedType().copyWithOneFewerArrays();
+                        assert formalParameterType.isAssignableFrom(runtime, concreteParameterType);
+                    }
                 } else {
-                    concreteParameterType = expression.parameterizedType().copyWithOneFewerArrays();
-                    assert formalParameterType.isAssignableFrom(runtime, concreteParameterType);
+                    formalParameterType = formalParameters.get(i).parameterizedType();
+                    concreteParameterType = expression.parameterizedType();
                 }
-            } else {
-                formalParameterType = formalParameters.get(i).parameterizedType();
-                concreteParameterType = expression.parameterizedType();
-            }
-            Map<NamedType, ParameterizedType> translated = genericsHelper.translateMap(formalParameterType,
-                    concreteParameterType, true);
-            ParameterizedType concreteTypeInMethod = method.getConcreteTypeOfParameter(runtime, i);
+                Map<NamedType, ParameterizedType> translated = genericsHelper.translateMap(formalParameterType,
+                        concreteParameterType, true);
+                ParameterizedType concreteTypeInMethod = method.getConcreteTypeOfParameter(runtime, i);
 
-            if (concreteTypeInMethod.typeInfo() != null
-                && concreteParameterType.typeInfo() == concreteTypeInMethod.typeInfo()) {
-                // the following code should run at the level of the respective type parameters... See TestTranslate,1
-                // FIXME should we make this recursive? what if the type parameters only start another level down?
-                for (int j = 0; j < formalParameterType.parameters().size(); ++j) {
-                    ParameterizedType ctim = concreteTypeInMethod.parameters().get(j);
-                    translate(translated, ctim, mapExpansion);
+                if (concreteTypeInMethod.typeInfo() != null
+                    && concreteParameterType.typeInfo() == concreteTypeInMethod.typeInfo()) {
+                    // the following code should run at the level of the respective type parameters... See TestTranslate,1
+                    // FIXME should we make this recursive? what if the type parameters only start another level down?
+                    for (int j = 0; j < formalParameterType.parameters().size(); ++j) {
+                        ParameterizedType ctim = concreteTypeInMethod.parameters().get(j);
+                        translate(translated, ctim, mapExpansion);
+                    }
+                } else {
+                    translate(translated, concreteTypeInMethod, mapExpansion);
                 }
-            } else {
-                translate(translated, concreteTypeInMethod, mapExpansion);
-            }
+            } // else see e.g. dubbo OSS
             i++;
             if (i >= formalParameters.size()) break; // varargs... we have more than there are
         }

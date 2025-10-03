@@ -6,6 +6,7 @@ import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -262,9 +263,20 @@ public class TypeContextImpl implements TypeContext {
             List<? extends NamedType> prefixTypes = getWithQualification(prefix, complain);
             if (prefixTypes != null) {
                 String tail = name.substring(dot + 1);
-                TypeInfo tailType = subTypeOfRelated((TypeInfo) prefixTypes.getLast(), tail);
-                if (tailType != null) {
-                    return Stream.concat(prefixTypes.stream(), Stream.of(tailType)).toList();
+                NamedType last = prefixTypes.getLast();
+                if (last instanceof TypeInfo ti) {
+                    TypeInfo tailType = subTypeOfRelated(ti, tail);
+                    if (tailType != null) {
+                        return Stream.concat(prefixTypes.stream(), Stream.of(tailType)).toList();
+                    }
+                } else if (last instanceof TypeParameter tp) {
+                    // dubbo OSS project has this situation
+                    for (ParameterizedType tb : tp.typeBounds()) {
+                        TypeInfo tailType = subTypeOfRelated(tb.typeInfo(), tail);
+                        if (tailType != null) {
+                            return Stream.concat(prefixTypes.stream(), Stream.of(tailType)).toList();
+                        }
+                    }
                 }
             }
         }
@@ -298,19 +310,17 @@ public class TypeContextImpl implements TypeContext {
         return null;
     }
 
-    private NamedType getSimpleName(String name) {
-        NamedTypePriority namedTypePriority = map.get(name);
-        if (namedTypePriority != null) {
-            return namedTypePriority.namedType;
-        }
+    private NamedTypePriority recursivelyGetFromMap(String name) {
+        NamedTypePriority myNamedTypePriority = map.get(name);
+        NamedTypePriority parentNamedTypePriority = parentContext == null ? null : parentContext.recursivelyGetFromMap(name);
+        if (parentNamedTypePriority == null) return myNamedTypePriority;
+        if (myNamedTypePriority == null) return parentNamedTypePriority;
+        return myNamedTypePriority.priority >= parentNamedTypePriority.priority ? myNamedTypePriority : parentNamedTypePriority;
+    }
 
-        // Same package, and * imports (in that order!)
-        if (parentContext != null) {
-            NamedType fromParent = parentContext.getSimpleName(name);
-            if (fromParent != null) {
-                return fromParent;
-            }
-        }
+    private NamedType getSimpleName(String name) {
+        NamedTypePriority namedTypePriority = recursivelyGetFromMap(name);
+        if (namedTypePriority != null) return namedTypePriority.namedType;
 
         /*
         On-demand: subtype from import static statement (see e.g. Import_2)
