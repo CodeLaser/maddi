@@ -126,10 +126,38 @@ public class TestParseLiteral extends CommonTestParse {
             }
             """;
 
-    @DisplayName("Don't understand at all, the constant should be a valid long")
     @Test
     public void test3c() {
-        assertThrows(RuntimeException.class, () -> parse(INPUT3c));
+        TypeInfo typeInfo = parse(INPUT3c);
+        MethodInfo parse = typeInfo.findUniqueMethod("parse", 1);
+        if (parse.methodBody().statements().getFirst() instanceof LocalVariableCreation lvc
+            && lvc.localVariable().assignmentExpression() instanceof LongConstant a) {
+            assertEquals(0xc6a4a7935bd1e995L, a.constant());
+            assertEquals(-4132994306676758123L, a.constant());
+        } else fail();
+    }
+
+
+    @Language("java")
+    public static final String INPUT3d = """
+            package a.b;
+            public class X {
+                public long parse() {
+                    long l = +0xC6A4_A793_5BD1_E99L;
+                    long m = -0xC6A4_A793_5BD1_E99L;
+                    return m & l;
+                }
+            }
+            """;
+
+    @Test
+    public void test3d() {
+        TypeInfo typeInfo = parse(INPUT3d);
+        MethodInfo parse = typeInfo.findUniqueMethod("parse", 0);
+        if (parse.methodBody().statements().getFirst() instanceof LocalVariableCreation lvc
+            && lvc.localVariable().assignmentExpression() instanceof LongConstant a) {
+            assertEquals(0xc6a4a7935bd1e99L, a.constant());
+        } else fail();
     }
 
     public static final String INPUT4 = "package a.b; public class X { public void parse() { String s = \"a \\\" and \\\" b\"; } }";
