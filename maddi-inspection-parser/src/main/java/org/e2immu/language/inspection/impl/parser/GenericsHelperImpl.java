@@ -8,6 +8,7 @@ import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.Statement;
@@ -187,9 +188,9 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
         if (methodParams.size() != concreteTypeAbstractParams.size()) {
             // TODO dubbo OSS project encounters this
             LOGGER.debug("Have different param sizes for functional interface " +
-                                                    formalType.detailedString() + " method " +
-                                                    methodTypeParameterMap.methodInfo().fullyQualifiedName() + " and " +
-                                                    concreteTypeMap.methodInfo().fullyQualifiedName());
+                         formalType.detailedString() + " method " +
+                         methodTypeParameterMap.methodInfo().fullyQualifiedName() + " and " +
+                         concreteTypeMap.methodInfo().fullyQualifiedName());
             return res;
         }
         for (int i = 0; i < methodParams.size(); i++) {
@@ -230,19 +231,65 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
     }
 
     /*
- StringMap<V> -> HashMap<K,V> -> Map<K, V>
+     StringMap<V> -> HashMap<K,V> -> Map<K, V>
 
- M2: K(map) -> K(hashmap), M1: K(hashmap) -> String
+     M2: K(map) -> K(hashmap), M1: K(hashmap) -> String
+
+     M1: E=0 in Set -> String, M2: Target = E=0 in Collection.
+     We must make the link between E in Collection and E in set
+
+     TODO this code is pretty dedicated; it should be recursive? TODO clean-up, extend
   */
+    @Override
+    public Map<NamedType, ParameterizedType> biDirectionalCombineMaps(Map<NamedType, ParameterizedType> m1,
+                                                                      Map<NamedType, ParameterizedType> m2) {
+        Map<NamedType, ParameterizedType> r1 = combineMaps(m1, m2);
+        Map<NamedType, ParameterizedType> r2 = combineMaps(m2, m1);
+        r1.putAll(r2);
+        return r1;
+    }
+
     @Override
     public Map<NamedType, ParameterizedType> combineMaps(Map<NamedType, ParameterizedType> m1,
                                                          Map<NamedType, ParameterizedType> m2) {
         assert m1 != null;
+        Map<NamedType, ParameterizedType> addToM1 = new HashMap<>();
+        m1.forEach((nt, pt) -> {
+            // can we map E in Set to E in Collection
+            if (nt instanceof TypeParameter tp && tp.getOwner().isLeft()) {
+                TypeInfo owner = tp.getOwner().getLeft();
+                if (owner.parentClass().hasTypeParameters()) {
+                    Map<NamedType, ParameterizedType> map = mapInTermsOfParametersOfSubType(owner, owner.parentClass());
+                    addToM1IfNonNull(nt, map, addToM1, pt);
+                }
+                for (ParameterizedType interfaceType : owner.interfacesImplemented()) {
+                    if (interfaceType.hasTypeParameters()) {
+                        Map<NamedType, ParameterizedType> map = mapInTermsOfParametersOfSubType(owner, interfaceType);
+                        addToM1IfNonNull(nt, map, addToM1, pt);
+                    }
+                }
+            }
+        });
+        addToM1.putAll(m1);
         return m2.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
-                e -> e.getValue().isTypeParameter() ? m1.getOrDefault(e.getValue().typeParameter(), e.getValue()) : e.getValue(),
+                e -> e.getValue().isTypeParameter()
+                        ? addToM1.getOrDefault(e.getValue().typeParameter(), e.getValue())
+                        : e.getValue(),
                 (v1, v2) -> {
                     throw new UnsupportedOperationException();
                 }, LinkedHashMap::new));
+    }
+
+    private static void addToM1IfNonNull(NamedType nt, Map<NamedType, ParameterizedType> map,
+                                         Map<NamedType, ParameterizedType> addToM1,
+                                         ParameterizedType pt) {
+        if (map != null) {
+            map.forEach((nt2, pt2) -> {
+                if (nt2.equals(nt) && pt2.typeParameter() != null) {
+                    addToM1.put(pt2.typeParameter(), pt);
+                }
+            });
+        }
     }
 
     @Override
@@ -253,7 +300,7 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
             if (ti.parentClass().typeInfo() == superType.typeInfo()) {
                 Map<NamedType, ParameterizedType> forward = superType.forwardTypeParameterMap();
                 Map<NamedType, ParameterizedType> formal = ti.parentClass().initialTypeParameterMap();
-                return combineMaps(forward, formal);
+                return biDirectionalCombineMaps(forward, formal); // TestMethodCall11,10 requires the bi-directionality
             }
             Map<NamedType, ParameterizedType> map = mapInTermsOfParametersOfSuperType(ti.parentClass().typeInfo(), superType);
             if (map != null) {
