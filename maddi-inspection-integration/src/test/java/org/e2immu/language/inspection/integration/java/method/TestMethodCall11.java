@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.net.URL;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodCall11 extends CommonTest {
@@ -315,4 +317,59 @@ public class TestMethodCall11 extends CommonTest {
     public void test8b() {
         javaInspector.parse(INPUT8b);
     }
+
+
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            import java.util.Collection;
+            import java.util.Set;
+            class X {
+                interface Filter<T> {
+                    boolean accept(T data);
+                }
+                private <T> void filterData(Collection<T> collection, Filter<T> filter) {
+                    //...
+                }
+                void method(Set<String> serviceNames) {
+                    filterData(serviceNames, serviceName -> {
+                        boolean accepted = serviceName.length() % 2 == 1;
+                        System.out.println(accepted);
+                        return accepted;
+                    });
+                }
+            }
+            """;
+
+    @DisplayName("type forwarding to lambdas")
+    @Test
+    public void test9() {
+        javaInspector.parse(INPUT9);
+    }
+
+    @Language("java")
+    private static final String INPUT10 = """
+            package a.b;
+            import java.net.URL;
+            class X {
+                 abstract class QuicCodecBuilder <B extends QuicCodecBuilder<B>> { }
+                 class QuicServerCodecBuilder extends QuicCodecBuilder<QuicServerCodecBuilder> {
+                    QuicServerCodecBuilder tokenHandler(String token) { return this; }
+                 }
+                 static QuicServerCodecBuilder newQuicServerCodecBuilder() { return new QuicServerCodecBuilder(); }
+                 static <T extends QuicCodecBuilder<T>> T configCodec(QuicCodecBuilder<T> builder, URL url) {
+                     return (T)builder;
+                 }
+                 void method(URL url) {
+                     configCodec(newQuicServerCodecBuilder(), url).tokenHandler("abc");
+                 }
+            }
+            """;
+
+    @DisplayName("type forwarding to lambda, more")
+    @Test
+    public void test10() {
+        javaInspector.parse(INPUT10);
+    }
+
 }

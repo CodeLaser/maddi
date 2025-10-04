@@ -431,13 +431,14 @@ public class MethodAnalyzer {
             VariableData closureVic = iv.closure.get(variable.fullyQualifiedName());
             if (closureVic != null ||
                 Util.inScopeOf(indexOfDefinition, index) && iv.acceptLimitedScope(previousVd, vi.variable(), indexOfDefinition, index)) {
-
-                VariableInfoImpl eval = new VariableInfoImpl(variable, readWriteData.assignmentIds(variable, vi),
-                        readWriteData.isRead(variable, vi), closureVic);
-                boolean specificHasMerge = hasMerge && !readWriteData.seenFirstTime.containsKey(variable);
-                VariableInfoContainer newVic = new VariableInfoContainerImpl(variable, vic.variableNature(),
-                        Either.left(vic), eval, specificHasMerge);
-                vdi.put(variable, newVic);
+                if (!vdi.isKnown(variable.fullyQualifiedName())) {
+                    VariableInfoImpl eval = new VariableInfoImpl(variable, readWriteData.assignmentIds(variable, vi),
+                            readWriteData.isRead(variable, vi), closureVic);
+                    boolean specificHasMerge = hasMerge && !readWriteData.seenFirstTime.containsKey(variable);
+                    VariableInfoContainer newVic = new VariableInfoContainerImpl(variable, vic.variableNature(),
+                            Either.left(vic), eval, specificHasMerge);
+                    vdi.put(variable, newVic);
+                } // e.g. a variable from outer shadowed in a lambda
             }
         });
 

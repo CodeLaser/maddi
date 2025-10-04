@@ -18,10 +18,23 @@ public interface GenericsHelper {
     MethodTypeParameterMap newMethodTypeParameterMap(MethodInfo methodInfo, Map<NamedType, ParameterizedType> concreteTypes);
 
     /*
-    StringMap<V> -> HashMap<K,V> -> Map<K, V>
+     StringMap<V> -> HashMap<K,V> -> Map<K, V>
 
-    M2: K(map) -> K(hashmap), M1: K(hashmap) -> String
-    */
+     M2: K(map) -> K(hashmap), M1: K(hashmap) -> String
+
+     M1: E=0 in Set -> String, M2: Target = E=0 in Collection.
+     We must make the link between E in Collection and E in set
+
+     TODO this code is pretty dedicated; it should be recursive? TODO clean-up, extend
+  */
+    Map<NamedType, ParameterizedType> biDirectionalCombineMaps(Map<NamedType, ParameterizedType> m1,
+                                                               Map<NamedType, ParameterizedType> m2);
+
+    /*
+        StringMap<V> -> HashMap<K,V> -> Map<K, V>
+
+        M2: K(map) -> K(hashmap), M1: K(hashmap) -> String
+        */
     Map<NamedType, ParameterizedType> combineMaps(Map<NamedType, ParameterizedType> m1,
                                                   Map<NamedType, ParameterizedType> m2);
 
