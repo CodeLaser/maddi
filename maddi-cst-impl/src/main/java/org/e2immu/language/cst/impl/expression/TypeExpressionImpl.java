@@ -8,6 +8,7 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.expression.TypeExpression;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -97,7 +98,15 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.of(new ElementImpl.TypeReference(parameterizedType().typeInfo(), true));
+        TypeInfo typeInfo = parameterizedType().typeInfo();
+        if (typeInfo == null) {
+            if (parameterizedType.typeParameter() != null) {
+                return parameterizedType.typeParameter().typeBounds()
+                        .stream().flatMap(ParameterizedType::typesReferenced);
+            }
+            return Stream.of();
+        }
+        return Stream.of(new ElementImpl.TypeReference(typeInfo, true));
     }
 
     @Override
