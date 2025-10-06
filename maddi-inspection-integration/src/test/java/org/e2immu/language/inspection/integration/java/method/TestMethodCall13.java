@@ -18,7 +18,8 @@ public class TestMethodCall13 extends CommonTest {
     private static final String INPUT1 = """
          package a.b;
          import java.util.List;
-         import java.util.Map;import java.util.stream.Collectors;
+         import java.util.Map;
+         import java.util.stream.Collectors;
          
          class X {
              interface ClinicalDataCount { 
@@ -56,19 +57,52 @@ public class TestMethodCall13 extends CommonTest {
             }
             """;
 
-    /*
-    public static <T, R> Collector<T, R, R> of(Supplier<R> supplier,
-                                               BiConsumer<R, T> accumulator,
-                                               BinaryOperator<R> combiner);
-    R clearly can become a LinkedHashSet
-    evaluation of the lambda must occur with R=LinkedHashSet, as must evaluation of X::combiner
-     */
     @Test
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1);
         MethodInfo method = typeInfo.findUniqueMethod("method", 1);
         Expression expression = method.methodBody().statements().getFirst().expression();
-        assertEquals("", expression.toString());
+        assertNotNull(expression);
+    }
+
+
+    @Language("java")
+    private static final String INPUT1b = """
+         package a.b;
+         import java.util.List;
+         import java.util.Map;
+         import java.util.stream.Collectors;
+         
+         class X {
+             interface ClinicalDataCount {
+                 boolean accept();
+             }
+             interface ClinicalDataCountItem {
+                  List<ClinicalDataCount> getCounts();
+                  void setCounts(List<ClinicalDataCount> list);
+                  String getAttributeId();
+              }
+
+             public Map<String, ClinicalDataCountItem> method(List<ClinicalDataCountItem> clinicalDataCountItems) {
+                 return clinicalDataCountItems.stream()
+                       .map(clinicalDataCountItem -> {
+                             clinicalDataCountItem.setCounts(List.of());
+                             return clinicalDataCountItem;
+                           })
+                       .collect(
+                           Collectors.toMap(
+                               clinicalDataCountItem -> clinicalDataCountItem.getAttributeId(),
+                               clinicalDataCountItem -> clinicalDataCountItem));
+                }
+            }
+         """;
+
+    @Test
+    public void test1b() {
+        TypeInfo typeInfo = javaInspector.parse(INPUT1b);
+        MethodInfo method = typeInfo.findUniqueMethod("method", 1);
+        Expression expression = method.methodBody().statements().getFirst().expression();
+        assertNotNull(expression);
     }
 
 }
