@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-public abstract   class ErasureExpressionImpl implements ErasedExpression, Expression {
+public abstract class ErasureExpressionImpl implements ErasedExpression, Expression {
     protected final Runtime runtime;
     protected final Source source;
 
@@ -57,8 +57,8 @@ public abstract   class ErasureExpressionImpl implements ErasedExpression, Expre
 
     @Override
     public void visit(Visitor visitor) {
-       visitor.beforeExpression(this);
-       visitor.afterExpression(this);
+        visitor.beforeExpression(this);
+        visitor.afterExpression(this);
     }
 
     @Override
@@ -88,7 +88,7 @@ public abstract   class ErasureExpressionImpl implements ErasedExpression, Expre
 
     @Override
     public int internalCompareTo(Expression expression) {
-       throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException();
     }
 
     @Override

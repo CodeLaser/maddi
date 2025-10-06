@@ -3,6 +3,7 @@ package org.e2immu.parser.java;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Source;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -156,6 +157,9 @@ public class ParseLambdaExpression extends CommonParse {
                             .mostSpecific(runtime, primaryType, returnType));
                 }
                 return false;
+            }
+            if (statement instanceof Lambda || statement instanceof ConstructorCall) {
+                return false; // do not go into lambdas, anonymous types, because they have a different return type
             }
             return true;
         });
