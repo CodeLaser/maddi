@@ -13,6 +13,7 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.analyzer.run.config.Configuration;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -71,6 +72,9 @@ public class RunAnalyzer implements Runnable {
         } catch (IOException ioe) {
             LOGGER.error("Caught IO exception: {}", ioe.getMessage());
             exitValue = 1;
+        } catch (RuntimeException re) {
+            LOGGER.error("Runtime exception", re);
+            exitValue = 1;
         }
     }
 
@@ -81,7 +85,19 @@ public class RunAnalyzer implements Runnable {
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
         javaInspector.initialize(inputConfiguration);
         AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
-        new LoadAnalyzedPackageFiles(javaInspector.mainSources()).go(javaInspector, ac.analyzedAnnotatedApiDirs());
+
+        List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
+        boolean modification = analysisSteps.contains(Main.AS_MODIFICATION);
+        if (modification) {
+            SourceSet sourceSetOfRequest = javaInspector.mainSources();
+            if (sourceSetOfRequest == null) {
+                sourceSetOfRequest = inputConfiguration.sourceSets().stream().findAny().orElse(null);
+                LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
+            }
+            new LoadAnalyzedPackageFiles(sourceSetOfRequest).go(javaInspector, ac.analyzedAnnotatedApiDirs());
+        } else {
+            LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
+        }
 
         JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
                 .setDetailedSources(true)
@@ -98,12 +114,11 @@ public class RunAnalyzer implements Runnable {
             LOGGER.error("Have parsing errors, bailing out");
             return;
         }
-        List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
         if (analysisSteps.size() == 1 && Main.AS_NONE.equalsIgnoreCase(analysisSteps.getFirst())) {
             return;
         }
         ComputeCallGraph ccg;
-        boolean modification = analysisSteps.contains(Main.AS_MODIFICATION);
+
         boolean rewireTests = analysisSteps.contains(Main.AS_REWIRE_TESTS);
         boolean prep = modification || rewireTests || analysisSteps.contains(Main.AS_PREP);
         if (prep) {
