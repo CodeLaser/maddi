@@ -5,7 +5,7 @@ Java library conventions - equivalent to buildSrc java-library-conventions
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 load("//:platform.bzl", "COMMON_JAVA_DEPS", "COMMON_JAVA_TEST_DEPS")
 
-def maddi_javalibrary(
+def maddi_java_library(
         name,
         srcs = None,
         javacopts = [],
@@ -41,7 +41,7 @@ def maddi_javalibrary(
     )
 
 
-def maddi_javatest(
+def maddi_java_test(
         name,
         srcs = None,
         deps = None,

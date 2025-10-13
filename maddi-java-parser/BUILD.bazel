@@ -1,11 +1,20 @@
-# Example subproject BUILD.bazel file
-# Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
+# maddi: a modification analyzer for duplication detection and immutability.
+# Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+#
+# This program is free software: you can redistribute it and/or modify it under the
+# terms of the GNU Lesser General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later version.
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+# more details. You should have received a copy of the GNU Lesser General Public
+# License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-load("//:java_library_conventions.bzl", "maddi_javalibrary", "maddi_javatest")
+load("//:java_library_conventions.bzl", "maddi_java_library", "maddi_java_test")
 load("//:platform.bzl", "COMMON_JAVA_DEPS", "COMMON_JAVA_TEST_DEPS")
 
 # Main library target
-maddi_javalibrary(
+maddi_java_library(
     name = "maddi-java-parser",
     srcs = glob(["src/main/java/**/*.java"]),
     javacopts = [
@@ -28,7 +37,7 @@ maddi_javalibrary(
 )
 
 # Test target
-maddi_javatest(
+maddi_java_test(
     name = "maddi-java-parser_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
