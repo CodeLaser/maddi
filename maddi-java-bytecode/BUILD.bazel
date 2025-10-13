@@ -18,6 +18,7 @@ codelaser_java_library(
         "//maddi-cst-api",
         "//maddi-inspection-api",
         "//maddi-support",
+        "//maddi-util",
     ],
 )
 
