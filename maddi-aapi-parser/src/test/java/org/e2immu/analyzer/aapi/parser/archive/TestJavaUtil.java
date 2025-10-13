@@ -15,8 +15,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector.*;
-import static org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector.FieldValue;
-import static org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector.Independent;
+import org.e2immu.language.cst.api.analysis.Value.Independent;
 import static org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes.HIDDEN_CONTENT_TYPES;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;

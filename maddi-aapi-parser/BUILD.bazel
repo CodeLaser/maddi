@@ -1,0 +1,60 @@
+# Example subproject BUILD.bazel file
+# Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
+
+load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
+
+# Main library target
+codelaser_java_library(
+    name = "maddi-aapi-parser",
+    srcs = glob(["src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
+    deps = [
+        "//maddi-aapi-archive",
+        "//maddi-cst-analysis",
+        "//maddi-cst-api",
+        "//maddi-cst-impl",
+        "//maddi-cst-io",
+        "//maddi-cst-print",
+        "//maddi-graph",
+        "//maddi-inspection-api",
+        "//maddi-inspection-integration",
+        "//maddi-inspection-parser",
+        "//maddi-inspection-resource",
+        "//maddi-java-bytecode",
+        "//maddi-java-parser",
+        "//maddi-modification-common",
+        "//maddi-modification-io",
+        "//maddi-modification-prepwork",
+        "//maddi-support",
+        "//maddi-util",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+)
+
+codelaser_java_test(
+    name = "maddi-aapi-parser_test",
+    size = "small",  # or "medium", "large"
+    srcs = glob(["src/test/java/**/*.java"]),
+    test_packages = ["org.e2immu.analyzer.aapi.parser"],
+    deps = [
+        ":maddi-aapi-parser",  # Depend on the main library
+        "//maddi-aapi-archive",
+        "//maddi-cst-analysis",
+        "//maddi-cst-api",
+        "//maddi-cst-impl",
+        "//maddi-cst-io",
+        "//maddi-cst-print",
+        "//maddi-graph",
+        "//maddi-inspection-api",
+        "//maddi-inspection-integration",
+        "//maddi-inspection-parser",
+        "//maddi-inspection-resource",
+        "//maddi-java-bytecode",
+        "//maddi-java-parser",
+        "//maddi-modification-common",
+        "//maddi-modification-io",
+        "//maddi-modification-prepwork",
+        "//maddi-support",
+        "//maddi-util",
+    ],
+)
