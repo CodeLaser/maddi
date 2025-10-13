@@ -5,7 +5,7 @@ Java library conventions - equivalent to buildSrc java-library-conventions
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 load("//:platform.bzl", "COMMON_JAVA_DEPS", "COMMON_JAVA_TEST_DEPS")
 
-def codelaser_java_library(
+def maddi_javalibrary(
         name,
         srcs = None,
         javacopts = [],
@@ -41,7 +41,7 @@ def codelaser_java_library(
     )
 
 
-def codelaser_java_test(
+def maddi_javatest(
         name,
         srcs = None,
         deps = None,

@@ -1,10 +1,10 @@
 # Example subproject BUILD.bazel file
 # Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
 
-load("//:java_library_conventions.bzl", "codelaser_java_library")
+load("//:java_library_conventions.bzl", "maddi_javalibrary")
 
 # Main library target
-codelaser_java_library(
+maddi_javalibrary(
     name = "maddi-inspection-parser",
     srcs = glob(["src/main/java/**/*.java"]),
     deps = [
