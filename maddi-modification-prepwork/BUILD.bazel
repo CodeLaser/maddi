@@ -1,9 +1,9 @@
 # Example subproject BUILD.bazel file
 # Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
 
-load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
+load("//:java_library_conventions.bzl", "maddi_javalibrary", "maddi_javatest")
 
-codelaser_java_library(
+maddi_javalibrary(
     name = "maddi-modification-prepwork",
     srcs = glob(["src/main/java/**/*.java"]),
     javacopts = [ "-Xep:ComparableType:WARN" ],
@@ -28,7 +28,7 @@ codelaser_java_library(
     ],
 )
 
-codelaser_java_test(
+maddi_javatest(
     name = "maddi-modification-prepwork_test",
     size = "small",  # or "medium", "large"
     srcs = glob(["src/test/java/**/*.java"]),
