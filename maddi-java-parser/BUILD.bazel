@@ -8,7 +8,10 @@ load("//:platform.bzl", "COMMON_JAVA_DEPS", "COMMON_JAVA_TEST_DEPS")
 codelaser_java_library(
     name = "maddi-java-parser",
     srcs = glob(["src/main/java/**/*.java"]),
-    javacopts = ["-Xep:EqualsHashCode:WARN", "-Xep:FormatString:WARN"],
+    javacopts = [
+        "-Xep:EqualsHashCode:WARN",
+        "-Xep:FormatString:WARN",
+    ],
     visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
     #   resources = glob(["src/main/resources/**/*"]),
     deps = [
@@ -18,6 +21,7 @@ codelaser_java_library(
         "@maven//:org_ow2_asm_asm",
         "//maddi-cst-api",
         "//maddi-inspection-api",
+        "//maddi-inspection-parser",
         "//maddi-support",
         "//maddi-util",
     ],
@@ -36,6 +40,7 @@ codelaser_java_test(
         # Add additional test-specific dependencies here
         "//maddi-cst-impl",
         "//maddi-inspection-api",
+        "//maddi-inspection-parser",
         "//maddi-inspection-resource",
         "//maddi-support",
     ],

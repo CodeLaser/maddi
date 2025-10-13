@@ -1,0 +1,55 @@
+# Example subproject BUILD.bazel file
+# Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
+
+load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
+
+codelaser_java_library(
+    name = "maddi-modification-prepwork",
+    srcs = glob(["src/main/java/**/*.java"]),
+    javacopts = [ "-Xep:ComparableType:WARN" ],
+    visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
+    #    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        "//maddi-cst-analysis",
+        "//maddi-cst-api",
+        "//maddi-cst-impl",
+        "//maddi-cst-io",
+        "//maddi-cst-print",
+        "//maddi-graph",
+        "//maddi-inspection-api",
+        "//maddi-inspection-integration",
+        "//maddi-inspection-parser",
+        "//maddi-inspection-resource",
+        "//maddi-java-bytecode",
+        "//maddi-java-parser",
+        "//maddi-modification-common",
+        "//maddi-support",
+        "//maddi-util",
+    ],
+)
+
+codelaser_java_test(
+    name = "maddi-modification-prepwork_test",
+    size = "small",  # or "medium", "large"
+    srcs = glob(["src/test/java/**/*.java"]),
+    test_packages = ["org.e2immu.analyzer.modification.prepwork"],
+    deps = [
+        # the main library and its dependencies
+        ":maddi-modification-prepwork",
+        "//maddi-cst-api",
+        "//maddi-inspection-integration",
+        "//maddi-support",
+        "//maddi-inspection-api",
+        "//maddi-util",
+        "//maddi-graph",
+        "//maddi-cst-impl",
+        "//maddi-cst-io",
+        "//maddi-cst-analysis",
+        "//maddi-cst-print",
+        "//maddi-inspection-parser",
+        "//maddi-inspection-resource",
+        "//maddi-modification-common",
+        "//maddi-java-parser",
+        "//maddi-java-bytecode",
+    ],
+)

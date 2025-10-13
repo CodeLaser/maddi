@@ -39,8 +39,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.linkedvariables.lv.LinkedVariablesImpl.*;
-import static org.e2immu.analyzer.modification.linkedvariables.lv.LinkedVariablesImpl.SetOfTypeInfo;
-import static org.e2immu.analyzer.modification.linkedvariables.lv.LinkedVariablesImpl.VariableBooleanMap;
+import static org.e2immu.language.cst.api.analysis.Value.SetOfTypeInfo;
+import static org.e2immu.language.cst.api.analysis.Value.VariableBooleanMap;
 import static org.e2immu.analyzer.modification.linkedvariables.lv.StaticValuesImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector.HCS_PARAMETER;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.*;
