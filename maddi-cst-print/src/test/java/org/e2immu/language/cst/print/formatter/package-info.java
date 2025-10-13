@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = TestFormatter1.class,
                 summary = "TestFormatter1 is a unit‑testing class that verifies the behaviour of the formatter component.  \nIt creates various formatted code snippets and asserts that the formatter outputs the expected string under different configuration options such as line length, tab size, and compact mode.  \nThe class serves as a collection of regression tests for the code‑formatting logic, ensuring that changes to the formatter do not alter its public behaviour.",

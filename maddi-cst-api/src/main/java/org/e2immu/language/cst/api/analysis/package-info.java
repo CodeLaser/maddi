@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = Codec.class,
                 summary = "The Codec interface defines a bidirectional encoder/decoder for the property‑value pairs that describe analysis metadata.  \nIt declares methods to encode and decode primitive types, expressions, field and method information, complex collections, and custom Value implementations.  \nIn addition to data conversion, Codec supplies helper methods for indexing fields, methods, and types, and exposes provider services for property, type, and value handling.  \nThis central component facilitates serialization of analysis results and their later reconstruction in a consistent, type‑safe manner.",

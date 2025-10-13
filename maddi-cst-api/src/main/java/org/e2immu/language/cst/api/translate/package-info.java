@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = TranslationMap.class,
                 summary = "TranslationMap defines the contract for translating various elements of a method body—variables, expressions, statements, fields, methods, and types—into a transformed form.  \nMost methods return identity defaults, allowing implementers to override only the needed parts.  \nThe interface also supplies utilities for collecting transformed items and for handling variable translation recursively.  \nTranslationMap is the core component that drives the multi‑stage translation of source code.",
