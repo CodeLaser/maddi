@@ -31,8 +31,9 @@ Run `gradle test`
 
 ### Building with Bazel
 
-Run `bazel test //...`
+Run all tests with `bazel test //...`.
 
+Run individual project's tests with ` bazel test //maddi-graph:maddi-graph_test`.
 
 ___
 

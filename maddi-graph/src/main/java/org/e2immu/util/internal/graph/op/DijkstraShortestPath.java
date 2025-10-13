@@ -3,14 +3,9 @@ package org.e2immu.util.internal.graph.op;
 import org.jheaps.AddressableHeap;
 import org.jheaps.tree.PairingHeap;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.LongFunction;
-import java.util.function.LongPredicate;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public class DijkstraShortestPath {
@@ -45,6 +40,11 @@ public class DijkstraShortestPath {
         @Override
         public boolean equals(Object obj) {
             return obj instanceof DC dc && dist == dc.dist;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(dist);
         }
 
         public DC merge(DC alt) {

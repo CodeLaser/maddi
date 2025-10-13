@@ -8,7 +8,7 @@
 MODULE.bazel - Bazel module file (replaces WORKSPACE)
 """
 
-module(name = "codelaser")
+module(name = "maddi")
 
 # Java rules
 bazel_dep(name = "rules_java", version = "8.14.0")
@@ -55,6 +55,13 @@ maven.install(
 
         # ASM
         "org.ow2.asm:asm:9.7.1",
+
+        # used for testing the parser (need not be updated for compilation, building)
+        "org.apiguardian:apiguardian-api:1.1.2",
+        "org.assertj:assertj-core:3.27.3",
+        "org.springframework:spring-test:6.1.19",
+        "org.springframework:spring-core:6.1.19",
+        "org.projectlombok:lombok:1.18.42",
     ],
     repositories = [
         "https://repo1.maven.org/maven2",

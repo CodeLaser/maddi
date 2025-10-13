@@ -8,6 +8,7 @@ load("//:platform.bzl", "COMMON_JAVA_DEPS", "COMMON_JAVA_TEST_DEPS")
 codelaser_java_library(
     name = "maddi-java-parser",
     srcs = glob(["src/main/java/**/*.java"]),
+    javacopts = ["-Xep:EqualsHashCode:WARN", "-Xep:FormatString:WARN"],
     visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
     #   resources = glob(["src/main/resources/**/*"]),
     deps = [

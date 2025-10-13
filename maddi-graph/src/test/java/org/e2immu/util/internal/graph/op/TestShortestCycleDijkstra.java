@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,7 +52,9 @@ public class TestShortestCycleDijkstra {
         ShortestCycleDijkstra.Cycle<Integer> cycle0 = ShortestCycleDijkstra.shortestCycle(graph, new V<>(0));
         assertNull(cycle0);
 
-        TypeGraphIO.dumpGraph(new File("build/cycle.gml"), graph);
+        Path tempDir = Files.createTempDirectory("test");
+        Path outputFile = tempDir.resolve("cycle.gml");
+        TypeGraphIO.dumpGraph(outputFile.toFile(), graph);
 
         Linearize.Result<Integer> res = Linearize.linearize(graph, Linearize.LinearizationMode.ALL);
         assertEquals(1, res.remainingCycles().size());
