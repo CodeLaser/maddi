@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = Index.class,
                 summary = "The Index interface defines a contract for representing and manipulating a sequence of integer indices used in type analysis. It includes methods for counting leading zeros, dropping or taking elements, encoding into a binary format, and mapping indices via a functional transformation. Additionally, it provides facilities to locate formal type parameters within generic types and to construct new index sequences through concatenation or replacement.",

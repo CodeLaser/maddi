@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = Eval.class,
                 summary = "`Eval` defines a suite of operations for evaluating and simplifying expression trees at runtime.  \nIts methods handle logical combinations, arithmetic computations, type casts, instance checks, and various boolean predicates.  \nThe interface also offers a central routine, `sortAndSimplify`, that recursively refines complex expressions into canonical forms.  \n`Eval` is intended to be implemented by a runtime component that can process the abstract syntax tree nodes produced by the factory.",

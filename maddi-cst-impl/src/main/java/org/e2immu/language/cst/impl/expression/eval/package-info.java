@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = EvalAnd.class,
                 summary = "EvalAnd provides evaluation logic for logical AND expressions during static analysis.  It uses a runtime to combine a list of sub‑expressions, aiming to maintain a conjunctive normal form (CNF).  The class also offers helper methods to determine if an OR expression can be safely expanded based on equality comparisons.  It is a utility component that aids in simplifying and normalizing boolean conditions.",

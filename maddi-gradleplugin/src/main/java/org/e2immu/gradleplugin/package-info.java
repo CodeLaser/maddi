@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = ActionBroadcast.class,
                 summary = "`ActionBroadcast` aggregates a list of `Action<T>` objects and provides methods to add an action and execute all of them for a given input.  \nIt functions as a composite pattern implementation, allowing multiple Gradle actions to be triggered in sequence.  \nThe class manages a simple `List<Action<? super T>>` and forwards execution calls to each stored action.",

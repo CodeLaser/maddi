@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = ComputeHCS.class,
                 summary = "ComputeHCS drives the hidden‑content‑selection phase of the analyzer.  \nIt iterates over primitive type information in the runtime, processes each type to build a hidden‑content selector, and supplies a safe selector for methods.  \nThe class coordinates the construction of HiddenContentSelector objects and orchestrates the overall hidden‑content computation workflow.",

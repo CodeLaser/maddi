@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = FormatterImpl.class,
                 summary = "The FormatterImpl class implements the Formatter interface, orchestrating the conversion of a list of OutputElement objects into a formatted textual representation. It relies on a Runtime instance and user‑defined FormattingOptions to determine how elements are laid out, including line splitting, indentation, and guide handling. The class provides helper methods to write the formatted output to a Writer or return it as a String, delegating the actual line‑splitting logic to the Forward utility. Overall, FormatterImpl centralizes the rendering logic for concrete syntax tree nodes.",

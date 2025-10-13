@@ -1,3 +1,17 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 @Docstrings({
         @Docstring(type = CompiledTypesManagerImpl.class,
                 summary = "CompiledTypesManagerImpl is the central registry for compiled Java types within the inspection system.  \nIt maintains a thread‑safe map of fully‑qualified type names to `TypeInfo` objects, a trie for efficient name resolution, and handles lazy loading of bytecode through a `ByteCodeInspector`.  \nThe class exposes methods to add, retrieve, and preload types, guaranteeing that each type is inspected exactly once and that its bytecode is available when needed.  \nBy coordinating access with read/write locks, it allows concurrent reads while serializing updates, ensuring consistency across the inspection process.",
