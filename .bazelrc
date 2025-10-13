@@ -1,0 +1,6 @@
+# Bazel configuration file
+common --enable_bzlmod
+build --java_runtime_version=remotejdk_21
+build --java_language_version=21
+
+test --jvmopt="--enable-preview"

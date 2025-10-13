@@ -1,0 +1,64 @@
+###############################################################################
+# Bazel now uses Bzlmod by default to manage external dependencies.
+# Please consider migrating your external dependencies from WORKSPACE to MODULE.bazel.
+#
+# For more details, please check https://github.com/bazelbuild/bazel/issues/18958
+###############################################################################
+"""
+MODULE.bazel - Bazel module file (replaces WORKSPACE)
+"""
+
+module(name = "codelaser")
+
+# Java rules
+bazel_dep(name = "rules_java", version = "8.14.0")
+
+# JVM external dependencies
+bazel_dep(name = "rules_jvm_external", version = "6.3")
+
+
+# Java toolchains
+bazel_dep(name = "platforms", version = "0.0.11")
+
+# Register Java toolchains
+register_toolchains("@bazel_tools//tools/jdk:all")
+
+
+# Load platform dependencies
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+
+# Define all Maven artifacts (equivalent to your platform/build.gradle.kts)
+maven.install(
+    artifacts = [
+        # JGraphT
+        "org.jgrapht:jgrapht-core:1.5.2",
+        "org.jgrapht:jgrapht-io:1.5.2",
+
+        # JUnit
+        "org.junit.jupiter:junit-jupiter-api:5.13.0",
+        "org.junit.jupiter:junit-jupiter-engine:5.13.0",
+        "org.junit.platform:junit-platform-launcher:1.13.0",
+        "org.junit.platform:junit-platform-console:1.13.0",
+
+        # Logging
+        "org.slf4j:slf4j-api:2.0.17",
+        "ch.qos.logback:logback-classic:1.5.18",
+
+        # Annotations
+        "org.jetbrains:annotations:26.0.2",
+
+        # Jackson
+        "com.fasterxml.jackson.core:jackson-databind:2.19.2",
+
+        # Commons CLI
+        "commons-cli:commons-cli:1.10.0",
+
+        # ASM
+        "org.ow2.asm:asm:9.7.1",
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+)
+
+use_repo(maven, "maven")
