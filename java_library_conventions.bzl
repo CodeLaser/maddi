@@ -8,6 +8,7 @@ load("//:platform.bzl", "COMMON_JAVA_DEPS", "COMMON_JAVA_TEST_DEPS")
 def codelaser_java_library(
         name,
         srcs = None,
+        javacopts = [],
         deps = None,
         exports = None,
         runtime_deps = None,
@@ -24,7 +25,8 @@ def codelaser_java_library(
     
     # Merge common deps with provided deps
     all_deps = COMMON_JAVA_DEPS + (deps or [])
-    
+    all_javacopts = javacopts + ["--enable-preview"]
+
     java_library(
         name = name,
         srcs = srcs or [],
@@ -34,10 +36,7 @@ def codelaser_java_library(
         resources = resources,
         visibility = visibility,
         testonly = testonly,
-        javacopts = [
-            "--enable-preview",
-            #  "-source", "24",
-        ],
+        javacopts = all_javacopts,
         **kwargs
     )
 

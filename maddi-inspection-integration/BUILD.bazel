@@ -1,0 +1,61 @@
+# Example subproject BUILD.bazel file
+# Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
+
+load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
+
+codelaser_java_library(
+    name = "maddi-inspection-integration",
+    srcs = glob(["src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
+    #    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        "//maddi-cst-api",
+        # Add your specific dependencies here, e.g.:
+        # "@maven//:org_jgrapht_jgrapht_core",
+        # "//other-project:other-project",
+        "//maddi-support",
+        "//maddi-inspection-api",
+        "//maddi-util",
+        "//maddi-graph",
+        "//maddi-cst-impl",
+        "//maddi-cst-io",
+        "//maddi-cst-analysis",
+        "//maddi-cst-print",
+        "//maddi-inspection-parser",
+        "//maddi-inspection-resource",
+        "//maddi-java-parser",
+        "//maddi-java-bytecode",
+    ],
+)
+
+codelaser_java_test(
+    name = "maddi-inspection-integration_test",
+    size = "small",  # or "medium", "large"
+    srcs = glob(["src/test/java/**/*.java"]),
+    test_packages = ["org.e2immu.language.inspection.integration"],
+    resources = glob(["src/test/resources/**"]),  # Add this too
+    resource_strip_prefix = "maddi-inspection-integration/src/test/resources",  # Important!
+    deps = [
+        # the main library and its dependencies
+        ":maddi-inspection-integration",
+        "//maddi-cst-api",
+        "//maddi-support",
+        "//maddi-inspection-api",
+        "//maddi-util",
+        "//maddi-graph",
+        "//maddi-cst-impl",
+        "//maddi-cst-io",
+        "//maddi-cst-analysis",
+        "//maddi-cst-print",
+        "//maddi-inspection-parser",
+        "//maddi-inspection-resource",
+        "//maddi-java-parser",
+        "//maddi-java-bytecode",
+        # libraries interpreted by the tests
+        "@maven//:org_apiguardian_apiguardian_api",
+        "@maven//:org_assertj_assertj_core",
+        "@maven//:org_springframework_spring_test",
+        "@maven//:org_springframework_spring_core",
+        "@maven//:org_projectlombok_lombok",
+    ],
+)

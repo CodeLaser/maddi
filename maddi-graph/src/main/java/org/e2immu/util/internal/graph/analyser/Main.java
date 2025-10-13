@@ -15,6 +15,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class Main {
@@ -39,7 +40,10 @@ public class Main {
 
     private InputStream makeInputStream(String location) throws IOException {
         if (location.startsWith(CLASSPATH)) {
-            return this.getClass().getClassLoader().getResourceAsStream(location.substring(CLASSPATH.length()));
+            String classPathLocation = location.substring(CLASSPATH.length());
+            return Objects.requireNonNull(
+                    this.getClass().getClassLoader().getResourceAsStream(classPathLocation),
+                    "Cannot read from classpath: " + classPathLocation);
         }
         return new FileInputStream(location);
     }
@@ -59,9 +63,10 @@ public class Main {
             actionComputer = new RemoveEdgesByVertexWeight<>(vertexWeights);
         } else {
             EdgePrinter<TypeGraphIO.Node> edgePrinter = m -> m == null ? "[]"
-                    : m.entrySet().stream().map(e -> e.getKey() + "->" +
-                            e.getValue().entrySet().stream().map(e2 -> e2.getKey() + ":"
-                                    + PackedInt.nice((int) (long) e2.getValue())).collect(Collectors.joining(",")))
+                    : m.entrySet().stream().map(e ->
+                            e.getKey() + "->" + e.getValue().entrySet().stream()
+                                    .map(e2 -> e2.getKey() + ":"
+                                               + PackedInt.nice((int) (long) e2.getValue())).collect(Collectors.joining(",")))
                     .collect(Collectors.joining(";"));
             long limit = PackedInt.FIELD.of(1);
             EdgeIterator<TypeGraphIO.Node> edgeIterator = gg ->
