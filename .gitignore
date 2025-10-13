@@ -1,3 +1,6 @@
+MODULE.bazel.lock
+bazel-*
+
 **/.DS_Store
 **/build/
 **/target/

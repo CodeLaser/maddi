@@ -1,0 +1,41 @@
+# Example subproject BUILD.bazel file
+# Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
+
+load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
+load("//:platform.bzl", "COMMON_JAVA_DEPS", "COMMON_JAVA_TEST_DEPS")
+
+# Main library target
+codelaser_java_library(
+    name = "maddi-java-parser",
+    srcs = glob(["src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
+    #   resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        # Add your specific dependencies here, e.g.:
+        # "@maven//:org_jgrapht_jgrapht_core",
+        # "//other-project:other-project",
+        "@maven//:org_ow2_asm_asm",
+        "//maddi-cst-api",
+        "//maddi-inspection-api",
+        "//maddi-support",
+        "//maddi-util",
+    ],
+)
+
+# Test target
+codelaser_java_test(
+    name = "maddi-java-parser_test",
+    size = "small",  # or "medium", "large"
+    srcs = glob(["src/test/java/**/*.java"]),
+    test_packages = ["org.e2immu.parser.java"],
+    #    resources = glob(["src/test/resources/**/*"]),
+    deps = [
+        ":maddi-java-parser",  # Depend on the main library
+        "//maddi-cst-api",
+        # Add additional test-specific dependencies here
+        "//maddi-cst-impl",
+        "//maddi-inspection-api",
+        "//maddi-inspection-resource",
+        "//maddi-support",
+    ],
+)

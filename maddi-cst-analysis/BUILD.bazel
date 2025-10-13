@@ -1,0 +1,17 @@
+# Example subproject BUILD.bazel file
+# Place this in each of your subproject directories (e.g., myproject/BUILD.bazel)
+
+load("//:java_library_conventions.bzl", "codelaser_java_library", "codelaser_java_test")
+
+# Main library target
+codelaser_java_library(
+    name = "maddi-cst-analysis",
+    srcs = glob(["src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],  # or ["//visibility:private"] for internal-only
+    deps = [
+        # Add your specific dependencies here, e.g.:
+        # "@maven//:org_jgrapht_jgrapht_core",
+        "//maddi-cst-api",
+        "//maddi-support",
+    ],
+)
