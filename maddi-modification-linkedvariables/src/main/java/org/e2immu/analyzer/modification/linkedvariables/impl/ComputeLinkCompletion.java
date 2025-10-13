@@ -267,7 +267,7 @@ class ComputeLinkCompletion {
                 Map<Variable, Boolean> res = new HashMap<>(m1);
                 for (Map.Entry<Variable, Boolean> e : m2.entrySet()) {
                     Boolean b = res.put(e.getKey(), e.getValue());
-                    if (b != null && b != e.getValue()) throw new UnsupportedOperationException();
+                    if (b != null && (boolean)b != e.getValue()) throw new UnsupportedOperationException();
                 }
                 return Map.copyOf(res);
             });
