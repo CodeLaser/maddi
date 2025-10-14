@@ -79,7 +79,7 @@ public record StaticValuesHelper(Runtime runtime) {
             boolean multiple = staticValues.size() > 1;
             StaticValues newSv = new StaticValuesImpl(null, null, multiple,
                     Map.of(indexed, staticValues.getFirst().expression()));
-            append.computeIfAbsent(base, b -> new ArrayList<>()).add(newSv);
+            append.computeIfAbsent(base, _ -> new ArrayList<>()).add(newSv);
             add(source, variableData, statementIndex, base, List.of(newSv), append);
         }
     }

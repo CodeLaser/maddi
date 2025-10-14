@@ -66,10 +66,6 @@ public class ReturnVariableImpl implements ReturnVariable {
         return methodInfo;
     }
 
-    public TypeInfo getOwningType() {
-        return methodInfo.typeInfo();
-    }
-
     @Override
     public int hashCode() {
         return Objects.hash(returnType, fqn);

@@ -84,7 +84,7 @@ class ComputeLinkCompletion {
 
         void addCasts(Map<Variable, Set<ParameterizedType>> casts) {
             casts.forEach((variable, set) -> {
-                Set<TypeInfo> typeInfos = this.casts.computeIfAbsent(variable, v -> new HashSet<>());
+                Set<TypeInfo> typeInfos = this.casts.computeIfAbsent(variable, _ -> new HashSet<>());
                 set.forEach(pt -> {
                     TypeInfo e = pt.bestTypeInfo();
                     if (e != null) typeInfos.add(e);
@@ -93,7 +93,7 @@ class ComputeLinkCompletion {
         }
 
         void addAssignment(Variable variable, StaticValues value) {
-            staticValues.computeIfAbsent(variable, l -> new ArrayList<>()).add(value);
+            staticValues.computeIfAbsent(variable, _ -> new ArrayList<>()).add(value);
         }
 
         void addLink(LinkedVariables linkedVariables, VariableInfoImpl destinationVi) {
@@ -118,7 +118,7 @@ class ComputeLinkCompletion {
                         Value.SetOfTypeInfo set = vi.analysis().getOrDefault(VariableInfoImpl.DOWNCAST_VARIABLE,
                                 ValueImpl.SetOfTypeInfoImpl.EMPTY);
                         if (!set.typeInfoSet().isEmpty()) {
-                            casts.computeIfAbsent(vi.variable(), v -> new HashSet<>()).addAll(set.typeInfoSet());
+                            casts.computeIfAbsent(vi.variable(), _ -> new HashSet<>()).addAll(set.typeInfoSet());
                         }
                     }
                 });

@@ -73,11 +73,6 @@ public record IndicesImpl(Set<Index> set) implements Indices, Comparable<Indices
     }
 
     @Override
-    public boolean isUnspecified() {
-        return UNSPECIFIED_MODIFICATION_INDICES.equals(this);
-    }
-
-    @Override
     public int compareTo(Indices o) {
         Iterator<Index> mine = set.iterator();
         Iterator<Index> theirs = o.set().iterator();

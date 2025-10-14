@@ -43,12 +43,6 @@ public class VariableDataImpl implements VariableData {
         return null;// not yet streamed
     }
 
-    public void putIfAbsent(Variable v, VariableInfoContainer vic) {
-        if (!vicByFqn.isSet(v.fullyQualifiedName())) {
-            vicByFqn.put(v.fullyQualifiedName(), vic);
-        }
-    }
-
     @Override
     public boolean isKnown(String fullyQualifiedName) {
         return vicByFqn.isSet(fullyQualifiedName);

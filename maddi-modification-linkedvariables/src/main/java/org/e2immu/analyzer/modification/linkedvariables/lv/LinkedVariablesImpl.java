@@ -14,7 +14,6 @@
 
 package org.e2immu.analyzer.modification.linkedvariables.lv;
 
-import org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
@@ -94,12 +93,6 @@ public class LinkedVariablesImpl implements LinkedVariables, Comparable<Value>,
         assert variables != null;
         this.variables = variables;
         assert variables.values().stream().noneMatch(lv -> lv == LINK_INDEPENDENT || lv == LINK_COMMON_HC);
-    }
-
-    public static LV fromIndependentToLinkedVariableLevel(Value.Independent independent) {
-        if (independent.isIndependent()) return LINK_INDEPENDENT;
-        if (!independent.isAtLeastIndependentHc()) return LINK_DEPENDENT;
-        return LINK_COMMON_HC;
     }
 
     @Override
@@ -221,15 +214,6 @@ public class LinkedVariablesImpl implements LinkedVariables, Comparable<Value>,
                 .collect(Collectors.joining(", "));
     }
 
-    public LV select(int index) {
-        if (this == NOT_YET_SET || this == EMPTY || variables.isEmpty()) throw new UnsupportedOperationException();
-        return variables.entrySet().stream()
-                .sorted(Comparator.comparing(e -> e.getKey().simpleName() + ":" + e.getValue().value()))
-                .skip(index)
-                .map(Map.Entry::getValue)
-                .findFirst().orElseThrow();
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -282,14 +266,6 @@ public class LinkedVariablesImpl implements LinkedVariables, Comparable<Value>,
     }
 
     @Override
-    public LinkedVariables changeToDelay() {
-        if (isEmpty() || this == NOT_YET_SET) return this;
-        Map<Variable, LV> map = variables.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> LINK_DELAYED));
-        return of(map);
-    }
-
-    @Override
     public LinkedVariables remove(Set<Variable> reassigned) {
         if (isEmpty() || this == NOT_YET_SET) return this;
         Map<Variable, LV> map = variables.entrySet().stream()
@@ -308,50 +284,14 @@ public class LinkedVariablesImpl implements LinkedVariables, Comparable<Value>,
     }
 
     @Override
-    public LinkedVariables changeNonStaticallyAssignedToDelay() {
-        if (isEmpty() || this == NOT_YET_SET) return this;
-        Map<Variable, LV> map = variables.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> {
-                    LV lv = e.getValue();
-                    return LINK_STATICALLY_ASSIGNED.equals(lv) ? LINK_STATICALLY_ASSIGNED : LINK_DELAYED;
-                }));
-        return of(map);
-    }
-
-    @Override
-    public LinkedVariables changeAllTo(LV value) {
-        if (isEmpty() || this == NOT_YET_SET) return this;
-        Map<Variable, LV> map = variables.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> value));
-        return of(map);
-    }
-
-    @Override
-    public LinkedVariables changeAllToUnlessDelayed(LV value) {
-        if (isEmpty() || this == NOT_YET_SET) return this;
-        Map<Variable, LV> map = variables.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().isDelayed() ? e.getValue() : value));
-        return of(map);
-    }
-
-    @Override
     public LV value(Variable variable) {
         if (this == NOT_YET_SET) return LINK_DELAYED;
         return variables.get(variable);
     }
 
-    public static boolean isAssignedOrLinked(LV dependent) {
-        return dependent.ge(LINK_STATICALLY_ASSIGNED) && dependent.le(LINK_DEPENDENT);
-    }
-
     @Override
     public Map<Variable, LV> variables() {
         return variables;
-    }
-
-    public boolean isDone() {
-        if (this == NOT_YET_SET) return false;
-        return !isDelayed();
     }
 
     @Override
@@ -363,68 +303,10 @@ public class LinkedVariablesImpl implements LinkedVariables, Comparable<Value>,
     }
 
     @Override
-    public Set<Variable> staticallyAssigned() {
-        return staticallyAssignedStream().collect(Collectors.toUnmodifiableSet());
-    }
-
-    @Override
-    public boolean identicalStaticallyAssigned(LinkedVariables linkedVariables) {
-        return staticallyAssigned().equals(linkedVariables.staticallyAssigned());
-    }
-
-    @Override
-    public Set<Variable> directAssignmentVariables() {
-        if (isEmpty() || this == NOT_YET_SET) return Set.of();
-        return variables.entrySet().stream().filter(e -> e.getValue().equals(LINK_STATICALLY_ASSIGNED))
-                .map(Map.Entry::getKey).collect(Collectors.toUnmodifiableSet());
-    }
-
-    @Override
-    public Stream<Variable> staticallyAssignedStream() {
-        return variables.entrySet().stream().filter(e -> LINK_STATICALLY_ASSIGNED.equals(e.getValue())).map(Map.Entry::getKey);
-    }
-
-    @Override
-    public Stream<Variable> dependentVariables() {
-        return variables.entrySet().stream().filter(e -> e.getValue().isDependent()).map(Map.Entry::getKey);
-    }
-
-    @Override
-    public Stream<Variable> assignedOrDependentVariables() {
-        return variables.entrySet().stream().filter(e -> isAssignedOrLinked(e.getValue())).map(Map.Entry::getKey);
-    }
-
-    @Override
-    public LinkedVariables removeStaticallyAssigned() {
-        if (isEmpty() || this == NOT_YET_SET) return this;
-        Map<Variable, LV> map = variables.entrySet().stream()
-                .filter(e -> !e.getValue().equals(LINK_STATICALLY_ASSIGNED))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        return of(map);
-    }
-
-    @Override
     public LinkedVariables map(Function<LV, LV> function) {
         if (isEmpty() || this == NOT_YET_SET) return this;
         Map<Variable, LV> map = variables.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> function.apply(e.getValue())));
         return of(map);
-    }
-
-    @Override
-    public boolean compatibleWith(HiddenContentSelector hcs) {
-        for (Map.Entry<Variable, LV> entry : this) {
-            for (Map.Entry<Indices, Link> link : entry.getValue().links().map().entrySet()) {
-                for (Index index : link.getKey().set()) {
-                    for (int i : index.list()) {
-                        if (i >= 0) {
-                            Indices indices = hcs.getMap().get(i);
-                            assert indices != null;
-                        }
-                    }
-                }
-            }
-        }
-        return true;
     }
 }
