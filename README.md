@@ -21,9 +21,12 @@ This distribution contains the AsciiDoc sources for the [Road to Immutability](h
 
 ## Building
 
-_maddi_ can be built both with Gradle and Bazel.
+_maddi_ can be built both with Gradle and Bazel:
 
-
+- the Maven plugin is, naturally, built with Maven
+- the Gradle plugin is, naturally, only built with Gradle
+- quite a few tests do not run in Bazel, because they expect to find class files in some relative location. This needs to be fixed at some point.
+- The Bazel build system has been added to test CodeLaser's Refactor input configuration construction system.
 
 ### Building with Gradle
 
@@ -31,7 +34,7 @@ Run `gradle test`
 
 ### Building with Bazel
 
-Run all tests with `bazel test //...`.
+Build all sub-projects with `bazel build //...`.
 
 Run individual project's tests with ` bazel test //maddi-graph:maddi-graph_test`.
 
