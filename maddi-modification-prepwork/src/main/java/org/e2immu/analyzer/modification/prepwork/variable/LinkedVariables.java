@@ -14,7 +14,6 @@
 
 package org.e2immu.analyzer.modification.prepwork.variable;
 
-import org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -32,25 +31,11 @@ public interface LinkedVariables extends Iterable<Map.Entry<Variable, LV>>, Valu
         List<LinkedVariables> list();
     }
 
-    Stream<Variable> assignedOrDependentVariables();
-
-    Stream<Variable> dependentVariables();
-
-    Set<Variable> directAssignmentVariables();
-
-    boolean identicalStaticallyAssigned(LinkedVariables linkedVariables);
-
     boolean isDelayed();
 
     boolean isNotYetSet();
 
     LinkedVariables map(Function<LV, LV> function);
-
-    LinkedVariables removeStaticallyAssigned();
-
-    Set<Variable> staticallyAssigned();
-
-    Stream<Variable> staticallyAssignedStream();
 
     /*
     goal of the 'minimum' parameter:
@@ -86,23 +71,11 @@ public interface LinkedVariables extends Iterable<Map.Entry<Variable, LV>>, Valu
 
     LinkedVariables translate(TranslationMap translationMap);
 
-    LinkedVariables changeToDelay();
-
     LinkedVariables remove(Set<Variable> reassigned);
 
     LinkedVariables remove(Predicate<Variable> remove);
 
-    LinkedVariables changeNonStaticallyAssignedToDelay();
-
-    LinkedVariables changeAllTo(LV value);
-
-    LinkedVariables changeAllToUnlessDelayed(LV value);
-
     LV value(Variable variable);
 
     Map<Variable, LV> variables();
-
-    // for assertions
-    boolean compatibleWith(HiddenContentSelector hcs);
-
 }

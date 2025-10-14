@@ -19,8 +19,6 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.support.Either;
 import org.e2immu.support.SetOnce;
 
-import java.util.Objects;
-
 public class VariableInfoContainerImpl implements VariableInfoContainer {
     private final Variable variable;
     private final VariableNature variableNature;
@@ -65,22 +63,6 @@ public class VariableInfoContainerImpl implements VariableInfoContainer {
     @Override
     public boolean hasMerge() {
         return merge != null;
-    }
-
-    @Override
-    public boolean setLinkedVariables(LinkedVariables linkedVariables, Stage level) {
-        Objects.requireNonNull(linkedVariables);
-        assert level != Stage.INITIAL;
-        VariableInfoImpl variableInfo = getToWrite(level);
-        return variableInfo.setLinkedVariables(linkedVariables);
-    }
-
-    private VariableInfoImpl getToWrite(Stage stage) {
-        return switch (stage) {
-            case INITIAL -> (VariableInfoImpl) getRecursiveInitialOrNull();
-            case EVALUATION -> Objects.requireNonNull(evaluation);
-            case MERGE -> Objects.requireNonNull(merge.get());
-        };
     }
 
     @Override

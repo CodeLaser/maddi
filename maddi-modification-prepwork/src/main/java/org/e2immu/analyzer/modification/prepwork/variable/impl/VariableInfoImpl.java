@@ -78,10 +78,6 @@ public class VariableInfoImpl implements VariableInfo {
         return false;
     }
 
-    public boolean staticValuesIsSet() {
-        return staticValues != null && !staticValues.isDefault();
-    }
-
     public void staticValuesSet(StaticValues staticValues) {
         if (this.staticValues == null || this.staticValues.overwriteAllowed(staticValues)) {
             this.staticValues = staticValues;

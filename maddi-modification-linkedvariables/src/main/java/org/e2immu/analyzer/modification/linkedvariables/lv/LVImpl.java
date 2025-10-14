@@ -14,7 +14,6 @@
 
 package org.e2immu.analyzer.modification.linkedvariables.lv;
 
-import org.e2immu.analyzer.modification.prepwork.delay.CausesOfDelay;
 import org.e2immu.analyzer.modification.prepwork.variable.Indices;
 import org.e2immu.analyzer.modification.prepwork.variable.LV;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
@@ -58,7 +57,7 @@ public class LVImpl implements LV {
         assert !label.isBlank();
     }
 
-    public static LV delay(CausesOfDelay someDelay) {
+    public static LV delay() {
         return new LVImpl(I_DELAY, NO_LINKS, "delay");
     }
 
@@ -126,18 +125,8 @@ public class LVImpl implements LV {
     }
 
     @Override
-    public boolean le(LV other) {
-        return value <= other.value();
-    }
-
-    @Override
     public boolean lt(LV other) {
         return value < other.value();
-    }
-
-    @Override
-    public boolean ge(LV other) {
-        return value >= other.value();
     }
 
     @Override
@@ -256,6 +245,7 @@ public class LVImpl implements LV {
     }
 
     // *M-...0M
+    @SuppressWarnings("unused")
     private boolean allToNonAllMod() {
         for (Map.Entry<Indices, Link> e : links.map().entrySet()) {
             if (!e.getKey().isAll()) return false;
@@ -265,31 +255,11 @@ public class LVImpl implements LV {
     }
 
     @Override
-    public LV correctTo(Map<Indices, Indices> correctionMap) {
-        if (links.map().isEmpty()) return this;
-        boolean isHc = isCommonHC();
-        Map<Indices, Link> updatedMap = links.map().entrySet().stream()
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().correctTo(correctionMap)));
-        Links updatedLinks = new LinksImpl(updatedMap);
-        return isHc ? createHC(updatedLinks) : createDependent(updatedLinks);
-    }
-
-    @Override
     public LV prefixMine(int index) {
         if (isDelayed() || isStaticallyAssignedOrAssigned()) return this;
         if (links.map().isEmpty()) return this;
         Map<Indices, Link> newMap = links.map().entrySet().stream()
                 .collect(Collectors.toUnmodifiableMap(e -> e.getKey().prefix(index), Map.Entry::getValue));
-        Links newLinks = new LinksImpl(newMap);
-        return isCommonHC() ? createHC(newLinks) : createDependent(newLinks);
-    }
-
-    @Override
-    public LV prefixTheirs(int index) {
-        if (isDelayed() || isStaticallyAssignedOrAssigned()) return this;
-        if (links.map().isEmpty()) return this;
-        Map<Indices, Link> newMap = links.map().entrySet().stream()
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue().prefixTheirs(index)));
         Links newLinks = new LinksImpl(newMap);
         return isCommonHC() ? createHC(newLinks) : createDependent(newLinks);
     }

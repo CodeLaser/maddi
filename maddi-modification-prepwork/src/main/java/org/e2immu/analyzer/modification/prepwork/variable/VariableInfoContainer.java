@@ -42,12 +42,6 @@ public interface VariableInfoContainer {
 
     boolean hasMerge();
 
-    /*
-    return true on progress
-     */
-    @Modified
-    boolean setLinkedVariables(LinkedVariables linkedVariables, Stage level);
-
     boolean isPrevious();
 
     boolean has(Stage level);
