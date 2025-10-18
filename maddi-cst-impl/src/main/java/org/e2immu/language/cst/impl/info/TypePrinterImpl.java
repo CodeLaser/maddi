@@ -174,7 +174,7 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         Access enclosedAccess = typeInfo.compilationUnitOrEnclosingType().isLeft()
                 ? InspectionImpl.AccessEnum.PUBLIC
                 : typeInfo.compilationUnitOrEnclosingType().getRight().access();
-        if (!enclosedAccess.isPrivate() && !access.isPackage()) {
+        if (!enclosedAccess.isPrivate() && !access.isPackage() && !enclosingIsInterface(typeInfo)) {
             list.add(typeModifier(access));
         } // else there really is no point anymore to show any access modifier, let's keep it brief
 
@@ -198,6 +198,11 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         } // else: records, interfaces, annotations, primitives are always static, never abstract
 
         return list;
+    }
+
+    private static boolean enclosingIsInterface(TypeInfo typeInfo) {
+        return typeInfo.compilationUnitOrEnclosingType().isRight()
+                && typeInfo.compilationUnitOrEnclosingType().getRight().isInterface();
     }
 
     private static TypeModifier typeModifier(Access access) {
