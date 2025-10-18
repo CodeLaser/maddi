@@ -112,7 +112,7 @@ public class TestComposer {
                     public static final String PACKAGE_NAME = "java.lang.invoke";
                     //public interface TypeDescriptor
                     class TypeDescriptor$ {
-                        //public interface OfField implements TypeDescriptor
+                        //interface OfField implements TypeDescriptor
                         class OfField<F extends TypeDescriptor.OfField<F>> {
                             boolean isArray() { return false; }
                             boolean isPrimitive() { return false; }
@@ -120,7 +120,7 @@ public class TestComposer {
                             F arrayType() { return null; }
                         }
                 
-                        //public interface OfMethod implements TypeDescriptor
+                        //interface OfMethod implements TypeDescriptor
                         class OfMethod<F extends TypeDescriptor.OfField<F>, M extends TypeDescriptor.OfMethod<F, M>> {
                             int parameterCount() { return 0; }
                             F parameterType(int i) { return null; }
