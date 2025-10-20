@@ -237,7 +237,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     @Override
     public Stream<TypeReference> typesReferenced(boolean includeBody) {
         Stream<TypeReference> fromReturnType = returnType().typesReferencedMadeExplicit();
-        Stream<TypeReference> fromParameters = parameters().stream().flatMap(pi -> pi.explicitTypesReferenced());
+        Stream<TypeReference> fromParameters = parameters().stream().flatMap(ParameterInfo::explicitTypesReferenced);
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
                 .flatMap(tp -> tp.typesReferenced(true, new HashSet<>()));
         Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);

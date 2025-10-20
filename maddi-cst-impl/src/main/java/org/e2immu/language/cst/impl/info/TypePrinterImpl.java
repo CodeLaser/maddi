@@ -202,7 +202,7 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
 
     private static boolean enclosingIsInterface(TypeInfo typeInfo) {
         return typeInfo.compilationUnitOrEnclosingType().isRight()
-                && typeInfo.compilationUnitOrEnclosingType().getRight().isInterface();
+               && typeInfo.compilationUnitOrEnclosingType().getRight().isInterface();
     }
 
     private static TypeModifier typeModifier(Access access) {
@@ -234,7 +234,9 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
             addMethodsToQualification(typeInfo.parentClass().typeInfo(), qImpl);
         }
         for (ParameterizedType interfaceType : typeInfo.interfacesImplemented()) {
-            addMethodsToQualification(interfaceType.typeInfo(), qImpl);
+            if (interfaceType.typeInfo() != typeInfo) {
+                addMethodsToQualification(interfaceType.typeInfo(), qImpl);
+            }
         }
     }
 
