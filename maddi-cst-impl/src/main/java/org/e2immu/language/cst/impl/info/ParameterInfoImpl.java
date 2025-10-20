@@ -142,12 +142,12 @@ public class ParameterInfoImpl implements ParameterInfo {
 
     @Override
     public String fullyQualifiedName() {
-        return methodInfo.fullyQualifiedName() + ":" + index + ":" + name;
+        return methodInfo.fullyQualifiedName() + ":" + index + ":" + simpleName();
     }
 
     @Override
     public String simpleName() {
-        return name;
+        return isUnnamed() ? "_" : name;
     }
 
     @Override

@@ -29,6 +29,7 @@ import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.parser.GenericsHelper;
 import org.e2immu.language.inspection.api.parser.MethodTypeParameterMap;
@@ -438,7 +439,12 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
 
             TranslationMap.Builder tmBuilder = runtime().newTranslationMapBuilder();
             for (Variable variable : variables) {
-                ParameterInfo pi = miBuilder.addParameter(variable.simpleName(), variable.parameterizedType());
+                ParameterInfo pi;
+                if (variable instanceof LocalVariable lv && lv.isUnnamed()) {
+                    pi = miBuilder.addUnnamedParameter(variable.parameterizedType());
+                } else {
+                    pi = miBuilder.addParameter(variable.simpleName(), variable.parameterizedType());
+                }
                 pi.builder().commit();
                 tmBuilder.put(variable, pi);
             }
