@@ -193,12 +193,14 @@ public class ParameterInfoImpl implements ParameterInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced() {
-        return parameterizedType.typesReferenced();
+        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
+        return Stream.concat(fromAnnotations, parameterizedType.typesReferenced());
     }
 
     @Override
     public Stream<TypeReference> explicitTypesReferenced() {
-        return parameterizedType.typesReferenced(true, new HashSet<>());
+        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
+        return Stream.concat(fromAnnotations, parameterizedType.typesReferenced(true, new HashSet<>()));
     }
 
     @Override
