@@ -43,11 +43,7 @@ public interface Predefined extends PredefinedWithoutParameterizedType {
 
     ParameterizedType intParameterizedType();
 
-    int isAssignableFromTo(ParameterizedType from, ParameterizedType to, boolean covariant);
-
-    default boolean isAssignableFromTo(ParameterizedType from, ParameterizedType to) {
-        return isAssignableFromTo(from, to, true) != -1;
-    }
+    int isAssignableFromToForPrimitives(ParameterizedType from, ParameterizedType to, boolean covariant);
 
     ParameterizedType longParameterizedType();
 

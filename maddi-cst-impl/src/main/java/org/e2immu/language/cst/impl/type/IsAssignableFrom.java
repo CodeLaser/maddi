@@ -152,7 +152,7 @@ public class IsAssignableFrom {
             if (from.typeInfo().isPrimitiveExcludingVoid()) {
                 if (target.typeInfo().isPrimitiveExcludingVoid()) {
                     // use a dedicated method in Primitives
-                    return runtime.isAssignableFromTo(from, target,
+                    return runtime.isAssignableFromToForPrimitives(from, target,
                             mode == Mode.COVARIANT || mode == Mode.COVARIANT_ERASURE);
                 }
                 return checkBoxing(target, from);
@@ -425,7 +425,7 @@ public class IsAssignableFrom {
                 return BOXING_FROM_PRIMITIVE;
             }
             ParameterizedType primitiveFromPt = primitiveFrom.asSimpleParameterizedType();
-            int h = runtime.isAssignableFromTo(primitiveFromPt, primitiveTarget, true);
+            int h = runtime.isAssignableFromToForPrimitives(primitiveFromPt, primitiveTarget, true);
             if (h != NOT_ASSIGNABLE) {
                 return BOXING_FROM_PRIMITIVE + h;
             }

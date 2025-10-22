@@ -16,7 +16,6 @@ package org.e2immu.language.cst.impl.type;
 
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Predefined;
-import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.*;
@@ -59,8 +58,8 @@ public class CommonType {
                 TypeInfo pt2Unboxed = runtime.unboxed(pt2BestType);
                 ParameterizedType pt2UnboxedPt = pt2Unboxed.asSimpleParameterizedType();
                 if (pt1.equals(pt2UnboxedPt)) return runtime.boxed(bestType).asParameterizedType();
-                if (runtime.isAssignableFromTo(pt1, pt2UnboxedPt, true) >= 0 ||
-                    runtime.isAssignableFromTo(pt2UnboxedPt, pt1, true) >= 0) {
+                if (runtime.isAssignableFromToForPrimitives(pt1, pt2UnboxedPt, true) >= 0 ||
+                    runtime.isAssignableFromToForPrimitives(pt2UnboxedPt, pt1, true) >= 0) {
                     return runtime.boxed(runtime.widestType(pt1, pt2UnboxedPt).typeInfo()).asSimpleParameterizedType();
                 }
             }
@@ -68,8 +67,8 @@ public class CommonType {
                 TypeInfo unboxed = runtime.unboxed(bestType);
                 ParameterizedType unboxedPt = unboxed.asSimpleParameterizedType();
                 if (unboxedPt.equals(pt2)) return pt1;
-                if (runtime.isAssignableFromTo(pt2, unboxedPt, true) >= 0 ||
-                    runtime.isAssignableFromTo(unboxedPt, pt2, true) >= 0) {
+                if (runtime.isAssignableFromToForPrimitives(pt2, unboxedPt, true) >= 0 ||
+                    runtime.isAssignableFromToForPrimitives(unboxedPt, pt2, true) >= 0) {
                     return runtime.boxed(runtime.widestType(pt2, unboxedPt).typeInfo()).asSimpleParameterizedType();
                 }
             }
