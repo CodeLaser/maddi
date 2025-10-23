@@ -84,8 +84,8 @@ public class TestParseDetailedSources extends CommonTestParse {
         assertEquals("8-21:8-26", dst.detail(table.type().parameters().get(0)).compact2());
         assertEquals("8-29:8-35", dst.detail(table.type().parameters().get(1)).compact2());
         assertEquals("8-38:8-42", dst.detail(table.name()).compact2());
-        assertEquals("8-3:8-43", dst.detail(DetailedSources.ONE_FIELD).compact2()); // whole "line"
-        assertNull(dst.detail(DetailedSources.COMMA_THAT_FOLLOWS));
+        assertEquals("8-3:8-43", dst.detail(DetailedSources.FIELD_DECLARATION).compact2()); // whole "line"
+        assertNull(dst.detail(DetailedSources.SUCCEEDING_COMMA));
 
         FieldInfo table2 = typeInfo.getFieldByName("table2", true);
         DetailedSources dst2 = table2.source().detailedSources();
@@ -97,13 +97,15 @@ public class TestParseDetailedSources extends CommonTestParse {
         assertEquals("9-13:9-18", dst2.detail(stringPt).compact2());
         assertEquals("9-21:9-26", dst2.detail(table2.type().parameters().get(1)).compact2());
         assertEquals("9-29:9-34", dst2.detail(table2.name()).compact2());
-        assertNull(dst2.detail(DetailedSources.ONE_FIELD));
-        assertEquals("9-35:9-35", dst2.detail(DetailedSources.COMMA_THAT_FOLLOWS).compact2());
+        assertNull(dst2.detail(DetailedSources.PRECEDING_COMMA));
+        assertEquals("9-35:9-35", dst2.detail(DetailedSources.SUCCEEDING_COMMA).compact2());
+        assertEquals("9-3:9-50", dst2.detail(DetailedSources.FIELD_DECLARATION).compact2());
 
         FieldInfo table3 = typeInfo.getFieldByName("table3", true);
         DetailedSources dst3 = table3.source().detailedSources();
-        assertNull(dst3.detail(DetailedSources.ONE_FIELD));
-        assertNull(dst3.detail(DetailedSources.COMMA_THAT_FOLLOWS));
+        assertEquals("9-35:9-35", dst3.detail(DetailedSources.PRECEDING_COMMA).compact2());
+        assertNull(dst3.detail(DetailedSources.SUCCEEDING_COMMA));
         assertEquals("9-37:9-42", dst3.detail(table3.name()).compact2());
+        assertEquals("9-3:9-50", dst3.detail(DetailedSources.FIELD_DECLARATION).compact2());
     }
 }

@@ -26,7 +26,6 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.ForwardType;
 import org.e2immu.language.inspection.api.parser.Lombok;
 import org.parsers.java.Node;
-import org.parsers.java.Token;
 import org.parsers.java.ast.*;
 
 import java.util.ArrayList;
@@ -76,13 +75,14 @@ public class ParseFieldDeclaration extends CommonParse {
         } else throw new UnsupportedOperationException();
         List<FieldInfo> fields = new ArrayList<>();
         boolean first = true;
-        boolean onlyOne = i == fd.size() - 2; // at i, variable declarator, at i+1: delimiter semicolon
+        Node precedingComma = null;
         while (i < fd.size() && fd.get(i) instanceof VariableDeclarator vd) {
-            Node commaThatFollows = detailedSourcesBuilder == null ? null: nextComma(fd, i);
+            Node succeedingComma = detailedSourcesBuilder == null ? null : nextComma(fd, i);
             fields.add(makeField(context, fd, vd, typeNode, isStatic, parameterizedType, owner, detailedSourcesBuilder,
-                    fieldModifiers, annotations, lombokData, first, onlyOne, commaThatFollows));
+                    fieldModifiers, annotations, lombokData, first, precedingComma, succeedingComma));
             i += 2;
             first = false;
+            precedingComma = succeedingComma;
         }
         return fields;
     }
@@ -99,8 +99,8 @@ public class ParseFieldDeclaration extends CommonParse {
                                 List<Annotation> annotations,
                                 Lombok.Data lombokData,
                                 boolean first,
-                                boolean onlyOne,
-                                Node commaThatFollows) {
+                                Node precedingComma,
+                                Node succeedingComma) {
         ParameterizedType type;
         Node vd0 = vd.getFirst();
         Identifier identifier;
@@ -129,11 +129,14 @@ public class ParseFieldDeclaration extends CommonParse {
         FieldInfo.Builder builder = fieldInfo.builder();
         fieldModifiers.forEach(builder::addFieldModifier);
         builder.computeAccess();
-        if (onlyOne && detailedSourcesBuilder != null) {
-            detailedSourcesBuilder.put(DetailedSources.ONE_FIELD, source(fd));
-        }
-        if (commaThatFollows != null && detailedSourcesBuilder != null) {
-            detailedSourcesBuilder.put(DetailedSources.COMMA_THAT_FOLLOWS, source(commaThatFollows));
+        if (detailedSourcesBuilder != null) {
+            detailedSourcesBuilder.put(DetailedSources.FIELD_DECLARATION, source(fd));
+            if (precedingComma != null) {
+                detailedSourcesBuilder.put(DetailedSources.PRECEDING_COMMA, source(precedingComma));
+            }
+            if (succeedingComma != null) {
+                detailedSourcesBuilder.put(DetailedSources.SUCCEEDING_COMMA, source(succeedingComma));
+            }
         }
         Source source = source(vd);
         builder.setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()));
