@@ -26,6 +26,11 @@ public interface DetailedSources {
     Object END_OF_PARAMETER_LIST = new Object();
     // marker for the "extends" keyword, see TypeInfo.hasImplicitParent()
     Object EXTENDS = new Object();
+    // marker for fields, there is only one variable declarator in this field declaration.
+    // the source associated is the source of the whole field declaration
+    Object ONE_FIELD = new Object();
+    // for any sequence separated by ,: this one is added on the element that precedes the ,
+    Object COMMA_THAT_FOLLOWS = new Object();
 
     Source detail(Object object);
 
@@ -59,7 +64,9 @@ public interface DetailedSources {
         Builder putWithArrayToWithoutArray(ParameterizedType withArray, ParameterizedType withoutArray);
 
         // associated object
-        record TypeInfoSource(TypeInfo typeInfo, Source source) {}
+        record TypeInfoSource(TypeInfo typeInfo, Source source) {
+        }
+
         Builder putTypeQualification(TypeInfo typeInfo, List<TypeInfoSource> associatedList);
     }
 }

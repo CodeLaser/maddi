@@ -26,6 +26,7 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.ForwardType;
 import org.e2immu.language.inspection.api.parser.Lombok;
 import org.parsers.java.Node;
+import org.parsers.java.Token;
 import org.parsers.java.ast.*;
 
 import java.util.ArrayList;
@@ -75,9 +76,11 @@ public class ParseFieldDeclaration extends CommonParse {
         } else throw new UnsupportedOperationException();
         List<FieldInfo> fields = new ArrayList<>();
         boolean first = true;
+        boolean onlyOne = i == fd.size() - 2; // at i, variable declarator, at i+1: delimiter semicolon
         while (i < fd.size() && fd.get(i) instanceof VariableDeclarator vd) {
+            Node commaThatFollows = detailedSourcesBuilder == null ? null: nextComma(fd, i);
             fields.add(makeField(context, fd, vd, typeNode, isStatic, parameterizedType, owner, detailedSourcesBuilder,
-                                fieldModifiers, annotations, lombokData, first));
+                    fieldModifiers, annotations, lombokData, first, onlyOne, commaThatFollows));
             i += 2;
             first = false;
         }
@@ -95,7 +98,9 @@ public class ParseFieldDeclaration extends CommonParse {
                                 List<FieldModifier> fieldModifiers,
                                 List<Annotation> annotations,
                                 Lombok.Data lombokData,
-                                boolean first) {
+                                boolean first,
+                                boolean onlyOne,
+                                Node commaThatFollows) {
         ParameterizedType type;
         Node vd0 = vd.getFirst();
         Identifier identifier;
@@ -124,6 +129,12 @@ public class ParseFieldDeclaration extends CommonParse {
         FieldInfo.Builder builder = fieldInfo.builder();
         fieldModifiers.forEach(builder::addFieldModifier);
         builder.computeAccess();
+        if (onlyOne && detailedSourcesBuilder != null) {
+            detailedSourcesBuilder.put(DetailedSources.ONE_FIELD, source(fd));
+        }
+        if (commaThatFollows != null && detailedSourcesBuilder != null) {
+            detailedSourcesBuilder.put(DetailedSources.COMMA_THAT_FOLLOWS, source(commaThatFollows));
+        }
         Source source = source(vd);
         builder.setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()));
         if (first) {
