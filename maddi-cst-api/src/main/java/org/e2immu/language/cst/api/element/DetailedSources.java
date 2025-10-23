@@ -26,11 +26,12 @@ public interface DetailedSources {
     Object END_OF_PARAMETER_LIST = new Object();
     // marker for the "extends" keyword, see TypeInfo.hasImplicitParent()
     Object EXTENDS = new Object();
-    // marker for fields, there is only one variable declarator in this field declaration.
-    // the source associated is the source of the whole field declaration
-    Object ONE_FIELD = new Object();
+    // the whole field declaration
+    Object FIELD_DECLARATION = new Object();
+    // for any sequence separated by ,: this one is added on the element that follows the ,
+    Object PRECEDING_COMMA = new Object();
     // for any sequence separated by ,: this one is added on the element that precedes the ,
-    Object COMMA_THAT_FOLLOWS = new Object();
+    Object SUCCEEDING_COMMA = new Object();
 
     Source detail(Object object);
 
