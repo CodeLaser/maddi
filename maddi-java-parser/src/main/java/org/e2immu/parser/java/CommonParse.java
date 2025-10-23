@@ -420,4 +420,16 @@ public abstract class CommonParse {
             default -> throw new UnsupportedOperationException("Have " + keyWord.getType());
         };
     }
+
+    protected Node nextComma(Node list, int pos) {
+        int i = pos + 1;
+        if (i < list.size()) {
+            Node n = list.get(i);
+            if (n.getType() == Token.TokenType.COMMA) {
+                return n;
+            }
+        }
+        return null;
+    }
+
 }
