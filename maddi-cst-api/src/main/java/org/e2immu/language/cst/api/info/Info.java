@@ -22,7 +22,6 @@ import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 public interface Info extends Element {
@@ -36,6 +35,16 @@ public interface Info extends Element {
     String simpleName();
 
     String fullyQualifiedName();
+
+    /*
+    system to uniquely describe an Info object, human and LLM readable, mostly unambiguous and simple to parse.
+
+    add sourceSetName::
+    use a $ to separate enclosed types: a.b.c.X$Y$Z instead of a.b.c.X.Y.Z.
+    use a : to separate field from type
+    use [ ] to indicate a type parameter
+     */
+    String descriptor();
 
     boolean isSynthetic();
 

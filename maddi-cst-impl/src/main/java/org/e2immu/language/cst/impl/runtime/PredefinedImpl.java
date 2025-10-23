@@ -38,7 +38,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 public class PredefinedImpl implements Predefined {
-    private static final SourceSet PREDEFINED_SOURCESET = new SourceSet() {
+    public static final SourceSet PREDEFINED_SOURCESET = new SourceSet() {
         @Override
         public Charset sourceEncoding() {
             return StandardCharsets.UTF_8;

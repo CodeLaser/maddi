@@ -63,6 +63,11 @@ public class ParameterInfoImpl implements ParameterInfo {
     }
 
     @Override
+    public String descriptor() {
+        return methodInfo.descriptor() + ":" + index + ":" + simpleName();
+    }
+
+    @Override
     public String info() {
         return "parameter";
     }
