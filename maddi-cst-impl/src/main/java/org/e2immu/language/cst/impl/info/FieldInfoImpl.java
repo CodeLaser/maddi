@@ -64,8 +64,8 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         if (this == o) return true;
         if (!(o instanceof FieldInfoImpl fieldInfo)) return false;
         return fullyQualifiedName.equals(fieldInfo.fullyQualifiedName)
-                // note: the primitive types have no source set
-                && Objects.equals(owner.compilationUnit().sourceSet(), fieldInfo.owner.compilationUnit().sourceSet());
+               // note: the primitive types have no source set
+               && Objects.equals(owner.compilationUnit().sourceSet(), fieldInfo.owner.compilationUnit().sourceSet());
     }
 
     @Override
@@ -110,6 +110,11 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     @Override
     public String fullyQualifiedName() {
         return fullyQualifiedName;
+    }
+
+    @Override
+    public String descriptor() {
+        return owner.descriptor() + ":" + name;
     }
 
     @Override

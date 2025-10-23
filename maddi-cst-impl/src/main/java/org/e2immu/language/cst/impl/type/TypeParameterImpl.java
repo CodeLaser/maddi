@@ -233,6 +233,12 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
+    public String descriptor() {
+        String ownerDesc = owner.isLeft() ? owner.getLeft().descriptor() : owner.getRight().descriptor();
+        return ownerDesc + "[" + name + "]";
+    }
+
+    @Override
     public boolean isSynthetic() {
         return inspection.get().isSynthetic();
     }
@@ -244,7 +250,7 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
 
     @Override
     public JavaDoc javaDoc() {
-       return null;
+        return null;
     }
 
     @Override

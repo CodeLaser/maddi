@@ -89,6 +89,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     }
 
     @Override
+    public String descriptor() {
+        return compilationUnit.sourceSet() + "::" + name;
+    }
+
+    @Override
     public boolean isSynthetic() {
         return false;
     }

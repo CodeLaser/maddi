@@ -64,6 +64,7 @@ public class TestParseTypeParameter extends CommonTestParse {
         assertNull(pt.wildcard());
         assertTrue(pt.parameters().isEmpty());
         assertTrue(pt.isTypeParameter());
+        assertEquals("main::a.b.C[U]", pt.typeParameter().descriptor());
 
         assertEquals(1, tp.typeBounds().size());
         ParameterizedType typeBound = tp.typeBounds().getFirst();
