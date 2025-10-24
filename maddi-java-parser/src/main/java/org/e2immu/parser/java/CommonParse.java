@@ -304,6 +304,7 @@ public abstract class CommonParse {
         typeParameter.builder().addComments(comments(node));
         Source source = source(node);
         DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
+        addPrecedingSucceedingComma(node, dsb);
         List<Node> unparsedTypeBounds = new ArrayList<>();
         if (node instanceof org.parsers.java.ast.TypeParameter tp) {
             TypeBound tb = tp.firstChildOfType(TypeBound.class);
@@ -421,15 +422,17 @@ public abstract class CommonParse {
         };
     }
 
-    protected Node nextComma(Node list, int pos) {
-        int i = pos + 1;
-        if (i < list.size()) {
-            Node n = list.get(i);
-            if (n.getType() == Token.TokenType.COMMA) {
-                return n;
+    protected void addPrecedingSucceedingComma(Node node, DetailedSources.Builder dsb) {
+        if (dsb != null) {
+            Node preceding = node.previousSibling();
+            if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                dsb.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+            }
+            Node succeeding = node.nextSibling();
+            if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                dsb.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
             }
         }
-        return null;
     }
 
 }

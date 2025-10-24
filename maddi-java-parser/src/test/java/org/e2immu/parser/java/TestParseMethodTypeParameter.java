@@ -14,6 +14,7 @@
 
 package org.e2immu.parser.java;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
@@ -39,7 +40,7 @@ public class TestParseMethodTypeParameter extends CommonTestParse {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = parse(INPUT);
+        TypeInfo typeInfo = parse(INPUT, true);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 1);
         assertEquals("Type param T", methodInfo.returnType().toString());
         assertSame(methodInfo, methodInfo.returnType().typeParameter().getOwner().getRight());
@@ -48,11 +49,19 @@ public class TestParseMethodTypeParameter extends CommonTestParse {
         assertEquals("Type param T", methodInfo.returnType().toString());
         assertSame(methodInfo, methodInfo.returnType().typeParameter().getOwner().getRight());
         assertEquals(2, methodInfo2.typeParameters().size());
+        TypeParameter tp0 = methodInfo2.typeParameters().get(0);
         TypeParameter tp1 = methodInfo2.typeParameters().get(1);
         assertEquals("S=TP#1 in C.method2", tp1.toString());
         assertEquals("main::a.b.C.method2(S extends main::a.b.C$I)[S]", tp1.descriptor());
         assertSame(methodInfo2, tp1.getOwner().getRight());
         assertEquals("main::a.b.C.method2(S extends main::a.b.C$I)", methodInfo2.descriptor());
         assertTrue(tp1.isMethodTypeParameter());
+
+        DetailedSources ds0 = tp0.source().detailedSources();
+        assertEquals("6-5:6-5", ds0.detail(DetailedSources.SUCCEEDING_COMMA).compact2());
+        assertNull(ds0.detail(DetailedSources.PRECEDING_COMMA));
+        DetailedSources ds1 = tp1.source().detailedSources();
+        assertEquals("6-5:6-5", ds1.detail(DetailedSources.PRECEDING_COMMA).compact2());
+        assertNull(ds1.detail(DetailedSources.SUCCEEDING_COMMA));
     }
 }
