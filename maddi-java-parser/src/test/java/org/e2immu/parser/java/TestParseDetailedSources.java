@@ -15,11 +15,16 @@
 package org.e2immu.parser.java;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.e2immu.language.cst.api.element.DetailedSources.PRECEDING_COMMA;
 import static org.e2immu.language.cst.api.element.DetailedSources.SUCCEEDING_COMMA;
@@ -41,6 +46,9 @@ public class TestParseDetailedSources extends CommonTestParse {
               Hashtable<String, String> table2, table3 = null;
               int get(String key, String msg1, int msg2) {
                   return table.get(key);
+              }
+              int callGet() {
+                  return get("a", "b", table.get("x"));
               }
             }
             """;
@@ -126,5 +134,11 @@ public class TestParseDetailedSources extends CommonTestParse {
         DetailedSources dg2 = pi2.source().detailedSources();
         assertNull(dg2.detail(SUCCEEDING_COMMA));
         assertEquals("10-34:10-34", dg2.detail(PRECEDING_COMMA).compact2());
+
+        MethodInfo callGet = typeInfo.findUniqueMethod("callGet", 0);
+        MethodCall methodCall = (MethodCall) callGet.methodBody().lastStatement().expression();
+        List<Source> commas = methodCall.source().detailedSources().details(DetailedSources.ARGUMENT_COMMAS);
+        assertEquals("14-21:14-21 14-26:14-26",
+                commas.stream().map(Source::compact2).collect(Collectors.joining(" ")));
     }
 }

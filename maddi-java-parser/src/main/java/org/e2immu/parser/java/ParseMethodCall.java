@@ -24,6 +24,7 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.ForwardType;
 import org.e2immu.parser.java.erasure.MethodCallErasure;
 import org.parsers.java.Node;
+import org.parsers.java.Token;
 import org.parsers.java.ast.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,13 +50,21 @@ public class ParseMethodCall extends CommonParse {
         Source sourceOfName = source(methodNameNode);
 
         Name unparsedObject = newNameObject(name);
+        DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
 
         InvocationArguments ia = (InvocationArguments) mc.get(1);
         int i = 1;
+        List<Node> commas = dsb == null ? null : new ArrayList<>();
         while (i < ia.size() && !(ia.get(i) instanceof Delimiter)) {
+            if (dsb != null && i + 1 < ia.size()
+                && ia.get(i + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                commas.add(d);
+            }
             unparsedArguments.add(ia.get(i));
             i += 2;
         }
+        if (dsb != null) addCommaList(commas, dsb, DetailedSources.ARGUMENT_COMMAS);
+
         if (forwardType.erasure()) {
             Set<ParameterizedType> types = context.methodResolution().computeScope(context, index, methodName,
                     unparsedObject, unparsedArguments);
@@ -69,8 +78,7 @@ public class ParseMethodCall extends CommonParse {
             }
             return new MethodCallErasure(runtime, source, types, common, methodName);
         }
-        DetailedSources.Builder typeArgsDetailedSources = context.newDetailedSourcesBuilder();
-        List<ParameterizedType> methodTypeArguments = methodTypeArguments(context, name, typeArgsDetailedSources);
+        List<ParameterizedType> methodTypeArguments = methodTypeArguments(context, name, dsb);
 
         // now we should have a more correct forward type!
         return context.methodResolution().resolveMethod(context, comments, source, sourceOfName,
@@ -78,21 +86,26 @@ public class ParseMethodCall extends CommonParse {
                 unparsedObject,
                 unparsedObject == null ? runtime.noSource() : source(unparsedObject),
                 methodTypeArguments,
-                typeArgsDetailedSources,
+                dsb,
                 unparsedArguments);
     }
 
-    private List<ParameterizedType> methodTypeArguments(Context context, Node dotName, DetailedSources.Builder detailedSourcesBuilder) {
+    private List<ParameterizedType> methodTypeArguments(Context context, Node dotName, DetailedSources.Builder dsb) {
         TypeArguments typeArguments = dotName.firstChildOfType(TypeArguments.class);
         if (typeArguments == null) {
             return List.of();
         }
         List<ParameterizedType> list = new ArrayList<>();
+        List<Node> commas = dsb == null ? null : new ArrayList<>();
         for (int i = 1; i < typeArguments.size(); i += 2) {
-            int index = i / 2;
-            ParameterizedType pt = parsers.parseType().parse(context, typeArguments.get(i), true, null, detailedSourcesBuilder);
+            if (dsb != null && i + 1 < typeArguments.size()
+                && typeArguments.get(i + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                commas.add(d);
+            }
+            ParameterizedType pt = parsers.parseType().parse(context, typeArguments.get(i), true, null, dsb);
             list.add(pt);
         }
+        if (dsb != null) addCommaList(commas, dsb, DetailedSources.TYPE_ARGUMENT_COMMAS);
         return List.copyOf(list);
     }
 
