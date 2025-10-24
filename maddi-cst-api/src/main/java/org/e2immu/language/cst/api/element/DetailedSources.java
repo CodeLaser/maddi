@@ -32,6 +32,12 @@ public interface DetailedSources {
     Object PRECEDING_COMMA = new Object();
     // for any sequence separated by ,: this one is added on the element that precedes the ,
     Object SUCCEEDING_COMMA = new Object();
+    // while the two above work nicely for parameters, fields, type parameters, we need special lists for
+    Object ARGUMENT_COMMAS = new Object();
+    Object TYPE_ARGUMENT_COMMAS = new Object();
+    Object EXTENDS_COMMAS = new Object();
+    Object IMPLEMENTS_COMMAS = new Object();
+    Object PERMITS_COMMAS = new Object();
 
     Source detail(Object object);
 
@@ -58,6 +64,8 @@ public interface DetailedSources {
         Object getAssociated(Object pt);
 
         Builder put(Object object, Source source);
+
+        Builder putList(Object object, List<Source> sourceList);
 
         DetailedSources build();
 

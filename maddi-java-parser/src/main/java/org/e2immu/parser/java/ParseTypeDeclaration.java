@@ -242,7 +242,12 @@ public class ParseTypeDeclaration extends CommonParse {
             if (detailedSourcesBuilder != null) {
                 detailedSourcesBuilder.put(DetailedSources.EXTENDS, source(extendsList.getFirst()));
             }
+            List<Node> commas = detailedSourcesBuilder == null ? null : new ArrayList<>();
             for (int j = 1; j < extendsList.size(); j += 2) {
+                if (detailedSourcesBuilder != null && j + 1 < extendsList.size()
+                    && extendsList.get(j + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                    commas.add(d);
+                }
                 ParameterizedType pt = parsers.parseType().parse(newContext, extendsList.get(j),
                         false, null, detailedSourcesBuilder);
                 if (pt == null) {
@@ -254,10 +259,18 @@ public class ParseTypeDeclaration extends CommonParse {
                 }
             }
             i++;
+            if (detailedSourcesBuilder != null) addCommaList(commas, detailedSourcesBuilder,
+                    DetailedSources.EXTENDS_COMMAS);
         }
 
         if (td.get(i) instanceof ImplementsList implementsList) {
+            List<Node> commas = detailedSourcesBuilder == null ? null : new ArrayList<>();
+
             for (int j = 1; j < implementsList.size(); j += 2) {
+                if (detailedSourcesBuilder != null && j + 1 < implementsList.size()
+                    && implementsList.get(j + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                    commas.add(d);
+                }
                 ParameterizedType pt = parsers.parseType().parse(newContext, implementsList.get(j),
                         false, null, detailedSourcesBuilder);
                 if (pt == null) {
@@ -267,6 +280,8 @@ public class ParseTypeDeclaration extends CommonParse {
                 }
             }
             i++;
+            if (detailedSourcesBuilder != null) addCommaList(commas, detailedSourcesBuilder,
+                    DetailedSources.IMPLEMENTS_COMMAS);
         }
         return new Hierarchy(hierarchyStart, i, hierarchyDone);
     }
@@ -303,7 +318,7 @@ public class ParseTypeDeclaration extends CommonParse {
             d.builder.clearInterfacesImplemented();
             Hierarchy hierarchy = doHierarchy(d.iHierarchy, d.builder, d.td, d.newContext, d.typeNature, d.detailedSourcesBuilder);
             hierarchyDone = hierarchy.done;
-            if(hierarchyDone) d.builder.hierarchyIsDone();
+            if (hierarchyDone) d.builder.hierarchyIsDone();
         } else {
             hierarchyDone = true;
         }
@@ -339,12 +354,20 @@ public class ParseTypeDeclaration extends CommonParse {
             recordFields = null;
         }
         int i = iStart;
+        List<Node> permitsCommas = detailedSourcesBuilder == null ? null : new ArrayList<>();
         if (td.get(i) instanceof PermitsList permitsList) {
             for (int j = 1; j < permitsList.size(); j += 2) {
+                if (detailedSourcesBuilder != null && j + 1 < permitsList.size()
+                    && permitsList.get(j + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                    permitsCommas.add(d);
+                }
                 ParameterizedType pt = parsers.parseType().parse(newContext, permitsList.get(j), detailedSourcesBuilder);
                 builder.addPermittedType(pt.typeInfo());
             }
             i++;
+        }
+        if (detailedSourcesBuilder != null) {
+            addCommaList(permitsCommas, detailedSourcesBuilder, DetailedSources.PERMITS_COMMAS);
         }
 
         Node body = td.get(i);

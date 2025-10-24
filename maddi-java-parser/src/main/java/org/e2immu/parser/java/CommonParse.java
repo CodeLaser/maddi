@@ -435,4 +435,7 @@ public abstract class CommonParse {
         }
     }
 
+    protected void addCommaList(List<Node> nodes, DetailedSources.Builder dsb, Object marker) {
+       dsb.putList(marker, nodes.stream().map(this::source).toList());
+    }
 }

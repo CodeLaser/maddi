@@ -82,6 +82,12 @@ public class DetailedSourcesImpl implements DetailedSources {
         }
 
         @Override
+        public Builder putList(Object object, List<Source> sourceList) {
+            identityHashMap.put(object, sourceList);
+            return this;
+        }
+
+        @Override
         public DetailedSourcesImpl build() {
             return new DetailedSourcesImpl(identityHashMap, association);
         }
