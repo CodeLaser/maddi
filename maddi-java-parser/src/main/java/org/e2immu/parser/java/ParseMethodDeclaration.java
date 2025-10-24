@@ -143,6 +143,7 @@ public class ParseMethodDeclaration extends CommonParse {
         if (!typeParametersToParse.isEmpty()) {
             List<TypeParameter> typeParameters = new ArrayList<>();
             int typeParameterIndex = 0;
+
             for (Node tp : typeParametersToParse) {
                 TypeParameter typeParameter = parseTypeParameterDoNotInspect(tp, methodInfo, typeParameterIndex++);
                 typeParameters.add(typeParameter);
@@ -239,6 +240,7 @@ public class ParseMethodDeclaration extends CommonParse {
 
     private void parseFormalParameter(Context context, MethodInfo.Builder builder, FormalParameter fp) {
         DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
+        addPrecedingSucceedingComma(fp, detailedSourcesBuilder);
         List<Annotation> annotations = new ArrayList<>();
         Node varargs = fp.stream()
                 .filter(child -> child instanceof Token t && Token.TokenType.VAR_ARGS.equals(t.getType()))

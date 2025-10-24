@@ -14,6 +14,7 @@
 
 package org.e2immu.parser.java;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -176,7 +177,7 @@ public class TestParseTypeParameter extends CommonTestParse {
     public static final String INPUT5 = """
             package a.b;
             class X {
-              class Class$<@SuppressWarnings("?") T> {
+              class Class$<@SuppressWarnings("?") T, U, V> {
             
               }
             }
@@ -184,10 +185,23 @@ public class TestParseTypeParameter extends CommonTestParse {
 
     @Test
     public void test5() {
-        TypeInfo typeInfo = parse(INPUT5);
+        TypeInfo typeInfo = parse(INPUT5, true);
         TypeInfo clazz = typeInfo.findSubType("Class$");
-        TypeParameter tp = clazz.typeParameters().getFirst();
-        assertEquals(1, tp.annotations().size());
+        TypeParameter tp0 = clazz.typeParameters().getFirst();
+        assertEquals(1, tp0.annotations().size());
+
+        TypeParameter tp1 = clazz.typeParameters().get(1);
+        TypeParameter tp2 = clazz.typeParameters().getLast();
+
+        DetailedSources ds0 = tp0.source().detailedSources();
+        assertEquals("3-40:3-40", ds0.detail(DetailedSources.SUCCEEDING_COMMA).compact2());
+        assertNull(ds0.detail(DetailedSources.PRECEDING_COMMA));
+        DetailedSources ds1 = tp1.source().detailedSources();
+        assertEquals("3-40:3-40", ds1.detail(DetailedSources.PRECEDING_COMMA).compact2());
+        assertEquals("3-43:3-43", ds1.detail(DetailedSources.SUCCEEDING_COMMA).compact2());
+        DetailedSources ds2 = tp2.source().detailedSources();
+        assertEquals("3-43:3-43", ds2.detail(DetailedSources.PRECEDING_COMMA).compact2());
+        assertNull(ds2.detail(DetailedSources.SUCCEEDING_COMMA));
     }
 
 }

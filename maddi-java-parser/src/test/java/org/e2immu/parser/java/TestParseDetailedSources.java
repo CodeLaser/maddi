@@ -21,6 +21,8 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static org.e2immu.language.cst.api.element.DetailedSources.PRECEDING_COMMA;
+import static org.e2immu.language.cst.api.element.DetailedSources.SUCCEEDING_COMMA;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestParseDetailedSources extends CommonTestParse {
@@ -37,6 +39,9 @@ public class TestParseDetailedSources extends CommonTestParse {
               }
               private Hashtable<String, Integer> table;
               Hashtable<String, String> table2, table3 = null;
+              int get(String key, String msg1, int msg2) {
+                  return table.get(key);
+              }
             }
             """;
 
@@ -85,7 +90,7 @@ public class TestParseDetailedSources extends CommonTestParse {
         assertEquals("8-29:8-35", dst.detail(table.type().parameters().get(1)).compact2());
         assertEquals("8-38:8-42", dst.detail(table.name()).compact2());
         assertEquals("8-3:8-43", dst.detail(DetailedSources.FIELD_DECLARATION).compact2()); // whole "line"
-        assertNull(dst.detail(DetailedSources.SUCCEEDING_COMMA));
+        assertNull(dst.detail(SUCCEEDING_COMMA));
 
         FieldInfo table2 = typeInfo.getFieldByName("table2", true);
         DetailedSources dst2 = table2.source().detailedSources();
@@ -97,15 +102,29 @@ public class TestParseDetailedSources extends CommonTestParse {
         assertEquals("9-13:9-18", dst2.detail(stringPt).compact2());
         assertEquals("9-21:9-26", dst2.detail(table2.type().parameters().get(1)).compact2());
         assertEquals("9-29:9-34", dst2.detail(table2.name()).compact2());
-        assertNull(dst2.detail(DetailedSources.PRECEDING_COMMA));
-        assertEquals("9-35:9-35", dst2.detail(DetailedSources.SUCCEEDING_COMMA).compact2());
+        assertNull(dst2.detail(PRECEDING_COMMA));
+        assertEquals("9-35:9-35", dst2.detail(SUCCEEDING_COMMA).compact2());
         assertEquals("9-3:9-50", dst2.detail(DetailedSources.FIELD_DECLARATION).compact2());
 
         FieldInfo table3 = typeInfo.getFieldByName("table3", true);
         DetailedSources dst3 = table3.source().detailedSources();
-        assertEquals("9-35:9-35", dst3.detail(DetailedSources.PRECEDING_COMMA).compact2());
-        assertNull(dst3.detail(DetailedSources.SUCCEEDING_COMMA));
+        assertEquals("9-35:9-35", dst3.detail(PRECEDING_COMMA).compact2());
+        assertNull(dst3.detail(SUCCEEDING_COMMA));
         assertEquals("9-37:9-42", dst3.detail(table3.name()).compact2());
         assertEquals("9-3:9-50", dst3.detail(DetailedSources.FIELD_DECLARATION).compact2());
+
+        MethodInfo get = typeInfo.findUniqueMethod("get", 3);
+        ParameterInfo pi0 = get.parameters().getFirst();
+        DetailedSources dg0 = pi0.source().detailedSources();
+        assertNull(dg0.detail(PRECEDING_COMMA));
+        assertEquals("10-21:10-21", dg0.detail(SUCCEEDING_COMMA).compact2());
+        ParameterInfo pi1 = get.parameters().get(1);
+        DetailedSources dg1 = pi1.source().detailedSources();
+        assertEquals("10-21:10-21", dg1.detail(PRECEDING_COMMA).compact2());
+        assertEquals("10-34:10-34", dg1.detail(SUCCEEDING_COMMA).compact2());
+        ParameterInfo pi2 = get.parameters().getLast();
+        DetailedSources dg2 = pi2.source().detailedSources();
+        assertNull(dg2.detail(SUCCEEDING_COMMA));
+        assertEquals("10-34:10-34", dg2.detail(PRECEDING_COMMA).compact2());
     }
 }
