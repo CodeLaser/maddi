@@ -16,6 +16,7 @@ package org.e2immu.parser.java;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Source;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
@@ -50,6 +51,11 @@ public class TestParseDetailedSources extends CommonTestParse {
               int callGet() {
                   return get("a", "b", table.get("x"));
               }
+              int lvs() {
+                  int i = 3, j = 4, k = 5;
+              }
+              C(double d, float f, byte b) { }
+              static C newC() { return new C(0.3, 0.2f, (byte)3); }
             }
             """;
 
@@ -140,5 +146,16 @@ public class TestParseDetailedSources extends CommonTestParse {
         List<Source> commas = methodCall.source().detailedSources().details(DetailedSources.ARGUMENT_COMMAS);
         assertEquals("14-21:14-21 14-26:14-26",
                 commas.stream().map(Source::compact2).collect(Collectors.joining(" ")));
+
+        MethodInfo lvs = typeInfo.findUniqueMethod("lvs", 0);
+        LocalVariableCreation lvc = (LocalVariableCreation) lvs.methodBody().statements().getFirst();
+        assertEquals("17-16:17-16 17-23:17-23", lvc.source().detailedSources().details(DetailedSources.LOCAL_VARIABLE_COMMAS)
+                .stream().map(Source::compact2).collect(Collectors.joining(" ")));
+
+        MethodInfo newC = typeInfo.findUniqueMethod("newC", 0);
+        ConstructorCall cc = (ConstructorCall) newC.methodBody().lastStatement().expression();
+        List<Source> ccCommas = cc.source().detailedSources().details(DetailedSources.ARGUMENT_COMMAS);
+        assertEquals("20-37:20-37 20-43:20-43",
+                ccCommas.stream().map(Source::compact2).collect(Collectors.joining(" ")));
     }
 }
