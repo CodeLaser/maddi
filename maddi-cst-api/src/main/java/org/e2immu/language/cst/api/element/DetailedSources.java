@@ -33,11 +33,13 @@ public interface DetailedSources {
     // for any sequence separated by ,: this one is added on the element that precedes the ,
     Object SUCCEEDING_COMMA = new Object();
     // while the two above work nicely for parameters, fields, type parameters, we need special lists for
-    Object ARGUMENT_COMMAS = new Object();
+    Object ARGUMENT_COMMAS = new Object(); // method call, constructor call, annotation expression
     Object TYPE_ARGUMENT_COMMAS = new Object();
     Object EXTENDS_COMMAS = new Object();
     Object IMPLEMENTS_COMMAS = new Object();
     Object PERMITS_COMMAS = new Object();
+    Object THROWS_COMMAS = new Object();
+    Object LOCAL_VARIABLE_COMMAS = new Object();
 
     Source detail(Object object);
 

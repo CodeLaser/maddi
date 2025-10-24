@@ -522,7 +522,12 @@ public class ParseStatement extends CommonParse {
         ParameterizedType baseType = parsers.parseType().parse(context, typeNode, detailedSourcesBuilder);
         i++;
         boolean first = true;
+        List<Node> commas = detailedSourcesBuilder != null ? new ArrayList<>() : null;
         while (i < nvd.size() && nvd.get(i) instanceof VariableDeclarator vd) {
+            if (detailedSourcesBuilder != null && i + 1 < nvd.size()
+                && nvd.get(i + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                commas.add(d);
+            }
             Node vd0 = vd.getFirst();
             LocalVariable lv;
             if (vd0 instanceof KeyWord && Token.TokenType.UNDERSCORE.equals(vd0.getType())) {
@@ -562,6 +567,9 @@ public class ParseStatement extends CommonParse {
                 builder.addOtherLocalVariable(lv);
             }
             i += 2;
+        }
+        if (detailedSourcesBuilder != null) {
+            addCommaList(commas, detailedSourcesBuilder, DetailedSources.LOCAL_VARIABLE_COMMAS);
         }
         lvcModifiers.forEach(builder::addModifier);
         return builder

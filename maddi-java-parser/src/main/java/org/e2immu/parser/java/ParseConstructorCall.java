@@ -92,7 +92,6 @@ public class ParseConstructorCall extends CommonParse {
         ParameterizedType formalType = typeInfo.asParameterizedType();
         Source source1 = source(index, ae);
         // all other aspects of detailed sources can be found in the components of the ConstructorCall object
-        Source source = detailedSourcesBuilder == null ? source1 : source1.withDetailedSources(detailedSourcesBuilder.build());
 
         if (forwardType.erasure()) {
             i++;
@@ -103,6 +102,8 @@ public class ParseConstructorCall extends CommonParse {
             } else {
                 erasureType = formalType;
             }
+            Source source = detailedSourcesBuilder == null ? source1
+                    : source1.withDetailedSources(detailedSourcesBuilder.build());
             return new ConstructorCallErasure(runtime, source, erasureType);
         }
 
@@ -128,10 +129,21 @@ public class ParseConstructorCall extends CommonParse {
             boolean isAnonymousType = i + 1 < ae.size() && ae.get(i + 1) instanceof ClassOrInterfaceBody;
             List<Object> unparsedArguments = new ArrayList<>();
             int j = 1;
+            List<Node> commas = detailedSourcesBuilder == null ? null : new ArrayList<>();
             while (j < ia.size() && !(ia.get(j) instanceof Delimiter)) {
+                if (detailedSourcesBuilder != null && j + 1 < ia.size()
+                    && ia.get(j + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                    commas.add(d);
+                }
                 unparsedArguments.add(ia.get(j));
                 j += 2;
             }
+            if (detailedSourcesBuilder != null) {
+                addCommaList(commas, detailedSourcesBuilder, DetailedSources.ARGUMENT_COMMAS);
+            }
+            Source source = detailedSourcesBuilder == null ? source1
+                    : source1.withDetailedSources(detailedSourcesBuilder.build());
+
             Source unparsedObjectSource = unparsedObject == null ? runtime.noSource() : source(unparsedObject);
             Expression constructorCall = newContext.methodResolution().resolveConstructor(newContext, comments, source,
                     index, formalType, expectedConcreteType, diamond, unparsedObject, unparsedObjectSource, unparsedArguments,
@@ -147,6 +159,8 @@ public class ParseConstructorCall extends CommonParse {
             return constructorCall;
         }
         if (ae.get(i) instanceof ArrayDimsAndInits ada) {
+            Source source = detailedSourcesBuilder == null ? source1
+                    : source1.withDetailedSources(detailedSourcesBuilder.build());
             return arrayCreation(newContext, index, ada, typeInfo, diamond, source, comments);
         }
         throw new Summary.ParseException(newContext, "Expected InvocationArguments or ArrayDimsAndInits, got "
@@ -277,6 +291,7 @@ public class ParseConstructorCall extends CommonParse {
                 .setAnonymousClass(anonymousType).build();
     }
 
+    // FIXME commas
     public Expression parseEnumConstructor(Context context, String index, TypeInfo enumType, InvocationArguments ia) {
         List<Object> unparsedArguments = new ArrayList<>();
         int j = 1;

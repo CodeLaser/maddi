@@ -197,11 +197,19 @@ public class ParseMethodDeclaration extends CommonParse {
             throw new UnsupportedOperationException("Node " + md.get(i).getClass());
         } // a constructor can be a "compact" one in records
         if (md.get(i) instanceof ThrowsList throwsList) {
+            List<Node> commas = detailedSourcesBuilder == null ? null : new ArrayList<>();
             for (int j = 1; j < throwsList.size(); j += 2) {
+                if (detailedSourcesBuilder != null && j + 1 < throwsList.size()
+                    && throwsList.get(j + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                    commas.add(d);
+                }
                 ParameterizedType pt = parsers.parseType().parse(newContext, throwsList.get(j), detailedSourcesBuilder);
                 builder.addExceptionType(pt);
             }
             i++;
+            if (detailedSourcesBuilder != null) {
+                addCommaList(commas, detailedSourcesBuilder, DetailedSources.THROWS_COMMAS);
+            }
         }
         while (i < md.size() && md.get(i) instanceof Delimiter) i++;
 

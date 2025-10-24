@@ -63,6 +63,14 @@ public class ParseAnnotationExpression extends CommonParse {
             if (pkgNameSource != null) {
                 detailedSourcesBuilder.put(typeInfo.packageName(), pkgNameSource);
             }
+            MemberValuePairs pairs = a.firstChildOfType(MemberValuePairs.class);
+            if(pairs != null) {
+                List<Source> commas = pairs.children().stream()
+                        .filter(n -> n instanceof Delimiter d && d.getType() == Token.TokenType.COMMA)
+                        .map(this::source)
+                        .toList();
+                detailedSourcesBuilder.putList(DetailedSources.ARGUMENT_COMMAS, commas);
+            }
         }
         Source source = source(a);
         AnnotationExpression.Builder builder = runtime.newAnnotationExpressionBuilder()
