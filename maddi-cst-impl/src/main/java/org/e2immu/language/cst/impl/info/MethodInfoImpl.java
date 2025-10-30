@@ -73,6 +73,11 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
         public boolean isDefault() {
             return this == DEFAULT_METHOD;
         }
+
+        @Override
+        public boolean isStaticInitializer() {
+            return this == STATIC_BLOCK;
+        }
     }
 
     @Override
