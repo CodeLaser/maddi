@@ -86,6 +86,9 @@ public interface InputConfiguration {
         Builder addSources(String... sources);
 
         @Fluent
+        Builder addSource(String sourceSetName, String sourceSetPath);
+
+        @Fluent
         Builder addRestrictSourceToPackages(String... packages);
 
         @Fluent
@@ -107,6 +110,9 @@ public interface InputConfiguration {
 
         @Fluent
         Builder addTestSources(String... sources);
+
+        @Fluent
+        Builder addTestSource(String sourceSetName, String sourceSetPath);
 
         // --- rest
 

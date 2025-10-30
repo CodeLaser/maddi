@@ -91,12 +91,15 @@ public record InputConfigurationImpl(Path workingDirectory,
                 : alternativeJREDirectory);
     }
 
+    private record SourceSetNamePath(String name, String path) {
+    }
+
     @Container
     public static class Builder implements InputConfiguration.Builder {
         private final List<SourceSet> sourceSets = new ArrayList<>();
         private final List<SourceSet> classPathParts = new ArrayList<>();
-        private final List<String> sourceDirs = new ArrayList<>();
-        private final List<String> testSourceDirs = new ArrayList<>();
+        private final List<SourceSetNamePath> sourceDirs = new ArrayList<>();
+        private final List<SourceSetNamePath> testSourceDirs = new ArrayList<>();
         private final List<String> classPathStringParts = new ArrayList<>();
         private final List<String> runtimeClassPathParts = new ArrayList<>();
         private final List<String> testClassPathParts = new ArrayList<>();
@@ -132,21 +135,21 @@ public record InputConfigurationImpl(Path workingDirectory,
                 classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
                         true, true, true, isJmod(cpp), true, Set.of(), Set.of()));
             }
-            for (String sourceDir : sourceDirs) {
+            for (SourceSetNamePath sourceDir : sourceDirs) {
                 Set<SourceSet> allDependencies = Stream.concat(classPathParts.stream(),
                         sourceSets.stream()).collect(Collectors.toUnmodifiableSet());
-                URI uri = createURI(sourceDir);
-                List<Path> list = uri.getScheme().equals("file") ? List.of(Path.of(sourceDir)) : List.of();
-                sourceSets.add(new SourceSetImpl(sourceDir, list, uri, sourceCharset,
+                URI uri = createURI(sourceDir.path);
+                List<Path> list = uri.getScheme().equals("file") ? List.of(Path.of(sourceDir.path)) : List.of();
+                sourceSets.add(new SourceSetImpl(sourceDir.name, list, uri, sourceCharset,
                         false, false, false, false, false,
                         restrictSourceToPackages, allDependencies));
             }
-            for (String sourceDir : testSourceDirs) {
+            for (SourceSetNamePath sourceDir : testSourceDirs) {
                 Set<SourceSet> allDependencies = Stream.concat(classPathParts.stream(),
                         sourceSets.stream()).collect(Collectors.toUnmodifiableSet());
-                URI uri = createURI(sourceDir);
-                List<Path> list = uri.getScheme().equals("file") ? List.of(Path.of(sourceDir)) : List.of();
-                sourceSets.add(new SourceSetImpl(sourceDir, list, uri, sourceCharset,
+                URI uri = createURI(sourceDir.path);
+                List<Path> list = uri.getScheme().equals("file") ? List.of(Path.of(sourceDir.path)) : List.of();
+                sourceSets.add(new SourceSetImpl(sourceDir.name, list, uri, sourceCharset,
                         true, false, false, false, false,
                         restrictTestSourceToPackages, allDependencies));
             }
@@ -210,14 +213,28 @@ public record InputConfigurationImpl(Path workingDirectory,
         @Override
         @Fluent
         public Builder addSources(String... sources) {
-            sourceDirs.addAll(Arrays.asList(sources));
+            Arrays.stream(sources).forEach(s -> sourceDirs.add(new SourceSetNamePath(s, s)));
+            return this;
+        }
+
+        @Override
+        @Fluent
+        public Builder addSource(String sourceSetName, String sourceSetPath) {
+            sourceDirs.add(new SourceSetNamePath(sourceSetName, sourceSetPath));
             return this;
         }
 
         @Override
         @Fluent
         public Builder addTestSources(String... sources) {
-            testSourceDirs.addAll(Arrays.asList(sources));
+            Arrays.stream(sources).forEach(s -> testSourceDirs.add(new SourceSetNamePath(s, s)));
+            return this;
+        }
+
+        @Override
+        @Fluent
+        public Builder addTestSource(String sourceSetName, String sourceSetPath) {
+            testSourceDirs.add(new SourceSetNamePath(sourceSetName, sourceSetPath));
             return this;
         }
 

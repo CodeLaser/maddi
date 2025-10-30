@@ -99,6 +99,8 @@ public interface MethodInfo extends Info {
         boolean isAbstract();
 
         boolean isDefault();
+
+        boolean isStaticInitializer();
     }
 
     interface MissingData {
