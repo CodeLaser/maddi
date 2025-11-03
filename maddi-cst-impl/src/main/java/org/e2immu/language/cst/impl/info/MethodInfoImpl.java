@@ -289,28 +289,9 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     public String descriptor() {
         String paramCsv = parameters()
                 .stream()
-                .map(p -> descriptor(p.parameterizedType(), null))
+                .map(p -> p.parameterizedType().descriptor())
                 .collect(Collectors.joining(","));
         return typeInfo.descriptor() + "." + name + "(" + paramCsv + ")";
-    }
-
-    private static String descriptor(ParameterizedType pt, Set<TypeParameter> done) {
-        if (pt.typeInfo() != null) return pt.typeInfo().descriptor();
-        TypeParameter tp = pt.typeParameter();
-        if (tp != null) {
-            if (!tp.typeBounds().isEmpty()) {
-                if (done == null) done = new HashSet<>();
-                if (done.add(tp)) {
-                    Set<TypeParameter> finalDone = done;
-                    String ext = tp.typeBounds().stream()
-                            .map(tb -> descriptor(tb, finalDone))
-                            .collect(Collectors.joining(" & "));
-                    return tp.simpleName() + " extends " + ext;
-                }
-            }
-            return tp.simpleName();
-        }
-        return "java.lang.Object";
     }
 
     @Override

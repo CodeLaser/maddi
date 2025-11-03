@@ -16,11 +16,14 @@ package org.e2immu.language.inspection.integration.java.other;
 
 import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.info.ImportComputerImpl;
 import org.e2immu.language.cst.impl.info.TypePrinterImpl;
 import org.e2immu.language.cst.print.FormatterImpl;
@@ -29,6 +32,8 @@ import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -590,7 +595,7 @@ public class TestImport extends CommonTest {
             import java.lang.ref.ReferenceQueue;
             import java.lang.ref.WeakReference;
             import java.util.concurrent.ConcurrentMap;
-
+            
             public class X<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> {
                 protected static final class Entry<K, V> implements Map.Entry<K, V> {
                 }
@@ -598,17 +603,17 @@ public class TestImport extends CommonTest {
                     // ...
                 }
                 protected class ReferenceManager {
-   		            private final ReferenceQueue<Entry<K, V>> queue = new ReferenceQueue<>();
-   
+                 private final ReferenceQueue<Entry<K, V>> queue = new ReferenceQueue<>();
+            
                     public Reference<K, V> createReference(Entry<K, V> entry, int hash, Reference<K, V> next) {
-
+            
                         return new WeakEntryReference<>(entry, hash, next, this.queue);
-
+            
                     }
                 }
-
+            
                 private static final class WeakEntryReference<K, V> extends WeakReference<Entry<K, V>> implements Reference<K, V> {
-
+            
                 		public WeakEntryReference(Entry<K, V> entry, int hash, Reference<K, V> next, ReferenceQueue<Entry<K, V>> queue) {
                 			super(entry, queue);
                 		}
@@ -627,7 +632,14 @@ public class TestImport extends CommonTest {
         MethodInfo weakEntryRefConstructor = weakEntryRef.findConstructor(4);
         assertEquals("Type a.b.X.Reference<K,V>", weakEntryRef.interfacesImplemented().getFirst().toString());
         assertEquals("Type a.b.X.Entry<K,V>", weakEntryRefConstructor.parameters().getFirst().parameterizedType().toString());
-        assertEquals("Type a.b.X.Reference<K,V>", weakEntryRefConstructor.parameters().get(2).parameterizedType().toString());
+        ParameterInfo pi = weakEntryRefConstructor.parameters().get(2);
+        assertEquals("Type a.b.X.Reference<K,V>", pi.parameterizedType().toString());
+
+        assertEquals("main::a.b.X.Reference<K,V>", pi.parameterizedType().descriptor());
+        Runtime runtime = javaInspector.runtime();
+        ParameterizedType pt = pi.parameterizedType().withParameters(List.of(runtime.integerTypeInfo().asParameterizedType(),
+                runtime.stringParameterizedType().copyWithArrays(1)));
+        assertEquals("main::a.b.X.Reference<java.lang.Integer,java.lang.String[]>", pt.descriptor());
     }
 
 }

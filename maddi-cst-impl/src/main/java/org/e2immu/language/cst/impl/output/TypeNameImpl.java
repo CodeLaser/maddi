@@ -22,6 +22,7 @@ import org.e2immu.util.internal.util.StringUtil;
 
 public record TypeNameImpl(String simpleName,
                            String fullyQualifiedName,
+                           String descriptor,
                            String fromPrimaryTypeDownwards,
                            TypeNameRequired required,
                            boolean annotation) implements TypeName {
@@ -29,13 +30,14 @@ public record TypeNameImpl(String simpleName,
     public enum Required implements TypeNameRequired {
         DOLLARIZED_FQN, // com.foo.Bar$Bar2
         FQN, // com.foo.Bar.Bar2
+        DESCRIPTOR, // source_set::com.foo.Bar.Bar2
         QUALIFIED_FROM_PRIMARY_TYPE, // Bar.Bar2
         SIMPLE // Bar2
     }
 
     // for tests
     public TypeNameImpl(String simpleName) {
-        this(simpleName, simpleName, simpleName, Required.SIMPLE, false);
+        this(simpleName, simpleName, simpleName, simpleName, Required.SIMPLE, false);
     }
 
     public TypeNameImpl {
@@ -48,7 +50,8 @@ public record TypeNameImpl(String simpleName,
     public static TypeName typeName(TypeInfo typeInfo, TypeNameRequired requiresQualifier, boolean annotation) {
         String simpleName = typeInfo.simpleName();
         String fqn = typeInfo.doesNotRequirePackage() ? simpleName : typeInfo.fullyQualifiedName();
-        return new TypeNameImpl(simpleName, fqn, typeInfo.isPrimaryType() ? simpleName : typeInfo.fromPrimaryTypeDownwards(),
+        return new TypeNameImpl(simpleName, fqn, typeInfo.descriptor(),
+                typeInfo.isPrimaryType() ? simpleName : typeInfo.fromPrimaryTypeDownwards(),
                 requiresQualifier, annotation);
     }
 
@@ -58,6 +61,7 @@ public record TypeNameImpl(String simpleName,
         return addAnnotation + switch ((Required) required) {
             case SIMPLE -> simpleName;
             case FQN -> fullyQualifiedName;
+            case DESCRIPTOR -> descriptor;
             case QUALIFIED_FROM_PRIMARY_TYPE -> fromPrimaryTypeDownwards;
             case DOLLARIZED_FQN ->
                     fullyQualifiedName.substring(0, fullyQualifiedName.length() - fromPrimaryTypeDownwards.length())

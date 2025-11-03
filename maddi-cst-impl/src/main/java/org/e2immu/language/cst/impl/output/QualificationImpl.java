@@ -30,6 +30,7 @@ import java.util.Set;
 
 public class QualificationImpl implements Qualification {
     public static final Qualification FULLY_QUALIFIED_NAMES = new QualificationImpl(false, TypeNameImpl.Required.FQN, null);
+    public static final Qualification DESCRIPTORS = new QualificationImpl(false, TypeNameImpl.Required.DESCRIPTOR, null);
     public static final Qualification SIMPLE_NAMES = new QualificationImpl(false, TypeNameImpl.Required.SIMPLE, null);
     public static final Qualification SIMPLE_ONLY = new QualificationImpl(true, TypeNameImpl.Required.SIMPLE, null);
 

@@ -153,12 +153,35 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
+    public String descriptor() {
+        return ParameterizedTypePrinter.print(QualificationImpl.DESCRIPTORS,
+                this, false, DiamondEnum.SHOW_ALL, false, true).toString();
+    }
+
+    @Override
     public String fullyQualifiedName() {
         return printForMethodFQN(false, DiamondEnum.SHOW_ALL);
     }
 
+    @Override
     public OutputBuilder print(Qualification qualification, boolean varArgs, Diamond diamond) {
         return ParameterizedTypePrinter.print(qualification, this, varArgs, diamond, false);
+    }
+
+    @Override
+    public String printForMethodFQN(boolean varArgs, Diamond diamond) {
+        return ParameterizedTypePrinter.print(QualificationImpl.FULLY_QUALIFIED_NAMES,
+                this, varArgs, diamond, false, true).toString();
+    }
+
+    @Override
+    public String detailedString() {
+        return printForMethodFQN(false, DiamondEnum.SHOW_ALL);
+    }
+
+    @Override
+    public String simpleString() {
+        return print(QualificationImpl.SIMPLE_NAMES, false, DiamondEnum.SHOW_ALL).toString();
     }
 
     @Override
@@ -370,16 +393,6 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
-    public String detailedString() {
-        return printForMethodFQN(false, DiamondEnum.SHOW_ALL);
-    }
-
-    @Override
-    public String simpleString() {
-        return print(QualificationImpl.SIMPLE_NAMES, false, DiamondEnum.SHOW_ALL).toString();
-    }
-
-    @Override
     public TypeInfo toBoxed(PredefinedWithoutParameterizedType runtime) {
         return runtime.boxed(typeInfo);
     }
@@ -389,12 +402,6 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             return toBoxed(runtime).asSimpleParameterizedType();
         }
         return this;
-    }
-
-    @Override
-    public String printForMethodFQN(boolean varArgs, Diamond diamond) {
-        return ParameterizedTypePrinter.print(QualificationImpl.FULLY_QUALIFIED_NAMES,
-                this, varArgs, diamond, false, true).toString();
     }
 
     @Override
