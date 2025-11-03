@@ -31,7 +31,7 @@ import java.util.List;
 public class ParameterizedTypePrinter {
 
     /**
-     * It is important not too use the inspection provider too eagerly. During bootstrap of the java.lang classes,
+     * It is important not to use the inspection provider too eagerly. During bootstrap of the java.lang classes,
      * there are a lot of interdependencies, and this printer does not have an auto-inspect system.
      * <p>
      * Default: no explicit type parameter definitions.

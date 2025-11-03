@@ -48,7 +48,7 @@ public class Test7 {
                 .add(KeywordImpl.FINAL)
                 .add(def.end())
                 .add(SpaceEnum.ONE)
-                .add(new TypeNameImpl("Set", "j.l.Set", "Set",
+                .add(new TypeNameImpl("Set", "j.l.Set", "Set", "Set",
                         TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, false))
                 .add(SpaceEnum.ONE)
                 .add(new TextImpl("EMPTY_SET"))

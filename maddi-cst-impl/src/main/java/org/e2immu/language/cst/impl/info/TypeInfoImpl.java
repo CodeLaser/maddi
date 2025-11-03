@@ -123,7 +123,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     @Override
     public String descriptor() {
         if (compilationUnitOrEnclosingType.isRight()) {
-            return compilationUnitOrEnclosingType.getRight().descriptor() + "$" + simpleName;
+            return compilationUnitOrEnclosingType.getRight().descriptor() + "." + simpleName;
         }
         if (isPrimitiveExcludingVoid() || isVoid()) return simpleName;
         CompilationUnit cu = compilationUnitOrEnclosingType.getLeft();
