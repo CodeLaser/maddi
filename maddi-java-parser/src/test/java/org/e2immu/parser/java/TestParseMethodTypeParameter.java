@@ -52,9 +52,9 @@ public class TestParseMethodTypeParameter extends CommonTestParse {
         TypeParameter tp0 = methodInfo2.typeParameters().get(0);
         TypeParameter tp1 = methodInfo2.typeParameters().get(1);
         assertEquals("S=TP#1 in C.method2", tp1.toString());
-        assertEquals("main::a.b.C.method2(S extends main::a.b.C$I)[S]", tp1.descriptor());
+        assertEquals("main::a.b.C.method2(S extends main::a.b.C.I)[S]", tp1.descriptor());
         assertSame(methodInfo2, tp1.getOwner().getRight());
-        assertEquals("main::a.b.C.method2(S extends main::a.b.C$I)", methodInfo2.descriptor());
+        assertEquals("main::a.b.C.method2(S extends main::a.b.C.I)", methodInfo2.descriptor());
         assertTrue(tp1.isMethodTypeParameter());
 
         DetailedSources ds0 = tp0.source().detailedSources();
