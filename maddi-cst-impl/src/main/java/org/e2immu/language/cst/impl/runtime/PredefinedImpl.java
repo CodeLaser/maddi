@@ -23,9 +23,9 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Predefined;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.impl.element.CompilationUnitImpl;
 import org.e2immu.language.cst.impl.element.SourceImpl;
 import org.e2immu.language.cst.impl.expression.AnnotationExpressionImpl;
-import org.e2immu.language.cst.impl.element.CompilationUnitImpl;
 import org.e2immu.language.cst.impl.info.InspectionImpl;
 import org.e2immu.language.cst.impl.info.MethodInfoImpl;
 import org.e2immu.language.cst.impl.info.TypeInfoImpl;
@@ -482,6 +482,26 @@ public class PredefinedImpl implements Predefined {
             return assignPlusOperatorInt;
         }
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MethodInfo assignOperatorToBinary(MethodInfo operator) {
+        if (operator == assignPlusOperatorInt) return plusOperatorInt;
+        if (operator == assignMinusOperatorInt) return minusOperatorInt;
+        if (operator == assignMultiplyOperatorInt) return multiplyOperatorInt;
+        if (operator == assignDivideOperatorInt) return divideOperatorInt;
+        if (operator == assignRemainderOperatorInt) return remainderOperatorInt;
+
+        if (operator == assignAndOperatorBool) return andOperatorBool;
+        if (operator == assignAndOperatorInt) return bitwiseAndOperatorInt;
+        if (operator == assignOrOperatorBool) return orOperatorBool;
+        if (operator == assignOrOperatorInt) return bitwiseOrOperatorInt;
+        if (operator == assignXorOperatorInt) return bitwiseXorOperatorInt;
+
+        if (operator == assignUnsignedRightShiftOperator) return unsignedRightShiftOperatorInt;
+        if (operator == assignSignedRightShiftOperator) return signedRightShiftOperatorInt;
+        if (operator == assignLeftShiftOperator) return leftShiftOperatorInt;
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override

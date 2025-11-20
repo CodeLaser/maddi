@@ -25,6 +25,8 @@ import java.util.List;
 public interface Predefined extends PredefinedWithoutParameterizedType {
     MethodInfo assignOperator(ParameterizedType parameterizedType);
 
+    MethodInfo assignOperatorToBinary(MethodInfo operator);
+
     ParameterizedType booleanParameterizedType();
 
     ParameterizedType boxedBooleanParameterizedType();
