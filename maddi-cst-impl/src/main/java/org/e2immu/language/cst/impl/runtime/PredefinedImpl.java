@@ -498,6 +498,8 @@ public class PredefinedImpl implements Predefined {
         if (operator == assignOrOperatorInt) return bitwiseOrOperatorInt;
         if (operator == assignXorOperatorInt) return bitwiseXorOperatorInt;
 
+        if (operator == assignPlusOperatorString) return plusOperatorString;
+
         if (operator == assignUnsignedRightShiftOperator) return unsignedRightShiftOperatorInt;
         if (operator == assignSignedRightShiftOperator) return signedRightShiftOperatorInt;
         if (operator == assignLeftShiftOperator) return leftShiftOperatorInt;
