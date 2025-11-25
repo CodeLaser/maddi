@@ -66,7 +66,9 @@ public abstract class CommonParse {
                             if (multiLineComment.getSource().startsWith("/**")) {
                                 return parseJavaDoc(multiLineComment, source(multiLineComment), context, info, infoBuilder);
                             }
-                            return runtime.newMultilineComment(source(multiLineComment), multiLineComment.getSource());
+                            boolean addNewline = true; // FIXME
+                            return runtime.newMultilineComment(source(multiLineComment), multiLineComment.getSource(),
+                                    addNewline);
                         }
                         return null;
                     })

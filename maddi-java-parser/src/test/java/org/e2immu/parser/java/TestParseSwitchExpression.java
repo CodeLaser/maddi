@@ -58,7 +58,6 @@ public class TestParseSwitchExpression extends CommonTestParse {
             && rs.expression() instanceof SwitchExpression se) {
             assertEquals("""
                             switch(args.length){case 0->-1;case 1,2->{System.out.println("less than 3");yield -2;}default->// noinspection ALL
-                            
                             {System.out.println("all the rest");yield 1;}}\
                             """,
                     se.print(runtime.qualificationQualifyFromPrimaryType()).toString());
@@ -95,7 +94,6 @@ public class TestParseSwitchExpression extends CommonTestParse {
             && rs.expression() instanceof SwitchExpression se) {
             assertEquals("""
                             switch(i){case 0->"0";case 1,2->{//noinspection ALL
-                            
                             yield "a";}case 3->{{yield "b";}}default->throw new RuntimeException();}\
                             """,
                     se.print(runtime.qualificationQualifyFromPrimaryType()).toString());

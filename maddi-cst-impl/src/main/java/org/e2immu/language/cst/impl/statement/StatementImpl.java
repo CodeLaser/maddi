@@ -62,9 +62,7 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
     protected OutputBuilder outputBuilder(Qualification qualification) {
         OutputBuilder ob = new OutputBuilderImpl();
         if (!comments.isEmpty()) {
-            ob.add(comments.stream()
-                    .map(c -> c.print(qualification)).collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE)));
-            ob.add(SpaceEnum.NEWLINE);
+            ob.add(comments.stream().map(c -> c.print(qualification)).collect(OutputBuilderImpl.joining()));
         }
         if (!annotations.isEmpty()) {
             ob.add(annotations().stream()

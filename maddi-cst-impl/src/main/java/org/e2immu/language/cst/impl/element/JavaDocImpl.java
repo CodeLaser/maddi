@@ -130,7 +130,7 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     private final List<Tag> tags;
 
     public JavaDocImpl(Source source, String comment, List<Tag> tags) {
-        super(source, comment);
+        super(source, comment, true);
         this.tags = tags;
     }
 

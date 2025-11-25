@@ -90,7 +90,7 @@ class DecoratorWithComments extends DecoratorImpl {
         if (commentParts.isEmpty()) return Stream.of();
         String comment = String.join(" ", commentParts);
         if (translatedInfo instanceof ParameterInfo) {
-            return Stream.of(runtime.newMultilineComment(null, comment));
+            return Stream.of(runtime.newMultilineComment(null, comment, true));
         }
         return Stream.of(runtime.newSingleLineComment(null, comment));
     }

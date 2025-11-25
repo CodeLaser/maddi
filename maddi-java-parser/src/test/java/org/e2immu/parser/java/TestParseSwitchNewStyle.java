@@ -57,7 +57,6 @@ public class TestParseSwitchNewStyle extends CommonTestParse {
         if (main.methodBody().statements().get(0) instanceof SwitchStatementNewStyle ssn) {
             assertEquals("""
                             switch(args.length){case 0->System.out.println("zero!");case 1,2->{System.out.println("less than 3");return;}default->// noinspection ALL
-                            
                             {System.out.println("all the rest");}}\
                             """,
                     ssn.print(runtime.qualificationQualifyFromPrimaryType()).toString());

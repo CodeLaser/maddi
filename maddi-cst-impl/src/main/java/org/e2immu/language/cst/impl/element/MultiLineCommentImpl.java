@@ -15,7 +15,6 @@
 package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
-import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.variable.DescendMode;
@@ -30,10 +29,12 @@ import java.util.stream.Stream;
 public class MultiLineCommentImpl implements MultiLineComment {
     private final String comment;
     private final Source source;
+    private final boolean addNewline;
 
-    public MultiLineCommentImpl(Source source, String comment) {
+    public MultiLineCommentImpl(Source source, String comment, boolean addNewline) {
         this.comment = strip(comment.trim());
         this.source = source;
+        this.addNewline = addNewline;
     }
 
     private static String strip(String s) {
@@ -48,14 +49,15 @@ public class MultiLineCommentImpl implements MultiLineComment {
         boolean multiLine = comment.contains("\n");
         GuideImpl.GuideGenerator gg = multiLine ? GuideImpl.generatorForMultilineComment()
                 : GuideImpl.defaultGuideGenerator();
-        OutputBuilder joinedText = Arrays.stream(comment.split("\n"))
+        OutputBuilder ob = Arrays.stream(comment.split("\n"))
                 .filter(line -> !line.isBlank())
                 .map(line -> new OutputBuilderImpl().add(new TextImpl(line)))
                 .collect(OutputBuilderImpl.joining(SpaceEnum.ONE_IS_NICE_EASY_SPLIT,
                         SymbolEnum.LEFT_BLOCK_COMMENT,
                         SymbolEnum.RIGHT_BLOCK_COMMENT,
                         gg));
-        return new OutputBuilderImpl().add(joinedText);
+        if (addNewline) ob.add(SpaceEnum.NEWLINE);
+        return ob;
     }
 
     @Override
