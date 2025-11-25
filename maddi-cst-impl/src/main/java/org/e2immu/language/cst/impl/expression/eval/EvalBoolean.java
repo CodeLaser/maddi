@@ -15,13 +15,14 @@
 package org.e2immu.language.cst.impl.expression.eval;
 
 import org.e2immu.language.cst.api.expression.And;
-import org.e2immu.language.cst.api.expression.BooleanConstant;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Or;
 import org.e2immu.language.cst.api.runtime.Runtime;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class EvalBoolean {
     private final Runtime runtime;
@@ -76,17 +77,22 @@ public class EvalBoolean {
     }
 
     public Expression removeClauseFromCondition(Expression base, Expression clauseToRemove) {
-        if (clauseToRemove instanceof And) {
-            throw new UnsupportedOperationException("Implement"); // TODO
-        }
         if (base.equals(clauseToRemove)) {
             return runtime.constantTrue();
         }
         if (clauseToRemove.isBoolValueTrue()) return base;
+        if (runtime.negate(clauseToRemove).equals(base)) return runtime.constantFalse();
+
         assert !base.isBoolValueTrue() : "Removing a condition from true?";
         if (base instanceof And and) {
+            Set<Expression> toRemove;
+            if (clauseToRemove instanceof And a) {
+                toRemove = a.expressions().stream().collect(Collectors.toUnmodifiableSet());
+            } else {
+                toRemove = Set.of(clauseToRemove);
+            }
             Expression[] expressions = and.expressions().stream()
-                    .filter(e -> !clauseToRemove.equals(e)).toArray(Expression[]::new);
+                    .filter(e -> !toRemove.contains(e)).toArray(Expression[]::new);
             if (expressions.length < and.expressions().size()) {
                 if (expressions.length == 1) return expressions[0];
                 assert expressions.length > 1;

@@ -313,7 +313,7 @@ public interface Factory {
 
     Expression newMultiExpressions(List<Expression> newExpressions);
 
-    MultiLineComment newMultilineComment(Source source, String comment);
+    MultiLineComment newMultilineComment(Source source, String comment, boolean addNewline);
 
     NullConstant newNullConstant(List<Comment> comments, Source source);
 

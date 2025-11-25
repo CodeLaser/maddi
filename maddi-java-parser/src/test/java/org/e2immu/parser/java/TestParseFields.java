@@ -80,7 +80,7 @@ public class TestParseFields extends CommonTestParse {
         assertEquals(5, a.source().beginLine());
         assertEquals(1, a.comments().size());
         if (a.comments().get(0) instanceof MultiLineComment mlc) {
-            assertEquals("/* not final */", mlc.print(null).toString());
+            assertEquals("/* not final */\n", mlc.print(null).toString());
         } else fail();
 
         FieldInfo b = typeInfo.fields().get(1);
