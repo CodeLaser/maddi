@@ -251,8 +251,8 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
     @Override
     public Expression translate(TranslationMap translationMap) {
         Expression translated = translationMap.translateExpression(this);
+        if (translated == null) return this; // allow break out
         if (translated != this) return translated;
-
         VariableExpression translatedTarget = (VariableExpression) target.translate(translationMap);
         Expression translatedValue = value.translate(translationMap);
         if (translatedValue == this.value && translatedTarget == this.target) return this;
