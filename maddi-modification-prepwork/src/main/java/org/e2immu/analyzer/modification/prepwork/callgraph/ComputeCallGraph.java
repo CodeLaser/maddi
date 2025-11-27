@@ -251,10 +251,18 @@ public class ComputeCallGraph {
     }
 
     private void doAnnotations(Info from, long weight) {
+        // references to classes
         from.annotations().stream()
                 .flatMap(ae -> ae.typesReferenced().map(Element.TypeReference::typeInfo))
                 .filter(externalsToAccept)
                 .forEach(to -> builder.mergeEdge(from, to, weight));
+        // references to fields
+        from.annotations().stream()
+                .flatMap(ae -> ae.keyValuePairs().stream().map(AnnotationExpression.KV::value))
+                .forEach(e -> {
+                  //  Visitor visitor = new Visitor(from);
+                  //  e.visit(visitor);
+                });
     }
 
     class Visitor implements Predicate<Element> {
