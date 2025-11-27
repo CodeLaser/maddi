@@ -370,8 +370,8 @@ public class TestCallGraph2 extends CommonTest2 {
         R r = init(sourcesByFqn);
         assertEquals("""
                 a.A->S->a.A.<init>()
-                a.B->D->a.A
                 a.B->D->b.Annotation
+                a.B->R->a.A
                 a.B->S->a.B.<init>()
                 b.Annotation->S->b.Annotation.uses()\
                 """, r.dependencyGraph().toString("\n", ComputeCallGraph::edgeValuePrinter));

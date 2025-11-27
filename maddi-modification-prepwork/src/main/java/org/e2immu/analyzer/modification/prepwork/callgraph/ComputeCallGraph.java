@@ -31,6 +31,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.cst.impl.element.ElementImpl;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.ImmutableGraph;
@@ -253,15 +254,15 @@ public class ComputeCallGraph {
     private void doAnnotations(Info from, long weight) {
         // references to classes
         from.annotations().stream()
-                .flatMap(ae -> ae.typesReferenced().map(Element.TypeReference::typeInfo))
+                .map(AnnotationExpression::typeInfo)
                 .filter(externalsToAccept)
                 .forEach(to -> builder.mergeEdge(from, to, weight));
         // references to fields
         from.annotations().stream()
                 .flatMap(ae -> ae.keyValuePairs().stream().map(AnnotationExpression.KV::value))
                 .forEach(e -> {
-                  //  Visitor visitor = new Visitor(from);
-                  //  e.visit(visitor);
+                    Visitor visitor = new Visitor(from);
+                    e.visit(visitor);
                 });
     }
 
