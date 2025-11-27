@@ -360,4 +360,35 @@ public class TestCallGraph extends CommonTest {
                 [a.b.X.<init>(), a.b.X.I, a.b.X]\
                 """, analysisOrder.toString());
     }
+
+
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            class X {
+                @interface Tag {
+                    Class<?> field();
+                }
+                @Tag(field=B.C)
+                class A {}
+                class B { public static String C = "test"; }
+            }
+            """;
+
+    @DisplayName("subtypes in annotations")
+    @Test
+    public void test9() {
+        TypeInfo X = javaInspector.parse(INPUT9);
+        ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(), _ -> true);
+        G<Info> graph = ccg.go().graph();
+        assertEquals("""
+                a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.A, \
+                a.b.X->S->a.b.X.B, a.b.X->S->a.b.X.Tag, a.b.X.A->D->a.b.X.B, a.b.X.A->D->a.b.X.Tag, \
+                a.b.X.A->D->java.lang.String, a.b.X.A->H->java.lang.Object, a.b.X.A->S->a.b.X.A.<init>(), \
+                a.b.X.B->H->java.lang.Object, a.b.X.B->S->a.b.X.B.<init>(), a.b.X.B->S->a.b.X.B.C, \
+                a.b.X.B.C->D->java.lang.String, a.b.X.Tag->H->java.lang.Object, \
+                a.b.X.Tag->H->java.lang.annotation.Annotation, a.b.X.Tag->S->a.b.X.Tag.field(), \
+                a.b.X.Tag.field()->D->java.lang.Class\
+                """, ComputeCallGraph.print(graph));
+    }
 }
