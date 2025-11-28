@@ -151,14 +151,15 @@ public class ParseStatement extends CommonParse {
 
         // type declarator delimiter declarator
         if (statement instanceof LocalVariableDeclaration nvd) {
+            Source corrected = source(index, nvd, nvd.getLastChild());
             if (nvd.get(i) instanceof Token t && Token.TokenType.VAR.equals(t.getType())) {
                 LocalVariableCreation.Modifier modifierVar = runtime.localVariableModifierVar();
                 lvcModifiers.add(modifierVar);
                 if (detailedSourcesBuilder != null) detailedSourcesBuilder.put(modifierVar, source(t));
-                return localVariableCreationWithVar(context, index, nvd, i + 1, lvcModifiers, source,
+                return localVariableCreationWithVar(context, index, nvd, i + 1, lvcModifiers, corrected,
                         detailedSourcesBuilder, comments, label, annotations);
             }
-            return localVariableCreation(context, index, nvd, i, lvcModifiers, source, detailedSourcesBuilder,
+            return localVariableCreation(context, index, nvd, i, lvcModifiers, corrected, detailedSourcesBuilder,
                     comments, label, annotations);
         }
 

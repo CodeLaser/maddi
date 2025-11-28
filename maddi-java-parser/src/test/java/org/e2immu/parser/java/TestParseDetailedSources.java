@@ -79,14 +79,14 @@ public class TestParseDetailedSources extends CommonTestParse {
         assertEquals("4-36:4-39", p0.source().detailedSources().detail(p0.name()).compact2());
 
         LocalVariableCreation lvc0 = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
-        assertEquals("5-5:5-25", lvc0.source().compact2());
+        assertEquals("5-5:5-26", lvc0.source().compact2());
         LocalVariableCreation.Modifier v = lvc0.modifiers().stream().findFirst().orElseThrow();
         DetailedSources ds0 = lvc0.source().detailedSources();
         assertEquals("5-5:5-7", ds0.detail(v).compact2());
         assertEquals("5-9:5-11", ds0.detail(lvc0.localVariable()).compact2());
 
         LocalVariableCreation lvc1 = (LocalVariableCreation) methodInfo.methodBody().statements().get(1);
-        assertEquals("6-5:6-37", lvc1.source().compact2());
+        assertEquals("6-5:6-38", lvc1.source().compact2());
         LocalVariableCreation.Modifier f = lvc1.modifiers().stream().findFirst().orElseThrow();
         DetailedSources ds1 = lvc1.source().detailedSources();
         assertEquals("6-5:6-9", ds1.detail(f).compact2());

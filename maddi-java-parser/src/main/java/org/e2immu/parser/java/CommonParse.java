@@ -120,6 +120,11 @@ public abstract class CommonParse {
                 endNodeIncl.getEndLine(), endNodeIncl.getEndColumn());
     }
 
+    public Source source(String index, Node beginNode, Node endNodeIncl) {
+        return runtime.newParserSource(index, beginNode.getBeginLine(), beginNode.getBeginColumn(),
+                endNodeIncl.getEndLine(), endNodeIncl.getEndColumn());
+    }
+
     // meant for detailed sources
     public Source source(Node node, int start, int end) {
         Node s = node.get(start);
@@ -438,6 +443,6 @@ public abstract class CommonParse {
     }
 
     protected void addCommaList(List<Node> nodes, DetailedSources.Builder dsb, Object marker) {
-       dsb.putList(marker, nodes.stream().map(this::source).toList());
+        dsb.putList(marker, nodes.stream().map(this::source).toList());
     }
 }
