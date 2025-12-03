@@ -28,6 +28,7 @@ import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.Context;
+import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Resolver;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.*;
@@ -446,6 +447,17 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions) {
         return parseReturnAll(input, "input", sourceSetName, parseOptions);
+    }
+
+    @Override
+    public List<TypeInfo> parse(String input, CompilationUnit compilationUnit, ParseResult parseResult, ParseOptions parseOptions) {
+        SourceFile sourceFile = new SourceFile("main", compilationUnit.uri(), compilationUnit.sourceSet(),
+                MD5FingerPrint.compute(input));
+        return internalParseSingleInput(new SummaryImpl(true), sourceFile, () -> {
+            JavaParser parser = new JavaParser(input);
+            parser.setParserTolerant(false);
+            return parser;
+        }, parseOptions);
     }
 
     @Override

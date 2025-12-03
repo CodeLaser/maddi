@@ -59,16 +59,29 @@ public record InputConfigurationImpl(Path workingDirectory,
 
     @Override
     public InputConfiguration withE2ImmuSupportFromClasspath() {
-        if (classPathParts.stream().anyMatch(cpp -> cpp.uri().getSchemeSpecificPart().contains("org/e2immu/annotation"))) {
-            return this;
+        return withSupportFromClasspath(Map.of("maddiSupport", "org/e2immu/annotation"));
+    }
+
+
+    @Override
+    public InputConfiguration withSupportFromClasspath(Map<String, String> sourceSetNameToPackageDir) {
+        boolean allFound = true;
+        for (String packageDir : sourceSetNameToPackageDir.values()) {
+            if (classPathParts.stream()
+                    .noneMatch(cpp -> cpp.uri().getSchemeSpecificPart().contains(packageDir))) {
+                allFound = false;
+                break;
+            }
         }
-        SourceSet e2immuSupport =
-                new SourceSetImpl("e2immuSupport", null,
-                        URI.create("jar-on-classpath:org/e2immu/annotation"),
+        if (allFound) return this;
+        Stream<SourceSet> support = sourceSetNameToPackageDir.entrySet().stream().map(e ->
+                new SourceSetImpl(e.getKey(), null,
+                        URI.create("jar-on-classpath:" + e.getValue()),
                         StandardCharsets.UTF_8, false, true,
-                        true, false, false, Set.of(), Set.of());
-        return new InputConfigurationImpl(workingDirectory, sourceSets, Stream.concat(classPathParts.stream(),
-                Stream.of(e2immuSupport)).toList(), alternativeJREDirectory);
+                        true, false, false, Set.of(), Set.of()));
+        return new InputConfigurationImpl(workingDirectory, sourceSets,
+                Stream.concat(classPathParts.stream(), support).toList(),
+                alternativeJREDirectory);
     }
 
     @Override
