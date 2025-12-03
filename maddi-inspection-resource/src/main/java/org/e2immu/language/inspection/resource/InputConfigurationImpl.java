@@ -65,22 +65,17 @@ public record InputConfigurationImpl(Path workingDirectory,
 
     @Override
     public InputConfiguration withSupportFromClasspath(Map<String, String> sourceSetNameToPackageDir) {
-        boolean allFound = true;
-        for (String packageDir : sourceSetNameToPackageDir.values()) {
-            if (classPathParts.stream()
-                    .noneMatch(cpp -> cpp.uri().getSchemeSpecificPart().contains(packageDir))) {
-                allFound = false;
-                break;
-            }
-        }
-        if (allFound) return this;
-        Stream<SourceSet> support = sourceSetNameToPackageDir.entrySet().stream().map(e ->
-                new SourceSetImpl(e.getKey(), null,
+        List<SourceSet> support = sourceSetNameToPackageDir.entrySet().stream().map(e ->
+                (SourceSet) new SourceSetImpl(e.getKey(), null,
                         URI.create("jar-on-classpath:" + e.getValue()),
                         StandardCharsets.UTF_8, false, true,
-                        true, false, false, Set.of(), Set.of()));
-        return new InputConfigurationImpl(workingDirectory, sourceSets,
-                Stream.concat(classPathParts.stream(), support).toList(),
+                        true, false, false, Set.of(), Set.of())).toList();
+        List<SourceSet> modifiedSourceSets = sourceSets.stream().map(set ->
+                set.withDependencies(Stream.concat(set.dependencies().stream(), support.stream())
+                        .collect(Collectors.toUnmodifiableSet())))
+                .toList();
+        return new InputConfigurationImpl(workingDirectory, modifiedSourceSets,
+                Stream.concat(classPathParts.stream(), support.stream()).toList(),
                 alternativeJREDirectory);
     }
 
