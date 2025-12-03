@@ -15,11 +15,13 @@
 package org.e2immu.language.inspection.api.integration;
 
 
+import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -47,6 +49,10 @@ public interface JavaInspector {
 
     // for tests
     SourceSet mainSources();
+
+    // for parsing a single java class in the context of a parse result
+    List<TypeInfo> parse(String transformedString, CompilationUnit compilationUnit, ParseResult parseResult,
+                         ParseOptions parseOptions);
 
     @FunctionalInterface
     interface Invalidated extends Function<TypeInfo, InvalidationState> {

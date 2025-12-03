@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.element.SourceSet;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 public interface InputConfiguration {
 
@@ -130,6 +131,8 @@ public interface InputConfiguration {
     InputConfiguration withDefaultModules();
 
     InputConfiguration withE2ImmuSupportFromClasspath();
+
+    InputConfiguration withSupportFromClasspath(Map<String, String> sourceSetNameToPackageDir);
 
     List<SourceSet> findMostLikelySourceSet(String name);
 
