@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -102,11 +103,12 @@ public record LinksImpl(Variable primary, List<Link> links) implements Links {
 
     // used by LVC
     @Override
-    public Links changePrimaryTo(Variable newPrimary) {
+    public Links changePrimaryTo(Variable newPrimary, TranslationMap tm) {
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : links) {
             if (link.from().equals(primary)) {
-                builder.add(link.linkNature(), link.to());
+                Variable translated = tm == null ? link.to() : tm.translateVariableRecursively(link.to());
+                builder.add(link.linkNature(), translated);
             } else throw new UnsupportedOperationException("NYI");
         }
         return builder.build();
