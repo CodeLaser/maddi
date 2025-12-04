@@ -69,7 +69,7 @@ public class TestList extends CommonTest {
         Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("k==x.ts[index],k<x.ts", linksK.toString());
 
-        assertEquals("method=x.ts[index],method<x.ts", lvMethod.toString());
+        assertEquals("[] --> method==x.ts[index],method<x.ts", lvMethod.toString());
     }
 
 }

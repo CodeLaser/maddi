@@ -1,7 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.Link;
-import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.language.cst.api.expression.MethodCall;
@@ -30,21 +29,17 @@ public record LinkMethodCall(Runtime runtime) {
         Links.Builder rvBuilder = new LinksImpl.Builder(rvPrimary);
         if (objectPrimary != null && rvPrimary != null) {
             for (Link rvLink : mlv.ofReturnValue()) {
-                for (Link objLink : object.links()) {
-                    if (objectPrimary.equals(objLink.from()) && objLink.linkNature() == LinkNature.IS_IDENTICAL_TO) {
-                        // this is the actual object, as a direct variable
-                        rvBuilder.add(rvLink.linkNature(), replaceThis(objLink.to(), mc.methodInfo().typeInfo()));
-                    }
-                }
+                // this is the actual object, as a direct variable
+                rvBuilder.add(rvLink.linkNature(), replaceThis(rvLink.to(), objectPrimary, mc.methodInfo().typeInfo()));
             }
         }
         return new ExpressionVisitor.Result(rvBuilder.build(), new LinkedVariablesImpl(extra));
     }
 
-    private Variable replaceThis(Variable variable, TypeInfo thisType) {
+    private Variable replaceThis(Variable variable, Variable replacement, TypeInfo thisType) {
         This thisVar = runtime.newThis(thisType.asParameterizedType());
         TranslationMap tm = runtime.newTranslationMapBuilder()
-                .put(thisVar, variable)
+                .put(thisVar, replacement)
                 .build();
         return tm.translateVariableRecursively(variable);
     }
