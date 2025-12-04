@@ -1,11 +1,15 @@
 package org.e2immu.analyzer.modification.link;
 
+import org.e2immu.language.cst.api.analysis.Value;
+
 import java.util.List;
 
-public interface Links extends Iterable<Link> {
+public interface Links extends Iterable<Link>, Value {
 
-    default Link first() {
-        return links().isEmpty() ? null : links().getFirst();
+    default Link theObjectItself() {
+        if (links().isEmpty()) return null;
+        Link first = links().getFirst();
+        return first.from() == null ? first : null;
     }
 
     default boolean isEmpty() {
@@ -14,4 +18,5 @@ public interface Links extends Iterable<Link> {
 
     List<Link> links();
 
+    Links merge(Links links);
 }

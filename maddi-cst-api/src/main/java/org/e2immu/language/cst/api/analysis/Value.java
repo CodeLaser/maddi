@@ -102,13 +102,13 @@ public interface Value extends Comparable<Value> {
         Map<Integer, Integer> linkToParametersReturnValue();
     }
 
-    interface NotNull extends Value {
+    interface NotNullProperty extends Value {
 
         boolean isAtLeastNotNull();
 
         boolean isNullable();
 
-        NotNull max(NotNull other);
+        NotNullProperty max(NotNullProperty other);
     }
 
     /*

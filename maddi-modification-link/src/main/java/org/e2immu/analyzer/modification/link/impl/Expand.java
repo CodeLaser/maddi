@@ -10,8 +10,13 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class Expand {
+
+    public static Links completion(Map<Variable, Links> linkedVariables, Variable variable) {
+        return linkedVariables.getOrDefault(variable, LinksImpl.EMPTY);
+    }
 
     public static Links connect(LocalVariable lv, Links links) {
         return links; // FIXME more!
@@ -19,7 +24,7 @@ public class Expand {
 
     public static Links expandReturnValue(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
         List<Link> list = new ArrayList<>(links.links());
-        Link link = links.first();
+        Link link = links.theObjectItself();
         if (link != null) {
             list.set(0, new LinkImpl(returnVariable, link.linkNature(), link.to()));
         }

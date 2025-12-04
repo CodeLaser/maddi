@@ -139,7 +139,7 @@ public class DecoratorImpl implements Qualification.Decorator {
         Property propertyIdentity = null;
         Property propertyFluent = null;
         Property propertyFinalizer = null;
-        Value.NotNull notNull = null;
+        Value.NotNullProperty notNull = null;
         Property propertyNotNull = null;
         PropertyValueMap analysis = info.analysis();
         Property propertyUtilityClass = null;
@@ -365,7 +365,7 @@ public class DecoratorImpl implements Qualification.Decorator {
         return list;
     }
 
-    private Value.NotNull notNull(Value.NotNull notNull, ParameterizedType parameterizedType) {
+    private Value.NotNullProperty notNull(Value.NotNullProperty notNull, ParameterizedType parameterizedType) {
         if (parameterizedType.isPrimitiveExcludingVoid()) return null;
         return notNull;
     }

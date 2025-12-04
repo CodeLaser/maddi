@@ -9,6 +9,8 @@ public interface LinkedVariables extends Iterable<Map.Entry<Variable, Links>>, V
 
     boolean isEmpty();
 
+    Map<Variable, Links> map();
+
     int size();
 
     LinkedVariables merge(LinkedVariables other);

@@ -3,9 +3,7 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.link.LinkedVariables;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -14,7 +12,6 @@ import java.util.stream.Collectors;
 
 public class LinkedVariablesImpl implements LinkedVariables {
     public final static LinkedVariables EMPTY = new LinkedVariablesImpl(Map.of());
-    public static final Property LINKS = new PropertyImpl("links", EMPTY);
 
     private final Map<Variable, Links> links;
 
@@ -62,5 +59,10 @@ public class LinkedVariablesImpl implements LinkedVariables {
         return links.entrySet().stream()
                 .map(e -> e.getKey() + ": " + e.getValue())
                 .collect(Collectors.joining("; "));
+    }
+
+    @Override
+    public Map<Variable, Links> map() {
+        return links;
     }
 }

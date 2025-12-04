@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkedVariablesImpl.LINKS;
+import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -62,18 +62,17 @@ public class TestList extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 2);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         // first, do get()
-        MethodLinkedVariables lvGet = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("get==this.ts[index],this.ts[index]<this.ts", lvGet.ofReturnValue().toString());
+        MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
+        assertEquals("?==this.ts[index],this.ts[index]<this.ts", lvGet.ofReturnValue().toString());
 
         // then, do method
         MethodLinkedVariables lvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
-        LinkedVariables tlvK0 = k0.analysis().getOrDefault(LINKS, LinkedVariablesImpl.EMPTY);
-        assertEquals("x(*:0)", tlvK0.toString());
-        assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", tlvK0.toString());
-        
+        Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("?==x.ts[index],x.ts[index]<x.ts", linksK.toString());
+
         assertEquals("x(*:0)", lvMethod.toString());
         assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", lvMethod.toString());
     }
