@@ -30,6 +30,7 @@ public class Expand {
      - remove (intermediate) links to local variables
      */
     public static Links expandReturnValue(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
+        if (links.primary() == null) return LinksImpl.EMPTY;
         Links.Builder rvBuilder = new LinksImpl.Builder(returnVariable);
         if (containsNoLocalVariable(links.primary())) {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
