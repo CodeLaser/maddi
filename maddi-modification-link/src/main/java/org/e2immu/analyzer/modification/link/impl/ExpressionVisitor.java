@@ -18,14 +18,19 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                                 MethodInfo currentMethod,
                                 RecursionPrevention recursionPrevention) {
 
+    /*
+    primary = end result
+    links = additional links for parts of the result
+    extra = link information about unrelated variables
+     */
     public record Result(Links links, LinkedVariables extra) {
 
-        public Result with(Links link) {
-            return new Result(link, extra);
+        public Result with(Links links) {
+            return new Result(links, extra);
         }
 
         public Result merge(Result other) {
-            if (other.extra.isEmpty()) return this;
+            if (other.links.isEmpty() && other.extra.isEmpty()) return this;
             LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
             return new Result(links, combinedExtra);
         }
@@ -57,6 +62,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                 } else {
                     extra = LinkedVariablesImpl.EMPTY;
                 }
+                Link link = new LinkImpl(null, LinkNature.IS_IDENTICAL_TO, ve.variable());
+                links.addFirst(link);
                 yield new Result(new LinksImpl(List.copyOf(links)), extra);
             }
 

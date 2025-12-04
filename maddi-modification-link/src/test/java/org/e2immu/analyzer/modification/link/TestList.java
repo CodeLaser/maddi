@@ -47,33 +47,33 @@ public class TestList extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get<this.ts", mlv.ofReturnValue().toString());
+        assertEquals("get==this.ts[index],this.ts[index]<this.ts", mlv.ofReturnValue().toString());
     }
-    
+
     @DisplayName("Analyze 'method', given method links for 'get'")
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
-        FieldInfo ts = X.getFieldByName("ts", true);
-        MethodInfo get = X.findUniqueMethod("get", 1);
-        ReturnVariable rv = new ReturnVariableImpl(get);
-        Links rvLinks = new LinksImpl(List.of(new LinkImpl(rv, LinkNature.IS_ELEMENT_OF, runtime.newFieldReference(ts))));
-        assertEquals("get<this.ts", rvLinks.toString());
-        get.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(rvLinks, List.of()));
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
+
+        MethodInfo get = X.findUniqueMethod("get", 1);
         MethodInfo method = X.findUniqueMethod("method", 2);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
-        tlc.doPrimaryType(X);
+        // first, do get()
+        MethodLinkedVariables lvGet = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
+        assertEquals("get==this.ts[index],this.ts[index]<this.ts", lvGet.ofReturnValue().toString());
+
+        // then, do method
+        MethodLinkedVariables lvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         LinkedVariables tlvK0 = k0.analysis().getOrDefault(LINKS, LinkedVariablesImpl.EMPTY);
         assertEquals("x(*:0)", tlvK0.toString());
         assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", tlvK0.toString());
-
-        MethodLinkedVariables lvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        
         assertEquals("x(*:0)", lvMethod.toString());
         assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", lvMethod.toString());
     }

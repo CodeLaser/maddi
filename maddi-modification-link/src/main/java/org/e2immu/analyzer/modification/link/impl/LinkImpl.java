@@ -6,8 +6,10 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
 public record LinkImpl(Variable from, LinkNature linkNature, Variable to) implements Link {
+    public static final Link EMPTY = new LinkImpl(null, null, null);
+
     @Override
     public @NotNull String toString() {
-        return from.toString() + linkNature + to;
+        return (from == null ? "?" : from.toString()) + linkNature + to;
     }
 }
