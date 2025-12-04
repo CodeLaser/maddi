@@ -2,24 +2,46 @@ package org.e2immu.analyzer.modification.link;
 
 public enum LinkNature {
     // more than 0-0, object identity
-    IS_IDENTICAL_TO("=="),
+    IS_IDENTICAL_TO("==", 0),
 
     //0-0
-    INTERSECTION_NOT_EMPTY("~"),
+    INTERSECTION_NOT_EMPTY("~", 1),
 
     //*-0
-    IS_ELEMENT_OF("<"),
+    IS_ELEMENT_OF("<", 2),
     //0-*
-    CONTAINS(">");
+    CONTAINS(">", 3);
 
     private final String label;
+    private final long longValue;
 
-    LinkNature(String label) {
+    LinkNature(String label, long longValue) {
         this.label = label;
+        this.longValue = longValue;
+    }
+
+    public long longValue() {
+        return this.longValue;
     }
 
     @Override
     public String toString() {
         return label;
+    }
+
+    public LinkNature combine(LinkNature other) {
+        if (other == IS_IDENTICAL_TO) return this;
+        if (this == IS_IDENTICAL_TO) return other;
+        if (this == IS_ELEMENT_OF && other != CONTAINS) return other;
+        if (other == CONTAINS && this != IS_ELEMENT_OF) return this;
+        return null;
+    }
+
+    public static long combineLongs(long l1, long l2) {
+        if (l1 < 0 || l2 < 0) return -1;
+        LinkNature ln1 = values()[(int) l1];
+        LinkNature ln2 = values()[(int) l2];
+        LinkNature combined = ln1.combine(ln2);
+        return combined == null ? -1 : combined.longValue;
     }
 }
