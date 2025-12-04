@@ -2,15 +2,22 @@ package org.e2immu.analyzer.modification.link;
 
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.LinksImpl;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -21,7 +28,7 @@ public class TestList extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            public class X<T> {
+            import java.util.List;public class X<T> {
                 T[] ts;
                 private T get(int index) {
                     return ts[index];
@@ -29,6 +36,10 @@ public class TestList extends CommonTest {
                 public static <K> K method(int i, X<K> x) {
                     K k = x.get(i);
                     return k;
+                }
+                public List<T> asShortList() {
+                    T t = ts[0];
+                    return List.of(t);
                 }
             }
             """;
@@ -72,4 +83,45 @@ public class TestList extends CommonTest {
         assertEquals("[] --> method==x.ts[index],method<x.ts", lvMethod.toString());
     }
 
+    @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(INPUT1);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
+        MethodInfo of = list.methodStream()
+                .filter(m -> "of".equals(m.name()) &&
+                             m.parameters().size() == 1
+                             && m.parameters().getFirst().parameterizedType().arrays() == 0)
+                .findFirst().orElseThrow();
+        FieldInfo virtualContentField = runtime.newFieldInfo("tArray", false,
+                runtime.newParameterizedType(list.typeParameters().getFirst(), 1, null), list);
+        FieldReference virtualContentVariable = runtime.newFieldReference(virtualContentField);
+
+        assertEquals("java.util.List.of(E)", of.descriptor());
+        ReturnVariable ofRv = new ReturnVariableImpl(of);
+        MethodLinkedVariablesImpl mlvOf = new MethodLinkedVariablesImpl(
+                new LinksImpl.Builder(ofRv)
+                        .add(LinkNature.INTERSECTION_NOT_EMPTY, virtualContentVariable)
+                        .add(LinkNature.CONTAINS, of.parameters().getFirst())
+                        .build(),
+                List.of(new LinksImpl.Builder(of.parameters().getFirst())
+                                .add(LinkNature.IS_ELEMENT_OF, virtualContentVariable)
+                        .build()));
+        assertEquals("""
+                [java.util.List.of(E):0:e1<this.tArray] --> of~this.tArray,of>java.util.List.of(E):0:e1\
+                """, mlvOf.toString());
+        of.analysis().set(METHOD_LINKS, mlvOf);
+
+        MethodInfo asShortList = X.findUniqueMethod("asShortList", 0);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+
+        MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,
+                () -> tlc.doMethod(asShortList));
+        assertEquals("asShortList~this.ts", lvAsShortList.ofReturnValue().toString());
+
+    }
 }
