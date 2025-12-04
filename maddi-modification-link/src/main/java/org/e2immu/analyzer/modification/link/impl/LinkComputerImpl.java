@@ -232,7 +232,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                             previousVd);
                     r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
                     if (!r.links().isEmpty()) {
-                        linkedVariables.put(lv, Expand.connect(lv, r.links()));
+                        linkedVariables.put(lv, r.links().changePrimaryTo(lv));
                     }
                 }
             });

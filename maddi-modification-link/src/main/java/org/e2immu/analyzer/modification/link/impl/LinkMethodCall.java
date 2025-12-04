@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.link.Link;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -27,20 +28,30 @@ public record LinkMethodCall(Runtime runtime) {
         Variable objectPrimary = object.links().primary();
         Variable rvPrimary = mlv.ofReturnValue().primary();
         Links.Builder rvBuilder = new LinksImpl.Builder(rvPrimary);
-        if (objectPrimary != null && rvPrimary != null) {
+
+        if (rvPrimary != null) {
+            assert rvPrimary instanceof ReturnVariable : "the links of the method return value must be in the return variable";
+            assert !mc.methodInfo().isVoid() : "Cannot be a void function if we have a return variable";
             for (Link rvLink : mlv.ofReturnValue()) {
-                // this is the actual object, as a direct variable
-                rvBuilder.add(rvLink.linkNature(), replaceThis(rvLink.to(), objectPrimary, mc.methodInfo().typeInfo()));
+                if (objectPrimary != null) {
+                    assert !mc.methodInfo().isStatic() : """
+                            objectPrimary!=null indicates that we have an instance function.
+                            Therefore we must translate 'this' to the method's object primary""";
+                    Variable fieldReferencesUpdatedToObject = replaceThisOfTypeInBy(mc.methodInfo().typeInfo(),
+                            rvLink.to(), objectPrimary);
+                    // TODO some rvLink.to() are in terms of the parameters; they'll need replacing by the links to the args
+                    rvBuilder.add(rvLink.linkNature(), fieldReferencesUpdatedToObject);
+                }
             }
         }
         return new ExpressionVisitor.Result(rvBuilder.build(), new LinkedVariablesImpl(extra));
     }
 
-    private Variable replaceThis(Variable variable, Variable replacement, TypeInfo thisType) {
+    private Variable replaceThisOfTypeInBy(TypeInfo thisType, Variable containsThis, Variable replacement) {
         This thisVar = runtime.newThis(thisType.asParameterizedType());
         TranslationMap tm = runtime.newTranslationMapBuilder()
                 .put(thisVar, replacement)
                 .build();
-        return tm.translateVariableRecursively(variable);
+        return tm.translateVariableRecursively(containsThis);
     }
 }

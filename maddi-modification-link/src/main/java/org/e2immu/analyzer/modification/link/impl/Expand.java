@@ -20,28 +20,27 @@ import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 public class Expand {
 
     public static Links completion(Map<Variable, Links> linkedVariables, Variable variable) {
+        // FIXME implement real completion
         return linkedVariables.getOrDefault(variable, LinksImpl.EMPTY);
     }
 
-    public static Links connect(LocalVariable lv, Links links) {
-        Links.Builder builder = new LinksImpl.Builder(lv);
-        for (Link link : links) {
-            builder.add(link.linkNature(), link.to());
-        }
-        return builder.build();
-    }
-
+    /*
+     Prepares the links of the return value for the outside world:
+     - find as many links to fields and parameters
+     - remove (intermediate) links to local variables
+     */
     public static Links expandReturnValue(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
         Links.Builder rvBuilder = new LinksImpl.Builder(returnVariable);
-        if (!containsLocal(links.primary())) {
+        if (containsNoLocalVariable(links.primary())) {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
         }
         G<Variable> graph = makeGraph(links, extra, vd);
+        // FIXME we want to run all paths, with the custom combination function
         Map<V<Variable>, Long> all = graph.edges(new V<>(links.primary()));
         if (all != null) {
             for (Map.Entry<V<Variable>, Long> entry : all.entrySet()) {
                 Variable to = entry.getKey().t();
-                if (entry.getValue() >= 0L && !containsLocal(to)) {
+                if (entry.getValue() >= 0L && containsNoLocalVariable(to)) {
                     rvBuilder.add(LinkNature.values()[(int) (long) entry.getValue()], to);
                 }
             }
@@ -65,7 +64,10 @@ public class Expand {
         return builder.build();
     }
 
-    private static boolean containsLocal(Variable variable) {
-        return variable.variableStreamDescend().anyMatch(v -> v instanceof LocalVariable);
+    private static boolean containsNoLocalVariable(Variable variable) {
+        assert variable.variableStreamDescend().noneMatch(v -> v instanceof ReturnVariable) : """
+                Return variables should not occur here: the result of LinkMethodCall should never contain them.
+                """;
+        return variable.variableStreamDescend().noneMatch(v -> v instanceof LocalVariable);
     }
 }
