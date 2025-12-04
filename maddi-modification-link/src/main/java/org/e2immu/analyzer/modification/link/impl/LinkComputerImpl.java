@@ -3,7 +3,9 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -187,7 +189,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             VariableData vd = VariableDataImpl.of(statement);
 
             if (statement instanceof ReturnStatement && r != null) {
-                ofReturnValue = Expand.expand(r.links(), r.extra(), vd);
+                ReturnVariable rv = new ReturnVariableImpl(methodInfo);
+                ofReturnValue = Expand.expandReturnValue(rv, r.links(), r.extra(), vd);
             }
 
             return vd;
@@ -201,15 +204,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                             previousVd);
                     r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
                     if (!r.links().isEmpty()) {
-                        linkedVariables.put(lv, connect(lv, r.links()));
+                        linkedVariables.put(lv, Expand.connect(lv, r.links()));
                     }
                 }
             });
             return linkedVariables;
         }
 
-        private Links connect(Variable variable, Links links) {
-            throw new UnsupportedOperationException();
-        }
     }
 }

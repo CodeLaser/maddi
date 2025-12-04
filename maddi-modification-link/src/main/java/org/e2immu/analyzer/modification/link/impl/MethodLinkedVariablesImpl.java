@@ -41,4 +41,9 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     public List<Links> ofParameters() {
         return ofParameters;
     }
+
+    @Override
+    public String toString() {
+        return ofParameters + " --> " + ofReturnValue;
+    }
 }
