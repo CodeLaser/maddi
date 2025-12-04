@@ -159,10 +159,10 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
         }
         ValueOrigin fluent = map.get(FLUENT_METHOD);
         if (fluent.valueAsBool().isTrue()) return NOT_NULL_FROM_METHOD;
-        Value.NotNull v = ValueImpl.NotNullImpl.NULLABLE;
+        NotNullProperty v = ValueImpl.NotNullImpl.NULLABLE;
         for (MethodInfo mi : methodInfo.overrides()) {
             if (mi.isPublic()) {
-                Value.NotNull nn = mi.analysis().getOrDefault(NOT_NULL_METHOD, ValueImpl.NotNullImpl.NULLABLE);
+                NotNullProperty nn = mi.analysis().getOrDefault(NOT_NULL_METHOD, ValueImpl.NotNullImpl.NULLABLE);
                 v = v.max(nn);
             }
         }
@@ -365,7 +365,7 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
             }
             map.put(INDEPENDENT_PARAMETER, INDEPENDENT_FROM_METHOD);
             map.put(UNMODIFIED_PARAMETER, FROM_METHOD_TRUE);
-            Value.NotNull notNullOfType = analysisHelper.notNullOfType(parameterInfo.parameterizedType());
+            NotNullProperty notNullOfType = analysisHelper.notNullOfType(parameterInfo.parameterizedType());
             map.put(NOT_NULL_PARAMETER, notNullOfType.isNullable() ? NULLABLE_DEFAULT :
                     new ValueOrigin(notNullOfType, FROM_TYPE));
             map.putIfAbsent(IGNORE_MODIFICATIONS_PARAMETER, DEFAULT_FALSE);
@@ -426,12 +426,12 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
         ParameterizedType pt = parameterInfo.parameterizedType();
         if (pt.isPrimitiveExcludingVoid()) return NOT_NULL_FROM_TYPE;
         MethodInfo methodInfo = parameterInfo.methodInfo();
-        Value.NotNull fromOverride = methodInfo.overrides().stream()
+        NotNullProperty fromOverride = methodInfo.overrides().stream()
                 .filter(MethodInfo::isPublic)
                 .map(mi -> mi.parameters().get(parameterInfo.index()))
                 .filter(pi -> pi.analysis().haveAnalyzedValueFor(NOT_NULL_PARAMETER))
                 .map(pi -> pi.analysis().getOrDefault(NOT_NULL_PARAMETER, ValueImpl.NotNullImpl.NULLABLE))
-                .reduce(ValueImpl.NotNullImpl.NULLABLE, Value.NotNull::max);
+                .reduce(ValueImpl.NotNullImpl.NULLABLE, NotNullProperty::max);
         return fromOverride.isNullable() ? NULLABLE_DEFAULT : NOT_NULL_FROM_OVERRIDE;
     }
 

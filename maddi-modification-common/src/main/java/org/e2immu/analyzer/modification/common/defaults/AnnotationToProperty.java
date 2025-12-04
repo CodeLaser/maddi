@@ -78,7 +78,7 @@ class AnnotationToProperty {
     protected Map<Property, Value> annotationsToMap(Info info, List<AnnotationExpression> annotations) {
         Value.Immutable immutable = null;
         Value.Independent independent = null;
-        Value.NotNull notNull = null;
+        Value.NotNullProperty notNull = null;
         Value.Bool container = null;
         Value.Bool fluent = null;
         Value.Bool identity = null;

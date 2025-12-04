@@ -12,8 +12,10 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+
 public record ExpressionVisitor(JavaInspector javaInspector,
-                                LinkComputer linkComputer,
+                                LinkComputerRecursion linkComputer,
                                 LinkComputerImpl.SourceMethodComputer sourceMethodComputer,
                                 MethodInfo currentMethod,
                                 RecursionPrevention recursionPrevention) {
@@ -66,7 +68,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                 links.addFirst(link);
                 yield new Result(new LinksImpl(List.copyOf(links)), extra);
             }
-
+            case MethodCall mc -> methodCall(variableData, mc);
             // all rather uninteresting....
 
             case InlineConditional ic -> {
@@ -91,4 +93,22 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
     }
+
+    private Result methodCall(VariableData variableData, MethodCall mc) {
+        Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData);
+        MethodLinkedVariables mlv = recurseIntoTypeLinkComputer(mc.methodInfo());
+        List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
+        return new LinkMethodCall(javaInspector.runtime()).methodCall(mc, object, params, mlv);
+    }
+
+    private MethodLinkedVariables recurseIntoTypeLinkComputer(MethodInfo methodInfo) {
+        RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
+        return switch (how) {
+            case GET -> methodInfo.analysis().getOrDefault(METHOD_LINKS, MethodLinkedVariablesImpl.EMPTY);
+            case SOURCE -> linkComputer.recurseMethod(methodInfo);
+            case SHALLOW -> linkComputer.doMethodShallowDoNotWrite(methodInfo);
+            case LOCK -> methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
+        };
+    }
+
 }

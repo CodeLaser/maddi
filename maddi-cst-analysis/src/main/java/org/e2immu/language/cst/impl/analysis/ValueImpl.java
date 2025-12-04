@@ -809,11 +809,11 @@ public abstract class ValueImpl implements Value {
     }
 
 
-    public record NotNullImpl(int value) implements NotNull {
-        public static final NotNull NO_VALUE = new NotNullImpl(-1);
-        public static final NotNull NULLABLE = new NotNullImpl(0);
-        public static final NotNull NOT_NULL = new NotNullImpl(1);
-        public static final NotNull CONTENT_NOT_NULL = new NotNullImpl(2);
+    public record NotNullImpl(int value) implements NotNullProperty {
+        public static final NotNullProperty NO_VALUE = new NotNullImpl(-1);
+        public static final NotNullProperty NULLABLE = new NotNullImpl(0);
+        public static final NotNullProperty NOT_NULL = new NotNullImpl(1);
+        public static final NotNullProperty CONTENT_NOT_NULL = new NotNullImpl(2);
 
         public static Value from(int level) {
             return switch (level) {
@@ -855,7 +855,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public NotNull max(NotNull other) {
+        public NotNullProperty max(NotNullProperty other) {
             int v = ((NotNullImpl) other).value;
             return value >= v ? this : other;
         }

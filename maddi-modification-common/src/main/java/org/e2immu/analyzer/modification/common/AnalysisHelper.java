@@ -136,7 +136,7 @@ public class AnalysisHelper {
         return bestType.analysis().getOrDefault(PropertyImpl.INDEPENDENT_TYPE, ValueImpl.IndependentImpl.DEPENDENT);
     }
 
-    public Value.NotNull notNullOfType(ParameterizedType parameterizedType) {
+    public NotNullProperty notNullOfType(ParameterizedType parameterizedType) {
         if (parameterizedType.isPrimitiveExcludingVoid()) {
             return ValueImpl.NotNullImpl.NOT_NULL;
         }

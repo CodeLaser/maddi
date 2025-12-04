@@ -4,7 +4,9 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -22,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 /*
@@ -187,6 +190,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 r = null;
             }
             VariableData vd = VariableDataImpl.of(statement);
+            copyEvalIntoVariableData(linkedVariables, vd);
 
             if (statement instanceof ReturnStatement && r != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
@@ -194,6 +198,30 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
 
             return vd;
+        }
+
+        private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables, VariableData vd) {
+            vd.variableInfoContainerStream().forEach(vic -> {
+                VariableInfo vi = vic.getPreviousOrInitial();
+                Links prev = vi.analysis().getOrNull(LINKS, LinksImpl.class);
+                if (prev != null) {
+                    linkedVariables.merge(vi.variable(), prev, Links::merge);
+                }
+            });
+            vd.variableInfoContainerStream().forEach(vic -> {
+                VariableInfo vi = vic.getPreviousOrInitial();
+                Links tlv = Expand.completion(linkedVariables, vi.variable());
+                if (tlv != null && !tlv.isEmpty()) {
+                    assert vic.hasEvaluation();
+                    VariableInfo eval = vic.best(Stage.EVALUATION);
+                    try {
+                        eval.analysis().set(LINKS, tlv);
+                    } catch (IllegalArgumentException iae) {
+                        LinkComputerImpl.this.recursionPrevention.report(methodInfo);
+                        throw iae;
+                    }
+                }
+            });
         }
 
         private Map<Variable, Links> handleLvc(LocalVariableCreation lvc, VariableData previousVd) {
