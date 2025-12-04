@@ -1,20 +1,16 @@
 package org.e2immu.analyzer.modification.link;
 
-import org.e2immu.analyzer.modification.link.impl.*;
+import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -47,7 +43,7 @@ public class TestList extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get==this.ts[index],this.ts[index]<this.ts", mlv.ofReturnValue().toString());
+        assertEquals("get==this.ts[index],get<this.ts", mlv.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'method', given method links for 'get'")
@@ -63,7 +59,7 @@ public class TestList extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         // first, do get()
         MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("?==this.ts[index],this.ts[index]<this.ts", lvGet.ofReturnValue().toString());
+        assertEquals("get==this.ts[index],get<this.ts", lvGet.ofReturnValue().toString());
 
         // then, do method
         MethodLinkedVariables lvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -71,10 +67,9 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("?==x.ts[index],x.ts[index]<x.ts", linksK.toString());
+        assertEquals("k==x.ts[index],k<x.ts", linksK.toString());
 
-        assertEquals("x(*:0)", lvMethod.toString());
-        assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", lvMethod.toString());
+        assertEquals("method=x.ts[index],method<x.ts", lvMethod.toString());
     }
 
 }

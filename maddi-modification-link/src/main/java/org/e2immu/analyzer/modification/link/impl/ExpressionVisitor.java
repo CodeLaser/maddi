@@ -1,6 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.*;
+import org.e2immu.analyzer.modification.link.LinkNature;
+import org.e2immu.analyzer.modification.link.LinkedVariables;
+import org.e2immu.analyzer.modification.link.Links;
+import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -9,8 +12,8 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -49,24 +52,24 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         return switch (expression) {
             case VariableExpression ve -> {
                 if (ve.variable().parameterizedType().isPrimitiveStringClass()) yield EMPTY;
-                List<Link> links = new ArrayList<>();
                 Variable v = ve.variable();
+                LinkedVariables extra = LinkedVariablesImpl.EMPTY;
                 while (v instanceof DependentVariable dv) {
                     v = dv.arrayVariable();
                     if (v != null) {
-                        links.add(new LinkImpl(ve.variable(), LinkNature.IS_ELEMENT_OF, v));
+                        Links vLinks = new LinksImpl.Builder(dv).add(LinkNature.IS_ELEMENT_OF, v).build();
+                        extra = extra.merge(new LinkedVariablesImpl(Map.of(dv, vLinks)));
                     }
                 }
-                LinkedVariables extra;
+
                 if (v instanceof FieldReference fr) {
                     Result r = visit(fr.scope(), variableData);
-                    extra = r.extra;
-                } else {
-                    extra = LinkedVariablesImpl.EMPTY;
+                    extra = extra.merge(r.extra);
                 }
-                Link link = new LinkImpl(null, LinkNature.IS_IDENTICAL_TO, ve.variable());
-                links.addFirst(link);
-                yield new Result(new LinksImpl(List.copyOf(links)), extra);
+                Links.Builder builder = new LinksImpl.Builder(ve.variable());
+                // Link link = new LinkImpl(null, LinkNature.IS_IDENTICAL_TO, ve.variable());
+                // links.addFirst(link);
+                yield new Result(builder.build(), extra);
             }
             case MethodCall mc -> methodCall(variableData, mc);
             // all rather uninteresting....

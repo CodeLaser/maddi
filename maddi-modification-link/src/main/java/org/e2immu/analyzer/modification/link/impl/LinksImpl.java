@@ -5,23 +5,25 @@ import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.DependentVariable;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public record LinksImpl(List<Link> links) implements Links {
-    public static final Links EMPTY = new LinksImpl(List.of());
+public record LinksImpl(Variable primary, List<Link> links) implements Links {
+    public static final Links EMPTY = new LinksImpl(null, List.of());
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
-
-    public LinksImpl(Variable from, LinkNature linkNature, Variable to) {
-        this(List.of(new LinkImpl(from, linkNature, to)));
-    }
 
     @Override
     public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
@@ -45,19 +47,60 @@ public record LinksImpl(List<Link> links) implements Links {
 
     @Override
     public Links merge(Links links) {
-        if (links.isEmpty()) return this;
-        Link otherFirst = links.theObjectItself();
-        Link myFirst = theObjectItself();
-        if (otherFirst != null) {
-            if (myFirst != null) {
-                // the other one also has a first; we'll skip that one
-                return new LinksImpl(Stream.concat(this.links.stream(), links.links().stream().skip(1)).toList());
-            }
-            // i don't have one, so we move other first
-            return new LinksImpl(Stream.concat(Stream.concat(Stream.of(otherFirst), this.links.stream()),
-                    links.links().stream().skip(1)).toList());
+        return new LinksImpl(primary, Stream.concat(this.links.stream(), links.links().stream())
+                .distinct()
+                .sorted((l1, l2) -> {
+                    boolean l1IsPrimary = primary.equals(l1.from());
+                    boolean l2IsPrimary = primary.equals(l2.from());
+                    if (l1IsPrimary && !l2IsPrimary) return -1;
+                    if (l2IsPrimary && !l1IsPrimary) return 1;
+                    return l1.from().compareTo(l2.from());
+                })
+                .toList());
+    }
+
+    public static class Builder implements Links.Builder {
+        private final Variable primary;
+        private final List<Link> links = new ArrayList<>();
+
+        public Builder(Variable primary) {
+            this.primary = primary;
         }
-        // simply concat
-        return new LinksImpl(Stream.concat(this.links.stream(), links.links().stream()).toList());
+
+        public Builder add(LinkNature linkNature, Variable to) {
+            links.add(new LinkImpl(primary, linkNature, to));
+            return this;
+        }
+
+        public Builder add(Variable from, LinkNature linkNature, Variable to) {
+            assert assertIsPartOfPrimary(from);
+            links.add(new LinkImpl(from, linkNature, to));
+            return this;
+        }
+
+        private boolean assertIsPartOfPrimary(Variable from) {
+            if (primary.equals(from)) return true;
+            if (from instanceof DependentVariable dv) return assertIsPartOfPrimary(dv.arrayVariableBase());
+            if (from instanceof FieldReference fr) return primary.equals(fr.fieldReferenceBase());
+            return false;
+        }
+
+        public Links build() {
+            return new LinksImpl(primary, List.copyOf(links));
+        }
+    }
+
+    private record LinkImpl(Variable from, LinkNature linkNature, Variable to) implements Link {
+
+        public LinkImpl {
+            assert from != null;
+            assert to != null;
+            assert linkNature != null;
+        }
+
+        @Override
+        public @NotNull String toString() {
+            return from.toString() + linkNature + to;
+        }
     }
 }

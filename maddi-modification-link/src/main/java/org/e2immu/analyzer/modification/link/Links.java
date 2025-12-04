@@ -1,15 +1,21 @@
 package org.e2immu.analyzer.modification.link;
 
+import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.List;
 
+/*
+links from one variable and its constituent parts to other variables.
+The list is sorted, with the primary links coming first.
+ */
 public interface Links extends Iterable<Link>, Value {
 
-    default Link theObjectItself() {
-        if (links().isEmpty()) return null;
-        Link first = links().getFirst();
-        return first.from() == null ? first : null;
+    Variable primary();
+
+    default List<Link> primaryLinks() {
+        return links().stream().takeWhile(l -> primary().equals(l.from())).toList();
     }
 
     default boolean isEmpty() {
@@ -19,4 +25,10 @@ public interface Links extends Iterable<Link>, Value {
     List<Link> links();
 
     Links merge(Links links);
+
+    interface Builder {
+        Links build();
+        Builder add(LinkNature linkNature, Variable to);
+        Builder add(Variable from, LinkNature linkNature, Variable to);
+    }
 }
