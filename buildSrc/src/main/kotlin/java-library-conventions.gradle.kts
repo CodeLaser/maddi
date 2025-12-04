@@ -30,7 +30,7 @@ dependencies {
 
     // common logging
     implementation("org.slf4j:slf4j-api")
-    testRuntimeOnly("ch.qos.logback:logback-classic")
+    testImplementation("ch.qos.logback:logback-classic")
 
     // common test
     testImplementation("org.junit.jupiter:junit-jupiter-api")

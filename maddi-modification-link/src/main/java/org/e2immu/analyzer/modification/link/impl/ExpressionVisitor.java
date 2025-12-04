@@ -37,7 +37,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     public Result visit(Expression expression, VariableData variableData) {
         return switch (expression) {
             case VariableExpression ve -> {
-
+                throw new UnsupportedOperationException("NYI");
             }
 
             // all rather uninteresting....

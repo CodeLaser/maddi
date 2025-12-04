@@ -6,6 +6,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public record LinksImpl(List<Link> links) implements Links {
     public static final Links EMPTY = new LinksImpl(List.of());
@@ -13,5 +14,10 @@ public record LinksImpl(List<Link> links) implements Links {
     @Override
     public @NotNull Iterator<Link> iterator() {
         return links.iterator();
+    }
+
+    @Override
+    public @NotNull String toString() {
+        return links.stream().map(Object::toString).collect(Collectors.joining(","));
     }
 }
