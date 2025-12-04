@@ -15,6 +15,8 @@ import org.e2immu.util.internal.graph.V;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
+
 public class Expand {
 
     public static Links completion(Map<Variable, Links> linkedVariables, Variable variable) {
@@ -22,13 +24,19 @@ public class Expand {
     }
 
     public static Links connect(LocalVariable lv, Links links) {
-        return links; // FIXME more!
+        Links.Builder builder = new LinksImpl.Builder(lv);
+        for (Link link : links) {
+            builder.add(link.linkNature(), link.to());
+        }
+        return builder.build();
     }
 
     public static Links expandReturnValue(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
         Links.Builder rvBuilder = new LinksImpl.Builder(returnVariable);
-        rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
-        G<Variable> graph = makeGraph(links, extra);
+        if (!containsLocal(links.primary())) {
+            rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
+        }
+        G<Variable> graph = makeGraph(links, extra, vd);
         Map<V<Variable>, Long> all = graph.edges(new V<>(links.primary()));
         if (all != null) {
             for (Map.Entry<V<Variable>, Long> entry : all.entrySet()) {
@@ -41,13 +49,18 @@ public class Expand {
         return rvBuilder.build();
     }
 
-    private static G<Variable> makeGraph(Links links, LinkedVariables extra) {
+    private static G<Variable> makeGraph(Links links, LinkedVariables extra, VariableData vd) {
         G.Builder<Variable> builder = new ImmutableGraph.Builder<>(LinkNature::combineLongs);
         Stream<Link> stream = Stream.concat(links.links().stream(),
                 extra.map().values().stream().flatMap(l -> l.links().stream()));
         stream.forEach(link -> builder.mergeEdge(link.from(), link.to(), link.linkNature().longValue()));
 
-        // transitive closure
+        vd.variableInfoStream().forEach(vi -> {
+            Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
+            if (vLinks != null) {
+                vLinks.links().forEach(l -> builder.mergeEdge(l.from(), l.to(), l.linkNature().longValue()));
+            }
+        });
 
         return builder.build();
     }

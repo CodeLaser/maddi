@@ -30,6 +30,7 @@ public enum LinkNature {
     }
 
     public LinkNature combine(LinkNature other) {
+        if (this == other) return this;
         if (other == IS_IDENTICAL_TO) return this;
         if (this == IS_IDENTICAL_TO) return other;
         if (this == IS_ELEMENT_OF && other != CONTAINS) return other;
