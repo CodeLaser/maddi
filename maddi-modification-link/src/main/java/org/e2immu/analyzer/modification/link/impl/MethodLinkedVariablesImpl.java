@@ -1,42 +1,44 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Link;
+import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.api.analysis.Codec;
+import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-public class MethodLinkedVariablesImpl extends LinkedVariablesImpl implements MethodLinkedVariables {
-    private final Link ofReturnValue;
-    private final List<Link> ofParameters;
+public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
+    private final static MethodLinkedVariables EMPTY = new MethodLinkedVariablesImpl(LinksImpl.EMPTY, List.of());
+    public static final Property METHOD_LINKS = new PropertyImpl("methodLinks", EMPTY);
 
-    private MethodLinkedVariablesImpl(Map<Variable, Link> map, Link ofReturnValue, List<Link> ofParameters) {
-        super(map);
+
+    private final Links ofReturnValue;
+    private final List<Links> ofParameters;
+
+    public MethodLinkedVariablesImpl(Links ofReturnValue, List<Links> ofParameters) {
         this.ofParameters = ofParameters;
         this.ofReturnValue = ofReturnValue;
     }
 
-    public MethodLinkedVariables create(MethodInfo methodInfo, Link ofReturnValue, List<Link> ofParameters) {
-        Map<Variable, Link> map = new HashMap<>();
-        map.put(new ReturnVariableImpl(methodInfo), ofReturnValue);
-        for (ParameterInfo pi : methodInfo.parameters()) {
-            map.put(pi, ofParameters.get(pi.index()));
-        }
-        return new MethodLinkedVariablesImpl(Map.copyOf(map), ofReturnValue, ofParameters);
+    @Override
+    public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+        return null;
     }
 
     @Override
-    public Link ofReturnValue() {
+    public boolean isDefault() {
+        return EMPTY.equals(this);
+    }
+
+    @Override
+    public Links ofReturnValue() {
         return ofReturnValue;
     }
 
     @Override
-    public List<Link> ofParameters() {
+    public List<Links> ofParameters() {
         return ofParameters;
     }
 }
