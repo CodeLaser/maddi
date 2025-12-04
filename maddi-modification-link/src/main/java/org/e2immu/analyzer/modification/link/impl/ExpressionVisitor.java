@@ -1,12 +1,16 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Links;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.LinkedVariables;
+import org.e2immu.analyzer.modification.link.*;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.variable.DependentVariable;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public record ExpressionVisitor(JavaInspector javaInspector,
                                 LinkComputer linkComputer,
@@ -14,7 +18,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                                 MethodInfo currentMethod,
                                 RecursionPrevention recursionPrevention) {
 
-    public record Result(Links link, LinkedVariables extra) {
+    public record Result(Links links, LinkedVariables extra) {
 
         public Result with(Links link) {
             return new Result(link, extra);
@@ -23,7 +27,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         public Result merge(Result other) {
             if (other.extra.isEmpty()) return this;
             LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
-            return new Result(link, combinedExtra);
+            return new Result(links, combinedExtra);
         }
 
         // keep other.link
@@ -37,7 +41,23 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     public Result visit(Expression expression, VariableData variableData) {
         return switch (expression) {
             case VariableExpression ve -> {
-                throw new UnsupportedOperationException("NYI");
+                if (ve.variable().parameterizedType().isPrimitiveStringClass()) yield EMPTY;
+                List<Link> links = new ArrayList<>();
+                Variable v = ve.variable();
+                while (v instanceof DependentVariable dv) {
+                    v = dv.arrayVariable();
+                    if (v != null) {
+                        links.add(new LinkImpl(ve.variable(), LinkNature.IS_ELEMENT_OF, v));
+                    }
+                }
+                LinkedVariables extra;
+                if (v instanceof FieldReference fr) {
+                    Result r = visit(fr.scope(), variableData);
+                    extra = r.extra;
+                } else {
+                    extra = LinkedVariablesImpl.EMPTY;
+                }
+                yield new Result(new LinksImpl(List.copyOf(links)), extra);
             }
 
             // all rather uninteresting....

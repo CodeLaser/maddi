@@ -1,20 +1,24 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.statement.*;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -123,15 +127,18 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     class SourceMethodComputer {
         final MethodInfo methodInfo;
+        final ExpressionVisitor expressionVisitor;
+        Links ofReturnValue;
 
         private SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
+            this.expressionVisitor = new ExpressionVisitor(javaInspector, LinkComputerImpl.this,
+                    this, methodInfo, recursionPrevention);
         }
 
         public MethodLinkedVariables go() {
             VariableData vd = doBlock(methodInfo.methodBody(), null);
             // ...
-            Links ofReturnValue = null;
             List<Links> ofParameters = new ArrayList<>();
 
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters);
@@ -153,6 +160,55 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private VariableData doStatement(Statement statement, VariableData previousVd) {
+            Map<Variable, Links> linkedVariables = new HashMap<>();
+
+            boolean evaluate;
+            switch (statement) {
+                case LocalVariableCreation lvc -> {
+                    linkedVariables.putAll(handleLvc(lvc, previousVd));
+                    evaluate = false;
+                }
+                case ForEachStatement fe -> {
+                    evaluate = true;
+                }
+                default -> evaluate = true;
+            }
+            ExpressionVisitor.Result r;
+            if (evaluate) {
+                Expression expression = statement.expression();
+                if (expression != null && !expression.isEmpty()) {
+                    r = expressionVisitor.visit(expression, previousVd);
+                } else {
+                    r = null;
+                }
+            } else {
+                r = null;
+            }
+            VariableData vd = VariableDataImpl.of(statement);
+
+            if (statement instanceof ReturnStatement && r != null) {
+                ofReturnValue = Expand.expand(r.links(), r.extra(), vd);
+            }
+
+            return vd;
+        }
+
+        private Map<Variable, Links> handleLvc(LocalVariableCreation lvc, VariableData previousVd) {
+            Map<Variable, Links> linkedVariables = new HashMap<>();
+            lvc.localVariableStream().forEach(lv -> {
+                if (!lv.assignmentExpression().isEmpty()) {
+                    ExpressionVisitor.Result r = expressionVisitor.visit(lv.assignmentExpression(),
+                            previousVd);
+                    r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
+                    if (!r.links().isEmpty()) {
+                        linkedVariables.put(lv, connect(lv, r.links()));
+                    }
+                }
+            });
+            return linkedVariables;
+        }
+
+        private Links connect(Variable variable, Links links) {
             throw new UnsupportedOperationException();
         }
     }
