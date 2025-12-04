@@ -1,13 +1,22 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Link;
+import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkedVariablesImpl.LINKS;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 /*
 convention:
@@ -20,6 +29,20 @@ Secondary synchronization takes place in PropertyValueMapImpl.getOrCreate().
  */
 
 public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LinkComputerImpl.class);
+    private final boolean forceShallow;
+    private final JavaInspector javaInspector;
+    private final RecursionPrevention recursionPrevention;
+
+    public LinkComputerImpl(JavaInspector javaInspector) {
+        this(javaInspector, true, false);
+    }
+
+    public LinkComputerImpl(JavaInspector javaInspector, boolean recurse, boolean forceShallow) {
+        this.recursionPrevention = new RecursionPrevention(recurse);
+        this.javaInspector = javaInspector;
+        this.forceShallow = forceShallow;
+    }
 
     @Override
     public void doPrimaryType(TypeInfo primaryType) {
@@ -28,31 +51,109 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     private void doType(TypeInfo typeInfo) {
         typeInfo.subTypes().forEach(this::doType);
-        typeInfo.constructorAndMethodStream().forEach(mi -> mi.analysis().getOrCreate(LINKS, ()-> doMethod(mi)));
+        typeInfo.constructorAndMethodStream().forEach(mi -> mi.analysis().getOrCreate(METHOD_LINKS, () -> doMethod(mi)));
     }
 
     @Override
-    public Link doField(FieldInfo fieldInfo) {
+    public Links doField(FieldInfo fieldInfo) {
         throw new UnsupportedOperationException("NYI");
     }
 
     @Override
     public void doAnonymousType(TypeInfo typeInfo) {
-
+        doType(typeInfo);
     }
 
     @Override
-    public MethodLinkedVariables doMethod(MethodInfo methodInfo) {
-        return null;
+    public MethodLinkedVariables doMethod(MethodInfo method) {
+        MethodLinkedVariables alreadyDone = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assert alreadyDone == null : "We should come from analysis(), we have just checked.";
+
+        try {
+            TypeInfo typeInfo = method.typeInfo();
+            boolean shallow = forceShallow || typeInfo.compilationUnit().externalLibrary();
+            return doMethod(method, shallow, false);
+        } catch (RuntimeException | AssertionError e) {
+            LOGGER.error("Caught exception computing {}", method, e);
+            throw e;
+        }
     }
 
     @Override
-    public MethodLinkedVariables recurseMethod(MethodInfo methodInfo) {
-        return null;
+    public MethodLinkedVariables recurseMethod(MethodInfo method) {
+        MethodLinkedVariables alreadyDone = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        if (alreadyDone != null) return alreadyDone;
+        try {
+            TypeInfo typeInfo = method.typeInfo();
+            boolean shallow = forceShallow || typeInfo.compilationUnit().externalLibrary();
+            return doMethod(method, shallow, true);
+        } catch (RuntimeException | AssertionError e) {
+            LOGGER.error("Caught exception recursively computing {}", method, e);
+            throw e;
+        }
     }
 
     @Override
     public MethodLinkedVariables doMethodShallowDoNotWrite(MethodInfo methodInfo) {
-        return null;
+        return doMethod(methodInfo, true, false);
+    }
+
+    private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write) {
+        if (shallow) {
+            throw new UnsupportedOperationException("NYI");
+        }
+        MethodLinkedVariables tlv;
+        if (recursionPrevention.sourceAllowed(methodInfo)) {
+            try {
+                tlv = new SourceMethodComputer(methodInfo).go();
+                if (write) {
+                    methodInfo.analysis().set(METHOD_LINKS, tlv);
+                }
+            } finally {
+                recursionPrevention.doneSource(methodInfo);
+            }
+        } else {
+            // we're already analyzing methodInfo... so we return a shallow copy, not written out!
+            LOGGER.debug("Fall-back to shallow for {}", methodInfo);
+            tlv = doMethod(methodInfo, true, false);
+            //fallbackToShallow.incrementAndGet();
+        }
+        return tlv;
+    }
+
+    class SourceMethodComputer {
+        final MethodInfo methodInfo;
+
+        private SourceMethodComputer(MethodInfo methodInfo) {
+            this.methodInfo = methodInfo;
+        }
+
+        public MethodLinkedVariables go() {
+            VariableData vd = doBlock(methodInfo.methodBody(), null);
+            // ...
+            Links ofReturnValue = null;
+            List<Links> ofParameters = new ArrayList<>();
+
+            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters);
+            LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
+            return mlv;
+        }
+
+        VariableData doBlock(Block block, VariableData previousVd) {
+            VariableData vd = previousVd;
+            for (Statement statement : block.statements()) {
+                if (statement instanceof Block b) {
+                    // a block among the statements
+                    vd = doBlock(b, vd);
+                } else {
+                    vd = doStatement(statement, vd);
+                }
+            }
+            return vd;
+        }
+
+        private VariableData doStatement(Statement statement, VariableData previousVd) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

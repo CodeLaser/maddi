@@ -5,7 +5,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.Map;
 
-public interface LinkedVariables extends Iterable<Map.Entry<Variable, Link>>, Value {
+public interface LinkedVariables extends Iterable<Map.Entry<Variable, Links>>, Value {
 
     boolean isEmpty();
 

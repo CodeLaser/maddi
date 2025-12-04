@@ -1,6 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Link;
+import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.LinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
@@ -12,12 +12,12 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class LinkedVariablesImpl implements LinkedVariables {
-    private final static LinkedVariables EMPTY = new LinkedVariablesImpl(Map.of());
+    public final static LinkedVariables EMPTY = new LinkedVariablesImpl(Map.of());
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
 
-    private final Map<Variable, Link> links;
+    private final Map<Variable, Links> links;
 
-    public LinkedVariablesImpl(Map<Variable, Link> links) {
+    public LinkedVariablesImpl(Map<Variable, Links> links) {
         this.links = links;
     }
 
@@ -38,7 +38,7 @@ public class LinkedVariablesImpl implements LinkedVariables {
 
     @Override
     @org.jetbrains.annotations.NotNull
-    public Iterator<Map.Entry<Variable, Link>> iterator() {
+    public Iterator<Map.Entry<Variable, Links>> iterator() {
         return links.entrySet().iterator();
     }
 
@@ -51,7 +51,7 @@ public class LinkedVariablesImpl implements LinkedVariables {
     public LinkedVariables merge(LinkedVariables other) {
         if (this.isEmpty()) return other;
         if (other.isEmpty()) return this;
-        HashMap<Variable, Link> map = new HashMap<>(links);
+        HashMap<Variable, Links> map = new HashMap<>(links);
         map.putAll(((LinkedVariablesImpl) other).links);
         return new LinkedVariablesImpl(map);
     }

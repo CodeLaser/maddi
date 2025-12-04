@@ -8,7 +8,7 @@ public interface LinkComputer {
     // tests only!
     void doPrimaryType(TypeInfo primaryType);
 
-    Link doField(FieldInfo fieldInfo);
+    Links doField(FieldInfo fieldInfo);
 
     MethodLinkedVariables doMethod(MethodInfo methodInfo);
 
