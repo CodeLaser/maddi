@@ -1,0 +1,100 @@
+package org.e2immu.analyzer.modification.link;
+
+import org.e2immu.analyzer.modification.link.impl.*;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+public class TestMap extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class X<K, V> {
+                Map<K, V> map = new HashMap<>();
+                public V get(K key) {
+                    return map.get(key);
+                }
+                public V getOrDefault(K key, V defaultValue) {
+                    V v = map.get(key);
+                    return v == null ? defaultValue : v;
+                }
+            }
+            """;
+
+    @DisplayName("Analyze 'get', map access, manually inserting links for Map.get(K)")
+    @Test
+    public void test1a() {
+        TypeInfo X = javaInspector.parse(INPUT1);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
+        TypeInfo e = makeRecord(X, X.typeParameters());
+        ParameterizedType ekvPt = runtime.newParameterizedType(e, 1);
+        // the synthetic field E e
+        FieldInfo mapE = runtime.newFieldInfo("e", false, ekvPt, map);
+        FieldReference thisMapE = runtime.newFieldReference(mapE);
+        FieldInfo v = e.getFieldByName("v", true);
+        FieldReference thisMapEV = runtime.newFieldReference(v, runtime.newVariableExpression(thisMapE), v.type());
+        MethodInfo mapGet = map.findUniqueMethod("get", 1);
+        ReturnVariable mapGetRv = new ReturnVariableImpl(mapGet);
+        MethodLinkedVariablesImpl mlvGet = new MethodLinkedVariablesImpl(
+                new LinksImpl.Builder(mapGetRv)
+                        .add(mapGetRv, LinkNature.IS_ELEMENT_OF, thisMapEV)
+                        .build(),
+                List.of());
+        assertEquals("[] --> of.tArray>0:e1", mlvGet.toString());
+        mapGet.analysis().set(METHOD_LINKS, mlvGet);
+
+        MethodInfo get = X.findUniqueMethod("get", 1);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        MethodLinkedVariables mlv = tlc.doMethod(get);
+        assertEquals("get<this.ts,get==this.ts[0:index]", mlv.ofReturnValue().toString());
+    }
+
+    private TypeInfo makeRecord(TypeInfo X, List<TypeParameter> typeParameters) {
+        TypeInfo typeInfo = runtime.newTypeInfo(X, "E");
+        typeInfo.builder().setTypeNature(runtime.typeNatureClass())
+                .setParentClass(runtime.objectParameterizedType())
+                .setAccess(runtime.accessPublic());
+        for (TypeParameter tp : typeParameters) {
+            FieldInfo fieldInfo = runtime.newFieldInfo(tp.simpleName().toLowerCase(), false,
+                    runtime.newParameterizedType(tp, 0, null), typeInfo);
+            fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
+                    .addFieldModifier(runtime.fieldModifierPublic())
+                    .setInitializer(runtime.newEmptyExpression())
+                    .computeAccess().commit();
+            typeInfo.builder().addField(fieldInfo);
+        }
+        typeInfo.builder().commit();
+        return typeInfo;
+    }
+
+}
