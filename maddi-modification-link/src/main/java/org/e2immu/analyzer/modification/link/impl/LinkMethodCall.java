@@ -12,8 +12,9 @@ import org.e2immu.language.cst.api.variable.Variable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public record LinkMethodCall(Runtime runtime) {
+public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
 
     public ExpressionVisitor.Result methodCall(MethodCall mc,
                                                ExpressionVisitor.Result object,
@@ -28,20 +29,33 @@ public record LinkMethodCall(Runtime runtime) {
         Variable objectPrimary = object.links().primary();
         Variable rvPrimary = mlv.ofReturnValue().primary();
         if (rvPrimary != null) {
-            assert rvPrimary instanceof ReturnVariable : "the links of the method return value must be in the return variable";
+            assert rvPrimary instanceof ReturnVariable
+                    : "the links of the method return value must be in the return variable";
             assert !mc.methodInfo().isVoid() : "Cannot be a void function if we have a return variable";
-            if (objectPrimary != null) {
+            Variable newPrimary;
+            TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
+            if (objectPrimary == null) {
+                // make a temporary variable holding the result of the method call; it'll get filtered out in the end
+                newPrimary = runtime.newLocalVariable("rv" + variableCounter.getAndIncrement(),
+                        rvPrimary.parameterizedType());
+            } else {
                 assert !mc.methodInfo().isStatic() : """
                         objectPrimary!=null indicates that we have an instance function.
                         Therefore we must translate 'this' to the method's object primary""";
+                newPrimary = objectPrimary;
                 This thisVar = runtime.newThis(mc.methodInfo().typeInfo().asSimpleParameterizedType());
-                TranslationMap tm = runtime.newTranslationMapBuilder().put(thisVar, objectPrimary).build();
-                concreteReturnValue = mlv.ofReturnValue().changePrimaryTo(objectPrimary, tm);
-
-            } else {
-                // could be static, could be that there is no primary -- we should have made a dummy one?
-                concreteReturnValue = LinksImpl.EMPTY;
+                tmBuilder.put(thisVar, newPrimary);
             }
+            int index = 0;
+            for (ExpressionVisitor.Result pr : params) {
+                if (pr.links().primary() != null) {
+                    tmBuilder.put(mc.methodInfo().parameters().get(index), pr.links().primary());
+                }
+                ++index;
+            }
+            concreteReturnValue = mlv.ofReturnValue().changePrimaryTo(newPrimary, tmBuilder.build());
+
+
         } else {
             concreteReturnValue = LinksImpl.EMPTY;
         }

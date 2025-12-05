@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -130,15 +132,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         return tlv;
     }
 
-    class SourceMethodComputer {
+    public class SourceMethodComputer {
         final MethodInfo methodInfo;
         final ExpressionVisitor expressionVisitor;
         Links ofReturnValue;
 
-        private SourceMethodComputer(MethodInfo methodInfo) {
+        public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
             this.expressionVisitor = new ExpressionVisitor(javaInspector, LinkComputerImpl.this,
-                    this, methodInfo, recursionPrevention);
+                    this, methodInfo, recursionPrevention, new AtomicInteger());
         }
 
         public MethodLinkedVariables go() {
@@ -230,7 +232,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
 
-        private Map<Variable, Links> handleLvc(LocalVariableCreation lvc, VariableData previousVd) {
+        public Map<Variable, Links> handleLvc(LocalVariableCreation lvc, VariableData previousVd) {
             Map<Variable, Links> linkedVariables = new HashMap<>();
             lvc.localVariableStream().forEach(lv -> {
                 if (!lv.assignmentExpression().isEmpty()) {
@@ -239,6 +241,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
                     if (!r.links().isEmpty()) {
                         linkedVariables.put(lv, r.links().changePrimaryTo(lv, null));
+                    }
+                    if (r.links().primary() != null) {
+                        // make sure that we link the variables with '=='
+                        linkedVariables.merge(lv,
+                                new LinksImpl.Builder(lv)
+                                        .add(LinkNature.IS_IDENTICAL_TO, r.links().primary())
+                                        .build(),
+                                Links::merge);
                     }
                 }
             });

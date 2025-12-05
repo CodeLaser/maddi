@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -97,8 +98,15 @@ public record LinksImpl(Variable primary, List<Link> links) implements Links {
 
         @Override
         public @NotNull String toString() {
-            return from.toString() + linkNature + to;
+            return simpleVar(from) + linkNature + simpleVar(to);
         }
+    }
+
+    private static String simpleVar(Variable variable) {
+        if (variable instanceof ParameterInfo pi) {
+            return pi.index() + ":" + pi.name();
+        }
+        return variable.toString();
     }
 
     // used by LVC
