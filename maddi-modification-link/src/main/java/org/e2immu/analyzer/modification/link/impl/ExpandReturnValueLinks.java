@@ -32,7 +32,7 @@ public class ExpandReturnValueLinks {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
         }
         G<Variable> graph = makeGraph(links, extra, vd);
-        Map<Variable, LinkNature> all = shortestPath(graph, links.primary());//.edges(new V<>(links.primary()));
+        Map<Variable, LinkNature> all = bestPath(graph, links.primary());//.edges(new V<>(links.primary()));
         if (all != null) {
             for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
                 Variable to = entry.getKey();
@@ -44,7 +44,9 @@ public class ExpandReturnValueLinks {
         return rvBuilder.build();
     }
 
-    private static Map<Variable, LinkNature> shortestPath(G<Variable> graph, Variable start) {
+    private static Map<Variable, LinkNature> bestPath(G<Variable> graph, Variable start) {
+        // algorithm: we list all paths, and make a synthesis
+
         return graph.edges(new V<>(start)).entrySet().stream()
                 .collect(Collectors.toUnmodifiableMap(
                         e -> e.getKey().t(),

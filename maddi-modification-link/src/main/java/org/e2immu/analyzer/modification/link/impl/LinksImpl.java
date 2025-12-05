@@ -103,7 +103,7 @@ public record LinksImpl(Variable primary, Set<Link> links) implements Links {
         }
     }
 
-    private static String simpleVar(Variable variable) {
+    static String simpleVar(Variable variable) {
         if (variable instanceof ParameterInfo pi) {
             return pi.index() + ":" + pi.name();
         }
