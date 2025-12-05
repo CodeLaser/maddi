@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -50,6 +51,10 @@ public class TestList extends CommonTest {
                     int n = in.size();
                     List<Z> zs = in.subList(2, n);
                     return zs;
+                }
+            
+                public void set(T t, int index) {
+                    ts[index] = t;
                 }
             }
             """;
@@ -196,5 +201,31 @@ public class TestList extends CommonTest {
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
 
         assertEquals("sub.M==0:in.M,sub.tArray~0:in.tArray", mlvSub.ofReturnValue().toString());
+    }
+
+
+    @DisplayName("Analyze 'set'")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse(INPUT1);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        MethodInfo set = X.findUniqueMethod("set", 2);
+
+        Expression assignment = set.methodBody().statements().getFirst().expression();
+        LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputerImpl.SourceMethodComputer smc = tlc.new SourceMethodComputer(set);
+        ExpressionVisitor ev = new ExpressionVisitor(javaInspector, tlc, smc,
+                set, new RecursionPrevention(false), new AtomicInteger());
+        ExpressionVisitor.Result r = ev.visit(assignment, null);
+        assertEquals("this.ts[1:index]==0:t", r.links().toString());
+        assertEquals("this.ts[1:index]: this.ts[1:index]<this.ts", r.extra().toString());
+
+        // now the same, but as a statement; then, the data will be saved
+        VariableData vd = smc.doStatement(set.methodBody().statements().getFirst(), null);
+        List<Links> list = new ExpandParameterLinks(runtime).go(set, vd);
+        // MethodLinkedVariables mlv = tlc.doMethod(set)
+        assertEquals("0:t==this.ts[1:index],0:t<this.ts", list.getFirst().toString());
     }
 }

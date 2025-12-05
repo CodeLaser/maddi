@@ -53,7 +53,7 @@ public record ExpandReturnValueLinks(Runtime runtime) {
         return rvBuilder.build();
     }
 
-    private static Map<Variable, LinkNature> bestPath(Map<Variable, Map<Variable, LinkNature>> graph, Variable start) {
+    static Map<Variable, LinkNature> bestPath(Map<Variable, Map<Variable, LinkNature>> graph, Variable start) {
         Map<Variable, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
                         graph.keySet(), start, LinkNature.EMPTY, LinkNature::combine);
@@ -81,7 +81,7 @@ public record ExpandReturnValueLinks(Runtime runtime) {
         return graph;
     }
 
-    private static void mergeEdge(Map<Variable, Map<Variable, LinkNature>> graph,
+    static void mergeEdge(Map<Variable, Map<Variable, LinkNature>> graph,
                                   Variable from,
                                   LinkNature linkNature,
                                   Variable to) {
@@ -89,7 +89,7 @@ public record ExpandReturnValueLinks(Runtime runtime) {
         edges.merge(to, linkNature, LinkNature::combine);
     }
 
-    private static boolean containsNoLocalVariable(Variable variable) {
+    static boolean containsNoLocalVariable(Variable variable) {
         assert variable.variableStreamDescend().noneMatch(v -> v instanceof ReturnVariable) : """
                 Return variables should not occur here: the result of LinkMethodCall should never contain them.
                 """;
