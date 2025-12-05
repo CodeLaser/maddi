@@ -1,8 +1,8 @@
 package org.e2immu.analyzer.modification.link;
 
 public enum LinkNature {
-    NONE("X", -1),
-
+    NONE("X", -1), // there cannot be a link
+    EMPTY("?", -2), // start of algorithms
     // more than 0-0, object identity
     IS_IDENTICAL_TO("==", 0),
 
@@ -24,6 +24,7 @@ public enum LinkNature {
 
     public static LinkNature of(int i) {
         return switch (i) {
+            case -2 -> EMPTY;
             case -1 -> NONE;
             case 0 -> IS_IDENTICAL_TO;
             case 1 -> INTERSECTION_NOT_EMPTY;
@@ -44,6 +45,8 @@ public enum LinkNature {
 
     public LinkNature combine(LinkNature other) {
         if (this == other) return this;
+        if (this == EMPTY) return other;
+        if (other == EMPTY) return this;
         if (this == NONE || other == NONE) return NONE;
         if (other == IS_IDENTICAL_TO) return this;
         if (this == IS_IDENTICAL_TO) return other;
