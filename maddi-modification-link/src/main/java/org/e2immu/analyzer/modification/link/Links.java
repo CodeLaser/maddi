@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.List;
+import java.util.Set;
 
 /*
 links from one variable and its constituent parts to other variables.
@@ -14,15 +15,11 @@ public interface Links extends Iterable<Link>, Value {
 
     Variable primary();
 
-    default List<Link> primaryLinks() {
-        return links().stream().takeWhile(l -> primary().equals(l.from())).toList();
-    }
-
     default boolean isEmpty() {
         return links().isEmpty();
     }
 
-    List<Link> links();
+    Set<Link> links();
 
     Links merge(Links links);
 

@@ -13,14 +13,12 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public record LinksImpl(Variable primary, List<Link> links) implements Links {
-    public static final Links EMPTY = new LinksImpl(null, List.of());
+public record LinksImpl(Variable primary, Set<Link> links) implements Links {
+    public static final Links EMPTY = new LinksImpl(null, Set.of());
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
 
     @Override
@@ -40,21 +38,13 @@ public record LinksImpl(Variable primary, List<Link> links) implements Links {
 
     @Override
     public @NotNull String toString() {
-        return links.stream().map(Object::toString).collect(Collectors.joining(","));
+        return links.stream().sorted().map(Object::toString).collect(Collectors.joining(","));
     }
 
     @Override
     public Links merge(Links links) {
         return new LinksImpl(primary, Stream.concat(this.links.stream(), links.links().stream())
-                .distinct()
-                .sorted((l1, l2) -> {
-                    boolean l1IsPrimary = primary.equals(l1.from());
-                    boolean l2IsPrimary = primary.equals(l2.from());
-                    if (l1IsPrimary && !l2IsPrimary) return -1;
-                    if (l2IsPrimary && !l1IsPrimary) return 1;
-                    return l1.from().compareTo(l2.from());
-                })
-                .toList());
+                .collect(Collectors.toUnmodifiableSet()));
     }
 
     public static class Builder implements Links.Builder {
@@ -84,7 +74,7 @@ public record LinksImpl(Variable primary, List<Link> links) implements Links {
         }
 
         public Links build() {
-            return new LinksImpl(primary, List.copyOf(links));
+            return new LinksImpl(primary, Set.copyOf(links));
         }
     }
 
@@ -94,6 +84,17 @@ public record LinksImpl(Variable primary, List<Link> links) implements Links {
             assert from != null;
             assert to != null;
             assert linkNature != null;
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (!(object instanceof LinkImpl link)) return false;
+            return Objects.equals(to(), link.to()) && Objects.equals(from(), link.from());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(from(), to());
         }
 
         @Override
