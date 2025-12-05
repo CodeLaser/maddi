@@ -13,6 +13,7 @@ import org.e2immu.util.internal.graph.ImmutableGraph;
 import org.e2immu.util.internal.graph.V;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
@@ -31,17 +32,23 @@ public class ExpandReturnValueLinks {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
         }
         G<Variable> graph = makeGraph(links, extra, vd);
-        // FIXME we want to run all paths, with the custom combination function
-        Map<V<Variable>, Long> all = graph.edges(new V<>(links.primary()));
+        Map<Variable, LinkNature> all = shortestPath(graph, links.primary());//.edges(new V<>(links.primary()));
         if (all != null) {
-            for (Map.Entry<V<Variable>, Long> entry : all.entrySet()) {
-                Variable to = entry.getKey().t();
-                if (entry.getValue() >= 0L && containsNoLocalVariable(to)) {
-                    rvBuilder.add(LinkNature.values()[(int) (long) entry.getValue()], to);
+            for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
+                Variable to = entry.getKey();
+                if (entry.getValue() != LinkNature.NONE && containsNoLocalVariable(to)) {
+                    rvBuilder.add(entry.getValue(), to);
                 }
             }
         }
         return rvBuilder.build();
+    }
+
+    private static Map<Variable, LinkNature> shortestPath(G<Variable> graph, Variable start) {
+        return graph.edges(new V<>(start)).entrySet().stream()
+                .collect(Collectors.toUnmodifiableMap(
+                        e -> e.getKey().t(),
+                        e -> LinkNature.of((int) (long) e.getValue())));
     }
 
     private static G<Variable> makeGraph(Links links, LinkedVariables extra, VariableData vd) {

@@ -242,7 +242,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     if (!r.links().isEmpty()) {
                         linkedVariables.put(lv, r.links().changePrimaryTo(lv, null));
                     }
-                    if (r.links().primary() != null) {
+                    if (r.links().primary() != null && r.links().primary().parameterizedType().equals(lv.parameterizedType())) {
                         // make sure that we link the variables with '=='
                         linkedVariables.merge(lv,
                                 new LinksImpl.Builder(lv)

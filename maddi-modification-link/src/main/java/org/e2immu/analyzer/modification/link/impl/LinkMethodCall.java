@@ -46,6 +46,8 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                 This thisVar = runtime.newThis(mc.methodInfo().typeInfo().asSimpleParameterizedType());
                 tmBuilder.put(thisVar, newPrimary);
             }
+            // the return value can also contain references to parameters... we should replace them by
+            // actual arguments
             int index = 0;
             for (ExpressionVisitor.Result pr : params) {
                 if (pr.links().primary() != null) {

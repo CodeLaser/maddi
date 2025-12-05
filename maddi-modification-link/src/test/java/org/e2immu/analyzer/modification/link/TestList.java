@@ -105,12 +105,9 @@ public class TestList extends CommonTest {
         ReturnVariable ofRv = new ReturnVariableImpl(of);
         MethodLinkedVariablesImpl mlvOf = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(ofRv)
-                        //   .add(LinkNature.INTERSECTION_NOT_EMPTY, virtualContentVariable)
                         .add(LinkNature.CONTAINS, of.parameters().getFirst())
                         .build(),
-                List.of());//new LinksImpl.Builder(of.parameters().getFirst())
-        //   .add(LinkNature.IS_ELEMENT_OF, virtualContentVariable)
-        //    .build()));
+                List.of());
         assertEquals("[] --> of>0:e1", mlvOf.toString());
         of.analysis().set(METHOD_LINKS, mlvOf);
 
@@ -126,7 +123,6 @@ public class TestList extends CommonTest {
         assertEquals("{t=t==this.ts[0], this.ts[0]=this.ts[0]<this.ts}", map.toString());
 
         // test the evaluation of List.of(t)
-
         VariableData vd0 = VariableDataImpl.of(lvc);
         ExpressionVisitor.Result r = ev.visit(asShortList.methodBody().statements().getLast().expression(), vd0);
         assertEquals("rv0>t", r.links().toString());
