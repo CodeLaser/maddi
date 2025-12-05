@@ -8,11 +8,10 @@ import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.ImmutableGraph;
-import org.e2immu.util.internal.graph.V;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -31,7 +30,7 @@ public class ExpandReturnValueLinks {
         if (containsNoLocalVariable(links.primary())) {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
         }
-        G<Variable> graph = makeGraph(links, extra, vd);
+        Map<Variable, Map<Variable, LinkNature>> graph = makeGraph(links, extra, vd);
         Map<Variable, LinkNature> all = bestPath(graph, links.primary());//.edges(new V<>(links.primary()));
         if (all != null) {
             for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
@@ -44,29 +43,40 @@ public class ExpandReturnValueLinks {
         return rvBuilder.build();
     }
 
-    private static Map<Variable, LinkNature> bestPath(G<Variable> graph, Variable start) {
-        // algorithm: we list all paths, and make a synthesis
-
-        return graph.edges(new V<>(start)).entrySet().stream()
-                .collect(Collectors.toUnmodifiableMap(
-                        e -> e.getKey().t(),
-                        e -> LinkNature.of((int) (long) e.getValue())));
+    private static Map<Variable, LinkNature> bestPath(Map<Variable, Map<Variable, LinkNature>> graph, Variable start) {
+        Map<Variable, Set<LinkNature>> res =
+                FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
+                        graph.keySet(), start, LinkNature.EMPTY, LinkNature::combine);
+        return res.entrySet().stream()
+                .filter(e -> !start.equals(e.getKey()))
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
+                        e -> e.getValue().stream().reduce(LinkNature.EMPTY, LinkNature::combine)));
     }
 
-    private static G<Variable> makeGraph(Links links, LinkedVariables extra, VariableData vd) {
-        G.Builder<Variable> builder = new ImmutableGraph.Builder<>(LinkNature::combineLongs);
+    private static Map<Variable, Map<Variable, LinkNature>> makeGraph(Links links,
+                                                                      LinkedVariables extra,
+                                                                      VariableData vd) {
+        Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
         Stream<Link> stream = Stream.concat(links.links().stream(),
                 extra.map().values().stream().flatMap(l -> l.links().stream()));
-        stream.forEach(link -> builder.mergeEdge(link.from(), link.to(), link.linkNature().longValue()));
+        stream.forEach(link -> mergeEdge(graph, link.from(), link.linkNature(), link.to()));
 
         vd.variableInfoStream().forEach(vi -> {
             Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
             if (vLinks != null) {
-                vLinks.links().forEach(l -> builder.mergeEdge(l.from(), l.to(), l.linkNature().longValue()));
+                vLinks.links().forEach(l -> mergeEdge(graph, l.from(), l.linkNature(), l.to()));
             }
         });
 
-        return builder.build();
+        return graph;
+    }
+
+    private static void mergeEdge(Map<Variable, Map<Variable, LinkNature>> graph,
+                                  Variable from,
+                                  LinkNature linkNature,
+                                  Variable to) {
+        Map<Variable, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
+        edges.merge(to, linkNature, LinkNature::combine);
     }
 
     private static boolean containsNoLocalVariable(Variable variable) {

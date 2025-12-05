@@ -50,8 +50,20 @@ public enum LinkNature {
         if (this == NONE || other == NONE) return NONE;
         if (other == IS_IDENTICAL_TO) return this;
         if (this == IS_IDENTICAL_TO) return other;
-        if (this == IS_ELEMENT_OF && other != CONTAINS) return other;
-        if (other == CONTAINS && this != IS_ELEMENT_OF) return this;
+        if (this == IS_ELEMENT_OF) {
+            return switch(other) {
+                case INTERSECTION_NOT_EMPTY -> IS_ELEMENT_OF;
+                case CONTAINS -> INTERSECTION_NOT_EMPTY;
+                default -> throw new UnsupportedOperationException();
+            };
+        }
+        if (this == CONTAINS ) {
+            return switch(other) {
+                case INTERSECTION_NOT_EMPTY -> IS_ELEMENT_OF;
+                case IS_ELEMENT_OF -> INTERSECTION_NOT_EMPTY;
+                default -> throw new UnsupportedOperationException();
+            };
+        }
         return NONE;
     }
 

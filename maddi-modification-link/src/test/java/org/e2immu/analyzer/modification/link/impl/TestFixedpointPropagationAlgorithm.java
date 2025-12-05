@@ -21,6 +21,24 @@ public class TestFixedpointPropagationAlgorithm {
         assertEquals("b: ==", compute(graph));
     }
 
+    @Test
+    public void test2() {
+        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
+        graph.put(START, Map.of("b", LinkNature.IS_IDENTICAL_TO));
+        graph.put("b", Map.of("c", LinkNature.CONTAINS));
+
+        assertEquals("b: ==, c: >", compute(graph));
+    }
+
+    @Test
+    public void test3() {
+        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
+        graph.put(START, Map.of("b", LinkNature.CONTAINS));
+        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
+        graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
+        assertEquals("b: >, c: >, d: ~", compute(graph));
+    }
+
     private String compute(Map<String, Map<String, LinkNature>> graph) {
         Map<String, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
