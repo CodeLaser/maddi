@@ -54,7 +54,7 @@ public class TestList extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get==this.ts[index],get<this.ts", mlv.ofReturnValue().toString());
+        assertEquals("get<this.ts,get==this.ts[index]", mlv.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'method', given method links for 'get'")
@@ -70,7 +70,7 @@ public class TestList extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         // first, do get()
         MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("get==this.ts[index],get<this.ts", lvGet.ofReturnValue().toString());
+        assertEquals("get<this.ts,get==this.ts[index]", lvGet.ofReturnValue().toString());
 
         // then, do method
         MethodLinkedVariables lvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -78,9 +78,9 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("k==x.ts[index],k<x.ts", linksK.toString());
+        assertEquals("k<x.ts,k==x.ts[index]", linksK.toString());
 
-        assertEquals("[] --> method==x.ts[index],method<x.ts", lvMethod.toString());
+        assertEquals("[] --> method<x.ts,method==x.ts[index]", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
