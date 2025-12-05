@@ -3,9 +3,11 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.link.Link;
 import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -107,18 +109,38 @@ public record LinksImpl(Variable primary, Set<Link> links) implements Links {
         if (variable instanceof ParameterInfo pi) {
             return pi.index() + ":" + pi.name();
         }
+        if (variable instanceof ReturnVariable rv) {
+            return rv.methodInfo().name();
+        }
+        if (variable instanceof FieldReference fr) {
+            String scope = fr.scopeVariable() != null ? simpleVar(fr.scopeVariable()) : fr.scope().toString();
+            return scope + "." + fr.fieldInfo().name();
+        }
+        if (variable instanceof DependentVariable dv) {
+            String index = dv.indexVariable() != null ? simpleVar(dv.indexVariable()) : dv.indexExpression().toString();
+            return simpleVar(dv.arrayVariable()) + "[" + index + "]";
+        }
         return variable.toString();
     }
 
     // used by LVC
     @Override
-    public Links changePrimaryTo(Variable newPrimary, TranslationMap tm) {
+    public Links changePrimaryTo(Runtime runtime, Variable newPrimary, TranslationMap tm) {
+        TranslationMap newPrimaryTm = null;
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : links) {
             if (link.from().equals(primary)) {
                 Variable translated = tm == null ? link.to() : tm.translateVariableRecursively(link.to());
                 builder.add(link.linkNature(), translated);
-            } else throw new UnsupportedOperationException("NYI");
+            } else {
+                // links that are not 'primary'
+                if (newPrimaryTm == null) {
+                    newPrimaryTm = runtime.newTranslationMapBuilder().put(primary, newPrimary).build();
+                }
+                Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
+                Variable translated = tm == null ? link.to() : tm.translateVariableRecursively(link.to());
+                builder.add(fromTranslated, link.linkNature(), translated);
+            }
         }
         return builder.build();
     }

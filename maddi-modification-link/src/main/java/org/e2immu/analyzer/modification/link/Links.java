@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link;
 
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 
@@ -33,6 +34,6 @@ public interface Links extends Iterable<Link>, Value {
 
     // methods that do something
     // used by LVC
-    Links changePrimaryTo(Variable newPrimary, TranslationMap translationMap);
+    Links changePrimaryTo(Runtime runtime, Variable newPrimary, TranslationMap translationMap);
 
 }

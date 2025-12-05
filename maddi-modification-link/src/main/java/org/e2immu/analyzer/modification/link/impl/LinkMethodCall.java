@@ -55,7 +55,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                 }
                 ++index;
             }
-            concreteReturnValue = mlv.ofReturnValue().changePrimaryTo(newPrimary, tmBuilder.build());
+            concreteReturnValue = mlv.ofReturnValue().changePrimaryTo(runtime, newPrimary, tmBuilder.build());
 
 
         } else {
