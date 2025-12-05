@@ -1,8 +1,6 @@
 package org.e2immu.analyzer.modification.link;
 
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.link.impl.*;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -12,12 +10,14 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -105,22 +105,36 @@ public class TestList extends CommonTest {
         ReturnVariable ofRv = new ReturnVariableImpl(of);
         MethodLinkedVariablesImpl mlvOf = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(ofRv)
-                        .add(LinkNature.INTERSECTION_NOT_EMPTY, virtualContentVariable)
+                        //   .add(LinkNature.INTERSECTION_NOT_EMPTY, virtualContentVariable)
                         .add(LinkNature.CONTAINS, of.parameters().getFirst())
                         .build(),
-                List.of(new LinksImpl.Builder(of.parameters().getFirst())
-                                .add(LinkNature.IS_ELEMENT_OF, virtualContentVariable)
-                        .build()));
-        assertEquals("""
-                [java.util.List.of(E):0:e1<this.tArray] --> of~this.tArray,of>java.util.List.of(E):0:e1\
-                """, mlvOf.toString());
+                List.of());//new LinksImpl.Builder(of.parameters().getFirst())
+        //   .add(LinkNature.IS_ELEMENT_OF, virtualContentVariable)
+        //    .build()));
+        assertEquals("[] --> of>0:e1", mlvOf.toString());
         of.analysis().set(METHOD_LINKS, mlvOf);
 
         MethodInfo asShortList = X.findUniqueMethod("asShortList", 0);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputerImpl.SourceMethodComputer smc = tlc.new SourceMethodComputer(asShortList);
+        ExpressionVisitor ev = new ExpressionVisitor(javaInspector, tlc, smc,
+                asShortList, new RecursionPrevention(false), new AtomicInteger());
 
+        // test the evaluation of T t = ts[0]
+        LocalVariableCreation lvc = (LocalVariableCreation) asShortList.methodBody().statements().getFirst();
+        var map = smc.handleLvc(lvc, null);
+        assertEquals("{t=t==this.ts[0], this.ts[0]=this.ts[0]<this.ts}", map.toString());
+
+        // test the evaluation of List.of(t)
+
+        VariableData vd0 = VariableDataImpl.of(lvc);
+        ExpressionVisitor.Result r = ev.visit(asShortList.methodBody().statements().getLast().expression(), vd0);
+        assertEquals("rv0>t", r.links().toString());
+
+        // rv0>t + t=this.ts[0] + this.ts[0]<this.ts  = asShortList~this.ts
         MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(asShortList));
+        // the intermediary step after evaluating the
         assertEquals("asShortList~this.ts", lvAsShortList.ofReturnValue().toString());
 
     }

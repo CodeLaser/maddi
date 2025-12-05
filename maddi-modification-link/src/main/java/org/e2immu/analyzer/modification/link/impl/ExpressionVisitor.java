@@ -14,6 +14,7 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -21,7 +22,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                                 LinkComputerRecursion linkComputer,
                                 LinkComputerImpl.SourceMethodComputer sourceMethodComputer,
                                 MethodInfo currentMethod,
-                                RecursionPrevention recursionPrevention) {
+                                RecursionPrevention recursionPrevention,
+                                AtomicInteger variableCounter) {
 
     /*
     primary = end result
@@ -101,7 +103,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData);
         MethodLinkedVariables mlv = recurseIntoTypeLinkComputer(mc.methodInfo());
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
-        return new LinkMethodCall(javaInspector.runtime()).methodCall(mc, object, params, mlv);
+        return new LinkMethodCall(javaInspector.runtime(), variableCounter).methodCall(mc, object, params, mlv);
     }
 
     private MethodLinkedVariables recurseIntoTypeLinkComputer(MethodInfo methodInfo) {
