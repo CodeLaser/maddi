@@ -1,6 +1,8 @@
 package org.e2immu.analyzer.modification.link;
 
 public enum LinkNature {
+    NONE("X", -1),
+
     // more than 0-0, object identity
     IS_IDENTICAL_TO("==", 0),
 
@@ -20,6 +22,17 @@ public enum LinkNature {
         this.longValue = longValue;
     }
 
+    public static LinkNature of(int i) {
+        return switch (i) {
+            case -1 -> NONE;
+            case 0 -> IS_IDENTICAL_TO;
+            case 1 -> INTERSECTION_NOT_EMPTY;
+            case 2 -> IS_ELEMENT_OF;
+            case 3 -> CONTAINS;
+            default -> throw new UnsupportedOperationException();
+        };
+    }
+
     public long longValue() {
         return this.longValue;
     }
@@ -31,11 +44,12 @@ public enum LinkNature {
 
     public LinkNature combine(LinkNature other) {
         if (this == other) return this;
+        if (this == NONE || other == NONE) return NONE;
         if (other == IS_IDENTICAL_TO) return this;
         if (this == IS_IDENTICAL_TO) return other;
         if (this == IS_ELEMENT_OF && other != CONTAINS) return other;
         if (other == CONTAINS && this != IS_ELEMENT_OF) return this;
-        return null;
+        return NONE;
     }
 
     public static long combineLongs(long l1, long l2) {
