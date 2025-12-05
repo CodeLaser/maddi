@@ -196,7 +196,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
             if (statement instanceof ReturnStatement && r != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
-                ofReturnValue = ExpandReturnValueLinks.go(rv, r.links(), r.extra(), vd);
+                ofReturnValue = new ExpandReturnValueLinks(javaInspector.runtime()).go(rv, r.links(), r.extra(), vd);
             }
 
             return vd;
@@ -240,7 +240,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                             previousVd);
                     r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
                     if (!r.links().isEmpty()) {
-                        linkedVariables.put(lv, r.links().changePrimaryTo(lv, null));
+                        linkedVariables.put(lv, r.links().changePrimaryTo(javaInspector.runtime(), lv, null));
                     }
                     if (r.links().primary() != null && r.links().primary().parameterizedType().equals(lv.parameterizedType())) {
                         // make sure that we link the variables with '=='

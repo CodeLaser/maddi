@@ -6,6 +6,8 @@ import org.e2immu.analyzer.modification.link.LinkedVariables;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 
@@ -17,28 +19,34 @@ import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 
-public class ExpandReturnValueLinks {
+public record ExpandReturnValueLinks(Runtime runtime) {
 
     /*
      Prepares the links of the return value for the outside world:
      - find as many links to fields and parameters
      - remove (intermediate) links to local variables
      */
-    public static Links go(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
+    public Links go(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
         if (links.primary() == null) return LinksImpl.EMPTY;
         Links.Builder rvBuilder = new LinksImpl.Builder(returnVariable);
+        Set<Variable> fromList = Stream.concat(Stream.ofNullable(links.primary()),
+                links.links().stream().map(Link::from)).collect(Collectors.toUnmodifiableSet());
         if (containsNoLocalVariable(links.primary())) {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
         }
         Map<Variable, Map<Variable, LinkNature>> graph = makeGraph(links, extra, vd);
-        Map<Variable, LinkNature> all = bestPath(graph, links.primary());//.edges(new V<>(links.primary()));
-        if (all != null) {
-            for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
-                Variable to = entry.getKey();
-                if (entry.getValue() != LinkNature.NONE && containsNoLocalVariable(to)) {
-                    rvBuilder.add(entry.getValue(), to);
+        for (Variable from : fromList) {
+            if (graph.containsKey(from)) {
+                Map<Variable, LinkNature> all = bestPath(graph, from);
+                TranslationMap tm = runtime.newTranslationMapBuilder().put(links.primary(), returnVariable).build();
+                Variable tFrom = tm.translateVariableRecursively(from);
+                for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
+                    Variable to = entry.getKey();
+                    if (entry.getValue() != LinkNature.NONE && containsNoLocalVariable(to)) {
+                        rvBuilder.add(tFrom, entry.getValue(), to);
+                    }
                 }
-            }
+            } // otherwise, the best path algorithm makes no sense
         }
         return rvBuilder.build();
     }
