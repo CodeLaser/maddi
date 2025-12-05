@@ -194,7 +194,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
             if (statement instanceof ReturnStatement && r != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
-                ofReturnValue = Expand.expandReturnValue(rv, r.links(), r.extra(), vd);
+                ofReturnValue = ExpandReturnValueLinks.go(rv, r.links(), r.extra(), vd);
             }
 
             return vd;
@@ -210,7 +210,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             });
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
-                Links tlv = Expand.completion(linkedVariables, vi.variable());
+                Links tlv = completion(linkedVariables, vi.variable());
                 if (tlv != null && !tlv.isEmpty()) {
                     assert vic.hasEvaluation();
                     VariableInfo eval = vic.best(Stage.EVALUATION);
@@ -223,6 +223,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 }
             });
         }
+
+        private static Links completion(Map<Variable, Links> linkedVariables, Variable variable) {
+            // FIXME implement real completion
+            return linkedVariables.getOrDefault(variable, LinksImpl.EMPTY);
+        }
+
 
         private Map<Variable, Links> handleLvc(LocalVariableCreation lvc, VariableData previousVd) {
             Map<Variable, Links> linkedVariables = new HashMap<>();
