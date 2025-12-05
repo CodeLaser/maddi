@@ -12,6 +12,7 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -29,12 +30,13 @@ public record ExpandReturnValueLinks(Runtime runtime) {
     public Links go(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
         if (links.primary() == null) return LinksImpl.EMPTY;
         Links.Builder rvBuilder = new LinksImpl.Builder(returnVariable);
-        Set<Variable> fromList = Stream.concat(Stream.ofNullable(links.primary()),
-                links.links().stream().map(Link::from)).collect(Collectors.toUnmodifiableSet());
+
         if (containsNoLocalVariable(links.primary())) {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
         }
         Map<Variable, Map<Variable, LinkNature>> graph = makeGraph(links, extra, vd);
+        List<Variable> fromList = Stream.concat(Stream.of(links.primary()), graph.keySet().stream()
+                .filter(v -> LinksImpl.primary(v).equals(links.primary()))).toList();
         for (Variable from : fromList) {
             if (graph.containsKey(from)) {
                 Map<Variable, LinkNature> all = bestPath(graph, from);

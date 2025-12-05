@@ -11,6 +11,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -242,7 +243,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     if (!r.links().isEmpty()) {
                         linkedVariables.put(lv, r.links().changePrimaryTo(javaInspector.runtime(), lv, null));
                     }
-                    if (r.links().primary() != null && r.links().primary().parameterizedType().equals(lv.parameterizedType())) {
+                    // FIXME we need this code, but not here
+                    if (lv.assignmentExpression() instanceof VariableExpression ve &&
+                        r.links().primary() != null && ve.parameterizedType().equals(lv.parameterizedType())) {
                         // make sure that we link the variables with '=='
                         linkedVariables.merge(lv,
                                 new LinksImpl.Builder(lv)

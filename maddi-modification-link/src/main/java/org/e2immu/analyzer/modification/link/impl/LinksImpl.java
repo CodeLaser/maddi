@@ -63,21 +63,20 @@ public record LinksImpl(Variable primary, Set<Link> links) implements Links {
         }
 
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
-            assert assertIsPartOfPrimary(from);
+            assert primary(from).equals(primary);
             links.add(new LinkImpl(from, linkNature, to));
             return this;
-        }
-
-        private boolean assertIsPartOfPrimary(Variable from) {
-            if (primary.equals(from)) return true;
-            if (from instanceof DependentVariable dv) return assertIsPartOfPrimary(dv.arrayVariableBase());
-            if (from instanceof FieldReference fr) return primary.equals(fr.fieldReferenceBase());
-            return false;
         }
 
         public Links build() {
             return new LinksImpl(primary, Set.copyOf(links));
         }
+    }
+
+    public static Variable primary(Variable v) {
+        if (v instanceof DependentVariable dv) return primary(dv.arrayVariableBase());
+        if (v instanceof FieldReference fr) return fr.fieldReferenceBase();
+        return v;
     }
 
     private record LinkImpl(Variable from, LinkNature linkNature, Variable to) implements Link {
