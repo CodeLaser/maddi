@@ -11,6 +11,7 @@ import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
@@ -52,27 +53,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
 
     public Result visit(Expression expression, VariableData variableData) {
         return switch (expression) {
-            case VariableExpression ve -> {
-                if (ve.variable().parameterizedType().isPrimitiveStringClass()) yield EMPTY;
-                Variable v = ve.variable();
-                LinkedVariables extra = LinkedVariablesImpl.EMPTY;
-                while (v instanceof DependentVariable dv) {
-                    v = dv.arrayVariable();
-                    if (v != null) {
-                        Links vLinks = new LinksImpl.Builder(dv).add(LinkNature.IS_ELEMENT_OF, v).build();
-                        extra = extra.merge(new LinkedVariablesImpl(Map.of(dv, vLinks)));
-                    }
-                }
-
-                if (v instanceof FieldReference fr) {
-                    Result r = visit(fr.scope(), variableData);
-                    extra = extra.merge(r.extra);
-                }
-                Links.Builder builder = new LinksImpl.Builder(ve.variable());
-                // Link link = new LinkImpl(null, LinkNature.IS_IDENTICAL_TO, ve.variable());
-                // links.addFirst(link);
-                yield new Result(builder.build(), extra);
-            }
+            case VariableExpression ve -> variableExpression(ve, variableData);
+            case Assignment a -> assignment(variableData, a);
             case MethodCall mc -> methodCall(variableData, mc);
             // all rather uninteresting....
 
@@ -98,6 +80,36 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case ConstantExpression<?> _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
+    }
+
+    private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData) {
+        if (ve.variable().parameterizedType().isPrimitiveStringClass()) return EMPTY;
+        Variable v = ve.variable();
+        LinkedVariables extra = LinkedVariablesImpl.EMPTY;
+        while (v instanceof DependentVariable dv) {
+            v = dv.arrayVariable();
+            if (v != null) {
+                Links vLinks = new LinksImpl.Builder(dv).add(LinkNature.IS_ELEMENT_OF, v).build();
+                extra = extra.merge(new LinkedVariablesImpl(Map.of(dv, vLinks)));
+            }
+        }
+
+        if (v instanceof FieldReference fr) {
+            Result r = visit(fr.scope(), variableData);
+            extra = extra.merge(r.extra);
+        }
+        Links.Builder builder = new LinksImpl.Builder(ve.variable());
+        // Link link = new LinkImpl(null, LinkNature.IS_IDENTICAL_TO, ve.variable());
+        // links.addFirst(link);
+        return new Result(builder.build(), extra);
+    }
+
+    private Result assignment(VariableData variableData, Assignment a) {
+        Links.Builder builder = new LinksImpl.Builder(a.variableTarget());
+        Result rValue = visit(a.value(), variableData);
+        Result rTarget = visit(a.target(), variableData);
+        builder.add(LinkNature.IS_IDENTICAL_TO, rValue.links.primary());
+        return new Result(builder.build(), rValue.extra.merge(rTarget.extra));
     }
 
     private Result methodCall(VariableData variableData, MethodCall mc) {

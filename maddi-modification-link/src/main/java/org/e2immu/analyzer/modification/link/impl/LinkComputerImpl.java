@@ -21,7 +21,6 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -147,7 +146,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         public MethodLinkedVariables go() {
             VariableData vd = doBlock(methodInfo.methodBody(), null);
             // ...
-            List<Links> ofParameters = new ArrayList<>();
+            List<Links> ofParameters = new ExpandParameterLinks(javaInspector.runtime()).go(methodInfo, vd);
 
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
@@ -167,7 +166,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return vd;
         }
 
-        private VariableData doStatement(Statement statement, VariableData previousVd) {
+        public VariableData doStatement(Statement statement, VariableData previousVd) {
             Map<Variable, Links> linkedVariables = new HashMap<>();
 
             boolean evaluate;
@@ -186,6 +185,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Expression expression = statement.expression();
                 if (expression != null && !expression.isEmpty()) {
                     r = expressionVisitor.visit(expression, previousVd);
+                    linkedVariables.putAll(r.extra().map());
+                    linkedVariables.put(r.links().primary(), r.links());
                 } else {
                     r = null;
                 }

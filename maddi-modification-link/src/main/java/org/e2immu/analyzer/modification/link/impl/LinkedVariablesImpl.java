@@ -57,7 +57,7 @@ public class LinkedVariablesImpl implements LinkedVariables {
     @Override
     public String toString() {
         return links.entrySet().stream()
-                .map(e -> e.getKey() + ": " + e.getValue())
+                .map(e -> LinksImpl.simpleVar(e.getKey()) + ": " + e.getValue())
                 .collect(Collectors.joining("; "));
     }
 

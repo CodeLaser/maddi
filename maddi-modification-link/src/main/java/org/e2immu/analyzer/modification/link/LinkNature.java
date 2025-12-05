@@ -38,6 +38,12 @@ public enum LinkNature {
         return this.longValue;
     }
 
+    public LinkNature reverse() {
+        if (this == IS_ELEMENT_OF) return CONTAINS;
+        if (this == CONTAINS) return IS_ELEMENT_OF;
+        return this;
+    }
+
     @Override
     public String toString() {
         return label;
@@ -51,14 +57,14 @@ public enum LinkNature {
         if (other == IS_IDENTICAL_TO) return this;
         if (this == IS_IDENTICAL_TO) return other;
         if (this == IS_ELEMENT_OF) {
-            return switch(other) {
+            return switch (other) {
                 case INTERSECTION_NOT_EMPTY -> IS_ELEMENT_OF;
                 case CONTAINS -> INTERSECTION_NOT_EMPTY;
                 default -> throw new UnsupportedOperationException();
             };
         }
-        if (this == CONTAINS ) {
-            return switch(other) {
+        if (this == CONTAINS) {
+            return switch (other) {
                 case INTERSECTION_NOT_EMPTY -> IS_ELEMENT_OF;
                 case IS_ELEMENT_OF -> INTERSECTION_NOT_EMPTY;
                 default -> throw new UnsupportedOperationException();
