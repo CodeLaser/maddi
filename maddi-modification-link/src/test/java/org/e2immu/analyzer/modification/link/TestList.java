@@ -131,7 +131,7 @@ public class TestList extends CommonTest {
         MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(asShortList));
         // the intermediary step after evaluating the
-        assertEquals("asShortList~this.ts", lvAsShortList.ofReturnValue().toString());
+        assertEquals("asShortList~this.ts,asShortList>this.ts[0]", lvAsShortList.ofReturnValue().toString());
 
     }
 }
