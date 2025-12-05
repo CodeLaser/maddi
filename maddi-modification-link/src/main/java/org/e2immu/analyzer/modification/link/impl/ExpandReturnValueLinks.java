@@ -17,19 +17,14 @@ import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 
-public class Expand {
-
-    public static Links completion(Map<Variable, Links> linkedVariables, Variable variable) {
-        // FIXME implement real completion
-        return linkedVariables.getOrDefault(variable, LinksImpl.EMPTY);
-    }
+public class ExpandReturnValueLinks {
 
     /*
      Prepares the links of the return value for the outside world:
      - find as many links to fields and parameters
      - remove (intermediate) links to local variables
      */
-    public static Links expandReturnValue(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
+    public static Links go(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
         if (links.primary() == null) return LinksImpl.EMPTY;
         Links.Builder rvBuilder = new LinksImpl.Builder(returnVariable);
         if (containsNoLocalVariable(links.primary())) {
