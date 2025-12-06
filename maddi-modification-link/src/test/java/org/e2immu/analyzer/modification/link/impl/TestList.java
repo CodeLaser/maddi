@@ -1,6 +1,6 @@
-package org.e2immu.analyzer.modification.link;
+package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.impl.*;
+import org.e2immu.analyzer.modification.link.*;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;

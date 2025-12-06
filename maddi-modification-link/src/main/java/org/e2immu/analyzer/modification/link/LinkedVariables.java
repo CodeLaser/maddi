@@ -5,13 +5,12 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.Map;
 
-public interface LinkedVariables extends Iterable<Map.Entry<Variable, Links>>, Value {
+// Primarily a helper type to carry around multiple Links objects. Not a "deliverable".
+public interface LinkedVariables extends Iterable<Map.Entry<Variable, Links>> {
 
     boolean isEmpty();
 
     Map<Variable, Links> map();
-
-    int size();
 
     LinkedVariables merge(LinkedVariables other);
 }
