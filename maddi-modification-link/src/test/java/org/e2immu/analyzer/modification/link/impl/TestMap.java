@@ -76,7 +76,7 @@ public class TestMap extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get<this.map.eArray[-1].v,get==this.map??", mlv.ofReturnValue().toString());
+        assertEquals("get<this.map.eArray[-1].v", mlv.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'keySet', manually inserting links for Map.keySet()")
