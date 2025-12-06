@@ -7,7 +7,8 @@ import org.slf4j.LoggerFactory;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class RecursionPrevention {
+// used in LinkComputerImpl, to facilitate on-the-fly link computation
+class RecursionPrevention {
     private static final Logger LOGGER = LoggerFactory.getLogger(RecursionPrevention.class);
 
     final Map<MethodInfo, Long> owner = new LinkedHashMap<>();

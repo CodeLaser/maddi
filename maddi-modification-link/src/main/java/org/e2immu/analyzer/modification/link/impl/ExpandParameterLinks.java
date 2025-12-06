@@ -10,10 +10,13 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import static org.e2immu.analyzer.modification.link.impl.ExpandHelper.followGraph;
+import static org.e2immu.analyzer.modification.link.impl.ExpandHelper.mergeEdge;
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 
 public record ExpandParameterLinks(Runtime runtime) {
@@ -21,27 +24,18 @@ public record ExpandParameterLinks(Runtime runtime) {
 
     public List<Links> go(MethodInfo methodInfo, VariableData vd) {
 
+        /*
+        why a bidirectional graph for the parameters, and only a directional one for the return value?
+        the flow is obviously linear parm -> rv, so if we want rv in function of parameters, only one
+        direction is relevant. But if we want the parameters in function of the fields, we may have
+        to see the reverse of param -> field. See e.g. TestList,4 (set)
+         */
         Map<Variable, Map<Variable, LinkNature>> graph = makeBiDirectionalGraph(vd);
-        LOGGER.debug("Reverse graph: {}", graph);
+        LOGGER.debug("Bi-directional graph: {}", graph);
 
         List<Links> linksPerParameter = new ArrayList<>(methodInfo.parameters().size());
         for (ParameterInfo pi : methodInfo.parameters()) {
-            Set<Variable> fromSet = Stream.concat(Stream.of(pi), graph.keySet().stream()
-                    .filter(v -> LinksImpl.primary(v).equals(pi))).collect(Collectors.toUnmodifiableSet());
-            Links.Builder piBuilder = new LinksImpl.Builder(pi);
-            for (Variable from : fromSet) {
-                if (graph.containsKey(from)) {
-                    Map<Variable, LinkNature> all = ExpandReturnValueLinks.bestPath(graph, from);
-                    for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
-                        Variable to = entry.getKey();
-                        if (entry.getValue() != LinkNature.NONE
-                            && ExpandReturnValueLinks.containsNoLocalVariable(to)
-                            && !LinksImpl.primary(to).equals(pi)) {
-                            piBuilder.add(from, entry.getValue(), to);
-                        }
-                    }
-                } // otherwise, the best path algorithm makes no sense
-            }
+            Links.Builder piBuilder = followGraph(graph, pi, null);
             linksPerParameter.add(piBuilder.build());
         }
 
@@ -54,8 +48,8 @@ public record ExpandParameterLinks(Runtime runtime) {
             Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
             if (vLinks != null) {
                 vLinks.links().forEach(l -> {
-                    ExpandReturnValueLinks.mergeEdge(graph, l.from(), l.linkNature(), l.to());
-                    ExpandReturnValueLinks.mergeEdge(graph, l.to(), l.linkNature().reverse(), l.from());
+                    mergeEdge(graph, l.from(), l.linkNature(), l.to());
+                    mergeEdge(graph, l.to(), l.linkNature().reverse(), l.from());
                 });
             }
         });

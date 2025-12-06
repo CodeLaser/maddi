@@ -5,20 +5,18 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 
-import java.util.List;
 import java.util.Set;
 
 /*
-links from one variable and its constituent parts to other variables.
-The list is sorted, with the primary links coming first.
+Links from one variable (primary) and its constituent parts ("fields") to other variables.
+This is the main object stored in the analysis() of VariableInfo, and the main constituent of
+MethodLinkedVariables.
  */
 public interface Links extends Iterable<Link>, Value {
 
     Variable primary();
 
-    default boolean isEmpty() {
-        return links().isEmpty();
-    }
+    boolean isEmpty();
 
     Set<Link> links();
 
