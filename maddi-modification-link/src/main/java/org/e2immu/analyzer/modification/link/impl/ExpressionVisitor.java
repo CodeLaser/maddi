@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -58,12 +59,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case MethodCall mc -> methodCall(variableData, mc);
             // all rather uninteresting....
 
-            case InlineConditional ic -> {
-                Result rc = visit(ic.condition(), variableData);
-                Result rt = visit(ic.ifTrue(), variableData);
-                Result rf = visit(ic.ifFalse(), variableData);
-                yield rt.mergeLv(rf).merge(rc);
-            }
+            case InlineConditional ic -> inlineConditional(ic, variableData);
             case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData))
                     .reduce(EMPTY, Result::mergeLv);
             case And and -> and.expressions().stream().map(e -> visit(e, variableData))
@@ -80,6 +76,22 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case ConstantExpression<?> _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
+    }
+
+    private @NotNull Result inlineConditional(InlineConditional ic, VariableData variableData) {
+        Result rc = visit(ic.condition(), variableData);
+        Result rt = visit(ic.ifTrue(), variableData);
+        Result rf = visit(ic.ifFalse(), variableData);
+        Runtime runtime = javaInspector.runtime();
+        Variable newPrimary = runtime.newLocalVariable("ic" + variableCounter.getAndIncrement(),
+                ic.parameterizedType());
+        // we must link the new primary to both rt and rf links
+        AssignLinksToLocal atl = new AssignLinksToLocal(runtime);
+        Links rtChanged = atl.go(newPrimary, rt.links);
+        Links rfChanged = atl.go(newPrimary, rf.links);
+        Links newLinks = rtChanged.merge(rfChanged);
+        Result merge = rc.merge(rt).merge(rf);
+        return new Result(newLinks, merge.extra);
     }
 
     private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData) {
