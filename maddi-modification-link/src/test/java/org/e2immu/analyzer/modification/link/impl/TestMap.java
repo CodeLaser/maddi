@@ -48,6 +48,9 @@ public class TestMap extends CommonTest {
                     V v = map.get(key);
                     return v == null ? defaultValue : v;
                 }
+                public Set<Map.Entry<K, V>> entrySet() {
+                    return map.entrySet();
+                }
             }
             """;
 
@@ -162,6 +165,47 @@ public class TestMap extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(getOrDefault);
         assertEquals("getOrDefault<this.map.eArray[-1].v,getOrDefault==1:defaultValue",
+                mlv.ofReturnValue().toString());
+    }
+
+
+    @DisplayName("Analyze 'entrySet', map access, manually inserting links for Map.entrySet()")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse(INPUT1);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
+        assertNotNull(atomicBoolean);
+        TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
+        EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
+
+        TypeInfo set = javaInspector.compiledTypesManager().get(Set.class);
+        FieldInfo setM = runtime.newFieldInfo("M", false, atomicBoolean.asParameterizedType(), set);
+        ParameterizedType tsPt = runtime.newParameterizedType(set.typeParameters().getFirst(), 1, null);
+        FieldInfo setTArray = runtime.newFieldInfo("tArray", false, tsPt, set);
+
+        MethodInfo mapEntrySet = map.findUniqueMethod("entrySet", 0);
+        ReturnVariable mapEntrySetRv = new ReturnVariableImpl(mapEntrySet);
+        VariableExpression mapEntrySetRvVe = runtime.newVariableExpression(mapEntrySetRv);
+        FieldReference mapEntrySetRvM = runtime.newFieldReference(setM, mapEntrySetRvVe,
+                atomicBoolean.asParameterizedType());
+        FieldReference eArray = runtime.newFieldReference(eInfo.eArray);
+        FieldReference mapEntrySetRvEArray = runtime.newFieldReference(eInfo.eArray, mapEntrySetRvVe, eInfo.eArrayPt);
+        MethodLinkedVariablesImpl mlvGet = new MethodLinkedVariablesImpl(
+                new LinksImpl.Builder(mapEntrySetRv)
+                        .add(mapEntrySetRvEArray, LinkNature.INTERSECTION_NOT_EMPTY, eArray)
+                        .add(mapEntrySetRvM, LinkNature.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
+                        .build(),
+                List.of());
+        assertEquals("[] --> entrySet.eArray~this.eArray,entrySet.M==this.M", mlvGet.toString());
+        mapEntrySet.analysis().set(METHOD_LINKS, mlvGet);
+
+
+        MethodInfo entrySet = X.findUniqueMethod("entrySet", 0);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        MethodLinkedVariables mlv = tlc.doMethod(entrySet);
+        assertEquals("entrySet.eArray~this.map.eArray,entrySet.M==this.map.M",
                 mlv.ofReturnValue().toString());
     }
 
