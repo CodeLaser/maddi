@@ -10,6 +10,8 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +23,7 @@ import java.util.stream.Stream;
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 
 public record ExpandReturnValueLinks(Runtime runtime) {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExpandReturnValueLinks.class);
 
     /*
      Prepares the links of the return value for the outside world:
@@ -35,6 +38,8 @@ public record ExpandReturnValueLinks(Runtime runtime) {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, links.primary());
         }
         Map<Variable, Map<Variable, LinkNature>> graph = makeGraph(links, extra, vd);
+        LOGGER.debug("Return graph: {}", graph);
+
         List<Variable> fromList = Stream.concat(Stream.of(links.primary()), graph.keySet().stream()
                 .filter(v -> LinksImpl.primary(v).equals(links.primary()))).toList();
         for (Variable from : fromList) {
@@ -44,7 +49,9 @@ public record ExpandReturnValueLinks(Runtime runtime) {
                 Variable tFrom = tm.translateVariableRecursively(from);
                 for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
                     Variable to = entry.getKey();
-                    if (entry.getValue() != LinkNature.NONE && containsNoLocalVariable(to)) {
+                    if (entry.getValue() != LinkNature.NONE
+                        && containsNoLocalVariable(to)
+                        && !LinksImpl.primary(to).equals(links.primary())) {
                         rvBuilder.add(tFrom, entry.getValue(), to);
                     }
                 }
@@ -60,7 +67,7 @@ public record ExpandReturnValueLinks(Runtime runtime) {
         return res.entrySet().stream()
                 .filter(e -> !start.equals(e.getKey()))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
-                        e -> e.getValue().stream().reduce(LinkNature.EMPTY, LinkNature::combine)));
+                        e -> e.getValue().stream().reduce(LinkNature.EMPTY, LinkNature::best)));
     }
 
     private static Map<Variable, Map<Variable, LinkNature>> makeGraph(Links links,
@@ -82,9 +89,9 @@ public record ExpandReturnValueLinks(Runtime runtime) {
     }
 
     static void mergeEdge(Map<Variable, Map<Variable, LinkNature>> graph,
-                                  Variable from,
-                                  LinkNature linkNature,
-                                  Variable to) {
+                          Variable from,
+                          LinkNature linkNature,
+                          Variable to) {
         Map<Variable, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
         edges.merge(to, linkNature, LinkNature::combine);
     }
