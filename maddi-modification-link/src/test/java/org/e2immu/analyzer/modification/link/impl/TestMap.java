@@ -62,9 +62,17 @@ public class TestMap extends CommonTest {
         TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
         EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
 
+        setMethodLinkedVariablesOfMapGet(map, eInfo);
+
+        MethodInfo get = X.findUniqueMethod("get", 1);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        MethodLinkedVariables mlv = tlc.doMethod(get);
+        assertEquals("get<this.map.eArray[-1].v", mlv.ofReturnValue().toString());
+    }
+
+    private static void setMethodLinkedVariablesOfMapGet(TypeInfo map, EInfo eInfo) {
         MethodInfo mapGet = map.findUniqueMethod("get", 1);
         ReturnVariable mapGetRv = new ReturnVariableImpl(mapGet);
-
         MethodLinkedVariablesImpl mlvGet = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(mapGetRv)
                         .add(mapGetRv, LinkNature.IS_ELEMENT_OF, eInfo.thisMapEV)
@@ -72,11 +80,6 @@ public class TestMap extends CommonTest {
                 List.of());
         assertEquals("[] --> get<this.eArray[-1].v", mlvGet.toString());
         mapGet.analysis().set(METHOD_LINKS, mlvGet);
-
-        MethodInfo get = X.findUniqueMethod("get", 1);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
-        MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get<this.map.eArray[-1].v", mlv.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'keySet', manually inserting links for Map.keySet()")
@@ -112,10 +115,10 @@ public class TestMap extends CommonTest {
         assertEquals("[] --> keySet.M==this.M,keySet.tArray~this.eArray[-1].k", mlvGet.toString());
         mapKeySet.analysis().set(METHOD_LINKS, mlvGet);
 
-        MethodInfo get = X.findUniqueMethod("get", 1);
+        MethodInfo keySet = X.findUniqueMethod("keySet", 0);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
-        MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("??", mlv.ofReturnValue().toString());
+        MethodLinkedVariables mlv = tlc.doMethod(keySet);
+        assertEquals("keySet.M==this.map.M,keySet.tArray~this.map.eArray[-1].k", mlv.ofReturnValue().toString());
     }
 
     private record EInfo(TypeInfo e, ParameterizedType eArrayPt, FieldInfo eArray,
@@ -140,6 +143,26 @@ public class TestMap extends CommonTest {
 
         FieldInfo M = runtime.newFieldInfo("M", false, atomicBoolean.asParameterizedType(), map);
         return new EInfo(e, eArrayPt, eArray, thisMapEK, thisMapEV, M);
+    }
+
+    @DisplayName("Analyze 'getOrDefault', map access, manually inserting links for Map.get(K)")
+    @Test
+    public void test3() {
+        TypeInfo X = javaInspector.parse(INPUT1);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
+        assertNotNull(atomicBoolean);
+        TypeInfo map = javaInspector.compiledTypesManager().get(Map.class);
+        EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
+
+        setMethodLinkedVariablesOfMapGet(map, eInfo);
+
+        MethodInfo getOrDefault = X.findUniqueMethod("getOrDefault", 2);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        MethodLinkedVariables mlv = tlc.doMethod(getOrDefault);
+        assertEquals("getOrDefault<this.map.eArray[-1].v,getOrDefault==1:defaultValue",
+                mlv.ofReturnValue().toString());
     }
 
     private TypeInfo makeRecord(TypeInfo X, List<TypeParameter> typeParameters) {
