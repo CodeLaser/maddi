@@ -95,7 +95,7 @@ public class TestList extends CommonTest {
         Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("k<1:x.ts,k==1:x.ts[0:index]", linksK.toString());
 
-        assertEquals("[] --> method<1:x.ts,method==1:x.ts[0:index]", lvMethod.toString());
+        assertEquals("[-, -] --> method<1:x.ts,method==1:x.ts[0:index]", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
@@ -226,6 +226,6 @@ public class TestList extends CommonTest {
         VariableData vd = smc.doStatement(set.methodBody().statements().getFirst(), null);
         List<Links> list = new ExpandParameterLinks(runtime).go(set, vd);
         // MethodLinkedVariables mlv = tlc.doMethod(set)
-        assertEquals("0:t==this.ts[1:index],0:t<this.ts", list.getFirst().toString());
+        assertEquals("0:t<this.ts,0:t==this.ts[1:index]", list.getFirst().toString());
     }
 }

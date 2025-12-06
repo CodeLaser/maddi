@@ -17,6 +17,6 @@ public interface Link extends Comparable<Link> {
         if (c != 0) return c;
         int d = to().compareTo(o.to());
         if (d != 0) return d;
-        return Long.compare(linkNature().longValue(), o.linkNature().longValue());
+        return Long.compare(linkNature().ordinal(), o.linkNature().ordinal());
     }
 }

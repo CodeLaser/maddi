@@ -40,6 +40,7 @@ public record LinksImpl(Variable primary, Set<Link> links) implements Links {
 
     @Override
     public @NotNull String toString() {
+        if (isEmpty()) return "-";
         return links.stream().sorted().map(Object::toString).collect(Collectors.joining(","));
     }
 
