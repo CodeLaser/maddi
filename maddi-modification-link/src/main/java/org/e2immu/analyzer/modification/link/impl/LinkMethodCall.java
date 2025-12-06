@@ -32,19 +32,18 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
             assert rvPrimary instanceof ReturnVariable
                     : "the links of the method return value must be in the return variable";
             assert !mc.methodInfo().isVoid() : "Cannot be a void function if we have a return variable";
-            Variable newPrimary;
+            Variable newPrimary = runtime.newLocalVariable("rv" + variableCounter.getAndIncrement(),
+                    rvPrimary.parameterizedType());
+
             TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
-            if (objectPrimary == null) {
-                // make a temporary variable holding the result of the method call; it'll get filtered out in the end
-                newPrimary = runtime.newLocalVariable("rv" + variableCounter.getAndIncrement(),
-                        rvPrimary.parameterizedType());
-            } else {
+            if (objectPrimary != null) {
                 assert !mc.methodInfo().isStatic() : """
                         objectPrimary!=null indicates that we have an instance function.
                         Therefore we must translate 'this' to the method's object primary""";
-                newPrimary = objectPrimary;
+                newPrimary = runtime.newLocalVariable("rv" + variableCounter.getAndIncrement(),
+                        rvPrimary.parameterizedType());
                 This thisVar = runtime.newThis(mc.methodInfo().typeInfo().asSimpleParameterizedType());
-                tmBuilder.put(thisVar, newPrimary);
+                tmBuilder.put(thisVar, objectPrimary);
             }
             // the return value can also contain references to parameters... we should replace them by
             // actual arguments
@@ -56,8 +55,6 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                 ++index;
             }
             concreteReturnValue = mlv.ofReturnValue().changePrimaryTo(runtime, newPrimary, tmBuilder.build());
-
-
         } else {
             concreteReturnValue = LinksImpl.EMPTY;
         }
