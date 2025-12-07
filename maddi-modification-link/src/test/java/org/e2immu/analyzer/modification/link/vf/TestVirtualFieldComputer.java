@@ -1,22 +1,23 @@
 package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Deque;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestVirtualFieldComputer extends CommonTest {
 
+    @DisplayName("list hierarchy")
     @Test
-    public void test() {
+    public void test1() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
+        // start with List. This will recursively compute Collection and Iterable
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
         VirtualFields vfList = vfc.compute(list);
         assertEquals("$m - T[] ts", vfList.toString());
@@ -38,5 +39,20 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("$m - T[] ts", vfc.compute(arrayList).toString());
         TypeInfo deque = javaInspector.compiledTypesManager().getOrLoad(Deque.class);
         assertEquals("$m - T[] ts", vfc.compute(deque).toString());
+    }
+    
+    @DisplayName("map hierarchy")
+    @Test
+    public void test2() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        // start with TreeMap. This will recursively compute NavigableMap, SequencedMap, Map, ...
+        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(TreeMap.class);
+        VirtualFields vfList = vfc.compute(list);
+        assertEquals("$m - KV[] kvs", vfList.toString());
+        assertEquals("java.util.Map", vfList.mutable().owner().toString());
+        assertEquals("java.util.Map.KV", vfList.hiddenContent().type().typeInfo().toString());
+        FieldInfo k = vfList.hiddenContent().type().typeInfo().getFieldByName("k", true);
+        assertEquals("java.util.Map.KV", k.owner().toString());
     }
 }

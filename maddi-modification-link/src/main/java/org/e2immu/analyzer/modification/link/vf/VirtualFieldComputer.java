@@ -99,7 +99,7 @@ public class VirtualFieldComputer {
                     baseName = typeParameter.simpleName().toLowerCase();
                     hcTypeWithArrays = runtime.newParameterizedType(typeParameter, multiplicity - 1, null);
                 } else {
-                    TypeInfo hcType = makeRecordType(typeInfo.typeParameters());
+                    TypeInfo hcType = makeContainerType(typeInfo);
                     baseName = hcType.simpleName().toLowerCase();
                     hcTypeWithArrays = runtime.newParameterizedType(hcType, multiplicity - 1);
                 }
@@ -124,8 +124,23 @@ public class VirtualFieldComputer {
         return pt.extractTypeParameters().equals(typeParameters.stream().collect(Collectors.toUnmodifiableSet()));
     }
 
-    private TypeInfo makeRecordType(List<TypeParameter> typeParameters) {
-        throw new UnsupportedOperationException();
+    private TypeInfo makeContainerType(TypeInfo typeInfo) {
+        String name = typeInfo.typeParameters().stream().map(TypeParameter::simpleName).collect(Collectors.joining());
+        TypeInfo newType = runtime.newTypeInfo(typeInfo, name);
+        newType.builder().setTypeNature(runtime.typeNatureClass())
+                .setParentClass(runtime.objectParameterizedType())
+                .setAccess(runtime.accessPublic());
+        for (TypeParameter tp : typeInfo.typeParameters()) {
+            FieldInfo fieldInfo = runtime.newFieldInfo(tp.simpleName().toLowerCase(), false,
+                    runtime.newParameterizedType(tp, 0, null), newType);
+            fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
+                    .addFieldModifier(runtime.fieldModifierPublic())
+                    .setInitializer(runtime.newEmptyExpression())
+                    .computeAccess().commit();
+            newType.builder().addField(fieldInfo);
+        }
+        newType.builder().commit();
+        return newType;
     }
 
     private int computeMultiplicity(TypeInfo typeInfo) {
