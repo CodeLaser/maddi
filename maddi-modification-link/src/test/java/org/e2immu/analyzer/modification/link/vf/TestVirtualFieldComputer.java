@@ -40,7 +40,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo deque = javaInspector.compiledTypesManager().getOrLoad(Deque.class);
         assertEquals("$m - T[] ts", vfc.compute(deque).toString());
     }
-    
+
     @DisplayName("map hierarchy")
     @Test
     public void test2() {

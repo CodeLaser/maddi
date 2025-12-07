@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -44,6 +45,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final boolean forceShallow;
     private final JavaInspector javaInspector;
     private final RecursionPrevention recursionPrevention;
+    private final ShallowMethodLinkComputer shallowMethodLinkComputer;
 
     public LinkComputerImpl(JavaInspector javaInspector) {
         this(javaInspector, true, false);
@@ -53,6 +55,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.recursionPrevention = new RecursionPrevention(recurse);
         this.javaInspector = javaInspector;
         this.forceShallow = forceShallow;
+        VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
+        this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
     }
 
     @Override
@@ -82,7 +86,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         try {
             TypeInfo typeInfo = method.typeInfo();
-            boolean shallow = forceShallow || typeInfo.compilationUnit().externalLibrary();
+            boolean shallow = forceShallow || method.isAbstract() || typeInfo.compilationUnit().externalLibrary();
             return doMethod(method, shallow, false);
         } catch (RuntimeException | AssertionError e) {
             LOGGER.error("Caught exception computing {}", method, e);
@@ -111,7 +115,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write) {
         if (shallow) {
-            throw new UnsupportedOperationException("NYI");
+            MethodLinkedVariables mlv = shallowMethodLinkComputer.go(methodInfo);
+            if (write) {
+                methodInfo.analysis().set(METHOD_LINKS, mlv);
+            }
+            return mlv;
         }
         MethodLinkedVariables tlv;
         if (recursionPrevention.sourceAllowed(methodInfo)) {
