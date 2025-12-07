@@ -159,8 +159,7 @@ public class VirtualFieldComputer {
         return multiplicity;
     }
 
-
-    private int computeMultiplicity(ParameterizedType parameterizedType) {
+    public int computeMultiplicity(ParameterizedType parameterizedType) {
         int arrays = parameterizedType.arrays();
         if (arrays > 0) {
             int withoutArrays = computeMultiplicity(parameterizedType.copyWithoutArrays());
