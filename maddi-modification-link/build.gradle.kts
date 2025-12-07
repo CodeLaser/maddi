@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":maddi-cst-analysis"))
 
     implementation(project(":maddi-modification-prepwork"))
+    implementation(project(":maddi-inspection-parser"))
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-cst-io"))
