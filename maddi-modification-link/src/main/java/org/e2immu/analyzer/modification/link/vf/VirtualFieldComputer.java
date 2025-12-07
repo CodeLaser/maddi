@@ -13,6 +13,8 @@ import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /*
 Given an interface, or a class in the JDK for which we do not want to parse the sources (shallow analysis),
@@ -60,12 +62,24 @@ public class VirtualFieldComputer {
     }
 
     public VirtualFields compute(TypeInfo typeInfo) {
+        return typeInfo.analysis().getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> computeOnDemand(typeInfo));
+    }
+
+    public VirtualFields computeOnDemand(TypeInfo typeInfo) {
+        List<VirtualFields> virtualFieldsOfSuperTypes = typeInfo.recursiveSuperTypeStream().map(this::compute).toList();
+
         if ("java.util.function".equals(typeInfo.packageName())) return VirtualFields.NONE;
         Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
                 ValueImpl.ImmutableImpl.MUTABLE);
         FieldInfo mutable;
         if (immutable.isMutable()) {
-            mutable = runtime.newFieldInfo("$m", false, atomicBooleanPt, typeInfo);
+            FieldInfo inSuperTypes = virtualFieldsOfSuperTypes.stream().filter(vf -> vf.mutable() != null)
+                    .findFirst().map(VirtualFields::mutable).orElse(null);
+            if (inSuperTypes != null) {
+                mutable = inSuperTypes;
+            } else {
+                mutable = runtime.newFieldInfo("$m", false, atomicBooleanPt, typeInfo);
+            }
         } else {
             mutable = null;
         }
@@ -74,21 +88,40 @@ public class VirtualFieldComputer {
         if (multiplicity == 0 || typeInfo.typeParameters().isEmpty()) {
             hiddenContent = null;
         } else {
-            ParameterizedType hcTypeWithArrays;
-            String baseName;
-            if (typeInfo.typeParameters().size() == 1) {
-                TypeParameter typeParameter = typeInfo.typeParameters().getFirst();
-                baseName = typeParameter.simpleName().toLowerCase();
-                hcTypeWithArrays = runtime.newParameterizedType(typeParameter, multiplicity - 1, null);
+            FieldInfo inSuperType = copyFromSuperType(typeInfo);
+            if (inSuperType != null) {
+                hiddenContent = inSuperType;
             } else {
-                TypeInfo hcType = makeRecordType(typeInfo.typeParameters());
-                baseName = hcType.simpleName().toLowerCase();
-                hcTypeWithArrays = runtime.newParameterizedType(hcType, multiplicity - 1);
+                ParameterizedType hcTypeWithArrays;
+                String baseName;
+                if (typeInfo.typeParameters().size() == 1) {
+                    TypeParameter typeParameter = typeInfo.typeParameters().getFirst();
+                    baseName = typeParameter.simpleName().toLowerCase();
+                    hcTypeWithArrays = runtime.newParameterizedType(typeParameter, multiplicity - 1, null);
+                } else {
+                    TypeInfo hcType = makeRecordType(typeInfo.typeParameters());
+                    baseName = hcType.simpleName().toLowerCase();
+                    hcTypeWithArrays = runtime.newParameterizedType(hcType, multiplicity - 1);
+                }
+                String fieldName = baseName + ("s".repeat(multiplicity - 1));
+                hiddenContent = runtime.newFieldInfo(fieldName, false, hcTypeWithArrays, typeInfo);
             }
-            String fieldName = baseName + ("s".repeat(multiplicity - 1));
-            hiddenContent = runtime.newFieldInfo(fieldName, false, hcTypeWithArrays, typeInfo);
         }
         return new VirtualFields(mutable, hiddenContent);
+    }
+
+    private FieldInfo copyFromSuperType(TypeInfo typeInfo) {
+        Stream<ParameterizedType> parentStream = Stream.ofNullable(
+                typeInfo.parentClass() == null || typeInfo.parentClass().isJavaLangObject() ? null : typeInfo.parentClass());
+        Stream<ParameterizedType> superStream = Stream.concat(parentStream, typeInfo.interfacesImplemented().stream());
+        return superStream.filter(pt -> sameSetOfTypeParameters(typeInfo.typeParameters(), pt))
+                .findFirst()
+                .map(pt -> computeOnDemand(pt.typeInfo()).hiddenContent())
+                .orElse(null);
+    }
+
+    private boolean sameSetOfTypeParameters(List<TypeParameter> typeParameters, ParameterizedType pt) {
+        return pt.extractTypeParameters().equals(typeParameters.stream().collect(Collectors.toUnmodifiableSet()));
     }
 
     private TypeInfo makeRecordType(List<TypeParameter> typeParameters) {
@@ -96,6 +129,8 @@ public class VirtualFieldComputer {
     }
 
     private int computeMultiplicity(TypeInfo typeInfo) {
+        // base for many computations
+        if("java.lang.Iterable".equals(typeInfo.fullyQualifiedName())) return 2;
         int multiplicity = 0;
         for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
             ParameterizedType returnType = methodInfo.returnType();
@@ -124,11 +159,14 @@ public class VirtualFieldComputer {
             int m = computeMultiplicity(wrapped);
             return m == 0 ? 0 : m + 1;
         }
-        
+
         return 0;
     }
 
     private ParameterizedType wrapped(ParameterizedType parameterizedType) {
+        if (parameterizedType.isPrimitiveStringClass() || parameterizedType.isVoid()) {
+            return null; // saves some more complex tests, frequent!
+        }
         TypeInfo typeInfo = parameterizedType.typeInfo();
         if (typeInfo != null) {
             if (typeInfo.equals(iterable.typeInfo()) && parameterizedType.parameters().size() == 1) {

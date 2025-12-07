@@ -27,8 +27,10 @@ dependencies {
     implementation(project(":maddi-cst-analysis"))
 
     implementation(project(":maddi-modification-prepwork"))
+    implementation(project(":maddi-modification-common"))
     implementation(project(":maddi-inspection-parser"))
 
+    testRuntimeOnly(project(":maddi-aapi-archive"))
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-cst-io"))
     testImplementation(project(":maddi-cst-print"))
@@ -37,6 +39,8 @@ dependencies {
     testImplementation(project(":maddi-inspection-resource"))
     testImplementation(project(":maddi-java-bytecode"))
     testImplementation(project(":maddi-java-parser"))
+    testImplementation(project(":maddi-modification-io"))
+
 }
 tasks.withType<Test> {
     maxHeapSize = "2G"
