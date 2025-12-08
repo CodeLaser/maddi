@@ -2894,7 +2894,7 @@ public class JavaUtil {
 
         V getOrDefault(
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object key,
-            /*@Independent[M] @NotModified[O]*/ V defaultValue) { return null; }
+            @Independent(hcReturnValue = true)  /* @NotModified[O]*/ V defaultValue) { return null; }
 
         //frequency 1
         @NotModified

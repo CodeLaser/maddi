@@ -43,11 +43,13 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 ? convertToMethodTypeParameters(methodInfo, typeParametersVf) : null;
 
         // instance method, from object into return variable
+        ParameterizedType hiddenContentType = vf.hiddenContent().type();
         if (methodInfo.hasReturnValue() && !methodInfo.isStatic()) {
             Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.DEPENDENT);
             if (!independent.isIndependent()) {
-                transfer(methodInfo.returnType(), vf, typeParametersVf, ofReturnValue, hiddenContentFr, false);
+                transfer(methodInfo.returnType(), hiddenContentType, typeParametersVf, ofReturnValue, hiddenContentFr,
+                        false);
             }
         }
 
@@ -63,14 +65,14 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 int linkLevel = dependencies.getOrDefault(-1, -1);
                 // a dependence from the parameter into the return variable; we'll add it to the return variable
                 // linkLevel 1 == independent HC
-                if (type.typeParameter() != null && linkLevel == 1) {
-                    transfer(pi.parameterizedType(), vf, typeParametersVf, ofReturnValue, pi, true);
+                if (linkLevel == 1) {
+                    transfer(methodInfo.returnType(), pi.parameterizedType(), typeParametersVf, ofReturnValue, pi, true);
                 }
             } else if (!independent.isIndependent()) {
                 if (methodInfo.isFactoryMethod()) {
-                    transfer(type, vf, typeParametersVfFactory, ofReturnValue, pi, true);
+                    transfer(type, hiddenContentType, typeParametersVfFactory, ofReturnValue, pi, true);
                 } else {
-                    transfer(type, vf, typeParametersVf, builder, hiddenContentFr, false);
+                    transfer(type, hiddenContentType, typeParametersVf, builder, hiddenContentFr, false);
                 }
             }
             ofParameters.add(builder.build());
@@ -78,49 +80,48 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters);
     }
 
-    private void transfer(ParameterizedType type,
-                          VirtualFields vf,
+    private void transfer(ParameterizedType targetType,
+                          ParameterizedType sourceType,
                           Set<TypeParameter> typeParametersVf,
                           Links.Builder builder,
                           Variable hiddenContentFr,
                           boolean reverse) {
-        if (type.typeParameter() != null && typeParametersVf.contains(type.typeParameter())) {
-            assert type.typeParameter().typeBounds().isEmpty() : """
+        int arraysSource = sourceType.arrays();
+        if (targetType.typeParameter() != null && typeParametersVf.contains(targetType.typeParameter())) {
+            assert targetType.typeParameter().typeBounds().isEmpty() : """
                     cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
                     the type parameter can be dependent""";
-            int arrays = type.arrays();
-            int arraysVF = vf.hiddenContent().type().arrays();
-            if (arrays == arraysVF) {
-                if (vf.hiddenContent().type().typeParameter() != null) {
+            int arrays = targetType.arrays();
+            if (arrays == arraysSource) {
+                if (sourceType.typeParameter() != null) {
                     LinkNature linkNature = arrays == 0 ? LinkNature.IS_IDENTICAL_TO : LinkNature.INTERSECTION_NOT_EMPTY;
                     builder.add(linkNature, hiddenContentFr);
                 }
-            } else if (arrays < arraysVF) {
-                if (vf.hiddenContent().type().typeParameter() != null) {
+            } else if (arrays < arraysSource) {
+                if (sourceType.typeParameter() != null) {
                     // one element out of an array
                     LinkNature linkNature = reverse ? LinkNature.CONTAINS : LinkNature.IS_ELEMENT_OF;
                     builder.add(linkNature, hiddenContentFr);
                 } else {
                     // get one element out of a container array; we'll need a slice
-                    FieldInfo theField = findField(List.of(type.typeParameter()), vf.hiddenContent().type().typeInfo());
+                    FieldInfo theField = findField(List.of(targetType.typeParameter()), sourceType.typeInfo());
                     DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(hiddenContentFr),
                             runtime.newInt(-1));
                     Expression scope = runtime.newVariableExpression(dv);
                     FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                    builder.add( LinkNature.IS_ELEMENT_OF, slice);
+                    builder.add(LinkNature.IS_ELEMENT_OF, slice);
                 }
             }
-        } else if (type.typeInfo() != null) {
-            int arraysVF = vf.hiddenContent().type().arrays();
-            VirtualFields vfType = virtualFieldComputer.compute(type.typeInfo());
+        } else if (targetType.typeInfo() != null) {
+            VirtualFields vfType = virtualFieldComputer.compute(targetType.typeInfo());
             FieldReference linkSource = runtime().newFieldReference(vfType.hiddenContent(),
                     runtime.newVariableExpression(builder.primary()), vfType.hiddenContent().type());
-            Set<TypeParameter> typeParametersReturnType = type.extractTypeParameters();
+            Set<TypeParameter> typeParametersReturnType = targetType.extractTypeParameters();
             if (typeParametersReturnType.equals(typeParametersVf)) {
-                int multiplicity = virtualFieldComputer.computeMultiplicity(type);
-                if (multiplicity == 0 && arraysVF == 0) {
+                int multiplicity = virtualFieldComputer.computeMultiplicity(targetType);
+                if (multiplicity == 0 && arraysSource == 0) {
                     builder.add(linkSource, LinkNature.CONTAINS, hiddenContentFr);
-                } else if (multiplicity - 1 == arraysVF) {
+                } else if (multiplicity - 1 == arraysSource) {
                     builder.add(linkSource, LinkNature.INTERSECTION_NOT_EMPTY, hiddenContentFr);
                 }
             } else {
@@ -128,7 +129,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 intersection.retainAll(typeParametersVf);
                 if (!intersection.isEmpty()) {
                     if (intersection.size() == typeParametersReturnType.size()) {
-                        FieldInfo theField = findField(intersection, vf.hiddenContent().type().typeInfo());
+                        FieldInfo theField = findField(intersection, sourceType.typeInfo());
                         DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(hiddenContentFr),
                                 runtime.newInt(-1));
                         Expression scope = runtime.newVariableExpression(dv);
