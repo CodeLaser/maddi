@@ -99,6 +99,14 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
 
+        MethodInfo toArrayTs = list.methodStream()
+                .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
+                              && mi.parameters().getFirst().parameterizedType().arrays() == 1)
+                .findFirst().orElseThrow();
+        assertEquals("java.util.List.toArray(T[])", toArrayTs.fullyQualifiedName());
+        MethodLinkedVariables mlvToArray = linkComputer.doMethod(toArrayTs);
+        assertEquals("[-] --> toArray.$mT==this.$m", mlvToArray.toString());
+
         MethodInfo addAll = list.findUniqueMethod("addAll", 1);
         MethodLinkedVariables mlvAddAll = linkComputer.doMethod(addAll);
         assertEquals("[0:collection.ts~this.ts] --> -", mlvAddAll.toString());

@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.vf;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -60,6 +61,31 @@ public class VirtualFieldComputer {
         ParameterizedType iterator = javaInspector.compiledTypesManager().getOrLoad(Iterator.class).asParameterizedType();
         this.genericsHelper = new GenericsHelperImpl(runtime);
         multi2 = Set.of(iterable.typeInfo(), iterator.typeInfo());
+    }
+
+    public VirtualFields computeAllowTypeParameterArray(ParameterizedType pt) {
+        if (pt.arrays() > 0) {
+            return arrayType(pt);
+        }
+        return compute(pt.typeInfo());
+    }
+
+    private VirtualFields arrayType(ParameterizedType pt) {
+        NamedType namedType;
+        TypeInfo typeInfo;
+        if (pt.typeParameter() != null) {
+            namedType = pt.typeParameter();
+            typeInfo = pt.typeParameter().typeInfo();
+        } else {
+            namedType = pt.typeInfo();
+            typeInfo = pt.typeInfo();
+        }
+        // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
+        FieldInfo mutable = runtime.newFieldInfo("$m" + namedType.simpleName(),
+                false, atomicBooleanPt, typeInfo);
+        String hcName = namedType.simpleName().toLowerCase() + "s";
+        FieldInfo hiddenContent = runtime.newFieldInfo(hcName, false, pt, typeInfo);
+        return new VirtualFields(mutable, hiddenContent);
     }
 
     public VirtualFields compute(TypeInfo typeInfo) {
@@ -182,9 +208,9 @@ public class VirtualFieldComputer {
             int m = computeMultiplicity(wrapped);
             return m == 0 ? 0 : m + 1;
         }
-        Set<TypeParameter> typeParameters  = parameterizedType.extractTypeParameters();
+        Set<TypeParameter> typeParameters = parameterizedType.extractTypeParameters();
 
-        return typeParameters.isEmpty() ? 0: 1;
+        return typeParameters.isEmpty() ? 0 : 1;
     }
 
     private ParameterizedType wrapped(ParameterizedType parameterizedType) {
