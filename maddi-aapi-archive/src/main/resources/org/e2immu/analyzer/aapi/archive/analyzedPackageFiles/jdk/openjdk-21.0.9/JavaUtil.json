@@ -2195,7 +2195,7 @@
  {"name": "MhashCode(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"M":2},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MgetOrDefault(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"2":"Tjava.lang.Object","M":2},"hcsMethod":{"1":[[-1]]},"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Pkey(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"2":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PdefaultValue(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "PdefaultValue(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":[1,{"-1":1}],"unmodifiedParameter":1}}]},
  {"name": "MforEach(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"2":"Tjava.util.function.BiConsumer","M":2},"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Paction(0)", "data":{"annotatedApi":1,"hcsParameter":{"0":[[0]],"1":[[1]],"2":[[-1]]},"ignoreModsParameter":1,"independentParameter":1}}},
  {"name": "MreplaceAll(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"2":"Tjava.util.function.BiFunction","M":2},"independentMethod":2,"notNullMethod":1}, "sub":
