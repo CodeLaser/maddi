@@ -97,6 +97,18 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
 
+        MethodInfo of2 = list.findUniqueMethod("of", 2);
+        MethodLinkedVariables mlvOf2 = linkComputer.doMethod(of2);
+        assertEquals("[-, -] --> of>0:e1,of>1:e2", mlvOf2.toString());
+
+        MethodInfo add = list.findUniqueMethod("add", 1);
+        MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
+        assertEquals("[0:e<this.ts] --> -", mlvAdd.toString());
+
+        MethodInfo set = list.findUniqueMethod("set", 2);
+        MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
+        assertEquals("[-, 1:e<this.ts] --> set<this.ts", mlvSet.toString());
+
         MethodInfo subList = list.findUniqueMethod("subList", 2);
         MethodLinkedVariables mlvSubList = linkComputer.doMethod(subList);
         assertEquals("[-, -] --> subList~this.ts", mlvSubList.toString());
@@ -104,6 +116,12 @@ public class TestShallow extends CommonTest {
         MethodInfo get = list.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
         assertEquals("[-] --> get<this.ts", mlvGet.toString());
+
+        MethodInfo contains = list.findUniqueMethod("contains", 1);
+        MethodLinkedVariables mlvContains = linkComputer.doMethod(contains);
+        assertEquals("[-] --> -", mlvContains.toString());
+
+
 
     }
 
