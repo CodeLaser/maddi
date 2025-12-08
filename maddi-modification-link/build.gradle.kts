@@ -17,8 +17,8 @@ plugins {
     id("java-library-conventions")
 }
 java {
-    sourceCompatibility = JavaVersion.VERSION_24
-    targetCompatibility = JavaVersion.VERSION_24
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
     api(project(":maddi-inspection-api"))
@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":maddi-modification-prepwork"))
     implementation(project(":maddi-modification-common"))
     implementation(project(":maddi-inspection-parser"))
+    implementation(project(":maddi-aapi-parser"))
 
     testRuntimeOnly(project(":maddi-aapi-archive"))
     testImplementation(project(":maddi-cst-impl"))

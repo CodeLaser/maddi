@@ -464,7 +464,7 @@ class JavaLang {
 
         // IMPORTANT: violates @Container
         @NotModified
-        void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin) {}
+        public void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin) {}
 
         @NotNull
         String valueOf(int i) { return null; }

@@ -1,8 +1,0 @@
-[
-{"name": "Tjava.lang.constant.Constable", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"E":true},"immutableType":2,"independentType":2}, "sub":
- {"name": "MdescribeConstable(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.util.Optional","1":"Tjava.lang.constant.ConstantDesc"},"hcsMethod":{"0":[[-1]],"1":[[0]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}},
-
-{"name": "Tjava.lang.constant.ConstantDesc", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"hc":{"E":true},"immutableType":2,"independentType":2}, "sub":
- {"name": "MresolveConstantDesc(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"0":"Tjava.lang.Object"},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Plookup(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}}}
-]
