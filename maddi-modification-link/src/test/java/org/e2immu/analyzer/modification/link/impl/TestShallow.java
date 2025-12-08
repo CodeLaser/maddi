@@ -133,8 +133,6 @@ public class TestShallow extends CommonTest {
         MethodInfo contains = list.findUniqueMethod("contains", 1);
         MethodLinkedVariables mlvContains = linkComputer.doMethod(contains);
         assertEquals("[-] --> -", mlvContains.toString());
-
-
     }
 
     @DisplayName("Analyze 'Map', multiplicity 2, 2 type parameters")
@@ -178,5 +176,8 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvFindFirst = linkComputer.doMethod(findFirst);
         assertEquals("[] --> findFirst.t<this.ts", mlvFindFirst.toString());
 
+        MethodInfo filter = stream.findUniqueMethod("filter", 1);
+        MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
+        assertEquals("[] --> findFirst.t<this.ts", mlvFilter.toString());
     }
 }

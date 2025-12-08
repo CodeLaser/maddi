@@ -40,6 +40,8 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("$m - T[] ts", vfc.compute(arrayList).toString());
         TypeInfo deque = javaInspector.compiledTypesManager().getOrLoad(Deque.class);
         assertEquals("$m - T[] ts", vfc.compute(deque).toString());
+
+        assertEquals(2, vfc.computeMultiplicity(arrayList));
     }
 
     @DisplayName("map hierarchy")
@@ -48,13 +50,15 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
         // start with TreeMap. This will recursively compute NavigableMap, SequencedMap, Map, ...
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(TreeMap.class);
-        VirtualFields vfList = vfc.compute(list);
+        TypeInfo treeMap = javaInspector.compiledTypesManager().getOrLoad(TreeMap.class);
+        VirtualFields vfList = vfc.compute(treeMap);
         assertEquals("$m - KV[] kvs", vfList.toString());
         assertEquals("java.util.Map", vfList.mutable().owner().toString());
         assertEquals("java.util.Map.KV", vfList.hiddenContent().type().typeInfo().toString());
         FieldInfo k = vfList.hiddenContent().type().typeInfo().getFieldByName("k", true);
         assertEquals("java.util.Map.KV", k.owner().toString());
+
+        assertEquals(2, vfc.computeMultiplicity(treeMap));
     }
 
     @DisplayName("stream hierarchy")
@@ -69,5 +73,17 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
         VirtualFields vfStream = vfc.compute(stream);
         assertEquals("$m - T[] ts", vfStream.toString());
+        assertEquals(2, vfc.computeMultiplicity(stream));
+    }
+
+    @DisplayName("optional")
+    @Test
+    public void test4() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        VirtualFields vfStream = vfc.compute(optional);
+        assertEquals("/ - T t", vfStream.toString());
+        assertEquals(1, vfc.computeMultiplicity(optional));
     }
 }

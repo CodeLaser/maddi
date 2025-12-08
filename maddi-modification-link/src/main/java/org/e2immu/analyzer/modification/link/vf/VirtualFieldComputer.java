@@ -50,7 +50,7 @@ public class VirtualFieldComputer {
     private final ParameterizedType atomicBooleanPt;
     private final Runtime runtime;
     private final GenericsHelper genericsHelper;
-    private final Set<ParameterizedType> multi2;
+    private final Set<TypeInfo> multi2;
 
     public VirtualFieldComputer(JavaInspector javaInspector) {
         this.runtime = javaInspector.runtime();
@@ -59,7 +59,7 @@ public class VirtualFieldComputer {
         ParameterizedType iterable = javaInspector.compiledTypesManager().getOrLoad(Iterable.class).asParameterizedType();
         ParameterizedType iterator = javaInspector.compiledTypesManager().getOrLoad(Iterator.class).asParameterizedType();
         this.genericsHelper = new GenericsHelperImpl(runtime);
-        multi2 = Set.of(iterable, iterator);
+        multi2 = Set.of(iterable.typeInfo(), iterator.typeInfo());
     }
 
     public VirtualFields compute(TypeInfo typeInfo) {
@@ -152,9 +152,9 @@ public class VirtualFieldComputer {
         return newType;
     }
 
-    private int computeMultiplicity(TypeInfo typeInfo) {
+    public int computeMultiplicity(TypeInfo typeInfo) {
         // base for many computations
-        if ("java.lang.Iterable".equals(typeInfo.fullyQualifiedName())) return 2;
+        if (multi2.contains(typeInfo)) return 2;
         int multiplicity = 0;
         for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
             ParameterizedType returnType = methodInfo.returnType();
@@ -182,8 +182,9 @@ public class VirtualFieldComputer {
             int m = computeMultiplicity(wrapped);
             return m == 0 ? 0 : m + 1;
         }
+        Set<TypeParameter> typeParameters  = parameterizedType.extractTypeParameters();
 
-        return 0;
+        return typeParameters.isEmpty() ? 0: 1;
     }
 
     private ParameterizedType wrapped(ParameterizedType parameterizedType) {
@@ -192,12 +193,13 @@ public class VirtualFieldComputer {
         }
         TypeInfo typeInfo = parameterizedType.typeInfo();
         if (typeInfo != null) {
-            for (ParameterizedType m2 : multi2) {
+            for (TypeInfo m2 : multi2) {
                 if (typeInfo.equals(m2.typeInfo()) && parameterizedType.parameters().size() == 1) {
                     return parameterizedType.parameters().getFirst();
                 }
-                if (m2.isAssignableFrom(runtime, parameterizedType)) {
-                    var map = genericsHelper.mapInTermsOfParametersOfSuperType(typeInfo, m2);
+                ParameterizedType m2Pt = m2.asParameterizedType();
+                if (m2Pt.isAssignableFrom(runtime, parameterizedType)) {
+                    var map = genericsHelper.mapInTermsOfParametersOfSuperType(typeInfo, m2Pt);
                     return map.entrySet().stream().findFirst().orElseThrow().getValue();
                 }
             }

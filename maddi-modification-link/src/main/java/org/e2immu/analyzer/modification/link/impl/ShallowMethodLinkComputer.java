@@ -127,11 +127,17 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     runtime.newVariableExpression(builder.primary()), vfType.hiddenContent().type());
             Set<TypeParameter> typeParametersReturnType = targetType.extractTypeParameters();
             if (typeParametersReturnType.equals(typeParametersVf)) {
-                int multiplicity = virtualFieldComputer.computeMultiplicity(targetType);
-                if (multiplicity == 0 && arraysSource == 0) {
+                int multiplicity = virtualFieldComputer.computeMultiplicity(targetType.typeInfo());
+                if (multiplicity - 2 >= arraysSource) {
+                    // Stream<T> Optional.stream() (going from arraySource 0 to multi 2)
                     builder.add(linkSource, LinkNature.CONTAINS, hiddenContentFr);
                 } else if (multiplicity - 1 == arraysSource) {
+                    // List.addAll(...) target: Collection, source T[] multi 2, array source 1
+                    // List.subList target List, source T[] multi 2, array source 1
                     builder.add(linkSource, LinkNature.INTERSECTION_NOT_EMPTY, hiddenContentFr);
+                } else if (multiplicity <= arraysSource) {
+                    // findFirst.t < this.ts in Stream (multi 1, array source 1)
+                    builder.add(linkSource, LinkNature.IS_ELEMENT_OF, hiddenContentFr);
                 }
             } else {
                 List<TypeParameter> intersection = new ArrayList<>(typeParametersReturnType.stream().sorted().toList());
