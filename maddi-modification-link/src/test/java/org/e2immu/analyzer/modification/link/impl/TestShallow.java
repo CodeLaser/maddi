@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -66,7 +67,7 @@ public class TestShallow extends CommonTest {
     }
 
 
-    @DisplayName("Analyze 'Optional', multiplicity 1")
+    @DisplayName("Analyze 'Optional', multiplicity 1, 1 type parameter")
     @Test
     public void test2() {
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
@@ -88,10 +89,10 @@ public class TestShallow extends CommonTest {
 
         MethodInfo label = optional.findUniqueMethod("stream", 0);
         MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
-        assertEquals("[] --> stream>this.t", mlvLabel.toString());
+        assertEquals("[] --> stream.ts>this.t", mlvLabel.toString());
     }
 
-    @DisplayName("Analyze 'List', multiplicity 2")
+    @DisplayName("Analyze 'List', multiplicity 2, 1 type parameter")
     @Test
     public void test3() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
@@ -99,7 +100,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo addAll = list.findUniqueMethod("addAll", 1);
         MethodLinkedVariables mlvAddAll = linkComputer.doMethod(addAll);
-        assertEquals("[0:collection~this.ts] --> -", mlvAddAll.toString());
+        assertEquals("[0:collection.ts~this.ts] --> -", mlvAddAll.toString());
 
         MethodInfo ofVarargs = list.methodStream().filter(mi ->
                         "of".equals(mi.name()) && mi.parameters().size() == 1 && mi.parameters().getFirst().isVarArgs())
@@ -122,7 +123,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo subList = list.findUniqueMethod("subList", 2);
         MethodLinkedVariables mlvSubList = linkComputer.doMethod(subList);
-        assertEquals("[-, -] --> subList~this.ts", mlvSubList.toString());
+        assertEquals("[-, -] --> subList.ts~this.ts", mlvSubList.toString());
 
         MethodInfo get = list.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
@@ -133,6 +134,17 @@ public class TestShallow extends CommonTest {
         assertEquals("[-] --> -", mlvContains.toString());
 
 
+    }
+
+    @DisplayName("Analyze 'Map', multiplicity 2, 2 type parameters")
+    @Test
+    public void test4() {
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+
+        MethodInfo keySet = map.findUniqueMethod("keySet", 0);
+        MethodLinkedVariables mlvKeySet = linkComputer.doMethod(keySet);
+        assertEquals("[] --> keySet.ts~this.kvs[-1].k", mlvKeySet.toString());
     }
 
 

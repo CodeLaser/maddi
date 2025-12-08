@@ -28,6 +28,8 @@ public interface Links extends Iterable<Link>, Value {
         Builder add(LinkNature linkNature, Variable to);
 
         Builder add(Variable from, LinkNature linkNature, Variable to);
+
+        Variable primary();
     }
 
     // methods that do something

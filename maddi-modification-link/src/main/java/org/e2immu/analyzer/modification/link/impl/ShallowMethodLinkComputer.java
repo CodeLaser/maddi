@@ -7,9 +7,11 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -102,17 +104,43 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             }
         } else if (type.typeInfo() != null) {
             int arraysVF = vf.hiddenContent().type().arrays();
-
+            VirtualFields vfType = virtualFieldComputer.compute(type.typeInfo());
+            FieldReference linkSource = runtime().newFieldReference(vfType.hiddenContent(),
+                    runtime.newVariableExpression(builder.primary()), vfType.hiddenContent().type());
             Set<TypeParameter> typeParametersReturnType = type.extractTypeParameters();
             if (typeParametersReturnType.equals(typeParametersVf)) {
                 int multiplicity = virtualFieldComputer.computeMultiplicity(type);
                 if (multiplicity == 0 && arraysVF == 0) {
-                    builder.add(LinkNature.CONTAINS, hiddenContentFr);
+                    builder.add(linkSource, LinkNature.CONTAINS, hiddenContentFr);
                 } else if (multiplicity - 1 == arraysVF) {
-                    builder.add(LinkNature.INTERSECTION_NOT_EMPTY, hiddenContentFr);
+                    builder.add(linkSource, LinkNature.INTERSECTION_NOT_EMPTY, hiddenContentFr);
+                }
+            } else {
+                List<TypeParameter> intersection = new ArrayList<>(typeParametersReturnType.stream().sorted().toList());
+                intersection.retainAll(typeParametersVf);
+                if (!intersection.isEmpty()) {
+                    if (intersection.size() == typeParametersReturnType.size()) {
+                        FieldInfo theField = findField(intersection, vf.hiddenContent().type().typeInfo());
+                        DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(hiddenContentFr),
+                                runtime.newInt(-1));
+                        Expression scope = runtime.newVariableExpression(dv);
+                        FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
+                        builder.add(linkSource, LinkNature.INTERSECTION_NOT_EMPTY, slice);
+                    }
                 }
             }
         }
+    }
+
+    private static FieldInfo findField(List<TypeParameter> typeParameters, TypeInfo container) {
+        for (FieldInfo fieldInfo : container.fields()) {
+            if (fieldInfo.type().typeParameter() != null && typeParameters.size() == 1
+                && typeParameters.getFirst().equals(fieldInfo.type().typeParameter())) {
+                return fieldInfo;
+            }
+        }
+        throw new UnsupportedOperationException("Should be able to find a field with types " + typeParameters
+                                                + " in " + container);
     }
 
     /*
@@ -126,7 +154,12 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
     private Set<TypeParameter> correspondingTypeParameters(TypeInfo descendantType, FieldInfo hiddenContent) {
         if (hiddenContent == null) return Set.of();
         if (descendantType.equals(hiddenContent.owner())) {
-            return hiddenContent.type().extractTypeParameters();
+            if (hiddenContent.type().typeParameter() != null) {
+                return Set.of(hiddenContent.type().typeParameter());
+            }
+            return hiddenContent.type().typeInfo().fields().stream()
+                    .filter(f -> f.type().typeParameter() != null)
+                    .map(f -> f.type().typeParameter()).collect(Collectors.toUnmodifiableSet());
         }
         Stream<ParameterizedType> parentStream = Stream.ofNullable(
                 descendantType.parentClass() == null || descendantType.parentClass().isJavaLangObject()
@@ -149,10 +182,12 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
      a factory method will use method type parameters, rather than type parameters bound to the type itself.
      <E> List<E> List.of(E e) -> this E is bound to List.of()...
      */
-    private Set<TypeParameter> convertToMethodTypeParameters(MethodInfo methodInfo, Set<TypeParameter> typeParametersVf) {
+    private Set<TypeParameter> convertToMethodTypeParameters(MethodInfo methodInfo,
+                                                             Set<TypeParameter> typeParametersVf) {
         ParameterizedType rt = methodInfo.returnType();
         assert rt.typeInfo().equals(methodInfo.typeInfo()); // otherwise, not a factory method
-        return typeParametersVf.stream().map(tp -> rt.parameters().get(tp.getIndex()).typeParameter())
+        return typeParametersVf.stream()
+                .map(tp -> rt.parameters().get(tp.getIndex()).typeParameter())
                 .filter(Objects::nonNull)
                 .collect(Collectors.toUnmodifiableSet());
     }
