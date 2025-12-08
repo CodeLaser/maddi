@@ -53,12 +53,17 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         false);
                 if (independent.isDependent()) {
                     ParameterizedType returnType = methodInfo.returnType();
-                    assert returnType.typeInfo() != null : "A type parameter cannot be dependent";
-                    VirtualFields vfTarget = virtualFieldComputer.compute(returnType.typeInfo());
-                    FieldReference mTarget = runtime.newFieldReference(vfTarget.mutable(),
-                            runtime.newVariableExpression(rv), vfTarget.mutable().type());
-                    FieldReference mSource = runtime.newFieldReference(vf.mutable());
-                    ofReturnValue.add(mTarget, LinkNature.IS_IDENTICAL_TO, mSource);
+                    assert returnType.typeInfo() != null || returnType.arrays() > 0
+                            : "A type parameter cannot be dependent; a type parameter array can";
+                    VirtualFields vfTarget = virtualFieldComputer.computeAllowTypeParameterArray(returnType);
+                    if(vfTarget.mutable() != null) {
+                        FieldReference mTarget = runtime.newFieldReference(vfTarget.mutable(),
+                                runtime.newVariableExpression(rv), vfTarget.mutable().type());
+                        FieldReference mSource = runtime.newFieldReference(vf.mutable());
+                        ofReturnValue.add(mTarget, LinkNature.IS_IDENTICAL_TO, mSource);
+                    } else {
+                        LOGGER.debug("?");
+                    }
                 }
             }
         }
@@ -146,7 +151,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     builder.add(linkSource, LinkNature.IS_ELEMENT_OF, hiddenContentFr);
                 }
             } else {
-                List<TypeParameter> intersection = new ArrayList<>(typeParametersReturnType.stream().sorted().toList());
+                List<TypeParameter> intersection = new ArrayList<>(typeParametersReturnType.stream()
+                        .sorted(Comparator.comparingInt(TypeParameter::getIndex)).toList());
                 intersection.retainAll(typeParametersVf);
                 if (!intersection.isEmpty()) {
                     if (intersection.size() == typeParametersReturnType.size()) {

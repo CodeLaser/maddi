@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.vf;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -85,5 +86,15 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFields vfStream = vfc.compute(optional);
         assertEquals("/ - T t", vfStream.toString());
         assertEquals(1, vfc.computeMultiplicity(optional));
+    }
+
+
+    @DisplayName("object array")
+    @Test
+    public void test5() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        ParameterizedType objectArray = runtime.objectParameterizedType().copyWithArrays(1);
+        VirtualFields vfStream = vfc.computeAllowTypeParameterArray(objectArray);
+        assertEquals("$mObject - Object[] objects", vfStream.toString());
     }
 }
