@@ -1,5 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.aapi.parser.AnnotatedApiParser;
+import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
@@ -22,9 +24,12 @@ public class TestShallow extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
+            import org.e2immu.annotation.Independent;
+            @Independent(hc = true)
             public interface X<T> {
+                @Independent(hc = true)
                 T get();
-                void set(T t);
+                void set(@Independent(hc = true) T t);
                 String label(int k);
             }
             """;
@@ -35,6 +40,12 @@ public class TestShallow extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
+
+        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, annotatedApiParser,
+                true);
+        shallowAnalyzer.go(List.of(X));
+
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFields vfX = vfc.compute(X);
         assertEquals("$m - T t", vfX.toString());
@@ -73,7 +84,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo set = optional.findUniqueMethod("orElse", 1);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[0:other==orElse] --> orElse==this.t,orElse==0:other", mlvSet.toString());
+        assertEquals("[-] --> orElse==0:other,orElse==this.t", mlvSet.toString());
 
         MethodInfo label = optional.findUniqueMethod("stream", 0);
         MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);

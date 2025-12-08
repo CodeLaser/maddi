@@ -3361,7 +3361,7 @@ public class JavaUtil {
 
         //frequency 131
         //@Independent(hc=true)[O] @NotModified[T]
-        T orElse(/*@Independent[M] @NotModified[O]*/ T other) { return null; }
+        T orElse(@Independent(hcReturnValue = true) /*@NotModified[O]*/ T other) { return null; }
 
         //frequency 16
         //@Independent(hc=true)[O] @NotModified[T]

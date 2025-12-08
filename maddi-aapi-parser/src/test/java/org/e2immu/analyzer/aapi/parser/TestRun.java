@@ -37,9 +37,9 @@ public class TestRun {
     private static final String JDK_HOMEBREW_24 = "jdk-Homebrew-24.0.2";
     private static final String JDK_HOMEBREW_25 = "jdk-Homebrew-25.0.1";
 
-    public static final String LIBS_MADDI_HOMEBREW_24 = "libs.e2immu-Homebrew-24.0.2";
-    public static final String LIBS_LOG_HOMEBREW_24 = "libs.log-Homebrew-24.0.2";
-    public static final String LIBS_TEST_HOMEBREW_24 = "libs.test-Homebrew-24.0.2";
+    public static final String LIBS_MADDI_HOMEBREW_25 = "libs.e2immu-Homebrew-25.0.1";
+    public static final String LIBS_LOG_HOMEBREW_25 = "libs.log-Homebrew-25.0.1";
+    public static final String LIBS_TEST_HOMEBREW_25 = "libs.test-Homebrew-25.0.1";
     public static final String LIBS_MADDI_ORACLE_24 = "libs.e2immu-OracleCorporation-24.0.2";
     public static final String LIBS_LOG_ORACLE_24 = "libs.log-OracleCorporation-24.0.2";
     public static final String LIBS_TEST_ORACLE_24 = "libs.test-OracleCorporation-24.0.2";
@@ -70,17 +70,17 @@ public class TestRun {
             public void writeAnalysis(Set<TypeInfo> writeOut) {
                 int expect = switch (context()) {
                     case JDK_HOMEBREW_24, JDK_HOMEBREW_21, JDK_HOMEBREW_25 -> 216;
-                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 0;
-                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 3;
-                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 4;
+                    case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 0;
+                    case LIBS_LOG_HOMEBREW_25, LIBS_LOG_ORACLE_24 -> 3;
+                    case LIBS_TEST_HOMEBREW_25, LIBS_TEST_ORACLE_24 -> 4;
                     default -> -1;
                 };
                 assertEquals(expect, writeOut.size(), context());
 
                 int expectSub = switch (context()) {
                     case JDK_HOMEBREW_24, JDK_HOMEBREW_21, JDK_HOMEBREW_25 -> 50;
-                    case LIBS_MADDI_HOMEBREW_24, LIBS_LOG_HOMEBREW_24, LIBS_MADDI_ORACLE_24, LIBS_LOG_ORACLE_24 -> 0;
-                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 1;
+                    case LIBS_MADDI_HOMEBREW_25, LIBS_LOG_HOMEBREW_25, LIBS_MADDI_ORACLE_24, LIBS_LOG_ORACLE_24 -> 0;
+                    case LIBS_TEST_HOMEBREW_25, LIBS_TEST_ORACLE_24 -> 1;
                     default -> -1;
                 };
                 int subTypes = (int) writeOut.stream()
@@ -94,9 +94,10 @@ public class TestRun {
                     case JDK_HOMEBREW_24 -> 3208;
                     case JDK_HOMEBREW_21 -> 3558;
                     case JDK_HOMEBREW_25 -> 3600;
-                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 590;
-                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 605;
-                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 615;
+                    case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 594;
+                    case LIBS_LOG_HOMEBREW_25, LIBS_LOG_ORACLE_24 -> 609;
+                    case LIBS_TEST_HOMEBREW_25 -> 619;
+                    case LIBS_TEST_ORACLE_24 -> 615;
                     default -> -1;
                 };
                 assertEquals(expectCt, javaInspector.compiledTypesManager().typesLoaded(true).size(), context());
@@ -128,27 +129,28 @@ public class TestRun {
                     case JDK_HOMEBREW_24 -> 2746;
                     case JDK_HOMEBREW_21 -> 2926;
                     case JDK_HOMEBREW_25 -> 2982;
-                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 520;
-                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 521;
-                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 525;
+                    case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 524;
+                    case LIBS_LOG_HOMEBREW_25 -> 525;
+                    case LIBS_LOG_ORACLE_24 -> 521;
+                    case LIBS_TEST_HOMEBREW_25, LIBS_TEST_ORACLE_24 -> 529;
                     default -> -1;
                 };
                 assertEquals(expectParentNonNull, typesWithParentNonNullNonJLO, context());
 
                 int expectSf = switch (context()) {
                     case JDK_HOMEBREW_24, JDK_HOMEBREW_21, JDK_HOMEBREW_25 -> 25;
-                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 0;
-                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 1;
-                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 2;
+                    case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 0;
+                    case LIBS_LOG_HOMEBREW_25, LIBS_LOG_ORACLE_24 -> 1;
+                    case LIBS_TEST_HOMEBREW_25, LIBS_TEST_ORACLE_24 -> 2;
                     default -> -1;
                 };
                 assertEquals(expectSf, javaInspector.sourceFiles().size(), context());
 
                 int stmSize = switch (context()) {
                     case JDK_HOMEBREW_24, JDK_HOMEBREW_21, JDK_HOMEBREW_25 -> 241;
-                    case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 0;
-                    case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 4;
-                    case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 6;
+                    case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 0;
+                    case LIBS_LOG_HOMEBREW_25, LIBS_LOG_ORACLE_24 -> 4;
+                    case LIBS_TEST_HOMEBREW_25, LIBS_TEST_ORACLE_24 -> 6;
                     default -> -1;
                 };
                 int sizeFiltered = javaInspector.compiledTypesManager().typesLoaded(false).size();
@@ -162,9 +164,9 @@ public class TestRun {
                     public void inputTypes(List<TypeInfo> allTypes) {
                         int expect = switch (context()) {
                             case JDK_HOMEBREW_24, JDK_HOMEBREW_21, JDK_HOMEBREW_25 -> 216;
-                            case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 0;
-                            case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 3;
-                            case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 4;
+                            case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 0;
+                            case LIBS_LOG_HOMEBREW_25, LIBS_LOG_ORACLE_24 -> 3;
+                            case LIBS_TEST_HOMEBREW_25, LIBS_TEST_ORACLE_24 -> 4;
                             default -> -1;
                         };
                         assertEquals(expect, allTypes.size(), context());
@@ -175,9 +177,9 @@ public class TestRun {
                         int expect = switch (context()) {
                             case JDK_HOMEBREW_21 -> 297;// 235;
                             case JDK_HOMEBREW_24 -> 297;// 237;//277;// 235;
-                            case LIBS_MADDI_HOMEBREW_24, LIBS_MADDI_ORACLE_24 -> 0;
-                            case LIBS_LOG_HOMEBREW_24, LIBS_LOG_ORACLE_24 -> 4;
-                            case LIBS_TEST_HOMEBREW_24, LIBS_TEST_ORACLE_24 -> 5;
+                            case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 0;
+                            case LIBS_LOG_HOMEBREW_25, LIBS_LOG_ORACLE_24 -> 4;
+                            case LIBS_TEST_HOMEBREW_25, LIBS_TEST_ORACLE_24 -> 5;
                             default -> -1;
                         };
                         //assertEquals(expect, allTypes.size(), context());

@@ -2492,7 +2492,7 @@
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0,0]],"1":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}}},
  {"name": "Mstream(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.stream.Stream","M":1},"hcsMethod":{"0":[[0]],"1":[[-1]]},"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MorElse(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
-  {"name": "Pother(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pother(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[-1]]},"immutableParameter":2,"independentParameter":[1,{"-1":1}],"unmodifiedParameter":1}}},
  {"name": "MorElseGet(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.function.Supplier","M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"0":[[0]],"1":[[-1]]},"ignoreModsParameter":1,"independentParameter":2}}},
  {"name": "MorElseThrow(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"hc":{"M":1},"hcsMethod":{"0":[[-1]]},"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
