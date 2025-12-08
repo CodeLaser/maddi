@@ -10,8 +10,9 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.GenericsHelper;
 import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
 
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -48,17 +49,17 @@ The index -1 will be used to indicate "slicing".
 public class VirtualFieldComputer {
     private final ParameterizedType atomicBooleanPt;
     private final Runtime runtime;
-    private final ParameterizedType iterable;
-    private final ParameterizedType map;
     private final GenericsHelper genericsHelper;
+    private final Set<ParameterizedType> multi2;
 
     public VirtualFieldComputer(JavaInspector javaInspector) {
         this.runtime = javaInspector.runtime();
         TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
         this.atomicBooleanPt = atomicBoolean.asParameterizedType();
-        this.iterable = javaInspector.compiledTypesManager().getOrLoad(Iterable.class).asParameterizedType();
-        this.map = javaInspector.compiledTypesManager().getOrLoad(Map.class).asParameterizedType();
+        ParameterizedType iterable = javaInspector.compiledTypesManager().getOrLoad(Iterable.class).asParameterizedType();
+        ParameterizedType iterator = javaInspector.compiledTypesManager().getOrLoad(Iterator.class).asParameterizedType();
         this.genericsHelper = new GenericsHelperImpl(runtime);
+        multi2 = Set.of(iterable, iterator);
     }
 
     public VirtualFields compute(TypeInfo typeInfo) {
@@ -94,12 +95,15 @@ public class VirtualFieldComputer {
             } else {
                 ParameterizedType hcTypeWithArrays;
                 String baseName;
-                if (typeInfo.typeParameters().size() == 1) {
-                    TypeParameter typeParameter = typeInfo.typeParameters().getFirst();
+                List<TypeParameter> filteredTypeParameters = typeInfo.typeParameters().stream()
+                        .filter(VirtualFieldComputer::notRecursive)
+                        .toList();
+                if (filteredTypeParameters.size() == 1) {
+                    TypeParameter typeParameter = filteredTypeParameters.getFirst();
                     baseName = typeParameter.simpleName().toLowerCase();
                     hcTypeWithArrays = runtime.newParameterizedType(typeParameter, multiplicity - 1, null);
                 } else {
-                    TypeInfo hcType = makeContainerType(typeInfo);
+                    TypeInfo hcType = makeContainerType(typeInfo, filteredTypeParameters);
                     baseName = hcType.simpleName().toLowerCase();
                     hcTypeWithArrays = runtime.newParameterizedType(hcType, multiplicity - 1);
                 }
@@ -108,6 +112,11 @@ public class VirtualFieldComputer {
             }
         }
         return new VirtualFields(mutable, hiddenContent);
+    }
+
+    private static boolean notRecursive(TypeParameter tp) {
+        assert tp.typeBoundsAreSet();
+        return tp.typeBounds().stream().noneMatch(pt -> pt.extractTypeParameters().contains(tp));
     }
 
     private FieldInfo copyFromSuperType(TypeInfo typeInfo) {
@@ -124,13 +133,13 @@ public class VirtualFieldComputer {
         return pt.extractTypeParameters().equals(typeParameters.stream().collect(Collectors.toUnmodifiableSet()));
     }
 
-    private TypeInfo makeContainerType(TypeInfo typeInfo) {
-        String name = typeInfo.typeParameters().stream().map(TypeParameter::simpleName).collect(Collectors.joining());
+    private TypeInfo makeContainerType(TypeInfo typeInfo, List<TypeParameter> filteredTypeParameters) {
+        String name = filteredTypeParameters.stream().map(TypeParameter::simpleName).collect(Collectors.joining());
         TypeInfo newType = runtime.newTypeInfo(typeInfo, name);
         newType.builder().setTypeNature(runtime.typeNatureClass())
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
-        for (TypeParameter tp : typeInfo.typeParameters()) {
+        for (TypeParameter tp : filteredTypeParameters) {
             FieldInfo fieldInfo = runtime.newFieldInfo(tp.simpleName().toLowerCase(), false,
                     runtime.newParameterizedType(tp, 0, null), newType);
             fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
@@ -145,7 +154,7 @@ public class VirtualFieldComputer {
 
     private int computeMultiplicity(TypeInfo typeInfo) {
         // base for many computations
-        if("java.lang.Iterable".equals(typeInfo.fullyQualifiedName())) return 2;
+        if ("java.lang.Iterable".equals(typeInfo.fullyQualifiedName())) return 2;
         int multiplicity = 0;
         for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
             ParameterizedType returnType = methodInfo.returnType();
@@ -183,14 +192,15 @@ public class VirtualFieldComputer {
         }
         TypeInfo typeInfo = parameterizedType.typeInfo();
         if (typeInfo != null) {
-            if (typeInfo.equals(iterable.typeInfo()) && parameterizedType.parameters().size() == 1) {
-                return parameterizedType.parameters().getFirst();
+            for (ParameterizedType m2 : multi2) {
+                if (typeInfo.equals(m2.typeInfo()) && parameterizedType.parameters().size() == 1) {
+                    return parameterizedType.parameters().getFirst();
+                }
+                if (m2.isAssignableFrom(runtime, parameterizedType)) {
+                    var map = genericsHelper.mapInTermsOfParametersOfSuperType(typeInfo, m2);
+                    return map.entrySet().stream().findFirst().orElseThrow().getValue();
+                }
             }
-            if (iterable.isAssignableFrom(runtime, parameterizedType)) {
-                var map = genericsHelper.mapInTermsOfParametersOfSuperType(typeInfo, iterable);
-                return map.entrySet().stream().findFirst().orElseThrow().getValue();
-            }
-
         }
         return null;
     }

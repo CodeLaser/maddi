@@ -50,6 +50,15 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             if (!independent.isIndependent()) {
                 transfer(methodInfo.returnType(), hiddenContentType, typeParametersVf, ofReturnValue, hiddenContentFr,
                         false);
+                if (independent.isDependent()) {
+                    ParameterizedType returnType = methodInfo.returnType();
+                    assert returnType.typeInfo() != null : "A type parameter cannot be dependent";
+                    VirtualFields vfTarget = virtualFieldComputer.compute(returnType.typeInfo());
+                    FieldReference mTarget = runtime.newFieldReference(vfTarget.mutable(),
+                            runtime.newVariableExpression(rv), vfTarget.mutable().type());
+                    FieldReference mSource = runtime.newFieldReference(vf.mutable());
+                    ofReturnValue.add(mTarget, LinkNature.IS_IDENTICAL_TO, mSource);
+                }
             }
         }
 
