@@ -93,6 +93,11 @@ public class LinksImpl implements Links {
             this.primary = primary;
         }
 
+        @Override
+        public Variable primary() {
+            return primary;
+        }
+
         public Builder add(LinkNature linkNature, Variable to) {
             links.add(new LinkImpl(primary, linkNature, to));
             return this;
