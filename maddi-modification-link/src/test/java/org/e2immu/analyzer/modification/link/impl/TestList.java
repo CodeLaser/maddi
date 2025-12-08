@@ -115,7 +115,6 @@ public class TestList extends CommonTest {
         ReturnVariable ofRv = new ReturnVariableImpl(of);
         FieldInfo virtualContentField = runtime.newFieldInfo("tArray", false,
                 runtime.newParameterizedType(list.typeParameters().getFirst(), 1, null), list);
-        FieldReference virtualContentVariable = runtime.newFieldReference(virtualContentField);
         FieldReference rvContent = runtime.newFieldReference(virtualContentField, runtime.newVariableExpression(ofRv),
                 virtualContentField.type());
         assertEquals("java.util.List.of(E)", of.descriptor());
@@ -187,8 +186,6 @@ public class TestList extends CommonTest {
         LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodInfo sub = X.findUniqueMethod("sub", 1);
         LinkComputerImpl.SourceMethodComputer smc = tlc.new SourceMethodComputer(subList);
-        ExpressionVisitor ev = new ExpressionVisitor(javaInspector, tlc, smc,
-                sub, new RecursionPrevention(false), new AtomicInteger());
 
         VariableData vd0 = VariableDataImpl.of(sub.methodBody().statements().getFirst());
 

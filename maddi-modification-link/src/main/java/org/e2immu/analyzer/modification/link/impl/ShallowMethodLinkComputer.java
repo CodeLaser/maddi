@@ -34,20 +34,21 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         TypeInfo typeInfo = methodInfo.typeInfo();
         VirtualFields vf = typeInfo.analysis().getOrCreate(VirtualFields.VIRTUAL_FIELDS, () ->
                 virtualFieldComputer.computeOnDemand(typeInfo));
-        if (vf.hiddenContent() == null) return MethodLinkedVariablesImpl.EMPTY;
-        FieldReference hiddenContentFr = runtime.newFieldReference(vf.hiddenContent());
+        FieldInfo vfHc = vf.hiddenContent();
         ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
         Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
-        Set<TypeParameter> typeParametersVf = correspondingTypeParameters(methodInfo.typeInfo(), vf.hiddenContent());
-        Set<TypeParameter> typeParametersVfFactory = methodInfo.isFactoryMethod()
+        FieldReference hiddenContentFr = vfHc == null ? null : runtime.newFieldReference(vfHc);
+        Set<TypeParameter> typeParametersVf = vfHc == null ? null
+                : correspondingTypeParameters(methodInfo.typeInfo(), vfHc);
+        Set<TypeParameter> typeParametersVfFactory = methodInfo.isFactoryMethod() && vfHc != null
                 ? convertToMethodTypeParameters(methodInfo, typeParametersVf) : null;
 
         // instance method, from object into return variable
-        ParameterizedType hiddenContentType = vf.hiddenContent().type();
-        if (methodInfo.hasReturnValue() && !methodInfo.isStatic()) {
+        if (methodInfo.hasReturnValue() && !methodInfo.isStatic() && vfHc != null) {
             Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.DEPENDENT);
             if (!independent.isIndependent()) {
+                ParameterizedType hiddenContentType = vfHc.type();
                 transfer(methodInfo.returnType(), hiddenContentType, typeParametersVf, ofReturnValue, hiddenContentFr,
                         false);
                 if (independent.isDependent()) {
@@ -75,9 +76,11 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // a dependence from the parameter into the return variable; we'll add it to the return variable
                 // linkLevel 1 == independent HC
                 if (linkLevel == 1) {
-                    transfer(methodInfo.returnType(), pi.parameterizedType(), typeParametersVf, ofReturnValue, pi, true);
+                    transfer(methodInfo.returnType(), pi.parameterizedType(), typeParametersVf, ofReturnValue, pi,
+                            true);
                 }
-            } else if (!independent.isIndependent()) {
+            } else if (!independent.isIndependent() && vfHc != null) {
+                ParameterizedType hiddenContentType = vfHc.type();
                 if (methodInfo.isFactoryMethod()) {
                     transfer(type, hiddenContentType, typeParametersVfFactory, ofReturnValue, pi, true);
                 } else {
@@ -123,6 +126,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             }
         } else if (targetType.typeInfo() != null) {
             VirtualFields vfType = virtualFieldComputer.compute(targetType.typeInfo());
+            if (vfType.hiddenContent() == null) {
+                return;
+            }
             FieldReference linkSource = runtime().newFieldReference(vfType.hiddenContent(),
                     runtime.newVariableExpression(builder.primary()), vfType.hiddenContent().type());
             Set<TypeParameter> typeParametersReturnType = targetType.extractTypeParameters();

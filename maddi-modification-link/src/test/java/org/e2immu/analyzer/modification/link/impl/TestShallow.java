@@ -178,6 +178,6 @@ public class TestShallow extends CommonTest {
 
         MethodInfo filter = stream.findUniqueMethod("filter", 1);
         MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
-        assertEquals("[] --> findFirst.t<this.ts", mlvFilter.toString());
+        assertEquals("[-] --> filter.ts~this.ts", mlvFilter.toString());
     }
 }
