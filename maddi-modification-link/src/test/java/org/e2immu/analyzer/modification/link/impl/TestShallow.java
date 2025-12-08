@@ -25,7 +25,6 @@ public class TestShallow extends CommonTest {
     private static final String INPUT1 = """
             package a.b;
             import org.e2immu.annotation.Independent;
-            @Independent(hc = true)
             public interface X<T> {
                 @Independent(hc = true)
                 T get();
@@ -41,6 +40,7 @@ public class TestShallow extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
+        // run the shallow analyzer to detect the annotations
         AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, annotatedApiParser,
                 true);
@@ -96,9 +96,15 @@ public class TestShallow extends CommonTest {
     public void test3() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+
+        MethodInfo subList = list.findUniqueMethod("subList", 2);
+        MethodLinkedVariables mlvSubList = linkComputer.doMethod(subList);
+        assertEquals("[-, -] --> subList~this.ts", mlvSubList.toString());
+
         MethodInfo get = list.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[] --> get<this.ts", mlvGet.toString());
+        assertEquals("[-] --> get<this.ts", mlvGet.toString());
+
     }
 
 

@@ -7,20 +7,23 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.inspection.api.parser.GenericsHelper;
+import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer virtualFieldComputer) {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShallowMethodLinkComputer.class);
@@ -32,18 +35,40 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         FieldReference hiddenContentFr = vf.hiddenContent() == null ? null : runtime.newFieldReference(vf.hiddenContent());
         ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
         Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
-
+        Set<TypeParameter> typeParametersVf = correspondingTypeParameters(methodInfo.typeInfo(), vf.hiddenContent());
         if (methodInfo.hasReturnValue() && vf.hiddenContent() != null) {
+
             Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.DEPENDENT);
             ParameterizedType returnType = methodInfo.returnType();
-            if (returnType.typeParameter() != null && independent.isIndependentHc()) {
-                int arrays = returnType.arrays();
+            if (!independent.isIndependent()) {
                 int arraysVF = vf.hiddenContent().type().arrays();
-                if (arrays == arraysVF) {
-                    if (vf.hiddenContent().type().typeParameter() != null) {
-                        // must be the same; same element
-                        ofReturnValue.add(LinkNature.IS_IDENTICAL_TO, hiddenContentFr);
+                if (returnType.typeParameter() != null && typeParametersVf.contains(returnType.typeParameter())) {
+                    assert independent.isIndependentHc() : "A type parameter cannot be dependent";
+                    assert returnType.typeParameter().typeBounds().isEmpty() : """
+                            cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
+                            the type parameter can be dependent""";
+                    int arrays = returnType.arrays();
+                    if (arrays == arraysVF) {
+                        if (vf.hiddenContent().type().typeParameter() != null) {
+                            // must be the same; same element
+                            ofReturnValue.add(LinkNature.IS_IDENTICAL_TO, hiddenContentFr);
+                        }
+                    } else if (arrays < arraysVF) {
+                        if (vf.hiddenContent().type().typeParameter() != null) {
+                            // one element out of an array
+                            ofReturnValue.add(LinkNature.IS_ELEMENT_OF, hiddenContentFr);
+                        }
+                    }
+                } else if (returnType.typeInfo() != null) {
+                    Set<TypeParameter> typeParametersReturnType = returnType.extractTypeParameters();
+                    if (typeParametersReturnType.equals(typeParametersVf)) {
+                        int multiplicity = virtualFieldComputer.computeMultiplicity(returnType);
+                        if (multiplicity == 0 && arraysVF == 0) {
+                            ofReturnValue.add(LinkNature.CONTAINS, hiddenContentFr);
+                        } else if (multiplicity - 1 == arraysVF) {
+                            ofReturnValue.add(LinkNature.INTERSECTION_NOT_EMPTY, hiddenContentFr);
+                        }
                     }
                 }
             }
@@ -85,5 +110,32 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             ofParameters.add(builder.build());
         }
         return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters);
+    }
+
+    /*
+    The hidden content field can contain type parameters from a supertype.
+    This method computes the corresponding type parameters from the current type.
+
+    Example: VF in List is based on the virtual field in Iterable<T> -> ts[]
+    In list, the corresponding type parameter is E.
+
+     */
+    private Set<TypeParameter> correspondingTypeParameters(TypeInfo descendantType, FieldInfo hiddenContent) {
+        if (hiddenContent == null) return Set.of();
+        if (descendantType.equals(hiddenContent.owner())) {
+            return hiddenContent.type().extractTypeParameters();
+        }
+        Stream<ParameterizedType> parentStream = Stream.ofNullable(
+                descendantType.parentClass() == null || descendantType.parentClass().isJavaLangObject() ? null : descendantType.parentClass());
+        Stream<ParameterizedType> superStream = Stream.concat(parentStream, descendantType.interfacesImplemented().stream());
+        GenericsHelper genericsHelper = new GenericsHelperImpl(runtime);
+        return superStream.flatMap(superType -> {
+            Set<TypeParameter> fromSuper = correspondingTypeParameters(superType.typeInfo(), hiddenContent);
+            var map = genericsHelper.mapInTermsOfParametersOfSubType(descendantType, superType);
+            return map == null ? Stream.of()
+                    : map.entrySet().stream()
+                    .filter(e -> e.getValue().typeParameter() != null && fromSuper.contains(e.getValue().typeParameter()))
+                    .map(e -> (TypeParameter) e.getKey());
+        }).collect(Collectors.toUnmodifiableSet());
     }
 }
