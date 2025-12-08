@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -123,7 +124,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo subList = list.findUniqueMethod("subList", 2);
         MethodLinkedVariables mlvSubList = linkComputer.doMethod(subList);
-        assertEquals("[-, -] --> subList.ts~this.ts", mlvSubList.toString());
+        assertEquals("[-, -] --> subList.$m==this.$m,subList.ts~this.ts", mlvSubList.toString());
 
         MethodInfo get = list.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
@@ -142,6 +143,10 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
 
+        MethodInfo entrySet = map.findUniqueMethod("entrySet", 0);
+        MethodLinkedVariables mlvEntrySet = linkComputer.doMethod(entrySet);
+        assertEquals("[] --> entrySet.$m==this.$m,entrySet.ts~this.kvs", mlvEntrySet.toString());
+
         MethodInfo getOrDefault = map.findUniqueMethod("getOrDefault", 2);
         MethodLinkedVariables mlvGetOrDefault = linkComputer.doMethod(getOrDefault);
         assertEquals("[-, -] --> getOrDefault<this.kvs[-1].v,getOrDefault==1:defaultValue",
@@ -153,12 +158,25 @@ public class TestShallow extends CommonTest {
 
         MethodInfo keySet = map.findUniqueMethod("keySet", 0);
         MethodLinkedVariables mlvKeySet = linkComputer.doMethod(keySet);
-        assertEquals("[] --> keySet.ts~this.kvs[-1].k", mlvKeySet.toString());
+        assertEquals("[] --> keySet.$m==this.$m,keySet.ts~this.kvs[-1].k", mlvKeySet.toString());
 
         MethodInfo values = map.findUniqueMethod("values", 0);
         MethodLinkedVariables mlvValues = linkComputer.doMethod(values);
-        assertEquals("[] --> values.ts~this.kvs[-1].v", mlvValues.toString());
+        assertEquals("[] --> values.$m==this.$m,values.ts~this.kvs[-1].v", mlvValues.toString());
+
     }
 
+    @DisplayName("Analyze 'Stream', multiplicity 2, 1 type parameter")
+    @Test
+    public void test5() {
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("$m - T[] ts", vfc.compute(stream).toString());
 
+        MethodInfo findFirst = stream.findUniqueMethod("findFirst", 0);
+        MethodLinkedVariables mlvFindFirst = linkComputer.doMethod(findFirst);
+        assertEquals("[] --> findFirst.t<this.ts", mlvFindFirst.toString());
+
+    }
 }

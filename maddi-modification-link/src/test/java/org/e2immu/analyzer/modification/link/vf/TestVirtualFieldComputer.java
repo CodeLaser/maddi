@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -54,5 +55,19 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("java.util.Map.KV", vfList.hiddenContent().type().typeInfo().toString());
         FieldInfo k = vfList.hiddenContent().type().typeInfo().getFieldByName("k", true);
         assertEquals("java.util.Map.KV", k.owner().toString());
+    }
+
+    @DisplayName("stream hierarchy")
+    @Test
+    public void test3() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        // we want to end up "with $m - T[] ts", multiplicity 2 rather than "$m - TS ts", multiplicity 1
+        // how? Iterator<T> is also multi 2
+        // recursively defined type parameters to be IGNORED
+
+        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
+        VirtualFields vfStream = vfc.compute(stream);
+        assertEquals("$m - T[] ts", vfStream.toString());
     }
 }
