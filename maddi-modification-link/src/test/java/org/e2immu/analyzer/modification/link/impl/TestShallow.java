@@ -142,9 +142,17 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
 
+        MethodInfo get = map.findUniqueMethod("get", 1);
+        MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
+        assertEquals("[-] --> get<this.kvs[-1].v", mlvGet.toString());
+
         MethodInfo keySet = map.findUniqueMethod("keySet", 0);
         MethodLinkedVariables mlvKeySet = linkComputer.doMethod(keySet);
         assertEquals("[] --> keySet.ts~this.kvs[-1].k", mlvKeySet.toString());
+
+        MethodInfo values = map.findUniqueMethod("values", 0);
+        MethodLinkedVariables mlvValues = linkComputer.doMethod(values);
+        assertEquals("[] --> values.ts~this.kvs[-1].v", mlvValues.toString());
     }
 
 

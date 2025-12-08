@@ -100,6 +100,14 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     // one element out of an array
                     LinkNature linkNature = reverse ? LinkNature.CONTAINS : LinkNature.IS_ELEMENT_OF;
                     builder.add(linkNature, hiddenContentFr);
+                } else {
+                    // get one element out of a container array; we'll need a slice
+                    FieldInfo theField = findField(List.of(type.typeParameter()), vf.hiddenContent().type().typeInfo());
+                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(hiddenContentFr),
+                            runtime.newInt(-1));
+                    Expression scope = runtime.newVariableExpression(dv);
+                    FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
+                    builder.add( LinkNature.IS_ELEMENT_OF, slice);
                 }
             }
         } else if (type.typeInfo() != null) {
