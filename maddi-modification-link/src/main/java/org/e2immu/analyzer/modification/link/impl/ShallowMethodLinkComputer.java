@@ -28,7 +28,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
     public MethodLinkedVariables go(MethodInfo methodInfo) {
         LOGGER.debug("Computing method linked variables of {}", methodInfo);
-        
+
         TypeInfo typeInfo = methodInfo.typeInfo();
         VirtualFields vf = typeInfo.analysis().getOrCreate(VirtualFields.VIRTUAL_FIELDS, () ->
                 virtualFieldComputer.computeOnDemand(typeInfo));
@@ -90,8 +90,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             int arraysVF = vf.hiddenContent().type().arrays();
             if (arrays == arraysVF) {
                 if (vf.hiddenContent().type().typeParameter() != null) {
-                    // must be the same; same element
-                    builder.add(LinkNature.IS_IDENTICAL_TO, hiddenContentFr);
+                    LinkNature linkNature = arrays == 0 ? LinkNature.IS_IDENTICAL_TO : LinkNature.INTERSECTION_NOT_EMPTY;
+                    builder.add(linkNature, hiddenContentFr);
                 }
             } else if (arrays < arraysVF) {
                 if (vf.hiddenContent().type().typeParameter() != null) {
