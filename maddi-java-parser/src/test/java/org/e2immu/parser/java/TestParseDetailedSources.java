@@ -146,6 +146,8 @@ public class TestParseDetailedSources extends CommonTestParse {
         List<Source> commas = methodCall.source().detailedSources().details(DetailedSources.ARGUMENT_COMMAS);
         assertEquals("14-21:14-21 14-26:14-26",
                 commas.stream().map(Source::compact2).collect(Collectors.joining(" ")));
+        assertEquals("14-42:14-42",
+                methodCall.source().detailedSources().detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
 
         MethodInfo lvs = typeInfo.findUniqueMethod("lvs", 0);
         LocalVariableCreation lvc = (LocalVariableCreation) lvs.methodBody().statements().getFirst();
@@ -157,5 +159,7 @@ public class TestParseDetailedSources extends CommonTestParse {
         List<Source> ccCommas = cc.source().detailedSources().details(DetailedSources.ARGUMENT_COMMAS);
         assertEquals("20-37:20-37 20-43:20-43",
                 ccCommas.stream().map(Source::compact2).collect(Collectors.joining(" ")));
+        assertEquals("20-52:20-52",
+                cc.source().detailedSources().detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
     }
 }
