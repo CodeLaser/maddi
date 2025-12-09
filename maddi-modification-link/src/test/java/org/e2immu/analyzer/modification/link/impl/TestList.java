@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -314,4 +315,96 @@ public class TestList extends CommonTest {
         assertEquals("[0:in.ts~this.list.ts] --> null", mlvConstructor.toString());
     }
 
+    @DisplayName("Analyze constructor, ensure recursive computation")
+    @Test
+    public void test5c() {
+        TypeInfo X = javaInspector.parse(INPUT5b);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        MethodInfo constructor = X.findConstructor(1);
+        MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
+        assertEquals("[0:in.ts~this.list.ts] --> null", mlvConstructor.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT6a = """
+            package a.b;
+            import java.util.List;
+            class X<T> {
+                List<T> list;
+                void listAdd(T t) {
+                   list.add(t);
+                }
+            }
+            """;
+
+    @DisplayName("Analyze 'add' on List, instance")
+    @Test
+    public void test6a() {
+        TypeInfo X = javaInspector.parse(INPUT6a);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
+
+        MethodInfo listAdd = X.findUniqueMethod("listAdd", 1);
+        MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
+        assertEquals("[0:c.ts~this.ts] --> -", mlvListAdd.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT6b = """
+            package a.b;
+            import java.util.List;
+            class X {
+                static <T> void listAdd(List<T> list, T t) {
+                   list.add(t);
+                }
+            }
+            """;
+
+    @DisplayName("Analyze 'add' on List, static")
+    @Test
+    public void test6b() {
+        TypeInfo X = javaInspector.parse(INPUT6b);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
+
+        MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
+        MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
+        assertEquals("[0:c.ts~this.ts] --> -", mlvListAdd.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            import java.util.Collections;
+            import java.util.List;
+            class X {
+                static <T> void listAdd(List<T> list, T t1, T t2) {
+                    Collections.addAll(list, t1, t2);
+                }
+            }
+            """;
+
+    @DisplayName("Analyze Collections.addAll(...), cross links")
+    @Test
+    public void test7() {
+        TypeInfo X = javaInspector.parse(INPUT7);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("/ - /", vfc.compute(collections).toString());
+
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
+
+
+
+    }
 }

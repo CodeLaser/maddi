@@ -23,6 +23,7 @@ public record VirtualFields(FieldInfo mutable, FieldInfo hiddenContent) implemen
     @Override
     public @NotNull String toString() {
         return (mutable == null ? "/" : mutable.simpleName()) + " - "
-               + hiddenContent.type().simpleString() + " " + hiddenContent.name();
+               + (hiddenContent == null ? "/"
+                : hiddenContent.type().simpleString() + " " + hiddenContent.name());
     }
 }
