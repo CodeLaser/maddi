@@ -28,8 +28,8 @@ public record ExpandLocal(Runtime runtime) {
     Ensure that v1 == v2 also means that v1.ts == v2.ts, v1.$m == v2.$m, so that these connections can be made.
     Filtering out ? links is done in followGraph.
      */
-    public Map<Variable, Links> go(Map<Variable, Links> linkedVariables, VariableData vd) {
-        Map<Variable, Map<Variable, LinkNature>> graph = makeBiDirectionalGraph(linkedVariables, vd);
+    public Map<Variable, Links> go(Map<Variable, Links> linkedVariables, VariableData previousVd, VariableData vd) {
+        Map<Variable, Map<Variable, LinkNature>> graph = makeBiDirectionalGraph(linkedVariables, previousVd);
         LOGGER.debug("Bi-directional graph: {}", graph);
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
         vd.variableInfoStream().forEach(vi -> {
@@ -48,12 +48,14 @@ public record ExpandLocal(Runtime runtime) {
                 subs.computeIfAbsent(links.primary(), _ -> new HashSet<>()).add(l.from());
         }));
         Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
-        vd.variableInfoStream().forEach(vi -> {
-            Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
-            if (vLinks != null) {
-                vLinks.links().forEach(l -> addToGraph(l, graph, subs));
-            }
-        });
+        if (vd != null) {
+            vd.variableInfoStream().forEach(vi -> {
+                Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
+                if (vLinks != null) {
+                    vLinks.links().forEach(l -> addToGraph(l, graph, subs));
+                }
+            });
+        }
         linkedVariables.values().forEach(links -> links.links().forEach(l -> addToGraph(l, graph, subs)));
         return graph;
     }

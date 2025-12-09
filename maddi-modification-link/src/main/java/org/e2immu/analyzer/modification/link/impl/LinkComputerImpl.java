@@ -14,7 +14,6 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
-import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
@@ -200,7 +199,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 r = null;
             }
             VariableData vd = VariableDataImpl.of(statement);
-            copyEvalIntoVariableData(linkedVariables, vd, previousVd);
+            copyEvalIntoVariableData(linkedVariables, previousVd, vd);
 
             if (statement instanceof ReturnStatement && r != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
@@ -210,8 +209,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return vd;
         }
 
-        private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables, VariableData vd, VariableData previousVd) {
-            Map<Variable, Links> expanded = new ExpandLocal(javaInspector.runtime()).go(linkedVariables, previousVd);
+        private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables, VariableData previousVd, VariableData vd) {
+            Map<Variable, Links> expanded = new ExpandLocal(javaInspector.runtime()).go(linkedVariables, previousVd, vd);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
