@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestShallow extends CommonTest {
@@ -208,5 +209,17 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvC1 = linkComputer.doMethod(c1);
         assertEquals("[0:c.ts~this.ts] --> -", mlvC1.toString());
 
+    }
+
+    @DisplayName("Analyzer 'Collections.addAll(...)")
+    @Test
+    public void test7() {
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
+        MethodInfo addAll = collections.findUniqueMethod("addAll", 2);
+        assertEquals("java.util.Collections.addAll(java.util.Collection<? super T>,T...)",
+                addAll.fullyQualifiedName());
+        MethodLinkedVariables mlvC1 = addAll.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(addAll));
+        assertEquals("[0:c.ts~this.ts] --> -", mlvC1.toString());
     }
 }
