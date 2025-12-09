@@ -38,6 +38,17 @@ public class TestStream extends CommonTest {
                     T orElse = first.orElseThrow();
                     return orElse;
                 }
+                T large3(int n) {
+                    Stream<T> stream = list.stream();
+                    Stream<T> filtered = stream.filter(t->t.toString().length()>n);
+                    Optional<T> first = filtered.findFirst();
+                    return first.orElseThrow();
+                }
+                T large4(int n) {
+                    Stream<T> stream = list.stream();
+                    Stream<T> filtered = stream.filter(t->t.toString().length()>n);
+                    return filtered.findFirst().orElseThrow();
+                }
             }
             """;
 
@@ -53,6 +64,14 @@ public class TestStream extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
+
+        MethodInfo large4 = X.findUniqueMethod("large4", 1);
+        MethodLinkedVariables mlvLarge4 = linkComputer.doMethod(large4);
+        assertEquals("[-] --> large4<this.list.ts", mlvLarge4.toString());
+
+        MethodInfo large3 = X.findUniqueMethod("large3", 1);
+        MethodLinkedVariables mlvLarge3 = linkComputer.doMethod(large3);
+        assertEquals("[-] --> large3<this.list.ts", mlvLarge3.toString());
 
         MethodInfo large2 = X.findUniqueMethod("large2", 1);
         MethodLinkedVariables mlvLarge2 = linkComputer.doMethod(large2);
@@ -76,6 +95,6 @@ public class TestStream extends CommonTest {
 
         MethodInfo large1 = X.findUniqueMethod("large1", 1);
         MethodLinkedVariables mlvLarge1 = linkComputer.doMethod(large1);
-        assertEquals("[-] --> large1.t<list.ts", mlvLarge1.toString());
+        assertEquals("[-] --> large1<this.list.ts", mlvLarge1.toString());
     }
 }
