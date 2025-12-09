@@ -56,7 +56,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     assert returnType.typeInfo() != null || returnType.arrays() > 0
                             : "A type parameter cannot be dependent; a type parameter array can";
                     VirtualFields vfTarget = virtualFieldComputer.computeAllowTypeParameterArray(returnType);
-                    if(vfTarget.mutable() != null) {
+                    if (vfTarget.mutable() != null) {
                         FieldReference mTarget = runtime.newFieldReference(vfTarget.mutable(),
                                 runtime.newVariableExpression(rv), vfTarget.mutable().type());
                         FieldReference mSource = runtime.newFieldReference(vf.mutable());
@@ -221,7 +221,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
     private Set<TypeParameter> convertToMethodTypeParameters(MethodInfo methodInfo,
                                                              Set<TypeParameter> typeParametersVf) {
         ParameterizedType rt = methodInfo.returnType();
-        assert rt.typeInfo().equals(methodInfo.typeInfo()); // otherwise, not a factory method
+        assert rt.typeInfo().isEnclosedIn(methodInfo.typeInfo());
+        // otherwise, not a factory method. Note: Stream.builder() is an example where the return type is actually
+        // enclosed, not equal. Yet the following statement still seems correct.
         return typeParametersVf.stream()
                 .map(tp -> rt.parameters().get(tp.getIndex()).typeParameter())
                 .filter(Objects::nonNull)
