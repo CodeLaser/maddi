@@ -27,8 +27,10 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
         params.forEach(r -> r.extra().forEach(e ->
                 extra.merge(e.getKey(), e.getValue(), Links::merge)));
-
         Variable objectPrimary = object.links().primary();
+        if (!object.links().isEmpty()) {
+            extra.put(objectPrimary, object.links());
+        }
         Variable rvPrimary = mlv.ofReturnValue().primary();
         if (rvPrimary != null) {
             assert rvPrimary instanceof ReturnVariable
