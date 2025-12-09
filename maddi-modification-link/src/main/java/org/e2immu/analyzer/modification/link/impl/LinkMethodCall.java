@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.This;
@@ -13,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
 
@@ -42,8 +44,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                         Therefore we must translate 'this' to the method's object primary""";
                 newPrimary = runtime.newLocalVariable("rv" + variableCounter.getAndIncrement(),
                         rvPrimary.parameterizedType());
-                This thisVar = runtime.newThis(mc.methodInfo().typeInfo().asSimpleParameterizedType());
-                tmBuilder.put(thisVar, objectPrimary);
+                addThisHierarchyToObjectPrimaryToTmBuilder(mc, tmBuilder, objectPrimary);
             }
             // the return value can also contain references to parameters... we should replace them by
             // actual arguments
@@ -59,6 +60,16 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
             concreteReturnValue = LinksImpl.EMPTY;
         }
         return new ExpressionVisitor.Result(concreteReturnValue, new LinkedVariablesImpl(extra));
+    }
+
+    private void addThisHierarchyToObjectPrimaryToTmBuilder(MethodCall mc, TranslationMap.Builder tmBuilder, Variable objectPrimary) {
+        TypeInfo thisType = mc.methodInfo().typeInfo();
+        Stream<TypeInfo> stream = Stream.concat(Stream.of(thisType),
+                thisType.superTypesExcludingJavaLangObject().stream());
+        stream.forEach(ti -> {
+            This thisVar = runtime.newThis(ti.asSimpleParameterizedType());
+            tmBuilder.put(thisVar, objectPrimary);
+        });
     }
 
 }

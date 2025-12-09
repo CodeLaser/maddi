@@ -88,6 +88,10 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
         assertEquals("[-] --> orElse==0:other,orElse==this.t", mlvSet.toString());
 
+        MethodInfo orElseThrow = optional.findUniqueMethod("orElseThrow", 0);
+        MethodLinkedVariables mlvOrElseThrow = linkComputer.doMethod(orElseThrow);
+        assertEquals("[] --> orElseThrow==this.t", mlvOrElseThrow.toString());
+
         MethodInfo label = optional.findUniqueMethod("stream", 0);
         MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
         assertEquals("[] --> stream.ts>this.t", mlvLabel.toString());
