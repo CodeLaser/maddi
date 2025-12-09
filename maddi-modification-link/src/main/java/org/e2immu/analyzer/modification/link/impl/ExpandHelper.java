@@ -31,7 +31,8 @@ public class ExpandHelper {
 
     static Links.Builder followGraph(Map<Variable, Map<Variable, LinkNature>> graph,
                                      Variable primary,
-                                     TranslationMap translationMap) {
+                                     TranslationMap translationMap,
+                                     boolean allowLocalVariables) {
         // start from the parameter and any of its fields, as present in the graph.
         Set<Variable> fromSet = graph.keySet().stream()
                 .filter(v -> Util.isPartOf(primary, v))
@@ -43,8 +44,8 @@ public class ExpandHelper {
             Variable tFrom = translationMap == null ? from : translationMap.translateVariableRecursively(from);
             for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
                 Variable to = entry.getKey();
-                if (entry.getValue() != LinkNature.NONE
-                    && containsNoLocalVariable(to)
+                if (entry.getValue().valid()
+                    && (allowLocalVariables || containsNoLocalVariable(to))
                     // remove internal references (field inside primary to primary or other field in primary)
                     && !Util.isPartOf(primary, to)) {
                     builder.add(tFrom, entry.getValue(), to);

@@ -14,9 +14,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,9 +90,13 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvOrElseThrow = linkComputer.doMethod(orElseThrow);
         assertEquals("[] --> orElseThrow==this.t", mlvOrElseThrow.toString());
 
-        MethodInfo label = optional.findUniqueMethod("stream", 0);
-        MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
-        assertEquals("[] --> stream.ts>this.t", mlvLabel.toString());
+        MethodInfo stream = optional.findUniqueMethod("stream", 0);
+        MethodLinkedVariables mlvStream = linkComputer.doMethod(stream);
+        assertEquals("[] --> stream.ts>this.t", mlvStream.toString());
+
+        MethodInfo of = optional.findUniqueMethod("of", 1);
+        MethodLinkedVariables mlvOf = linkComputer.doMethod(of);
+        assertEquals("[-] --> of.t==0:value", mlvOf.toString());
     }
 
     @DisplayName("Analyze 'List', multiplicity 2, 1 type parameter")
@@ -120,11 +122,11 @@ public class TestShallow extends CommonTest {
                 .findFirst().orElseThrow();
         assertEquals("java.util.List.of(E...)", ofVarargs.fullyQualifiedName());
         MethodLinkedVariables mlvOfVarargs = linkComputer.doMethod(ofVarargs);
-        assertEquals("[-] --> of~0:elements", mlvOfVarargs.toString());
+        assertEquals("[-] --> of.ts~0:elements", mlvOfVarargs.toString());
 
         MethodInfo of2 = list.findUniqueMethod("of", 2);
         MethodLinkedVariables mlvOf2 = linkComputer.doMethod(of2);
-        assertEquals("[-, -] --> of>0:e1,of>1:e2", mlvOf2.toString());
+        assertEquals("[-, -] --> of.ts>0:e1,of.ts>1:e2", mlvOf2.toString());
 
         MethodInfo add = list.findUniqueMethod("add", 1);
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
@@ -191,5 +193,20 @@ public class TestShallow extends CommonTest {
         MethodInfo filter = stream.findUniqueMethod("filter", 1);
         MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
         assertEquals("[-] --> filter.ts~this.ts", mlvFilter.toString());
+    }
+
+    @DisplayName("Analyze 'ArrayList' constructors, multiplicity 2, 1 type parameter")
+    @Test
+    public void test6() {
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
+        TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("$m - T[] ts", vfc.compute(arrayList).toString());
+
+        MethodInfo c1 = arrayList.findConstructor(collection);
+        MethodLinkedVariables mlvC1 = linkComputer.doMethod(c1);
+        assertEquals("[0:c.ts~this.ts] --> -", mlvC1.toString());
+
     }
 }

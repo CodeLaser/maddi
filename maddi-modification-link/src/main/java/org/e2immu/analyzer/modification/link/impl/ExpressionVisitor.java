@@ -10,10 +10,12 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -33,6 +35,12 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     extra = link information about unrelated variables
      */
     public record Result(Links links, LinkedVariables extra) {
+
+        public LinkedVariables extraAndLinks() {
+            Map<Variable, Links> map = new HashMap<>(extra.map());
+            map.merge(links.primary(), links, Links::merge);
+            return new LinkedVariablesImpl(map);
+        }
 
         public Result with(Links links) {
             return new Result(links, extra);
@@ -57,6 +65,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case VariableExpression ve -> variableExpression(ve, variableData);
             case Assignment a -> assignment(variableData, a);
             case MethodCall mc -> methodCall(variableData, mc);
+            case ConstructorCall cc -> constructorCall(variableData, cc);
 
             case Lambda lambda -> EMPTY; // TODO
             // all rather uninteresting....
@@ -123,17 +132,31 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result rValue = visit(a.value(), variableData);
         Result rTarget = visit(a.target(), variableData);
         builder.add(LinkNature.IS_IDENTICAL_TO, rValue.links.primary());
-        return new Result(builder.build(), rValue.extra.merge(rTarget.extra));
+        return new Result(builder.build(), rValue.extraAndLinks().merge(rTarget.extra));
+    }
+
+    private Result constructorCall(VariableData variableData, ConstructorCall cc) {
+        Result object;
+        if (cc.object() == null || cc.object().isEmpty()) {
+            LocalVariable lv = javaInspector.runtime().newLocalVariable("c" + variableCounter.getAndIncrement(), cc.parameterizedType());
+            object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
+        } else {
+            object = visit(cc.object(), variableData);
+        }
+        MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
+        List<Result> params = cc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
+        return new LinkMethodCall(javaInspector.runtime(), variableCounter).constructorCall(cc.constructor(), object,
+                params, mlv);
     }
 
     private Result methodCall(VariableData variableData, MethodCall mc) {
         Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData);
-        MethodLinkedVariables mlv = recurseIntoTypeLinkComputer(mc.methodInfo());
+        MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
-        return new LinkMethodCall(javaInspector.runtime(), variableCounter).methodCall(mc, object, params, mlv);
+        return new LinkMethodCall(javaInspector.runtime(), variableCounter).methodCall(mc.methodInfo(), object, params, mlv);
     }
 
-    private MethodLinkedVariables recurseIntoTypeLinkComputer(MethodInfo methodInfo) {
+    private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
         RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
         return switch (how) {
             case GET -> methodInfo.analysis().getOrDefault(METHOD_LINKS, MethodLinkedVariablesImpl.EMPTY);

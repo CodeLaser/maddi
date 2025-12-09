@@ -12,6 +12,7 @@ import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -98,15 +99,22 @@ public class LinksImpl implements Links {
             return primary;
         }
 
+        @Override
         public Builder add(LinkNature linkNature, Variable to) {
             links.add(new LinkImpl(primary, linkNature, to));
             return this;
         }
 
+        @Override
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
             assert Util.isPartOf(primary, from);
             links.add(new LinkImpl(from, linkNature, to));
             return this;
+        }
+
+        @Override
+        public void removeIf(Predicate<Link> linkPredicate) {
+            links.removeIf(linkPredicate);
         }
 
         public Links build() {

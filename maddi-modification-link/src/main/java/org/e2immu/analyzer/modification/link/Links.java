@@ -6,6 +6,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.Set;
+import java.util.function.Predicate;
 
 /*
 Links from one variable (primary) and its constituent parts ("fields") to other variables.
@@ -30,6 +31,8 @@ public interface Links extends Iterable<Link>, Value {
         Builder add(Variable from, LinkNature linkNature, Variable to);
 
         Variable primary();
+
+        void removeIf(Predicate<Link> link);
     }
 
     // methods that do something
