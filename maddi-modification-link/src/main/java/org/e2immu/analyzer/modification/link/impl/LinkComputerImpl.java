@@ -200,7 +200,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 r = null;
             }
             VariableData vd = VariableDataImpl.of(statement);
-            copyEvalIntoVariableData(linkedVariables, vd);
+            copyEvalIntoVariableData(linkedVariables, vd, previousVd);
 
             if (statement instanceof ReturnStatement && r != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
@@ -210,13 +210,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return vd;
         }
 
-        private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables, VariableData vd) {
-            Map<Variable, Links> expanded = new ExpandLocal(javaInspector.runtime()).go(linkedVariables, vd);
+        private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables, VariableData vd, VariableData previousVd) {
+            Map<Variable, Links> expanded = new ExpandLocal(javaInspector.runtime()).go(linkedVariables, previousVd);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
-                if (!links.isEmpty()) {
-                    assert vic.hasEvaluation();
+                if (!links.isEmpty() && vic.hasEvaluation()) {
                     VariableInfo eval = vic.best(Stage.EVALUATION);
                     try {
                         eval.analysis().set(LINKS, links);
