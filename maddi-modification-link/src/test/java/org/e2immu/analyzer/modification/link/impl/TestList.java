@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.*;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -17,6 +18,8 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -217,7 +220,7 @@ public class TestList extends CommonTest {
                 set, new RecursionPrevention(false), new AtomicInteger());
         ExpressionVisitor.Result r = ev.visit(assignment, null);
         assertEquals("this.ts[1:index]==0:t", r.links().toString());
-        assertEquals("this.ts[1:index]: this.ts[1:index]<this.ts", r.extra().toString());
+        assertEquals("0:t: -; this.ts[1:index]: this.ts[1:index]<this.ts", r.extra().toString());
 
         // now the same, but as a statement; then, the data will be saved
         VariableData vd = smc.doStatement(set.methodBody().statements().getFirst(), null);
@@ -225,4 +228,88 @@ public class TestList extends CommonTest {
         // MethodLinkedVariables mlv = tlc.doMethod(set)
         assertEquals("0:t<this.ts,0:t==this.ts[1:index]", list.getFirst().toString());
     }
+
+    @Language("java")
+    private static final String INPUT5a = """
+            package a.b;
+            import java.util.List;
+            import java.util.ArrayList;
+            
+            public class X<T> {
+                private final List<T> list;
+                X(List<T> in) {
+                    this.list = in;
+                }
+                public List<T> getList() {
+                    return list;
+                }
+            }
+            """;
+
+    @DisplayName("Analyze direct link from constructor parameter to getter")
+    @Test
+    public void test5a() {
+        TypeInfo X = javaInspector.parse(INPUT5a);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        MethodInfo get = X.findUniqueMethod("getList", 0);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        MethodLinkedVariables mlv = tlc.doMethod(get);
+        assertEquals("getList==this.list", mlv.ofReturnValue().toString());
+
+        MethodInfo constructor = X.findConstructor(1);
+        MethodLinkedVariables mlvConstructor = tlc.doMethod(constructor);
+        assertEquals("[0:in==this.list] --> null", mlvConstructor.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT5b = """
+            package a.b;
+            import java.util.List;
+            import java.util.ArrayList;
+            
+            public class X<T> {
+                private final List<T> list;
+                X(List<T> in) {
+                    this.list = new ArrayList<>(in);
+                }
+                public List<T> getList() {
+                    return list;
+                }
+            }
+            """;
+
+    @DisplayName("Analyze constructor inbetween constructor parameter and getter")
+    @Test
+    public void test5b() {
+        TypeInfo X = javaInspector.parse(INPUT5b);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
+        TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("$m - T[] ts", vfc.compute(arrayList).toString());
+
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
+
+        MethodInfo c1 = arrayList.findConstructor(collection);
+        MethodLinkedVariables mlvC1 = c1.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(c1));
+        assertEquals("[0:c.ts~this.ts] --> -", mlvC1.toString());
+
+        MethodInfo get = X.findUniqueMethod("getList", 0);
+        MethodLinkedVariables mlv = linkComputer.doMethod(get);
+        assertEquals("getList==this.list", mlv.ofReturnValue().toString());
+
+        MethodInfo constructor = X.findConstructor(1);
+        LinkComputerImpl.SourceMethodComputer smc = linkComputer.new SourceMethodComputer(constructor);
+        VariableData vd = smc.doStatement(constructor.methodBody().statements().getFirst(), null);
+        VariableInfo viP0 = vd.variableInfo(constructor.parameters().getFirst());
+        assertEquals("0:in.ts~c0.ts", viP0.analysis().getOrNull(LINKS, LinksImpl.class).toString());
+        MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
+
+        assertEquals("[0:in.ts~this.list.ts] --> null", mlvConstructor.toString());
+    }
+
 }

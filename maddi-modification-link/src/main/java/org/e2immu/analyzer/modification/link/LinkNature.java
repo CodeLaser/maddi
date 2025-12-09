@@ -65,4 +65,8 @@ public enum LinkNature {
         }
         return NONE;
     }
+
+    public boolean valid() {
+        return this != NONE && this != EMPTY;
+    }
 }

@@ -35,7 +35,7 @@ public record ExpandParameterLinks(Runtime runtime) {
 
         List<Links> linksPerParameter = new ArrayList<>(methodInfo.parameters().size());
         for (ParameterInfo pi : methodInfo.parameters()) {
-            Links.Builder piBuilder = followGraph(graph, pi, null);
+            Links.Builder piBuilder = followGraph(graph, pi, null, false);
             linksPerParameter.add(piBuilder.build());
         }
 

@@ -25,6 +25,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.e2immu.analyzer.modification.link.LinkNature.*;
+
 public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer virtualFieldComputer) {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShallowMethodLinkComputer.class);
 
@@ -60,9 +62,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         FieldReference mTarget = runtime.newFieldReference(vfTarget.mutable(),
                                 runtime.newVariableExpression(rv), vfTarget.mutable().type());
                         FieldReference mSource = runtime.newFieldReference(vf.mutable());
-                        ofReturnValue.add(mTarget, LinkNature.IS_IDENTICAL_TO, mSource);
+                        ofReturnValue.add(mTarget, IS_IDENTICAL_TO, mSource);
                     } else {
-                        LOGGER.debug("?");
+                        throw new UnsupportedOperationException("?");
                     }
                 }
             }
@@ -85,11 +87,10 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                             true);
                 }
             } else if (!independent.isIndependent() && vfHc != null) {
-                ParameterizedType hiddenContentType = vfHc.type();
                 if (methodInfo.isFactoryMethod()) {
-                    transfer(type, hiddenContentType, typeParametersVfFactory, ofReturnValue, pi, true);
+                    transfer(methodInfo.returnType(), pi.parameterizedType(), typeParametersVfFactory, ofReturnValue, pi, true);
                 } else {
-                    transfer(type, hiddenContentType, typeParametersVf, builder, hiddenContentFr, false);
+                    transfer(type, vfHc.type(), typeParametersVf, builder, hiddenContentFr, false);
                 }
             }
             ofParameters.add(builder.build());
@@ -111,13 +112,13 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             int arrays = targetType.arrays();
             if (arrays == arraysSource) {
                 if (sourceType.typeParameter() != null) {
-                    LinkNature linkNature = arrays == 0 ? LinkNature.IS_IDENTICAL_TO : LinkNature.INTERSECTION_NOT_EMPTY;
+                    LinkNature linkNature = arrays == 0 ? IS_IDENTICAL_TO : INTERSECTION_NOT_EMPTY;
                     builder.add(linkNature, hiddenContentFr);
                 }
             } else if (arrays < arraysSource) {
                 if (sourceType.typeParameter() != null) {
                     // one element out of an array
-                    LinkNature linkNature = reverse ? LinkNature.CONTAINS : LinkNature.IS_ELEMENT_OF;
+                    LinkNature linkNature = reverse ? CONTAINS : IS_ELEMENT_OF;
                     builder.add(linkNature, hiddenContentFr);
                 } else {
                     // get one element out of a container array; we'll need a slice
@@ -126,7 +127,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                             runtime.newInt(-1));
                     Expression scope = runtime.newVariableExpression(dv);
                     FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                    builder.add(LinkNature.IS_ELEMENT_OF, slice);
+                    builder.add(IS_ELEMENT_OF, slice);
                 }
             }
         } else if (targetType.typeInfo() != null) {
@@ -141,14 +142,14 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 int multiplicity = virtualFieldComputer.computeMultiplicity(targetType.typeInfo());
                 if (multiplicity - 2 >= arraysSource) {
                     // Stream<T> Optional.stream() (going from arraySource 0 to multi 2)
-                    builder.add(linkSource, LinkNature.CONTAINS, hiddenContentFr);
+                    builder.add(linkSource, CONTAINS, hiddenContentFr);
                 } else if (multiplicity - 1 == arraysSource) {
                     // List.addAll(...) target: Collection, source T[] multi 2, array source 1
                     // List.subList target List, source T[] multi 2, array source 1
-                    builder.add(linkSource, LinkNature.INTERSECTION_NOT_EMPTY, hiddenContentFr);
+                    builder.add(linkSource, multiplicity == 1 ? IS_IDENTICAL_TO: INTERSECTION_NOT_EMPTY, hiddenContentFr);
                 } else if (multiplicity <= arraysSource) {
                     // findFirst.t < this.ts in Stream (multi 1, array source 1)
-                    builder.add(linkSource, LinkNature.IS_ELEMENT_OF, hiddenContentFr);
+                    builder.add(linkSource, IS_ELEMENT_OF, hiddenContentFr);
                 }
             } else {
                 List<TypeParameter> intersection = new ArrayList<>(typeParametersReturnType.stream()
@@ -161,7 +162,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                 runtime.newInt(-1));
                         Expression scope = runtime.newVariableExpression(dv);
                         FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                        builder.add(linkSource, LinkNature.INTERSECTION_NOT_EMPTY, slice);
+                        builder.add(linkSource, INTERSECTION_NOT_EMPTY, slice);
                     }
                 }
             }

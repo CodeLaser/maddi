@@ -1,9 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.LinkNature;
-import org.e2immu.analyzer.modification.link.Links;
-import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.link.*;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
@@ -17,6 +14,7 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
+import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
@@ -213,21 +211,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables, VariableData vd) {
+            Map<Variable, Links> expanded = new ExpandLocal(javaInspector.runtime()).go(linkedVariables, vd);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
-                Links prev = vi.analysis().getOrNull(LINKS, LinksImpl.class);
-                if (prev != null) {
-                    linkedVariables.merge(vi.variable(), prev, Links::merge);
-                }
-            });
-            vd.variableInfoContainerStream().forEach(vic -> {
-                VariableInfo vi = vic.getPreviousOrInitial();
-                Links tlv = completion(linkedVariables, vi.variable());
-                if (tlv != null && !tlv.isEmpty()) {
+                Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
+                if (!links.isEmpty()) {
                     assert vic.hasEvaluation();
                     VariableInfo eval = vic.best(Stage.EVALUATION);
                     try {
-                        eval.analysis().set(LINKS, tlv);
+                        eval.analysis().set(LINKS, links);
                     } catch (IllegalArgumentException iae) {
                         LinkComputerImpl.this.recursionPrevention.report(methodInfo);
                         throw iae;
@@ -235,12 +227,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 }
             });
         }
-
-        private static Links completion(Map<Variable, Links> linkedVariables, Variable variable) {
-            // FIXME implement real completion
-            return linkedVariables.getOrDefault(variable, LinksImpl.EMPTY);
-        }
-
 
         public Map<Variable, Links> handleLvc(LocalVariableCreation lvc, VariableData previousVd) {
             Map<Variable, Links> linkedVariables = new HashMap<>();

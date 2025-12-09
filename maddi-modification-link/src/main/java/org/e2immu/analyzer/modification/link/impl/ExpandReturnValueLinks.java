@@ -35,7 +35,7 @@ public record ExpandReturnValueLinks(Runtime runtime) {
         Map<Variable, Map<Variable, LinkNature>> graph = makeGraph(links, extra, vd);
         LOGGER.debug("Return graph: {}", graph);
 
-        Links.Builder rvBuilder = followGraph(graph, primary, tm);
+        Links.Builder rvBuilder = followGraph(graph, primary, tm, false);
 
         if (containsNoLocalVariable(primary)) {
             rvBuilder.add(LinkNature.IS_IDENTICAL_TO, primary);
