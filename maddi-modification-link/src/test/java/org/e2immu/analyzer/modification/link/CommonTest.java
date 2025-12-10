@@ -16,6 +16,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 
 public abstract class CommonTest {
@@ -50,5 +52,9 @@ public abstract class CommonTest {
                 List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages()));
 
         prepAnalyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+    }
+
+    protected static <K, V> String nice(Map<K, V> map) {
+        return map.entrySet().stream().map(Object::toString).collect(Collectors.joining(", "));
     }
 }
