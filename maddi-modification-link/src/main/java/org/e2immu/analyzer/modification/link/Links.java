@@ -26,6 +26,8 @@ public interface Links extends Iterable<Link>, Value {
     interface Builder {
         Links build();
 
+        Builder addAll(Links other);
+
         Builder add(LinkNature linkNature, Variable to);
 
         Builder add(Variable from, LinkNature linkNature, Variable to);

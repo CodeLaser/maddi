@@ -138,7 +138,7 @@ public class TestList extends CommonTest {
 
         // test the evaluation of T t = ts[0]
         LocalVariableCreation lvc = (LocalVariableCreation) asShortList.methodBody().statements().getFirst();
-        var map = smc.handleLvc(lvc, null);
+        var map = smc.handleLvc(lvc, null, new ArrayList<>());
         assertEquals("{t=t==this.ts[0], this.ts[0]=this.ts[0]<this.ts}", map.toString());
 
         // test the evaluation of List.of(t)
@@ -195,7 +195,7 @@ public class TestList extends CommonTest {
 
         // test the evaluation of List<Z> zs = in.subList(2, n);
         LocalVariableCreation lvc = (LocalVariableCreation) sub.methodBody().statements().get(1);
-        var map = smc.handleLvc(lvc, vd0);
+        var map = smc.handleLvc(lvc, vd0, new ArrayList<>());
         assertEquals("{zs=zs.M==0:in.M,zs.tArray~0:in.tArray}", map.toString());
 
         // do the whole method

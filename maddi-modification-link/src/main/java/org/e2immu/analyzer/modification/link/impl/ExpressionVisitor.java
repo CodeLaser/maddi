@@ -73,6 +73,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case VariableExpression ve -> variableExpression(ve, variableData);
             case Assignment a -> assignment(variableData, a);
             case MethodCall mc -> methodCall(variableData, mc);
+            case MethodReference mr -> methodReference(variableData, mr);
             case ConstructorCall cc -> constructorCall(variableData, cc);
 
             case Lambda _ -> EMPTY; // TODO
@@ -164,6 +165,10 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result r = new LinkMethodCall(javaInspector.runtime(), variableCounter)
                 .methodCall(mc.methodInfo(), object, params, mlv);
         return r.with(new WriteMethodCall(mc, object.links));
+    }
+
+    private Result methodReference(VariableData variableData, MethodReference mr) {
+        return EMPTY; // FIXME
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {

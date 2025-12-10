@@ -94,6 +94,11 @@ public class LinksImpl implements Links {
             this.primary = primary;
         }
 
+        Builder(Links existing) {
+            this.primary = existing.primary();
+            links.addAll(existing.links());
+        }
+
         @Override
         public Variable primary() {
             return primary;
@@ -109,6 +114,13 @@ public class LinksImpl implements Links {
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
             assert Util.isPartOf(primary, from);
             links.add(new LinkImpl(from, linkNature, to));
+            return this;
+        }
+
+        @Override
+        public Links.Builder addAll(Links other) {
+            assert primary == other.primary();
+            this.links.addAll(other.links());
             return this;
         }
 
