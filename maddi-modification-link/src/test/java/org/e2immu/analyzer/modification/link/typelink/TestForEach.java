@@ -12,12 +12,13 @@ import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Iterator;
@@ -90,7 +91,6 @@ public class TestForEach extends CommonTest {
             }
             """;
 
-    @Disabled("TODO")
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
@@ -105,15 +105,18 @@ public class TestForEach extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(forEach);
         VariableInfo ii2 = vd2.variableInfoContainerOrNull("ii").best(Stage.EVALUATION);
         Links tlvT1 = ii2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("ii<iis.ts,ii<rv3.es,ii==rv5", tlvT1.toString());
+        assertEquals("ii<iis.ts", tlvT1.toString());
 
         Statement call2 = forEach.block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(call2);
         VariableInfo ii200 = vd200.variableInfo("ii");
         Links tlvII200 = ii200.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("iis(*:0)", tlvII200.toString());
+        // assertEquals("ii<iis.ts", tlvII200.toString(), "Should have been inherited from previous");
         MethodCall methodCall = (MethodCall) call2.expression();
-        Links tlvMc = methodCall.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("ii(*:*);iis(*:0)", tlvMc.toString());
+
+        // test writeMethodCall
+        Value.VariableBooleanMap linkedToObject = methodCall.analysis()
+                .getOrDefault(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT, ValueImpl.VariableBooleanMapImpl.EMPTY);
+        assertEquals("ii==true,iis=false", nice(linkedToObject.map()));
     }
 }

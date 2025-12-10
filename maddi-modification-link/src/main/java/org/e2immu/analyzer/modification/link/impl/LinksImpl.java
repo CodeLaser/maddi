@@ -86,11 +86,11 @@ public class LinksImpl implements Links {
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
-    static class Builder implements Links.Builder {
+    public static class Builder implements Links.Builder {
         private final Variable primary;
         private final List<Link> links = new ArrayList<>();
 
-        Builder(Variable primary) {
+        public Builder(Variable primary) {
             this.primary = primary;
         }
 
