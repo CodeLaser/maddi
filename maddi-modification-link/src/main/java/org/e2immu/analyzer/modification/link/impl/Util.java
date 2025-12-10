@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,6 +18,15 @@ public class Util {
             return isPartOf(base, dv.arrayVariable());
         }
         return false;
+    }
+
+    public static LocalVariable lvPrimary(Variable variable) {
+        if (variable instanceof LocalVariable lv) return lv;
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return lvPrimary(fr.scopeVariable());
+        }
+        if (variable instanceof DependentVariable dv) return lvPrimary(dv.arrayVariable());
+        return null;
     }
 
     public static @NotNull ParameterInfo parameterPrimary(Variable variable) {

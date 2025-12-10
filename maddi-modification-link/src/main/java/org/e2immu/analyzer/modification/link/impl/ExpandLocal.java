@@ -34,7 +34,7 @@ public record ExpandLocal(Runtime runtime) {
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
         vd.variableInfoStream().forEach(vi -> {
             Links.Builder piBuilder = followGraph(graph, vi.variable(), null, true);
-            //piBuilder.removeIf(link -> !vd.isKnown(link.to().fullyQualifiedName()));
+            piBuilder.removeIf(link -> link.toIntermediateVariable());
             newLinkedVariables.put(vi.variable(), piBuilder.build());
         });
         return newLinkedVariables;

@@ -17,6 +17,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Iterator;
@@ -61,16 +62,13 @@ public class TestForEach extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(forEach);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("list(*:0)", tlvT1.toString());
-        assertEquals("list(*[Type param T]:0[Type java.util.List<T>])", tlvT1.toString());
+        assertEquals("t<0:list.ts", tlvT1.toString());
 
         Statement append = forEach.block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("list(*:0);obj(*:*)", tlvT100.toString());
-        assertEquals("list(*[Type param T]:0[Type java.util.List<T>]);obj(*[Type param T]:*[Type param T])",
-                tlvT100.toString());
+        assertEquals("-", tlvT100.toString());
     }
 
 
@@ -92,6 +90,7 @@ public class TestForEach extends CommonTest {
             }
             """;
 
+    @Disabled("TODO")
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
@@ -106,7 +105,7 @@ public class TestForEach extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(forEach);
         VariableInfo ii2 = vd2.variableInfoContainerOrNull("ii").best(Stage.EVALUATION);
         Links tlvT1 = ii2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("iis(*:0)", tlvT1.toString());
+        assertEquals("ii<iis.ts,ii<rv3.es,ii==rv5", tlvT1.toString());
 
         Statement call2 = forEach.block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(call2);

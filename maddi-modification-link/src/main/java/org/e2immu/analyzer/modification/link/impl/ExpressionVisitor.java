@@ -103,7 +103,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result rt = visit(ic.ifTrue(), variableData);
         Result rf = visit(ic.ifFalse(), variableData);
         Runtime runtime = javaInspector.runtime();
-        Variable newPrimary = runtime.newLocalVariable("ic" + variableCounter.getAndIncrement(),
+        Variable newPrimary = runtime.newLocalVariable("$__ic" + variableCounter.getAndIncrement(),
                 ic.parameterizedType());
         // we must link the new primary to both rt and rf links
         AssignLinksToLocal atl = new AssignLinksToLocal(runtime);
@@ -147,7 +147,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     private Result constructorCall(VariableData variableData, ConstructorCall cc) {
         Result object;
         if (cc.object() == null || cc.object().isEmpty()) {
-            LocalVariable lv = javaInspector.runtime().newLocalVariable("c" + variableCounter.getAndIncrement(), cc.parameterizedType());
+            LocalVariable lv = javaInspector.runtime().newLocalVariable("$__c" + variableCounter.getAndIncrement(), cc.parameterizedType());
             object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
         } else {
             object = visit(cc.object(), variableData);
