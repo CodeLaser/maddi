@@ -228,6 +228,6 @@ public class TestConstructor2 extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT6);
         MethodInfo method = X.findConstructor(1);
         Statement s0 = method.methodBody().statements().getFirst();
-        assertEquals("00@11:9-42:9", s0.source().toString());
+        assertEquals("00@12:13-12:20", s0.source().toString());
     }
 }
