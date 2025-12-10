@@ -52,14 +52,14 @@ public enum LinkNature {
         if (this == IS_ELEMENT_OF) {
             return switch (other) {
                 case INTERSECTION_NOT_EMPTY -> IS_ELEMENT_OF;
-                case CONTAINS -> INTERSECTION_NOT_EMPTY;
+                case CONTAINS -> NONE; // asymmetric!
                 default -> throw new UnsupportedOperationException();
             };
         }
         if (this == CONTAINS) {
             return switch (other) {
                 case INTERSECTION_NOT_EMPTY -> IS_ELEMENT_OF;
-                case IS_ELEMENT_OF -> INTERSECTION_NOT_EMPTY;
+                case IS_ELEMENT_OF -> INTERSECTION_NOT_EMPTY; // asymmetric
                 default -> throw new UnsupportedOperationException();
             };
         }
