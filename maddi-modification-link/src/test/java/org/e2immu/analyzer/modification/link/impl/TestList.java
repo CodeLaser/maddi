@@ -126,8 +126,8 @@ public class TestList extends CommonTest {
                 new LinksImpl.Builder(ofRv)
                         .add(rvContent, LinkNature.CONTAINS, of.parameters().getFirst())
                         .build(),
-                List.of());
-        assertEquals("[] --> of.tArray>0:e1", mlvOf.toString());
+                List.of(LinksImpl.EMPTY));
+        assertEquals("[-] --> of.tArray>0:e1", mlvOf.toString());
         of.analysis().set(METHOD_LINKS, mlvOf);
 
         MethodInfo asShortList = X.findUniqueMethod("asShortList", 0);
@@ -384,6 +384,43 @@ public class TestList extends CommonTest {
             package a.b;
             import java.util.Collections;
             import java.util.List;
+            class X<K> {
+                static <T> boolean listAdd(List<T> list, T t) {
+                   list.add(t);
+                }
+                boolean add(K k, List<K> in) {
+                    return listAdd(in, k);
+                }
+            }
+            """;
+
+    @DisplayName("Analyze static add all")
+    @Test
+    public void test7() {
+        TypeInfo X = javaInspector.parse(INPUT7);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("/ - /", vfc.compute(collections).toString());
+
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
+        MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
+        assertEquals("[0:list.ts>1:t, 1:t<0:list.ts] --> null", mlvListAdd.toString());
+
+        MethodInfo add = X.findUniqueMethod("add", 2);
+        MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add));
+        assertEquals("[0:k<1:in.ts, 1:in.ts>0:k] --> -", mlvAdd.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            import java.util.Collections;
+            import java.util.List;
             class X {
                 static <T> void listAdd(List<T> list, T t1, T t2) {
                     Collections.addAll(list, t1, t2);
@@ -393,8 +430,8 @@ public class TestList extends CommonTest {
 
     @DisplayName("Analyze Collections.addAll(...), cross links")
     @Test
-    public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+    public void test8() {
+        TypeInfo X = javaInspector.parse(INPUT8);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 

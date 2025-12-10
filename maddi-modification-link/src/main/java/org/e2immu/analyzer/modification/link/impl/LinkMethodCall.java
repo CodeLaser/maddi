@@ -47,16 +47,44 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         if (!object.links().isEmpty()) {
             extra.put(objectPrimary, object.links());
         }
-        Links concreteReturnValue = objectToReturnValue(methodInfo, params, mlv, objectPrimary);
-
+        Links concreteReturnValue = mlv.ofReturnValue() == null ? LinksImpl.EMPTY :
+                objectToReturnValue(methodInfo, params, mlv, objectPrimary);
         Links callReturn;
         if (objectPrimary != null) {
             Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
             callReturn = concreteReturnValue == LinksImpl.EMPTY ? newObjectLinks : concreteReturnValue.merge(newObjectLinks);
         } else {
+            linksBetweenParameters(methodInfo, params, mlv, extra);
             callReturn = concreteReturnValue;
         }
         return new ExpressionVisitor.Result(callReturn, new LinkedVariablesImpl(extra));
+    }
+
+    private void linksBetweenParameters(MethodInfo methodInfo,
+                                        List<ExpressionVisitor.Result> params,
+                                        MethodLinkedVariables mlv,
+                                        Map<Variable, Links> extra) {
+        int i = 0;
+        assert mlv.ofParameters().size() == methodInfo.parameters().size();
+        for (Links links : mlv.ofParameters()) {
+            ParameterInfo pi = methodInfo.parameters().get(i);
+            Variable paramPrimary = params.get(i).links().primary();
+            TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
+            if (!links.isEmpty()) {
+                Links.Builder builder = new LinksImpl.Builder(paramPrimary);
+                for (Link link : links) {
+                    Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
+                    ParameterInfo linkToPrimary =  Util.parameterPrimary( link.to());
+                    Variable toParamPrimary = params.get(linkToPrimary.index()).links().primary();
+                    TranslationMap newToPrimaryTm = runtime.newTranslationMapBuilder().put(linkToPrimary, toParamPrimary).build();
+                    Variable translatedTo = newToPrimaryTm.translateVariableRecursively(link.to());
+
+                    builder.add(translatedFrom, link.linkNature(), translatedTo);
+                }
+                extra.merge(paramPrimary, builder.build(), Links::merge);
+            }
+            ++i;
+        }
     }
 
     private Links objectToReturnValue(MethodInfo methodInfo,

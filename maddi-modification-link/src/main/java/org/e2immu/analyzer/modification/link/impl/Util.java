@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.jetbrains.annotations.NotNull;
 
 public class Util {
     public static boolean isPartOf(Variable base, Variable sub) {
@@ -16,6 +17,15 @@ public class Util {
             return isPartOf(base, dv.arrayVariable());
         }
         return false;
+    }
+
+    public static @NotNull ParameterInfo parameterPrimary(Variable variable) {
+        if (variable instanceof ParameterInfo pi) return pi;
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return parameterPrimary(fr.scopeVariable());
+        }
+        if (variable instanceof DependentVariable dv) return parameterPrimary(dv.arrayVariable());
+        throw new UnsupportedOperationException();
     }
 
     static String simpleName(Variable variable) {
