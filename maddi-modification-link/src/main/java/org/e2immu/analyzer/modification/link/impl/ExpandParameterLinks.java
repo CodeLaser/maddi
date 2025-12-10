@@ -44,15 +44,17 @@ public record ExpandParameterLinks(Runtime runtime) {
 
     private static Map<Variable, Map<Variable, LinkNature>> makeBiDirectionalGraph(VariableData vd) {
         Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
-        vd.variableInfoStream().forEach(vi -> {
-            Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
-            if (vLinks != null) {
-                vLinks.links().forEach(l -> {
-                    mergeEdge(graph, l.from(), l.linkNature(), l.to());
-                    mergeEdge(graph, l.to(), l.linkNature().reverse(), l.from());
-                });
-            }
-        });
+        if(vd != null) {
+            vd.variableInfoStream().forEach(vi -> {
+                Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
+                if (vLinks != null) {
+                    vLinks.links().forEach(l -> {
+                        mergeEdge(graph, l.from(), l.linkNature(), l.to());
+                        mergeEdge(graph, l.to(), l.linkNature().reverse(), l.from());
+                    });
+                }
+            });
+        }
         return graph;
     }
 }
