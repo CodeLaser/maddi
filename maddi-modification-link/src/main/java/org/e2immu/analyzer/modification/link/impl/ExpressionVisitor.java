@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -29,12 +30,22 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                                 RecursionPrevention recursionPrevention,
                                 AtomicInteger variableCounter) {
 
+    public record WriteMethodCall(Expression methodCall, Links linksFromObject) {
+    }
+
     /*
     primary = end result
     links = additional links for parts of the result
     extra = link information about unrelated variables
      */
-    public record Result(Links links, LinkedVariables extra) {
+    public record Result(Links links, LinkedVariables extra, List<WriteMethodCall> writeMethodCalls) {
+        public Result(Links links, LinkedVariables extra) {
+            this(links, extra, List.of());
+        }
+
+        public Result with(WriteMethodCall writeMethodCall) {
+            return new Result(links, extra, List.of(writeMethodCall));
+        }
 
         public LinkedVariables extraAndLinks() {
             Map<Variable, Links> map = new HashMap<>(extra.map());
@@ -43,18 +54,15 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         }
 
         public Result with(Links links) {
-            return new Result(links, extra);
+            return new Result(links, extra, writeMethodCalls);
         }
 
         public Result merge(Result other) {
             if (other.links.isEmpty() && other.extra.isEmpty()) return this;
             LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
-            return new Result(links, combinedExtra);
-        }
-
-        // keep other.link
-        public Result mergeLv(Result other) {
-            throw new UnsupportedOperationException("NYI");
+            List<WriteMethodCall> allWriteMethodCalls = Stream.concat(writeMethodCalls.stream(),
+                    other.writeMethodCalls.stream()).toList();
+            return new Result(links, combinedExtra, allWriteMethodCalls);
         }
     }
 
@@ -67,12 +75,12 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case MethodCall mc -> methodCall(variableData, mc);
             case ConstructorCall cc -> constructorCall(variableData, cc);
 
-            case Lambda lambda -> EMPTY; // TODO
+            case Lambda _ -> EMPTY; // TODO
             // all rather uninteresting....
 
             case InlineConditional ic -> inlineConditional(ic, variableData);
             case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData))
-                    .reduce(EMPTY, Result::mergeLv);
+                    .reduce(EMPTY, Result::merge);
             case And and -> and.expressions().stream().map(e -> visit(e, variableData))
                     .reduce(EMPTY, Result::merge);
             case Or or -> or.expressions().stream().map(e -> visit(e, variableData))
@@ -153,7 +161,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData);
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
-        return new LinkMethodCall(javaInspector.runtime(), variableCounter).methodCall(mc.methodInfo(), object, params, mlv);
+        Result r = new LinkMethodCall(javaInspector.runtime(), variableCounter)
+                .methodCall(mc.methodInfo(), object, params, mlv);
+        return r.with(new WriteMethodCall(mc, object.links));
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
