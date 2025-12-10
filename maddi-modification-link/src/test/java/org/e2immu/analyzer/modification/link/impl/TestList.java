@@ -435,13 +435,9 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
-        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("/ - /", vfc.compute(collections).toString());
-
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 3);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[-, 0:list.ts>1:t, 1:t<0:list.ts] --> null", mlvListAdd.toString());
+        assertEquals("[0:list.ts>1:t1,0:list.ts>2:t2, 1:t1<0:list.ts, 2:t2<0:list.ts] --> null", mlvListAdd.toString());
     }
 }

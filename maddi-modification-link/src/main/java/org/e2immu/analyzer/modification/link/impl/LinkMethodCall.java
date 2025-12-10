@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.Link;
+import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
@@ -67,24 +68,49 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         int i = 0;
         assert mlv.ofParameters().size() == methodInfo.parameters().size();
         for (Links links : mlv.ofParameters()) {
-            ParameterInfo pi = methodInfo.parameters().get(i);
-            Variable paramPrimary = params.get(i).links().primary();
-            TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
             if (!links.isEmpty()) {
-                Links.Builder builder = new LinksImpl.Builder(paramPrimary);
                 for (Link link : links) {
-                    Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
-                    ParameterInfo linkToPrimary =  Util.parameterPrimary( link.to());
-                    Variable toParamPrimary = params.get(linkToPrimary.index()).links().primary();
-                    TranslationMap newToPrimaryTm = runtime.newTranslationMapBuilder().put(linkToPrimary, toParamPrimary).build();
-                    Variable translatedTo = newToPrimaryTm.translateVariableRecursively(link.to());
+                    ParameterInfo to = Util.parameterPrimary(link.to());
+                    Variable toPrimary = params.get(to.index()).links().primary();
+                    TranslationMap toTm = runtime.newTranslationMapBuilder().put(to, toPrimary).build();
+                    Variable translatedTo = toTm.translateVariableRecursively(link.to());
 
-                    builder.add(translatedFrom, link.linkNature(), translatedTo);
+                    ParameterInfo from = methodInfo.parameters().get(i);
+                    if (from.isVarArgs()) {
+                        for (int j = i; j < params.size(); ++j) {
+                            // loop over all the elements in the varargs
+                            addCrosslink(params, extra, link, true, j, from, translatedTo);
+                        }
+                    } else {
+                        addCrosslink(params, extra, link, false, i, from, translatedTo);
+                    }
                 }
-                extra.merge(paramPrimary, builder.build(), Links::merge);
             }
             ++i;
         }
+    }
+
+    private void addCrosslink(List<ExpressionVisitor.Result> params,
+                              Map<Variable, Links> extra,
+                              Link link,
+                              boolean varargs,
+                              int i,
+                              ParameterInfo from,
+                              Variable translatedTo) {
+        Variable fromPrimary = params.get(i).links().primary();
+        Links.Builder builder = new LinksImpl.Builder(fromPrimary);
+        TranslationMap fromTm = runtime.newTranslationMapBuilder().put(from, fromPrimary).build();
+        Variable translatedFrom = fromTm.translateVariableRecursively(link.from());
+        LinkNature linkNature = varargs ? varargsLinkNature(link.linkNature(), from, fromPrimary) : link.linkNature();
+        builder.add(translatedFrom, linkNature, translatedTo);
+        extra.merge(fromPrimary, builder.build(), Links::merge);
+    }
+
+    private LinkNature varargsLinkNature(LinkNature linkNature, ParameterInfo from, Variable fromPrimary) {
+        if (linkNature == LinkNature.INTERSECTION_NOT_EMPTY || linkNature == LinkNature.IS_IDENTICAL_TO) {
+            return LinkNature.IS_ELEMENT_OF;
+        }
+        return linkNature;
     }
 
     private Links objectToReturnValue(MethodInfo methodInfo,

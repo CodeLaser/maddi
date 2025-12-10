@@ -30,6 +30,7 @@ public class TestFixedpointPropagationAlgorithm {
         assertEquals("b: ==, c: >", compute(graph));
     }
 
+    // a > b == c < d --> a ~ d
     @Test
     public void test3() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
@@ -37,6 +38,16 @@ public class TestFixedpointPropagationAlgorithm {
         graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
         graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
         assertEquals("b: >, c: >, d: ~", compute(graph));
+    }
+
+    // a < b == c > d --> no relation between a and d
+    @Test
+    public void test3b() {
+        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
+        graph.put(START, Map.of("b", LinkNature.IS_ELEMENT_OF));
+        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
+        graph.put("c", Map.of("d", LinkNature.CONTAINS));
+        assertEquals("b: <, c: <, d: X", compute(graph));
     }
 
     private String compute(Map<String, Map<String, LinkNature>> graph) {
