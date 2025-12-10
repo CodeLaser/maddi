@@ -220,9 +220,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 r = null;
             }
             if (forEachLv != null) {
-                Links links = new ForEach(javaInspector.runtime(), expressionVisitor)
+                ExpressionVisitor.Result r2 = new ForEach(javaInspector.runtime(), expressionVisitor)
                         .linkForEachElementToIterable(statement, r, previousVd);
-                if (links != null) linkedVariables.put(forEachLv, links);
+                linkedVariables.put(r2.links().primary(), r2.links());
+                r2.extra().forEach(e -> linkedVariables.merge(e.getKey(), e.getValue(), Links::merge));
+                linkedVariables.put(forEachLv, new LinksImpl.Builder(forEachLv).add(LinkNature.IS_IDENTICAL_TO, r2.links().primary()).build());
             }
             if (statement instanceof ForStatement fs) {
                 fs.updaters().forEach(updater -> {

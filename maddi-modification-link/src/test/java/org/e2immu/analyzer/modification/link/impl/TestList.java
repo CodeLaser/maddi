@@ -144,7 +144,7 @@ public class TestList extends CommonTest {
         // test the evaluation of List.of(t)
         VariableData vd0 = VariableDataImpl.of(lvc);
         ExpressionVisitor.Result r = ev.visit(asShortList.methodBody().statements().getLast().expression(), vd0);
-        assertEquals("rv0.tArray>t", r.links().toString());
+        assertEquals("$__rv0.tArray>t", r.links().toString());
 
         // rv0.tArray>t + t=this.ts[0] + this.ts[0]<this.ts  = asShortList.tArray~this.ts
         MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,

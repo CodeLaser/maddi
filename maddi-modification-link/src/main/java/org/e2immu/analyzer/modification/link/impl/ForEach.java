@@ -1,6 +1,5 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
@@ -15,21 +14,21 @@ import java.util.Iterator;
 import java.util.List;
 
 public record ForEach(Runtime runtime, ExpressionVisitor expressionVisitor) {
-    public Links linkForEachElementToIterable(Statement statement,
-                                              ExpressionVisitor.Result r,
-                                              VariableData previousVd) {
+    public ExpressionVisitor.Result linkForEachElementToIterable(Statement statement,
+                                                                 ExpressionVisitor.Result r,
+                                                                 VariableData previousVd) {
         if (r != null) {
             Variable primary = r.links().primary();
             if (primary != null) {
                 return linkIntoIterable(primary.parameterizedType(), statement.expression(), previousVd);
             }
         }
-        return null;
+        return ExpressionVisitor.EMPTY;
     }
 
-    private Links linkIntoIterable(ParameterizedType initType,
-                                   Expression forEachExpression,
-                                   VariableData previousVd) {
+    private ExpressionVisitor.Result linkIntoIterable(ParameterizedType initType,
+                                                      Expression forEachExpression,
+                                                      VariableData previousVd) {
         TypeInfo iterator = runtime.getFullyQualified(Iterator.class, false);
         TypeInfo iterableType = runtime.getFullyQualified(Iterable.class, false);
         MethodInfo iterableIterator = iterableType.findUniqueMethod("iterator", 0);
@@ -50,6 +49,6 @@ public record ForEach(Runtime runtime, ExpressionVisitor expressionVisitor) {
                 .setParameterExpressions(List.of(runtime.newInt(List.of(), runtime.noSource(), 0)))
                 .setConcreteReturnType(initType)
                 .build();
-        return expressionVisitor.visit(mc, previousVd).links();
+        return expressionVisitor.visit(mc, previousVd);
     }
 }

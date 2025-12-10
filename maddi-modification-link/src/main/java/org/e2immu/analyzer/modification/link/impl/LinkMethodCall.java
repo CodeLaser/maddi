@@ -123,7 +123,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                     : "the links of the method return value must be in the return variable";
             assert !methodInfo.isVoid() || methodInfo.isConstructor()
                     : "Cannot be a void function if we have a return variable";
-            Variable newPrimary = runtime.newLocalVariable("rv" + variableCounter.getAndIncrement(),
+            Variable newPrimary = runtime.newLocalVariable("$__rv" + variableCounter.getAndIncrement(),
                     rvPrimary.parameterizedType());
 
             TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
@@ -131,7 +131,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                 assert !methodInfo.isStatic() : """
                         objectPrimary!=null indicates that we have an instance function.
                         Therefore we must translate 'this' to the method's object primary""";
-                newPrimary = runtime.newLocalVariable("rv" + variableCounter.getAndIncrement(),
+                newPrimary = runtime.newLocalVariable("$__rv" + variableCounter.getAndIncrement(),
                         rvPrimary.parameterizedType());
                 addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
             }

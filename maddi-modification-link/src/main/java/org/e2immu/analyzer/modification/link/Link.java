@@ -1,5 +1,7 @@
 package org.e2immu.analyzer.modification.link;
 
+import org.e2immu.analyzer.modification.link.impl.Util;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,5 +20,10 @@ public interface Link extends Comparable<Link> {
         int d = to().compareTo(o.to());
         if (d != 0) return d;
         return Long.compare(linkNature().ordinal(), o.linkNature().ordinal());
+    }
+
+    default boolean toIntermediateVariable() {
+       LocalVariable lv = Util.lvPrimary(to());
+        return lv != null && lv.simpleName().startsWith("$__");
     }
 }
