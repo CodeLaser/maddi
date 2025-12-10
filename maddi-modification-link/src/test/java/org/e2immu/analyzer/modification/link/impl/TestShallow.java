@@ -211,9 +211,39 @@ public class TestShallow extends CommonTest {
 
     }
 
-    @DisplayName("Analyzer 'Collections.addAll(...)")
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            import org.e2immu.annotation.Independent;
+            import java.util.Collection;
+            public interface X {
+                void add(@Independent(hcParameters = {1}) Collection<X> xs, X x);
+            }
+            """;
+
+    @DisplayName("Analyze simpler version of Collections.addAll")
     @Test
     public void test7() {
+        TypeInfo X = javaInspector.parse(INPUT7);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        // run the shallow analyzer to detect the annotations
+        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, annotatedApiParser,
+                true);
+        shallowAnalyzer.go(List.of(X));
+
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+
+        MethodInfo add = X.findUniqueMethod("add", 2);
+        MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
+        assertEquals("[-] --> -", mlvAdd.toString());
+    }
+
+    @DisplayName("Analyze 'Collections.addAll(...)")
+    @Test
+    public void test8() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
         MethodInfo addAll = collections.findUniqueMethod("addAll", 2);

@@ -403,7 +403,7 @@ public class TestList extends CommonTest {
         assertEquals("/ - /", vfc.compute(collections).toString());
 
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
-
+        // FIXME
 
 
     }

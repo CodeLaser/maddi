@@ -34,24 +34,21 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         LOGGER.debug("Computing method linked variables of {}", methodInfo);
 
         TypeInfo typeInfo = methodInfo.typeInfo();
-        VirtualFields vf = typeInfo.analysis().getOrCreate(VirtualFields.VIRTUAL_FIELDS, () ->
-                virtualFieldComputer.computeOnDemand(typeInfo));
-        FieldInfo vfHc = vf.hiddenContent();
+        VirtualFields virtualFields = typeInfo.analysis()
+                .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfo));
+        FieldInfo hiddenContent = virtualFields.hiddenContent();
         ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
         Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
-        FieldReference hiddenContentFr = vfHc == null ? null : runtime.newFieldReference(vfHc);
-        Set<TypeParameter> typeParametersVf = vfHc == null ? null
-                : correspondingTypeParameters(methodInfo.typeInfo(), vfHc);
-        Set<TypeParameter> typeParametersVfFactory = methodInfo.isFactoryMethod() && vfHc != null
-                ? convertToMethodTypeParameters(methodInfo, typeParametersVf) : null;
+        FieldReference hiddenContentFr = hiddenContent == null ? null : runtime.newFieldReference(hiddenContent);
+        Set<TypeParameter> hiddenContentTps = hiddenContent == null ? null : correspondingTypeParameters(typeInfo,
+                hiddenContent);
 
         // instance method, from object into return variable
-        if (methodInfo.hasReturnValue() && !methodInfo.isStatic() && vfHc != null) {
+        if (methodInfo.hasReturnValue() && !methodInfo.isStatic() && hiddenContent != null) {
             Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.DEPENDENT);
             if (!independent.isIndependent()) {
-                ParameterizedType hiddenContentType = vfHc.type();
-                transfer(methodInfo.returnType(), hiddenContentType, typeParametersVf, ofReturnValue, hiddenContentFr,
+                transfer(ofReturnValue, methodInfo.returnType(), hiddenContent.type(), hiddenContentFr, hiddenContentTps,
                         false);
                 if (independent.isDependent()) {
                     ParameterizedType returnType = methodInfo.returnType();
@@ -61,7 +58,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     if (vfTarget.mutable() != null) {
                         FieldReference mTarget = runtime.newFieldReference(vfTarget.mutable(),
                                 runtime.newVariableExpression(rv), vfTarget.mutable().type());
-                        FieldReference mSource = runtime.newFieldReference(vf.mutable());
+                        FieldReference mSource = runtime.newFieldReference(virtualFields.mutable());
                         ofReturnValue.add(mTarget, IS_IDENTICAL_TO, mSource);
                     } else {
                         throw new UnsupportedOperationException("?");
@@ -71,9 +68,11 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         }
 
         List<Links> ofParameters = new ArrayList<>(methodInfo.parameters().size());
+        Set<TypeParameter> hiddenContentMethodTypeParameters = methodInfo.isFactoryMethod() && hiddenContent != null
+                ? convertToMethodTypeParameters(methodInfo, hiddenContentTps) : null;
+
         for (ParameterInfo pi : methodInfo.parameters()) {
-            Links.Builder builder = new LinksImpl.Builder(pi);
-            ParameterizedType type = pi.parameterizedType();
+            Links.Builder piBuilder = new LinksImpl.Builder(pi);
 
             Value.Independent independent = pi.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
                     ValueImpl.IndependentImpl.DEPENDENT);
@@ -83,29 +82,31 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // a dependence from the parameter into the return variable; we'll add it to the return variable
                 // linkLevel 1 == independent HC
                 if (linkLevel == 1) {
-                    transfer(methodInfo.returnType(), pi.parameterizedType(), typeParametersVf, ofReturnValue, pi,
+                    transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi, hiddenContentTps,
                             true);
                 }
-            } else if (!independent.isIndependent() && vfHc != null) {
+            } else if (!independent.isIndependent() && hiddenContent != null) {
                 if (methodInfo.isFactoryMethod()) {
-                    transfer(methodInfo.returnType(), pi.parameterizedType(), typeParametersVfFactory, ofReturnValue, pi, true);
+                    transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi,
+                            hiddenContentMethodTypeParameters, true);
                 } else {
-                    transfer(type, vfHc.type(), typeParametersVf, builder, hiddenContentFr, false);
+                    transfer(piBuilder, pi.parameterizedType(), hiddenContent.type(), hiddenContentFr, hiddenContentTps,
+                            false);
                 }
             }
-            ofParameters.add(builder.build());
+            ofParameters.add(piBuilder.build());
         }
         return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters);
     }
 
-    private void transfer(ParameterizedType targetType,
+    private void transfer(Links.Builder targetBuilder,
+                          ParameterizedType targetType,
                           ParameterizedType sourceType,
-                          Set<TypeParameter> typeParametersVf,
-                          Links.Builder builder,
-                          Variable hiddenContentFr,
+                          Variable sourceField,
+                          Set<TypeParameter> typeParametersOfSourceField,
                           boolean reverse) {
         int arraysSource = sourceType.arrays();
-        if (targetType.typeParameter() != null && typeParametersVf.contains(targetType.typeParameter())) {
+        if (targetType.typeParameter() != null && typeParametersOfSourceField.contains(targetType.typeParameter())) {
             assert targetType.typeParameter().typeBounds().isEmpty() : """
                     cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
                     the type parameter can be dependent""";
@@ -113,21 +114,21 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             if (arrays == arraysSource) {
                 if (sourceType.typeParameter() != null) {
                     LinkNature linkNature = arrays == 0 ? IS_IDENTICAL_TO : INTERSECTION_NOT_EMPTY;
-                    builder.add(linkNature, hiddenContentFr);
+                    targetBuilder.add(linkNature, sourceField);
                 }
             } else if (arrays < arraysSource) {
                 if (sourceType.typeParameter() != null) {
                     // one element out of an array
                     LinkNature linkNature = reverse ? CONTAINS : IS_ELEMENT_OF;
-                    builder.add(linkNature, hiddenContentFr);
+                    targetBuilder.add(linkNature, sourceField);
                 } else {
                     // get one element out of a container array; we'll need a slice
                     FieldInfo theField = findField(List.of(targetType.typeParameter()), sourceType.typeInfo());
-                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(hiddenContentFr),
+                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(sourceField),
                             runtime.newInt(-1));
                     Expression scope = runtime.newVariableExpression(dv);
                     FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                    builder.add(IS_ELEMENT_OF, slice);
+                    targetBuilder.add(IS_ELEMENT_OF, slice);
                 }
             }
         } else if (targetType.typeInfo() != null) {
@@ -136,33 +137,33 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 return;
             }
             FieldReference linkSource = runtime().newFieldReference(vfType.hiddenContent(),
-                    runtime.newVariableExpression(builder.primary()), vfType.hiddenContent().type());
+                    runtime.newVariableExpression(targetBuilder.primary()), vfType.hiddenContent().type());
             Set<TypeParameter> typeParametersReturnType = targetType.extractTypeParameters();
-            if (typeParametersReturnType.equals(typeParametersVf)) {
+            if (typeParametersReturnType.equals(typeParametersOfSourceField)) {
                 int multiplicity = virtualFieldComputer.computeMultiplicity(targetType.typeInfo());
                 if (multiplicity - 2 >= arraysSource) {
                     // Stream<T> Optional.stream() (going from arraySource 0 to multi 2)
-                    builder.add(linkSource, CONTAINS, hiddenContentFr);
+                    targetBuilder.add(linkSource, CONTAINS, sourceField);
                 } else if (multiplicity - 1 == arraysSource) {
                     // List.addAll(...) target: Collection, source T[] multi 2, array source 1
                     // List.subList target List, source T[] multi 2, array source 1
-                    builder.add(linkSource, multiplicity == 1 ? IS_IDENTICAL_TO: INTERSECTION_NOT_EMPTY, hiddenContentFr);
+                    targetBuilder.add(linkSource, multiplicity == 1 ? IS_IDENTICAL_TO : INTERSECTION_NOT_EMPTY, sourceField);
                 } else if (multiplicity <= arraysSource) {
                     // findFirst.t < this.ts in Stream (multi 1, array source 1)
-                    builder.add(linkSource, IS_ELEMENT_OF, hiddenContentFr);
+                    targetBuilder.add(linkSource, IS_ELEMENT_OF, sourceField);
                 }
             } else {
                 List<TypeParameter> intersection = new ArrayList<>(typeParametersReturnType.stream()
                         .sorted(Comparator.comparingInt(TypeParameter::getIndex)).toList());
-                intersection.retainAll(typeParametersVf);
+                intersection.retainAll(typeParametersOfSourceField);
                 if (!intersection.isEmpty()) {
                     if (intersection.size() == typeParametersReturnType.size()) {
                         FieldInfo theField = findField(intersection, sourceType.typeInfo());
-                        DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(hiddenContentFr),
+                        DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(sourceField),
                                 runtime.newInt(-1));
                         Expression scope = runtime.newVariableExpression(dv);
                         FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                        builder.add(linkSource, INTERSECTION_NOT_EMPTY, slice);
+                        targetBuilder.add(linkSource, INTERSECTION_NOT_EMPTY, slice);
                     }
                 }
             }

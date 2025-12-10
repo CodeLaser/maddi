@@ -94,7 +94,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         }
         return LinksImpl.EMPTY;
     }
-    
+
     private @NotNull Links parametersToObject(MethodInfo methodInfo,
                                               ExpressionVisitor.Result object,
                                               List<ExpressionVisitor.Result> params,
