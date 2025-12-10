@@ -94,6 +94,25 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                             false);
                 }
             }
+            // links to other parameters
+            for (int i = 0; i < pi.index(); ++i) {
+                int linkLevel = crosslinkInIndependentProperty(methodInfo, pi, i);
+                // a dependence from the parameter into another parameter; we'll add it here
+                // linkLevel 1 == independent HC.
+                // Example: Collections.addAll(...), param 0 (source) -> param 1 (target), at link level 1
+                if (linkLevel == 1) {
+                    ParameterInfo source = methodInfo.parameters().get(i);
+                    ParameterizedType targetType = pi.isVarArgs() ? pi.parameterizedType().copyWithOneFewerArrays()
+                            : pi.parameterizedType();
+                    VirtualFields sourceVfs = virtualFieldComputer.computeAllowTypeParameterArray(source.parameterizedType());
+                    Set<TypeParameter> sourceTps = correspondingTypeParameters(source.parameterizedType(), sourceVfs.hiddenContent());
+                    FieldInfo sourceHc = sourceVfs.hiddenContent();
+                    Expression scope = runtime.newVariableExpression(source);
+                    FieldReference sourceFr = runtime.newFieldReference(sourceHc, scope, sourceHc.type());
+                    transfer(piBuilder, targetType, sourceHc.type(),  sourceFr, sourceTps, false);
+                }
+
+            }
             ofParameters.add(piBuilder.build());
         }
         return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters);
@@ -216,6 +235,36 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         }).collect(Collectors.toUnmodifiableSet());
     }
 
+    // different attempt
+    private Set<TypeParameter> correspondingTypeParameters(ParameterizedType descendantTypePt, FieldInfo hiddenContent) {
+        if (hiddenContent == null) return Set.of();
+        TypeInfo descendantType = descendantTypePt.typeInfo();
+        if (descendantType.equals(hiddenContent.owner())) {
+            if (hiddenContent.type().typeParameter() != null) {
+                return Set.of(hiddenContent.type().typeParameter());
+            }
+            return hiddenContent.type().typeInfo().fields().stream()
+                    .filter(f -> f.type().typeParameter() != null)
+                    .map(f -> f.type().typeParameter()).collect(Collectors.toUnmodifiableSet());
+        }
+        Stream<ParameterizedType> parentStream = Stream.ofNullable(
+                descendantType.parentClass() == null || descendantType.parentClass().isJavaLangObject()
+                        ? null : descendantType.parentClass());
+        Stream<ParameterizedType> superStream = Stream.concat(parentStream,
+                descendantType.interfacesImplemented().stream());
+        GenericsHelper genericsHelper = new GenericsHelperImpl(runtime);
+        return superStream.flatMap(superType -> {
+            Set<TypeParameter> fromSuper = correspondingTypeParameters(superType, hiddenContent);
+            var map = genericsHelper.mapInTermsOfParametersOfSubType(descendantType, superType);
+            return map == null ? Stream.of()
+                    : map.entrySet().stream()
+                    .filter(e -> e.getValue().typeParameter() != null
+                                 && fromSuper.contains(e.getValue().typeParameter()))
+                    .map(e -> (TypeParameter) e.getKey())
+                    .map(tp -> descendantTypePt.parameters().get(tp.getIndex()).typeParameter());
+        }).collect(Collectors.toUnmodifiableSet());
+    }
+
     /*
      a factory method will use method type parameters, rather than type parameters bound to the type itself.
      <E> List<E> List.of(E e) -> this E is bound to List.of()...
@@ -230,6 +279,15 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 .map(tp -> rt.parameters().get(tp.getIndex()).typeParameter())
                 .filter(Objects::nonNull)
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+
+    private static int crosslinkInIndependentProperty(MethodInfo methodInfo, ParameterInfo pi, int i) {
+        ParameterInfo piPrev = methodInfo.parameters().get(i);
+        Value.Independent independentPrev = piPrev.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.DEPENDENT);
+        Map<Integer, Integer> dependenciesPrev = independentPrev.linkToParametersReturnValue();
+        return dependenciesPrev.getOrDefault(pi.index(), -1);
     }
 
 }

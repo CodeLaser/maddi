@@ -10,10 +10,13 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -217,31 +220,27 @@ public class TestShallow extends CommonTest {
             import org.e2immu.annotation.Independent;
             import java.util.Collection;
             public interface X {
-                void add(@Independent(hcParameters = {1}) Collection<X> xs, X x);
+                <T> void add(@Independent(hcParameters = {1}) Collection<T> c, T t);
             }
             """;
 
     @DisplayName("Analyze simpler version of Collections.addAll")
     @Test
-    public void test7() {
+    public void test7() throws IOException {
         TypeInfo X = javaInspector.parse(INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-
-        // run the shallow analyzer to detect the annotations
-        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, annotatedApiParser,
-                true);
-        shallowAnalyzer.go(List.of(X));
+        MethodInfo add = X.findUniqueMethod("add", 2);
+        add.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
+                new ValueImpl.IndependentImpl(1, Map.of(1, 1)));
 
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
-        MethodInfo add = X.findUniqueMethod("add", 2);
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
-        assertEquals("[-] --> -", mlvAdd.toString());
+        assertEquals("[-, 1:t<0:c.ts] --> -", mlvAdd.toString());
     }
 
-    @DisplayName("Analyze 'Collections.addAll(...)")
+    @DisplayName("Analyze 'Collections.addAll(...), extra complication: varargs")
     @Test
     public void test8() {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
@@ -250,6 +249,6 @@ public class TestShallow extends CommonTest {
         assertEquals("java.util.Collections.addAll(java.util.Collection<? super T>,T...)",
                 addAll.fullyQualifiedName());
         MethodLinkedVariables mlvC1 = addAll.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(addAll));
-        assertEquals("[0:c.ts~this.ts] --> -", mlvC1.toString());
+        assertEquals("[-, 1:elements~0:c.ts] --> -", mlvC1.toString());
     }
 }
