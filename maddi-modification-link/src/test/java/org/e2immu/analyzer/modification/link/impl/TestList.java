@@ -403,8 +403,8 @@ public class TestList extends CommonTest {
         assertEquals("/ - /", vfc.compute(collections).toString());
 
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
-        // FIXME
-
-
+        MethodInfo listAdd = X.findUniqueMethod("listAdd", 3);
+        MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
+        assertEquals("[-, 0:list.ts>1:t, 1:t<0:list.ts] --> null", mlvListAdd.toString());
     }
 }
