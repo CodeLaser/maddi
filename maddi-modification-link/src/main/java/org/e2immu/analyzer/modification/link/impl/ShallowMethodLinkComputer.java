@@ -100,22 +100,27 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // a dependence from the parameter into another parameter; we'll add it here
                 // linkLevel 1 == independent HC.
                 // Example: Collections.addAll(...), param 0 (source) -> param 1 (target), at link level 1
+                // see TestShallow,7,8
                 if (linkLevel == 1) {
                     ParameterInfo source = methodInfo.parameters().get(i);
-                    ParameterizedType targetType = pi.isVarArgs() ? pi.parameterizedType().copyWithOneFewerArrays()
-                            : pi.parameterizedType();
                     VirtualFields sourceVfs = virtualFieldComputer.computeAllowTypeParameterArray(source.parameterizedType());
-                    Set<TypeParameter> sourceTps = correspondingTypeParameters(source.parameterizedType(), sourceVfs.hiddenContent());
+                    Set<TypeParameter> sourceTps = correspondingTypeParameters(source.parameterizedType().typeInfo(),
+                            sourceVfs.hiddenContent()).stream()
+                            .map(tp -> formalToConcrete(tp, source.parameterizedType()))
+                            .collect(Collectors.toUnmodifiableSet());
                     FieldInfo sourceHc = sourceVfs.hiddenContent();
                     Expression scope = runtime.newVariableExpression(source);
                     FieldReference sourceFr = runtime.newFieldReference(sourceHc, scope, sourceHc.type());
-                    transfer(piBuilder, targetType, sourceHc.type(),  sourceFr, sourceTps, false);
+                    transfer(piBuilder, pi.parameterizedType(), sourceHc.type(), sourceFr, sourceTps, false);
                 }
-
             }
             ofParameters.add(piBuilder.build());
         }
         return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters);
+    }
+
+    private TypeParameter formalToConcrete(TypeParameter formal, ParameterizedType parameterizedType) {
+        return parameterizedType.parameters().get(formal.getIndex()).typeParameter();
     }
 
     private void transfer(Links.Builder targetBuilder,
@@ -232,36 +237,6 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     .filter(e -> e.getValue().typeParameter() != null
                                  && fromSuper.contains(e.getValue().typeParameter()))
                     .map(e -> (TypeParameter) e.getKey());
-        }).collect(Collectors.toUnmodifiableSet());
-    }
-
-    // different attempt
-    private Set<TypeParameter> correspondingTypeParameters(ParameterizedType descendantTypePt, FieldInfo hiddenContent) {
-        if (hiddenContent == null) return Set.of();
-        TypeInfo descendantType = descendantTypePt.typeInfo();
-        if (descendantType.equals(hiddenContent.owner())) {
-            if (hiddenContent.type().typeParameter() != null) {
-                return Set.of(hiddenContent.type().typeParameter());
-            }
-            return hiddenContent.type().typeInfo().fields().stream()
-                    .filter(f -> f.type().typeParameter() != null)
-                    .map(f -> f.type().typeParameter()).collect(Collectors.toUnmodifiableSet());
-        }
-        Stream<ParameterizedType> parentStream = Stream.ofNullable(
-                descendantType.parentClass() == null || descendantType.parentClass().isJavaLangObject()
-                        ? null : descendantType.parentClass());
-        Stream<ParameterizedType> superStream = Stream.concat(parentStream,
-                descendantType.interfacesImplemented().stream());
-        GenericsHelper genericsHelper = new GenericsHelperImpl(runtime);
-        return superStream.flatMap(superType -> {
-            Set<TypeParameter> fromSuper = correspondingTypeParameters(superType, hiddenContent);
-            var map = genericsHelper.mapInTermsOfParametersOfSubType(descendantType, superType);
-            return map == null ? Stream.of()
-                    : map.entrySet().stream()
-                    .filter(e -> e.getValue().typeParameter() != null
-                                 && fromSuper.contains(e.getValue().typeParameter()))
-                    .map(e -> (TypeParameter) e.getKey())
-                    .map(tp -> descendantTypePt.parameters().get(tp.getIndex()).typeParameter());
         }).collect(Collectors.toUnmodifiableSet());
     }
 
