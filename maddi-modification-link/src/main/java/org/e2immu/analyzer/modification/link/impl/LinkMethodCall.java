@@ -11,6 +11,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.List;
@@ -28,26 +29,9 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         params.forEach(r -> r.extra().forEach(e ->
                 extra.merge(e.getKey(), e.getValue(), Links::merge)));
 
-        Variable objectPrimary = object.links().primary();
-        int i = 0;
-        Links.Builder builder = new LinksImpl.Builder(objectPrimary);
-        TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
-        addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
-        TranslationMap tm = tmBuilder.build();
-        for (Links links : mlv.ofParameters()) {
-            ParameterInfo pi = methodInfo.parameters().get(i);
-            Variable paramPrimary = params.get(i).links().primary();
-            TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
-            if (!links.isEmpty()) {
-                for(Link link: links) {
-                    Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
-                    Variable translatedTo = tm.translateVariableRecursively(link.to());
-                    builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
-                }
-            }
-            ++i;
-        }
-        return new ExpressionVisitor.Result(builder.build(), new LinkedVariablesImpl(extra));
+        Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
+
+        return new ExpressionVisitor.Result(newObjectLinks, new LinkedVariablesImpl(extra));
     }
 
     // we're trying for both method calls and normal constructor calls
@@ -56,8 +40,6 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                                                ExpressionVisitor.Result object,
                                                List<ExpressionVisitor.Result> params,
                                                MethodLinkedVariables mlv) {
-        Links concreteReturnValue;
-
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
         params.forEach(r -> r.extra().forEach(e ->
                 extra.merge(e.getKey(), e.getValue(), Links::merge)));
@@ -65,11 +47,28 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         if (!object.links().isEmpty()) {
             extra.put(objectPrimary, object.links());
         }
+        Links concreteReturnValue = objectToReturnValue(methodInfo, params, mlv, objectPrimary);
+
+        Links callReturn;
+        if (objectPrimary != null) {
+            Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
+            callReturn = concreteReturnValue == LinksImpl.EMPTY ? newObjectLinks : concreteReturnValue.merge(newObjectLinks);
+        } else {
+            callReturn = concreteReturnValue;
+        }
+        return new ExpressionVisitor.Result(callReturn, new LinkedVariablesImpl(extra));
+    }
+
+    private Links objectToReturnValue(MethodInfo methodInfo,
+                                      List<ExpressionVisitor.Result> params,
+                                      MethodLinkedVariables mlv,
+                                      Variable objectPrimary) {
         Variable rvPrimary = mlv.ofReturnValue().primary();
-        if (rvPrimary != null) {
+        if (rvPrimary != null && !mlv.ofReturnValue().isEmpty()) {
             assert rvPrimary instanceof ReturnVariable
                     : "the links of the method return value must be in the return variable";
-            assert !methodInfo.isVoid() || methodInfo.isConstructor() : "Cannot be a void function if we have a return variable";
+            assert !methodInfo.isVoid() || methodInfo.isConstructor()
+                    : "Cannot be a void function if we have a return variable";
             Variable newPrimary = runtime.newLocalVariable("rv" + variableCounter.getAndIncrement(),
                     rvPrimary.parameterizedType());
 
@@ -91,11 +90,35 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                 }
                 ++index;
             }
-            concreteReturnValue = mlv.ofReturnValue().changePrimaryTo(runtime, newPrimary, tmBuilder.build());
-        } else {
-            concreteReturnValue = LinksImpl.EMPTY;
+            return mlv.ofReturnValue().changePrimaryTo(runtime, newPrimary, tmBuilder.build());
         }
-        return new ExpressionVisitor.Result(concreteReturnValue, new LinkedVariablesImpl(extra));
+        return LinksImpl.EMPTY;
+    }
+    
+    private @NotNull Links parametersToObject(MethodInfo methodInfo,
+                                              ExpressionVisitor.Result object,
+                                              List<ExpressionVisitor.Result> params,
+                                              MethodLinkedVariables mlv) {
+        Variable objectPrimary = object.links().primary();
+        int i = 0;
+        Links.Builder builder = new LinksImpl.Builder(objectPrimary);
+        TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
+        addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
+        TranslationMap tm = tmBuilder.build();
+        for (Links links : mlv.ofParameters()) {
+            ParameterInfo pi = methodInfo.parameters().get(i);
+            Variable paramPrimary = params.get(i).links().primary();
+            TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
+            if (!links.isEmpty()) {
+                for (Link link : links) {
+                    Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
+                    Variable translatedTo = tm.translateVariableRecursively(link.to());
+                    builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                }
+            }
+            ++i;
+        }
+        return builder.build();
     }
 
     private void addThisHierarchyToObjectPrimaryToTmBuilder(MethodInfo methodInfo,
