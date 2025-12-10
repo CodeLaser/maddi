@@ -347,11 +347,11 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 1);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:c.ts~this.ts] --> -", mlvListAdd.toString());
+        assertEquals("[0:t<this.list.ts] --> null", mlvListAdd.toString());
     }
 
     @Language("java")
@@ -372,11 +372,11 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:c.ts~this.ts] --> -", mlvListAdd.toString());
+        assertEquals("[0:list.ts>1:t, 1:t<0:list.ts] --> null", mlvListAdd.toString());
     }
 
     @Language("java")
@@ -402,7 +402,7 @@ public class TestList extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("/ - /", vfc.compute(collections).toString());
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
 
 
 
