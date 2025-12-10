@@ -15,11 +15,14 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -39,10 +42,14 @@ Secondary synchronization takes place in PropertyValueMapImpl.getOrCreate().
 
 public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkComputerImpl.class);
+    public static final PropertyImpl VARIABLES_LINKED_TO_OBJECT = new PropertyImpl("variablesLinkedToObject",
+            ValueImpl.VariableBooleanMapImpl.EMPTY);
+
     private final boolean forceShallow;
     private final JavaInspector javaInspector;
     private final RecursionPrevention recursionPrevention;
     private final ShallowMethodLinkComputer shallowMethodLinkComputer;
+    private final ExpandLocal expandLocal;
 
     public LinkComputerImpl(JavaInspector javaInspector) {
         this(javaInspector, true, false);
@@ -54,6 +61,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.forceShallow = forceShallow;
         VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
+        this.expandLocal = new ExpandLocal(javaInspector.runtime());
     }
 
     @Override
@@ -173,6 +181,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         public VariableData doStatement(Statement statement, VariableData previousVd) {
             Map<Variable, Links> linkedVariables = new HashMap<>();
+            List<ExpressionVisitor.WriteMethodCall> writeMethodCalls = new LinkedList<>();
 
             boolean evaluate;
             switch (statement) {
@@ -192,6 +201,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     r = expressionVisitor.visit(expression, previousVd);
                     linkedVariables.putAll(r.extra().map());
                     linkedVariables.merge(r.links().primary(), r.links(), Links::merge);
+                    writeMethodCalls.addAll(r.writeMethodCalls());
                 } else {
                     r = null;
                 }
@@ -205,12 +215,39 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
                 ofReturnValue = new ExpandReturnValueLinks(javaInspector.runtime()).go(rv, r.links(), r.extra(), vd);
             }
-
+            for (ExpressionVisitor.WriteMethodCall wmc : writeMethodCalls) {
+                // rather than taking the links in wmc, we want the fully expanded links
+                // (after running copyEvalIntoVariableData)
+                Map<Variable, Boolean> variablesLinkedToObject = new HashMap<>();
+                Variable primary = wmc.linksFromObject().primary();
+                if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
+                    variablesLinkedToObject.put(primary, true);
+                }
+                for (Link link : wmc.linksFromObject()) {
+                    if (vd.isKnown(link.from().fullyQualifiedName())) {
+                        variablesLinkedToObject.put(link.from(), true);
+                    }
+                    if (vd.isKnown(link.to().fullyQualifiedName())) {
+                        variablesLinkedToObject.put(link.to(), false);
+                    }
+                }
+                if (!variablesLinkedToObject.isEmpty()) {
+                    try {
+                        wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
+                                new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
+                    } catch (IllegalArgumentException iae) {
+                        LinkComputerImpl.this.recursionPrevention.report(methodInfo);
+                        throw iae;
+                    }
+                }
+            }
             return vd;
         }
 
-        private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables, VariableData previousVd, VariableData vd) {
-            Map<Variable, Links> expanded = new ExpandLocal(javaInspector.runtime()).go(linkedVariables, previousVd, vd);
+        private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables,
+                                              VariableData previousVd,
+                                              VariableData vd) {
+            Map<Variable, Links> expanded = expandLocal.go(linkedVariables, previousVd, vd);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
