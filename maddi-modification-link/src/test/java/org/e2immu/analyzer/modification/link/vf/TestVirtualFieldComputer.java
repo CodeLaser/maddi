@@ -130,4 +130,24 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFields vfTpArray2 = vfc.computeAllowTypeParameterArray(listTpArray2);
         assertEquals("$m - T[][][] tsss", vfTpArray2.toString());
     }
+
+
+    @DisplayName("computeAllowTypeParameterArray map")
+    @Test
+    public void test8() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        ParameterizedType mapTE = runtime.newParameterizedType(map, List.of(
+                optional.asParameterizedType().parameters().getFirst(),
+                list.asParameterizedType().parameters().getFirst()
+        ));
+        assertEquals("java.util.Map<T,E>", mapTE.descriptor());
+        VirtualFields vfMapTE = vfc.computeAllowTypeParameterArray(mapTE);
+        assertEquals("$m - KV[] kvs", vfMapTE.toString());
+        // FIXME now look at the translation map 
+    }
+
 }
