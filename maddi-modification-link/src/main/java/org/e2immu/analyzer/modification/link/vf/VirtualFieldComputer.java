@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.vf;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -248,45 +249,60 @@ public class VirtualFieldComputer {
         if (pt.arrays() > 0) {
             return arrayType(pt);
         }
-        if (pt.isTypeParameter() || pt.typeInfo() == null) return NONE;
-        VirtualFields vfType = compute(pt.typeInfo());
-        if (pt.parameters().isEmpty()) {
-            return vfType;
+        if (pt.isTypeParameter()) {
+            // this one is always temporary; it is there as the basis of the recursion
+            return new VirtualFields(null,
+                    runtime.newFieldInfo(pt.typeParameter().simpleName().toLowerCase(), false,
+                            pt, pt.typeParameter().typeInfo()));
         }
-        // we'll need to recursively extend the current vf
+        if (pt.parameters().isEmpty()) {
+            return NONE;
+        }
+        TypeInfo typeInfo = pt.typeInfo();
+        if (typeInfo.packageName().equals("java.util.function")) {
+            return NONE;
+        }
+        // we'll need to recursively extend the current vf; they'll be the basis of our hc
         List<VirtualFields> parameterVfs = pt.parameters().stream()
                 .map(this::computeAllowTypeParameterArray)
                 .filter(vf -> vf != NONE)
                 .toList();
         FieldInfo mutable;
-        if (vfType.mutable() == null && parameterVfs.stream().anyMatch(vf -> vf.mutable() != null)) {
+        if (parameterVfs.stream().anyMatch(vf -> vf.mutable() != null)) {
             mutable = runtime.newFieldInfo("$m", false, atomicBooleanPt, pt.typeInfo());
         } else {
-            mutable = vfType.mutable();
+            Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
+                    ValueImpl.ImmutableImpl.MUTABLE);
+            mutable = immutable.isMutable() ? runtime.newFieldInfo("$m", false, atomicBooleanPt, typeInfo)
+                    : null;
         }
         FieldInfo hiddenContent;
+        int extraMultiplicity = maxMultiplicityFromMethods(typeInfo) - 1;
+
         if (parameterVfs.isEmpty()) {
-            hiddenContent = vfType.hiddenContent();
-        } else if (vfType.hiddenContent() == null) {
-            // e.g. Predicate<List<X>> -- remains a functional interface
-            hiddenContent = null;
-        } else if (vfType.hiddenContent().type().isTypeParameter()) {
-            // e.g. List<X[]>
-            if (parameterVfs.size() == 1) {
-                VirtualFields inner = parameterVfs.getFirst();
-                FieldInfo hc = inner.hiddenContent();
-                if (hc != null) {
-                    hiddenContent = runtime.newFieldInfo(hc.name() + "s", false,
-                            hc.type().copyWithArrays(hc.type().arrays() + 1), pt.typeInfo());
-                } else {
-                    hiddenContent = vfType.hiddenContent();
-                }
+            hiddenContent = null; // nothing here, and nothing in the parameters
+        } else if (parameterVfs.size() == 1) {
+
+            VirtualFields inner = parameterVfs.getFirst();
+            FieldInfo hc = inner.hiddenContent();
+            if (hc != null) {
+                hiddenContent = runtime.newFieldInfo(hc.name() + "s".repeat(extraMultiplicity), false,
+                        hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), pt.typeInfo());
             } else {
-                throw new UnsupportedOperationException("NYI: merge in a container, then + 1");
+                hiddenContent = null;
             }
-        } else {
-            throw new UnsupportedOperationException("NYI: extend container?");
-        }
+        } else if (parameterVfs.stream().allMatch(vf -> vf.hiddenContent() != null
+                                                        && vf.hiddenContent().type().arrays() == 0
+                                                        && vf.hiddenContent().type().isTypeParameter())) {
+            TypeInfo containerType = makeContainerType(typeInfo, parameterVfs.stream()
+                    .map(vf -> vf.hiddenContent().type().typeParameter()).toList());
+            ParameterizedType baseType = containerType.asParameterizedType();
+            String baseName = parameterVfs.stream()
+                    .map(vf -> vf.hiddenContent().name()).collect(Collectors.joining());
+            hiddenContent = runtime.newFieldInfo(baseName + "s".repeat(extraMultiplicity), false,
+                    baseType.copyWithArrays(extraMultiplicity), pt.typeInfo());
+        } else throw new UnsupportedOperationException("NYI");
+
         return new VirtualFields(mutable, hiddenContent);
     }
 
@@ -308,4 +324,9 @@ public class VirtualFieldComputer {
         return new VirtualFields(mutable, hiddenContent);
     }
 
+    // T[] ts + List<H> -> replace ts by hs, with a field 'h' of type parameter H
+    // KV[] kvs -> Map<A, B>  -> replace kvs by abs, with A a and B b
+    public TranslationMap formalToConcrete(FieldInfo formalHc, ParameterizedType concreteHc) {
+        throw new UnsupportedOperationException();
+    }
 }
