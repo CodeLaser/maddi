@@ -20,10 +20,10 @@ import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.variable.*;
 import org.e2immu.language.cst.impl.type.ParameterizedTypeImpl;
 import org.e2immu.language.cst.impl.variable.DependentVariableImpl;
@@ -355,8 +355,14 @@ public class TranslationMapImpl implements TranslationMap {
 
     @Override
     public boolean isEmpty() {
-        return statements.isEmpty() && expressions.isEmpty() && methods.isEmpty() &&
-               types.isEmpty() && variables.isEmpty() && localVariables.isEmpty() && variableExpressions.isEmpty();
+        return statements.isEmpty()
+               && expressions.isEmpty()
+               && methods.isEmpty()
+               && types.isEmpty()
+               && variables.isEmpty()
+               && localVariables.isEmpty()
+               && fieldInfoMap.isEmpty()
+               && variableExpressions.isEmpty();
     }
 
     @Override

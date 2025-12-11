@@ -6,17 +6,13 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.GenericsHelper;
 import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -250,7 +246,7 @@ public class VirtualFieldComputer {
 
     private static final VfTm NONE_NONE = new VfTm(NONE, null);
 
-    public VfTm computeAllowTypeParameterArray(ParameterizedType pt) {
+    public VfTm computeAllowTypeParameterArray(ParameterizedType pt, boolean addTranslation) {
         if (pt.arrays() > 0) {
             return new VfTm(arrayType(pt), null);
         }
@@ -270,7 +266,7 @@ public class VirtualFieldComputer {
         }
         // we'll need to recursively extend the current vf; they'll be the basis of our hc
         List<VfTm> parameterVfs = pt.parameters().stream()
-                .map(this::computeAllowTypeParameterArray)
+                .map(param -> computeAllowTypeParameterArray(param, addTranslation))
                 .filter(vftm -> vftm.virtualFields != NONE)
                 .toList();
         FieldInfo mutable;
@@ -284,8 +280,7 @@ public class VirtualFieldComputer {
         }
         FieldInfo hiddenContent;
         int extraMultiplicity = maxMultiplicityFromMethods(typeInfo) - 1;
-        TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
-        FieldInfo formalHiddenContent = compute(typeInfo).hiddenContent();
+        TranslationMap.Builder tmBuilder = addTranslation ? runtime.newTranslationMapBuilder() : null;
 
         if (parameterVfs.isEmpty()) {
             hiddenContent = null; // nothing here, and nothing in the parameters
@@ -297,13 +292,15 @@ public class VirtualFieldComputer {
                         hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), pt.typeInfo());
 
                 // translation from formal to concrete hidden content variable
-                int hcArrays = hc.type().arrays();
-                FieldInfo wouldBeFormalHc = runtime.newFieldInfo(formalHiddenContent.name() + "s".repeat(hcArrays),
-                        false, formalHiddenContent.type().copyWithArrays(formalHiddenContent.type().arrays() + hcArrays),
-                        typeInfo);
-                FieldReference from = runtime.newFieldReference(wouldBeFormalHc);
-                FieldReference to = runtime.newFieldReference(hiddenContent);
-                tmBuilder.put(from, to);
+                if (addTranslation) {
+                    for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
+                        int hcArrays = hc.type().arrays();
+                        FieldInfo wouldBeFormalHc = runtime.newFieldInfo(formalHiddenContent.name() + "s".repeat(hcArrays),
+                                false, formalHiddenContent.type().copyWithArrays(formalHiddenContent.type().arrays() + hcArrays),
+                                formalHiddenContent.owner());
+                        tmBuilder.put(wouldBeFormalHc, hiddenContent);
+                    }
+                }
             } else {
                 hiddenContent = null;
             }
@@ -318,20 +315,40 @@ public class VirtualFieldComputer {
             hiddenContent = runtime.newFieldInfo(baseName + "s".repeat(extraMultiplicity), false,
                     baseType.copyWithArrays(extraMultiplicity), pt.typeInfo());
 
-            int hcArrays = formalHiddenContent.type().arrays();
-            TypeInfo formalContainerType = makeContainerType(typeInfo, typeInfo.typeParameters());
-            String formalBaseName = typeInfo.typeParameters().stream()
-                    .map(tp -> tp.simpleName().toLowerCase()).collect(Collectors.joining());
-            FieldInfo wouldBeFormalHc = runtime.newFieldInfo(formalBaseName+"s".repeat(hcArrays),
-                    false, formalContainerType.asParameterizedType().copyWithArrays(hcArrays), typeInfo);
+            if (addTranslation) {
+                for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
+                    int hcArrays = formalHiddenContent.type().arrays();
+                    TypeInfo formalContainerType = makeContainerType(typeInfo, typeInfo.typeParameters());
+                    String formalBaseName = typeInfo.typeParameters().stream()
+                            .map(tp -> tp.simpleName().toLowerCase()).collect(Collectors.joining());
+                    FieldInfo wouldBeFormalHc = runtime.newFieldInfo(formalBaseName + "s".repeat(hcArrays),
+                            false, formalContainerType.asParameterizedType().copyWithArrays(hcArrays),
+                            formalHiddenContent.owner());
 
-            // translation from formal to concrete hidden content variable
-            FieldReference from = runtime.newFieldReference(wouldBeFormalHc);
-            FieldReference to = runtime.newFieldReference(hiddenContent);
-            tmBuilder.put(from, to);
+                    // translation from formal to concrete hidden content variable
+                    tmBuilder.put(wouldBeFormalHc, hiddenContent);
+                }
+            }
         } else throw new UnsupportedOperationException("NYI");
 
-        return new VfTm(new VirtualFields(mutable, hiddenContent), tmBuilder.build());
+        return new VfTm(new VirtualFields(mutable, hiddenContent), addTranslation ? tmBuilder.build() : null);
+    }
+
+    private List<FieldInfo> hiddenContentHierarchy(TypeInfo typeInfo) {
+        Stream<ParameterizedType> parentStream = Stream.ofNullable(
+                typeInfo.parentClass() == null || typeInfo.parentClass().isJavaLangObject() ? null : typeInfo.parentClass());
+        Stream<ParameterizedType> superStream = Stream.concat(parentStream, typeInfo.interfacesImplemented().stream());
+        List<FieldInfo> fromHigher = superStream
+                .filter(pt -> sameSetOfTypeParameters(typeInfo.typeParameters(), pt))
+                .map(pt -> pt.typeInfo())
+                .filter(Objects::nonNull)
+                .distinct()
+                .flatMap(ti -> hiddenContentHierarchy(ti).stream())
+                .toList();
+
+        VfTm vfTmFormal = computeAllowTypeParameterArray(typeInfo.asParameterizedType(), false);
+        FieldInfo formalHiddenContent = vfTmFormal.virtualFields.hiddenContent();
+        return Stream.concat(Stream.of(formalHiddenContent), fromHigher.stream()).toList();
     }
 
     private VirtualFields arrayType(ParameterizedType pt) {

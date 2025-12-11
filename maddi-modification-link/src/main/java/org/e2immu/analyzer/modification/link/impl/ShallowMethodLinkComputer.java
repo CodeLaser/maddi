@@ -41,7 +41,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         // virtual fields of the default source = the object ~ "this"
        // VirtualFields vfThis = typeInfo.analysis()
       //          .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfo));
-        VirtualFields vfThis = virtualFieldComputer.computeAllowTypeParameterArray(typeInfo.asParameterizedType()).virtualFields();
+        VirtualFields vfThis = virtualFieldComputer.computeAllowTypeParameterArray(typeInfo.asParameterizedType(),
+                false).virtualFields();
         FieldInfo hcThis = vfThis.hiddenContent();
         FieldReference hcThisFr = hcThis == null ? null : runtime.newFieldReference(hcThis);
         Set<TypeParameter> hcThisTps = hcThis == null ? null : correspondingTypeParameters(typeInfo, hcThis);
@@ -97,7 +98,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         // no $m, no virtual fields... simple type parameter
                         sourceVariable = pi;
                     } else {
-                        VirtualFields vfSource = virtualFieldComputer.computeAllowTypeParameterArray(pi.parameterizedType()).virtualFields();
+                        VirtualFields vfSource = virtualFieldComputer
+                                .computeAllowTypeParameterArray(pi.parameterizedType(), false).virtualFields();
                         if (vfSource.hiddenContent() != null) {
                             sourceVariable = runtime.newFieldReference(vfSource.hiddenContent(),
                                     runtime.newVariableExpression(pi), vfSource.hiddenContent().type());
@@ -126,7 +128,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // see TestShallow,7,8
                 if (linkLevelPi == 1) {
                     ParameterInfo source = methodInfo.parameters().get(i);
-                    VirtualFields sourceVfs = virtualFieldComputer.computeAllowTypeParameterArray(source.parameterizedType()).virtualFields();
+                    VirtualFields sourceVfs = virtualFieldComputer.computeAllowTypeParameterArray(source.parameterizedType(), false).virtualFields();
                     Set<TypeParameter> sourceTps = correspondingTypeParameters(source.parameterizedType().typeInfo(),
                             sourceVfs.hiddenContent()).stream()
                             .map(tp -> formalToConcrete(tp, source.parameterizedType()))
@@ -177,7 +179,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 builder.add(linkNature, slice);
             }
         } else {
-            VirtualFields vfFromType = virtualFieldComputer.computeAllowTypeParameterArray(fromType).virtualFields();
+            VirtualFields vfFromType = virtualFieldComputer.computeAllowTypeParameterArray(fromType, false).virtualFields();
             if (vfFromType.hiddenContent() != null) {
                 FieldReference subFrom = runtime().newFieldReference(vfFromType.hiddenContent(),
                         runtime.newVariableExpression(builder.primary()), vfFromType.hiddenContent().type());
