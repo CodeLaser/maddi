@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.e2immu.analyzer.modification.link.vf.VirtualFields.NONE;
+
 /*
 Given an interface, or a class in the JDK for which we do not want to parse the sources (shallow analysis),
 construct virtual fields (actually make them, but don't attach them to the type) that can be used for type- and
@@ -71,7 +73,7 @@ public class VirtualFieldComputer {
     public VirtualFields computeOnDemand(TypeInfo typeInfo) {
         List<VirtualFields> virtualFieldsOfSuperTypes = typeInfo.recursiveSuperTypeStream().map(this::compute).toList();
 
-        if ("java.util.function".equals(typeInfo.packageName())) return VirtualFields.NONE;
+        if ("java.util.function".equals(typeInfo.packageName())) return NONE;
         Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
                 ValueImpl.ImmutableImpl.MUTABLE);
         FieldInfo mutable;
@@ -221,17 +223,47 @@ public class VirtualFieldComputer {
 
     // ----- computation of "temporary" virtual fields
 
-    /*
-
-    reverts to normal computation in all other cases
-     */
-
     public VirtualFields computeAllowTypeParameterArray(ParameterizedType pt) {
         if (pt.arrays() > 0) {
             return arrayType(pt);
         }
-        // FIXME for List<X[]> we'll need something different
-        return compute(pt.typeInfo());
+        if (pt.isTypeParameter()) return NONE;
+        VirtualFields vfType = compute(pt.typeInfo());
+        if (pt.parameters().isEmpty() || pt.equals(pt.typeInfo().asParameterizedType())) {
+            return vfType;
+        }
+        // we'll need to recursively extend the current vf
+        List<VirtualFields> parameterVfs = pt.parameters().stream()
+                .map(this::computeAllowTypeParameterArray)
+                .filter(vf -> vf != NONE)
+                .toList();
+        FieldInfo mutable;
+        if (vfType.mutable() == null && parameterVfs.stream().anyMatch(vf -> vf.mutable() != null)) {
+            mutable = runtime.newFieldInfo("$m", false, atomicBooleanPt, pt.typeInfo());
+        } else {
+            mutable = vfType.mutable();
+        }
+        FieldInfo hiddenContent;
+        if (vfType.hiddenContent() == null) {
+            throw new UnsupportedOperationException("NYI: merge the parameters into a container");
+        } else if (vfType.hiddenContent().type().isTypeParameter()) {
+            // e.g. List<X[]>
+            if (parameterVfs.size() == 1) {
+                VirtualFields inner = parameterVfs.getFirst();
+                FieldInfo hc = inner.hiddenContent();
+                if (hc != null) {
+                    hiddenContent = runtime.newFieldInfo(hc.name() + "s", false,
+                            hc.type().copyWithArrays(hc.type().arrays() + 1), pt.typeInfo());
+                } else {
+                    hiddenContent = vfType.hiddenContent();
+                }
+            } else {
+                throw new UnsupportedOperationException("NYI: merge in a container, then + 1");
+            }
+        } else {
+            throw new UnsupportedOperationException("NYI: extend container?");
+        }
+        return new VirtualFields(mutable, hiddenContent);
     }
 
     private VirtualFields arrayType(ParameterizedType pt) {
@@ -247,7 +279,7 @@ public class VirtualFieldComputer {
         // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
         FieldInfo mutable = runtime.newFieldInfo("$m" + namedType.simpleName(),
                 false, atomicBooleanPt, typeInfo);
-        String hcName = namedType.simpleName().toLowerCase() + "s";
+        String hcName = namedType.simpleName().toLowerCase() + "s".repeat(pt.arrays());
         FieldInfo hiddenContent = runtime.newFieldInfo(hcName, false, pt, typeInfo);
         return new VirtualFields(mutable, hiddenContent);
     }

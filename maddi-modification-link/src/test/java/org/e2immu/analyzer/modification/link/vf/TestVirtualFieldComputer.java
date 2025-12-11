@@ -106,6 +106,10 @@ public class TestVirtualFieldComputer extends CommonTest {
         ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         VirtualFields vfTpArray = vfc.computeAllowTypeParameterArray(tpArray);
         assertEquals("$mT - T[] ts", vfTpArray.toString());
+
+        ParameterizedType tpArray2 = optional.asParameterizedType().parameters().getFirst().copyWithArrays(2);
+        VirtualFields vfTpArray2 = vfc.computeAllowTypeParameterArray(tpArray2);
+        assertEquals("$mT - T[][] tss", vfTpArray2.toString());
     }
 
     @DisplayName("computeAllowTypeParameterArray List<TP[]>")
@@ -113,11 +117,17 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test7() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
-        ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         ParameterizedType listTpArray = runtime.newParameterizedType(list, List.of(tpArray));
         assertEquals("java.util.List<T[]>", listTpArray.descriptor());
-        VirtualFields vfTpArray = vfc.computeAllowTypeParameterArray(tpArray);
-        assertEquals("$mT - T[][] tss", vfTpArray.toString());
+        VirtualFields vfTpArray = vfc.computeAllowTypeParameterArray(listTpArray);
+        assertEquals("$m - T[][] tss", vfTpArray.toString());
+
+        ParameterizedType tpArray2 = optional.asParameterizedType().parameters().getFirst().copyWithArrays(2);
+        ParameterizedType listTpArray2 = runtime.newParameterizedType(list, List.of(tpArray2));
+        assertEquals("java.util.List<T[][]>", listTpArray2.descriptor());
+        VirtualFields vfTpArray2 = vfc.computeAllowTypeParameterArray(listTpArray2);
+        assertEquals("$m - T[][][] tsss", vfTpArray2.toString());
     }
 }
