@@ -161,7 +161,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo entrySet = map.findUniqueMethod("entrySet", 0);
         MethodLinkedVariables mlvEntrySet = linkComputer.doMethod(entrySet);
-        assertEquals("[] --> entrySet.$m==this.$m,entrySet.ts~this.kvs", mlvEntrySet.toString());
+        assertEquals("[] --> entrySet.$m==this.$m,entrySet.kvs~this.kvs", mlvEntrySet.toString());
 
         MethodInfo getOrDefault = map.findUniqueMethod("getOrDefault", 2);
         MethodLinkedVariables mlvGetOrDefault = linkComputer.doMethod(getOrDefault);
@@ -249,6 +249,6 @@ public class TestShallow extends CommonTest {
         assertEquals("java.util.Collections.addAll(java.util.Collection<? super T>,T...)",
                 addAll.fullyQualifiedName());
         MethodLinkedVariables mlvC1 = addAll.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(addAll));
-        assertEquals("[-, 1:elements~0:c.ts] --> -", mlvC1.toString());
+        assertEquals("[-, 1:elements.ts~0:c.ts] --> -", mlvC1.toString());
     }
 }

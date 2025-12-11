@@ -227,9 +227,9 @@ public class VirtualFieldComputer {
         if (pt.arrays() > 0) {
             return arrayType(pt);
         }
-        if (pt.isTypeParameter()) return NONE;
+        if (pt.isTypeParameter() || pt.typeInfo() == null) return NONE;
         VirtualFields vfType = compute(pt.typeInfo());
-        if (pt.parameters().isEmpty() || pt.equals(pt.typeInfo().asParameterizedType())) {
+        if (pt.parameters().isEmpty()) {
             return vfType;
         }
         // we'll need to recursively extend the current vf
@@ -244,8 +244,11 @@ public class VirtualFieldComputer {
             mutable = vfType.mutable();
         }
         FieldInfo hiddenContent;
-        if (vfType.hiddenContent() == null) {
-            throw new UnsupportedOperationException("NYI: merge the parameters into a container");
+        if (parameterVfs.isEmpty()) {
+            hiddenContent = vfType.hiddenContent();
+        } else if (vfType.hiddenContent() == null) {
+            // e.g. Predicate<List<X>> -- remains a functional interface
+            hiddenContent = null;
         } else if (vfType.hiddenContent().type().isTypeParameter()) {
             // e.g. List<X[]>
             if (parameterVfs.size() == 1) {

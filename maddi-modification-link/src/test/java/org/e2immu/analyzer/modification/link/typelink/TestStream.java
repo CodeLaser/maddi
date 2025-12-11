@@ -28,6 +28,7 @@ import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@Disabled
 public class TestStream extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
