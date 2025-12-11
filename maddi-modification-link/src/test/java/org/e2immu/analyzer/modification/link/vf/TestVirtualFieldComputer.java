@@ -3,15 +3,17 @@ package org.e2immu.analyzer.modification.link.vf;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class TestVirtualFieldComputer extends CommonTest {
 
@@ -95,8 +97,12 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test5() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         ParameterizedType objectArray = runtime.objectParameterizedType().copyWithArrays(1);
-        VirtualFields vfStream = vfc.computeAllowTypeParameterArray(objectArray);
+        VirtualFieldComputer.VfTm vfTm = vfc.computeAllowTypeParameterArray(objectArray);
+        VirtualFields vfStream = vfTm.virtualFields();
         assertEquals("$mObject - Object[] objects", vfStream.toString());
+        VirtualFields vfFormal = vfc.compute(runtime.objectTypeInfo());
+        assertEquals("/ - /", vfFormal.toString());
+        assertNull(vfTm.formalToConcrete());
     }
 
     @DisplayName("computeAllowTypeParameterArray TP[]")
@@ -105,11 +111,13 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
-        VirtualFields vfTpArray = vfc.computeAllowTypeParameterArray(tpArray);
+        VirtualFieldComputer.VfTm vfTmTpArray = vfc.computeAllowTypeParameterArray(tpArray);
+        VirtualFields vfTpArray = vfTmTpArray.virtualFields();
         assertEquals("$mT - T[] ts", vfTpArray.toString());
+        assertNull(vfTmTpArray.formalToConcrete());
 
         ParameterizedType tpArray2 = optional.asParameterizedType().parameters().getFirst().copyWithArrays(2);
-        VirtualFields vfTpArray2 = vfc.computeAllowTypeParameterArray(tpArray2);
+        VirtualFields vfTpArray2 = vfc.computeAllowTypeParameterArray(tpArray2).virtualFields();
         assertEquals("$mT - T[][] tss", vfTpArray2.toString());
     }
 
@@ -122,14 +130,39 @@ public class TestVirtualFieldComputer extends CommonTest {
         ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         ParameterizedType listTpArray = runtime.newParameterizedType(list, List.of(tpArray));
         assertEquals("java.util.List<T[]>", listTpArray.descriptor());
-        VirtualFields vfTpArray = vfc.computeAllowTypeParameterArray(listTpArray);
-        assertEquals("$m - T[][] tss", vfTpArray.toString());
+        VirtualFieldComputer.VfTm vfTmListTpArray = vfc.computeAllowTypeParameterArray(listTpArray);
+        VirtualFields vfListTpArray = vfTmListTpArray.virtualFields();
+        assertEquals("$m - T[][] tss", vfListTpArray.toString());
+        assertEquals("""
+                tss [T[][] T=TP#0 in Iterable []] --> tss [T[][] T=TP#0 in Optional []]\
+                """, txDetails(vfTmListTpArray.formalToConcrete().variables()));
 
         ParameterizedType tpArray2 = optional.asParameterizedType().parameters().getFirst().copyWithArrays(2);
         ParameterizedType listTpArray2 = runtime.newParameterizedType(list, List.of(tpArray2));
         assertEquals("java.util.List<T[][]>", listTpArray2.descriptor());
-        VirtualFields vfTpArray2 = vfc.computeAllowTypeParameterArray(listTpArray2);
+        VirtualFieldComputer.VfTm vfTmListTpArray2 = vfc.computeAllowTypeParameterArray(listTpArray2);
+        VirtualFields vfTpArray2 = vfTmListTpArray2.virtualFields();
         assertEquals("$m - T[][][] tsss", vfTpArray2.toString());
+        assertEquals("""
+                tsss [T[][][] T=TP#0 in Iterable []] --> tsss [T[][][] T=TP#0 in Optional []]\
+                """, txDetails(vfTmListTpArray2.formalToConcrete().variables()));
+    }
+
+    private String txDetails(Map<? extends Variable, ? extends Variable> map) {
+        return map.entrySet().stream()
+                .map(e -> txDetail(e.getKey())
+                          + " --> " + txDetail(e.getValue())).collect(Collectors.joining("\n"));
+    }
+
+    private String txDetail(Variable v) {
+        String type = v.parameterizedType().detailedString();
+        String owner = v.parameterizedType().typeParameter() != null
+                ? " " + v.parameterizedType().typeParameter().toStringWithTypeBounds() : "";
+        String fields = v.parameterizedType().typeInfo() == null ? ""
+                : " " + v.parameterizedType().typeInfo().fields().stream()
+                .map(f -> f.type().typeParameter().toStringWithTypeBounds())
+                .collect(Collectors.joining(", "));
+        return v.simpleName() + " [" + type + owner + fields + "]";
     }
 
 
@@ -146,33 +179,14 @@ public class TestVirtualFieldComputer extends CommonTest {
                 list.asParameterizedType().parameters().getFirst()
         ));
         assertEquals("java.util.Map<T,E>", mapTE.descriptor());
-        VirtualFields vfMapTE = vfc.computeAllowTypeParameterArray(mapTE);
+        VirtualFieldComputer.VfTm vfTmMapTE = vfc.computeAllowTypeParameterArray(mapTE);
+        VirtualFields vfMapTE = vfTmMapTE.virtualFields();
         assertEquals("$m - TE[] tes", vfMapTE.toString());
         assertEquals("java.util.Optional[T]", vfMapTE.hiddenContent().type().typeInfo()
                 .fields().getFirst().type().typeParameter().descriptor());
+        assertEquals("""
+                kvs [java.util.Map.KV[] K=TP#0 in Map [], V=TP#1 in Map []] --> \
+                tes [java.util.Map.TE[] T=TP#0 in Optional [], E=TP#0 in List []]\
+                """, txDetails(vfTmMapTE.formalToConcrete().variables()));
     }
-
-    @DisplayName("formal to concrete")
-    @Test
-    public void test9() {
-        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
-        VirtualFields vfMap = vfc.compute(map);
-        assertEquals("$m - KV[] kvs", vfMap.toString());
-        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
-        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
-        ParameterizedType mapTE = runtime.newParameterizedType(map, List.of(
-                optional.asParameterizedType().parameters().getFirst(),
-                list.asParameterizedType().parameters().getFirst()
-        ));
-        assertEquals("java.util.Map<T,E>", mapTE.descriptor());
-        VirtualFields vfMapTE = vfc.computeAllowTypeParameterArray(mapTE);
-        assertEquals("$m - TE[] tes", vfMapTE.toString());
-        assertEquals("java.util.Optional[T]", vfMapTE.hiddenContent().type().typeInfo()
-                .fields().getFirst().type().typeParameter().descriptor());
-        TranslationMap tm = vfc.formalToConcrete(vfMap.hiddenContent(), mapTE);
-    }
-
-
 }
