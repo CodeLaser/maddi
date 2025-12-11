@@ -163,7 +163,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                           Variable sourceField,
                           Set<TypeParameter> typeParametersOfSourceField,
                           boolean reverse) {
-        if (targetType.typeParameter() != null && typeParametersOfSourceField.contains(targetType.typeParameter())) {
+        if (targetType.typeParameter() != null
+            && targetType.arrays() == 0
+            && typeParametersOfSourceField.contains(targetType.typeParameter())) {
             assert targetType.typeParameter().typeBounds().isEmpty() : """
                     cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
                     the type parameter can be dependent""";
@@ -181,41 +183,31 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 targetBuilder.add(linkNature, slice);
 
             }
-        } else if (targetType.typeInfo() != null) {
-            VirtualFields vfType = virtualFieldComputer.compute(targetType.typeInfo());
-            if (vfType.hiddenContent() == null) {
-                return;
-            }
-            FieldReference linkSource = runtime().newFieldReference(vfType.hiddenContent(),
-                    runtime.newVariableExpression(targetBuilder.primary()), vfType.hiddenContent().type());
-            // FIXME check extractTypeParameters -> ?
-            Set<TypeParameter> typeParametersReturnType = targetType.extractTypeParameters();
-            if (typeParametersReturnType.equals(typeParametersOfSourceField)) {
-                int arraysSource = sourceType.arrays();
-                int multiplicity = virtualFieldComputer.maxMultiplicityFromMethods(targetType.typeInfo());
-                if (multiplicity - 2 >= arraysSource) {
-                    // Stream<T> Optional.stream() (going from arraySource 0 to multi 2)
-                    targetBuilder.add(linkSource, CONTAINS, sourceField);
-                } else if (multiplicity - 1 == arraysSource) {
-                    // List.addAll(...) target: Collection, source T[] multi 2, array source 1
-                    // List.subList target List, source T[] multi 2, array source 1
-                    targetBuilder.add(linkSource, multiplicity == 1 ? IS_IDENTICAL_TO : INTERSECTION_NOT_EMPTY, sourceField);
-                } else if (multiplicity <= arraysSource) {
-                    // findFirst.t < this.ts in Stream (multi 1, array source 1)
-                    targetBuilder.add(linkSource, IS_ELEMENT_OF, sourceField);
-                }
-            } else {
-                List<TypeParameter> intersection = new ArrayList<>(typeParametersReturnType.stream()
-                        .sorted(Comparator.comparingInt(TypeParameter::getIndex)).toList());
-                intersection.retainAll(typeParametersOfSourceField);
-                if (!intersection.isEmpty()) {
-                    if (intersection.size() == typeParametersReturnType.size()) {
-                        FieldInfo theField = findField(intersection, sourceType.typeInfo());
-                        DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(sourceField),
-                                runtime.newInt(-1));
-                        Expression scope = runtime.newVariableExpression(dv);
-                        FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                        targetBuilder.add(linkSource, INTERSECTION_NOT_EMPTY, slice);
+        } else {
+            VirtualFields vfType = virtualFieldComputer.computeAllowTypeParameterArray(targetType);
+            if (vfType.hiddenContent() != null) {
+                FieldReference linkSource = runtime().newFieldReference(vfType.hiddenContent(),
+                        runtime.newVariableExpression(targetBuilder.primary()), vfType.hiddenContent().type());
+                // FIXME check extractTypeParameters -> ?
+                Set<TypeParameter> typeParametersReturnType = targetType.extractTypeParameters();
+                if (typeParametersReturnType.equals(typeParametersOfSourceField)) {
+                    int arraysSource = sourceType.arrays();
+                    int arrays = vfType.hiddenContent().type().arrays();
+                    LinkNature linkNature = deriveLinkNature(arrays, arraysSource, reverse);
+                    targetBuilder.add(linkSource, linkNature, sourceField);
+                } else {
+                    List<TypeParameter> intersection = new ArrayList<>(typeParametersReturnType.stream()
+                            .sorted(Comparator.comparingInt(TypeParameter::getIndex)).toList());
+                    intersection.retainAll(typeParametersOfSourceField);
+                    if (!intersection.isEmpty()) {
+                        if (intersection.size() == typeParametersReturnType.size()) {
+                            FieldInfo theField = findField(intersection, sourceType.typeInfo());
+                            DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(sourceField),
+                                    runtime.newInt(-1));
+                            Expression scope = runtime.newVariableExpression(dv);
+                            FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
+                            targetBuilder.add(linkSource, INTERSECTION_NOT_EMPTY, slice);
+                        }
                     }
                 }
             }
