@@ -156,7 +156,16 @@ public class LinksImpl implements Links {
 
         @Override
         public @NotNull String toString() {
-            return Util.simpleName(from) + linkNature + Util.simpleName(to);
+            String ln;
+            if (linkNature == LinkNature.IS_ELEMENT_OF || linkNature == LinkNature.CONTAINS) {
+                int fromArrays = from.parameterizedType().arrays();
+                int toArrays = to.parameterizedType().arrays();
+                int numSymbols = Math.max(1, Math.abs(fromArrays - toArrays));
+                ln = linkNature.toString().repeat(numSymbols);
+            } else {
+                ln = linkNature.toString();
+            }
+            return Util.simpleName(from) + ln + Util.simpleName(to);
         }
     }
 

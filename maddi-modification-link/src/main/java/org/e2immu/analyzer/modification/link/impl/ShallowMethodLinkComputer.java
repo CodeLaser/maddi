@@ -77,31 +77,46 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             Value.Independent independent = pi.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
                     ValueImpl.IndependentImpl.DEPENDENT);
             Map<Integer, Integer> dependencies = independent.linkToParametersReturnValue();
-            if (!dependencies.isEmpty()) {
-                int linkLevel = dependencies.getOrDefault(-1, -1);
-                // a dependence from the parameter into the return variable; we'll add it to the return variable
-                // linkLevel 1 == independent HC
-                if (linkLevel == 1) {
-                    transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi, hiddenContentTps,
-                            true);
-                }
-            } else if (!independent.isIndependent() && hiddenContent != null) {
-                if (methodInfo.isFactoryMethod()) {
-                    transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi,
-                            hiddenContentMethodTypeParameters, true);
+            int linkLevelRv = dependencies.getOrDefault(-1, -1);
+            // a dependence from the parameter into the return variable; we'll add it to the return variable
+            // linkLevel 1 == independent HC
+            if (linkLevelRv == 1) {
+                transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi, hiddenContentTps,
+                        true);
+            } else if (!independent.isIndependent()) {
+                if (hiddenContent != null) {
+                    if (methodInfo.isFactoryMethod()) {
+                        transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi,
+                                hiddenContentMethodTypeParameters, true);
+                    } else {
+                        transfer(piBuilder, pi.parameterizedType(), hiddenContent.type(), hiddenContentFr, hiddenContentTps,
+                                false);
+                    }
                 } else {
-                    transfer(piBuilder, pi.parameterizedType(), hiddenContent.type(), hiddenContentFr, hiddenContentTps,
-                            false);
+                    // from parameters into return value, no object (static method, but not a factory method)
+                    if (methodInfo.returnType().typeParameter() != null) {
+                        // there is no real "type" to be found
+                        transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi,
+                                Set.of(methodInfo.returnType().typeParameter()), false);
+                    } else {
+                        TypeInfo typeInfoRv = methodInfo.returnType().typeInfo();
+                        VirtualFields virtualFieldsRv = typeInfoRv.analysis()
+                                .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfoRv));
+                        FieldInfo hiddenContentRv = virtualFieldsRv.hiddenContent();
+                        if(hiddenContentRv != null) {
+                            throw new UnsupportedOperationException("NYI, use the return type as base ~ factory method");
+                        }
+                    }
                 }
             }
             // links to other parameters
             for (int i = 0; i < pi.index(); ++i) {
-                int linkLevel = crosslinkInIndependentProperty(methodInfo, pi, i);
+                int linkLevelPi = crosslinkInIndependentProperty(methodInfo, pi, i);
                 // a dependence from the parameter into another parameter; we'll add it here
                 // linkLevel 1 == independent HC.
                 // Example: Collections.addAll(...), param 0 (source) -> param 1 (target), at link level 1
                 // see TestShallow,7,8
-                if (linkLevel == 1) {
+                if (linkLevelPi == 1) {
                     ParameterInfo source = methodInfo.parameters().get(i);
                     VirtualFields sourceVfs = virtualFieldComputer.computeAllowTypeParameterArray(source.parameterizedType());
                     Set<TypeParameter> sourceTps = correspondingTypeParameters(source.parameterizedType().typeInfo(),
@@ -141,9 +156,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     targetBuilder.add(linkNature, sourceField);
                 }
             } else if (arrays < arraysSource) {
+                LinkNature linkNature = reverse ? CONTAINS : IS_ELEMENT_OF;
                 if (sourceType.typeParameter() != null) {
                     // one element out of an array
-                    LinkNature linkNature = reverse ? CONTAINS : IS_ELEMENT_OF;
                     targetBuilder.add(linkNature, sourceField);
                 } else {
                     // get one element out of a container array; we'll need a slice
@@ -152,7 +167,14 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                             runtime.newInt(-1));
                     Expression scope = runtime.newVariableExpression(dv);
                     FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                    targetBuilder.add(IS_ELEMENT_OF, slice);
+                    targetBuilder.add(linkNature, slice);
+                }
+            } else {
+                LinkNature linkNature = reverse ? IS_ELEMENT_OF : CONTAINS;
+                if (sourceType.typeParameter() != null) {
+                    targetBuilder.add(linkNature, sourceField);
+                } else {
+                    throw new UnsupportedOperationException("NYI");
                 }
             }
         } else if (targetType.typeInfo() != null) {

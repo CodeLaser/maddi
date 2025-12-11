@@ -31,6 +31,9 @@ public class TestShallowArray extends CommonTest {
                 public static <X> X[][] method4(X[] x) {
                     return null;
                 }
+                public static <X> X[][][] method5(X[] x) {
+                    return null;
+                }
             }
             """;
 
@@ -41,23 +44,26 @@ public class TestShallowArray extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, true, true);
-        tlc.doPrimaryType(C);
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
-        MethodLinkedVariables tlv1 = method1.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*[Type param X]:0[Type param X[]])", tlv1.toString());
+        MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method1));
+        assertEquals("[-] --> method1<0:x", mlv1.toString());
 
         MethodInfo method2 = C.findUniqueMethod("method2", 1);
-        MethodLinkedVariables tlv2 = method2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*[Type param X]:[0]0[Type param X[][]])", tlv2.toString());
+        MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method2));
+        assertEquals("[-] --> method2<<0:x", mlv2.toString());
 
         MethodInfo method3 = C.findUniqueMethod("method3", 1);
-        MethodLinkedVariables tlv3 = method3.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*[Type param X[]]:0[Type param X[][]])", tlv3.toString());
+        MethodLinkedVariables mlv3 = method3.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method3));
+        assertEquals("[-] --> method3<0:x", mlv3.toString());
 
         MethodInfo method4 = C.findUniqueMethod("method4", 1);
-        MethodLinkedVariables tlv4 = method4.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(0[Type param X[][]]:*[Type param X[]])", tlv4.toString());
+        MethodLinkedVariables mlv4 = method4.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method4));
+        assertEquals("[-] --> method4>0:x", mlv4.toString());
+
+        MethodInfo method5 = C.findUniqueMethod("method5", 1);
+        MethodLinkedVariables mlv5 = method5.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method5));
+        assertEquals("[-] --> method5>>0:x", mlv5.toString());
     }
 
     @Language("java")
@@ -89,20 +95,20 @@ public class TestShallowArray extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, true, true);
         tlc.doPrimaryType(C);
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
-        MethodLinkedVariables tlv1 = method1.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*[Type param X]:[0]0[Type java.util.List<X[]>])", tlv1.toString());
+        MethodLinkedVariables mlv1 = method1.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("x(*[Type param X]:[0]0[Type java.util.List<X[]>])", mlv1.toString());
 
         MethodInfo method2 = C.findUniqueMethod("method2", 1);
-        MethodLinkedVariables tlv2 = method2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*[Type param X]:[0,0]0[Type java.util.List<X[][]>])", tlv2.toString());
+        MethodLinkedVariables mlv2 = method2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("x(*[Type param X]:[0,0]0[Type java.util.List<X[][]>])", mlv2.toString());
 
         MethodInfo method3 = C.findUniqueMethod("method3", 1);
-        MethodLinkedVariables tlv3 = method3.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*[Type param X[]]:[0]0[Type java.util.List<X[][]>])", tlv3.toString());
+        MethodLinkedVariables mlv3 = method3.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("x(*[Type param X[]]:[0]0[Type java.util.List<X[][]>])", mlv3.toString());
 
         MethodInfo method4 = C.findUniqueMethod("method4", 1);
-        MethodLinkedVariables tlv4 = method4.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        MethodLinkedVariables mlv4 = method4.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         //! we cannot find a T[][] in List<T[]>, which is correct!!
-        assertEquals("", tlv4.toString());
+        assertEquals("", mlv4.toString());
     }
 }
