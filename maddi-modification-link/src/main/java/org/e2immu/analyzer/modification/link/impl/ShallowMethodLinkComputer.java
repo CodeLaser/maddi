@@ -32,13 +32,15 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
     public MethodLinkedVariables go(MethodInfo methodInfo) {
         LOGGER.debug("Computing method linked variables of {}", methodInfo);
-
+        ParameterizedType returnType = methodInfo.returnType();
         TypeInfo typeInfo = methodInfo.typeInfo();
+        ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
+        Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
+
+        // virtual fields of the default source = the object ~ "this"
         VirtualFields virtualFields = typeInfo.analysis()
                 .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfo));
         FieldInfo hiddenContent = virtualFields.hiddenContent();
-        ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
-        Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
         FieldReference hiddenContentFr = hiddenContent == null ? null : runtime.newFieldReference(hiddenContent);
         Set<TypeParameter> hiddenContentTps = hiddenContent == null ? null : correspondingTypeParameters(typeInfo,
                 hiddenContent);
@@ -48,10 +50,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.DEPENDENT);
             if (!independent.isIndependent()) {
-                transfer(ofReturnValue, methodInfo.returnType(), hiddenContent.type(), hiddenContentFr, hiddenContentTps,
+                transfer(ofReturnValue, returnType, hiddenContent.type(), hiddenContentFr, hiddenContentTps,
                         false);
                 if (independent.isDependent()) {
-                    ParameterizedType returnType = methodInfo.returnType();
                     assert returnType.typeInfo() != null || returnType.arrays() > 0
                             : "A type parameter cannot be dependent; a type parameter array can";
                     VirtualFields vfTarget = virtualFieldComputer.computeAllowTypeParameterArray(returnType);
@@ -81,30 +82,46 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             // a dependence from the parameter into the return variable; we'll add it to the return variable
             // linkLevel 1 == independent HC
             if (linkLevelRv == 1) {
-                transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi, hiddenContentTps,
+                transfer(ofReturnValue, returnType, pi.parameterizedType(), pi, hiddenContentTps,
                         true);
             } else if (!independent.isIndependent()) {
                 if (hiddenContent != null) {
                     if (methodInfo.isFactoryMethod()) {
-                        transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi,
+                        transfer(ofReturnValue, returnType, pi.parameterizedType(), pi,
                                 hiddenContentMethodTypeParameters, true);
                     } else {
                         transfer(piBuilder, pi.parameterizedType(), hiddenContent.type(), hiddenContentFr, hiddenContentTps,
                                 false);
                     }
                 } else {
-                    // from parameters into return value, no object (static method, but not a factory method)
-                    if (methodInfo.returnType().typeParameter() != null) {
-                        // there is no real "type" to be found
-                        transfer(ofReturnValue, methodInfo.returnType(), pi.parameterizedType(), pi,
-                                Set.of(methodInfo.returnType().typeParameter()), false);
+                    Variable sourceVariable;
+                    if (pi.parameterizedType().typeParameter() != null && pi.parameterizedType().arrays() == 0) {
+                        // no $m, no virtual fields... simple type parameter
+                        sourceVariable = pi;
                     } else {
-                        TypeInfo typeInfoRv = methodInfo.returnType().typeInfo();
-                        VirtualFields virtualFieldsRv = typeInfoRv.analysis()
-                                .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfoRv));
-                        FieldInfo hiddenContentRv = virtualFieldsRv.hiddenContent();
-                        if (hiddenContentRv != null) {
-                            throw new UnsupportedOperationException("NYI, use the return type as base ~ factory method");
+                        VirtualFields vfSource = virtualFieldComputer.computeAllowTypeParameterArray(pi.parameterizedType());
+                        if (vfSource.hiddenContent() != null) {
+                            sourceVariable = runtime.newFieldReference(vfSource.hiddenContent(),
+                                    runtime.newVariableExpression(pi), vfSource.hiddenContent().type());
+                        } else {
+                            sourceVariable = null; // bail out, there will be no link
+                        }
+                    }
+                    if (sourceVariable != null) {
+                        if (returnType.typeParameter() != null && returnType.arrays() == 0) {
+                            // there is no real "type" to be found
+                            transfer(ofReturnValue, returnType, sourceVariable.parameterizedType(),
+                                    sourceVariable, Set.of(returnType.typeParameter()), false);
+                        } else {
+                            VirtualFields vfTarget = virtualFieldComputer.computeAllowTypeParameterArray(returnType);
+                            if (vfTarget.hiddenContent() != null) {
+                                FieldReference vfTargetFr = runtime.newFieldReference(vfTarget.hiddenContent(),
+                                        runtime.newVariableExpression(rv), vfTarget.hiddenContent().type());
+                                // FIXME type parameters...
+                                Set<TypeParameter> returnTypeTypeParameters = vfTarget.hiddenContent().type().extractTypeParameters();
+                                transfer(ofReturnValue, vfTargetFr.parameterizedType(), sourceVariable.parameterizedType(),
+                                        sourceVariable, returnTypeTypeParameters, false);
+                            }
                         }
                     }
                 }
@@ -138,6 +155,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         return parameterizedType.parameters().get(formal.getIndex()).typeParameter();
     }
 
+    // important: the sourceType must be virtual fields/type parameters; the virtual fields of the target type get computed
+    // when necessary
     private void transfer(Links.Builder targetBuilder,
                           ParameterizedType targetType,
                           ParameterizedType sourceType,
@@ -149,15 +168,10 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
                     the type parameter can be dependent""";
             int arrays = targetType.arrays();
+            LinkNature linkNature = deriveLinkNature(arrays, sourceType.arrays(), reverse);
             if (sourceType.typeParameter() != null) {
-                int arraysSource = sourceType.arrays();
-                LinkNature linkNature = deriveLinkNature(arrays, arraysSource, reverse);
                 targetBuilder.add(linkNature, sourceField);
             } else {
-                // we ignore method parameters because we might be going from parameter directly into the result
-                // because we're in shallow mode, fields will be virtual and standardized, so they shoul
-                LinkNature linkNature = deriveLinkNature(arrays, sourceType.arrays(), reverse);
-
                 // get one element out of a container array; we'll need a slice
                 FieldInfo theField = findField(List.of(targetType.typeParameter()), sourceType.typeInfo());
                 DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(sourceField),
@@ -174,6 +188,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             }
             FieldReference linkSource = runtime().newFieldReference(vfType.hiddenContent(),
                     runtime.newVariableExpression(targetBuilder.primary()), vfType.hiddenContent().type());
+            // FIXME check extractTypeParameters -> ?
             Set<TypeParameter> typeParametersReturnType = targetType.extractTypeParameters();
             if (typeParametersReturnType.equals(typeParametersOfSourceField)) {
                 int arraysSource = sourceType.arrays();
