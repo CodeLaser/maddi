@@ -47,11 +47,11 @@ public class TestShallowPrefix extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
         MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
-        VirtualFields vfOneStatic = vfc.computeAllowTypeParameterArray(oneStatic.returnType());
+        VirtualFields vfOneStatic = vfc.computeAllowTypeParameterArray(oneStatic.returnType()).virtualFields();
         assertEquals("$m - XY[] xys", vfOneStatic.toString());
 
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
-        VirtualFields vfOneInstance = vfc.computeAllowTypeParameterArray(oneStatic.returnType());
+        VirtualFields vfOneInstance = vfc.computeAllowTypeParameterArray(oneStatic.returnType()).virtualFields();
         assertEquals("$m - XY[] xys", vfOneInstance.toString());
 
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
