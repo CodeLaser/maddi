@@ -5,11 +5,15 @@ import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
@@ -77,12 +81,16 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
 
                     ParameterInfo from = methodInfo.parameters().get(i);
                     if (from.isVarArgs()) {
+                        LinkNature linkNature = varargsLinkNature(link.linkNature());
                         for (int j = i; j < params.size(); ++j) {
+                            Variable fromPrimary = params.get(j).links().primary();
+                            Variable linkFrom = downgrade(link.from(), fromPrimary);
                             // loop over all the elements in the varargs
-                            addCrosslink(params, extra, link, true, j, from, translatedTo);
+                            addCrosslink(fromPrimary, extra, j, from, linkFrom, linkNature, translatedTo);
                         }
                     } else {
-                        addCrosslink(params, extra, link, false, i, from, translatedTo);
+                        Variable fromPrimary = params.get(i).links().primary();
+                        addCrosslink(fromPrimary, extra, i, from, link.from(), link.linkNature(), translatedTo);
                     }
                 }
             }
@@ -90,23 +98,44 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         }
     }
 
-    private void addCrosslink(List<ExpressionVisitor.Result> params,
-                              Map<Variable, Links> extra,
-                              Link link,
-                              boolean varargs,
-                              int i,
-                              ParameterInfo from,
-                              Variable translatedTo) {
-        Variable fromPrimary = params.get(i).links().primary();
-        Links.Builder builder = new LinksImpl.Builder(fromPrimary);
-        TranslationMap fromTm = runtime.newTranslationMapBuilder().put(from, fromPrimary).build();
-        Variable translatedFrom = fromTm.translateVariableRecursively(link.from());
-        LinkNature linkNature = varargs ? varargsLinkNature(link.linkNature(), from, fromPrimary) : link.linkNature();
-        builder.add(translatedFrom, linkNature, translatedTo);
-        extra.merge(fromPrimary, builder.build(), Links::merge);
+    private Variable downgrade(Variable from, Variable fromPrimary) {
+        String simpleName = from.simpleName();
+        assert simpleName.length() > 1 && simpleName.endsWith("s");
+        ParameterizedType newType = from.parameterizedType().copyWithOneFewerArrays();
+        String nameOneFewerS = simpleName.substring(0, simpleName.length() - 1);
+        if (from.parameterizedType().arrays() > 1) {
+            if (from instanceof FieldReference fr) {
+                FieldInfo fi = runtime.newFieldInfo(nameOneFewerS, false, newType, fr.fieldInfo().owner());
+                return runtime.newFieldReference(fi, fr.scope(), newType);
+            }
+            if (from instanceof LocalVariable) {
+                return runtime.newLocalVariable(nameOneFewerS, newType);
+            }
+            throw new UnsupportedOperationException();
+        }
+        if (from instanceof FieldReference) {
+            // elements.ts -> t
+            return fromPrimary;
+        }
+        throw new UnsupportedOperationException();
     }
 
-    private LinkNature varargsLinkNature(LinkNature linkNature, ParameterInfo from, Variable fromPrimary) {
+    private void addCrosslink(Variable fromPrimary,
+                              Map<Variable, Links> extra,
+                              int i,
+                              ParameterInfo from,
+                              Variable linkFrom,
+                              LinkNature linkNature,
+                              Variable translatedTo) {
+        Links.Builder builder = new LinksImpl.Builder(fromPrimary);
+        TranslationMap fromTm = runtime.newTranslationMapBuilder().put(from, fromPrimary).build();
+        Variable translatedFrom = fromTm.translateVariableRecursively(linkFrom);
+        builder.add(translatedFrom, linkNature, translatedTo);
+        Links links = builder.build();
+        extra.merge(fromPrimary, links, Links::merge);
+    }
+
+    private LinkNature varargsLinkNature(LinkNature linkNature) {
         if (linkNature == LinkNature.INTERSECTION_NOT_EMPTY || linkNature == LinkNature.IS_IDENTICAL_TO) {
             return LinkNature.IS_ELEMENT_OF;
         }

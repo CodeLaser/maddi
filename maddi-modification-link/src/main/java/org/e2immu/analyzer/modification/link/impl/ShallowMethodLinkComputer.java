@@ -83,12 +83,12 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             // linkLevel 1 == independent HC
             if (linkLevelRv == 1) {
                 transfer(ofReturnValue, returnType, pi.parameterizedType(), pi, hiddenContentTps,
-                        true);
+                        true); // FIXME should be false, and then we can remove the "reverse"
             } else if (!independent.isIndependent()) {
                 if (hiddenContent != null) {
                     if (methodInfo.isFactoryMethod()) {
                         transfer(ofReturnValue, returnType, pi.parameterizedType(), pi,
-                                hiddenContentMethodTypeParameters, true);
+                                hiddenContentMethodTypeParameters, false);
                     } else {
                         transfer(piBuilder, pi.parameterizedType(), hiddenContent.type(), hiddenContentFr, hiddenContentTps,
                                 false);

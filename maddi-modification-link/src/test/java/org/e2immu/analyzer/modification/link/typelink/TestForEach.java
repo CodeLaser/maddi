@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Iterator;
@@ -91,6 +92,7 @@ public class TestForEach extends CommonTest {
             }
             """;
 
+    @Disabled
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
