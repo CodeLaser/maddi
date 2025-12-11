@@ -11,6 +11,7 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.GenericsHelper;
 import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -61,31 +62,6 @@ public class VirtualFieldComputer {
         ParameterizedType iterator = javaInspector.compiledTypesManager().getOrLoad(Iterator.class).asParameterizedType();
         this.genericsHelper = new GenericsHelperImpl(runtime);
         multi2 = Set.of(iterable.typeInfo(), iterator.typeInfo());
-    }
-
-    public VirtualFields computeAllowTypeParameterArray(ParameterizedType pt) {
-        if (pt.arrays() > 0) {
-            return arrayType(pt);
-        }
-        return compute(pt.typeInfo());
-    }
-
-    private VirtualFields arrayType(ParameterizedType pt) {
-        NamedType namedType;
-        TypeInfo typeInfo;
-        if (pt.typeParameter() != null) {
-            namedType = pt.typeParameter();
-            typeInfo = pt.typeParameter().typeInfo();
-        } else {
-            namedType = pt.typeInfo();
-            typeInfo = pt.typeInfo();
-        }
-        // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
-        FieldInfo mutable = runtime.newFieldInfo("$m" + namedType.simpleName(),
-                false, atomicBooleanPt, typeInfo);
-        String hcName = namedType.simpleName().toLowerCase() + "s";
-        FieldInfo hiddenContent = runtime.newFieldInfo(hcName, false, pt, typeInfo);
-        return new VirtualFields(mutable, hiddenContent);
     }
 
     public VirtualFields compute(TypeInfo typeInfo) {
@@ -184,33 +160,43 @@ public class VirtualFieldComputer {
         int multiplicity = 0;
         for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
             ParameterizedType returnType = methodInfo.returnType();
-            int m = computeMultiplicity(returnType);
+            int m = computeMultiplicity(returnType, true);
             multiplicity = Math.max(multiplicity, m);
             for (ParameterInfo pi : methodInfo.parameters()) {
-                int mpi = computeMultiplicity(pi.parameterizedType());
+                int mpi = computeMultiplicity(pi.parameterizedType(), true);
                 multiplicity = Math.max(multiplicity, mpi);
             }
         }
         return multiplicity;
     }
 
-    public int computeMultiplicity(ParameterizedType parameterizedType) {
+    private int computeMultiplicity(ParameterizedType parameterizedType, boolean ignoreMethodParameters) {
         int arrays = parameterizedType.arrays();
         if (arrays > 0) {
-            int withoutArrays = computeMultiplicity(parameterizedType.copyWithoutArrays());
+            int withoutArrays = computeMultiplicity(parameterizedType.copyWithoutArrays(), ignoreMethodParameters);
             return withoutArrays == 0 ? 0 : withoutArrays + arrays;
         }
         if (parameterizedType.typeParameter() != null) {
-            return parameterizedType.typeParameter().isMethodTypeParameter() ? 0 : 1;
+            return parameterizedType.typeParameter().isMethodTypeParameter() && ignoreMethodParameters ? 0 : 1;
         }
         ParameterizedType wrapped = wrapped(parameterizedType);
         if (wrapped != null) {
-            int m = computeMultiplicity(wrapped);
+            int m = computeMultiplicity(wrapped, ignoreMethodParameters);
             return m == 0 ? 0 : m + 1;
         }
-        Set<TypeParameter> typeParameters = parameterizedType.extractTypeParameters();
+        return hasTypeParametersTestVirtualFields(parameterizedType, new HashSet<>()) ? 1 : 0;
+    }
 
-        return typeParameters.isEmpty() ? 0 : 1;
+    private boolean hasTypeParametersTestVirtualFields(ParameterizedType pt, Set<ParameterizedType> visited) {
+        if (pt.isTypeParameter()) return true;
+        TypeInfo typeInfo = pt.typeInfo();
+        if (typeInfo == null) return false;
+        if (!typeInfo.typeParameters().isEmpty()) return true;
+        for (FieldInfo fieldInfo : typeInfo.fields()) {
+            if (visited.add(fieldInfo.type()) && hasTypeParametersTestVirtualFields(fieldInfo.type(), visited))
+                return true;
+        }
+        return false;
     }
 
     private ParameterizedType wrapped(ParameterizedType parameterizedType) {
@@ -232,4 +218,38 @@ public class VirtualFieldComputer {
         }
         return null;
     }
+
+    // ----- computation of "temporary" virtual fields
+
+    /*
+
+    reverts to normal computation in all other cases
+     */
+
+    public VirtualFields computeAllowTypeParameterArray(ParameterizedType pt) {
+        if (pt.arrays() > 0) {
+            return arrayType(pt);
+        }
+        // FIXME for List<X[]> we'll need something different
+        return compute(pt.typeInfo());
+    }
+
+    private VirtualFields arrayType(ParameterizedType pt) {
+        NamedType namedType;
+        TypeInfo typeInfo;
+        if (pt.typeParameter() != null) {
+            namedType = pt.typeParameter();
+            typeInfo = pt.typeParameter().typeInfo();
+        } else {
+            namedType = pt.typeInfo();
+            typeInfo = pt.typeInfo();
+        }
+        // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
+        FieldInfo mutable = runtime.newFieldInfo("$m" + namedType.simpleName(),
+                false, atomicBooleanPt, typeInfo);
+        String hcName = namedType.simpleName().toLowerCase() + "s";
+        FieldInfo hiddenContent = runtime.newFieldInfo(hcName, false, pt, typeInfo);
+        return new VirtualFields(mutable, hiddenContent);
+    }
+
 }

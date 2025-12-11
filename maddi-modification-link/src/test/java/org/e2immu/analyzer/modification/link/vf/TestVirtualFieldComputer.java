@@ -97,4 +97,27 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFields vfStream = vfc.computeAllowTypeParameterArray(objectArray);
         assertEquals("$mObject - Object[] objects", vfStream.toString());
     }
+
+    @DisplayName("computeAllowTypeParameterArray TP[]")
+    @Test
+    public void test6() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
+        VirtualFields vfTpArray = vfc.computeAllowTypeParameterArray(tpArray);
+        assertEquals("$mT - T[] ts", vfTpArray.toString());
+    }
+
+    @DisplayName("computeAllowTypeParameterArray List<TP[]>")
+    @Test
+    public void test7() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
+        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        ParameterizedType listTpArray = runtime.newParameterizedType(list, List.of(tpArray));
+        assertEquals("java.util.List<T[]>", listTpArray.descriptor());
+        VirtualFields vfTpArray = vfc.computeAllowTypeParameterArray(tpArray);
+        assertEquals("$mT - T[][] tss", vfTpArray.toString());
+    }
 }
