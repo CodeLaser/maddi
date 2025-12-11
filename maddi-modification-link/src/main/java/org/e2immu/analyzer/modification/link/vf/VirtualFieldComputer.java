@@ -111,7 +111,7 @@ public class VirtualFieldComputer {
             mutable = null;
         }
         FieldInfo hiddenContent;
-        int multiplicity = computeMultiplicity(typeInfo);
+        int multiplicity = maxMultiplicityFromMethods(typeInfo);
         if (multiplicity == 0 || typeInfo.typeParameters().isEmpty()) {
             hiddenContent = null;
         } else {
@@ -178,7 +178,7 @@ public class VirtualFieldComputer {
         return newType;
     }
 
-    public int computeMultiplicity(TypeInfo typeInfo) {
+    public int maxMultiplicityFromMethods(TypeInfo typeInfo) {
         // base for many computations
         if (multi2.contains(typeInfo)) return 2;
         int multiplicity = 0;
