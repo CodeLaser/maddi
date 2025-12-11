@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.LinkedVariables;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -153,17 +154,27 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             object = visit(cc.object(), variableData);
         }
         MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        VirtualFieldComputer.VfTm vfTm = vfc.computeAllowTypeParameterArray(cc.parameterizedType(), true);
+        MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+
         List<Result> params = cc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         return new LinkMethodCall(javaInspector.runtime(), variableCounter).constructorCall(cc.constructor(), object,
-                params, mlv);
+                params, mlvTranslated);
     }
 
     private Result methodCall(VariableData variableData, MethodCall mc) {
         Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData);
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        VirtualFieldComputer.VfTm vfTm = vfc.computeAllowTypeParameterArray(mc.object().parameterizedType(), true);
+        MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         Result r = new LinkMethodCall(javaInspector.runtime(), variableCounter)
-                .methodCall(mc.methodInfo(), object, params, mlv);
+                .methodCall(mc.methodInfo(), object, params, mlvTranslated);
         return r.with(new WriteMethodCall(mc, object.links));
     }
 

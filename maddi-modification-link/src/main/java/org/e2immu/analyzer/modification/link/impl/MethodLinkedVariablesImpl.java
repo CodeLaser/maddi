@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 
 import java.util.List;
@@ -45,5 +46,13 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     @Override
     public String toString() {
         return ofParameters + " --> " + ofReturnValue;
+    }
+
+    @Override
+    public MethodLinkedVariables translate(TranslationMap translationMap) {
+        if (translationMap == null || translationMap.isEmpty() || EMPTY.equals(this)) return this;
+        return new MethodLinkedVariablesImpl(
+                ofReturnValue == null ? null : ofReturnValue.translate(translationMap),
+                ofParameters.stream().map(l -> l.translate(translationMap)).toList());
     }
 }

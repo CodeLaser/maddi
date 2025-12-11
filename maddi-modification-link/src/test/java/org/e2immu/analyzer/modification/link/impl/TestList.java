@@ -97,9 +97,9 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("k<1:x.ts,k==1:x.ts[0:index]", linksK.toString());
+        assertEquals("k<1:x.ks,k==1:x.ks[0:index]", linksK.toString());
 
-        assertEquals("[-, -] --> method<1:x.ts,method==1:x.ts[0:index]", lvMethod.toString());
+        assertEquals("[-, -] --> method<1:x.ks,method==1:x.ks[0:index]", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
@@ -297,7 +297,7 @@ public class TestList extends CommonTest {
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = c1.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(c1));
-        assertEquals("[0:c.ts~this.ts] --> -", mlvC1.toString());
+        assertEquals("[0:c.es~this.es] --> -", mlvC1.toString());
 
         MethodInfo get = X.findUniqueMethod("getList", 0);
         MethodLinkedVariables mlv = linkComputer.doMethod(get);

@@ -119,34 +119,34 @@ public class TestShallow extends CommonTest {
 
         MethodInfo addAll = list.findUniqueMethod("addAll", 1);
         MethodLinkedVariables mlvAddAll = linkComputer.doMethod(addAll);
-        assertEquals("[0:collection.ts~this.ts] --> -", mlvAddAll.toString());
+        assertEquals("[0:collection.es~this.es] --> -", mlvAddAll.toString());
 
         MethodInfo ofVarargs = list.methodStream().filter(mi ->
                         "of".equals(mi.name()) && mi.parameters().size() == 1 && mi.parameters().getFirst().isVarArgs())
                 .findFirst().orElseThrow();
         assertEquals("java.util.List.of(E...)", ofVarargs.fullyQualifiedName());
         MethodLinkedVariables mlvOfVarargs = linkComputer.doMethod(ofVarargs);
-        assertEquals("[-] --> of.ts~0:elements.es", mlvOfVarargs.toString());
+        assertEquals("[-] --> of.es~0:elements.es", mlvOfVarargs.toString());
 
         MethodInfo of2 = list.findUniqueMethod("of", 2);
         MethodLinkedVariables mlvOf2 = linkComputer.doMethod(of2);
-        assertEquals("[-, -] --> of.ts>0:e1,of.ts>1:e2", mlvOf2.toString());
+        assertEquals("[-, -] --> of.es>0:e1,of.es>1:e2", mlvOf2.toString());
 
         MethodInfo add = list.findUniqueMethod("add", 1);
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
-        assertEquals("[0:e<this.ts] --> -", mlvAdd.toString());
+        assertEquals("[0:e<this.es] --> -", mlvAdd.toString());
 
         MethodInfo set = list.findUniqueMethod("set", 2);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[-, 1:e<this.ts] --> set<this.ts", mlvSet.toString());
+        assertEquals("[-, 1:e<this.es] --> set<this.es", mlvSet.toString());
 
         MethodInfo subList = list.findUniqueMethod("subList", 2);
         MethodLinkedVariables mlvSubList = linkComputer.doMethod(subList);
-        assertEquals("[-, -] --> subList.$m==this.$m,subList.ts~this.ts", mlvSubList.toString());
+        assertEquals("[-, -] --> subList.$m==this.$m,subList.es~this.es", mlvSubList.toString());
 
         MethodInfo get = list.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[-] --> get<this.ts", mlvGet.toString());
+        assertEquals("[-] --> get<this.es", mlvGet.toString());
 
         MethodInfo contains = list.findUniqueMethod("contains", 1);
         MethodLinkedVariables mlvContains = linkComputer.doMethod(contains);
@@ -174,11 +174,11 @@ public class TestShallow extends CommonTest {
 
         MethodInfo keySet = map.findUniqueMethod("keySet", 0);
         MethodLinkedVariables mlvKeySet = linkComputer.doMethod(keySet);
-        assertEquals("[] --> keySet.$m==this.$m,keySet.ts~this.kvs[-1].k", mlvKeySet.toString());
+        assertEquals("[] --> keySet.$m==this.$m,keySet.ks~this.kvs[-1].k", mlvKeySet.toString());
 
         MethodInfo values = map.findUniqueMethod("values", 0);
         MethodLinkedVariables mlvValues = linkComputer.doMethod(values);
-        assertEquals("[] --> values.$m==this.$m,values.ts~this.kvs[-1].v", mlvValues.toString());
+        assertEquals("[] --> values.$m==this.$m,values.vs~this.kvs[-1].v", mlvValues.toString());
 
     }
 
@@ -210,7 +210,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = linkComputer.doMethod(c1);
-        assertEquals("[0:c.ts~this.ts] --> -", mlvC1.toString());
+        assertEquals("[0:c.es~this.es] --> -", mlvC1.toString());
 
     }
 

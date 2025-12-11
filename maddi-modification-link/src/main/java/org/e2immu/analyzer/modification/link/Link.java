@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link;
 
 import org.e2immu.analyzer.modification.link.impl.Util;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
@@ -26,4 +27,6 @@ public interface Link extends Comparable<Link> {
        LocalVariable lv = Util.lvPrimary(to());
         return lv != null && lv.simpleName().startsWith("$__");
     }
+
+    Link translate(TranslationMap translationMap);
 }

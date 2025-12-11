@@ -23,6 +23,8 @@ public interface Links extends Iterable<Link>, Value {
 
     Links merge(Links links);
 
+    Links translate(TranslationMap translationMap);
+
     interface Builder {
         Links build();
 

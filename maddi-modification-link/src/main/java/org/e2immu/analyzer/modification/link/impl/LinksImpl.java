@@ -167,6 +167,12 @@ public class LinksImpl implements Links {
             }
             return Util.simpleName(from) + ln + Util.simpleName(to);
         }
+
+        @Override
+        public Link translate(TranslationMap translationMap) {
+            return new LinkImpl(translationMap.translateVariableRecursively(from),
+                    linkNature, translationMap.translateVariableRecursively(to));
+        }
     }
 
     // used by LVC
@@ -189,5 +195,11 @@ public class LinksImpl implements Links {
             }
         }
         return builder.build();
+    }
+
+    @Override
+    public Links translate(TranslationMap translationMap) {
+        return new LinksImpl(translationMap.translateVariableRecursively(primary),
+                linkSet.stream().map(l -> l.translate(translationMap)).collect(Collectors.toUnmodifiableSet()));
     }
 }
