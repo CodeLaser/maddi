@@ -5,17 +5,17 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestShallowPrefix extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
@@ -29,7 +29,7 @@ public class TestShallowPrefix extends CommonTest {
                 public Stream<Map.Entry<X, Y>> oneInstance(X x, Y y) {
                     return Stream.of(new AbstractMap.SimpleEntry<>(x, y));
                 }
-
+            
                 public static <X, Y> Stream<Map.Entry<X, Y>> oneStatic(X x, Y y) {
                     return Stream.of(new AbstractMap.SimpleEntry<>(x, y));
                 }
@@ -44,15 +44,20 @@ public class TestShallowPrefix extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, true, true);
-        tlc.doPrimaryType(C);
-        MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x([0]0:*);y([0]1:*)", tlv1Static.toString());
+        MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
+        VirtualFields vfOneStatic = vfc.computeAllowTypeParameterArray(oneStatic.returnType());
+        assertEquals("$m - KV[] kvs", vfOneStatic.toString());
 
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
+        VirtualFields vfOneInstance = vfc.computeAllowTypeParameterArray(oneStatic.returnType());
+        assertEquals("$m - KV[] kvs", vfOneInstance.toString());
 
-        MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
+        assertEquals("[-, -] --> oneStatic.kvs[-1]>0:x,oneStatic.kvs[-1]>1:y", tlv1Static.toString());
+
+        MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
                 return oneInstance([0]0:0,[0]1:1)[\
                 #0:return oneInstance(*:0), \
