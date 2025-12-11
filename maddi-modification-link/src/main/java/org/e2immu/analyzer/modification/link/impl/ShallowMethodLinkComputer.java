@@ -39,8 +39,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
 
         // virtual fields of the default source = the object ~ "this"
-        VirtualFields vfThis = typeInfo.analysis()
-                .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfo));
+       // VirtualFields vfThis = typeInfo.analysis()
+      //          .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfo));
+        VirtualFields vfThis = virtualFieldComputer.computeAllowTypeParameterArray(typeInfo.asParameterizedType());
         FieldInfo hcThis = vfThis.hiddenContent();
         FieldReference hcThisFr = hcThis == null ? null : runtime.newFieldReference(hcThis);
         Set<TypeParameter> hcThisTps = hcThis == null ? null : correspondingTypeParameters(typeInfo, hcThis);
@@ -53,7 +54,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.DEPENDENT);
             if (!independent.isIndependent()) {
-                transfer(methodInfo, ofReturnValue, returnType, hcThis.type(), hcThisFr, independent.isDependent(),
+                transfer(ofReturnValue, returnType, hcThis.type(), hcThisFr, independent.isDependent(),
                         vfThis.mutable(), hcThisTps);
             }
         }
@@ -74,7 +75,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // explicit dependence of return variable to parameter
                 // *************************************************
 
-                transfer(methodInfo, ofReturnValue, returnType, pi.parameterizedType(), pi, false, null,
+                transfer(ofReturnValue, returnType, pi.parameterizedType(), pi, false, null,
                         hcThisTps);
                 // TODO we may have to convert hcThisTps to method parameters
             } else if (!independent.isIndependent()) {
@@ -84,7 +85,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     // instance method, from parameter into object
                     // *************************************************
 
-                    transfer(methodInfo, piBuilder, pi.parameterizedType(), hcThis.type(), hcThisFr, independent.isDependent(),
+                    transfer(piBuilder, pi.parameterizedType(), hcThis.type(), hcThisFr, independent.isDependent(),
                             vfThis.mutable(), hcThisTps);
                 } else {
                     // *************************************************
@@ -107,7 +108,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     if (sourceVariable != null) {
                         Set<TypeParameter> sourceVariableTps
                                 = collectTypeParametersFromVirtualField(sourceVariable.parameterizedType());
-                        transfer(methodInfo, ofReturnValue, returnType, sourceVariable.parameterizedType(),
+                        transfer(ofReturnValue, returnType, sourceVariable.parameterizedType(),
                                 sourceVariable, false, null, sourceVariableTps);
                     }
                 }
@@ -133,7 +134,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     FieldInfo sourceHc = sourceVfs.hiddenContent();
                     Expression scope = runtime.newVariableExpression(source);
                     FieldReference sourceFr = runtime.newFieldReference(sourceHc, scope, sourceHc.type());
-                    transfer(methodInfo, piBuilder, pi.parameterizedType(), sourceHc.type(), sourceFr, false,
+                    transfer(piBuilder, pi.parameterizedType(), sourceHc.type(), sourceFr, false,
                             null, sourceTps);
                 }
             }
@@ -149,8 +150,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
     // important: the sourceType must be virtual fields/type parameters; the virtual fields of the target type get computed
     // when necessary
-    private void transfer(MethodInfo methodInfo,
-                          Links.Builder builder,
+    private void transfer(Links.Builder builder,
                           ParameterizedType fromType,
                           ParameterizedType toType,
                           Variable subTo,

@@ -46,7 +46,7 @@ public record ForEach(Runtime runtime, ExpressionVisitor expressionVisitor) {
                 .setSource(runtime.noSource())
                 .setObject(mcIterator)
                 .setMethodInfo(iteratorNext)
-                .setParameterExpressions(List.of(runtime.newInt(List.of(), runtime.noSource(), 0)))
+                .setParameterExpressions(List.of())
                 .setConcreteReturnType(initType)
                 .build();
         return expressionVisitor.visit(mc, previousVd);

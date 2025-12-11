@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.vf;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -146,8 +147,32 @@ public class TestVirtualFieldComputer extends CommonTest {
         ));
         assertEquals("java.util.Map<T,E>", mapTE.descriptor());
         VirtualFields vfMapTE = vfc.computeAllowTypeParameterArray(mapTE);
-        assertEquals("$m - KV[] kvs", vfMapTE.toString());
-        // FIXME now look at the translation map 
+        assertEquals("$m - TE[] tes", vfMapTE.toString());
+        assertEquals("java.util.Optional[T]", vfMapTE.hiddenContent().type().typeInfo()
+                .fields().getFirst().type().typeParameter().descriptor());
     }
+
+    @DisplayName("formal to concrete")
+    @Test
+    public void test9() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        VirtualFields vfMap = vfc.compute(map);
+        assertEquals("$m - KV[] kvs", vfMap.toString());
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        ParameterizedType mapTE = runtime.newParameterizedType(map, List.of(
+                optional.asParameterizedType().parameters().getFirst(),
+                list.asParameterizedType().parameters().getFirst()
+        ));
+        assertEquals("java.util.Map<T,E>", mapTE.descriptor());
+        VirtualFields vfMapTE = vfc.computeAllowTypeParameterArray(mapTE);
+        assertEquals("$m - TE[] tes", vfMapTE.toString());
+        assertEquals("java.util.Optional[T]", vfMapTE.hiddenContent().type().typeInfo()
+                .fields().getFirst().type().typeParameter().descriptor());
+        TranslationMap tm = vfc.formalToConcrete(vfMap.hiddenContent(), mapTE);
+    }
+
 
 }

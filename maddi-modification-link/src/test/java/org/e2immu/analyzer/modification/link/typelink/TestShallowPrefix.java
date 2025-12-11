@@ -48,11 +48,11 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
         VirtualFields vfOneStatic = vfc.computeAllowTypeParameterArray(oneStatic.returnType());
-        assertEquals("$m - KV[] kvs", vfOneStatic.toString());
+        assertEquals("$m - XY[] xys", vfOneStatic.toString());
 
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
         VirtualFields vfOneInstance = vfc.computeAllowTypeParameterArray(oneStatic.returnType());
-        assertEquals("$m - KV[] kvs", vfOneInstance.toString());
+        assertEquals("$m - XY[] xys", vfOneInstance.toString());
 
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
         assertEquals("[-, -] --> oneStatic.kvs[-1]>0:x,oneStatic.kvs[-1]>1:y", tlv1Static.toString());
