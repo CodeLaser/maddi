@@ -126,6 +126,7 @@ public class TestShallow extends CommonTest {
                 .findFirst().orElseThrow();
         assertEquals("java.util.List.of(E...)", ofVarargs.fullyQualifiedName());
         MethodLinkedVariables mlvOfVarargs = linkComputer.doMethod(ofVarargs);
+        // FIXME this should be elements.es ??
         assertEquals("[-] --> of.ts~0:elements", mlvOfVarargs.toString());
 
         MethodInfo of2 = list.findUniqueMethod("of", 2);
