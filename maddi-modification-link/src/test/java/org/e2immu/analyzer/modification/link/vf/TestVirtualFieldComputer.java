@@ -42,7 +42,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo deque = javaInspector.compiledTypesManager().getOrLoad(Deque.class);
         assertEquals("$m - T[] ts", vfc.compute(deque).toString());
 
-        assertEquals(2, vfc.computeMultiplicity(arrayList));
+        assertEquals(2, vfc.maxMultiplicityFromMethods(arrayList));
     }
 
     @DisplayName("map hierarchy")
@@ -59,7 +59,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         FieldInfo k = vfList.hiddenContent().type().typeInfo().getFieldByName("k", true);
         assertEquals("java.util.Map.KV", k.owner().toString());
 
-        assertEquals(2, vfc.computeMultiplicity(treeMap));
+        assertEquals(2, vfc.maxMultiplicityFromMethods(treeMap));
     }
 
     @DisplayName("stream hierarchy")
@@ -74,7 +74,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
         VirtualFields vfStream = vfc.compute(stream);
         assertEquals("$m - T[] ts", vfStream.toString());
-        assertEquals(2, vfc.computeMultiplicity(stream));
+        assertEquals(2, vfc.maxMultiplicityFromMethods(stream));
     }
 
     @DisplayName("optional")
@@ -85,7 +85,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         VirtualFields vfStream = vfc.compute(optional);
         assertEquals("/ - T t", vfStream.toString());
-        assertEquals(1, vfc.computeMultiplicity(optional));
+        assertEquals(1, vfc.maxMultiplicityFromMethods(optional));
     }
 
 

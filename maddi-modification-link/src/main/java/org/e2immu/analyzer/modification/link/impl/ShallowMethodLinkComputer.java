@@ -103,7 +103,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         VirtualFields virtualFieldsRv = typeInfoRv.analysis()
                                 .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfoRv));
                         FieldInfo hiddenContentRv = virtualFieldsRv.hiddenContent();
-                        if(hiddenContentRv != null) {
+                        if (hiddenContentRv != null) {
                             throw new UnsupportedOperationException("NYI, use the return type as base ~ factory method");
                         }
                     }
@@ -144,38 +144,28 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                           Variable sourceField,
                           Set<TypeParameter> typeParametersOfSourceField,
                           boolean reverse) {
-        int arraysSource = sourceType.arrays();
         if (targetType.typeParameter() != null && typeParametersOfSourceField.contains(targetType.typeParameter())) {
             assert targetType.typeParameter().typeBounds().isEmpty() : """
                     cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
                     the type parameter can be dependent""";
             int arrays = targetType.arrays();
-            if (arrays == arraysSource) {
-                if (sourceType.typeParameter() != null) {
-                    LinkNature linkNature = arrays == 0 ? IS_IDENTICAL_TO : INTERSECTION_NOT_EMPTY;
-                    targetBuilder.add(linkNature, sourceField);
-                }
-            } else if (arrays < arraysSource) {
-                LinkNature linkNature = reverse ? CONTAINS : IS_ELEMENT_OF;
-                if (sourceType.typeParameter() != null) {
-                    // one element out of an array
-                    targetBuilder.add(linkNature, sourceField);
-                } else {
-                    // get one element out of a container array; we'll need a slice
-                    FieldInfo theField = findField(List.of(targetType.typeParameter()), sourceType.typeInfo());
-                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(sourceField),
-                            runtime.newInt(-1));
-                    Expression scope = runtime.newVariableExpression(dv);
-                    FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                    targetBuilder.add(linkNature, slice);
-                }
+            if (sourceType.typeParameter() != null) {
+                int arraysSource = sourceType.arrays();
+                LinkNature linkNature = deriveLinkNature(arrays, arraysSource, reverse);
+                targetBuilder.add(linkNature, sourceField);
             } else {
-                LinkNature linkNature = reverse ? IS_ELEMENT_OF : CONTAINS;
-                if (sourceType.typeParameter() != null) {
-                    targetBuilder.add(linkNature, sourceField);
-                } else {
-                    throw new UnsupportedOperationException("NYI");
-                }
+                // we ignore method parameters because we might be going from parameter directly into the result
+                // because we're in shallow mode, fields will be virtual and standardized, so they shoul
+                LinkNature linkNature = deriveLinkNature(arrays, sourceType.arrays(), reverse);
+
+                // get one element out of a container array; we'll need a slice
+                FieldInfo theField = findField(List.of(targetType.typeParameter()), sourceType.typeInfo());
+                DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(sourceField),
+                        runtime.newInt(-1));
+                Expression scope = runtime.newVariableExpression(dv);
+                FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
+                targetBuilder.add(linkNature, slice);
+
             }
         } else if (targetType.typeInfo() != null) {
             VirtualFields vfType = virtualFieldComputer.compute(targetType.typeInfo());
@@ -186,7 +176,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     runtime.newVariableExpression(targetBuilder.primary()), vfType.hiddenContent().type());
             Set<TypeParameter> typeParametersReturnType = targetType.extractTypeParameters();
             if (typeParametersReturnType.equals(typeParametersOfSourceField)) {
-                int multiplicity = virtualFieldComputer.computeMultiplicity(targetType.typeInfo());
+                int arraysSource = sourceType.arrays();
+                int multiplicity = virtualFieldComputer.maxMultiplicityFromMethods(targetType.typeInfo());
                 if (multiplicity - 2 >= arraysSource) {
                     // Stream<T> Optional.stream() (going from arraySource 0 to multi 2)
                     targetBuilder.add(linkSource, CONTAINS, sourceField);
@@ -215,6 +206,17 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             }
         }
     }
+
+    private static LinkNature deriveLinkNature(int arrays, int arraysSource, boolean reverse) {
+        if (arrays == arraysSource) {
+            return arrays == 0 ? IS_IDENTICAL_TO : INTERSECTION_NOT_EMPTY;
+        }
+        if (arrays < arraysSource) {
+            return reverse ? CONTAINS : IS_ELEMENT_OF;
+        }
+        return reverse ? IS_ELEMENT_OF : CONTAINS;
+    }
+
 
     private static FieldInfo findField(List<TypeParameter> typeParameters, TypeInfo container) {
         for (FieldInfo fieldInfo : container.fields()) {
