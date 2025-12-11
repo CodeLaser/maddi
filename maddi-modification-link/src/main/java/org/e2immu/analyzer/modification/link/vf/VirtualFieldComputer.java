@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -199,6 +200,26 @@ public class VirtualFieldComputer {
                 return true;
         }
         return false;
+    }
+
+
+    public static Set<TypeParameter> collectTypeParametersFromVirtualField(ParameterizedType virtualFieldPt) {
+        return collectTypeParametersFromVirtualField(virtualFieldPt, new HashSet<>());
+    }
+
+    private static Set<TypeParameter> collectTypeParametersFromVirtualField(ParameterizedType pt,
+                                                                            Set<ParameterizedType> visited) {
+        if (pt.isTypeParameter()) return Set.of(pt.typeParameter());
+        TypeInfo typeInfo = pt.typeInfo();
+        if (typeInfo == null) return Set.of();
+        Set<TypeParameter> collect = new HashSet<>();
+        for (FieldInfo fieldInfo : typeInfo.fields()) {
+            if (visited.add(fieldInfo.type())) {
+                Set<TypeParameter> recursive = collectTypeParametersFromVirtualField(fieldInfo.type(), visited);
+                collect.addAll(recursive);
+            }
+        }
+        return collect;
     }
 
     private ParameterizedType wrapped(ParameterizedType parameterizedType) {
