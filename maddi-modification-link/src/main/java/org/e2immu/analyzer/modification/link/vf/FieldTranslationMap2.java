@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class FieldTranslationMap2 implements TranslationMap {
 
@@ -114,5 +115,14 @@ public class FieldTranslationMap2 implements TranslationMap {
     @Override
     public boolean isEmpty() {
         return map.isEmpty();
+    }
+
+    @Override
+    public String toString() {
+        return map.entrySet().stream()
+                .map(e -> e.getKey().toStringWithTypeBounds()
+                          + " --> " + e.getValue().toStringWithTypeBounds())
+                .sorted()
+                .collect(Collectors.joining("\n"));
     }
 }

@@ -167,7 +167,7 @@ public class TestList extends CommonTest {
 
         TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
         MethodInfo subList = list.findUniqueMethod("subList", 2);
-        FieldInfo virtualContentField = runtime.newFieldInfo("tArray", false,
+        FieldInfo virtualContentField = runtime.newFieldInfo("es", false,
                 runtime.newParameterizedType(list.typeParameters().getFirst(), 1, null), list);
         FieldReference virtualContentVariable = runtime.newFieldReference(virtualContentField);
         FieldInfo virtualModifiedField = runtime.newFieldInfo("M", false,
@@ -184,7 +184,7 @@ public class TestList extends CommonTest {
                         .add(rvM, LinkNature.IS_IDENTICAL_TO, virtualModifiedVariable)
                         .build(),
                 List.of());
-        assertEquals("[] --> subList.M==this.M,subList.tArray~this.tArray", mlvSubList.toString());
+        assertEquals("[] --> subList.M==this.M,subList.es~this.es", mlvSubList.toString());
         subList.analysis().set(METHOD_LINKS, mlvSubList);
 
         LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
@@ -196,12 +196,12 @@ public class TestList extends CommonTest {
         // test the evaluation of List<Z> zs = in.subList(2, n);
         LocalVariableCreation lvc = (LocalVariableCreation) sub.methodBody().statements().get(1);
         var map = smc.handleLvc(lvc, vd0, new ArrayList<>());
-        assertEquals("{zs=zs.M==0:in.M,zs.tArray~0:in.tArray}", map.toString());
+        assertEquals("{zs=zs.zs~0:in.zs,zs.M==0:in.M}", map.toString());
 
         // do the whole method
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
 
-        assertEquals("sub.M==0:in.M,sub.tArray~0:in.tArray", mlvSub.ofReturnValue().toString());
+        assertEquals("sub.zs~0:in.zs,sub.M==0:in.M", mlvSub.ofReturnValue().toString());
     }
 
 
@@ -291,7 +291,7 @@ public class TestList extends CommonTest {
         TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("$m - T[] ts", vfc.compute(arrayList).toString());
+        assertEquals("$m - E[] es", vfc.compute(arrayList).toString());
 
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
 

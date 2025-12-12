@@ -206,7 +206,7 @@ public class TestShallow extends CommonTest {
         TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("$m - T[] ts", vfc.compute(arrayList).toString());
+        assertEquals("$m - E[] es", vfc.compute(arrayList).toString());
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = linkComputer.doMethod(c1);

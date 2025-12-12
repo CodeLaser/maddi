@@ -66,12 +66,12 @@ public class TestStream extends CommonTest {
         analyzer.doPrimaryType(X);
 
         MethodInfo large4 = X.findUniqueMethod("large4", 1);
-    //    MethodLinkedVariables mlvLarge4 = linkComputer.doMethod(large4);
-     //   assertEquals("[-] --> large4<this.list.ts", mlvLarge4.toString());
+        MethodLinkedVariables mlvLarge4 = linkComputer.doMethod(large4);
+        assertEquals("[-] --> large4<this.list.ts", mlvLarge4.toString());
 
         MethodInfo large3 = X.findUniqueMethod("large3", 1);
-     //   MethodLinkedVariables mlvLarge3 = linkComputer.doMethod(large3);
-     //   assertEquals("[-] --> large3<this.list.ts", mlvLarge3.toString());
+        MethodLinkedVariables mlvLarge3 = linkComputer.doMethod(large3);
+        assertEquals("[-] --> large3<this.list.ts", mlvLarge3.toString());
 
         MethodInfo large2 = X.findUniqueMethod("large2", 1);
         MethodLinkedVariables mlvLarge2 = linkComputer.doMethod(large2);
@@ -92,7 +92,7 @@ public class TestStream extends CommonTest {
 
         VariableData vd3 = VariableDataImpl.of(large2.methodBody().statements().get(3));
         VariableInfo viOrElse = vd3.variableInfo("orElse");
-        assertEquals("orElse<this.list.ts,orElse==first.t,orElse<filtered.ts,orElse<stream.ts",
+        assertEquals("orElse==first.t,orElse<this.list.ts,orElse<filtered.ts,orElse<stream.ts",
                 viOrElse.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
 
         assertEquals("[-] --> large2<this.list.ts", mlvLarge2.toString());
