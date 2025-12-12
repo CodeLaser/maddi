@@ -31,15 +31,19 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                                                     List<ExpressionVisitor.Result> params,
                                                     MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
-        params.forEach(r -> {
-            extra.merge(r.links().primary(), r.links(), Links::merge);
-            r.extra().forEach(e ->
-                    extra.merge(e.getKey(), e.getValue(), Links::merge));
-        });
+        copyParamsIntoExtra(params, extra);
 
         Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
 
         return new ExpressionVisitor.Result(newObjectLinks, new LinkedVariablesImpl(extra));
+    }
+
+    private static void copyParamsIntoExtra(List<ExpressionVisitor.Result> params, Map<Variable, Links> extra) {
+        params.forEach(r -> {
+            if (r.links().primary() != null) extra.merge(r.links().primary(), r.links(), Links::merge);
+            r.extra().forEach(e ->
+                    extra.merge(e.getKey(), e.getValue(), Links::merge));
+        });
     }
 
     // we're trying for both method calls and normal constructor calls
@@ -49,8 +53,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                                                List<ExpressionVisitor.Result> params,
                                                MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
-        params.forEach(r -> r.extra().forEach(e ->
-                extra.merge(e.getKey(), e.getValue(), Links::merge)));
+        copyParamsIntoExtra(params, extra);
         Variable objectPrimary = object.links().primary();
         if (!object.links().isEmpty()) {
             extra.put(objectPrimary, object.links());

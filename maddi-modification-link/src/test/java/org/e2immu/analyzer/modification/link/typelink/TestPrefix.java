@@ -39,6 +39,7 @@ public class TestPrefix extends CommonTest {
                 }
             }
             """;
+    public static final String EXPECTED12 = "[-, -] --> one>0:x,one>1:y,one.ts>0:x,one.ts>1:y";
 
     @Test
     public void test1() {
@@ -79,7 +80,7 @@ public class TestPrefix extends CommonTest {
         assertEquals("stream1.ts>entry", tlvStream1.toString());
 
         MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -] --> one>0:x,one>1:y,one.ts>0:x,one.ts>1:y", tlvOne.toString());
+        assertEquals(EXPECTED12, tlvOne.toString());
     }
 
     @Language("java")
@@ -107,7 +108,7 @@ public class TestPrefix extends CommonTest {
 
         MethodInfo one = C.findUniqueMethod("one", 2);
         MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x([0]0:*);y([0]1:*)", tlvOne.toString());
+        assertEquals(EXPECTED12, tlvOne.toString());
     }
 
 

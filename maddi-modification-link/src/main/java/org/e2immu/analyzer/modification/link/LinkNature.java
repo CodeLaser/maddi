@@ -14,8 +14,8 @@ public enum LinkNature {
     //0-*
     CONTAINS(">"),
 
-    IS_FIELD_OF(":"),
-    HAS_FIELD(".");
+    IS_FIELD_OF("≤"),
+    HAS_FIELD("≥");
     private final String label;
 
     LinkNature(String label) {
