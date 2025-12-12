@@ -165,12 +165,12 @@ public class TestShallow extends CommonTest {
 
         MethodInfo getOrDefault = map.findUniqueMethod("getOrDefault", 2);
         MethodLinkedVariables mlvGetOrDefault = linkComputer.doMethod(getOrDefault);
-        assertEquals("[-, -] --> getOrDefault<this.kvs[-1].v,getOrDefault==1:defaultValue",
+        assertEquals("[-, -] --> getOrDefault<this.kvs[-2].v,getOrDefault==1:defaultValue",
                 mlvGetOrDefault.toString());
 
         MethodInfo get = map.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[-] --> get<this.kvs[-1].v", mlvGet.toString());
+        assertEquals("[-] --> get<this.kvs[-2].v", mlvGet.toString());
 
         MethodInfo keySet = map.findUniqueMethod("keySet", 0);
         MethodLinkedVariables mlvKeySet = linkComputer.doMethod(keySet);
@@ -178,7 +178,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo values = map.findUniqueMethod("values", 0);
         MethodLinkedVariables mlvValues = linkComputer.doMethod(values);
-        assertEquals("[] --> values.$m==this.$m,values.vs~this.kvs[-1].v", mlvValues.toString());
+        assertEquals("[] --> values.$m==this.$m,values.vs~this.kvs[-2].v", mlvValues.toString());
 
     }
 
@@ -197,6 +197,18 @@ public class TestShallow extends CommonTest {
         MethodInfo filter = stream.findUniqueMethod("filter", 1);
         MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
         assertEquals("[-] --> filter.ts~this.ts", mlvFilter.toString());
+
+        MethodInfo of = stream.methodStream()
+                .filter(mi -> "of".equals(mi.name())
+                              && mi.parameters().getFirst().parameterizedType().arrays() == 0)
+                .findFirst().orElseThrow();
+        MethodLinkedVariables mlvOf = linkComputer.doMethod(of);
+        assertEquals("[-] --> of.ts>0:t", mlvOf.toString());
+
+        MethodInfo collect = stream.findUniqueMethod("collect", 1);
+        MethodLinkedVariables mlvCollect = linkComputer.doMethod(collect);
+        assertEquals("[0:collector.tars[-1]~this.ts] --> -", mlvCollect.toString());
+
     }
 
     @DisplayName("Analyze 'ArrayList' constructors, multiplicity 2, 1 type parameter")

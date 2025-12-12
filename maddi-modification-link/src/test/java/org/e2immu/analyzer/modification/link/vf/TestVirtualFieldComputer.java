@@ -8,7 +8,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -110,7 +109,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("/ - /", vf.toString());
     }
 
-    @DisplayName("computeAllowTypeParameterArray TP[]")
+    @DisplayName("TP[]")
     @Test
     public void test6() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
@@ -126,7 +125,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("$mT - T[][] tss", vfTpArray2.toString());
     }
 
-    @DisplayName("computeAllowTypeParameterArray List<TP[]>")
+    @DisplayName("List<TP[]>")
     @Test
     public void test7() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
@@ -159,27 +158,8 @@ public class TestVirtualFieldComputer extends CommonTest {
                 """, vfTmListTpArray2.formalToConcrete().toString());
     }
 
-    private String txDetails(Map<FieldInfo, FieldInfo> map) {
-        return map.entrySet().stream()
-                .map(e -> txDetail(e.getKey())
-                          + " --> " + txDetail(e.getValue()))
-                .sorted()
-                .collect(Collectors.joining("\n"));
-    }
 
-    private String txDetail(FieldInfo v) {
-        String type = v.type().detailedString();
-        String owner = v.type().typeParameter() != null
-                ? " " + v.type().typeParameter().toStringWithTypeBounds() : "";
-        String fields = v.type().typeInfo() == null ? ""
-                : " " + v.type().typeInfo().fields().stream()
-                .map(f -> f.type().typeParameter().toStringWithTypeBounds())
-                .collect(Collectors.joining(", "));
-        return v.name() + " [" + type + owner + fields + "]";
-    }
-
-
-    @DisplayName("computeAllowTypeParameterArray map")
+    @DisplayName("map")
     @Test
     public void test8() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
@@ -211,5 +191,32 @@ public class TestVirtualFieldComputer extends CommonTest {
                 V=TP#1 in SortedMap [] --> E=TP#0 in List []
                 V=TP#1 in TreeMap [] --> E=TP#0 in List []\
                 """, vfTmMapTE.formalToConcrete().toString());
+    }
+
+    @DisplayName("Map.Entry<Stream<X>, Stream<Y>>")
+    @Test
+    public void test9() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo mapEntry = map.findSubType("Entry");
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
+        ParameterizedType streamT = runtime.newParameterizedType(stream, List.of(optional.asParameterizedType().parameters().getFirst()));
+        ParameterizedType streamE = runtime.newParameterizedType(stream, List.of(list.asParameterizedType().parameters().getFirst()));
+
+        ParameterizedType mapEntryStreamTStreamE = runtime.newParameterizedType(mapEntry, List.of(streamT, streamE));
+        assertEquals("java.util.Map.Entry<java.util.stream.Stream<T>,java.util.stream.Stream<E>>",
+                mapEntryStreamTStreamE.descriptor());
+
+        VirtualFieldComputer.VfTm vfTm = vfc.computeAllowTypeParameterArray(mapEntryStreamTStreamE, false);
+        assertEquals("tses", vfTm.virtualFields().hiddenContent().name());
+        ParameterizedType hcType = vfTm.virtualFields().hiddenContent().type();
+        assertEquals("java.util.Map.Entry.TSES", hcType.detailedString());
+        assertEquals(2, hcType.typeInfo().fields().size());
+        FieldInfo ts = hcType.typeInfo().fields().getFirst();
+        assertEquals("ts", ts.name());
+        assertEquals("T[]", ts.type().detailedString());
     }
 }
