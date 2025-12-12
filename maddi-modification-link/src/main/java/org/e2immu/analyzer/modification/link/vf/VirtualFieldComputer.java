@@ -70,7 +70,7 @@ public class VirtualFieldComputer {
     // ----- computation of "temporary" virtual fields
 
     public VirtualFields compute(TypeInfo typeInfo) {
-        return computeAllowTypeParameterArray(typeInfo.asParameterizedType(), false).virtualFields;
+        return compute(typeInfo.asParameterizedType(), false).virtualFields;
     }
 
     public record VfTm(VirtualFields virtualFields, TranslationMap formalToConcrete) {
@@ -78,7 +78,7 @@ public class VirtualFieldComputer {
 
     private static final VfTm NONE_NONE = new VfTm(NONE, null);
 
-    public VfTm computeAllowTypeParameterArray(ParameterizedType pt, boolean addTranslation) {
+    public VfTm compute(ParameterizedType pt, boolean addTranslation) {
         if (pt.arrays() > 0) {
             return new VfTm(arrayType(pt), null);
         }
@@ -103,7 +103,7 @@ public class VirtualFieldComputer {
 
         // we'll need to recursively extend the current vf; they'll be the basis of our hc
         List<VfTm> parameterVfs = pt.parameters().stream()
-                .map(param -> computeAllowTypeParameterArray(param, addTranslation))
+                .map(param -> compute(param, addTranslation))
                 .filter(vftm -> vftm.virtualFields != NONE)
                 .toList();
         FieldInfo mutable;
@@ -292,7 +292,7 @@ public class VirtualFieldComputer {
                 .flatMap(ti -> hiddenContentHierarchy(ti).stream())
                 .toList();
 
-        VfTm vfTmFormal = computeAllowTypeParameterArray(typeInfo.asParameterizedType(), false);
+        VfTm vfTmFormal = compute(typeInfo.asParameterizedType(), false);
         FieldInfo formalHiddenContent = vfTmFormal.virtualFields.hiddenContent();
         return Stream.concat(Stream.of(formalHiddenContent), fromHigher.stream()).toList();
     }

@@ -156,7 +156,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        VirtualFieldComputer.VfTm vfTm = vfc.computeAllowTypeParameterArray(cc.parameterizedType(), true);
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(cc.parameterizedType(), true);
         MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
 
         List<Result> params = cc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
@@ -169,7 +169,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        VirtualFieldComputer.VfTm vfTm = vfc.computeAllowTypeParameterArray(mc.object().parameterizedType(), true);
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(mc.object().parameterizedType(), true);
         MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
 
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
