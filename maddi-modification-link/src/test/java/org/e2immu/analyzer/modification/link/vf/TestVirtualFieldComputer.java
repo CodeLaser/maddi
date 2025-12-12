@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -218,5 +219,28 @@ public class TestVirtualFieldComputer extends CommonTest {
         FieldInfo ts = hcType.typeInfo().fields().getFirst();
         assertEquals("ts", ts.name());
         assertEquals("T[]", ts.type().detailedString());
+    }
+
+    @Language("java")
+    private static final String INPUT10 = """
+            package a.b;
+            import java.util.AbstractMap;
+            import java.util.Map;
+            import java.util.stream.Stream;
+            public class C<X, Y> {
+                public Map.Entry<Stream<X>, Stream<Y>> oneInstance(X x, Y y) {
+                    return new AbstractMap.SimpleEntry<>(Stream.of(x), Stream.of(y));
+                }
+            }
+            """;
+
+    @DisplayName("C<X,Y>")
+    @Test
+    public void test10() {
+        TypeInfo C = javaInspector.parse(INPUT10);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        VirtualFields vf = vfc.compute(C);
+        // this could be correct, could be wrong
+        assertEquals("$m - XY xy", vf.toString());
     }
 }
