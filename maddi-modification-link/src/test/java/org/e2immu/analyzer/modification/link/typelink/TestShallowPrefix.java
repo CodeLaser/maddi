@@ -56,9 +56,13 @@ public class TestShallowPrefix extends CommonTest {
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
         assertEquals("[-, -] --> oneStatic.xys[-1]>0:x,oneStatic.xys[-2]>1:y", tlv1Static.toString());
 
+        VirtualFields vfThis = vfc.compute(C);
+        // see TestVirtualFieldComputer,10
+        assertEquals("$m - XY xy", vfThis.toString());
+
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                [0:x<this.xys[-1], 1:y<this.xyy[-2]] --> oneInstance.$m==this.$m,oneInstance.xys>this.xy\
+                [0:x==this.xy.x, 1:y==this.xy.y] --> oneInstance.$m==this.$m,oneInstance.xys>this.xy\
                 """, tlv1Instance.toString());
     }
 
@@ -101,9 +105,14 @@ public class TestShallowPrefix extends CommonTest {
         MethodLinkedVariables mlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
         assertEquals("[-, -] --> oneStatic.xsys.xs>0:x,oneStatic.xsys.ys>1:y", mlv1Static.toString());
 
+        VirtualFields vfThis = vfc.compute(C);
+        // see TestVirtualFieldComputer,10
+        assertEquals("$m - XY xy", vfThis.toString());
+
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                [0:x<this.xsys.xs, 1:y<this.xy.ys] --> oneInstance.$m==this.$m,oneInstance.xsys==this.xsys\
+                [0:x==this.xy.x, 1:y==this.xy.y] --> oneInstance.$m==this.$m, 
+                oneInstance.xsys[-1]>this.xy.x,oneInstance.xsys[-2]>this.xy.y\
                 """, tlv1Instance.toString());
     }
 
