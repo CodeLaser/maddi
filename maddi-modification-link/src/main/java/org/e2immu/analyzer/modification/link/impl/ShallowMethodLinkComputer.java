@@ -39,8 +39,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
 
         // virtual fields of the default source = the object ~ "this"
-       // VirtualFields vfThis = typeInfo.analysis()
-      //          .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfo));
+        // VirtualFields vfThis = typeInfo.analysis()
+        //          .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfo));
         VirtualFields vfThis = virtualFieldComputer.computeAllowTypeParameterArray(typeInfo.asParameterizedType(),
                 false).virtualFields();
         FieldInfo hcThis = vfThis.hiddenContent();
@@ -171,11 +171,11 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 builder.add(linkNature, subTo);
             } else {
                 // 'to' is a container (array); we'll need a slice
-                FieldInfo theField = findField(List.of(fromType.typeParameter()), toType.typeInfo());
+                FF theField = findField(fromType.typeParameter(), toType.typeInfo());
                 DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                        runtime.newInt(-1));
+                        runtime.newInt(-1 - theField.index));
                 Expression scope = runtime.newVariableExpression(dv);
-                FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
+                FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
                 builder.add(linkNature, slice);
             }
         } else {
@@ -187,25 +187,45 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 Set<TypeParameter> typeParametersFrom = fromType.extractTypeParameters();
                 // more formal type parameters in HC
                 Set<TypeParameter> typeParametersFrom2 = collectTypeParametersFromVirtualField(vfFromType.hiddenContent().type());
+                int arraysFrom = vfFromType.hiddenContent().type().arrays();
+                int arraysTo = toType.arrays();
                 if (typeParametersFrom.equals(typeParametersOfSubTo)) {
-                    int arraysTo = toType.arrays();
-                    int arraysFrom = vfFromType.hiddenContent().type().arrays();
                     LinkNature linkNature = deriveLinkNature(arraysFrom, arraysTo);
                     builder.add(subFrom, linkNature, subTo);
                 } else {
                     List<TypeParameter> intersection = new ArrayList<>(typeParametersFrom.stream()
                             .sorted(Comparator.comparingInt(TypeParameter::getIndex)).toList());
                     intersection.retainAll(typeParametersOfSubTo);
-                    if (!intersection.isEmpty()) {
-                        if (intersection.size() == typeParametersFrom.size()) {
-                            FieldInfo theField = findField(intersection, toType.typeInfo());
-                            DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                                    runtime.newInt(-1));
-                            Expression scope = runtime.newVariableExpression(dv);
-                            FieldReference slice = runtime.newFieldReference(theField, scope, theField.type());
-                            builder.add(subFrom, INTERSECTION_NOT_EMPTY, slice);
+                    if (intersection.size() == 1) {
+                        if (arraysFrom > 0) {
+                            if (arraysTo == arraysFrom) {
+                                if(toType.typeParameter() != null) {
+                                    FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
+                                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
+                                            runtime.newInt(-1 - theField.index));
+                                   builder.add(dv, INTERSECTION_NOT_EMPTY, subTo);
+                                } else {
+                                    // slice across: TestShallow,4: keySet.ks~this.kvs[-1].k
+                                    FF theField = findField(intersection.getFirst(), toType.typeInfo());
+                                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
+                                            runtime.newInt(-1 - theField.index));
+                                    Expression scope = runtime.newVariableExpression(dv);
+                                    FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
+                                    builder.add(subFrom, INTERSECTION_NOT_EMPTY, slice);
+                                }
+                            } else if (arraysTo == 0) {
+                                // slice to a single element: TestShallowPrefix,1: oneStatic.xys[-1]>0:x
+                                FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
+                                DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
+                                        runtime.newInt(-1 - theField.index));
+                                builder.add(dv, CONTAINS, subTo);
+                            }
                         } else {
-                            //  throw new UnsupportedOperationException("NYI");
+                            // indexing: TestShallowPrefix,2: oneStatic.xsys.xs>0:x
+                            FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
+                            FieldReference subSubFrom = runtime.newFieldReference(theField.fieldInfo,
+                                    runtime.newVariableExpression(subFrom), theField.fieldInfo.type());
+                            builder.add(subSubFrom, CONTAINS, subTo);
                         }
                     }
                 }
@@ -234,15 +254,18 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         return CONTAINS;
     }
 
+    private record FF(FieldInfo fieldInfo, int index) {
+    }
 
-    private static FieldInfo findField(List<TypeParameter> typeParameters, TypeInfo container) {
+    private static FF findField(TypeParameter typeParameter, TypeInfo container) {
+        int i = 0;
         for (FieldInfo fieldInfo : container.fields()) {
-            if (fieldInfo.type().typeParameter() != null && typeParameters.size() == 1
-                && typeParameters.getFirst().equals(fieldInfo.type().typeParameter())) {
-                return fieldInfo;
+            if (typeParameter.equals(fieldInfo.type().typeParameter())) {
+                return new FF(fieldInfo, i);
             }
+            ++i;
         }
-        throw new UnsupportedOperationException("Should be able to find a field with types " + typeParameters
+        throw new UnsupportedOperationException("Should be able to find a field with type " + typeParameter
                                                 + " in " + container);
     }
 

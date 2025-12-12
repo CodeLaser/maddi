@@ -1,7 +1,10 @@
 package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.NamedType;
@@ -134,10 +137,9 @@ public class VirtualFieldComputer {
                 hiddenContent = null;
             }
         } else if (parameterVfs.stream().allMatch(vf -> vf.virtualFields.hiddenContent() != null
-                                                        && vf.virtualFields.hiddenContent().type().arrays() == 0
                                                         && vf.virtualFields.hiddenContent().type().isTypeParameter())) {
             TypeInfo containerType = makeContainerType(typeInfo, parameterVfs.stream()
-                    .map(vf -> vf.virtualFields.hiddenContent().type().typeParameter()).toList());
+                    .map(vf -> vf.virtualFields.hiddenContent()).toList());
             ParameterizedType baseType = containerType.asParameterizedType();
             String baseName = parameterVfs.stream()
                     .map(vf -> vf.virtualFields.hiddenContent().name()).collect(Collectors.joining());
@@ -154,7 +156,9 @@ public class VirtualFieldComputer {
                     }
                 }
             }
-        } else throw new UnsupportedOperationException("NYI");
+        } else {
+            throw new UnsupportedOperationException("NYI");
+        }
 
         return new VfTm(new VirtualFields(mutable, hiddenContent), addTranslation ? fieldTm : null);
     }
@@ -165,15 +169,20 @@ public class VirtualFieldComputer {
         return tp.typeBounds().stream().noneMatch(pt -> pt.extractTypeParameters().contains(tp));
     }
 
-    private TypeInfo makeContainerType(TypeInfo typeInfo, List<TypeParameter> filteredTypeParameters) {
-        String name = filteredTypeParameters.stream().map(TypeParameter::simpleName).collect(Collectors.joining());
+    private TypeInfo makeContainerType(TypeInfo typeInfo, List<FieldInfo> hiddenContentComponents) {
+        String name = hiddenContentComponents.stream()
+                .map(fi -> fi.type().typeParameter().simpleName() + "S".repeat(fi.type().arrays()))
+                .collect(Collectors.joining());
         TypeInfo newType = runtime.newTypeInfo(typeInfo, name);
         newType.builder().setTypeNature(runtime.typeNatureClass())
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
-        for (TypeParameter tp : filteredTypeParameters) {
-            FieldInfo fieldInfo = runtime.newFieldInfo(tp.simpleName().toLowerCase(), false,
-                    runtime.newParameterizedType(tp, 0, null), newType);
+        for (FieldInfo fi : hiddenContentComponents) {
+            TypeParameter tp = fi.type().typeParameter();
+            int arrays = fi.type().arrays();
+            FieldInfo fieldInfo = runtime.newFieldInfo(tp.simpleName().toLowerCase()
+                                                       + "s".repeat(arrays), false,
+                    runtime.newParameterizedType(tp, arrays, null), newType);
             fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
                     .addFieldModifier(runtime.fieldModifierPublic())
                     .setInitializer(runtime.newEmptyExpression())
