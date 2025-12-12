@@ -81,7 +81,7 @@ public class VirtualFieldComputer {
             if (inSuperTypes != null) {
                 mutable = inSuperTypes;
             } else {
-                mutable = runtime.newFieldInfo("$m", false, atomicBooleanPt, typeInfo);
+                mutable = newField("$m", atomicBooleanPt, typeInfo);
             }
         } else {
             mutable = null;
@@ -110,7 +110,7 @@ public class VirtualFieldComputer {
                     hcTypeWithArrays = runtime.newParameterizedType(hcType, multiplicity - 1);
                 }
                 String fieldName = baseName + ("s".repeat(multiplicity - 1));
-                hiddenContent = runtime.newFieldInfo(fieldName, false, hcTypeWithArrays, typeInfo);
+                hiddenContent = newField(fieldName, hcTypeWithArrays, typeInfo);
             }
         }
         return new VirtualFields(mutable, hiddenContent);
@@ -142,7 +142,7 @@ public class VirtualFieldComputer {
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
         for (TypeParameter tp : filteredTypeParameters) {
-            FieldInfo fieldInfo = runtime.newFieldInfo(tp.simpleName().toLowerCase(), false,
+            FieldInfo fieldInfo = newField(tp.simpleName().toLowerCase(),
                     runtime.newParameterizedType(tp, 0, null), newType);
             fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
                     .addFieldModifier(runtime.fieldModifierPublic())
@@ -253,8 +253,7 @@ public class VirtualFieldComputer {
         if (pt.isTypeParameter()) {
             // this one is always temporary; it is there as the basis of the recursion
             VirtualFields vf = new VirtualFields(null,
-                    runtime.newFieldInfo(pt.typeParameter().simpleName().toLowerCase(), false,
-                            pt, pt.typeParameter().typeInfo()));
+                    newField(pt.typeParameter().simpleName().toLowerCase(), pt, pt.typeParameter().typeInfo()));
             return new VfTm(vf, null);
         }
         if (pt.parameters().isEmpty()) {
@@ -271,11 +270,11 @@ public class VirtualFieldComputer {
                 .toList();
         FieldInfo mutable;
         if (parameterVfs.stream().anyMatch(vf -> vf.virtualFields.mutable() != null)) {
-            mutable = runtime.newFieldInfo("$m", false, atomicBooleanPt, pt.typeInfo());
+            mutable = newField("$m", atomicBooleanPt, pt.typeInfo());
         } else {
             Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
                     ValueImpl.ImmutableImpl.MUTABLE);
-            mutable = immutable.isMutable() ? runtime.newFieldInfo("$m", false, atomicBooleanPt, typeInfo)
+            mutable = immutable.isMutable() ? newField("$m", atomicBooleanPt, typeInfo)
                     : null;
         }
         FieldInfo hiddenContent;
@@ -288,15 +287,15 @@ public class VirtualFieldComputer {
             VirtualFields inner = parameterVfs.getFirst().virtualFields;
             FieldInfo hc = inner.hiddenContent();
             if (hc != null) {
-                hiddenContent = runtime.newFieldInfo(hc.name() + "s".repeat(extraMultiplicity), false,
+                hiddenContent = newField(hc.name() + "s".repeat(extraMultiplicity),
                         hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), pt.typeInfo());
 
                 // translation from formal to concrete hidden content variable
                 if (addTranslation) {
                     for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
                         int hcArrays = hc.type().arrays();
-                        FieldInfo wouldBeFormalHc = runtime.newFieldInfo(formalHiddenContent.name() + "s".repeat(hcArrays),
-                                false, formalHiddenContent.type().copyWithArrays(formalHiddenContent.type().arrays() + hcArrays),
+                        FieldInfo wouldBeFormalHc = newField(formalHiddenContent.name() + "s".repeat(hcArrays),
+                                formalHiddenContent.type().copyWithArrays(formalHiddenContent.type().arrays() + hcArrays),
                                 formalHiddenContent.owner());
                         fieldTm.put(wouldBeFormalHc, hiddenContent);
                     }
@@ -312,7 +311,7 @@ public class VirtualFieldComputer {
             ParameterizedType baseType = containerType.asParameterizedType();
             String baseName = parameterVfs.stream()
                     .map(vf -> vf.virtualFields.hiddenContent().name()).collect(Collectors.joining());
-            hiddenContent = runtime.newFieldInfo(baseName + "s".repeat(extraMultiplicity), false,
+            hiddenContent = newField(baseName + "s".repeat(extraMultiplicity),
                     baseType.copyWithArrays(extraMultiplicity), pt.typeInfo());
 
             if (addTranslation) {
@@ -321,8 +320,8 @@ public class VirtualFieldComputer {
                     TypeInfo formalContainerType = makeContainerType(typeInfo, typeInfo.typeParameters());
                     String formalBaseName = typeInfo.typeParameters().stream()
                             .map(tp -> tp.simpleName().toLowerCase()).collect(Collectors.joining());
-                    FieldInfo wouldBeFormalHc = runtime.newFieldInfo(formalBaseName + "s".repeat(hcArrays),
-                            false, formalContainerType.asParameterizedType().copyWithArrays(hcArrays),
+                    FieldInfo wouldBeFormalHc = newField(formalBaseName + "s".repeat(hcArrays),
+                            formalContainerType.asParameterizedType().copyWithArrays(hcArrays),
                             formalHiddenContent.owner());
 
                     // translation from formal to concrete hidden content variable
@@ -362,10 +361,15 @@ public class VirtualFieldComputer {
             typeInfo = pt.typeInfo();
         }
         // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
-        FieldInfo mutable = runtime.newFieldInfo("$m" + namedType.simpleName(),
-                false, atomicBooleanPt, typeInfo);
+        FieldInfo mutable = newField("$m" + namedType.simpleName(), atomicBooleanPt, typeInfo);
         String hcName = namedType.simpleName().toLowerCase() + "s".repeat(pt.arrays());
-        FieldInfo hiddenContent = runtime.newFieldInfo(hcName, false, pt, typeInfo);
+        FieldInfo hiddenContent = newField(hcName, pt, typeInfo);
         return new VirtualFields(mutable, hiddenContent);
+    }
+
+    private FieldInfo newField(String name, ParameterizedType type, TypeInfo owner) {
+        FieldInfo fi = runtime.newFieldInfo(name, false, type, owner);
+        fi.builder().setInitializer(runtime.newEmptyExpression()).commit();
+        return fi;
     }
 }

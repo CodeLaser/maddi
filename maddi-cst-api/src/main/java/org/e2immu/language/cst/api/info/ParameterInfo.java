@@ -17,6 +17,7 @@ package org.e2immu.language.cst.api.info;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.List;
@@ -59,5 +60,7 @@ public interface ParameterInfo extends Variable, Info {
     MethodInfo methodInfo();
 
     Stream<TypeReference> explicitTypesReferenced();
+
+    ParameterInfo withParameterizedType(ParameterizedType parameterizedType);
 
 }
