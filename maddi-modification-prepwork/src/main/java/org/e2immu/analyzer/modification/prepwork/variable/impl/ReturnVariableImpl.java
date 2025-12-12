@@ -21,7 +21,6 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -46,9 +45,13 @@ public class ReturnVariableImpl implements ReturnVariable {
     private final MethodInfo methodInfo;
 
     public ReturnVariableImpl(MethodInfo methodInfo) {
-        this.returnType = methodInfo.returnType();
-        simpleName = methodInfo.name();
-        fqn = methodInfo.fullyQualifiedName();
+        this(methodInfo.returnType(), methodInfo.name(), methodInfo.fullyQualifiedName(), methodInfo);
+    }
+
+    private ReturnVariableImpl(ParameterizedType returnType, String simpleName, String fqn, MethodInfo methodInfo) {
+        this.returnType = returnType;
+        this.simpleName = simpleName;
+        this.fqn = fqn;
         this.methodInfo = methodInfo;
     }
 
@@ -64,6 +67,11 @@ public class ReturnVariableImpl implements ReturnVariable {
     @Override
     public MethodInfo methodInfo() {
         return methodInfo;
+    }
+
+    @Override
+    public ReturnVariable withParameterizedType(ParameterizedType returnType) {
+        return new ReturnVariableImpl(returnType, simpleName, fqn, methodInfo);
     }
 
     @Override
