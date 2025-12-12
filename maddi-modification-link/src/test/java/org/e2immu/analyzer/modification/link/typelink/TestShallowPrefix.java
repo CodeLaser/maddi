@@ -58,9 +58,7 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                return oneInstance([0]0:0,[0]1:1)[\
-                #0:return oneInstance(*:0), \
-                #1:return oneInstance(*:1)]\
+                [0:x<this.xys[-1], 1:y<this.xyy[-2]] --> oneInstance.$m==this.$m,oneInstance.xys>this.xy\
                 """, tlv1Instance.toString());
     }
 
@@ -97,16 +95,61 @@ public class TestShallowPrefix extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("$m - XSYS xsys",
                 vfc.compute(oneStatic.returnType(), false).virtualFields().toString());
+        assertEquals("$m - XSYS xsys",
+                vfc.compute(oneInstance.returnType(), false).virtualFields().toString());
 
         MethodLinkedVariables mlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
         assertEquals("[-, -] --> oneStatic.xsys.xs>0:x,oneStatic.xsys.ys>1:y", mlv1Static.toString());
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                return oneInstance([0]0:0,[1]0:1)[\
-                #0:return oneInstance(*:0), \
-                #1:return oneInstance(*:1)]\
+                [0:x<this.xsys.xs, 1:y<this.xy.ys] --> oneInstance.$m==this.$m,oneInstance.xsys==this.xsys\
                 """, tlv1Instance.toString());
     }
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            import java.util.AbstractMap;
+            import java.util.Map;
+            import java.util.Optional;
+            public class C<X, Y> {
+            
+                public Optional<Map.Entry<X, Y>> oneInstance(X x, Y y) {
+                    return Optional.of(new AbstractMap.SimpleEntry<>(x, y));
+                }
+            
+                public static <X, Y> Optional<Map.Entry<X, Y>> oneStatic(X x, Y y) {
+                    return Optional.of(new AbstractMap.SimpleEntry<>(x, y));
+                }
+            }
+            """;
+
+    @Test
+    public void test3() {
+        TypeInfo C = javaInspector.parse(INPUT3);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, true, true);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
+        VirtualFields vfOneStatic = vfc.compute(oneStatic.returnType(), false).virtualFields();
+        assertEquals("$m - XY xy", vfOneStatic.toString());
+
+        MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
+        VirtualFields vfOneInstance = vfc.compute(oneStatic.returnType(), false).virtualFields();
+        assertEquals("$m - XY xy", vfOneInstance.toString());
+
+        MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
+        assertEquals("""
+                [0:x==this.xy.x, 1:y==this.xy.y] --> oneInstance.$m==this.$m,oneInstance.xy==this.xy\
+                """, tlv1Instance.toString());
+
+        MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
+        assertEquals("[-, -] --> oneStatic.xy.x==0:x,oneStatic.xy.y==1:y", tlv1Static.toString());
+    }
+
 
 }

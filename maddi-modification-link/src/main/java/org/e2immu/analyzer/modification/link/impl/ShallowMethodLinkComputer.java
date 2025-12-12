@@ -167,11 +167,18 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             } else if (toType.typeParameter() == null) {
                 // 'to' is a container (array); we'll need a slice
                 FF theField = findField(fromType.typeParameter(), toType.typeInfo());
-                DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                        runtime.newInt(-1 - theField.index));
-                Expression scope = runtime.newVariableExpression(dv);
-                FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
-                builder.add(linkNature, slice);
+                if (subTo.parameterizedType().arrays() == 0) {
+                    // indexing: TestShallowPrefix,1:
+                    FieldReference subSubTo = runtime.newFieldReference(theField.fieldInfo,
+                            runtime.newVariableExpression(subTo), theField.fieldInfo.type());
+                    builder.add(IS_IDENTICAL_TO, subSubTo);
+                } else {
+                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
+                            runtime.newInt(-1 - theField.index));
+                    Expression scope = runtime.newVariableExpression(dv);
+                    FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
+                    builder.add(linkNature, slice);
+                }
             }
         } else {
             VirtualFields vfFromType = virtualFieldComputer.compute(fromType, false).virtualFields();
