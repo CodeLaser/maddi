@@ -50,81 +50,81 @@ public class TestFixedpointPropagationAlgorithm {
         assertEquals("b: <, c: <, d: X", compute(graph));
     }
 
-    // . is "hasField", : is "is field of"
-    // a . b == c < d --> a ~ d
+    // ≥ is "hasField", ≤ is "is field of"
+    // a ≥ b == c < d --> a ~ d
     @Test
     public void test4() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.HAS_FIELD));
         graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
         graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
-        assertEquals("b: ., c: ., d: ~", compute(graph));
+        assertEquals("b: ≥, c: ≥, d: ~", compute(graph));
     }
 
-    // a . b == c > d --> a > d
+    // a ≥ b == c > d --> a > d
     @Test
     public void test4b() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.HAS_FIELD));
         graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
         graph.put("c", Map.of("d", LinkNature.CONTAINS));
-        assertEquals("b: ., c: ., d: >", compute(graph));
+        assertEquals("b: ≥, c: ≥, d: >", compute(graph));
     }
 
-    // a . b == c ~ d --> a ~ d
+    // a ≥ b == c ~ d --> a ~ d
     @Test
     public void test4c() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.HAS_FIELD));
         graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
         graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
-        assertEquals("b: ., c: ., d: ~", compute(graph));
+        assertEquals("b: ≥, c: ≥, d: ~", compute(graph));
     }
 
-    // a . b == c : d --> a ~ d
+    // a ≥ b == c : d --> a ~ d
     @Test
     public void test4d() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.HAS_FIELD));
         graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
         graph.put("c", Map.of("d", LinkNature.IS_FIELD_OF));
-        assertEquals("b: ., c: ., d: ~", compute(graph));
+        assertEquals("b: ≥, c: ≥, d: ~", compute(graph));
     }
 
-    // a : b < c --> a < c
+    // a ≤ b < c --> a < c
     @Test
     public void test5a() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.IS_FIELD_OF));
         graph.put("b", Map.of("c", LinkNature.IS_ELEMENT_OF));
-        assertEquals("b: :, c: <", compute(graph));
+        assertEquals("b: ≤, c: <", compute(graph));
     }
 
-    // a : b ~ c --> a ~ c
+    // a ≤ b ~ c --> a ~ c
     @Test
     public void test5b() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.IS_FIELD_OF));
         graph.put("b", Map.of("c", LinkNature.INTERSECTION_NOT_EMPTY));
-        assertEquals("b: :, c: ~", compute(graph));
+        assertEquals("b: ≤, c: ~", compute(graph));
     }
 
-    // a : b > c --> a X c
+    // a ≤ b > c --> a X c
     @Test
     public void test5c() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.IS_FIELD_OF));
         graph.put("b", Map.of("c", LinkNature.CONTAINS));
-        assertEquals("b: :, c: X", compute(graph));
+        assertEquals("b: ≤, c: X", compute(graph));
     }
 
-    // a : b . c --> a X c
+    // a ≤ b ≥ c --> a X c
     @Test
     public void test5d() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.IS_FIELD_OF));
         graph.put("b", Map.of("c", LinkNature.HAS_FIELD));
-        assertEquals("b: :, c: X", compute(graph));
+        assertEquals("b: ≤, c: X", compute(graph));
     }
 
     private String compute(Map<String, Map<String, LinkNature>> graph) {

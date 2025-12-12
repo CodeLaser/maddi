@@ -121,7 +121,9 @@ public class TestMap extends CommonTest {
         MethodInfo keySet = X.findUniqueMethod("keySet", 0);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(keySet);
-        assertEquals("keySet.M==this.map.M,keySet.tArray~this.map.eArray[-1].k", mlv.ofReturnValue().toString());
+        assertEquals("""
+                keySet~this.map.eArray[-1].k,keySet≥this.map.M,keySet.M==this.map.M,keySet.tArray~this.map.eArray[-1].k\
+                """, mlv.ofReturnValue().toString());
     }
 
     private record EInfo(TypeInfo e, ParameterizedType eArrayPt, FieldInfo eArray,
@@ -164,8 +166,9 @@ public class TestMap extends CommonTest {
         MethodInfo getOrDefault = X.findUniqueMethod("getOrDefault", 2);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(getOrDefault);
-        assertEquals("getOrDefault<this.map.eArray[-1].v,getOrDefault==1:defaultValue",
-                mlv.ofReturnValue().toString());
+        assertEquals("""
+                getOrDefault<this.map.eArray[-1].v,getOrDefault==1:defaultValue,getOrDefault<this.map\
+                """, mlv.ofReturnValue().toString());
     }
 
 
@@ -205,8 +208,9 @@ public class TestMap extends CommonTest {
         MethodInfo entrySet = X.findUniqueMethod("entrySet", 0);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(entrySet);
-        assertEquals("entrySet.eArray~this.map.eArray,entrySet.M==this.map.M",
-                mlv.ofReturnValue().toString());
+        assertEquals("""
+                entrySet≥this.map.M,entrySet~this.map.eArray,entrySet.eArray~this.map.eArray,entrySet.M==this.map.M\
+                """, mlv.ofReturnValue().toString());
     }
 
     private TypeInfo makeRecord(TypeInfo X, List<TypeParameter> typeParameters) {

@@ -99,7 +99,7 @@ public class TestList extends CommonTest {
         Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("k<1:x.ks,k==1:x.ks[0:index]", linksK.toString());
 
-        assertEquals("[-, -] --> method<1:x.ks,method==1:x.ks[0:index]", lvMethod.toString());
+        assertEquals("[-, -] --> method<1:x.ks,method==1:x.ks[0:index],method<1:x", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
@@ -150,8 +150,9 @@ public class TestList extends CommonTest {
         MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(asShortList));
 
-        assertEquals("asShortList.tArray~this.ts,asShortList.tArray>this.ts[0]",
-                lvAsShortList.ofReturnValue().toString());
+        assertEquals("""
+                asShortList~this.ts,asShortList>this.ts[0],asShortList.tArray~this.ts,asShortList.tArray>this.ts[0]\
+                """, lvAsShortList.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'sub', manually inserting values for List.subList()")
@@ -201,7 +202,9 @@ public class TestList extends CommonTest {
         // do the whole method
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
 
-        assertEquals("sub.zs~0:in.zs,sub.M==0:in.M", mlvSub.ofReturnValue().toString());
+        assertEquals("""
+                sub~0:in,sub~0:in.zs,sub≥0:in.M,sub.zs~0:in.zs,sub.M≤0:in,sub.M==0:in.M\
+                """, mlvSub.ofReturnValue().toString());
     }
 
 
