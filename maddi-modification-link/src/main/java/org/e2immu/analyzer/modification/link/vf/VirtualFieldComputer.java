@@ -27,7 +27,7 @@ modification linking.
 Rules:
 
 Functional interface in java.util.function: no fields, by definition
-Comparator<X>: no fields , by computation (hidden content, but never retrieved)
+Comparable<X>: no fields , by computation (hidden content, but never retrieved)
 
 Modifiable types: a field called $m of type AtomicBoolean (could have been any type, but AtomicBoolean is modifiable
 and a boolean seems the right value: if I've been modified, then you're modified.)
@@ -95,6 +95,9 @@ public class VirtualFieldComputer {
         if (typeInfo.packageName().equals("java.util.function")) {
             return NONE_NONE;
         }
+        int extraMultiplicity = maxMultiplicityFromMethods(typeInfo) - 1;
+        if (extraMultiplicity < 0) return NONE_NONE;
+
         // we'll need to recursively extend the current vf; they'll be the basis of our hc
         List<VfTm> parameterVfs = pt.parameters().stream()
                 .map(param -> computeAllowTypeParameterArray(param, addTranslation))
@@ -110,8 +113,7 @@ public class VirtualFieldComputer {
                     : null;
         }
         FieldInfo hiddenContent;
-        int extraMultiplicity = maxMultiplicityFromMethods(typeInfo) - 1;
-        FieldTranslationMap2 fieldTm = addTranslation ? new FieldTranslationMap2(runtime) : null;
+        FieldTranslationMap fieldTm = addTranslation ? new FieldTranslationMap(runtime) : null;
 
         if (parameterVfs.isEmpty()) {
             hiddenContent = null; // nothing here, and nothing in the parameters
@@ -144,9 +146,11 @@ public class VirtualFieldComputer {
 
             if (addTranslation) {
                 for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                    int hcArrays = formalHiddenContent.type().arrays();
-                    for(TypeParameter typeParameter: typeInfo.typeParameters()) {
-                        fieldTm.put(typeParameter, containerType.fields().get(typeParameter.getIndex()).type().typeParameter());
+                    TypeInfo formalContainerType = formalHiddenContent.type().typeInfo();
+                    int i = 0;
+                    for (FieldInfo field : formalContainerType.fields()) {
+                        fieldTm.put(field.type().typeParameter(), containerType.fields().get(i).type().typeParameter());
+                        ++i;
                     }
                 }
             }
@@ -189,10 +193,6 @@ public class VirtualFieldComputer {
             ParameterizedType returnType = methodInfo.returnType();
             int m = computeMultiplicity(returnType, true);
             multiplicity = Math.max(multiplicity, m);
-            for (ParameterInfo pi : methodInfo.parameters()) {
-                int mpi = computeMultiplicity(pi.parameterizedType(), true);
-                multiplicity = Math.max(multiplicity, mpi);
-            }
         }
         return multiplicity;
     }

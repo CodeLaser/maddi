@@ -4,7 +4,6 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -19,7 +18,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class TestFieldTranslationMap2 extends CommonTest {
+public class TestFieldTranslationMap extends CommonTest {
 
     @Test
     public void test1() {
@@ -29,7 +28,7 @@ public class TestFieldTranslationMap2 extends CommonTest {
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         TypeParameter arrayListTp = arrayList.typeParameters().getFirst();
 
-        FieldTranslationMap2 ftm = new FieldTranslationMap2(runtime);
+        FieldTranslationMap ftm = new FieldTranslationMap(runtime);
 
         ftm.put(arrayListTp, iterableTp);
 
@@ -54,7 +53,7 @@ public class TestFieldTranslationMap2 extends CommonTest {
         VirtualFields vfListTpArray = vfTmListTpArray.virtualFields();
         assertEquals("$m - T[][] tss", vfListTpArray.toString());
 
-        FieldTranslationMap2 ftm = new FieldTranslationMap2(runtime);
+        FieldTranslationMap ftm = new FieldTranslationMap(runtime);
         // T in optional -> E in List
         ftm.put(optional.typeParameters().getFirst(), list.typeParameters().getFirst());
 
@@ -81,7 +80,7 @@ public class TestFieldTranslationMap2 extends CommonTest {
         VirtualFields vfMapTE = vfTmMapTE.virtualFields();
         assertEquals("$m - TE[] tes", vfMapTE.toString());
 
-        FieldTranslationMap2 ftm = new FieldTranslationMap2(runtime);
+        FieldTranslationMap ftm = new FieldTranslationMap(runtime);
         ftm.put(optional.typeParameters().getFirst(), map.typeParameters().getFirst());
 
         FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
