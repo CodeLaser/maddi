@@ -280,7 +280,7 @@ public class VirtualFieldComputer {
         }
         FieldInfo hiddenContent;
         int extraMultiplicity = maxMultiplicityFromMethods(typeInfo) - 1;
-        TranslationMap.Builder tmBuilder = addTranslation ? runtime.newTranslationMapBuilder() : null;
+        FieldTranslationMap fieldTm = addTranslation ? new FieldTranslationMap(runtime) : null;
 
         if (parameterVfs.isEmpty()) {
             hiddenContent = null; // nothing here, and nothing in the parameters
@@ -298,7 +298,7 @@ public class VirtualFieldComputer {
                         FieldInfo wouldBeFormalHc = runtime.newFieldInfo(formalHiddenContent.name() + "s".repeat(hcArrays),
                                 false, formalHiddenContent.type().copyWithArrays(formalHiddenContent.type().arrays() + hcArrays),
                                 formalHiddenContent.owner());
-                        tmBuilder.put(wouldBeFormalHc, hiddenContent);
+                        fieldTm.put(wouldBeFormalHc, hiddenContent);
                     }
                 }
             } else {
@@ -326,12 +326,12 @@ public class VirtualFieldComputer {
                             formalHiddenContent.owner());
 
                     // translation from formal to concrete hidden content variable
-                    tmBuilder.put(wouldBeFormalHc, hiddenContent);
+                    fieldTm.put(wouldBeFormalHc, hiddenContent);
                 }
             }
         } else throw new UnsupportedOperationException("NYI");
 
-        return new VfTm(new VirtualFields(mutable, hiddenContent), addTranslation ? tmBuilder.build() : null);
+        return new VfTm(new VirtualFields(mutable, hiddenContent), addTranslation ? fieldTm : null);
     }
 
     private List<FieldInfo> hiddenContentHierarchy(TypeInfo typeInfo) {
@@ -340,7 +340,7 @@ public class VirtualFieldComputer {
         Stream<ParameterizedType> superStream = Stream.concat(parentStream, typeInfo.interfacesImplemented().stream());
         List<FieldInfo> fromHigher = superStream
                 .filter(pt -> sameSetOfTypeParameters(typeInfo.typeParameters(), pt))
-                .map(pt -> pt.typeInfo())
+                .map(ParameterizedType::typeInfo)
                 .filter(Objects::nonNull)
                 .distinct()
                 .flatMap(ti -> hiddenContentHierarchy(ti).stream())
