@@ -21,27 +21,34 @@ import java.util.stream.Collectors;
 public class FieldTranslationMap implements TranslationMap {
 
     private final Runtime runtime;
-    private final Map<TypeParameter, TypeParameter> map = new HashMap<>();
+    private final Map<TypeParameter, R> map = new HashMap<>();
 
     public FieldTranslationMap(Runtime runtime) {
         this.runtime = runtime;
     }
 
-    public void put(TypeParameter in, TypeParameter out) {
-        this.map.put(in, out);
+    private record R(TypeParameter tp, int arrayDiff) {
+    }
+
+    public void put(TypeParameter in, TypeParameter out, int arrayDiff) {
+        this.map.put(in, new R(out, arrayDiff));
     }
 
     @Override
     public Variable translateVariable(Variable variable) {
         ParameterizedType pt = variable.parameterizedType();
         if (pt.typeParameter() != null) {
-            TypeParameter newTp = map.get(pt.typeParameter());
-            if (newTp != null) {
-                ParameterizedType newType = runtime.newParameterizedType(newTp, pt.arrays(), pt.wildcard());
+            R newTpR = map.get(pt.typeParameter());
+            if (newTpR != null) {
+                TypeParameter newTp = newTpR.tp;
+                int newArrays = pt.arrays() + newTpR.arrayDiff;
+                ParameterizedType newType = runtime.newParameterizedType(newTp, newArrays, pt.wildcard());
+                String newName = newTp.simpleName().toLowerCase() + "s".repeat(newArrays);
                 return switch (variable) {
-                    case ReturnVariable rv when pt.arrays() == 0 -> rv.withParameterizedType(newType);
-                    case ParameterInfo pi when pt.arrays() == 0 -> pi.withParameterizedType(newType);
-                    case FieldReference fr -> handleFieldReference(fr, newTp, newType);
+                    case ReturnVariable rv when pt.arrays() == 0 && newTpR.arrayDiff == 0 ->
+                            rv.withParameterizedType(newType);
+                    case ParameterInfo pi when pt.arrays() == 0 -> pi.with(newName, newType);
+                    case FieldReference fr -> handleFieldReference(fr, newTp, newName, newType);
                     default -> variable; // no change
                 };
             }
@@ -55,11 +62,12 @@ public class FieldTranslationMap implements TranslationMap {
             for (FieldInfo fieldInfo : fields) {
                 TypeParameter tp = fieldInfo.type().typeParameter();
                 if (tp != null && fieldInfo.type().arrays() == 0) {
-                    TypeParameter newTp = map.get(tp);
-                    if (newTp != null) {
+                    R newTpRecord = map.get(tp);
+                    if (newTpRecord != null) {
+                        TypeParameter newTp = newTpRecord.tp;
                         change = true;
-                        ParameterizedType newType = runtime.newParameterizedType(newTp, 0, null);
-                        String name = newTp.simpleName().toLowerCase();
+                        ParameterizedType newType = runtime.newParameterizedType(newTp, newTpRecord.arrayDiff, null);
+                        String name = newTp.simpleName().toLowerCase() + "s".repeat(newTpRecord.arrayDiff);
                         FieldInfo newField = runtime.newFieldInfo(name, false, newType, newTp.typeInfo());
                         newTypeParameters.add(newTp);
                         newFields.add(newField);
@@ -102,9 +110,9 @@ public class FieldTranslationMap implements TranslationMap {
         return newType;
     }
 
-    private FieldReference handleFieldReference(FieldReference fr, TypeParameter newTp, ParameterizedType newType) {
-        String name = newTp.simpleName().toLowerCase() + "s".repeat(newType.arrays());
-        FieldInfo newFieldInfo = runtime.newFieldInfo(name, false, newType, newTp.typeInfo());
+    private FieldReference handleFieldReference(FieldReference fr, TypeParameter newTp, String newName,
+                                                ParameterizedType newType) {
+        FieldInfo newFieldInfo = runtime.newFieldInfo(newName, false, newType, newTp.typeInfo());
         Expression tScope = fr.scope().translate(this);
         return runtime.newFieldReference(newFieldInfo, tScope, newType);
     }
@@ -123,8 +131,14 @@ public class FieldTranslationMap implements TranslationMap {
     public String toString() {
         return map.entrySet().stream()
                 .map(e -> e.getKey().toStringWithTypeBounds()
-                          + " --> " + e.getValue().toStringWithTypeBounds())
+                          + " --> " + e.getValue().tp.toStringWithTypeBounds() + niceArrayDiff(e.getValue().arrayDiff))
                 .sorted()
                 .collect(Collectors.joining("\n"));
+    }
+
+    private static String niceArrayDiff(int i) {
+        if (i > 0) return " +" + i;
+        if (i < 0) return " " + i;
+        return "";
     }
 }

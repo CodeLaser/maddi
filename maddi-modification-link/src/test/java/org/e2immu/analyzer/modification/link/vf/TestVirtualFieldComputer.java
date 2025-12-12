@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.intellij.lang.annotations.Language;
@@ -240,7 +241,11 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo C = javaInspector.parse(INPUT10);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFields vf = vfc.compute(C);
-        // this could be correct, could be wrong
+        // this could be correct, could be wrong, depending on other methods being present or absent
         assertEquals("$m - XY xy", vf.toString());
+        MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
+        VirtualFields vf2 = vfc.compute(oneInstance.returnType(), false).virtualFields();
+        // but this one is correct
+        assertEquals("$m - XSYS xsys", vf2.toString());
     }
 }

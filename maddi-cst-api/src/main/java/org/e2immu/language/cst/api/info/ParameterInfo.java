@@ -63,4 +63,6 @@ public interface ParameterInfo extends Variable, Info {
 
     ParameterInfo withParameterizedType(ParameterizedType parameterizedType);
 
+    ParameterInfo with(String name, ParameterizedType parameterizedType);
+
 }

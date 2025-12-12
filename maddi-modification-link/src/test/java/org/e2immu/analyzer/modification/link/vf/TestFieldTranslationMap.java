@@ -30,7 +30,7 @@ public class TestFieldTranslationMap extends CommonTest {
 
         FieldTranslationMap ftm = new FieldTranslationMap(runtime);
 
-        ftm.put(arrayListTp, iterableTp);
+        ftm.put(arrayListTp, iterableTp, 0);
 
         ReturnVariable rv = new ReturnVariableImpl(arrayList.findUniqueMethod("get", 1));
         assertEquals("Type param E", rv.parameterizedType().toString());
@@ -53,15 +53,28 @@ public class TestFieldTranslationMap extends CommonTest {
         VirtualFields vfListTpArray = vfTmListTpArray.virtualFields();
         assertEquals("$m - T[][] tss", vfListTpArray.toString());
 
-        FieldTranslationMap ftm = new FieldTranslationMap(runtime);
-        // T in optional -> E in List
-        ftm.put(optional.typeParameters().getFirst(), list.typeParameters().getFirst());
+        {
+            FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+            // T in optional -> E in List
+            ftm.put(optional.typeParameters().getFirst(), list.typeParameters().getFirst(), 0);
 
-        FieldReference fr = runtime.newFieldReference(vfListTpArray.hiddenContent());
-        Variable tFr = ftm.translateVariableRecursively(fr);
-        assertEquals("ess", tFr.simpleName());
-        assertEquals("Type param E[][]", tFr.parameterizedType().toString());
-        assertEquals("E=TP#0 in List []", tFr.parameterizedType().typeParameter().toStringWithTypeBounds());
+            FieldReference fr = runtime.newFieldReference(vfListTpArray.hiddenContent());
+            Variable tFr = ftm.translateVariableRecursively(fr);
+            assertEquals("ess", tFr.simpleName());
+            assertEquals("Type param E[][]", tFr.parameterizedType().toString());
+            assertEquals("E=TP#0 in List []", tFr.parameterizedType().typeParameter().toStringWithTypeBounds());
+        }
+        {
+            FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+            // T in optional -> E in List with one extra array
+            ftm.put(optional.typeParameters().getFirst(), list.typeParameters().getFirst(), 1);
+
+            FieldReference fr = runtime.newFieldReference(vfListTpArray.hiddenContent());
+            Variable tFr = ftm.translateVariableRecursively(fr);
+            assertEquals("esss", tFr.simpleName());
+            assertEquals("Type param E[][][]", tFr.parameterizedType().toString());
+            assertEquals("E=TP#0 in List []", tFr.parameterizedType().typeParameter().toStringWithTypeBounds());
+        }
     }
 
     @Test
@@ -80,12 +93,24 @@ public class TestFieldTranslationMap extends CommonTest {
         VirtualFields vfMapTE = vfTmMapTE.virtualFields();
         assertEquals("$m - TE[] tes", vfMapTE.toString());
 
-        FieldTranslationMap ftm = new FieldTranslationMap(runtime);
-        ftm.put(optional.typeParameters().getFirst(), map.typeParameters().getFirst());
+        {
+            FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+            ftm.put(optional.typeParameters().getFirst(), map.typeParameters().getFirst(), 0);
 
-        FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
-        Variable tFr = ftm.translateVariableRecursively(fr);
-        assertEquals("kes", tFr.simpleName());
-        assertEquals("Type java.util.Map.KE[]", tFr.parameterizedType().toString());
+            FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
+            Variable tFr = ftm.translateVariableRecursively(fr);
+            assertEquals("kes", tFr.simpleName());
+            assertEquals("Type java.util.Map.KE[]", tFr.parameterizedType().toString());
+        }
+        {
+            FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+            ftm.put(optional.typeParameters().getFirst(), map.typeParameters().getFirst(), 0);
+            ftm.put(list.typeParameters().getFirst(), map.typeParameters().getLast(), 1);
+
+            FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
+            Variable tFr = ftm.translateVariableRecursively(fr);
+            assertEquals("kvss", tFr.simpleName());
+            assertEquals("Type java.util.Map.KVS[]", tFr.parameterizedType().toString());
+        }
     }
 }
