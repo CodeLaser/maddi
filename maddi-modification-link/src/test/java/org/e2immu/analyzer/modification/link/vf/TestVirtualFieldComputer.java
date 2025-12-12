@@ -101,6 +101,15 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertNull(vfTm.formalToConcrete());
     }
 
+    @DisplayName("comparable")
+    @Test
+    public void test5b() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        TypeInfo comparable = javaInspector.compiledTypesManager().getOrLoad(Comparable.class);
+        VirtualFields vf = vfc.compute(comparable);
+        assertEquals("/ - /", vf.toString());
+    }
+
     @DisplayName("computeAllowTypeParameterArray TP[]")
     @Test
     public void test6() {
@@ -175,22 +184,32 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test8() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo treeMap = javaInspector.compiledTypesManager().getOrLoad(TreeMap.class);
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
-        ParameterizedType mapTE = runtime.newParameterizedType(map, List.of(
+        ParameterizedType mapTE = runtime.newParameterizedType(treeMap, List.of(
                 optional.asParameterizedType().parameters().getFirst(),
                 list.asParameterizedType().parameters().getFirst()
         ));
-        assertEquals("java.util.Map<T,E>", mapTE.descriptor());
+        assertEquals("java.util.TreeMap<T,E>", mapTE.descriptor());
         VirtualFieldComputer.VfTm vfTmMapTE = vfc.computeAllowTypeParameterArray(mapTE, true);
         VirtualFields vfMapTE = vfTmMapTE.virtualFields();
         assertEquals("$m - TE[] tes", vfMapTE.toString());
         assertEquals("java.util.Optional[T]", vfMapTE.hiddenContent().type().typeInfo()
                 .fields().getFirst().type().typeParameter().descriptor());
         assertEquals("""
+                K=TP#0 in AbstractMap [] --> T=TP#0 in Optional []
                 K=TP#0 in Map [] --> T=TP#0 in Optional []
-                V=TP#1 in Map [] --> E=TP#0 in List []\
+                K=TP#0 in NavigableMap [] --> T=TP#0 in Optional []
+                K=TP#0 in SequencedMap [] --> T=TP#0 in Optional []
+                K=TP#0 in SortedMap [] --> T=TP#0 in Optional []
+                K=TP#0 in TreeMap [] --> T=TP#0 in Optional []
+                V=TP#1 in AbstractMap [] --> E=TP#0 in List []
+                V=TP#1 in Map [] --> E=TP#0 in List []
+                V=TP#1 in NavigableMap [] --> E=TP#0 in List []
+                V=TP#1 in SequencedMap [] --> E=TP#0 in List []
+                V=TP#1 in SortedMap [] --> E=TP#0 in List []
+                V=TP#1 in TreeMap [] --> E=TP#0 in List []\
                 """, vfTmMapTE.formalToConcrete().toString());
     }
 }
