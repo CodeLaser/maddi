@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -104,7 +105,8 @@ public class FieldTranslationMap implements TranslationMap {
     private FieldReference handleFieldReference(FieldReference fr, TypeParameter newTp, ParameterizedType newType) {
         String name = newTp.simpleName().toLowerCase() + "s".repeat(newType.arrays());
         FieldInfo newFieldInfo = runtime.newFieldInfo(name, false, newType, newTp.typeInfo());
-        return runtime.newFieldReference(newFieldInfo, fr.scope(), newType);
+        Expression tScope = fr.scope().translate(this);
+        return runtime.newFieldReference(newFieldInfo, tScope, newType);
     }
 
     @Override
