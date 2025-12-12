@@ -142,7 +142,7 @@ public class VirtualFieldComputer {
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
         for (TypeParameter tp : filteredTypeParameters) {
-            FieldInfo fieldInfo = newField(tp.simpleName().toLowerCase(),
+            FieldInfo fieldInfo = runtime.newFieldInfo(tp.simpleName().toLowerCase(), false,
                     runtime.newParameterizedType(tp, 0, null), newType);
             fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
                     .addFieldModifier(runtime.fieldModifierPublic())

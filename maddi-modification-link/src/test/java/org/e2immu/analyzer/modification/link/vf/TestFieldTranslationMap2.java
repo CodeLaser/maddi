@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -62,5 +63,30 @@ public class TestFieldTranslationMap2 extends CommonTest {
         assertEquals("ess", tFr.simpleName());
         assertEquals("Type param E[][]", tFr.parameterizedType().toString());
         assertEquals("E=TP#0 in List []", tFr.parameterizedType().typeParameter().toStringWithTypeBounds());
+    }
+
+    @Test
+    public void test3() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        ParameterizedType mapTE = runtime.newParameterizedType(map, List.of(
+                optional.asParameterizedType().parameters().getFirst(),
+                list.asParameterizedType().parameters().getFirst()
+        ));
+        assertEquals("java.util.Map<T,E>", mapTE.descriptor());
+        VirtualFieldComputer.VfTm vfTmMapTE = vfc.computeAllowTypeParameterArray(mapTE, true);
+        VirtualFields vfMapTE = vfTmMapTE.virtualFields();
+        assertEquals("$m - TE[] tes", vfMapTE.toString());
+
+        FieldTranslationMap2 ftm = new FieldTranslationMap2(runtime);
+        ftm.put(optional.typeParameters().getFirst(), map.typeParameters().getFirst());
+
+        FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
+        Variable tFr = ftm.translateVariableRecursively(fr);
+        assertEquals("kes", tFr.simpleName());
+        assertEquals("Type java.util.Map.KE[]", tFr.parameterizedType().toString());
     }
 }
