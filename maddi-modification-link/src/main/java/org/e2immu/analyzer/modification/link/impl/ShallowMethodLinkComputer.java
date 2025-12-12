@@ -197,16 +197,21 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     if (toIsTp && fromIsTp || !toIsTp && !fromIsTp && arraysAligned(subFrom.parameterizedType(), subTo.parameterizedType())) {
                         // e.g. new ArrayList<>(Collection<> c) this.es ~ c.es
                         // e.g. Map.entrySet() entrySet.kvs ~ this.kvs
+                        // e.g. TestShallowPrefix,1 oneInstance.xys>this.xy
                         LinkNature linkNature = deriveLinkNature(arraysFrom, arraysTo);
                         builder.add(subFrom, linkNature, subTo);
                     } else if (!toIsTp && !fromIsTp) {
                         // e.g. TestShallowPrefix,2 oneInstance.xsys to .xy; arrays not aligned (different!)
-                        // result  oneInstance.xsys[-1]>this.xy.x,oneInstance.xsys[-2]>this.xy.y
-                        if (arraysFrom > arraysTo && arraysAligned(subFrom.parameterizedType().copyWithOneFewerArrays(), subTo.parameterizedType())) {
-                            LinkNature linkNature = deriveLinkNature(arraysFrom, arraysTo);
-                            builder.add(subFrom, linkNature, subTo);
-                        } else {
-                            throw new UnsupportedOperationException();
+                        // result  oneInstance.xsys.xs>this.xy.x,oneInstance.xsys.ys>this.xy.y
+                        // TODO this is very dedicated to this situation, others exist
+                        for (FieldInfo fieldFrom : subFrom.parameterizedType().typeInfo().fields()) {
+                            assert fieldFrom.type().typeParameter() != null : "NYI generalization";
+                            FF fieldTo = findField(fieldFrom.type().typeParameter(), subTo.parameterizedType().typeInfo());
+                            FieldReference subSubFrom = runtime.newFieldReference(fieldFrom,
+                                    runtime.newVariableExpression(subFrom), fieldFrom.type());
+                            FieldReference subSubTo = runtime.newFieldReference(fieldTo.fieldInfo,
+                                    runtime.newVariableExpression(subTo), fieldTo.fieldInfo.type());
+                            builder.add(subSubFrom, CONTAINS, subSubTo);
                         }
                     } else {
                         throw new UnsupportedOperationException();
@@ -270,10 +275,10 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
     // e.g. kvs, xys is aligned, ksvs is not aligned with kvs
     private boolean arraysAligned(ParameterizedType fromPt, ParameterizedType toPt) {
         List<FieldInfo> fromFields = fromPt.typeInfo().fields();
-        return fromPt.arrays() == toPt.arrays() &&
-               fromFields.size() == toPt.typeInfo().fields().size() &&
-               fromFields.stream().allMatch(fi ->
-                       fi.type().arrays() == toPt.typeInfo().fields().get(fi.indexInType()).type().arrays());
+        return //fromPt.arrays() == toPt.arrays() &&
+                fromFields.size() == toPt.typeInfo().fields().size() &&
+                fromFields.stream().allMatch(fi ->
+                        fi.type().arrays() == toPt.typeInfo().fields().get(fi.indexInType()).type().arrays());
     }
 
     private static LinkNature deriveLinkNature(int arrays, int arraysSource) {
