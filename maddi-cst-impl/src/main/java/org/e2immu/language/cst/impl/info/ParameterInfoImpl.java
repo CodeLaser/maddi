@@ -276,4 +276,9 @@ public class ParameterInfoImpl implements ParameterInfo {
     public ParameterInfo withParameterizedType(ParameterizedType parameterizedType) {
         return new ParameterInfoImpl(methodInfo, index, name, parameterizedType);
     }
+
+    @Override
+    public ParameterInfo with(String name, ParameterizedType parameterizedType) {
+        return new ParameterInfoImpl(methodInfo, index, name, parameterizedType);
+    }
 }

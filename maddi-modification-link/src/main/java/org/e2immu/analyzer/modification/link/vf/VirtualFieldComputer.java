@@ -130,7 +130,9 @@ public class VirtualFieldComputer {
                 // translation from formal to concrete hidden content variable
                 if (addTranslation) {
                     for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                        fieldTm.put(formalHiddenContent.type().typeParameter(), hiddenContent.type().typeParameter());
+                        int arrayDiff = 0;
+                        fieldTm.put(formalHiddenContent.type().typeParameter(), hiddenContent.type().typeParameter(),
+                                arrayDiff);
                     }
                 }
             } else {
@@ -151,7 +153,10 @@ public class VirtualFieldComputer {
                     TypeInfo formalContainerType = formalHiddenContent.type().typeInfo();
                     int i = 0;
                     for (FieldInfo field : formalContainerType.fields()) {
-                        fieldTm.put(field.type().typeParameter(), containerType.fields().get(i).type().typeParameter());
+                        ParameterizedType outType = containerType.fields().get(i).type();
+                        int arrayDiff = outType.arrays() - field.type().arrays();
+                        TypeParameter out = outType.typeParameter();
+                        fieldTm.put(field.type().typeParameter(), out, arrayDiff);
                         ++i;
                     }
                 }
