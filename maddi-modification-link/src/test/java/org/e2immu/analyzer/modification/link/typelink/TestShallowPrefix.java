@@ -84,7 +84,7 @@ public class TestShallowPrefix extends CommonTest {
             }
             """;
 
-    // see also TestPrefix,3
+    // see also TestPrefix,3, which analyses the statements
     @Test
     public void test2() {
         TypeInfo C = javaInspector.parse(INPUT2);

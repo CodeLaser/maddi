@@ -79,7 +79,7 @@ public class TestPrefix extends CommonTest {
         assertEquals("stream1.ts>entry", tlvStream1.toString());
 
         MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x([0]0:*);y([0]1:*)", tlvOne.toString());
+        assertEquals("[-, -] --> one>0:x,one>1:y,one.ts>0:x,one.ts>1:y", tlvOne.toString());
     }
 
     @Language("java")
@@ -120,6 +120,49 @@ public class TestPrefix extends CommonTest {
             public class C<X, Y> {
             
                 public Map.Entry<Stream<X>, Stream<Y>> oneInstance(X x, Y y) {
+                    Stream<X> xs = Stream.of(x);
+                    Stream<Y> ys = Stream.of(y);
+                    return new AbstractMap.SimpleEntry<>(xs, ys);
+                }
+            
+                public static <X, Y> Map.Entry<Stream<X>, Stream<Y>> oneStatic(X x, Y y) {
+                    Stream<X> xs = Stream.of(x);
+                    Stream<Y> ys = Stream.of(y);
+                    return new AbstractMap.SimpleEntry<>(xs, ys);
+                }
+            }
+            """;
+
+    // see also TestShallowPrefix, which computes the shallow version
+    @Test
+    public void test3() {
+        TypeInfo C = javaInspector.parse(INPUT3);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        String expected = "[-, -] --> oneStatic>0:x,oneStatic>1:y,oneStatic.xsys.xs>0:x,oneStatic.xsys.ys>1:y";
+
+        MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
+        MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
+        assertEquals(expected, tlv1Static.toString());
+
+        MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
+        MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
+        assertEquals(expected.replace("oneStatic", "oneInstance"), tlv1Instance.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.AbstractMap;
+            import java.util.Map;
+            import java.util.stream.Stream;
+            public class C<X, Y> {
+            
+                public Map.Entry<Stream<X>, Stream<Y>> oneInstance(X x, Y y) {
                     return new AbstractMap.SimpleEntry<>(Stream.of(x), Stream.of(y));
                 }
             
@@ -129,9 +172,10 @@ public class TestPrefix extends CommonTest {
             }
             """;
 
+    // see also TestShallowPrefix, which computes the shallow version
     @Test
-    public void test3() {
-        TypeInfo C = javaInspector.parse(INPUT3);
+    public void test4() {
+        TypeInfo C = javaInspector.parse(INPUT4);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
