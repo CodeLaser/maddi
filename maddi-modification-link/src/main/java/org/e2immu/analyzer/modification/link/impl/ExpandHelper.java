@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.LocalVariable;
+import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.HashMap;
@@ -20,6 +21,18 @@ public class ExpandHelper {
                           Variable to) {
         Map<Variable, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
         edges.merge(to, linkNature, LinkNature::combine);
+    }
+
+    static void mergeEdge(Map<Variable, Map<Variable, LinkNature>> graph,
+                          Variable primary,
+                          Variable from,
+                          LinkNature linkNature,
+                          Variable to) {
+        mergeEdge(graph, from, linkNature, to);
+        if (!from.equals(primary) && !(primary instanceof This)) {
+            mergeEdge(graph, primary, LinkNature.HAS_FIELD, from);
+            mergeEdge(graph, from, LinkNature.IS_FIELD_OF, primary);
+        }
     }
 
     static boolean containsNoLocalVariable(Variable variable) {

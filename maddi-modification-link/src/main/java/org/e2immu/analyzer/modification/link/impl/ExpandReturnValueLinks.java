@@ -1,6 +1,5 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Link;
 import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.LinkedVariables;
 import org.e2immu.analyzer.modification.link.Links;
@@ -47,14 +46,14 @@ public record ExpandReturnValueLinks(Runtime runtime) {
                                                                       LinkedVariables extra,
                                                                       VariableData vd) {
         Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
-        Stream<Link> stream = Stream.concat(links.links().stream(),
-                extra.map().values().stream().flatMap(l -> l.links().stream()));
-        stream.forEach(link -> mergeEdge(graph, link.from(), link.linkNature(), link.to()));
+        Stream<Links> stream = Stream.concat(Stream.of(links), extra.map().values().stream());
+        stream.forEach(l -> l.links().forEach(link ->
+                mergeEdge(graph, l.primary(), link.from(), link.linkNature(), link.to())));
 
         vd.variableInfoStream().forEach(vi -> {
             Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
             if (vLinks != null) {
-                vLinks.links().forEach(l -> mergeEdge(graph, l.from(), l.linkNature(), l.to()));
+                vLinks.links().forEach(l -> mergeEdge(graph, vLinks.primary(), l.from(), l.linkNature(), l.to()));
             }
         });
 
