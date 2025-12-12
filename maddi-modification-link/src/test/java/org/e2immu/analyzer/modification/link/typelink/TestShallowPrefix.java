@@ -111,8 +111,8 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                [0:x==this.xy.x, 1:y==this.xy.y] --> oneInstance.$m==this.$m, 
-                oneInstance.xsys[-1]>this.xy.x,oneInstance.xsys[-2]>this.xy.y\
+                [0:x==this.xy.x, 1:y==this.xy.y] --> oneInstance.$m==this.$m,\
+                oneInstance.xsys.xs>this.xy.x,oneInstance.xsys.ys>this.xy.y\
                 """, tlv1Instance.toString());
     }
 
