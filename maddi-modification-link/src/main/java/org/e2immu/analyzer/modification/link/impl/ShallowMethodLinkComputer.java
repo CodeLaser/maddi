@@ -174,7 +174,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     builder.add(IS_IDENTICAL_TO, subSubTo);
                 } else {
                     DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                            runtime.newInt(-1 - theField.index));
+                            runtime.newInt(theField.negative()));
                     Expression scope = runtime.newVariableExpression(dv);
                     FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
                     builder.add(linkNature, slice);
@@ -204,30 +204,32 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                 if (toType.typeParameter() != null) {
                                     FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                                     DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
-                                            runtime.newInt(-1 - theField.index));
+                                            runtime.newInt(theField.negative()));
                                     builder.add(dv, INTERSECTION_NOT_EMPTY, subTo);
                                 } else {
                                     // slice across: TestShallow,4: keySet.ks~this.kvs[-1].k
                                     FF theField = findField(intersection.getFirst(), toType.typeInfo());
                                     DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                                            runtime.newInt(-1 - theField.index));
+                                            runtime.newInt(theField.negative()));
                                     Expression scope = runtime.newVariableExpression(dv);
-                                    FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
+                                    FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope,
+                                            theField.fieldInfo.type());
                                     builder.add(subFrom, INTERSECTION_NOT_EMPTY, slice);
                                 }
                             } else if (arraysTo == 0) {
                                 // slice to a single element: TestShallowPrefix,1: oneStatic.xys[-1]>0:x
                                 FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                                 DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
-                                        runtime.newInt(-1 - theField.index));
+                                        runtime.newInt(theField.negative()));
                                 builder.add(dv, CONTAINS, subTo);
                             }
                         } else {
-                            // indexing: TestShallowPrefix,2: oneStatic.xsys.xs>0:x
+                            // indexing, e.g. TestShallowPrefix,3:  oneStatic.xy.x==0:x
                             FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
+                            LinkNature linkNature = deriveLinkNature(arraysTo, arraysFrom);
                             FieldReference subSubFrom = runtime.newFieldReference(theField.fieldInfo,
                                     runtime.newVariableExpression(subFrom), theField.fieldInfo.type());
-                            builder.add(subSubFrom, CONTAINS, subTo);
+                            builder.add(subSubFrom, linkNature, subTo);
                         }
                     }
                 }
@@ -257,6 +259,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
     }
 
     private record FF(FieldInfo fieldInfo, int index) {
+        public int negative() {
+            return -1 - index;
+        }
     }
 
     private static FF findField(TypeParameter typeParameter, TypeInfo container) {

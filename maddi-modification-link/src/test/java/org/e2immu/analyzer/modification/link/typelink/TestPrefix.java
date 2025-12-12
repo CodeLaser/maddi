@@ -14,7 +14,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.AbstractMap;
@@ -24,7 +23,6 @@ import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestPrefix extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
@@ -68,12 +66,13 @@ public class TestPrefix extends CommonTest {
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(K,V)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis()
                 .getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("key(0:*);value(1:*)", tlvConstructor1.toString());
+        assertEquals("[0:key==this.kv.k, 1:value==this.kv.v] --> -", tlvConstructor1.toString());
 
         VariableData vd0 = VariableDataImpl.of(one.methodBody().statements().getFirst());
         VariableInfo viEntry = vd0.variableInfo("entry");
         Links tlvEntry = viEntry.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("x(0:*);y(1:*)", tlvEntry.toString());
+        // FIXME translation goes wrong
+        assertEquals("entry.xy.x==0:x,entry.xy.y==1:y", tlvEntry.toString());
 
         VariableData vd1 = VariableDataImpl.of(one.methodBody().statements().get(1));
         VariableInfo viStream1 = vd1.variableInfo("stream1");
