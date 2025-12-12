@@ -133,6 +133,8 @@ public class TestPrefix extends CommonTest {
             }
             """;
 
+    private static final String EXPECTED_34 = "[-, -] --> oneStatic>0:x,oneStatic>1:y,oneStatic.xsys.xs>0:x,oneStatic.xsys.ys>1:y";
+
     // see also TestShallowPrefix, which computes the shallow version
     @Test
     public void test3() {
@@ -142,15 +144,13 @@ public class TestPrefix extends CommonTest {
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
 
-        String expected = "[-, -] --> oneStatic>0:x,oneStatic>1:y,oneStatic.xsys.xs>0:x,oneStatic.xsys.ys>1:y";
-
         MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
-        assertEquals(expected, tlv1Static.toString());
+        assertEquals(EXPECTED_34, tlv1Static.toString());
 
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
-        assertEquals(expected.replace("oneStatic", "oneInstance"), tlv1Instance.toString());
+        assertEquals(EXPECTED_34.replace("oneStatic", "oneInstance"), tlv1Instance.toString());
     }
 
 
@@ -185,11 +185,11 @@ public class TestPrefix extends CommonTest {
         MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
 
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x([0]0:*);y([1]0:*)", tlv1Static.toString());
+        assertEquals(EXPECTED_34, tlv1Static.toString());
 
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x([0]0:*);y([1]0:*)", tlv1Instance.toString());
+        assertEquals(EXPECTED_34.replace("oneStatic", "oneInstance"), tlv1Instance.toString());
     }
 }

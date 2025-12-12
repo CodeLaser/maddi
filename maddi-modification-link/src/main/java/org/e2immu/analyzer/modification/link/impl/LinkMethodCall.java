@@ -31,8 +31,11 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                                                     List<ExpressionVisitor.Result> params,
                                                     MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
-        params.forEach(r -> r.extra().forEach(e ->
-                extra.merge(e.getKey(), e.getValue(), Links::merge)));
+        params.forEach(r -> {
+            extra.merge(r.links().primary(), r.links(), Links::merge);
+            r.extra().forEach(e ->
+                    extra.merge(e.getKey(), e.getValue(), Links::merge));
+        });
 
         Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
 
