@@ -39,9 +39,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
 
         // virtual fields of the default source = the object ~ "this"
-        // VirtualFields vfThis = typeInfo.analysis()
-        //          .getOrCreate(VirtualFields.VIRTUAL_FIELDS, () -> virtualFieldComputer.computeOnDemand(typeInfo));
-        VirtualFields vfThis = virtualFieldComputer.computeAllowTypeParameterArray(typeInfo.asParameterizedType(),
+        VirtualFields vfThis = virtualFieldComputer.compute(typeInfo.asParameterizedType(),
                 false).virtualFields();
         FieldInfo hcThis = vfThis.hiddenContent();
         FieldReference hcThisFr = hcThis == null ? null : runtime.newFieldReference(hcThis);
@@ -99,7 +97,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         sourceVariable = pi;
                     } else {
                         VirtualFields vfSource = virtualFieldComputer
-                                .computeAllowTypeParameterArray(pi.parameterizedType(), false).virtualFields();
+                                .compute(pi.parameterizedType(), false).virtualFields();
                         if (vfSource.hiddenContent() != null) {
                             sourceVariable = runtime.newFieldReference(vfSource.hiddenContent(),
                                     runtime.newVariableExpression(pi), vfSource.hiddenContent().type());
@@ -128,7 +126,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // see TestShallow,7,8
                 if (linkLevelPi == 1) {
                     ParameterInfo source = methodInfo.parameters().get(i);
-                    VirtualFields sourceVfs = virtualFieldComputer.computeAllowTypeParameterArray(source.parameterizedType(), false).virtualFields();
+                    VirtualFields sourceVfs = virtualFieldComputer.compute(source.parameterizedType(), false).virtualFields();
                     Set<TypeParameter> sourceTps = correspondingTypeParameters(source.parameterizedType().typeInfo(),
                             sourceVfs.hiddenContent()).stream()
                             .map(tp -> formalToConcrete(tp, source.parameterizedType()))
@@ -149,9 +147,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         return parameterizedType.parameters().get(formal.getIndex()).typeParameter();
     }
 
-
-    // important: the sourceType must be virtual fields/type parameters; the virtual fields of the target type get computed
-    // when necessary
+    // important: the sourceType must be virtual fields/type parameters;
+    // the virtual fields of the target type get computed as required
     private void transfer(Links.Builder builder,
                           ParameterizedType fromType,
                           ParameterizedType toType,
@@ -160,16 +157,14 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                           FieldInfo subMutable,
                           Set<TypeParameter> typeParametersOfSubTo) {
         if (fromType.typeParameter() != null && fromType.arrays() == 0) {
-            // FIXME we can activate this assertion when we convert from type to method type parameter
-            //assert typeParametersOfSubTo.contains(fromType.typeParameter());
             assert fromType.typeParameter().typeBounds().isEmpty() : """
                     cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
                     the type parameter can be dependent""";
             LinkNature linkNature = deriveLinkNature(0, toType.arrays());
-            if (toType.typeParameter() != null) {
+            if (fromType.typeParameter().equals(toType.typeParameter())) {
                 // 'to' is a type parameter, e.g. T[] ts
                 builder.add(linkNature, subTo);
-            } else {
+            } else if (toType.typeParameter() == null) {
                 // 'to' is a container (array); we'll need a slice
                 FF theField = findField(fromType.typeParameter(), toType.typeInfo());
                 DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
@@ -179,14 +174,14 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 builder.add(linkNature, slice);
             }
         } else {
-            VirtualFields vfFromType = virtualFieldComputer.computeAllowTypeParameterArray(fromType, false).virtualFields();
+            VirtualFields vfFromType = virtualFieldComputer.compute(fromType, false).virtualFields();
             if (vfFromType.hiddenContent() != null) {
                 FieldReference subFrom = runtime().newFieldReference(vfFromType.hiddenContent(),
                         runtime.newVariableExpression(builder.primary()), vfFromType.hiddenContent().type());
                 // concrete method type parameters
                 Set<TypeParameter> typeParametersFrom = fromType.extractTypeParameters();
                 // more formal type parameters in HC
-                Set<TypeParameter> typeParametersFrom2 = collectTypeParametersFromVirtualField(vfFromType.hiddenContent().type());
+                assert typeParametersFrom.equals(collectTypeParametersFromVirtualField(vfFromType.hiddenContent().type()));
                 int arraysFrom = vfFromType.hiddenContent().type().arrays();
                 int arraysTo = toType.arrays();
                 if (typeParametersFrom.equals(typeParametersOfSubTo)) {
@@ -199,11 +194,11 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     if (intersection.size() == 1) {
                         if (arraysFrom > 0) {
                             if (arraysTo == arraysFrom) {
-                                if(toType.typeParameter() != null) {
+                                if (toType.typeParameter() != null) {
                                     FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                                     DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
                                             runtime.newInt(-1 - theField.index));
-                                   builder.add(dv, INTERSECTION_NOT_EMPTY, subTo);
+                                    builder.add(dv, INTERSECTION_NOT_EMPTY, subTo);
                                 } else {
                                     // slice across: TestShallow,4: keySet.ks~this.kvs[-1].k
                                     FF theField = findField(intersection.getFirst(), toType.typeInfo());
@@ -303,23 +298,6 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     .map(e -> (TypeParameter) e.getKey());
         }).collect(Collectors.toUnmodifiableSet());
     }
-
-    /*
-     a factory method will use method type parameters, rather than type parameters bound to the type itself.
-     <E> List<E> List.of(E e) -> this E is bound to List.of()...
-     */
-    private Set<TypeParameter> convertToMethodTypeParameters(MethodInfo methodInfo,
-                                                             Set<TypeParameter> typeParametersVf) {
-        ParameterizedType rt = methodInfo.returnType();
-        assert rt.typeInfo().isEnclosedIn(methodInfo.typeInfo());
-        // otherwise, not a factory method. Note: Stream.builder() is an example where the return type is actually
-        // enclosed, not equal. Yet the following statement still seems correct.
-        return typeParametersVf.stream()
-                .map(tp -> rt.parameters().get(tp.getIndex()).typeParameter())
-                .filter(Objects::nonNull)
-                .collect(Collectors.toUnmodifiableSet());
-    }
-
 
     private static int crosslinkInIndependentProperty(MethodInfo methodInfo, ParameterInfo pi, int i) {
         ParameterInfo piPrev = methodInfo.parameters().get(i);

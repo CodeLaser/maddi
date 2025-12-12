@@ -49,7 +49,7 @@ public class TestFieldTranslationMap extends CommonTest {
         ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         ParameterizedType listTpArray = runtime.newParameterizedType(list, List.of(tpArray));
         assertEquals("java.util.List<T[]>", listTpArray.descriptor());
-        VirtualFieldComputer.VfTm vfTmListTpArray = vfc.computeAllowTypeParameterArray(listTpArray, true);
+        VirtualFieldComputer.VfTm vfTmListTpArray = vfc.compute(listTpArray, true);
         VirtualFields vfListTpArray = vfTmListTpArray.virtualFields();
         assertEquals("$m - T[][] tss", vfListTpArray.toString());
 
@@ -76,7 +76,7 @@ public class TestFieldTranslationMap extends CommonTest {
                 list.asParameterizedType().parameters().getFirst()
         ));
         assertEquals("java.util.Map<T,E>", mapTE.descriptor());
-        VirtualFieldComputer.VfTm vfTmMapTE = vfc.computeAllowTypeParameterArray(mapTE, true);
+        VirtualFieldComputer.VfTm vfTmMapTE = vfc.compute(mapTE, true);
         VirtualFields vfMapTE = vfTmMapTE.virtualFields();
         assertEquals("$m - TE[] tes", vfMapTE.toString());
 

@@ -46,11 +46,11 @@ public class TestShallowPrefix extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
         MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
-        VirtualFields vfOneStatic = vfc.computeAllowTypeParameterArray(oneStatic.returnType(), false).virtualFields();
+        VirtualFields vfOneStatic = vfc.compute(oneStatic.returnType(), false).virtualFields();
         assertEquals("$m - XY[] xys", vfOneStatic.toString());
 
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
-        VirtualFields vfOneInstance = vfc.computeAllowTypeParameterArray(oneStatic.returnType(), false).virtualFields();
+        VirtualFields vfOneInstance = vfc.compute(oneStatic.returnType(), false).virtualFields();
         assertEquals("$m - XY[] xys", vfOneInstance.toString());
 
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
@@ -96,7 +96,7 @@ public class TestShallowPrefix extends CommonTest {
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("$m - XSYS xsys",
-                vfc.computeAllowTypeParameterArray(oneStatic.returnType(), false).virtualFields().toString());
+                vfc.compute(oneStatic.returnType(), false).virtualFields().toString());
 
         MethodLinkedVariables mlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
         assertEquals("[-, -] --> oneStatic.xsys.xs>0:x,oneStatic.xsys.ys>1:y", mlv1Static.toString());
