@@ -46,7 +46,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final JavaInspector javaInspector;
     private final RecursionPrevention recursionPrevention;
     private final ShallowMethodLinkComputer shallowMethodLinkComputer;
-    private final ExpandLocal expandLocal;
+    private final Expand expand;
 
     public LinkComputerImpl(JavaInspector javaInspector) {
         this(javaInspector, true, false);
@@ -58,7 +58,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.forceShallow = forceShallow;
         VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        this.expandLocal = new ExpandLocal(javaInspector.runtime());
+        this.expand = new Expand(javaInspector.runtime());
     }
 
     @Override
@@ -155,7 +155,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         public MethodLinkedVariables go() {
             VariableData vd = doBlock(methodInfo.methodBody(), null);
             // ...
-            List<Links> ofParameters = new ExpandParameterLinks(javaInspector.runtime()).go(methodInfo, vd);
+            List<Links> ofParameters = expand.parameters(methodInfo, vd);
 
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
@@ -240,7 +240,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
             if (statement instanceof ReturnStatement && r != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
-                ofReturnValue = new ExpandReturnValueLinks(javaInspector.runtime()).go(rv, r.links(), r.extra(), vd);
+                ofReturnValue = expand.returnValue(rv, r.links(), r.extra(), vd);
             }
             writeOutMethodCallAnalysis(writeMethodCalls, vd);
             return vd;
@@ -318,7 +318,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables,
                                               VariableData previousVd,
                                               VariableData vd) {
-            Map<Variable, Links> expanded = expandLocal.go(linkedVariables, previousVd, vd);
+            Map<Variable, Links> expanded = expand.local(linkedVariables, previousVd, vd);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
