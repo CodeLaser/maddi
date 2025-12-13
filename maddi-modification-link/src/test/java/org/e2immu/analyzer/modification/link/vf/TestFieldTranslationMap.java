@@ -28,7 +28,7 @@ public class TestFieldTranslationMap extends CommonTest {
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         TypeParameter arrayListTp = arrayList.typeParameters().getFirst();
 
-        FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+        VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
 
         ftm.put(arrayListTp, iterableTp, 0);
 
@@ -54,7 +54,7 @@ public class TestFieldTranslationMap extends CommonTest {
         assertEquals("$m - T[][] tss", vfListTpArray.toString());
 
         {
-            FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
             // T in optional -> E in List
             ftm.put(optional.typeParameters().getFirst(), list.typeParameters().getFirst(), 0);
 
@@ -65,7 +65,7 @@ public class TestFieldTranslationMap extends CommonTest {
             assertEquals("E=TP#0 in List []", tFr.parameterizedType().typeParameter().toStringWithTypeBounds());
         }
         {
-            FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
             // T in optional -> E in List with one extra array
             ftm.put(optional.typeParameters().getFirst(), list.typeParameters().getFirst(), 1);
 
@@ -94,7 +94,7 @@ public class TestFieldTranslationMap extends CommonTest {
         assertEquals("$m - TE[] tes", vfMapTE.toString());
 
         {
-            FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
             ftm.put(optional.typeParameters().getFirst(), map.typeParameters().getFirst(), 0);
 
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
@@ -103,7 +103,7 @@ public class TestFieldTranslationMap extends CommonTest {
             assertEquals("Type java.util.Map.KE[]", tFr.parameterizedType().toString());
         }
         {
-            FieldTranslationMap ftm = new FieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
             ftm.put(optional.typeParameters().getFirst(), map.typeParameters().getFirst(), 0);
             ftm.put(list.typeParameters().getFirst(), map.typeParameters().getLast(), 1);
 
