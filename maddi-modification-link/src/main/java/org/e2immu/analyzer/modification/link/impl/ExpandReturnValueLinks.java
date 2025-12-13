@@ -13,9 +13,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.ExpandHelper.*;
+import static org.e2immu.analyzer.modification.link.impl.ExpandHelper.containsNoLocalVariable;
+import static org.e2immu.analyzer.modification.link.impl.ExpandHelper.followGraph;
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 
 public record ExpandReturnValueLinks(Runtime runtime) {
@@ -42,22 +42,19 @@ public record ExpandReturnValueLinks(Runtime runtime) {
         return rvBuilder.build();
     }
 
-    private static Map<Variable, Map<Variable, LinkNature>> makeGraph(Links links,
-                                                                      LinkedVariables extra,
-                                                                      VariableData vd) {
-        Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
-        Stream<Links> stream = Stream.concat(Stream.of(links), extra.map().values().stream());
-        stream.forEach(l -> l.links().forEach(link ->
-                mergeEdge(graph, l.primary(), link.from(), link.linkNature(), link.to())));
-
+    private Map<Variable, Map<Variable, LinkNature>> makeGraph(Links links,
+                                                               LinkedVariables extra,
+                                                               VariableData vd) {
+        Map<Variable, Links> linkedVariables = new HashMap<>(extra.map());
+        linkedVariables.merge(links.primary(), links, Links::merge);
         vd.variableInfoStream().forEach(vi -> {
             Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
             if (vLinks != null) {
-                vLinks.links().forEach(l -> mergeEdge(graph, vLinks.primary(), l.from(), l.linkNature(), l.to()));
+                linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
             }
         });
 
-        return graph;
+        return ExpandHelper.makeGraph(runtime, linkedVariables, false);
     }
 
 }

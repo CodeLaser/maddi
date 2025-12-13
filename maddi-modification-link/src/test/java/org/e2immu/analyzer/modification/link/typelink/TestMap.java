@@ -13,6 +13,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -114,28 +115,26 @@ public class TestMap extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, true);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, true, true);
         tlc.doPrimaryType(X);
 
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodLinkedVariables tlvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("return get(*:1)[#0:return get(*:0)]", tlvGet.toString());
-        assertEquals("""
-                return get(*[Type param V]:1[Type a.b.C<K,V>])[#0:return get(*[Type param K]:0[Type a.b.C<K,V>])]\
-                """, tlvGet.toString());
+        assertEquals("[0:k==this.kv.k] --> get=?=this.kv.v", tlvGet.toString());
 
+        // FIXME equality?
+        
         MethodInfo put = X.findUniqueMethod("put", 2);
         MethodLinkedVariables tlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
-        assertEquals("return put(*:1)[#0:return put(*:0), #1:return put(*:1)]", tlvPut.toString());
-
+        assertEquals("[0:k==this.kv.k, 1:v==this.kv.v] --> put==this.kv.v", tlvPut.toString());
 
         MethodInfo staticGet = X.findUniqueMethod("staticGet", 2);
         MethodLinkedVariables tlvSGet = staticGet.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticGet));
-        assertEquals("c(*:1)[#0:c(*:0)]", tlvSGet.toString());
+        assertEquals("[-, -] --> staticGet==1:c.xy.y", tlvSGet.toString());
 
         MethodInfo staticPut = X.findUniqueMethod("staticPut", 3);
         MethodLinkedVariables tlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
-        assertEquals("c(*:1);y(*:*)[#0:c(*:0), #1:c(*:1)]", tlvSPut.toString());
+        assertEquals("[-, -, -] --> staticPut==2:c.xy.y,staticPut==1:y", tlvSPut.toString());
 
         MethodInfo staticPut2 = X.findUniqueMethod("staticPut2", 3);
         MethodLinkedVariables tlvS2Put = staticPut2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut2));
@@ -181,11 +180,20 @@ public class TestMap extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-
-
         MethodInfo reverse = C.findUniqueMethod("reverse", 0);
         MethodLinkedVariables tlvReverse = reverse.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(reverse));
+
+        Statement s1 = reverse.methodBody().statements().get(1);
+        VariableData vd1 = VariableDataImpl.of(s1);
+        VariableInfo thisMap1 = vd1.variableInfo("a.b.C.map");
+        Links thisMap1Links = thisMap1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+
+        // the problem here at the moment is that in the graph
+
+        assertEquals("", thisMap1Links.toString());
+
+
         assertEquals("", tlvReverse.toString());
 
         MethodInfo staticReverse = C.findUniqueMethod("staticReverse", 1);
