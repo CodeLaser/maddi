@@ -116,7 +116,7 @@ public class VirtualFieldComputer {
                     : null;
         }
         FieldInfo hiddenContent;
-        FieldTranslationMap fieldTm = addTranslation ? new FieldTranslationMap(runtime) : null;
+        VirtualFieldTranslationMap fieldTm = addTranslation ? new VirtualFieldTranslationMap(runtime) : null;
 
         if (parameterVfs.isEmpty()) {
             hiddenContent = null; // nothing here, and nothing in the parameters

@@ -18,12 +18,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class FieldTranslationMap implements TranslationMap {
+public class VirtualFieldTranslationMap implements TranslationMap {
 
     private final Runtime runtime;
     private final Map<TypeParameter, R> map = new HashMap<>();
 
-    public FieldTranslationMap(Runtime runtime) {
+    public VirtualFieldTranslationMap(Runtime runtime) {
         this.runtime = runtime;
     }
 
