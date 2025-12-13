@@ -14,26 +14,15 @@ import java.util.Iterator;
 import java.util.List;
 
 public record ForEach(Runtime runtime, ExpressionVisitor expressionVisitor) {
-    public ExpressionVisitor.Result linkForEachElementToIterable(Statement statement,
-                                                                 ExpressionVisitor.Result r,
-                                                                 VariableData previousVd) {
-        if (r != null) {
-            Variable primary = r.links().primary();
-            if (primary != null) {
-                return linkIntoIterable(primary.parameterizedType(), statement.expression(), previousVd);
-            }
-        }
-        return ExpressionVisitor.EMPTY;
-    }
 
-    private ExpressionVisitor.Result linkIntoIterable(ParameterizedType initType,
+    public ExpressionVisitor.Result linkIntoIterable(ParameterizedType elementType,
                                                       Expression forEachExpression,
                                                       VariableData previousVd) {
         TypeInfo iterator = runtime.getFullyQualified(Iterator.class, false);
         TypeInfo iterableType = runtime.getFullyQualified(Iterable.class, false);
         MethodInfo iterableIterator = iterableType.findUniqueMethod("iterator", 0);
         ParameterizedType concreteIteratorType = runtime.newParameterizedType(iterator,
-                List.of(initType.ensureBoxed(runtime)));
+                List.of(elementType.ensureBoxed(runtime)));
         MethodCall mcIterator = runtime.newMethodCallBuilder()
                 .setSource(runtime.noSource())
                 .setObject(forEachExpression)
@@ -47,7 +36,7 @@ public record ForEach(Runtime runtime, ExpressionVisitor expressionVisitor) {
                 .setObject(mcIterator)
                 .setMethodInfo(iteratorNext)
                 .setParameterExpressions(List.of())
-                .setConcreteReturnType(initType)
+                .setConcreteReturnType(elementType)
                 .build();
         return expressionVisitor.visit(mc, previousVd);
     }

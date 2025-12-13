@@ -221,7 +221,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             if (forEachLv != null) {
                 ExpressionVisitor.Result r2 = new ForEach(javaInspector.runtime(), expressionVisitor)
-                        .linkForEachElementToIterable(statement, r, previousVd);
+                        .linkIntoIterable(forEachLv.parameterizedType(), statement.expression(), previousVd);
                 linkedVariables.put(r2.links().primary(), r2.links());
                 r2.extra().forEach(e -> linkedVariables.merge(e.getKey(), e.getValue(), Links::merge));
                 linkedVariables.put(forEachLv, new LinksImpl.Builder(forEachLv).add(LinkNature.IS_IDENTICAL_TO, r2.links().primary()).build());
@@ -233,10 +233,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 });
             }
             VariableData vd = VariableDataImpl.of(statement);
+            copyEvalIntoVariableData(linkedVariables, previousVd, vd);
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd, linkedVariables);
             }
-            copyEvalIntoVariableData(linkedVariables, previousVd, vd);
 
             if (statement instanceof ReturnStatement && r != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
