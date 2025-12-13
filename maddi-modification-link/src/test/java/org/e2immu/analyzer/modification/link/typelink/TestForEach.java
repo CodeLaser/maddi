@@ -70,7 +70,7 @@ public class TestForEach extends CommonTest {
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("-", tlvT100.toString());
+        assertEquals("t<0:list.ts", tlvT100.toString());
     }
 
 
@@ -92,7 +92,6 @@ public class TestForEach extends CommonTest {
             }
             """;
 
-    @Disabled
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
@@ -103,17 +102,23 @@ public class TestForEach extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
 
+        Statement add = method.methodBody().statements().get(1);
+        VariableData vd1 = VariableDataImpl.of(add);
+        VariableInfo iis1 = vd1.variableInfoContainerOrNull("iis").best();
+        Links tlvT1 = iis1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("-", tlvT1.toString());
+
         Statement forEach = method.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(forEach);
         VariableInfo ii2 = vd2.variableInfoContainerOrNull("ii").best(Stage.EVALUATION);
-        Links tlvT1 = ii2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("ii<iis.ts", tlvT1.toString());
+        Links tlvT2E = ii2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("ii<iis.ts", tlvT2E.toString());
 
         Statement call2 = forEach.block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(call2);
         VariableInfo ii200 = vd200.variableInfo("ii");
         Links tlvII200 = ii200.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        // assertEquals("ii<iis.ts", tlvII200.toString(), "Should have been inherited from previous");
+         assertEquals("ii<iis.ts", tlvII200.toString(), "Should have been inherited from previous");
         MethodCall methodCall = (MethodCall) call2.expression();
 
         // test writeMethodCall

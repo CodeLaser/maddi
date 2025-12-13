@@ -9,6 +9,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
@@ -169,7 +170,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        VirtualFieldComputer.VfTm vfTm = vfc.compute(mc.object().parameterizedType(), true);
+        ParameterizedType concreteObjectType = mc.object().parameterizedType();
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(concreteObjectType, true);
         MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
 
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
