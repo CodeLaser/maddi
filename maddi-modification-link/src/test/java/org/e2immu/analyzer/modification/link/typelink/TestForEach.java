@@ -19,7 +19,6 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Iterator;
@@ -112,18 +111,18 @@ public class TestForEach extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(forEach);
         VariableInfo ii2 = vd2.variableInfoContainerOrNull("ii").best(Stage.EVALUATION);
         Links tlvT2E = ii2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("ii<iis.ts", tlvT2E.toString());
+        assertEquals("ii<iis.$s", tlvT2E.toString());
 
         Statement call2 = forEach.block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(call2);
         VariableInfo ii200 = vd200.variableInfo("ii");
         Links tlvII200 = ii200.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-         assertEquals("ii<iis.ts", tlvII200.toString(), "Should have been inherited from previous");
+        assertEquals("ii<iis.$s", tlvII200.toString(), "Should have been inherited from previous");
         MethodCall methodCall = (MethodCall) call2.expression();
 
         // test writeMethodCall
         Value.VariableBooleanMap linkedToObject = methodCall.analysis()
                 .getOrDefault(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT, ValueImpl.VariableBooleanMapImpl.EMPTY);
-        assertEquals("ii==true,iis=false", nice(linkedToObject.map()));
+        assertEquals("ii=true, iis=false", nice(linkedToObject.map()));
     }
 }

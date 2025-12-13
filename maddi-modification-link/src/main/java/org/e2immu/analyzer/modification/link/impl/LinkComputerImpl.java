@@ -254,22 +254,30 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Variable primary = wmc.linksFromObject().primary();
                 if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                     variablesLinkedToObject.put(primary, true);
-                }
-                for (Link link : wmc.linksFromObject()) {
-                    if (vd.isKnown(link.from().fullyQualifiedName())) {
-                        variablesLinkedToObject.put(link.from(), true);
+                    VariableInfo viPrimary = vd.variableInfo(primary);
+                    Links links = viPrimary.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                    for (Link link : links) {
+                        for (Variable v : Util.goUp(link.from())) {
+                            if (vd.isKnown(v.fullyQualifiedName())) {
+                                variablesLinkedToObject.put(v, true);
+                            }
+                        }
+                        for (Variable v : Util.goUp(link.to())) {
+                            if (vd.isKnown(v.fullyQualifiedName())) {
+                                variablesLinkedToObject.put(v, false);
+                            }
+                        }
+
                     }
-                    if (vd.isKnown(link.to().fullyQualifiedName())) {
-                        variablesLinkedToObject.put(link.to(), false);
-                    }
-                }
-                if (!variablesLinkedToObject.isEmpty()) {
-                    try {
-                        wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
-                                new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
-                    } catch (IllegalArgumentException iae) {
-                        LinkComputerImpl.this.recursionPrevention.report(methodInfo);
-                        throw iae;
+
+                    if (!variablesLinkedToObject.isEmpty()) {
+                        try {
+                            wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
+                                    new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
+                        } catch (IllegalArgumentException iae) {
+                            LinkComputerImpl.this.recursionPrevention.report(methodInfo);
+                            throw iae;
+                        }
                     }
                 }
             }

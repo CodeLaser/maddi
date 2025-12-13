@@ -43,5 +43,5 @@ public interface OutputElement {
      *
      * @return Java-code that can be pasted into a test
      */
-    String generateJavaForDebugging();
+    default String generateJavaForDebugging() { throw new UnsupportedOperationException(); }
 }

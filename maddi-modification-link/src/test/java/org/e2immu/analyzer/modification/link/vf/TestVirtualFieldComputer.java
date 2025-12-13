@@ -33,10 +33,9 @@ public class TestVirtualFieldComputer extends CommonTest {
         // VirtualFields vfCollection = collection.analysis().getOrNull(VirtualFields.VIRTUAL_FIELDS, VirtualFields.class);
         // assertEquals("$m - T[] ts", vfCollection.toString());
 
-        // ensure that Object has VF computed to NONE
         TypeInfo object = javaInspector.compiledTypesManager().getOrLoad(Object.class);
         VirtualFields vfObject = vfc.compute(object);
-        assertEquals(VirtualFields.NONE, vfObject);
+        assertEquals("/ - Object $0", vfObject.toString());
 
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         assertEquals("$m - E[] es", vfc.compute(arrayList).toString());
@@ -88,6 +87,31 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals(1, vfc.maxMultiplicityFromMethods(optional));
     }
 
+    @DisplayName("Optional<String>")
+    @Test
+    public void test4b() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        ParameterizedType os = runtime.newParameterizedType(optional, List.of(runtime.stringParameterizedType()));
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
+        assertEquals("/ - String $0", vfTm.virtualFields().toString());
+        assertEquals("T=TP#0 in Optional [] --> String", vfTm.formalToConcrete().toString());
+    }
+
+    // so even if StringBuilder is mutable, there is no explicit $m because Optional is not mutable
+    @DisplayName("Optional<StringBuilder>")
+    @Test
+    public void test4c() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        TypeInfo stringBuilder = javaInspector.compiledTypesManager().getOrLoad(StringBuilder.class);
+        TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
+        ParameterizedType os = runtime.newParameterizedType(optional, List.of(stringBuilder.asParameterizedType()));
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
+        assertEquals("/ - StringBuilder $0", vfTm.virtualFields().toString());
+        assertEquals("T=TP#0 in Optional [] --> StringBuilder", vfTm.formalToConcrete().toString());
+    }
+
 
     @DisplayName("object array")
     @Test
@@ -98,7 +122,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFields vfStream = vfTm.virtualFields();
         assertEquals("$mObject - Object[] objects", vfStream.toString());
         VirtualFields vfFormal = vfc.compute(runtime.objectTypeInfo());
-        assertEquals("/ - /", vfFormal.toString());
+        assertEquals("/ - Object $0", vfFormal.toString());
         assertNull(vfTm.formalToConcrete());
     }
 
@@ -140,10 +164,10 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFields vfListTpArray = vfTmListTpArray.virtualFields();
         assertEquals("$m - T[][] tss", vfListTpArray.toString());
         assertEquals("""
-                E=TP#0 in Collection [] --> T=TP#0 in Optional []
-                E=TP#0 in List [] --> T=TP#0 in Optional []
-                E=TP#0 in SequencedCollection [] --> T=TP#0 in Optional []
-                T=TP#0 in Iterable [] --> T=TP#0 in Optional []\
+                E=TP#0 in Collection [] --> T=TP#0 in Optional [] dim 1
+                E=TP#0 in List [] --> T=TP#0 in Optional [] dim 1
+                E=TP#0 in SequencedCollection [] --> T=TP#0 in Optional [] dim 1
+                T=TP#0 in Iterable [] --> T=TP#0 in Optional [] dim 1\
                 """, vfTmListTpArray.formalToConcrete().toString());
 
         ParameterizedType tpArray2 = optional.asParameterizedType().parameters().getFirst().copyWithArrays(2);
@@ -153,10 +177,10 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFields vfTpArray2 = vfTmListTpArray2.virtualFields();
         assertEquals("$m - T[][][] tsss", vfTpArray2.toString());
         assertEquals("""
-                E=TP#0 in Collection [] --> T=TP#0 in Optional []
-                E=TP#0 in List [] --> T=TP#0 in Optional []
-                E=TP#0 in SequencedCollection [] --> T=TP#0 in Optional []
-                T=TP#0 in Iterable [] --> T=TP#0 in Optional []\
+                E=TP#0 in Collection [] --> T=TP#0 in Optional [] dim 2
+                E=TP#0 in List [] --> T=TP#0 in Optional [] dim 2
+                E=TP#0 in SequencedCollection [] --> T=TP#0 in Optional [] dim 2
+                T=TP#0 in Iterable [] --> T=TP#0 in Optional [] dim 2\
                 """, vfTmListTpArray2.formalToConcrete().toString());
     }
 
