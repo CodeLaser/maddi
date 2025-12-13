@@ -123,7 +123,7 @@ public class TestMap extends CommonTest {
         assertEquals("[0:k==this.kv.k] --> get=?=this.kv.v", tlvGet.toString());
 
         // FIXME equality?
-        
+
         MethodInfo put = X.findUniqueMethod("put", 2);
         MethodLinkedVariables tlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
         assertEquals("[0:k==this.kv.k, 1:v==this.kv.v] --> put==this.kv.v", tlvPut.toString());

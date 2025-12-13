@@ -228,7 +228,7 @@ public class TestList extends CommonTest {
 
         // now the same, but as a statement; then, the data will be saved
         VariableData vd = smc.doStatement(set.methodBody().statements().getFirst(), null);
-        List<Links> list = new ExpandParameterLinks(runtime).go(set, vd);
+        List<Links> list = new Expand(runtime).parameters(set, vd);
         // MethodLinkedVariables mlv = tlc.doMethod(set)
         assertEquals("0:t<this.ts,0:t==this.ts[1:index]", list.getFirst().toString());
     }
