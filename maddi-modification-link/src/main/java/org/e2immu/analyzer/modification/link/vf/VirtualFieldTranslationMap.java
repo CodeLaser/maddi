@@ -9,6 +9,7 @@ import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 
@@ -21,34 +22,29 @@ import java.util.stream.Collectors;
 public class VirtualFieldTranslationMap implements TranslationMap {
 
     private final Runtime runtime;
-    private final Map<TypeParameter, R> map = new HashMap<>();
+    private final Map<TypeParameter, ParameterizedType> map = new HashMap<>();
 
     public VirtualFieldTranslationMap(Runtime runtime) {
         this.runtime = runtime;
     }
 
-    private record R(TypeParameter tp, int arrayDiff) {
-    }
 
-    public void put(TypeParameter in, TypeParameter out, int arrayDiff) {
-        this.map.put(in, new R(out, arrayDiff));
+    public void put(TypeParameter in, ParameterizedType out) {
+        this.map.put(in, out);
     }
 
     @Override
     public Variable translateVariable(Variable variable) {
         ParameterizedType pt = variable.parameterizedType();
         if (pt.typeParameter() != null) {
-            R newTpR = map.get(pt.typeParameter());
-            if (newTpR != null) {
-                TypeParameter newTp = newTpR.tp;
-                int newArrays = pt.arrays() + newTpR.arrayDiff;
-                ParameterizedType newType = runtime.newParameterizedType(newTp, newArrays, pt.wildcard());
-                String newName = newTp.simpleName().toLowerCase() + "s".repeat(newArrays);
+            ParameterizedType out = map.get(pt.typeParameter());
+            if (out != null) {
+                C c = newTypeNewName(out, pt.arrays(), pt.wildcard());
                 return switch (variable) {
-                    case ReturnVariable rv when pt.arrays() == 0 && newTpR.arrayDiff == 0 ->
-                            rv.withParameterizedType(newType);
-                    case ParameterInfo pi when pt.arrays() == 0 -> pi.with(newName, newType);
-                    case FieldReference fr -> handleFieldReference(fr, newTp, newName, newType);
+                    case ReturnVariable rv when pt.arrays() == 0 && c.newType.arrays() == 0 ->
+                            rv.withParameterizedType(c.newType);
+                    case ParameterInfo pi when pt.arrays() == 0 -> pi.with(c.newName, c.newType);
+                    case FieldReference fr -> handleFieldReference(fr, c.newName, c.newType);
                     default -> variable; // no change
                 };
             }
@@ -57,24 +53,19 @@ public class VirtualFieldTranslationMap implements TranslationMap {
             StringBuilder sbNew = new StringBuilder();
             List<FieldInfo> fields = fr.fieldInfo().type().typeInfo().fields();
             List<FieldInfo> newFields = new ArrayList<>(fields.size());
-            List<TypeParameter> newTypeParameters = new ArrayList<>(fields.size());
             boolean change = false;
             for (FieldInfo fieldInfo : fields) {
                 TypeParameter tp = fieldInfo.type().typeParameter();
-                if (tp != null && fieldInfo.type().arrays() == 0) {
-                    R newTpRecord = map.get(tp);
-                    if (newTpRecord != null) {
-                        TypeParameter newTp = newTpRecord.tp;
+                if (tp != null) {
+                    ParameterizedType out = map.get(tp);
+                    if (out != null) {
+                        C c = newTypeNewName(out, fieldInfo.type().arrays(), fieldInfo.type().wildcard());
                         change = true;
-                        ParameterizedType newType = runtime.newParameterizedType(newTp, newTpRecord.arrayDiff, null);
-                        String name = newTp.simpleName().toLowerCase() + "s".repeat(newTpRecord.arrayDiff);
-                        FieldInfo newField = runtime.newFieldInfo(name, false, newType, newTp.typeInfo());
-                        newTypeParameters.add(newTp);
+                        FieldInfo newField = runtime.newFieldInfo(c.newName, false, c.newType, owner(c.newType));
                         newFields.add(newField);
                         sbNew.append(newField.simpleName());
                     } else {
                         newFields.add(fieldInfo);
-                        newTypeParameters.add(tp);
                         sbNew.append(fieldInfo.simpleName());
                     }
                     sbOld.append(fieldInfo.simpleName());
@@ -87,7 +78,7 @@ public class VirtualFieldTranslationMap implements TranslationMap {
                 // ok we can make a new contain, with the new name, and the translated fields
                 String newName = sbNew + "s".repeat(fr.parameterizedType().arrays());
                 String typeName = sbNew.toString().toUpperCase();
-                TypeInfo container = makeContainer(fr.fieldInfo().owner(), typeName, newFields, newTypeParameters);
+                TypeInfo container = makeContainer(fr.fieldInfo().owner(), typeName, newFields);
                 ParameterizedType containerPt = runtime.newParameterizedType(container, fr.parameterizedType().arrays());
                 FieldInfo newField = runtime.newFieldInfo(newName, false, containerPt, fr.fieldInfo().owner());
                 return runtime.newFieldReference(newField, fr.scope(), newField.type());
@@ -96,23 +87,47 @@ public class VirtualFieldTranslationMap implements TranslationMap {
         return variable; // no change
     }
 
-    private TypeInfo makeContainer(TypeInfo typeInfo, String name,
-                                   List<FieldInfo> newFields,
-                                   List<TypeParameter> newTypeParameters) {
-        TypeInfo newType = runtime.newTypeInfo(typeInfo, name);
+    private C newTypeNewName(ParameterizedType out, int arrays, Wildcard wildcard) {
+        int newArrays = arrays + out.arrays();
+        String newName;
+        ParameterizedType newType;
+        if (out.typeParameter() != null) {
+            TypeParameter newTp = out.typeParameter();
+            newName = newTp.simpleName().toLowerCase() + "s".repeat(newArrays);
+            newType = runtime.newParameterizedType(newTp, newArrays, wildcard);
+        } else if (out.typeInfo() != null && out.typeInfo().typeNature() == VirtualFieldComputer.VIRTUAL_FIELD) {
+            newName = out.typeInfo().simpleName().toLowerCase() + "s".repeat(newArrays);
+            newType = out.typeInfo().asSimpleParameterizedType().copyWithArrays(newArrays);
+        } else {
+            // concrete type
+            newName = "$" + "s".repeat(newArrays);
+            newType = out.copyWithArrays(newArrays);
+        }
+        return new C(newName, newType);
+    }
+
+    private record C(String newName, ParameterizedType newType) {
+    }
+
+    private TypeInfo makeContainer(TypeInfo enclosingType,
+                                   String name,
+                                   List<FieldInfo> newFields) {
+        TypeInfo newType = runtime.newTypeInfo(enclosingType, name);
         TypeInfo.Builder builder = newType.builder();
         builder.setTypeNature(runtime.typeNatureClass())
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
         newFields.forEach(builder::addField);
-        newTypeParameters.forEach(builder::addOrSetTypeParameter);
+        newFields.forEach(fi -> {
+            if (fi.type().typeParameter() != null) builder.addOrSetTypeParameter(fi.type().typeParameter());
+        });
         builder.commit();
         return newType;
     }
 
-    private FieldReference handleFieldReference(FieldReference fr, TypeParameter newTp, String newName,
-                                                ParameterizedType newType) {
-        FieldInfo newFieldInfo = runtime.newFieldInfo(newName, false, newType, newTp.typeInfo());
+    private FieldReference handleFieldReference(FieldReference fr, String newName, ParameterizedType newType) {
+        TypeInfo owner = newType.typeParameter() != null ? newType.typeParameter().typeInfo() : newType.typeInfo();
+        FieldInfo newFieldInfo = runtime.newFieldInfo(newName, false, newType, owner);
         Expression tScope = fr.scope().translate(this);
         return runtime.newFieldReference(newFieldInfo, tScope, newType);
     }
@@ -131,14 +146,26 @@ public class VirtualFieldTranslationMap implements TranslationMap {
     public String toString() {
         return map.entrySet().stream()
                 .map(e -> e.getKey().toStringWithTypeBounds()
-                          + " --> " + e.getValue().tp.toStringWithTypeBounds() + niceArrayDiff(e.getValue().arrayDiff))
+                          + " --> " + nice(e.getValue()))
                 .sorted()
                 .collect(Collectors.joining("\n"));
     }
 
-    private static String niceArrayDiff(int i) {
-        if (i > 0) return " +" + i;
-        if (i < 0) return " " + i;
-        return "";
+    private static String nice(ParameterizedType pt) {
+        if (pt.typeParameter() != null) {
+            String dim = pt.arrays() == 0 ? "" : " dim " + pt.arrays();
+            return pt.typeParameter().toStringWithTypeBounds() + dim;
+        }
+        return pt.detailedString();
+    }
+
+    private TypeInfo owner(ParameterizedType pt) {
+        if (pt.typeParameter() != null) {
+            return pt.typeParameter().typeInfo();
+        }
+        if (pt.typeInfo() != null) {
+            return pt.typeInfo();
+        }
+        return runtime.objectTypeInfo();
     }
 }

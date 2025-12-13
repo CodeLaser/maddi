@@ -5,10 +5,13 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.api.output.FormattingOptions;
+import org.e2immu.language.cst.api.output.element.Keyword;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.type.TypeNature;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -17,6 +20,7 @@ import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -56,6 +60,7 @@ public class VirtualFieldComputer {
     private final Runtime runtime;
     private final GenericsHelper genericsHelper;
     private final Set<TypeInfo> multi2;
+    private final AtomicInteger typeCounter = new AtomicInteger();
 
     public VirtualFieldComputer(JavaInspector javaInspector) {
         this.runtime = javaInspector.runtime();
@@ -91,13 +96,19 @@ public class VirtualFieldComputer {
             }
             return NONE_NONE;
         }
-        if (pt.parameters().isEmpty()) {
-            return NONE_NONE;
-        }
         TypeInfo typeInfo = pt.typeInfo();
-        if (typeInfo.packageName().equals("java.util.function")) {
+        if (typeInfo == null
+            || typeInfo.isPrimitiveExcludingVoid()
+            || typeInfo.typeNature() == VIRTUAL_FIELD
+            || typeInfo.packageName().equals("java.util.function")) {
             return NONE_NONE;
         }
+        if (pt.parameters().isEmpty() && !utilityClass(typeInfo)) {
+            VirtualFields vf = new VirtualFields(null,
+                    newField("$" + typeCounter.getAndIncrement(), pt, pt.typeInfo()));
+            return new VfTm(vf, null);
+        }
+
         int extraMultiplicity = maxMultiplicityFromMethods(typeInfo) - 1;
         if (extraMultiplicity < 0) return NONE_NONE;
 
@@ -130,9 +141,8 @@ public class VirtualFieldComputer {
                 // translation from formal to concrete hidden content variable
                 if (addTranslation) {
                     for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                        int arrayDiff = 0;
-                        fieldTm.put(formalHiddenContent.type().typeParameter(), hiddenContent.type().typeParameter(),
-                                arrayDiff);
+                        int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - hiddenContent.type().arrays());
+                        fieldTm.put(formalHiddenContent.type().typeParameter(), hiddenContent.type().copyWithArrays(arrayDiff));
                     }
                 }
             } else {
@@ -155,8 +165,7 @@ public class VirtualFieldComputer {
                     for (FieldInfo field : formalContainerType.fields()) {
                         ParameterizedType outType = containerType.fields().get(i).type();
                         int arrayDiff = outType.arrays() - field.type().arrays();
-                        TypeParameter out = outType.typeParameter();
-                        fieldTm.put(field.type().typeParameter(), out, arrayDiff);
+                        fieldTm.put(field.type().typeParameter(), outType.copyWithArrays(arrayDiff));
                         ++i;
                     }
                 }
@@ -166,6 +175,13 @@ public class VirtualFieldComputer {
         }
 
         return new VfTm(new VirtualFields(mutable, hiddenContent), addTranslation ? fieldTm : null);
+    }
+
+    private boolean utilityClass(TypeInfo typeInfo) {
+        // TODO use own code for this, but for now:
+        return typeInfo.methodStream().allMatch(MethodInfo::isStatic)
+               && typeInfo.constructors().stream().allMatch(c -> c.parameters().isEmpty())
+               && typeInfo.fields().stream().allMatch(FieldInfo::isStatic);
     }
 
 
@@ -179,7 +195,8 @@ public class VirtualFieldComputer {
                 .map(fi -> fi.type().typeParameter().simpleName() + "S".repeat(fi.type().arrays()))
                 .collect(Collectors.joining());
         TypeInfo newType = runtime.newTypeInfo(typeInfo, name);
-        newType.builder().setTypeNature(runtime.typeNatureClass())
+        newType.builder()
+                .setTypeNature(VIRTUAL_FIELD)
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
         for (FieldInfo fi : hiddenContentComponents) {
@@ -324,4 +341,22 @@ public class VirtualFieldComputer {
         fi.builder().setInitializer(runtime.newEmptyExpression()).commit();
         return fi;
     }
+
+    public static final TypeNature VIRTUAL_FIELD = new TypeNature() {
+
+        @Override
+        public Keyword keyword() {
+            return new Keyword() {
+                @Override
+                public String minimal() {
+                    return "VF";
+                }
+
+                @Override
+                public String write(FormattingOptions options) {
+                    return "VF";
+                }
+            };
+        }
+    };
 }

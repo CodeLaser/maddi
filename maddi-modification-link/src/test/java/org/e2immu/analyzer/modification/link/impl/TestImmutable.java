@@ -35,13 +35,19 @@ public class TestImmutable extends CommonTest {
         analyzer.doPrimaryType(X);
         TypeInfo R = X.findSubType("R");
         R.analysis().set(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.IMMUTABLE);
+        R.analysis().set(PropertyImpl.INDEPENDENT_TYPE, ValueImpl.IndependentImpl.INDEPENDENT);
 
         MethodInfo get = X.findUniqueMethod("get", 1);
+        get.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT);
+
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlvGet = tlc.doMethod(get);
         assertEquals("[-] --> -", mlvGet.toString());
 
         MethodInfo set = X.findUniqueMethod("set", 2);
+        set.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT);
+        set.parameters().getLast().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.INDEPENDENT);
+
         MethodLinkedVariables mlvSet = tlc.doMethod(set);
         assertEquals("[-, -] --> -", mlvSet.toString());
     }

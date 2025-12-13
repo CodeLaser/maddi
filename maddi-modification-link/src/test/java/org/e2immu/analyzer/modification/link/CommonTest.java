@@ -55,6 +55,6 @@ public abstract class CommonTest {
     }
 
     protected static <K, V> String nice(Map<K, V> map) {
-        return map.entrySet().stream().map(Object::toString).collect(Collectors.joining(", "));
+        return map.entrySet().stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
     }
 }

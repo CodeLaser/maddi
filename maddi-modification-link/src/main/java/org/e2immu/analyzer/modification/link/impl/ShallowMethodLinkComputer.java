@@ -167,17 +167,19 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             } else if (toType.typeParameter() == null) {
                 // 'to' is a container (array); we'll need a slice
                 FF theField = findField(fromType.typeParameter(), toType.typeInfo());
-                if (subTo.parameterizedType().arrays() == 0) {
-                    // indexing: TestShallowPrefix,1:
-                    FieldReference subSubTo = runtime.newFieldReference(theField.fieldInfo,
-                            runtime.newVariableExpression(subTo), theField.fieldInfo.type());
-                    builder.add(IS_IDENTICAL_TO, subSubTo);
-                } else {
-                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                            runtime.newInt(theField.negative()));
-                    Expression scope = runtime.newVariableExpression(dv);
-                    FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
-                    builder.add(linkNature, slice);
+                if (theField != null) {
+                    if (subTo.parameterizedType().arrays() == 0) {
+                        // indexing: TestShallowPrefix,1:
+                        FieldReference subSubTo = runtime.newFieldReference(theField.fieldInfo,
+                                runtime.newVariableExpression(subTo), theField.fieldInfo.type());
+                        builder.add(IS_IDENTICAL_TO, subSubTo);
+                    } else {
+                        DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
+                                runtime.newInt(theField.negative()));
+                        Expression scope = runtime.newVariableExpression(dv);
+                        FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
+                        builder.add(linkNature, slice);
+                    }
                 }
             }
         } else {
@@ -188,7 +190,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // concrete method type parameters
                 Set<TypeParameter> typeParametersFrom = fromType.extractTypeParameters();
                 // more formal type parameters in HC
-                assert typeParametersFrom.equals(collectTypeParametersFromVirtualField(vfFromType.hiddenContent().type()));
+                //assert typeParametersFrom.equals(collectTypeParametersFromVirtualField(vfFromType.hiddenContent().type()));
                 int arraysFrom = vfFromType.hiddenContent().type().arrays();
                 int arraysTo = toType.arrays();
                 if (typeParametersFrom.equals(typeParametersOfSubTo)) {
@@ -205,13 +207,20 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         // result  oneInstance.xsys.xs>this.xy.x,oneInstance.xsys.ys>this.xy.y
                         // TODO this is very dedicated to this situation, others exist
                         for (FieldInfo fieldFrom : subFrom.parameterizedType().typeInfo().fields()) {
-                            assert fieldFrom.type().typeParameter() != null : "NYI generalization";
-                            FF fieldTo = findField(fieldFrom.type().typeParameter(), subTo.parameterizedType().typeInfo());
-                            FieldReference subSubFrom = runtime.newFieldReference(fieldFrom,
-                                    runtime.newVariableExpression(subFrom), fieldFrom.type());
-                            FieldReference subSubTo = runtime.newFieldReference(fieldTo.fieldInfo,
-                                    runtime.newVariableExpression(subTo), fieldTo.fieldInfo.type());
-                            builder.add(subSubFrom, CONTAINS, subSubTo);
+                            FieldInfo fieldTo;
+                            if (fieldFrom.type().typeParameter() != null) {
+                                FF ff = findField(fieldFrom.type().typeParameter(), subTo.parameterizedType().typeInfo());
+                                fieldTo = ff == null ? null : ff.fieldInfo;
+                            } else {
+                                fieldTo = findField(fieldFrom.type(), subTo.parameterizedType().typeInfo());
+                            }
+                            if (fieldTo != null) {
+                                FieldReference subSubFrom = runtime.newFieldReference(fieldFrom,
+                                        runtime.newVariableExpression(subFrom), fieldFrom.type());
+                                FieldReference subSubTo = runtime.newFieldReference(fieldTo,
+                                        runtime.newVariableExpression(subTo), fieldTo.type());
+                                builder.add(subSubFrom, CONTAINS, subSubTo);
+                            }
                         }
                     } else {
                         throw new UnsupportedOperationException();
@@ -305,8 +314,16 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             }
             ++i;
         }
-        throw new UnsupportedOperationException("Should be able to find a field with type " + typeParameter
-                                                + " in " + container);
+        return null;
+    }
+
+    private static FieldInfo findField(ParameterizedType fieldType, TypeInfo container) {
+        for (FieldInfo fieldInfo : container.fields()) {
+            if (fieldType.equals(fieldInfo.type())) {
+                return fieldInfo;
+            }
+        }
+        return null;
     }
 
     /*

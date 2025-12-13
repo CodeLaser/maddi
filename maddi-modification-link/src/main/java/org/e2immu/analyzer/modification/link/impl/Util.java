@@ -8,7 +8,38 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Iterator;
+
 public class Util {
+    public static Iterable<Variable> goUp(Variable variable) {
+        return new Iterable<>() {
+            @Override
+            public @NotNull Iterator<Variable> iterator() {
+                return new Iterator<>() {
+                    Variable v = variable;
+
+                    @Override
+                    public boolean hasNext() {
+                        return v != null;
+                    }
+
+                    @Override
+                    public Variable next() {
+                        Variable rv = v;
+                        if (v instanceof FieldReference fr && fr.scopeVariable() != null) {
+                            v = fr.scopeVariable();
+                        } else if (v instanceof DependentVariable dv) {
+                            v = dv.arrayVariable();
+                        } else {
+                            v = null;
+                        }
+                        return rv;
+                    }
+                };
+            }
+        };
+    }
+
     public static boolean isPartOf(Variable base, Variable sub) {
         if (base.equals(sub)) return true;
         if (sub instanceof FieldReference fr && fr.scopeVariable() != null) {
