@@ -16,13 +16,22 @@ import java.util.List;
 import java.util.Map;
 
 import static org.e2immu.analyzer.modification.link.impl.ExpandHelper.followGraph;
-import static org.e2immu.analyzer.modification.link.impl.ExpandHelper.mergeEdge;
+import static org.e2immu.analyzer.modification.link.impl.ExpandHelper.makeGraph;
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 
 public record ExpandParameterLinks(Runtime runtime) {
     private static final Logger LOGGER = LoggerFactory.getLogger(ExpandParameterLinks.class);
 
     public List<Links> go(MethodInfo methodInfo, VariableData vd) {
+        if (vd == null) return List.of();
+
+        Map<Variable, Links> linkedVariables = new HashMap<>();
+        vd.variableInfoStream().forEach(vi -> {
+            Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
+            if (vLinks != null) {
+                linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
+            }
+        });
 
         /*
         why a bidirectional graph for the parameters, and only a directional one for the return value?
@@ -30,7 +39,7 @@ public record ExpandParameterLinks(Runtime runtime) {
         direction is relevant. But if we want the parameters in function of the fields, we may have
         to see the reverse of param -> field. See e.g. TestList,4 (set)
          */
-        Map<Variable, Map<Variable, LinkNature>> graph = makeBiDirectionalGraph(vd);
+        Map<Variable, Map<Variable, LinkNature>> graph = makeGraph(runtime, linkedVariables, true);
         LOGGER.debug("Bi-directional graph: {}", graph);
 
         List<Links> linksPerParameter = new ArrayList<>(methodInfo.parameters().size());
@@ -40,21 +49,5 @@ public record ExpandParameterLinks(Runtime runtime) {
         }
 
         return linksPerParameter;
-    }
-
-    private static Map<Variable, Map<Variable, LinkNature>> makeBiDirectionalGraph(VariableData vd) {
-        Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
-        if(vd != null) {
-            vd.variableInfoStream().forEach(vi -> {
-                Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
-                if (vLinks != null) {
-                    vLinks.links().forEach(l -> {
-                        mergeEdge(graph, l.from(), l.linkNature(), l.to());
-                        mergeEdge(graph, l.to(), l.linkNature().reverse(), l.from());
-                    });
-                }
-            });
-        }
-        return graph;
     }
 }

@@ -190,7 +190,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 case ForEachStatement fe -> {
                     handleLvc(fe.initializer(), previousVd, writeMethodCalls);
                     forEachLv = fe.initializer().localVariable();
-                    evaluate = true;
+                    evaluate = false;
                 }
                 case ForStatement fs -> {
                     fs.initializers().stream()
