@@ -39,7 +39,7 @@ public class TestPrefix extends CommonTest {
                 }
             }
             """;
-    public static final String EXPECTED12 = "[-, -] --> one>0:x,one>1:y,one.ts>0:x,one.ts>1:y";
+    public static final String EXPECTED12 = "[-, -] --> one.ts>0:x,one.ts>1:y";
 
     @Test
     public void test1() {
@@ -72,12 +72,12 @@ public class TestPrefix extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(one.methodBody().statements().getFirst());
         VariableInfo viEntry = vd0.variableInfo("entry");
         Links tlvEntry = viEntry.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("entry.xy.x==0:x,entry.xy.y==1:y", tlvEntry.toString());
+        assertEquals("entry.xy.x==0:x,entry.xy.y==1:y,entry≥0:x,entry≥1:y", tlvEntry.toString());
 
         VariableData vd1 = VariableDataImpl.of(one.methodBody().statements().get(1));
         VariableInfo viStream1 = vd1.variableInfo("stream1");
         Links tlvStream1 = viStream1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("stream1.ts>entry", tlvStream1.toString());
+        assertEquals("stream1.ts>0:x,stream1.ts>1:y,stream1.ts>entry.xy.x,stream1>entry.xy.y", tlvStream1.toString());
 
         MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals(EXPECTED12, tlvOne.toString());
@@ -134,7 +134,7 @@ public class TestPrefix extends CommonTest {
             }
             """;
 
-    private static final String EXPECTED_34 = "[-, -] --> oneStatic>0:x,oneStatic>1:y,oneStatic.xsys.xs>0:x,oneStatic.xsys.ys>1:y";
+    private static final String EXPECTED_34 = "[-, -] --> oneStatic.xsys.xs.ts>0:x,oneStatic.xsys.xs>0:x,oneStatic.xsys.ys.ts>1:y,oneStatic.xsys.ys>1:y";
 
     // see also TestShallowPrefix, which computes the shallow version
     @Test

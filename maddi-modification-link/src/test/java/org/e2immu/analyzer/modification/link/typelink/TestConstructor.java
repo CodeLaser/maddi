@@ -110,13 +110,13 @@ public class TestConstructor extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(s2);
             VariableInfo iis2 = vd2.variableInfo("iis");
             Links tlvIIS2 = iis2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("iis.$s~0:input.$s,iis.$s>ii", tlvIIS2.toString());
+            assertEquals("iis.$s>ii,iis.$s~0:input.$s", tlvIIS2.toString());
 
             Statement s3 = methodA.methodBody().statements().get(3);
             VariableData vd3 = VariableDataImpl.of(s3);
             VariableInfo iis3 = vd3.variableInfo("iis");
             Links tlvIIS3 = iis3.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("iis.$s~0:input.$s,iis.$s>ii,iis.$s>ii2", tlvIIS3.toString());
+            assertEquals("iis.$s>ii,iis.$s>ii2,iis.$s~0:input.$s", tlvIIS3.toString());
 
             Statement callM2 = methodA.methodBody().statements().get(4);
             MethodCall methodCall = (MethodCall) callM2.expression();

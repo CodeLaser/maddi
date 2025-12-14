@@ -13,7 +13,7 @@ public record AssignLinksToLocal(Runtime runtime) {
 
         rvBuilder.add(LinkNature.IS_IDENTICAL_TO, primary);
         Links reassigned = links.changePrimaryTo(runtime, target, null);
-        reassigned.links().forEach(link -> rvBuilder.add(link.from(), link.linkNature(), link.to()));
+        reassigned.linkList().forEach(link -> rvBuilder.add(link.from(), link.linkNature(), link.to()));
         return rvBuilder.build();
     }
 }
