@@ -50,6 +50,16 @@ public class TestFixedpointPropagationAlgorithm {
         assertEquals("b: <, c: <, d: X", compute(graph));
     }
 
+    // a < b == c ≥ d --> no relation between a and d
+    @Test
+    public void test3d() {
+        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
+        graph.put(START, Map.of("b", LinkNature.IS_ELEMENT_OF));
+        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
+        graph.put("c", Map.of("d", LinkNature.HAS_FIELD));
+        assertEquals("b: <, c: <, d: X", compute(graph));
+    }
+
     // ≥ is "hasField", ≤ is "is field of"
     // a ≥ b == c < d --> a ~ d
     @Test

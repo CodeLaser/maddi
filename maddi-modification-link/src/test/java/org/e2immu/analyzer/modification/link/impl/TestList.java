@@ -99,7 +99,7 @@ public class TestList extends CommonTest {
         Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("k<1:x.ks,k==1:x.ks[0:index]", linksK.toString());
 
-        assertEquals("[-, -] --> method<1:x.ks,method==1:x.ks[0:index],method<1:x", lvMethod.toString());
+        assertEquals("[-, -] --> method<1:x.ks,method==1:x.ks[0:index]", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
@@ -151,7 +151,7 @@ public class TestList extends CommonTest {
                 () -> tlc.doMethod(asShortList));
 
         assertEquals("""
-                asShortList~this.ts,asShortList>this.ts[0],asShortList.tArray~this.ts,asShortList.tArray>this.ts[0]\
+                asShortList.tArray>this.ts[0],asShortList.tArray~this.ts\
                 """, lvAsShortList.ofReturnValue().toString());
     }
 
@@ -197,13 +197,13 @@ public class TestList extends CommonTest {
         // test the evaluation of List<Z> zs = in.subList(2, n);
         LocalVariableCreation lvc = (LocalVariableCreation) sub.methodBody().statements().get(1);
         var map = smc.handleLvc(lvc, vd0, new ArrayList<>());
-        assertEquals("{zs=zs.zs~0:in.zs,zs.M==0:in.M}", map.toString());
+        assertEquals("zs=zs.M==0:in.M,zs.zs~0:in.zs", nice(map));
 
         // do the whole method
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
 
         assertEquals("""
-                sub~0:in,sub~0:in.zs,sub≥0:in.M,sub.zs~0:in.zs,sub.M≤0:in,sub.M==0:in.M\
+                sub.M==0:in.M,sub.M~0:in,sub.zs~0:in.zs,sub≥0:in.M\
                 """, mlvSub.ofReturnValue().toString());
     }
 

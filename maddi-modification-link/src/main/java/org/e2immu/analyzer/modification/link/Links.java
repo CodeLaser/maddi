@@ -19,7 +19,7 @@ public interface Links extends Iterable<Link>, Value {
 
     boolean isEmpty();
 
-    Set<Link> links();
+    Set<Link> linkList();
 
     Links merge(Links links);
 
