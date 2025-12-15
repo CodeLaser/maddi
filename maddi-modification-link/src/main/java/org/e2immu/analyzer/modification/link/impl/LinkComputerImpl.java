@@ -339,8 +339,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Map<Variable, Links> linkedVariables = new HashMap<>();
             lvc.localVariableStream().forEach(lv -> {
                 if (!lv.assignmentExpression().isEmpty()) {
-                    ExpressionVisitor.Result r = expressionVisitor.visit(lv.assignmentExpression(),
-                            previousVd);
+                    ExpressionVisitor.Result r = expressionVisitor.visit(lv.assignmentExpression(), previousVd);
                     r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
                     writeMethodCalls.addAll(r.writeMethodCalls());
 

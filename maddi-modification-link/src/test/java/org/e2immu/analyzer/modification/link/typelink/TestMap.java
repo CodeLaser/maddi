@@ -10,16 +10,22 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestMap extends CommonTest {
 
@@ -28,6 +34,7 @@ public class TestMap extends CommonTest {
             package a.b;
             import java.util.Map;
             import java.util.HashMap;
+            import java.util.Set;
             public class C<K, V> {
                 Map<K, V> map = new HashMap<>();
             
@@ -50,62 +57,77 @@ public class TestMap extends CommonTest {
                     Y yy = c.put(x, y);
                     return yy;
                 }
+            
+                // these methods are here to give Map multiplicity 2 for the shallow computations
+                public Set<V> values() { return map.values(); }
+                public Set<K> keySet() { return map.keySet(); }
             }
             """;
 
     @Test
     public void test1() {
         TypeInfo C = javaInspector.parse(INPUT1);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
 
-        MethodInfo get = C.findUniqueMethod("get", 1);
+        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        MethodInfo mapGet = map.findUniqueMethod("get", 1);
+        ParameterInfo mapGet0 = mapGet.parameters().getFirst();
+        Value.Independent mapGet0Independent = mapGet0.analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.class);
+        assertTrue(mapGet0Independent.isIndependent());
 
-
-        MethodInfo staticGet = C.findUniqueMethod("staticGet", 2);
         {
+            MethodInfo staticGet = C.findUniqueMethod("staticGet", 2);
+            MethodLinkedVariables mlvSGet = staticGet.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticGet));
             VariableData vd0 = VariableDataImpl.of(staticGet.methodBody().statements().getFirst());
             VariableInfo y0 = vd0.variableInfo("y");
             Links tlvY0 = y0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("c(*:1)", tlvY0.toString());
-            assertEquals("c(*[Type param Y]:1[Type a.b.C<X,Y>])", tlvY0.toString());
+            assertEquals("y<1:c.map.xys[-2].y", tlvY0.toString());
+            VariableInfo x0 = vd0.variableInfo(staticGet.parameters().getFirst());
 
-            MethodLinkedVariables tlvSGet = staticGet.analysis().getOrCreate(METHOD_LINKS,
-                    () -> tlc.doMethod(staticGet));
-            assertEquals("c(*:1)", tlvSGet.toString());
+            assertEquals("[-, -] --> staticGet<1:c.map.xys[-2].y", mlvSGet.toString());
+
+            Links lX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            assertEquals("-", lX0.toString());
         }
 
-        MethodInfo staticPut = C.findUniqueMethod("staticPut", 3);
         {
+            MethodInfo staticPut = C.findUniqueMethod("staticPut", 3);
+            MethodLinkedVariables mlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
             VariableData vd0 = VariableDataImpl.of(staticPut.methodBody().statements().getFirst());
             VariableInfo yy0 = vd0.variableInfo("yy");
             Links tlvY0 = yy0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("c(*:1);v(*:*);y(*:*)", tlvY0.toString());
+            assertEquals("yy<2:c.map.xys[-2].y", tlvY0.toString());
             ParameterInfo x = staticPut.parameters().getFirst();
             VariableInfo x0 = vd0.variableInfo(x);
             Links tlvX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("c(*:0);k(*:*)", tlvX0.toString());
+            assertEquals("0:x<2:c.map.xys[-1].x", tlvX0.toString());
 
-            MethodLinkedVariables tlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS,
-                    () -> tlc.doMethod(staticPut));
-            assertEquals("c(*:1);v(*:*);y(*:*)[#0:c(*:0);k(*:*), #1:c(*:1);v(*:*), #2:x(*:0);y(*:1)]",
-                    tlvSPut.toString());
+            assertEquals("""
+                    [0:x<2:c.map.xys[-1].x, 1:y<2:c.map.xys[-2].y, \
+                    2:c.map.xys[-1].x>0:x,2:c.map.xys[-2].y>1:y] --> staticPut<2:c.map.xys[-2].y\
+                    """, mlvSPut.toString());
         }
 
-        MethodInfo staticPut2 = C.findUniqueMethod("staticPut2", 3);
         {
+            MethodInfo staticPut2 = C.findUniqueMethod("staticPut2", 3);
+            MethodLinkedVariables tlvSPut = staticPut2.analysis().getOrCreate(METHOD_LINKS,
+                    () -> tlc.doMethod(staticPut2));
             VariableData vd0 = VariableDataImpl.of(staticPut2.methodBody().statements().getFirst());
             VariableInfo yy0 = vd0.variableInfo("yy");
             Links tlvY0 = yy0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("c(*:1);v(*:*);y(*:*)", tlvY0.toString());
+            assertEquals("yy<0:c.map.xys[-2].y", tlvY0.toString());
             ParameterInfo x = staticPut2.parameters().get(1);
             VariableInfo x0 = vd0.variableInfo(x);
             Links tlvX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("c(*:0);k(*:*)", tlvX0.toString());
+            assertEquals("1:x<0:c.map.xys[-1].x", tlvX0.toString());
 
-            MethodLinkedVariables tlvSPut = staticPut2.analysis().getOrCreate(METHOD_LINKS,
-                    () -> tlc.doMethod(staticPut2));
-            assertEquals("c(*:1);v(*:*);y(*:*)[#0:x(*:0);y(*:1), #1:c(*:0);k(*:*), #2:c(*:1);v(*:*)]",
-                    tlvSPut.toString());
+            assertEquals("""
+                    [0:c.map.xys[-1].x>1:x,0:c.map.xys[-2].y>2:y, \
+                    1:x<0:c.map.xys[-1].x, 2:y<0:c.map.xys[-2].y] --> staticPut2<0:c.map.xys[-2].y\
+                    """, tlvSPut.toString());
         }
     }
 
@@ -118,32 +140,29 @@ public class TestMap extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, true, true);
         tlc.doPrimaryType(X);
 
+        // NOTE: we need map to have multiplicity 2, so we've added the keyset and values methods
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodLinkedVariables tlvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("[0:k==this.kv.k] --> get=?=this.kv.v", tlvGet.toString());
-
-        // FIXME equality?
+        assertEquals("[0:k<this.kvs[-1].k] --> get<this.kvs[-2].v", tlvGet.toString());
 
         MethodInfo put = X.findUniqueMethod("put", 2);
         MethodLinkedVariables tlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
-        assertEquals("[0:k==this.kv.k, 1:v==this.kv.v] --> put==this.kv.v", tlvPut.toString());
+        assertEquals("[0:k<this.kvs[-1].k, 1:v<this.kvs[-2].v] --> put<this.kvs[-2].v", tlvPut.toString());
+
+        // NOTE: links between parameters need to be marked using the @Independent annotation
+        // that's why there are no links from x into c
 
         MethodInfo staticGet = X.findUniqueMethod("staticGet", 2);
         MethodLinkedVariables tlvSGet = staticGet.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticGet));
-        assertEquals("[-, -] --> staticGet==1:c.xy.y", tlvSGet.toString());
+        assertEquals("[-, -] --> staticGet<1:c.xys[-2].y", tlvSGet.toString());
 
         MethodInfo staticPut = X.findUniqueMethod("staticPut", 3);
         MethodLinkedVariables tlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
-        assertEquals("[-, -, -] --> staticPut==2:c.xy.y,staticPut==1:y", tlvSPut.toString());
+        assertEquals("[-, -, -] --> staticPut<2:c.xys[-2].y,staticPut==1:y", tlvSPut.toString());
 
         MethodInfo staticPut2 = X.findUniqueMethod("staticPut2", 3);
         MethodLinkedVariables tlvS2Put = staticPut2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut2));
-        assertEquals("c(*:1);y(*:*)[#0:x(0:*);y(1:*)]", tlvS2Put.toString());
-        assertEquals("""
-                c(*[Type param Y]:1[Type a.b.C<X,Y>]);\
-                y(*[Type param Y]:*[Type param Y])\
-                [#0:x(0[Type a.b.C<X,Y>]:*[Type param X]);y(1[Type a.b.C<X,Y>]:*[Type param Y])]\
-                """, tlvS2Put.toString());
+        assertEquals("[-, -, -] --> staticPut2<0:c.xys[-2].y,staticPut2==2:y", tlvS2Put.toString());
     }
 
     @Language("java")
@@ -181,8 +200,7 @@ public class TestMap extends CommonTest {
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodInfo reverse = C.findUniqueMethod("reverse", 0);
-        MethodLinkedVariables tlvReverse = reverse.analysis().getOrCreate(METHOD_LINKS,
-                () -> tlc.doMethod(reverse));
+        MethodLinkedVariables mlvReverse = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
 
         Statement s1 = reverse.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(s1);
@@ -192,9 +210,7 @@ public class TestMap extends CommonTest {
         // the problem here at the moment is that in the graph
 
         assertEquals("", thisMap1Links.toString());
-
-
-        assertEquals("", tlvReverse.toString());
+        assertEquals("", mlvReverse.toString());
 
         MethodInfo staticReverse = C.findUniqueMethod("staticReverse", 1);
         MethodLinkedVariables tlvSReverse = staticReverse.analysis().getOrCreate(METHOD_LINKS,

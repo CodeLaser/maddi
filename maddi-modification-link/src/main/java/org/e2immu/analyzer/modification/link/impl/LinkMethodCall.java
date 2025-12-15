@@ -60,15 +60,13 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         }
         Links concreteReturnValue = mlv.ofReturnValue() == null ? LinksImpl.EMPTY :
                 objectToReturnValue(methodInfo, params, mlv, objectPrimary);
-        Links callReturn;
         if (objectPrimary != null) {
             Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
-            callReturn = concreteReturnValue == LinksImpl.EMPTY ? newObjectLinks : concreteReturnValue.merge(newObjectLinks);
+            extra.merge(objectPrimary, newObjectLinks, Links::merge);
         } else {
             linksBetweenParameters(methodInfo, params, mlv, extra);
-            callReturn = concreteReturnValue;
         }
-        return new ExpressionVisitor.Result(callReturn, new LinkedVariablesImpl(extra));
+        return new ExpressionVisitor.Result(concreteReturnValue, new LinkedVariablesImpl(extra));
     }
 
     private void linksBetweenParameters(MethodInfo methodInfo,
