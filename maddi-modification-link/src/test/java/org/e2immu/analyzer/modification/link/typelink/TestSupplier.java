@@ -84,7 +84,6 @@ public class TestSupplier extends CommonTest {
             """;
 
 
-    @Disabled
     @Test
     public void test2() {
         TypeInfo C = javaInspector.parse(INPUT2);
@@ -92,16 +91,20 @@ public class TestSupplier extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(C);
+
+        MethodInfo supplier = C.findUniqueMethod("supplier", 0);
+        MethodLinkedVariables mlvSupplier = supplier.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(supplier));
+        assertEquals("[] --> supplier==this.alternative", mlvSupplier.toString());
+
         MethodInfo method = C.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("""
-                alternative(*[Type param X]:*[Type param X]);\
-                optional(*[Type param X]:0[Type java.util.Optional<X>])\
-                """, tlvX.toString());
+        assertEquals("x==0:optional.x,x==this.alternative", tlvX.toString());
+
+        assertEquals("[0:optional.x==this.alternative] --> method==0:optional.x,method==this.alternative", mlv.toString());
     }
 
 
