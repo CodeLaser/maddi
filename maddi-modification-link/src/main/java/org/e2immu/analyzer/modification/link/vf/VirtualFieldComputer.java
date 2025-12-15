@@ -105,7 +105,7 @@ public class VirtualFieldComputer {
         }
         if (pt.parameters().isEmpty() && !utilityClass(typeInfo)) {
             VirtualFields vf = new VirtualFields(null,
-                    newField("$" + typeCounter.getAndIncrement(), pt, pt.typeInfo()));
+                    newField("$" + typeCounter.getAndIncrement(), pt, typeInfo));
             return new VfTm(vf, null);
         }
 
@@ -119,7 +119,7 @@ public class VirtualFieldComputer {
                 .toList();
         FieldInfo mutable;
         if (parameterVfs.stream().anyMatch(vf -> vf.virtualFields.mutable() != null)) {
-            mutable = newField("$m", atomicBooleanPt, pt.typeInfo());
+            mutable = newField("$m", atomicBooleanPt, typeInfo);
         } else {
             Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
                     ValueImpl.ImmutableImpl.MUTABLE);
@@ -136,7 +136,7 @@ public class VirtualFieldComputer {
             FieldInfo hc = inner.hiddenContent();
             if (hc != null) {
                 hiddenContent = newField(hc.name() + "s".repeat(extraMultiplicity),
-                        hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), pt.typeInfo());
+                        hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), typeInfo);
 
                 // translation from formal to concrete hidden content variable
                 if (addTranslation) {
@@ -156,7 +156,7 @@ public class VirtualFieldComputer {
             String baseName = parameterVfs.stream()
                     .map(vf -> vf.virtualFields.hiddenContent().name()).collect(Collectors.joining());
             hiddenContent = newField(baseName + "s".repeat(extraMultiplicity),
-                    baseType.copyWithArrays(extraMultiplicity), pt.typeInfo());
+                    baseType.copyWithArrays(extraMultiplicity), typeInfo);
 
             if (addTranslation) {
                 for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {

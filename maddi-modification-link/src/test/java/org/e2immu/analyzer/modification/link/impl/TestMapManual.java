@@ -28,7 +28,7 @@ import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesIm
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class TestMap extends CommonTest {
+public class TestMapManual extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """

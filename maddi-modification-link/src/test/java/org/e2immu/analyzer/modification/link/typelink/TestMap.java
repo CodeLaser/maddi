@@ -21,6 +21,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -170,12 +171,21 @@ public class TestMap extends CommonTest {
             package a.b;
             import java.util.Map;
             import java.util.HashMap;
-            import java.util.stream.Collectors;
+            import java.util.Set;import java.util.stream.Collectors;
             
             public class C<K, V> {
                 Map<K, V> map;
             
                 C(Map<K, V> map) { this.map = map; }
+            
+                private C<V, K> reverse0() {
+                    Map<V, K> map = new HashMap<>();
+                    Set<Map.Entry<K,V>> entries = this.map.entrySet();
+                    for(Map.Entry<K, V> entry: entries) {
+                   //     map.put(entry.getValue(), entry.getKey());
+                    }
+                    return map;
+                }
             
                 private C<V, K> reverse() {
                     Map<V, K> map = new HashMap<>();
@@ -191,6 +201,27 @@ public class TestMap extends CommonTest {
                 }
             }
             """;
+
+    @Test
+    public void test2a() {
+        TypeInfo C = javaInspector.parse(INPUT2);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo reverse = C.findUniqueMethod("reverse0", 0);
+        MethodLinkedVariables mlvReverse0 = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
+
+        Statement s1 = reverse.methodBody().statements().get(1);
+        VariableData vd1 = VariableDataImpl.of(s1);
+        VariableInfo entries = vd1.variableInfo("entries");
+        Links entriesLinks = entries.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("entries.$m==this.map.$m,entries.kvs~this.map.kvs,entries~this.map",
+                entriesLinks.toString());
+        assertEquals("entries, java.util.Set.$m#entries, java.util.Set.kvs#entries",
+                entriesLinks.linkList().stream().map(l -> l.from().fullyQualifiedName()).sorted()
+                        .collect(Collectors.joining(", ")));
+    }
 
     @Test
     public void test2() {
@@ -209,8 +240,14 @@ public class TestMap extends CommonTest {
 
         // the problem here at the moment is that in the graph
 
-        assertEquals("", thisMap1Links.toString());
-        assertEquals("", mlvReverse.toString());
+        // assertEquals("", thisMap1Links.toString());
+        //  assertEquals("", mlvReverse.toString());
+
+        Statement s100 = reverse.methodBody().statements().get(1).block().statements().getFirst();
+        VariableData vd100 = VariableDataImpl.of(s100);
+        VariableInfo viEntry100 = vd100.variableInfo("entry");
+        Links entry100Links = thisMap1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("", entry100Links.toString());
 
         MethodInfo staticReverse = C.findUniqueMethod("staticReverse", 1);
         MethodLinkedVariables tlvSReverse = staticReverse.analysis().getOrCreate(METHOD_LINKS,

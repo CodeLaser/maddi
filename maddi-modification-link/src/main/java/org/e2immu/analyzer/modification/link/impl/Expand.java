@@ -102,6 +102,9 @@ public record Expand(Runtime runtime) {
                         subToPrimary.put(l.to(), toPrimary);
                     }
                 }));
+        // NOTE: this assertion helps to avoid $__rv2.kvs != $__rv2.kvs, with a different owner for the kvs field
+        assert subs.values().stream().allMatch(vars ->
+                vars.size() == vars.stream().map(Variable::simpleName).collect(Collectors.toUnmodifiableSet()).size());
         Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
         linkedVariables.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
@@ -171,7 +174,7 @@ public record Expand(Runtime runtime) {
                 Variable to = entry.getKey();
                 if (gd.primaries.contains(to)) {
                     acceptAndAddPrimaryLink(allowLocalVariables, entry, to, to, natureTos, toPrimaryToFromNatures,
-                           false, builder, tPrimary);
+                            false, builder, tPrimary);
                 }
             }
         }
@@ -208,7 +211,7 @@ public record Expand(Runtime runtime) {
                                          Set<Variable> natureTos) {
         LinkNature linkNature = entry.getValue();
         if (acceptLink(primary, allowLocalVariables, entry, to)
-            && (toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>()).add(tFrom) || addToToPrimary))  {
+            && (toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>()).add(tFrom) || addToToPrimary)) {
             builder.add(tFrom, linkNature, to);
             natureTos.add(to);
         }
