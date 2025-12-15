@@ -182,7 +182,7 @@ public class TestMap extends CommonTest {
                     Map<V, K> map = new HashMap<>();
                     Set<Map.Entry<K,V>> entries = this.map.entrySet();
                     for(Map.Entry<K, V> entry: entries) {
-                   //     map.put(entry.getValue(), entry.getKey());
+                        map.put(entry.getValue(), entry.getKey());
                     }
                     return map;
                 }
@@ -221,6 +221,8 @@ public class TestMap extends CommonTest {
         assertEquals("entries, java.util.Set.$m#entries, java.util.Set.kvs#entries",
                 entriesLinks.linkList().stream().map(l -> l.from().fullyQualifiedName()).sorted()
                         .collect(Collectors.joining(", ")));
+        // FIXME check correctness, reverse0.vks[-1].v~this.map.kvs[-2].v seems more correct
+        assertEquals("[] --> reverse0.vks[-1].v~this.map.kvs,reverse0.vks[-2].k~this.map.kvs", mlvReverse0.toString());
     }
 
     @Test
@@ -237,17 +239,22 @@ public class TestMap extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo thisMap1 = vd1.variableInfo("a.b.C.map");
         Links thisMap1Links = thisMap1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-
+        assertEquals("""
+                this.map.kvs>entry.kv.k,this.map.kvs>entry.kv.v,this.map.kvs~map.vks[-1].v,\
+                this.map.kvs~map.vks[-2].k,this.map>entry\
+                """, thisMap1Links.toString());
         // the problem here at the moment is that in the graph
 
-        // assertEquals("", thisMap1Links.toString());
         //  assertEquals("", mlvReverse.toString());
 
         Statement s100 = reverse.methodBody().statements().get(1).block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(s100);
         VariableInfo viEntry100 = vd100.variableInfo("entry");
-        Links entry100Links = thisMap1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("", entry100Links.toString());
+        Links entry100Links = viEntry100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("""
+                entry.kv.k<map.vks[-2].k,entry.kv.k<this.map.kvs,\
+                entry.kv.v<map.vks[-1].v,entry.kv.v<this.map.kvs,entry<this.map\
+                """, entry100Links.toString());
 
         MethodInfo staticReverse = C.findUniqueMethod("staticReverse", 1);
         MethodLinkedVariables tlvSReverse = staticReverse.analysis().getOrCreate(METHOD_LINKS,
@@ -256,6 +263,7 @@ public class TestMap extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(staticReverse.methodBody().statements().getFirst());
         VariableInfo r0 = vd0.variableInfo("r");
         Links tlvR0 = r0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        // FIXME  r.yxs[-1].y~0:c.map.xys,r.yxs[-2].x~0:c.map.xys   seems wrong
         assertEquals("c(0:1,1:0)", tlvR0.toString());
         assertEquals("c(0[Type a.b.C<X,Y>]:1[Type a.b.C<X,Y>],1[Type a.b.C<X,Y>]:0[Type a.b.C<X,Y>])",
                 tlvR0.toString());

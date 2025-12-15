@@ -4,10 +4,12 @@ import org.e2immu.analyzer.modification.link.Link;
 import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.LinkedVariables;
 import org.e2immu.analyzer.modification.link.Links;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -29,13 +31,40 @@ public record Expand(Runtime runtime) {
     private record V(Variable v) {
         @Override
         public boolean equals(Object object) {
-            if (!(object instanceof V(Variable v1))) return false;
-            return Objects.equals(v(), v1);
+            if (!(object instanceof V(Variable v1)) || v1 == null) return false;
+            if (v == v1) return true;
+            String fqn1 = newFqn(v);
+            String fqn2 = newFqn(v1);
+            return fqn1.equals(fqn2);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hashCode(v());
+            return newFqn(v).hashCode();
+        }
+
+        private static String newFqn(Variable v) {
+            if (v instanceof FieldReference fr) {
+                TypeInfo typeInfo = fr.fieldInfo().type().typeInfo();
+                String name;
+                if (typeInfo != null && typeInfo.typeNature() == VirtualFieldComputer.VIRTUAL_FIELD || fr.fieldInfo().name().startsWith("$m")) {
+                    name = "VF:" + fr.fieldInfo().name(); // NOTE: for now there is ambiguity in the 's'
+                } else {
+                    name = fr.fieldInfo().fullyQualifiedName();
+                }
+                String scope;
+                if (fr.isStatic() || fr.scopeIsThis()) {
+                    return name;
+                }
+                if (fr.scopeVariable() != null) {
+                    scope = newFqn(fr.scopeVariable());
+                } else {
+                    // take from the existing
+                    scope = fr.fullyQualifiedName().substring(0, fr.fullyQualifiedName().lastIndexOf('.'));
+                }
+                return name + "#" + scope;
+            }
+            return v.fullyQualifiedName();
         }
     }
 
@@ -45,6 +74,7 @@ public record Expand(Runtime runtime) {
                                   V to) {
         Map<V, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
         edges.merge(to, linkNature, LinkNature::combine);
+        assert graph.size() == graph.keySet().stream().map(v -> v.v.toString()).count();
     }
 
     private static void mergeEdge(Map<V, Map<V, LinkNature>> graph,
@@ -146,7 +176,7 @@ public record Expand(Runtime runtime) {
         Set<V> fromSetExcludingPrimary = gd.graph.keySet().stream()
                 .filter(v -> Util.isPartOf(primary, v.v) && !v.v.equals(primary))
                 .collect(Collectors.toUnmodifiableSet());
-        V tPrimary = new V( translationMap == null ? primary : translationMap.translateVariableRecursively(primary));
+        V tPrimary = new V(translationMap == null ? primary : translationMap.translateVariableRecursively(primary));
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
         // keep a set to avoid X->Y.ys and X.xs->Y.ys; so add the latter first
         Set<V> natureTos = new HashSet<>();

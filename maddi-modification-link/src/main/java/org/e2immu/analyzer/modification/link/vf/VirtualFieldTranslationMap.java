@@ -114,7 +114,7 @@ public class VirtualFieldTranslationMap implements TranslationMap {
                                    List<FieldInfo> newFields) {
         TypeInfo newType = runtime.newTypeInfo(enclosingType, name);
         TypeInfo.Builder builder = newType.builder();
-        builder.setTypeNature(runtime.typeNatureClass())
+        builder.setTypeNature(VirtualFieldComputer.VIRTUAL_FIELD)
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
         newFields.forEach(builder::addField);

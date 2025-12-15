@@ -310,7 +310,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         if (!collected.isEmpty()) {
                             VariableInfo merge = vic.best();
                             assert merge != eval;
-                            merge.analysis().set(LINKS, collected);
+                            if(!merge.analysis().haveAnalyzedValueFor(LINKS)) {
+                                merge.analysis().set(LINKS, collected);
+                            }
                         }
                     });
         }
