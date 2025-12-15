@@ -203,7 +203,7 @@ public class TestList extends CommonTest {
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
 
         assertEquals("""
-                sub.M==0:in.M,sub.M~0:in,sub.zs~0:in.zs,sub≥0:in.M\
+                sub.M==0:in.M,sub.zs~0:in.zs,sub~0:in\
                 """, mlvSub.ofReturnValue().toString());
     }
 

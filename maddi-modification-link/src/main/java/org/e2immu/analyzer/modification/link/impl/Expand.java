@@ -89,9 +89,17 @@ public record Expand(Runtime runtime) {
                 .filter(e -> !(e.getKey() instanceof This))
                 .map(Map.Entry::getValue)
                 .forEach(links -> links.linkList().forEach(l -> {
-                    if (!(l.to() instanceof This) && !l.from().equals(links.primary())) {
-                        subs.computeIfAbsent(links.primary(), _ -> new HashSet<>()).add(l.from());
-                        subToPrimary.put(l.from(), links.primary());
+                    Variable primary = links.primary();
+                    Set<Variable> subsOfPrimary = subs.computeIfAbsent(primary, _ -> new HashSet<>());
+                    if (l.from() != primary) {
+                        subsOfPrimary.add(l.from());
+                        subToPrimary.put(l.from(), primary);
+                    }
+                    Variable toPrimary = Util.primary(l.to());
+                    Set<Variable> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
+                    if (toPrimary != l.to()) {
+                        subsOfToPrimary.add(l.to());
+                        subToPrimary.put(l.to(), toPrimary);
                     }
                 }));
         Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
@@ -111,11 +119,6 @@ public record Expand(Runtime runtime) {
         return variable.variableStreamDescend().noneMatch(v -> v instanceof LocalVariable);
     }
 
-    private record NatureTo(LinkNature linkNature, Variable to) {
-    }
-
-    private record FromNature(Variable from, LinkNature linkNature) {
-    }
 
     private static Links.Builder followGraph(GraphData gd,
                                              Variable primary,
@@ -128,9 +131,9 @@ public record Expand(Runtime runtime) {
         Variable tPrimary = translationMap == null ? primary : translationMap.translateVariableRecursively(primary);
         Links.Builder builder = new LinksImpl.Builder(tPrimary);
         // keep a set to avoid X->Y.ys and X.xs->Y.ys; so add the latter first
-        Set<NatureTo> natureTos = new HashSet<>();
+        Set<Variable> natureTos = new HashSet<>();
         // keep a set for each "to" variable to avoid X->Y.z and X.ys->Y.z
-        Map<Variable, Set<FromNature>> toPrimaryToFromNatures = new HashMap<>();
+        Map<Variable, Set<Variable>> toPrimaryToFromNatures = new HashMap<>();
         // for this second map/set to be effective, the links should be processed in "order",
         // with the primary of "to" coming after "to" itself
         for (Variable from : fromSetExcludingPrimary) {
@@ -141,15 +144,14 @@ public record Expand(Runtime runtime) {
                 if (!gd.primaries.contains(to)) {
                     acceptAndAddLink(primary, allowLocalVariables, entry, to,
                             gd.subToPrimary.getOrDefault(to, to),
-                            toPrimaryToFromNatures, tFrom, builder,
-                            natureTos);
+                            toPrimaryToFromNatures, true, tFrom, builder, natureTos);
                 }
             }
             for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
                 Variable to = entry.getKey();
                 if (gd.primaries.contains(to)) {
-                    acceptAndAddLink(primary, allowLocalVariables, entry, to, to, toPrimaryToFromNatures, tFrom, builder,
-                            natureTos);
+                    acceptAndAddLink(primary, allowLocalVariables, entry, to, to, toPrimaryToFromNatures,
+                            false, tFrom, builder, natureTos);
                 }
             }
         }
@@ -161,7 +163,7 @@ public record Expand(Runtime runtime) {
                 if (!gd.primaries.contains(to)) {
                     acceptAndAddPrimaryLink(allowLocalVariables, entry, to,
                             gd.subToPrimary.getOrDefault(to, to),
-                            natureTos, toPrimaryToFromNatures,
+                            natureTos, toPrimaryToFromNatures, true,
                             builder, tPrimary);
                 }
             }
@@ -169,7 +171,7 @@ public record Expand(Runtime runtime) {
                 Variable to = entry.getKey();
                 if (gd.primaries.contains(to)) {
                     acceptAndAddPrimaryLink(allowLocalVariables, entry, to, to, natureTos, toPrimaryToFromNatures,
-                            builder, tPrimary);
+                           false, builder, tPrimary);
                 }
             }
         }
@@ -180,16 +182,16 @@ public record Expand(Runtime runtime) {
                                                 Map.Entry<Variable, LinkNature> entry,
                                                 Variable to,
                                                 Variable toPrimary,
-                                                Set<NatureTo> natureTos,
-                                                Map<Variable, Set<FromNature>> toPrimaryToFromNatures,
+                                                Set<Variable> natureTos,
+                                                Map<Variable, Set<Variable>> toPrimaryToFromNatures,
+                                                boolean addToToPrimary,
                                                 Links.Builder builder,
                                                 Variable tPrimary) {
         LinkNature linkNature = entry.getValue();
         if (acceptLink(tPrimary, allowLocalVariables, entry, to)
             // remove links that already exist for some sub in exactly the same way
-            && !natureTos.contains(new NatureTo(linkNature, to))
-            && toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>())
-                    .add(new FromNature(tPrimary, linkNature))) {
+            && !natureTos.contains(to)
+            && (toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>()).add(tPrimary) || addToToPrimary)) {
             builder.add(tPrimary, linkNature, to);
         }
     }
@@ -199,16 +201,16 @@ public record Expand(Runtime runtime) {
                                          Map.Entry<Variable, LinkNature> entry,
                                          Variable to,
                                          Variable toPrimary,
-                                         Map<Variable, Set<FromNature>> toPrimaryToFromNatures,
+                                         Map<Variable, Set<Variable>> toPrimaryToFromNatures,
+                                         boolean addToToPrimary,
                                          Variable tFrom,
                                          Links.Builder builder,
-                                         Set<NatureTo> natureTos) {
+                                         Set<Variable> natureTos) {
         LinkNature linkNature = entry.getValue();
         if (acceptLink(primary, allowLocalVariables, entry, to)
-            && toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>())
-                    .add(new FromNature(tFrom, linkNature))) {
+            && (toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>()).add(tFrom) || addToToPrimary))  {
             builder.add(tFrom, linkNature, to);
-            natureTos.add(new NatureTo(linkNature, to));
+            natureTos.add(to);
         }
     }
 
@@ -226,10 +228,15 @@ public record Expand(Runtime runtime) {
         Map<Variable, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
                         graph.keySet(), start, LinkNature.EMPTY, LinkNature::combine);
+        Variable startPrimary = Util.primary(start);
         return res.entrySet().stream()
                 .filter(e -> !start.equals(e.getKey()))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
-                        e -> e.getValue().stream().reduce(LinkNature.EMPTY, LinkNature::best)));
+                        e -> {
+                            boolean samePrimary = startPrimary.equals(Util.primary(e.getKey()));
+                            return e.getValue().stream().reduce(LinkNature.EMPTY,
+                                    (ln1, ln2) -> ln1.best(ln2, samePrimary));
+                        }));
     }
 
     /*
@@ -253,7 +260,7 @@ public record Expand(Runtime runtime) {
             });
         }
         GraphData gd = makeGraph(linkedVariables, true);
-        LOGGER.debug("Bi-directional graph: {}", gd.graph);
+        LOGGER.debug("Bi-directional graph for local: {}", gd.graph);
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
         vd.variableInfoStream().forEach(vi -> {
             Links.Builder piBuilder = followGraph(gd, vi.variable(), null, true);
@@ -282,7 +289,7 @@ public record Expand(Runtime runtime) {
         to see the reverse of param -> field. See e.g. TestList,4 (set)
          */
         GraphData gd = makeGraph(linkedVariables, true);
-        LOGGER.debug("Bi-directional graph: {}", gd.graph);
+        LOGGER.debug("Bi-directional graph for parameters: {}", gd.graph);
 
         List<Links> linksPerParameter = new ArrayList<>(methodInfo.parameters().size());
         for (ParameterInfo pi : methodInfo.parameters()) {

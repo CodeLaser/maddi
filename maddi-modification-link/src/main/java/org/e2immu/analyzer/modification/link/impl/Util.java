@@ -2,10 +2,7 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.api.variable.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;
@@ -68,6 +65,15 @@ public class Util {
         if (variable instanceof DependentVariable dv) return parameterPrimary(dv.arrayVariable());
         throw new UnsupportedOperationException();
     }
+
+    static Variable primary(Variable variable) {
+        if (variable instanceof DependentVariable dv) return primary(dv.arrayVariable());
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null && !(fr.scopeVariable() instanceof This)) {
+            return primary(fr.scopeVariable());
+        }
+        return variable;
+    }
+
 
     static String simpleName(Variable variable) {
         if (variable instanceof ParameterInfo pi) {
