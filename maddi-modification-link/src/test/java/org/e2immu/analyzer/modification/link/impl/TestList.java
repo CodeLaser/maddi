@@ -197,7 +197,7 @@ public class TestList extends CommonTest {
         // test the evaluation of List<Z> zs = in.subList(2, n);
         LocalVariableCreation lvc = (LocalVariableCreation) sub.methodBody().statements().get(1);
         var map = smc.handleLvc(lvc, vd0, new ArrayList<>());
-        assertEquals("zs=zs.M==0:in.M,zs.zs~0:in.zs", nice(map));
+        assertEquals("a.b.X.sub(java.util.List<Z>):0:in=-, zs=zs.M==0:in.M,zs.zs~0:in.zs", nice(map));
 
         // do the whole method
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
