@@ -25,13 +25,15 @@ public enum LinkNature {
     /*
     used to find the "best" relation among the different paths from one variable to another.
      */
-    public LinkNature best(LinkNature other) {
+    public LinkNature best(LinkNature other, boolean samePrimary) {
         if (this == IS_IDENTICAL_TO || other == IS_IDENTICAL_TO) return IS_IDENTICAL_TO;
-        if (this == INTERSECTION_NOT_EMPTY || other == INTERSECTION_NOT_EMPTY) return INTERSECTION_NOT_EMPTY;
+        if(samePrimary) {
+            if (this == IS_FIELD_OF || other == IS_FIELD_OF) return IS_FIELD_OF;
+            if (this == HAS_FIELD || other == HAS_FIELD) return HAS_FIELD;
+        }
         if (this == IS_ELEMENT_OF || other == IS_ELEMENT_OF) return IS_ELEMENT_OF;
         if (this == CONTAINS || other == CONTAINS) return CONTAINS;
-        if (this == IS_FIELD_OF || other == IS_FIELD_OF) return IS_FIELD_OF;
-        if (this == HAS_FIELD || other == HAS_FIELD) return HAS_FIELD;
+        if (this == INTERSECTION_NOT_EMPTY || other == INTERSECTION_NOT_EMPTY) return INTERSECTION_NOT_EMPTY;
         return this;
     }
 
