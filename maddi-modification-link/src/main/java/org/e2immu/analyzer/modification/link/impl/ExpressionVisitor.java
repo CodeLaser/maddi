@@ -77,7 +77,6 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case MethodCall mc -> methodCall(variableData, mc);
             case MethodReference mr -> methodReference(variableData, mr);
             case ConstructorCall cc -> constructorCall(variableData, cc);
-
             case Lambda lambda -> lambda(lambda);
 
             case InlineConditional ic -> inlineConditional(ic, variableData);
@@ -99,6 +98,31 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         };
     }
 
+    private Result methodReference(VariableData variableData, MethodReference mr) {
+        MethodLinkedVariables mlv = linkComputer.recurseMethod(mr.methodInfo());
+
+        Result object = visit(mr.scope(), variableData);
+        MethodLinkedVariables mlvTranslated;
+        if (mr.methodInfo().typeInfo().equals(currentMethod.typeInfo().primaryType())) {
+            mlvTranslated = mlv;
+        } else {
+            VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+            ParameterizedType concreteObjectType = mr.scope().parameterizedType();
+            VirtualFieldComputer.VfTm vfTm = vfc.compute(concreteObjectType, true);
+            mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+        }
+        int i = 0;
+        Map<Variable, Links> map = new HashMap<>();
+        for (Links paramLinks : mlvTranslated.ofParameters()) {
+            map.put(mr.methodInfo().parameters().get(i), paramLinks);
+            ++i;
+        }
+        if (object.links.primary() != null) {
+            map.merge(object.links.primary(), object.links, Links::merge);
+            object.extra.forEach(e -> map.merge(e.getKey(), e.getValue(), Links::merge));
+        }
+        return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
+    }
 
     private @NotNull Result lambda(Lambda lambda) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
@@ -194,10 +218,6 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result r = new LinkMethodCall(javaInspector.runtime(), variableCounter)
                 .methodCall(mc.methodInfo(), object, params, mlvTranslated);
         return r.with(new WriteMethodCall(mc, object.links));
-    }
-
-    private Result methodReference(VariableData variableData, MethodReference mr) {
-        return EMPTY; // FIXME
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
