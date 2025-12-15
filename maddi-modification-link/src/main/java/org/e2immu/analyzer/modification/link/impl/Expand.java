@@ -25,93 +25,108 @@ import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 public record Expand(Runtime runtime) {
     private static final Logger LOGGER = LoggerFactory.getLogger(Expand.class);
 
-    private static void mergeEdge(Map<Variable, Map<Variable, LinkNature>> graph,
-                                  Variable from,
+    // different equality from Variable: container virtual fields
+    private record V(Variable v) {
+        @Override
+        public boolean equals(Object object) {
+            if (!(object instanceof V(Variable v1))) return false;
+            return Objects.equals(v(), v1);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(v());
+        }
+    }
+
+    private static void mergeEdge(Map<V, Map<V, LinkNature>> graph,
+                                  V from,
                                   LinkNature linkNature,
-                                  Variable to) {
-        Map<Variable, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
+                                  V to) {
+        Map<V, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
         edges.merge(to, linkNature, LinkNature::combine);
     }
 
-    private static void mergeEdge(Map<Variable, Map<Variable, LinkNature>> graph,
-                                  Variable primary,
-                                  Variable from,
+    private static void mergeEdge(Map<V, Map<V, LinkNature>> graph,
+                                  V primary,
+                                  V from,
                                   LinkNature linkNature,
-                                  Variable to) {
+                                  V to) {
         mergeEdge(graph, from, linkNature, to);
-        if (!from.equals(primary) && !(primary instanceof This)) {
+        if (!from.equals(primary) && !(primary.v instanceof This)) {
             mergeEdge(graph, primary, LinkNature.HAS_FIELD, from);
             mergeEdge(graph, from, LinkNature.IS_FIELD_OF, primary);
         }
     }
 
     private void addToGraph(Link l,
-                            Variable primary,
-                            Map<Variable, Map<Variable, LinkNature>> graph,
+                            V primary,
+                            Map<V, Map<V, LinkNature>> graph,
                             boolean bidirectional,
-                            Map<Variable, Set<Variable>> primaryToSub,
-                            Map<Variable, Variable> subToPrimary) {
-        mergeEdge(graph, primary, l.from(), l.linkNature(), l.to());
+                            Map<V, Set<V>> primaryToSub,
+                            Map<V, V> subToPrimary) {
+        V vFrom = new V(l.from());
+        V vTo = new V(l.to());
+        mergeEdge(graph, primary, vFrom, l.linkNature(), vTo);
         if (bidirectional) {
-            Variable toPrimary = subToPrimary.getOrDefault(l.to(), l.to());
-            mergeEdge(graph, toPrimary, l.to(), l.linkNature().reverse(), l.from());
+            V toPrimary = subToPrimary.getOrDefault(vTo, vTo);
+            mergeEdge(graph, toPrimary, vTo, l.linkNature().reverse(), vFrom);
         }
         if (l.linkNature() == LinkNature.IS_IDENTICAL_TO) {
-            Set<Variable> subsOfFrom = primaryToSub.get(l.from());
+            Set<V> subsOfFrom = primaryToSub.get(vFrom);
             if (subsOfFrom != null) {
                 subsOfFrom.forEach(s ->
-                        mergeEdge(graph, s, LinkNature.IS_IDENTICAL_TO, makeComparableSub(l.from(), s, l.to())));
+                        mergeEdge(graph, s, LinkNature.IS_IDENTICAL_TO, makeComparableSub(vFrom, s, vTo)));
             }
-            Set<Variable> subsOfTo = primaryToSub.get(l.to());
+            Set<V> subsOfTo = primaryToSub.get(vTo);
             if (subsOfTo != null) {
                 subsOfTo.forEach(s ->
-                        mergeEdge(graph, makeComparableSub(l.to(), s, l.from()), LinkNature.IS_IDENTICAL_TO, s));
+                        mergeEdge(graph, makeComparableSub(vTo, s, vFrom), LinkNature.IS_IDENTICAL_TO, s));
             }
         }
     }
 
-    private Variable makeComparableSub(Variable base, Variable sub, Variable target) {
-        if (sub instanceof FieldReference fr && base.equals(fr.scopeVariable())) {
-            return runtime.newFieldReference(fr.fieldInfo(), runtime.newVariableExpression(target), fr.fieldInfo().type());
+    private V makeComparableSub(V base, V sub, V target) {
+        if (sub.v instanceof FieldReference fr && base.v.equals(fr.scopeVariable())) {
+            return new V(runtime.newFieldReference(fr.fieldInfo(), runtime.newVariableExpression(target.v), fr.fieldInfo().type()));
         }
         throw new UnsupportedOperationException("More complex subbing, to be implemented");
     }
 
-    private record GraphData(Map<Variable, Map<Variable, LinkNature>> graph,
-                             Set<Variable> primaries,
-                             Map<Variable, Variable> subToPrimary) {
+    private record GraphData(Map<V, Map<V, LinkNature>> graph,
+                             Set<V> primaries,
+                             Map<V, V> subToPrimary) {
     }
 
     private GraphData makeGraph(Map<Variable, Links> linkedVariables, boolean bidirectional) {
-        Map<Variable, Set<Variable>> subs = new HashMap<>();
-        Map<Variable, Variable> subToPrimary = new HashMap<>();
+        Map<V, Set<V>> subs = new HashMap<>();
+        Map<V, V> subToPrimary = new HashMap<>();
         linkedVariables.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .map(Map.Entry::getValue)
                 .forEach(links -> links.linkList().forEach(l -> {
-                    Variable primary = links.primary();
-                    Set<Variable> subsOfPrimary = subs.computeIfAbsent(primary, _ -> new HashSet<>());
-                    if (l.from() != primary) {
-                        subsOfPrimary.add(l.from());
-                        subToPrimary.put(l.from(), primary);
+                    V primary = new V(links.primary());
+                    Set<V> subsOfPrimary = subs.computeIfAbsent(primary, _ -> new HashSet<>());
+                    V vFrom = new V(l.from());
+                    if (!vFrom.equals(primary)) {
+                        subsOfPrimary.add(vFrom);
+                        subToPrimary.put(vFrom, primary);
                     }
-                    Variable toPrimary = Util.primary(l.to());
-                    Set<Variable> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
-                    if (toPrimary != l.to()) {
-                        subsOfToPrimary.add(l.to());
-                        subToPrimary.put(l.to(), toPrimary);
+                    V toPrimary = new V(Util.primary(l.to()));
+                    Set<V> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
+                    V vTo = new V(l.to());
+                    if (!vTo.equals(toPrimary)) {
+                        subsOfToPrimary.add(vTo);
+                        subToPrimary.put(vTo, toPrimary);
                     }
                 }));
-        // NOTE: this assertion helps to avoid $__rv2.kvs != $__rv2.kvs, with a different owner for the kvs field
-        assert subs.values().stream().allMatch(vars ->
-                vars.size() == vars.stream().map(Variable::simpleName).collect(Collectors.toUnmodifiableSet()).size());
-        Map<Variable, Map<Variable, LinkNature>> graph = new HashMap<>();
+        Map<V, Map<V, LinkNature>> graph = new HashMap<>();
         linkedVariables.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .map(Map.Entry::getValue)
                 .forEach(links -> links.linkList()
                         .stream().filter(l -> !(l.to() instanceof This))
-                        .forEach(l -> addToGraph(l, links.primary(), graph, bidirectional, subs, subToPrimary)));
+                        .forEach(l -> addToGraph(l, new V(links.primary()), graph, bidirectional, subs, subToPrimary)));
         return new GraphData(graph, subs.keySet(), subToPrimary);
     }
 
@@ -128,41 +143,43 @@ public record Expand(Runtime runtime) {
                                              TranslationMap translationMap,
                                              boolean allowLocalVariables) {
         // first do the fields of the primary
-        Set<Variable> fromSetExcludingPrimary = gd.graph.keySet().stream()
-                .filter(v -> Util.isPartOf(primary, v) && !v.equals(primary))
+        Set<V> fromSetExcludingPrimary = gd.graph.keySet().stream()
+                .filter(v -> Util.isPartOf(primary, v.v) && !v.v.equals(primary))
                 .collect(Collectors.toUnmodifiableSet());
-        Variable tPrimary = translationMap == null ? primary : translationMap.translateVariableRecursively(primary);
-        Links.Builder builder = new LinksImpl.Builder(tPrimary);
+        V tPrimary = new V( translationMap == null ? primary : translationMap.translateVariableRecursively(primary));
+        Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
         // keep a set to avoid X->Y.ys and X.xs->Y.ys; so add the latter first
-        Set<Variable> natureTos = new HashSet<>();
+        Set<V> natureTos = new HashSet<>();
         // keep a set for each "to" variable to avoid X->Y.z and X.ys->Y.z
-        Map<Variable, Set<Variable>> toPrimaryToFromNatures = new HashMap<>();
+        Map<V, Set<V>> toPrimaryToFromNatures = new HashMap<>();
         // for this second map/set to be effective, the links should be processed in "order",
         // with the primary of "to" coming after "to" itself
-        for (Variable from : fromSetExcludingPrimary) {
-            Map<Variable, LinkNature> all = bestPath(gd.graph, from);
-            Variable tFrom = translationMap == null ? from : translationMap.translateVariableRecursively(from);
-            for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
-                Variable to = entry.getKey();
+        V vPrimary = new V(primary);
+
+        for (V from : fromSetExcludingPrimary) {
+            Map<V, LinkNature> all = bestPath(gd.graph, from);
+            V tFrom = new V(translationMap == null ? from.v : translationMap.translateVariableRecursively(from.v));
+            for (Map.Entry<V, LinkNature> entry : all.entrySet()) {
+                V to = entry.getKey();
                 if (!gd.primaries.contains(to)) {
-                    acceptAndAddLink(primary, allowLocalVariables, entry, to,
+                    acceptAndAddLink(vPrimary, allowLocalVariables, entry, to,
                             gd.subToPrimary.getOrDefault(to, to),
                             toPrimaryToFromNatures, true, tFrom, builder, natureTos);
                 }
             }
-            for (Map.Entry<Variable, LinkNature> entry : all.entrySet()) {
-                Variable to = entry.getKey();
+            for (Map.Entry<V, LinkNature> entry : all.entrySet()) {
+                V to = entry.getKey();
                 if (gd.primaries.contains(to)) {
-                    acceptAndAddLink(primary, allowLocalVariables, entry, to, to, toPrimaryToFromNatures,
+                    acceptAndAddLink(vPrimary, allowLocalVariables, entry, to, to, toPrimaryToFromNatures,
                             false, tFrom, builder, natureTos);
                 }
             }
         }
         // then the primary itself
-        if (gd.graph.containsKey(primary)) {
-            Map<Variable, LinkNature> allFromPrimary = bestPath(gd.graph, primary);
-            for (Map.Entry<Variable, LinkNature> entry : allFromPrimary.entrySet()) {
-                Variable to = entry.getKey();
+        if (gd.graph.containsKey(vPrimary)) {
+            Map<V, LinkNature> allFromPrimary = bestPath(gd.graph, vPrimary);
+            for (Map.Entry<V, LinkNature> entry : allFromPrimary.entrySet()) {
+                V to = entry.getKey();
                 if (!gd.primaries.contains(to)) {
                     acceptAndAddPrimaryLink(allowLocalVariables, entry, to,
                             gd.subToPrimary.getOrDefault(to, to),
@@ -170,8 +187,8 @@ public record Expand(Runtime runtime) {
                             builder, tPrimary);
                 }
             }
-            for (Map.Entry<Variable, LinkNature> entry : allFromPrimary.entrySet()) {
-                Variable to = entry.getKey();
+            for (Map.Entry<V, LinkNature> entry : allFromPrimary.entrySet()) {
+                V to = entry.getKey();
                 if (gd.primaries.contains(to)) {
                     acceptAndAddPrimaryLink(allowLocalVariables, entry, to, to, natureTos, toPrimaryToFromNatures,
                             false, builder, tPrimary);
@@ -182,61 +199,61 @@ public record Expand(Runtime runtime) {
     }
 
     private static void acceptAndAddPrimaryLink(boolean allowLocalVariables,
-                                                Map.Entry<Variable, LinkNature> entry,
-                                                Variable to,
-                                                Variable toPrimary,
-                                                Set<Variable> natureTos,
-                                                Map<Variable, Set<Variable>> toPrimaryToFromNatures,
+                                                Map.Entry<V, LinkNature> entry,
+                                                V to,
+                                                V toPrimary,
+                                                Set<V> natureTos,
+                                                Map<V, Set<V>> toPrimaryToFromNatures,
                                                 boolean addToToPrimary,
                                                 Links.Builder builder,
-                                                Variable tPrimary) {
+                                                V tPrimary) {
         LinkNature linkNature = entry.getValue();
         if (acceptLink(tPrimary, allowLocalVariables, entry, to)
             // remove links that already exist for some sub in exactly the same way
             && !natureTos.contains(to)
             && (toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>()).add(tPrimary) || addToToPrimary)) {
-            builder.add(tPrimary, linkNature, to);
+            builder.add(tPrimary.v, linkNature, to.v);
         }
     }
 
-    private static void acceptAndAddLink(Variable primary,
+    private static void acceptAndAddLink(V primary,
                                          boolean allowLocalVariables,
-                                         Map.Entry<Variable, LinkNature> entry,
-                                         Variable to,
-                                         Variable toPrimary,
-                                         Map<Variable, Set<Variable>> toPrimaryToFromNatures,
+                                         Map.Entry<V, LinkNature> entry,
+                                         V to,
+                                         V toPrimary,
+                                         Map<V, Set<V>> toPrimaryToFromNatures,
                                          boolean addToToPrimary,
-                                         Variable tFrom,
+                                         V tFrom,
                                          Links.Builder builder,
-                                         Set<Variable> natureTos) {
+                                         Set<V> natureTos) {
         LinkNature linkNature = entry.getValue();
         if (acceptLink(primary, allowLocalVariables, entry, to)
             && (toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>()).add(tFrom) || addToToPrimary)) {
-            builder.add(tFrom, linkNature, to);
+            builder.add(tFrom.v, linkNature, to.v);
             natureTos.add(to);
         }
     }
 
-    private static boolean acceptLink(Variable primary,
+    private static boolean acceptLink(V primary,
                                       boolean allowLocalVariables,
-                                      Map.Entry<Variable, LinkNature> entry,
-                                      Variable to) {
+                                      Map.Entry<V, LinkNature> entry,
+                                      V to) {
         return entry.getValue().valid()
-               && (allowLocalVariables || containsNoLocalVariable(to))
+               && (allowLocalVariables || containsNoLocalVariable(to.v))
                // remove internal references (field inside primary to primary or other field in primary)
-               && !Util.isPartOf(primary, to);
+               && !Util.isPartOf(primary.v, to.v);
     }
 
-    private static Map<Variable, LinkNature> bestPath(Map<Variable, Map<Variable, LinkNature>> graph, Variable start) {
-        Map<Variable, Set<LinkNature>> res =
+    private static Map<V, LinkNature> bestPath(Map<V, Map<V, LinkNature>> graph, V start) {
+        Map<V, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
                         graph.keySet(), start, LinkNature.EMPTY, LinkNature::combine);
-        Variable startPrimary = Util.primary(start);
+        V startPrimary = new V(Util.primary(start.v));
         return res.entrySet().stream()
                 .filter(e -> !start.equals(e.getKey()))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
                         e -> {
-                            boolean samePrimary = startPrimary.equals(Util.primary(e.getKey()));
+                            boolean samePrimary = startPrimary.equals(new V(Util.primary(e.getKey().v)));
                             return e.getValue().stream().reduce(LinkNature.EMPTY,
                                     (ln1, ln2) -> ln1.best(ln2, samePrimary));
                         }));
