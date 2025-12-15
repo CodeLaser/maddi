@@ -6,6 +6,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.Set;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 
 /*
@@ -41,6 +42,6 @@ public interface Links extends Iterable<Link>, Value {
 
     // methods that do something
     // used by LVC
-    Links changePrimaryTo(Runtime runtime, Variable newPrimary, TranslationMap translationMap);
+    Links changePrimaryTo(Runtime runtime, Variable newPrimary, TranslationMap translationMap, IntFunction<Links> paramProvider);
 
 }

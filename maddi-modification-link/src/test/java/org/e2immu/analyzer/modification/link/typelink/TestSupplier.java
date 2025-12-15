@@ -44,25 +44,27 @@ public class TestSupplier extends CommonTest {
         analyzer.doPrimaryType(C);
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(C);
         MethodInfo method = C.findUniqueMethod("method", 2);
 
         TypeInfo optional = javaInspector.compiledTypesManager().get(Optional.class);
         MethodInfo orElseGet = optional.findUniqueMethod("orElseGet", 1);
-        MethodLinkedVariables tlvGetKey = orElseGet.analysis().getOrNull(METHOD_LINKS,
-                MethodLinkedVariablesImpl.class);
+        MethodLinkedVariables mlvOrElseGet = orElseGet.analysis().getOrCreate(METHOD_LINKS, () ->
+                tlc.doMethod(orElseGet));
         assertEquals("""
-                return orElseGet(*[Type param T]:0[Type java.util.Optional<T>])\
-                [#0:return orElseGet(0[Type java.util.function.Supplier<? extends T>]:0[Type java.util.Optional<T>])]\
-                """, tlvGetKey.toString());
+                [-] --> orElseGet==this.t,orElseGet==Λ0:supplier\
+                """, mlvOrElseGet.toString());
+
+        MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
+                tlc.doMethod(method));
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("x==0:optional.x,x==1:alternative", tlvX.toString());
+
         assertEquals("""
-                alternative(*[Type param X]:*[Type param X]);\
-                optional(*[Type param X]:0[Type java.util.Optional<X>])\
-                """, tlvX.toString());
+                [0:optional.x==1:alternative, 1:alternative==0:optional.x] --> method==0:optional.x,method==1:alternative\
+                """, mlvMethod.toString());
     }
 
     @Language("java")
