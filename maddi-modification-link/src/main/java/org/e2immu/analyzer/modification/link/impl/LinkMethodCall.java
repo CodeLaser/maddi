@@ -31,19 +31,26 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                                                     List<ExpressionVisitor.Result> params,
                                                     MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
-        copyParamsIntoExtra(params, extra);
+        copyParamsIntoExtra(methodInfo.parameters(), params, extra);
 
         Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
 
         return new ExpressionVisitor.Result(newObjectLinks, new LinkedVariablesImpl(extra));
     }
 
-    private static void copyParamsIntoExtra(List<ExpressionVisitor.Result> params, Map<Variable, Links> extra) {
-        params.forEach(r -> {
-            if (r.links().primary() != null) extra.merge(r.links().primary(), r.links(), Links::merge);
+    private static void copyParamsIntoExtra(List<ParameterInfo> formalParameters,
+                                            List<ExpressionVisitor.Result> params,
+                                            Map<Variable, Links> extra) {
+        int i = 0;
+        for (ExpressionVisitor.Result r : params) {
+            ParameterInfo pi = formalParameters.get(Math.min(formalParameters.size() - 1, i));
+            if (r.links().primary() != null && !pi.parameterizedType().isFunctionalInterface()) {
+                extra.merge(r.links().primary(), r.links(), Links::merge);
+            }
             r.extra().forEach(e ->
                     extra.merge(e.getKey(), e.getValue(), Links::merge));
-        });
+            ++i;
+        }
     }
 
     // we're trying for both method calls and normal constructor calls
@@ -53,7 +60,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                                                List<ExpressionVisitor.Result> params,
                                                MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
-        copyParamsIntoExtra(params, extra);
+        copyParamsIntoExtra(methodInfo.parameters(), params, extra);
         Variable objectPrimary = object.links().primary();
         if (!object.links().isEmpty()) {
             extra.put(objectPrimary, object.links());
@@ -177,7 +184,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                 }
                 ++index;
             }
-            return mlv.ofReturnValue().changePrimaryTo(runtime, newPrimary, tmBuilder.build());
+            return mlv.ofReturnValue().changePrimaryTo(runtime, newPrimary, tmBuilder.build(), i -> params.get(i).links());
         }
         return LinksImpl.EMPTY;
     }

@@ -352,7 +352,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     writeMethodCalls.addAll(r.writeMethodCalls());
 
                     if (!r.links().isEmpty()) {
-                        linkedVariables.put(lv, r.links().changePrimaryTo(javaInspector.runtime(), lv, null));
+                        linkedVariables.put(lv, r.links().changePrimaryTo(javaInspector.runtime(), lv, null, null));
                     }
                     // FIXME we need this code, but not here
                     if (lv.assignmentExpression() instanceof VariableExpression ve &&
