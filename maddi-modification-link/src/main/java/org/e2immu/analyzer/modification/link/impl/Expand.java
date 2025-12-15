@@ -47,7 +47,8 @@ public record Expand(Runtime runtime) {
             if (v instanceof FieldReference fr) {
                 TypeInfo typeInfo = fr.fieldInfo().type().typeInfo();
                 String name;
-                if (typeInfo != null && typeInfo.typeNature() == VirtualFieldComputer.VIRTUAL_FIELD || fr.fieldInfo().name().startsWith("$m")) {
+                if (typeInfo != null && typeInfo.typeNature() == VirtualFieldComputer.VIRTUAL_FIELD
+                    || fr.fieldInfo().name().contains("$")) { // $m, $s (where $ replaces ts)
                     name = "VF:" + fr.fieldInfo().name(); // NOTE: for now there is ambiguity in the 's'
                 } else {
                     name = fr.fieldInfo().fullyQualifiedName();

@@ -221,8 +221,35 @@ public class TestMap extends CommonTest {
         assertEquals("entries, java.util.Set.$m#entries, java.util.Set.kvs#entries",
                 entriesLinks.linkList().stream().map(l -> l.from().fullyQualifiedName()).sorted()
                         .collect(Collectors.joining(", ")));
-        // FIXME check correctness, reverse0.vks[-1].v~this.map.kvs[-2].v seems more correct
-        assertEquals("[] --> reverse0.vks[-1].v~this.map.kvs,reverse0.vks[-2].k~this.map.kvs", mlvReverse0.toString());
+
+        Statement s2 = reverse.methodBody().statements().get(2);
+        VariableData vd2 = VariableDataImpl.of(s2);
+        VariableInfo viEntry2 = vd2.variableInfo("entry");
+        Links entry2Links = viEntry2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("entry<entries.kvs,entry<this.map.kvs", entry2Links.toString());
+
+        // map.put(entry.getValue(), entry.getKey());
+        Statement s200 = reverse.methodBody().statements().get(2).block().statements().getFirst();
+        VariableData vd200 = VariableDataImpl.of(s200);
+        VariableInfo viEntry200 = vd200.variableInfo("entry");
+        Links entry200Links = viEntry200.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("""
+                entry.kv.k<entries.kvs,\
+                entry.kv.k<map.vks[-2].k,\
+                entry.kv.k<this.map.kvs,\
+                entry.kv.v<entries.kvs,\
+                entry.kv.v<map.vks[-1].v,\
+                entry.kv.v<this.map.kvs,\
+                entry<entries,\
+                entry<this.map\
+                """, entry200Links.toString());
+
+
+        // IMPORTANT reverse0.vks[-1].v~this.map.kvs[-2].v would be correct; however,
+        // because "IS_FIELD_OF" followed by "IS_ELEMENT_OF" == "IS_ELEMENT_OF", we lose information
+        assertEquals("""
+                [] --> reverse0.vks[-1].v~this.map.kvs,reverse0.vks[-2].k~this.map.kvs\
+                """, mlvReverse0.toString());
     }
 
     @Test
@@ -263,13 +290,10 @@ public class TestMap extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(staticReverse.methodBody().statements().getFirst());
         VariableInfo r0 = vd0.variableInfo("r");
         Links tlvR0 = r0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        // FIXME  r.yxs[-1].y~0:c.map.xys,r.yxs[-2].x~0:c.map.xys   seems wrong
-        assertEquals("c(0:1,1:0)", tlvR0.toString());
-        assertEquals("c(0[Type a.b.C<X,Y>]:1[Type a.b.C<X,Y>],1[Type a.b.C<X,Y>]:0[Type a.b.C<X,Y>])",
-                tlvR0.toString());
+        // Not as correct as could be
+        assertEquals("r.yxs[-1].y~0:c.map.xys,r.yxs[-2].x~0:c.map.xys", tlvR0.toString());
 
-        assertEquals("c(0:1,1:0)", tlvSReverse.toString());
-        assertEquals("c(0[Type a.b.C<X,Y>]:1[Type a.b.C<X,Y>],1[Type a.b.C<X,Y>]:0[Type a.b.C<X,Y>])",
+        assertEquals("[-] --> staticReverse.yxs[-1].y~0:c.map.xys,staticReverse.yxs[-2].x~0:c.map.xys",
                 tlvSReverse.toString());
     }
 
