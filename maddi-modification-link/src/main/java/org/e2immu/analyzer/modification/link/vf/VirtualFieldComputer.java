@@ -99,6 +99,7 @@ public class VirtualFieldComputer {
         TypeInfo typeInfo = pt.typeInfo();
         if (typeInfo == null
             || typeInfo.isPrimitiveExcludingVoid()
+            || typeInfo.isVoid()
             || typeInfo.typeNature() == VIRTUAL_FIELD
             || typeInfo.packageName().equals("java.util.function")) {
             return NONE_NONE;
