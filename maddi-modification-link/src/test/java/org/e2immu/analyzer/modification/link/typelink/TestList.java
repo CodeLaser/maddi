@@ -11,6 +11,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -18,8 +19,9 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -28,7 +30,6 @@ import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestList extends CommonTest {
 
     @Language("java")
@@ -66,15 +67,14 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links tlvK0 = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("x(*:0)", tlvK0.toString());
-        assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", tlvK0.toString());
+        assertEquals("k<1:x.ks", tlvK0.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*:0)", tlvMethod.toString());
-        assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", tlvMethod.toString());
+        assertEquals("[-, -] --> method<1:x.ks", tlvMethod.toString());
     }
 
 
+    @DisplayName("shallow get/multiplicity 1 instead of 2")
     @Test
     public void testShallow1() {
         TypeInfo X = javaInspector.parse(INPUT1);
@@ -85,12 +85,11 @@ public class TestList extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodLinkedVariables tlvGet = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("return get(*:0)", tlvGet.toString());
+        assertEquals("[-] --> get==this.t", tlvGet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*:0)", tlvMethod.toString());
-        assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", tlvMethod.toString());
+        assertEquals("[-, -] --> method==1:x.k", tlvMethod.toString());
     }
 
     @Language("java")
@@ -109,6 +108,9 @@ public class TestList extends CommonTest {
                     x.set(i, k);
                     return prev;
                 }
+                
+                // to have multiplicity 2
+                T[] getTs() { return ts; }
             }
             """;
 
@@ -116,50 +118,38 @@ public class TestList extends CommonTest {
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
 
-        MethodInfo get = X.findUniqueMethod("get", 1);
-        ReturnVariable rvGet = new ReturnVariableImpl(get);
-        FieldInfo tsField = X.getFieldByName("ts", true);
-        FieldReference ts = runtime.newFieldReference(tsField);
-        get.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(
-                new LinksImpl.Builder(rvGet).add(LinkNature.IS_ELEMENT_OF, ts).build(), List.of()));
-
-        MethodInfo set = X.findUniqueMethod("set", 2);
-        ParameterInfo p1 = set.parameters().get(1);
-        set.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(LinksImpl.EMPTY,
-                List.of(LinksImpl.EMPTY, new LinksImpl.Builder(p1).add(LinkNature.IS_ELEMENT_OF, ts).build())));
-
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         MethodInfo method = X.findUniqueMethod("method", 3);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, true, false);
         tlc.doPrimaryType(X);
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo prev0 = vd0.variableInfo("prev");
         Links tlvPrev0 = prev0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("x(*:0)", tlvPrev0.toString());
-        assertEquals("x(*[Type param K]:0[Type a.b.X<K>])", tlvPrev0.toString());
+        assertEquals("prev<1:x.ks,prev==1:x.ks[0:index]", tlvPrev0.toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo prev1 = vd1.variableInfo("prev");
         Links tlvPrev1 = prev1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("k(*:*);t(*:*);x(*:0)", tlvPrev1.toString());
-        assertEquals("""
-                k(*[Type param K]:*[Type param K]);t(*[Type param K]:*[Type param K]);x(*[Type param K]:0[Type a.b.X<K>])\
-                """, tlvPrev1.toString());
+        assertEquals("prev<1:x.ks,prev==1:x.ks[0:index]", tlvPrev1.toString());
+
 
         ParameterInfo k = method.parameters().get(2);
         VariableInfo k1 = vd1.variableInfo(k);
         Links tlvK1 = k1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("t(*:*);x(*:0)", tlvK1.toString());
+        assertEquals("2:k<1:x.ks,2:k==1:x.ks[0:index]", tlvK1.toString());
 
         ParameterInfo x = method.parameters().get(1);
         VariableInfo x1 = vd1.variableInfo(x);
         Links tlvX1 = x1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("k(*:0)", tlvX1.toString());
+        assertEquals("1:x.ks>2:k,1:x.ks>prev,1:x.ks[0:index]==2:k,1:x.ks[0:index]==prev", tlvX1.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("k(*:*);t(*:*);x(*:0)[#1:k(*:0), #2:t(*:*);x(*:0)]", tlvMethod.toString());
+        assertEquals("""
+                [-, 1:x.ks>2:k,1:x.ks[0:index]==2:k, 2:k<1:x.ks,2:k==1:x.ks[0:index]] \
+                --> method<1:x.ks,method==1:x.ks[0:index]\
+                """, tlvMethod.toString());
     }
 
 
@@ -173,15 +163,11 @@ public class TestList extends CommonTest {
 
         MethodInfo set = X.findUniqueMethod("set", 2);
         MethodLinkedVariables tlvSet = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[#1:return set(*:0)]", tlvSet.toString());
+        assertEquals("[-, 1:t<this.ts] --> -", tlvSet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 3);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("k(*:*);x(*:0)[#1:k(0:*)]", tlvMethod.toString());
-        assertEquals("""
-                k(*[Type param K]:*[Type param K]);x(*[Type param K]:0[Type a.b.X<K>])\
-                [#1:k(0[Type a.b.X<K>]:*[Type param K])]\
-                """, tlvMethod.toString());
+        assertEquals("[-, -, -] --> method<1:x.ks,method==2:k", tlvMethod.toString());
     }
 
     @Language("java")
@@ -222,12 +208,10 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo y0 = vd0.variableInfo("y");
         Links tlvY0 = y0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("x(*:*)", tlvY0.toString());
-        assertEquals("x(*[Type a.b.X<K>]:*[Type a.b.X<K>])", tlvY0.toString());
+        assertEquals("y.ks~0:x.ks", tlvY0.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*:*)", tlvMethod.toString());
-        assertEquals("x(*[Type a.b.X<K>]:*[Type a.b.X<K>])", tlvMethod.toString());
+        assertEquals("[-] --> method.ks~0:x.ks", tlvMethod.toString());
     }
 
 
@@ -241,12 +225,11 @@ public class TestList extends CommonTest {
 
         MethodInfo copy = X.findUniqueMethod("copy", 0);
         MethodLinkedVariables tlvSet = copy.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("return copy(*:*)", tlvSet.toString());
+        assertEquals("[] --> copy.$m==this.$m,copy.t==this.t", tlvSet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("x(*:*)", tlvMethod.toString());
-        assertEquals("x(*[Type a.b.X<K>]:*[Type a.b.X<K>])", tlvMethod.toString());
+        assertEquals("[-] --> method.k==0:x.k", tlvMethod.toString());
     }
 
 
@@ -281,25 +264,25 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(X);
         {
             MethodInfo methodB = X.findUniqueMethod("methodB", 0);
-
+            methodB.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(methodB));
             Statement callM2 = methodB.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(callM2);
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
             Links tlvT1 = removed.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("iis(*:0)", tlvT1.toString());
-            assertEquals("iis(*[Type a.b.X.II]:0[Type java.util.List<a.b.X.II>])", tlvT1.toString());
+            assertEquals("removed<iis.$s", tlvT1.toString());
         }
         {
             MethodInfo methodA = X.findUniqueMethod("methodA", 0);
+            methodA.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(methodA));
 
             Statement callM2 = methodA.methodBody().statements().get(3);
             MethodCall methodCall = (MethodCall) callM2.expression();
-            Links tlvMc = methodCall.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("iis(*:0)", tlvMc.toString());
-            assertEquals("iis(*[Type a.b.X.II]:0[Type java.util.List<a.b.X.II>])", tlvMc.toString());
+            assertEquals("iis.remove(0).method2(4)", methodCall.toString());
+            Value.VariableBooleanMap tlvMc = methodCall.analysis()
+                    .getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT, ValueImpl.VariableBooleanMapImpl.class);
+            assertEquals("iis=true", tlvMc.toString());
         }
     }
 

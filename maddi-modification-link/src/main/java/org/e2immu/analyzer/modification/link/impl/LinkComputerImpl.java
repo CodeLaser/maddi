@@ -251,34 +251,40 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 // rather than taking the links in wmc, we want the fully expanded links
                 // (after running copyEvalIntoVariableData)
                 Map<Variable, Boolean> variablesLinkedToObject = new HashMap<>();
-                Variable primary = wmc.linksFromObject().primary();
-                if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
-                    variablesLinkedToObject.put(primary, true);
-                    VariableInfo viPrimary = vd.variableInfo(primary);
-                    Links links = viPrimary.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                    for (Link link : links) {
-                        for (Variable v : Util.goUp(link.from())) {
-                            if (vd.isKnown(v.fullyQualifiedName())) {
-                                variablesLinkedToObject.put(v, true);
-                            }
-                        }
-                        for (Variable v : Util.goUp(link.to())) {
-                            if (vd.isKnown(v.fullyQualifiedName())) {
-                                variablesLinkedToObject.put(v, false);
-                            }
-                        }
+                for (Link l : wmc.linksFromObject()) {
+                    addToVlto(vd, l.to(), variablesLinkedToObject);
+                }
+                addToVlto(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
+                if (!variablesLinkedToObject.isEmpty()) {
+                    try {
+                        wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
+                                new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
+                    } catch (IllegalArgumentException iae) {
+                        LinkComputerImpl.this.recursionPrevention.report(methodInfo);
+                        throw iae;
+                    }
+                }
+            }
+        }
 
+        private static void addToVlto(VariableData vd, Variable sub, Map<Variable, Boolean> variablesLinkedToObject) {
+            Variable primary = Util.primary(sub);
+            if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
+                variablesLinkedToObject.put(primary, true);
+                VariableInfo viPrimary = vd.variableInfo(primary);
+                Links links = viPrimary.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                for (Link link : links) {
+                    for (Variable v : Util.goUp(link.from())) {
+                        if (vd.isKnown(v.fullyQualifiedName())) {
+                            variablesLinkedToObject.put(v, true);
+                        }
+                    }
+                    for (Variable v : Util.goUp(link.to())) {
+                        if (vd.isKnown(v.fullyQualifiedName())) {
+                            variablesLinkedToObject.put(v, false);
+                        }
                     }
 
-                    if (!variablesLinkedToObject.isEmpty()) {
-                        try {
-                            wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
-                                    new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
-                        } catch (IllegalArgumentException iae) {
-                            LinkComputerImpl.this.recursionPrevention.report(methodInfo);
-                            throw iae;
-                        }
-                    }
                 }
             }
         }
@@ -310,7 +316,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         if (!collected.isEmpty()) {
                             VariableInfo merge = vic.best();
                             assert merge != eval;
-                            if(!merge.analysis().haveAnalyzedValueFor(LINKS)) {
+                            if (!merge.analysis().haveAnalyzedValueFor(LINKS)) {
                                 merge.analysis().set(LINKS, collected);
                             }
                         }
