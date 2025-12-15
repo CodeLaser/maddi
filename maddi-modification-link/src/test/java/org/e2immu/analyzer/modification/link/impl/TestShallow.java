@@ -101,6 +101,10 @@ public class TestShallow extends CommonTest {
         MethodInfo of = optional.findUniqueMethod("of", 1);
         MethodLinkedVariables mlvOf = linkComputer.doMethod(of);
         assertEquals("[-] --> of.t==0:value", mlvOf.toString());
+
+        MethodInfo orElseGet = optional.findUniqueMethod("orElseGet", 1);
+        MethodLinkedVariables mlvOrElseGet = linkComputer.doMethod(orElseGet);
+        assertEquals("[-] --> orElseGet==this.t,orElseGet==Λ0:supplier", mlvOrElseGet.toString());
     }
 
     @DisplayName("Analyze 'List', multiplicity 2, 1 type parameter")
@@ -194,10 +198,6 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvFindFirst = linkComputer.doMethod(findFirst);
         assertEquals("[] --> findFirst.t<this.ts", mlvFindFirst.toString());
 
-        MethodInfo filter = stream.findUniqueMethod("filter", 1);
-        MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
-        assertEquals("[-] --> filter.ts~this.ts", mlvFilter.toString());
-
         MethodInfo of = stream.methodStream()
                 .filter(mi -> "of".equals(mi.name())
                               && mi.parameters().getFirst().parameterizedType().arrays() == 0)
@@ -209,6 +209,15 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvCollect = linkComputer.doMethod(collect);
         assertEquals("[0:collector.tars[-1]~this.ts] --> -", mlvCollect.toString());
 
+        MethodInfo generate = stream.findUniqueMethod("generate", 1);
+        MethodLinkedVariables mlvGenerate = linkComputer.doMethod(generate);
+        // Should we interpret the supplier as a multiplicity 1 or 2 source? Let's stick with the technical 1
+        assertEquals("[-] --> generate.ts>Λ0:s", mlvGenerate.toString());
+
+        MethodInfo filter = stream.findUniqueMethod("filter", 1);
+        MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
+        // there should be no lambda here, the filter cannot produce T elements
+        assertEquals("[-] --> filter.ts~this.ts", mlvFilter.toString());
     }
 
     @DisplayName("Analyze 'ArrayList' constructors, multiplicity 2, 1 type parameter")
@@ -233,6 +242,8 @@ public class TestShallow extends CommonTest {
             import java.util.Collection;
             public interface X {
                 <T> void add(@Independent(hcParameters = {1}) Collection<T> c, T t);
+            
+                void test(); // for this example, X should not be a functional interface
             }
             """;
 

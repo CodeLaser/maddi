@@ -68,6 +68,17 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             int linkLevelRv = dependencies.getOrDefault(-1, -1);
             // a dependence from the parameter into the return variable; we'll add it to the return variable
             // linkLevel 1 == independent HC
+
+            if (pi.parameterizedType().isFunctionalInterface()) {
+                if (pi.parameterizedType().typeInfo().singleAbstractMethod().returnType().hasTypeParameters()) {
+                    // yes to Supplier<T> (result: T), no to Predicate<T> (result: boolean)
+                    ParameterizedType sourceType = pi.parameterizedType().parameters().getLast().withWildcard(null);
+                    Set<TypeParameter> sourceVariableTps = collectTypeParametersFromVirtualField(sourceType);
+                    transfer(ofReturnValue, returnType, sourceType, pi, false, null, sourceVariableTps);
+                    ofParameters.add(piBuilder.build());
+                    break;
+                } //else TODO
+            }
             if (linkLevelRv == 1) {
 
                 // *************************************************
@@ -223,7 +234,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                             }
                         }
                     } else {
-                        throw new UnsupportedOperationException();
+                        // T into Stream<T> for Stream.generate(Supplier<T>)
+                        builder.add(subFrom, CONTAINS, subTo);
                     }
                 } else {
                     List<TypeParameter> intersection = new ArrayList<>(typeParametersFrom.stream()

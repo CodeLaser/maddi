@@ -165,7 +165,8 @@ public class LinksImpl implements Links {
             } else {
                 ln = linkNature.toString();
             }
-            return Util.simpleName(from) + ln + Util.simpleName(to);
+            String lambda = to.parameterizedType().isFunctionalInterface() ? "Λ" : "";
+            return Util.simpleName(from) + ln + lambda + Util.simpleName(to);
         }
 
         @Override

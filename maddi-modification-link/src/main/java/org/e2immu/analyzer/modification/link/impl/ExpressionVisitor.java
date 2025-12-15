@@ -78,8 +78,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case MethodReference mr -> methodReference(variableData, mr);
             case ConstructorCall cc -> constructorCall(variableData, cc);
 
-            case Lambda _ -> EMPTY; // TODO
-            // all rather uninteresting....
+            case Lambda lambda -> lambda(lambda);
 
             case InlineConditional ic -> inlineConditional(ic, variableData);
             case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData))
@@ -98,6 +97,23 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case ConstantExpression<?> _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
+    }
+
+
+    private @NotNull Result lambda(Lambda lambda) {
+        MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        ParameterizedType concreteObjectType = lambda.concreteReturnType();
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(concreteObjectType, true);
+        MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+        int i = 0;
+        Map<Variable, Links> map = new HashMap<>();
+        for (Links paramLinks : mlvTranslated.ofParameters()) {
+            map.put(lambda.methodInfo().parameters().get(i), paramLinks);
+            ++i;
+        }
+        return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
     }
 
     private @NotNull Result inlineConditional(InlineConditional ic, VariableData variableData) {

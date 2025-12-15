@@ -23,13 +23,12 @@ import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestSupplier extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
             import java.util.Optional;
-            public class C<X> { 
+            public class C<X> {
                 public X method(Optional<X> optional, X alternative) {
                     X x = optional.orElseGet(() -> alternative);
                     return x;
@@ -43,6 +42,7 @@ public class TestSupplier extends CommonTest {
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
+
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(C);
         MethodInfo method = C.findUniqueMethod("method", 2);
@@ -82,6 +82,7 @@ public class TestSupplier extends CommonTest {
             """;
 
 
+    @Disabled
     @Test
     public void test2() {
         TypeInfo C = javaInspector.parse(INPUT2);
@@ -118,6 +119,7 @@ public class TestSupplier extends CommonTest {
             }
             """;
 
+    @Disabled
     @Test
     public void test3() {
         TypeInfo C = javaInspector.parse(INPUT3);
@@ -157,6 +159,7 @@ public class TestSupplier extends CommonTest {
             }
             """;
 
+    @Disabled
     @Test
     public void test4() {
         TypeInfo C = javaInspector.parse(INPUT4);
@@ -200,6 +203,7 @@ public class TestSupplier extends CommonTest {
             }
             """;
 
+    @Disabled
     @Test
     public void test5() {
         TypeInfo C = javaInspector.parse(INPUT5);
