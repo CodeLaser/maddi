@@ -24,7 +24,7 @@ public interface Link extends Comparable<Link> {
     }
 
     default boolean toIntermediateVariable() {
-       LocalVariable lv = Util.lvPrimaryOrNull(to());
+        LocalVariable lv = Util.lvPrimaryOrNull(to());
         return lv != null && lv.simpleName().startsWith("$__");
     }
 

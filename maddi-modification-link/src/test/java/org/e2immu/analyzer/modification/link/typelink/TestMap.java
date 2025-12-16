@@ -86,10 +86,10 @@ public class TestMap extends CommonTest {
             VariableInfo y0 = vd0.variableInfo("y");
             Links tlvY0 = y0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
             // NOTE: kvs and not xys because it is a real field, not a virtual one
-            assertEquals("y<1:c.map.kvs[-2].v", tlvY0.toString());
+            assertEquals("y<1:c.map.§kvs[-2].§v", tlvY0.toString());
             VariableInfo x0 = vd0.variableInfo(staticGet.parameters().getFirst());
 
-            assertEquals("[-, -] --> staticGet<1:c.map.kvs[-2].v", mlvSGet.toString());
+            assertEquals("[-, -] --> staticGet<1:c.map.§kvs[-2].§v", mlvSGet.toString());
 
             Links lX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
             assertEquals("-", lX0.toString());
@@ -101,15 +101,15 @@ public class TestMap extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(staticPut.methodBody().statements().getFirst());
             VariableInfo yy0 = vd0.variableInfo("yy");
             Links tlvY0 = yy0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("yy<2:c.map.kvs[-2].v", tlvY0.toString());
+            assertEquals("yy<2:c.map.§kvs[-2].§v", tlvY0.toString());
             ParameterInfo x = staticPut.parameters().getFirst();
             VariableInfo x0 = vd0.variableInfo(x);
             Links tlvX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("0:x<2:c.map.kvs[-1].k", tlvX0.toString());
+            assertEquals("0:x<2:c.map.§kvs[-1].§k", tlvX0.toString());
 
             assertEquals("""
-                    [0:x<2:c.map.kvs[-1].k, 1:y<2:c.map.kvs[-2].v, 2:c.map.kvs[-1].k>0:x,2:c.map.kvs[-2].v>1:y]\
-                     --> staticPut<2:c.map.kvs[-2].v\
+                    [0:x<2:c.map.§kvs[-1].§k, 1:y<2:c.map.§kvs[-2].§v, 2:c.map.§kvs[-1].§k>0:x,2:c.map.§kvs[-2].§v>1:y]\
+                     --> staticPut<2:c.map.§kvs[-2].§v\
                     """, mlvSPut.toString());
         }
 
@@ -145,26 +145,26 @@ public class TestMap extends CommonTest {
         // NOTE: we need map to have multiplicity 2, so we've added the keyset and values methods
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodLinkedVariables tlvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("[0:k<this.kvs[-1].k] --> get<this.kvs[-2].v", tlvGet.toString());
+        assertEquals("[0:k<this.§kvs[-1].§k] --> get<this.§kvs[-2].§v", tlvGet.toString());
 
         MethodInfo put = X.findUniqueMethod("put", 2);
         MethodLinkedVariables tlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
-        assertEquals("[0:k<this.kvs[-1].k, 1:v<this.kvs[-2].v] --> put<this.kvs[-2].v", tlvPut.toString());
+        assertEquals("[0:k<this.§kvs[-1].§k, 1:v<this.§kvs[-2].§v] --> put<this.§kvs[-2].§v", tlvPut.toString());
 
         // NOTE: links between parameters need to be marked using the @Independent annotation
         // that's why there are no links from x into c
 
         MethodInfo staticGet = X.findUniqueMethod("staticGet", 2);
         MethodLinkedVariables tlvSGet = staticGet.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticGet));
-        assertEquals("[-, -] --> staticGet<1:c.xys[-2].y", tlvSGet.toString());
+        assertEquals("[-, -] --> staticGet<1:c.§xys[-2].§y", tlvSGet.toString());
 
         MethodInfo staticPut = X.findUniqueMethod("staticPut", 3);
         MethodLinkedVariables tlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
-        assertEquals("[-, -, -] --> staticPut<2:c.xys[-2].y,staticPut==1:y", tlvSPut.toString());
+        assertEquals("[-, -, -] --> staticPut<2:c.§xys[-2].§y,staticPut==1:y", tlvSPut.toString());
 
         MethodInfo staticPut2 = X.findUniqueMethod("staticPut2", 3);
         MethodLinkedVariables tlvS2Put = staticPut2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut2));
-        assertEquals("[-, -, -] --> staticPut2<0:c.xys[-2].y,staticPut2==2:y", tlvS2Put.toString());
+        assertEquals("[-, -, -] --> staticPut2<0:c.§xys[-2].§y,staticPut2==2:y", tlvS2Put.toString());
     }
 
     @Language("java")
@@ -268,8 +268,8 @@ public class TestMap extends CommonTest {
         VariableInfo thisMap1 = vd1.variableInfo("a.b.C.map");
         Links thisMap1Links = thisMap1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("""
-                this.map.kvs>entry.kv.k,this.map.kvs>entry.kv.v,this.map.kvs~map.vks[-1].v,\
-                this.map.kvs~map.vks[-2].k,this.map>entry\
+                this.map.§kvs>entry.§kv.§k,this.map.§kvs>entry.§kv.§v,this.map.§kvs~map.§vks[-1].§v,\
+                this.map.§kvs~map.§vks[-2].§k,this.map>entry\
                 """, thisMap1Links.toString());
         // the problem here at the moment is that in the graph
 
@@ -280,8 +280,8 @@ public class TestMap extends CommonTest {
         VariableInfo viEntry100 = vd100.variableInfo("entry");
         Links entry100Links = viEntry100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("""
-                entry.kv.k<map.vks[-2].k,entry.kv.k<this.map.kvs,\
-                entry.kv.v<map.vks[-1].v,entry.kv.v<this.map.kvs,entry<this.map\
+                entry.§kv.§k<map.§vks[-2].§k,entry.§kv.§k<this.map.§kvs,\
+                entry.§kv.§v<map.§vks[-1].§v,entry.§kv.§v<this.map.§kvs,entry<this.map\
                 """, entry100Links.toString());
 
         MethodInfo staticReverse = C.findUniqueMethod("staticReverse", 1);
@@ -292,10 +292,10 @@ public class TestMap extends CommonTest {
         VariableInfo r0 = vd0.variableInfo("r");
         Links tlvR0 = r0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         // Not as correct as could be
-        assertEquals("r.vks[-1].v~0:c.map.kvs,r.vks[-2].k~0:c.map.kvs", tlvR0.toString());
+        assertEquals("r.§vks[-1].§v~0:c.map.§kvs,r.§vks[-2].§k~0:c.map.§kvs", tlvR0.toString());
 
         assertEquals("""
-                [-] --> staticReverse.vks[-1].v~0:c.map.kvs,staticReverse.vks[-2].k~0:c.map.kvs\
+                [-] --> staticReverse.§vks[-1].§v~0:c.map.§kvs,staticReverse.§vks[-2].§k~0:c.map.§kvs\
                 """, tlvSReverse.toString());
     }
 
@@ -309,11 +309,11 @@ public class TestMap extends CommonTest {
 
         MethodInfo reverse = X.findUniqueMethod("reverse", 0);
         MethodLinkedVariables tlvReverse = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
-        assertEquals("[] --> reverse.$m==this.$m,reverse.vk==this.kv", tlvReverse.toString());
+        assertEquals("[] --> reverse.§m==this.§m,reverse.§vk==this.§kv", tlvReverse.toString());
 
         MethodInfo method = X.findUniqueMethod("staticReverse", 1);
         MethodLinkedVariables tlvSReverse = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> staticReverse.yx==0:c.xy", tlvSReverse.toString());
+        assertEquals("[-] --> staticReverse.§yx==0:c.§xy", tlvSReverse.toString());
     }
 
 }
