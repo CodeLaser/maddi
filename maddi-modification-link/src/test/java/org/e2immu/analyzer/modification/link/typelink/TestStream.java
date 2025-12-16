@@ -102,18 +102,20 @@ public class TestStream extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(reverse2);
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("entries([0]0:[0]1,[0]1:[0]0);map([0]0:1,[0]1:0);stream1([0]0:[0]1,[0]1:[0]0)",
-                tlvStream2.toString());
+        assertEquals("""
+                link to entries is missing somehow
+                stream2.§yx.§x~0:entry.§xy.§x,stream2.§yx.§y~0:entry.§xy.§y\
+                """, tlvStream2.toString());
 
         MethodCall mcReverse2 = (MethodCall) ((LocalVariableCreation) reverse2).localVariable().assignmentExpression();
-        Links tlvReverse2 = mcReverse2.analysis().getOrNull(LINKS, LinksImpl.class);
+        Value.VariableBooleanMap tlvMcReverse2 = mcReverse2.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
+                ValueImpl.VariableBooleanMapImpl.EMPTY);
         // These are the OBJECTS of the function
         assertEquals("""
-                entries(*[Type java.util.Set<java.util.Map.Entry<X,Y>>]:\
-                *[Type java.util.Set<java.util.Map.Entry<X,Y>>]);\
-                map([0]0[Type java.util.Set<java.util.Map.Entry<K,V>>]:0[Type java.util.Map<X,Y>],\
-                [0]1[Type java.util.Set<java.util.Map.Entry<K,V>>]:1[Type java.util.Map<X,Y>]);\
-                stream1(*[Type java.util.stream.Stream<java.util.Map.Entry<X,Y>>]:*[Type java.util.stream.Stream<java.util.Map.Entry<X,Y>>])\
-                """, tlvReverse2.toString());
+                a.b.C.reverse(java.util.Map<X,Y>):0:map=false, entries=false, stream1=true\
+                """, tlvMcReverse2.toString());
+
+        MethodLinkedVariables mlvReverse = reverse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("?", mlvReverse.toString());
     }
 }
