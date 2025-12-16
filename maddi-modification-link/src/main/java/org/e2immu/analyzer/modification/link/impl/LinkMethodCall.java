@@ -219,29 +219,31 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                                          Links.Builder builder,
                                          IntFunction<Links> paramProvider) {
         if (link.to().parameterizedType().isFunctionalInterface()) {
-            MethodInfo sam = link.to().parameterizedType().typeInfo().singleAbstractMethod();
-            if (sam.parameters().isEmpty()) {
-                if (link.to() instanceof ParameterInfo pi) {
+            if (link.to() instanceof ParameterInfo pi) {
+                MethodInfo sam = link.to().parameterizedType().typeInfo().singleAbstractMethod();
+                if (sam.parameters().isEmpty()) {
                     Links links = paramProvider.apply(pi.index());
                     // grab the to of the primary, if it is present (get==c.alternative in the example of a Supplier)
                     Variable to = links.linkSet().stream().filter(l -> l.from().equals(links.primary())).map(Link::to).
                             findFirst().orElse(null);
                     builder.add(fromTranslated, linkNature, to);
                 } else {
-                    throw new UnsupportedOperationException();
-                }
-            } else {
-                // function; we'll add extra!
-                Variable inputOfFunction = null;
-                if (link.to() instanceof ParameterInfo pi) {
+                    // function; we'll add extra!
                     Links links = paramProvider.apply(pi.index());
                     Set<Variable> toPrimaries = links.linkSet().stream().map(l -> Util.primary(l.to())).collect(Collectors.toUnmodifiableSet());
                     Variable newPrimary = toPrimaries.stream().findFirst().orElse(null);
                     if (newPrimary != null) {
-
+                        TranslationMap tm2 = runtime.newTranslationMapBuilder().put(links.primary(), builder.primary()).build();
+                        for (Link l : links) {
+                            Variable from = tm2.translateVariableRecursively(l.from());
+                            builder.add(from, linkNature, l.to());
+                        }
+                    } else {
+                        throw new UnsupportedOperationException("Expected to find a primary");
                     }
                 }
-                throw new UnsupportedOperationException();
+            } else {
+                throw new UnsupportedOperationException("Expected link to parameter");
             }
         } else {
             builder.add(fromTranslated, linkNature, tm.translateVariableRecursively(link.to()));

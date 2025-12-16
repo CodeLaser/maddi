@@ -170,11 +170,9 @@ public record Expand(Runtime runtime) {
 
 
     private static Links.Builder followGraph(GraphData gd,
-                                             Variable start,
+                                             Variable primary,
                                              TranslationMap translationMap,
                                              boolean allowLocalVariables) {
-        // start may not be a primary
-        Variable primary = start;// FIXME Util.primary(start);
         // first do the fields of the primary
         Set<V> fromSetExcludingPrimary = gd.graph.keySet().stream()
                 .filter(v -> Util.isPartOf(primary, v.v) && !v.v.equals(primary))
