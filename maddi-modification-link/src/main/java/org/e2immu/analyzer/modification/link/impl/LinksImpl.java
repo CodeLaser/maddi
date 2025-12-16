@@ -5,7 +5,6 @@ import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.This;
@@ -14,7 +13,6 @@ import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -180,40 +178,23 @@ public class LinksImpl implements Links {
         }
     }
 
-    // used by LVC
     @Override
-    public Links changePrimaryTo(Runtime runtime, Variable newPrimary, TranslationMap tm, IntFunction<Links> paramProvider) {
+    public Links changePrimaryTo(Runtime runtime, Variable newPrimary) {
         TranslationMap newPrimaryTm = null;
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : linkSet) {
             if (link.from().equals(primary)) {
-                Variable translated = translateHandleSupplier(tm, link, paramProvider);
-                builder.add(link.linkNature(), translated);
+                builder.add(link.linkNature(), link.to());
             } else {
                 // links that are not 'primary'
                 if (newPrimaryTm == null) {
                     newPrimaryTm = runtime.newTranslationMapBuilder().put(primary, newPrimary).build();
                 }
                 Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
-                Variable translated = translateHandleSupplier(tm, link, paramProvider);
-                builder.add(fromTranslated, link.linkNature(), translated);
+                builder.add(fromTranslated, link.linkNature(), link.to());
             }
         }
         return builder.build();
-    }
-
-    private static Variable translateHandleSupplier(TranslationMap tm, Link link, IntFunction<Links> paramProvider) {
-        if (tm == null) return link.to();
-        if (link.to().parameterizedType().isFunctionalInterface()) {
-            if (link.to() instanceof ParameterInfo pi) {
-                Links links = paramProvider.apply(pi.index());
-                // grab the to of the primary
-                return links.linkSet().stream().filter(l -> l.from().equals(links.primary())).map(Link::to).findFirst().orElseThrow();
-            } else {
-                throw new UnsupportedOperationException();
-            }
-        }
-        return tm.translateVariableRecursively(link.to());
     }
 
     @Override

@@ -257,11 +257,11 @@ public class TestStreamBasics extends CommonTest {
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
                 Value.VariableBooleanMap tlvEntry = anyMatch.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
                         ValueImpl.VariableBooleanMapImpl.EMPTY);
-            //    assertEquals("""
-             //           ii=??, \
-            //            a.b.C.method1(java.util.List<a.b.C.II>,String):0:in=false, \
-            //            stream=true\
-             //           """, tlvEntry.toString());
+                // NOTE: ii not present
+                assertEquals("""
+                        a.b.C.method1(java.util.List<a.b.C.II>,String):0:in=false, \
+                        stream=true\
+                        """, tlvEntry.toString());
             }
         }
         {
@@ -272,7 +272,8 @@ public class TestStreamBasics extends CommonTest {
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
                 Value.VariableBooleanMap tlvEntry = anyMatch.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
                         ValueImpl.VariableBooleanMapImpl.EMPTY);
-                assertEquals("ii=?, a.b.C.method(java.util.List<a.b.C.II>,String):0:in=true", tlvEntry.toString());
+                // NOTE: ii not present
+                assertEquals("a.b.C.method(java.util.List<a.b.C.II>,String):0:in=true", tlvEntry.toString());
             }
 
         }
@@ -306,30 +307,22 @@ public class TestStreamBasics extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(C);
-        // TODO List would be better on LHS
         {
             MethodInfo method = C.findUniqueMethod("method1", 1);
-
+            MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, ()->tlc.doMethod(method));
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.Set<String>]:*[Type java.util.Set<String>]);\
-                        stream(*[Type java.util.stream.Stream<String>]:*[Type java.util.stream.Stream<String>])\
-                        """, tlv.toString());
+                assertEquals("sorted.§$s~0:in.§$s,sorted.§$s~stream.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.Set<String>]:*[Type java.util.Set<String>]);\
-                        stream(*[Type java.util.stream.Stream<String>]:*[Type java.util.stream.Stream<String>])\
-                        """, tlv.toString());
+                assertEquals("sorted.§$s~0:in.§$s,sorted.§$s~stream.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
@@ -343,10 +336,9 @@ public class TestStreamBasics extends CommonTest {
                         """, tlv.toString());
             }
             {
-                MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
                 assertEquals("""
                         in(*[Type java.util.Set<String>]:*[Type java.util.Set<String>])\
-                        """, tlv.toString());
+                        """, mlv.toString());
             }
         }
         {

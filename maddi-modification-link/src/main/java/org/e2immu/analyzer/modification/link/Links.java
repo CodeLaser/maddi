@@ -42,6 +42,6 @@ public interface Links extends Iterable<Link>, Value {
 
     // methods that do something
     // used by LVC
-    Links changePrimaryTo(Runtime runtime, Variable newPrimary, TranslationMap translationMap, IntFunction<Links> paramProvider);
+    Links changePrimaryTo(Runtime runtime, Variable newPrimary);
 
 }

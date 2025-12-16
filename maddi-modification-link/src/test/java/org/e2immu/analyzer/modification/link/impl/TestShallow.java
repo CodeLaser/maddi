@@ -157,6 +157,22 @@ public class TestShallow extends CommonTest {
         assertEquals("[-] --> -", mlvContains.toString());
     }
 
+    @DisplayName("Analyze 'Collection', multiplicity 2, 1 type parameter")
+    @Test
+    public void test3b() {
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
+
+        MethodInfo toArrayFunction = collection.methodStream()
+                .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
+                              && mi.parameters().getFirst().parameterizedType().isFunctionalInterface())
+                .findFirst().orElseThrow();
+        assertEquals("java.util.Collection.toArray(java.util.function.IntFunction<T[]>)",
+                toArrayFunction.fullyQualifiedName());
+        MethodLinkedVariables mlvToArrayFunction = linkComputer.doMethod(toArrayFunction);
+        assertEquals("[-] --> toArray.§mT==this.§m,toArray.§ts~Λ0:generator", mlvToArrayFunction.toString());
+    }
+
     @DisplayName("Analyze 'Map', multiplicity 2, 2 type parameters")
     @Test
     public void test4() {
