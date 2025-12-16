@@ -235,7 +235,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         }
                     } else {
                         // T into Stream<T> for Stream.generate(Supplier<T>)
-                        builder.add(subFrom, CONTAINS, subTo);
+                        // T[] into T[] for Collection.toArray(IntFunction<T[]>)
+                        LinkNature linkNature = deriveLinkNature(arraysFrom, arraysTo);
+                        builder.add(subFrom, linkNature, subTo);
                     }
                 } else {
                     List<TypeParameter> intersection = new ArrayList<>(typeParametersFrom.stream()
