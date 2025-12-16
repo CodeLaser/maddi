@@ -238,7 +238,7 @@ class AnnotationToProperty {
             if (getSetField != null) map.put(PropertyImpl.GET_SET_FIELD, getSetField);
             if (immutable != null) map.put(PropertyImpl.IMMUTABLE_METHOD, immutable);
             if (independent != null) {
-                assert independent.linkToParametersReturnValue().isEmpty();
+                //assert independent.linkToParametersReturnValue().isEmpty(); is now possible (20251216)
                 map.put(PropertyImpl.INDEPENDENT_METHOD, independent);
             }
             if (container != null) map.put(PropertyImpl.CONTAINER_METHOD, container);

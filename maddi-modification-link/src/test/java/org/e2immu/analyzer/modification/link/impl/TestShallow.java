@@ -119,7 +119,7 @@ public class TestShallow extends CommonTest {
                 .findFirst().orElseThrow();
         assertEquals("java.util.List.toArray(T[])", toArrayTs.fullyQualifiedName());
         MethodLinkedVariables mlvToArray = linkComputer.doMethod(toArrayTs);
-        assertEquals("[-] --> toArray.§mT==this.§m", mlvToArray.toString());
+        assertEquals("[-] --> toArray.§ts~this.§es", mlvToArray.toString());
 
         MethodInfo addAll = list.findUniqueMethod("addAll", 1);
         MethodLinkedVariables mlvAddAll = linkComputer.doMethod(addAll);
@@ -170,7 +170,8 @@ public class TestShallow extends CommonTest {
         assertEquals("java.util.Collection.toArray(java.util.function.IntFunction<T[]>)",
                 toArrayFunction.fullyQualifiedName());
         MethodLinkedVariables mlvToArrayFunction = linkComputer.doMethod(toArrayFunction);
-        assertEquals("[-] --> toArray.§mT==this.§m,toArray.§ts~Λ0:generator", mlvToArrayFunction.toString());
+        // NOTE: this.§es rather than §ts, because of "force"  @Independent(hcReturnValue = true) on the method
+        assertEquals("[-] --> toArray.§ts~this.§es", mlvToArrayFunction.toString());
     }
 
     @DisplayName("Analyze 'Map', multiplicity 2, 2 type parameters")
@@ -234,6 +235,16 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
         // there should be no lambda here, the filter cannot produce T elements
         assertEquals("[-] --> filter.§ts~this.§ts", mlvFilter.toString());
+
+        MethodInfo toArrayFunction = stream.methodStream()
+                .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
+                              && mi.parameters().getFirst().parameterizedType().isFunctionalInterface())
+                .findFirst().orElseThrow();
+        assertEquals("java.util.stream.Stream.toArray(java.util.function.IntFunction<A[]>)",
+                toArrayFunction.fullyQualifiedName());
+        MethodLinkedVariables mlvToArrayFunction = linkComputer.doMethod(toArrayFunction);
+        // NOTE: this.§ts rather than §as, because of "force"  @Independent(hcReturnValue = true) on the method
+        assertEquals("[-] --> toArray.§as~this.§ts", mlvToArrayFunction.toString());
     }
 
     @DisplayName("Analyze 'ArrayList' constructors, multiplicity 2, 1 type parameter")

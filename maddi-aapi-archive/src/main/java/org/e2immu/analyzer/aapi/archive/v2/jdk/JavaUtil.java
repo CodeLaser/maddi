@@ -1528,15 +1528,18 @@ public class JavaUtil {
         Iterator<E> iterator() { return null; }
 
         //override has frequency 3
+        @Independent(hcReturnValue = true)
         @NotModified
         Object [] toArray() { return null; }
 
         //override has frequency 3
+        @Independent(hcReturnValue = true)
         @NotModified
         <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ T [] t) { return null; }
 
+        @Independent(hcReturnValue = true)
         @NotModified
-        <T> T [] toArray(/*@IgnoreModifications[T]*/ @Independent(hc = true) IntFunction<T []> generator) { return null; }
+        <T> T [] toArray(/*@IgnoreModifications[T]*/ IntFunction<T []> generator) { return null; }
 
         //frequency 2
         boolean add(/*@Independent(hc=true)[T] @NotModified[O]*/ E e) { return false; }
