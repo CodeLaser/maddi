@@ -134,7 +134,7 @@ public class TestList extends CommonTest {
         MethodInfo asShortList = X.findUniqueMethod("asShortList", 0);
         LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
         LinkComputerImpl.SourceMethodComputer smc = tlc.new SourceMethodComputer(asShortList);
-        ExpressionVisitor ev = new ExpressionVisitor(javaInspector, tlc, smc,
+        ExpressionVisitor ev = new ExpressionVisitor(javaInspector, new VirtualFieldComputer(javaInspector), tlc, smc,
                 asShortList, new RecursionPrevention(false), new AtomicInteger());
 
         // test the evaluation of T t = ts[0]
@@ -220,7 +220,7 @@ public class TestList extends CommonTest {
         Expression assignment = set.methodBody().statements().getFirst().expression();
         LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
         LinkComputerImpl.SourceMethodComputer smc = tlc.new SourceMethodComputer(set);
-        ExpressionVisitor ev = new ExpressionVisitor(javaInspector, tlc, smc,
+        ExpressionVisitor ev = new ExpressionVisitor(javaInspector, new VirtualFieldComputer(javaInspector), tlc, smc,
                 set, new RecursionPrevention(false), new AtomicInteger());
         ExpressionVisitor.Result r = ev.visit(assignment, null);
         assertEquals("this.ts[1:index]==0:t", r.links().toString());

@@ -24,6 +24,7 @@ import java.util.stream.Stream;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 public record ExpressionVisitor(JavaInspector javaInspector,
+                                VirtualFieldComputer virtualFieldComputer,
                                 LinkComputerRecursion linkComputer,
                                 LinkComputerImpl.SourceMethodComputer sourceMethodComputer,
                                 MethodInfo currentMethod,
@@ -126,9 +127,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     private @NotNull Result lambda(Lambda lambda) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
 
-        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         ParameterizedType concreteObjectType = lambda.concreteReturnType();
-        VirtualFieldComputer.VfTm vfTm = vfc.compute(concreteObjectType, true);
+        VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
         MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
         int i = 0;
         Map<Variable, Links> map = new HashMap<>();
@@ -188,20 +188,20 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     private Result constructorCall(VariableData variableData, ConstructorCall cc) {
         Result object;
         if (cc.object() == null || cc.object().isEmpty()) {
-            LocalVariable lv = javaInspector.runtime().newLocalVariable("$__c" + variableCounter.getAndIncrement(), cc.parameterizedType());
+            LocalVariable lv = javaInspector.runtime().newLocalVariable("$__c" + variableCounter.getAndIncrement(),
+                    cc.parameterizedType());
             object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
         } else {
             object = visit(cc.object(), variableData);
         }
         MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
 
-        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        VirtualFieldComputer.VfTm vfTm = vfc.compute(cc.parameterizedType(), true);
+        VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
         MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
 
         List<Result> params = cc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
-        return new LinkMethodCall(javaInspector.runtime(), variableCounter).constructorCall(cc.constructor(), object,
-                params, mlvTranslated);
+        return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter)
+                .constructorCall(cc.constructor(), object, params, mlvTranslated);
     }
 
     private Result methodCall(VariableData variableData, MethodCall mc) {
@@ -216,13 +216,12 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                     .build();
             mlvTranslated = mlv.translate(tm);
         } else {
-            VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
             ParameterizedType concreteObjectType = mc.object().parameterizedType();
-            VirtualFieldComputer.VfTm vfTm = vfc.compute(concreteObjectType, true);
+            VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
             mlvTranslated = mlv.translate(vfTm.formalToConcrete());
         }
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
-        Result r = new LinkMethodCall(javaInspector.runtime(), variableCounter)
+        Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter)
                 .methodCall(mc.methodInfo(), object, params, mlvTranslated);
         return r.with(new WriteMethodCall(mc, object.links));
     }

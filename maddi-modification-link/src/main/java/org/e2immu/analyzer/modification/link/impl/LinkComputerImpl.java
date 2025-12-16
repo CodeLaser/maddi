@@ -148,8 +148,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
-            this.expressionVisitor = new ExpressionVisitor(javaInspector, LinkComputerImpl.this,
-                    this, methodInfo, recursionPrevention, new AtomicInteger());
+            this.expressionVisitor = new ExpressionVisitor(javaInspector, new VirtualFieldComputer(javaInspector),
+                    LinkComputerImpl.this, this, methodInfo, recursionPrevention,
+                    new AtomicInteger());
         }
 
         public MethodLinkedVariables go() {

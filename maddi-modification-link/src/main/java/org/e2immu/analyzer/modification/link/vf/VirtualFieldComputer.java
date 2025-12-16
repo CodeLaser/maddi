@@ -12,6 +12,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -355,4 +356,11 @@ public class VirtualFieldComputer {
             };
         }
     };
+
+    //-------------------
+
+    public Variable upscale(Variable variable) {
+        // FIXME
+        return variable;
+    }
 }

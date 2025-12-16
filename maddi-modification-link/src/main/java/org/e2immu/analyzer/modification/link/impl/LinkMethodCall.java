@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.Link;
 import org.e2immu.analyzer.modification.link.LinkNature;
 import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -27,7 +28,7 @@ import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
+public record LinkMethodCall(Runtime runtime, VirtualFieldComputer virtualFieldComputer, AtomicInteger variableCounter) {
 
     public ExpressionVisitor.Result constructorCall(MethodInfo methodInfo,
                                                     ExpressionVisitor.Result object,
@@ -186,7 +187,7 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                 }
                 ++index;
             }
-            return changePrimaryTo(mlv.ofReturnValue(), newPrimary, tmBuilder.build(), i -> params.get(i).links());
+            return changePrimaryTo(mlv.ofReturnValue(), newPrimary, tmBuilder.build(), i -> params.get(i).links(), objectPrimary);
         }
         return LinksImpl.EMPTY;
     }
@@ -194,19 +195,20 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
     public Links changePrimaryTo(Links ofReturnValue,
                                  Variable newPrimary,
                                  TranslationMap tm,
-                                 IntFunction<Links> paramProvider) {
+                                 IntFunction<Links> paramProvider,
+                                 Variable objectPrimary) {
         TranslationMap newPrimaryTm = null;
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : ofReturnValue.linkSet()) {
             if (link.from().equals(ofReturnValue.primary())) {
-                translateHandleSupplier(tm, link, newPrimary, link.linkNature(), builder, paramProvider);
+                translateHandleSupplier(tm, link, newPrimary, link.linkNature(), builder, paramProvider, objectPrimary);
             } else {
                 // links that are not 'primary'
                 if (newPrimaryTm == null) {
                     newPrimaryTm = runtime.newTranslationMapBuilder().put(ofReturnValue.primary(), newPrimary).build();
                 }
                 Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
-                translateHandleSupplier(tm, link, fromTranslated, link.linkNature(), builder, paramProvider);
+                translateHandleSupplier(tm, link, fromTranslated, link.linkNature(), builder, paramProvider, objectPrimary);
             }
         }
         return builder.build();
@@ -217,7 +219,8 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                                          Variable fromTranslated,
                                          LinkNature linkNature,
                                          Links.Builder builder,
-                                         IntFunction<Links> paramProvider) {
+                                         IntFunction<Links> paramProvider,
+                                         Variable objectPrimary) {
         if (link.to().parameterizedType().isFunctionalInterface()) {
             if (link.to() instanceof ParameterInfo pi) {
                 MethodInfo sam = link.to().parameterizedType().typeInfo().singleAbstractMethod();
@@ -233,10 +236,12 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                     Set<Variable> toPrimaries = links.linkSet().stream().map(l -> Util.primary(l.to())).collect(Collectors.toUnmodifiableSet());
                     Variable newPrimary = toPrimaries.stream().findFirst().orElse(null);
                     if (newPrimary != null) {
+                        TranslationMap tm3 = runtime.newTranslationMapBuilder().put(newPrimary, objectPrimary).build(); // FIXME
                         TranslationMap tm2 = runtime.newTranslationMapBuilder().put(links.primary(), builder.primary()).build();
                         for (Link l : links) {
-                            Variable from = tm2.translateVariableRecursively(l.from());
-                            builder.add(from, linkNature, l.to());
+                            Variable from = tm2.translateVariableRecursively(virtualFieldComputer.upscale(l.from()));
+                            Variable to = tm3.translateVariableRecursively(virtualFieldComputer.upscale(l.to()));
+                            builder.add(from, linkNature, to);
                         }
                     } else {
                         throw new UnsupportedOperationException("Expected to find a primary");
