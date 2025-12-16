@@ -12,21 +12,22 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import static org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT;
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestStreamBasics extends CommonTest {
 
     @Language("java")
@@ -65,32 +66,23 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.List<X>]:*[Type java.util.List<X>])\
-                        """, tlv.toString());
+                assertEquals("stream.§xs~0:in.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream1");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.List<X>]:*[Type java.util.List<X>]);\
-                        stream(*[Type java.util.stream.Stream<T>]:*[Type java.util.stream.Stream<X>])\
-                        """, tlv.toString());
+                assertEquals("stream1.§xs~0:in.§xs,stream1.§xs~stream.§xs", tlv.toString());
             }
 
             MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("""
-                    in(*[Type java.util.List<X>]:*[Type java.util.List<X>])\
-                    """, tlv.toString());
+            assertEquals("[-, -] --> method1.§xs~0:in.§xs", tlv.toString());
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 2);
             MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("""
-                    in(*[Type java.util.stream.Stream<T>]:*[Type java.util.List<X>])\
-                    """, tlv.toString());
+            assertEquals("[-, -] --> method.§xs~0:in.§xs", tlv.toString());
         }
     }
 
@@ -124,9 +116,6 @@ public class TestStreamBasics extends CommonTest {
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(C);
-        String METHOD = """
-                in(*[Type param X]:0[Type java.util.List<X>])\
-                """;
         {
             MethodInfo method = C.findUniqueMethod("method1", 2);
 
@@ -135,34 +124,24 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("optional");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.List<X>]:*[Type java.util.List<X>]);\
-                        stream(*[Type java.util.stream.Stream<T>]:*[Type java.util.stream.Stream<X>]);\
-                        stream1(*[Type java.util.stream.Stream<X>]:*[Type java.util.stream.Stream<X>])\
-                        """, tlv.toString());
+                assertEquals("optional.§x<0:in.§xs,optional.§x<stream.§xs,optional.§x<stream1.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("x");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type param X]:0[Type java.util.List<X>]);\
-                        optional(*[Type param X]:0[Type java.util.Optional<X>]);\
-                        stream(*[Type param T]:0[Type java.util.stream.Stream<T>]);\
-                        stream1(*[Type param X]:0[Type java.util.stream.Stream<X>])\
-                        """, tlv.toString());
+                assertEquals("x<0:in.§xs,x<stream.§xs,x<stream1.§xs,x==optional.§x", tlv.toString());
             }
             {
                 MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-                assertEquals(METHOD, tlv.toString());
+                assertEquals("[-, -] --> method1<0:in.§xs", tlv.toString());
             }
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 2);
             MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            // FIXME this would be better  assertEquals(METHOD, tlv.toString());
-            assertEquals("in(*[Type param T]:0[Type java.util.stream.Stream<T>])", tlv.toString());
+            assertEquals("[-, -] --> method<0:in.§xs", tlv.toString());
         }
     }
 
@@ -192,48 +171,42 @@ public class TestStreamBasics extends CommonTest {
     @Test
     public void test3() {
         TypeInfo C = javaInspector.parse(INPUT3);
-
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
+
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(C);
-        // TODO List would be better on LHS
-        String METHOD = """
-                in(*[Type java.util.Set<X extends Comparable<? super X>>]:*[Type java.util.Set<X extends Comparable<? super X>>])\
-                """;
+
         {
             MethodInfo method = C.findUniqueMethod("method1", 1);
-
+            MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+            {
+                Statement statement = method.methodBody().statements().getFirst();
+                VariableData vd = VariableDataImpl.of(statement);
+                VariableInfo vi = vd.variableInfo("stream");
+                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                assertEquals("stream.§xs~0:in.§xs", tlv.toString());
+            }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.Set<X extends Comparable<? super X>>]:*[Type java.util.Set<X extends Comparable<? super X>>]);\
-                        stream(*[Type java.util.stream.Stream<X extends Comparable<? super X>>]:*[Type java.util.stream.Stream<X extends Comparable<? super X>>])\
-                        """, tlv.toString());
+                assertEquals("sorted.§xs~0:in.§xs,sorted.§xs~stream.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("list");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.Set<X extends Comparable<? super X>>]:*[Type java.util.Set<X extends Comparable<? super X>>]);\
-                        sorted(*[Type java.util.stream.Stream<X extends Comparable<? super X>>]:*[Type java.util.stream.Stream<X extends Comparable<? super X>>]);\
-                        stream(*[Type java.util.stream.Stream<X extends Comparable<? super X>>]:*[Type java.util.stream.Stream<X extends Comparable<? super X>>])\
-                        """, tlv.toString());
+                assertEquals("list.§xs~0:in.§xs,list.§xs~sorted.§xs,list.§xs~stream.§xs", tlv.toString());
             }
-            {
-                MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-                assertEquals(METHOD, tlv.toString());
-            }
+
+            assertEquals("[-] --> method1.§xs~0:in.§xs", mlv.toString());
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 1);
-            MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals(METHOD, tlv.toString());
+            MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+            assertEquals("[-] --> method.§xs~0:in.§xs", mlv.toString());
         }
     }
 
@@ -257,7 +230,6 @@ public class TestStreamBasics extends CommonTest {
             }
             """;
 
-    @DisplayName("anyMatch")
     @Test
     public void test4() {
         TypeInfo C = javaInspector.parse(INPUT4);
@@ -273,27 +245,23 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.List<a.b.C.II>]:*[Type java.util.List<a.b.C.II>])\
-                        """, tlv.toString());
+                assertEquals("stream.§$s~0:in.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        ii(0[Type java.util.stream.Stream<a.b.C.II>]:*[Type a.b.C.II]);\
-                        in(*[Type java.util.List<a.b.C.II>]:*[Type java.util.List<a.b.C.II>])\
-                        """, tlv.toString());
+                assertEquals("stream.§$s~0:in.§$s", tlv.toString());
 
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
-                Links tlvEntry = anyMatch.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        ii(0[Type java.util.stream.Stream<a.b.C.II>]:*[Type a.b.C.II]);\
-                        in(*[Type java.util.List<a.b.C.II>]:*[Type java.util.List<a.b.C.II>]);\
-                        stream(*[Type java.util.stream.Stream<a.b.C.II>]:*[Type java.util.stream.Stream<a.b.C.II>])\
-                        """, tlvEntry.toString());
+                Value.VariableBooleanMap tlvEntry = anyMatch.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
+                        ValueImpl.VariableBooleanMapImpl.EMPTY);
+            //    assertEquals("""
+             //           ii=??, \
+            //            a.b.C.method1(java.util.List<a.b.C.II>,String):0:in=false, \
+            //            stream=true\
+             //           """, tlvEntry.toString());
             }
         }
         {
@@ -302,11 +270,9 @@ public class TestStreamBasics extends CommonTest {
                 Statement statement = method.methodBody().statements().getFirst();
 
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
-                Links tlvEntry = anyMatch.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        ii(0[Type java.util.List<a.b.C.II>]:*[Type a.b.C.II]);\
-                        in(*[Type java.util.List<a.b.C.II>]:*[Type java.util.List<a.b.C.II>])\
-                        """, tlvEntry.toString());
+                Value.VariableBooleanMap tlvEntry = anyMatch.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
+                        ValueImpl.VariableBooleanMapImpl.EMPTY);
+                assertEquals("ii=?, a.b.C.method(java.util.List<a.b.C.II>,String):0:in=true", tlvEntry.toString());
             }
 
         }
@@ -342,9 +308,6 @@ public class TestStreamBasics extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(C);
         // TODO List would be better on LHS
-        String METHOD = """
-                in(*[Type java.util.Set<String>]:*[Type java.util.Set<String>])\
-                """;
         {
             MethodInfo method = C.findUniqueMethod("method1", 1);
 
@@ -381,7 +344,9 @@ public class TestStreamBasics extends CommonTest {
             }
             {
                 MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-                assertEquals(METHOD, tlv.toString());
+                assertEquals("""
+                        in(*[Type java.util.Set<String>]:*[Type java.util.Set<String>])\
+                        """, tlv.toString());
             }
         }
         {

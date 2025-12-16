@@ -91,7 +91,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case UnaryOperator uo -> visit(uo.expression(), variableData);
             case GreaterThanZero gt0 -> visit(gt0.expression(), variableData);
             case BinaryOperator bo -> visit(bo.lhs(), variableData).merge(visit(bo.rhs(), variableData));
-            case ConstantExpression<?> _ -> EMPTY;
+            case ConstantExpression<?> _, TypeExpression _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
     }
@@ -209,7 +209,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
 
         MethodLinkedVariables mlvTranslated;
-        if (mc.methodInfo().typeInfo().equals(currentMethod.typeInfo())) {
+        if (currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
             This thisVar = javaInspector.runtime().newThis(mc.methodInfo().typeInfo().asParameterizedType());
             TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
                     .put(thisVar, object.links.primary())

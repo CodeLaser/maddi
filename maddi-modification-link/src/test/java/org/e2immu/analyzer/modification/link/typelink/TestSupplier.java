@@ -186,12 +186,11 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        // we care more about correctness of the RHS than of that of the LHS
-        // but the LHS should not be "wrong". 0 in C<X> is not incorrect, Type param X would have been better
         assertEquals("x==0:optional.§x,x==1:c.alternative", tlvX.toString());
+
         assertEquals("""
-                [0:optional.x==1:c.x,0:optional~1:c, 1:c.x==0:optional.x,1:c~0:optional] --> \
-                method==0:optional.x,method==1:c.alternative\
+                [0:optional.§x==1:c.alternative,0:optional.§x~1:c, 1:c.alternative==0:optional.§x,1:c~0:optional] \
+                --> method==0:optional.§x,method==1:c.alternative,method~1:c\
                 """, mlvMethod.toString());
     }
 

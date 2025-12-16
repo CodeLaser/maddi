@@ -91,13 +91,10 @@ public class VirtualFieldComputer {
             return new VfTm(arrayType(pt), null);
         }
         if (pt.isTypeParameter()) {
-            if (notRecursive(pt.typeParameter())) {
-                // this one is always temporary; it is there as the basis of the recursion
-                VirtualFields vf = new VirtualFields(null,
-                        newField(pt.typeParameter().simpleName().toLowerCase(), pt, pt.typeParameter().typeInfo()));
-                return new VfTm(vf, null);
-            }
-            return NONE_NONE;
+            // this one is always temporary; it is there as the basis of the recursion
+            VirtualFields vf = new VirtualFields(null,
+                    newField(pt.typeParameter().simpleName().toLowerCase(), pt, pt.typeParameter().typeInfo()));
+            return new VfTm(vf, null);
         }
         TypeInfo typeInfo = pt.typeInfo();
         if (typeInfo == null
@@ -186,12 +183,6 @@ public class VirtualFieldComputer {
         return typeInfo.methodStream().allMatch(MethodInfo::isStatic)
                && typeInfo.constructors().stream().allMatch(c -> c.parameters().isEmpty())
                && typeInfo.fields().stream().allMatch(FieldInfo::isStatic);
-    }
-
-
-    private static boolean notRecursive(TypeParameter tp) {
-        assert tp.typeBoundsAreSet();
-        return tp.typeBounds().stream().noneMatch(pt -> pt.extractTypeParameters().contains(tp));
     }
 
     private TypeInfo makeContainerType(TypeInfo typeInfo, List<FieldInfo> hiddenContentComponents) {

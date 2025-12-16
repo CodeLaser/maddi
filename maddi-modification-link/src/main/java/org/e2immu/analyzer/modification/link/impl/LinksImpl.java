@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 public class LinksImpl implements Links {
     public static final Links EMPTY = new LinksImpl();
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
+    public static final String LAMBDA = "Λ";
     private final Variable primary;
     private final Set<Link> linkSet;
 
@@ -168,7 +169,7 @@ public class LinksImpl implements Links {
             } else {
                 ln = linkNature.toString();
             }
-            String lambda = to.parameterizedType().isFunctionalInterface() ? "Λ" : "";
+            String lambda = to.parameterizedType().isFunctionalInterface() ? LAMBDA : "";
             return Util.simpleName(from) + ln + lambda + Util.simpleName(to);
         }
 
