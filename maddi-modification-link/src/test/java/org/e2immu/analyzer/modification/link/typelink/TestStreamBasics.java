@@ -309,7 +309,7 @@ public class TestStreamBasics extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         {
             MethodInfo method = C.findUniqueMethod("method1", 1);
-            MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, ()->tlc.doMethod(method));
+            MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
@@ -322,31 +322,23 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("sorted.§$s~0:in.§$s,sorted.§$s~stream.§$s", tlv.toString());
+                assertEquals("sorted.§$s~0:in.§$s,sorted.§$s~array.§as,sorted.§$s~stream.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("array");
                 Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-                assertEquals("""
-                        in(*[Type java.util.Set<String>]:*[Type java.util.Set<String>]);\
-                        sorted(*[Type param A[]]:*[Type java.util.stream.Stream<String>]);\
-                        stream(*[Type java.util.stream.Stream<String>]:*[Type java.util.stream.Stream<String>])\
-                        """, tlv.toString());
+                assertEquals("array.§as~0:in.§$s,array.§as~sorted.§$s,array.§as~stream.§$s", tlv.toString());
             }
-            {
-                assertEquals("""
-                        in(*[Type java.util.Set<String>]:*[Type java.util.Set<String>])\
-                        """, mlv.toString());
-            }
+            // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $
+            assertEquals("[-] --> method1.§as~0:in.§$s", mlv.toString());
         }
-        {
-            MethodInfo method = C.findUniqueMethod("method", 1);
-            MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            // FIXME this would be better! assertEquals(METHOD, tlv.toString());
-            assertEquals("in(*[Type param A[]]:*[Type java.util.Set<String>])", tlv.toString());
-        }
+
+        // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        MethodLinkedVariables tlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        assertEquals("[-] --> method.§as~0:in.§$s", tlv.toString());
     }
 
 

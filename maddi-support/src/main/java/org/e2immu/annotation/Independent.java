@@ -70,19 +70,25 @@ public @interface Independent {
 
 
     /**
+     * (Parameters only)
      * used to mark a dependence on other parameters
      *
      * @return the parameters, starting from 0
      */
     int[] dependentParameters() default {};
 
-    /*
+    /**
+     * (Parameters only)
      * used to mark sharing of hidden content with other parameters
      */
     int[] hcParameters() default {};
 
     /**
-     * Indicates that a parameter shares hidden content with the return value of the method
+     * (Parameters and methods)
+     * Parameters: Indicates that a parameter shares hidden content with the return value of the method
+     * Method: Indicates that the object shares hidden content with the return value of the method. This one
+     * is to be used when the type of the hidden content of the return value does not statically match
+     * that of the hidden content of the object.
      *
      * @return true when the parameter is linked to the return value, sharing hidden content
      */
@@ -90,6 +96,7 @@ public @interface Independent {
     boolean hcReturnValue() default false;
 
     /**
+     * (Parameters only)
      * Indicates that the return value of the method is dependent on this parameter,
      * i.e. modifications in the parameter argument result in modifications to the result value.
      *
