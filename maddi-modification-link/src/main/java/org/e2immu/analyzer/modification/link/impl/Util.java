@@ -1,11 +1,17 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.variable.*;
+import org.e2immu.language.cst.api.variable.DependentVariable;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.LocalVariable;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;
+import java.util.Objects;
 
 public class Util {
     public static Iterable<Variable> goUp(Variable variable) {
@@ -37,41 +43,39 @@ public class Util {
         };
     }
 
-    public static boolean isPartOf(Variable base, Variable sub) {
-        if (base.equals(sub)) return true;
-        if (sub instanceof FieldReference fr && fr.scopeVariable() != null) {
-            return isPartOf(base, fr.scopeVariable());
+    public static Variable primaryOfVirtual(Variable variable) {
+        if (variable instanceof FieldReference fr) {
+            if (fr.fieldInfo().name().startsWith("$")) {
+                return primaryOfVirtual(fr.scopeVariable());
+            }
+            return null;
         }
-        if (sub instanceof DependentVariable dv) {
-            return isPartOf(base, dv.arrayVariable());
+        if (variable instanceof DependentVariable dv) {
+            Variable primary = primaryOfVirtual(dv.arrayVariable());
+            assert primary == null || dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0; // -1, -2, ...
+            return primary;
         }
-        return false;
+        return null;
     }
 
-    public static LocalVariable lvPrimary(Variable variable) {
+    public static boolean isPartOf(Variable base, Variable sub) {
+        if (base.equals(sub)) return true;
+        return base.equals(primaryOfVirtual(sub));
+    }
+
+    public static LocalVariable lvPrimaryOrNull(Variable variable) {
         if (variable instanceof LocalVariable lv) return lv;
-        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
-            return lvPrimary(fr.scopeVariable());
-        }
-        if (variable instanceof DependentVariable dv) return lvPrimary(dv.arrayVariable());
+        if (primaryOfVirtual(variable) instanceof LocalVariable lv) return lv;
         return null;
     }
 
     public static @NotNull ParameterInfo parameterPrimary(Variable variable) {
-        if (variable instanceof ParameterInfo pi) return pi;
-        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
-            return parameterPrimary(fr.scopeVariable());
-        }
-        if (variable instanceof DependentVariable dv) return parameterPrimary(dv.arrayVariable());
-        throw new UnsupportedOperationException();
+        return (ParameterInfo) primary(variable);
     }
 
     static Variable primary(Variable variable) {
-        if (variable instanceof DependentVariable dv) return primary(dv.arrayVariable());
-        if (variable instanceof FieldReference fr && fr.scopeVariable() != null && !(fr.scopeVariable() instanceof This)) {
-            return primary(fr.scopeVariable());
-        }
-        return variable;
+        Variable primary = primaryOfVirtual(variable);
+        return Objects.requireNonNullElse(primary, variable);
     }
 
 
