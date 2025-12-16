@@ -135,7 +135,7 @@ public record Expand(Runtime runtime) {
         linkedVariables.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .map(Map.Entry::getValue)
-                .forEach(links -> links.linkList().forEach(l -> {
+                .forEach(links -> links.linkSet().forEach(l -> {
                     V primary = new V(links.primary());
                     Set<V> subsOfPrimary = subs.computeIfAbsent(primary, _ -> new HashSet<>());
                     V vFrom = new V(l.from());
@@ -155,7 +155,7 @@ public record Expand(Runtime runtime) {
         linkedVariables.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .map(Map.Entry::getValue)
-                .forEach(links -> links.linkList()
+                .forEach(links -> links.linkSet()
                         .stream().filter(l -> !(l.to() instanceof This))
                         .forEach(l -> addToGraph(l, new V(links.primary()), graph, bidirectional, subs, subToPrimary)));
         return new GraphData(graph, subs.keySet(), subToPrimary);
@@ -170,9 +170,11 @@ public record Expand(Runtime runtime) {
 
 
     private static Links.Builder followGraph(GraphData gd,
-                                             Variable primary,
+                                             Variable start,
                                              TranslationMap translationMap,
                                              boolean allowLocalVariables) {
+        // start may not be a primary
+        Variable primary = start;// FIXME Util.primary(start);
         // first do the fields of the primary
         Set<V> fromSetExcludingPrimary = gd.graph.keySet().stream()
                 .filter(v -> Util.isPartOf(primary, v.v) && !v.v.equals(primary))

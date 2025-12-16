@@ -35,7 +35,8 @@ public class TestList extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            import java.util.List;public class X<T> {
+            import java.util.List;
+            public class X<T> {
                 T[] ts;
                 private T get(int index) {
                     return ts[index];
@@ -97,9 +98,9 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("k<1:x.ks,k==1:x.ks[0:index]", linksK.toString());
+        assertEquals("k<1:x.ts,k==1:x.ts[0:index]", linksK.toString());
 
-        assertEquals("[-, -] --> method<1:x.ks,method==1:x.ks[0:index]", lvMethod.toString());
+        assertEquals("[-, -] --> method<1:x.ts,method==1:x.ts[0:index]", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
@@ -197,7 +198,8 @@ public class TestList extends CommonTest {
         // test the evaluation of List<Z> zs = in.subList(2, n);
         LocalVariableCreation lvc = (LocalVariableCreation) sub.methodBody().statements().get(1);
         var map = smc.handleLvc(lvc, vd0, new ArrayList<>());
-        assertEquals("a.b.X.sub(java.util.List<Z>):0:in=-, zs=zs.M==0:in.M,zs.zs~0:in.zs", nice(map));
+        // note the zs.es~0:in.es: 'currentMethod == java.util.List.subList'
+        assertEquals("a.b.X.sub(java.util.List<Z>):0:in=-, zs=zs.M==0:in.M,zs.es~0:in.es", nice(map));
 
         // do the whole method
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
