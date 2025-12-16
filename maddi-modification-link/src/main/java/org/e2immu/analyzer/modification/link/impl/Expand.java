@@ -318,7 +318,9 @@ public record Expand(Runtime runtime) {
         vd.variableInfoStream().forEach(vi -> {
             Links.Builder piBuilder = followGraph(gd, vi.variable(), null, true);
             piBuilder.removeIf(Link::toIntermediateVariable);
-            newLinkedVariables.put(vi.variable(), piBuilder.build());
+            if (newLinkedVariables.put(vi.variable(), piBuilder.build()) != null) {
+                throw new UnsupportedOperationException("Each real variable must be a primary");
+            }
         });
         return newLinkedVariables;
     }
