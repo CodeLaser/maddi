@@ -45,11 +45,11 @@ public class TestMap extends CommonTest {
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = getOrDefault.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getOrDefault));
-        assertEquals("getWithDefault<this.map.kvs[-2].v,getWithDefault==1:defaultValue",
+        assertEquals("getWithDefault<this.map.§kvs[-2].§v,getWithDefault==1:defaultValue",
                 mlv.ofReturnValue().toString());
 
         MethodLinkedVariables mlv2 =  getOrDefault2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getOrDefault2));
-        assertEquals("getWithDefault2<this.map.kvs[-2].v,getWithDefault2==1:defaultValue",
+        assertEquals("getWithDefault2<this.map.§kvs[-2].§v,getWithDefault2==1:defaultValue",
                 mlv2.ofReturnValue().toString());
     }
 

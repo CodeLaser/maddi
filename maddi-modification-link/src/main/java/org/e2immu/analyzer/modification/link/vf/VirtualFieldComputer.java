@@ -62,6 +62,9 @@ public class VirtualFieldComputer {
     private final Set<TypeInfo> multi2;
     private final AtomicInteger typeCounter = new AtomicInteger();
 
+    public static final String VF_CHAR = "§";
+    public static final String VF_CONCRETE = "$";
+
     public VirtualFieldComputer(JavaInspector javaInspector) {
         this.runtime = javaInspector.runtime();
         TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
@@ -106,7 +109,7 @@ public class VirtualFieldComputer {
         }
         if (pt.parameters().isEmpty() && !utilityClass(typeInfo)) {
             VirtualFields vf = new VirtualFields(null,
-                    newField("$" + typeCounter.getAndIncrement(), pt, typeInfo));
+                    newField("" + typeCounter.getAndIncrement(), pt, typeInfo));
             return new VfTm(vf, null);
         }
 
@@ -120,11 +123,11 @@ public class VirtualFieldComputer {
                 .toList();
         FieldInfo mutable;
         if (parameterVfs.stream().anyMatch(vf -> vf.virtualFields.mutable() != null)) {
-            mutable = newField("$m", atomicBooleanPt, typeInfo);
+            mutable = newField("m", atomicBooleanPt, typeInfo);
         } else {
             Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
                     ValueImpl.ImmutableImpl.MUTABLE);
-            mutable = immutable.isMutable() ? newField("$m", atomicBooleanPt, typeInfo)
+            mutable = immutable.isMutable() ? newField("m", atomicBooleanPt, typeInfo)
                     : null;
         }
         FieldInfo hiddenContent;
@@ -203,7 +206,7 @@ public class VirtualFieldComputer {
         for (FieldInfo fi : hiddenContentComponents) {
             TypeParameter tp = fi.type().typeParameter();
             int arrays = fi.type().arrays();
-            FieldInfo fieldInfo = runtime.newFieldInfo(tp.simpleName().toLowerCase()
+            FieldInfo fieldInfo = runtime.newFieldInfo(VF_CHAR + tp.simpleName().toLowerCase()
                                                        + "s".repeat(arrays), false,
                     runtime.newParameterizedType(tp, arrays, null), newType);
             fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
@@ -331,14 +334,15 @@ public class VirtualFieldComputer {
             typeInfo = pt.typeInfo();
         }
         // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
-        FieldInfo mutable = newField("$m" + namedType.simpleName(), atomicBooleanPt, typeInfo);
+        FieldInfo mutable = newField("m" + namedType.simpleName(), atomicBooleanPt, typeInfo);
         String hcName = namedType.simpleName().toLowerCase() + "s".repeat(pt.arrays());
         FieldInfo hiddenContent = newField(hcName, pt, typeInfo);
         return new VirtualFields(mutable, hiddenContent);
     }
 
     private FieldInfo newField(String name, ParameterizedType type, TypeInfo owner) {
-        FieldInfo fi = runtime.newFieldInfo(name, false, type, owner);
+        String cleanName = name.replace(VF_CHAR, "");
+        FieldInfo fi = runtime.newFieldInfo(VF_CHAR + cleanName, false, type, owner);
         fi.builder().setInitializer(runtime.newEmptyExpression()).commit();
         return fi;
     }

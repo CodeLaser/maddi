@@ -24,23 +24,23 @@ public class TestVirtualFieldComputer extends CommonTest {
 
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
         VirtualFields vfList = vfc.compute(list);
-        assertEquals("$m - E[] es", vfList.toString());
+        assertEquals("§m - E[] §es", vfList.toString());
         assertEquals("java.util.List", vfList.mutable().owner().toString());
         assertEquals("java.util.List", vfList.hiddenContent().type().typeParameter()
                 .getOwner().getLeft().toString());
 
         // TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
         // VirtualFields vfCollection = collection.analysis().getOrNull(VirtualFields.VIRTUAL_FIELDS, VirtualFields.class);
-        // assertEquals("$m - T[] ts", vfCollection.toString());
+        // assertEquals("§m - T[] ts", vfCollection.toString());
 
         TypeInfo object = javaInspector.compiledTypesManager().getOrLoad(Object.class);
         VirtualFields vfObject = vfc.compute(object);
-        assertEquals("/ - Object $0", vfObject.toString());
+        assertEquals("/ - Object §0", vfObject.toString());
 
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
-        assertEquals("$m - E[] es", vfc.compute(arrayList).toString());
+        assertEquals("§m - E[] §es", vfc.compute(arrayList).toString());
         TypeInfo deque = javaInspector.compiledTypesManager().getOrLoad(Deque.class);
-        assertEquals("$m - E[] es", vfc.compute(deque).toString());
+        assertEquals("§m - E[] §es", vfc.compute(deque).toString());
 
         assertEquals(2, vfc.maxMultiplicityFromMethods(arrayList));
     }
@@ -52,10 +52,10 @@ public class TestVirtualFieldComputer extends CommonTest {
 
         TypeInfo treeMap = javaInspector.compiledTypesManager().getOrLoad(TreeMap.class);
         VirtualFields vfList = vfc.compute(treeMap);
-        assertEquals("$m - KV[] kvs", vfList.toString());
+        assertEquals("§m - KV[] §kvs", vfList.toString());
         assertEquals("java.util.TreeMap", vfList.mutable().owner().toString());
         assertEquals("java.util.TreeMap.KV", vfList.hiddenContent().type().typeInfo().toString());
-        FieldInfo k = vfList.hiddenContent().type().typeInfo().getFieldByName("k", true);
+        FieldInfo k = vfList.hiddenContent().type().typeInfo().getFieldByName("§k", true);
         assertEquals("java.util.TreeMap.KV", k.owner().toString());
 
         assertEquals(2, vfc.maxMultiplicityFromMethods(treeMap));
@@ -66,13 +66,13 @@ public class TestVirtualFieldComputer extends CommonTest {
     public void test3() {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
-        // we want to end up "with $m - T[] ts", multiplicity 2 rather than "$m - TS ts", multiplicity 1
+        // we want to end up "with $m - T[] ts", multiplicity 2 rather than "§m - TS ts", multiplicity 1
         // how? Iterator<T> is also multi 2
         // recursively defined type parameters to be IGNORED
 
         TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
         VirtualFields vfStream = vfc.compute(stream);
-        assertEquals("$m - T[] ts", vfStream.toString());
+        assertEquals("§m - T[] §ts", vfStream.toString());
         assertEquals(2, vfc.maxMultiplicityFromMethods(stream));
     }
 
@@ -83,7 +83,7 @@ public class TestVirtualFieldComputer extends CommonTest {
 
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         VirtualFields vfStream = vfc.compute(optional);
-        assertEquals("/ - T t", vfStream.toString());
+        assertEquals("/ - T §t", vfStream.toString());
         assertEquals(1, vfc.maxMultiplicityFromMethods(optional));
     }
 
@@ -95,7 +95,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         ParameterizedType os = runtime.newParameterizedType(optional, List.of(runtime.stringParameterizedType()));
         VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
-        assertEquals("/ - String $0", vfTm.virtualFields().toString());
+        assertEquals("/ - String §0", vfTm.virtualFields().toString());
         assertEquals("T=TP#0 in Optional [] --> String", vfTm.formalToConcrete().toString());
     }
 
@@ -108,7 +108,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         ParameterizedType os = runtime.newParameterizedType(optional, List.of(stringBuilder.asParameterizedType()));
         VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
-        assertEquals("/ - StringBuilder $0", vfTm.virtualFields().toString());
+        assertEquals("/ - StringBuilder §0", vfTm.virtualFields().toString());
         assertEquals("T=TP#0 in Optional [] --> StringBuilder", vfTm.formalToConcrete().toString());
     }
 
@@ -120,9 +120,9 @@ public class TestVirtualFieldComputer extends CommonTest {
         ParameterizedType objectArray = runtime.objectParameterizedType().copyWithArrays(1);
         VirtualFieldComputer.VfTm vfTm = vfc.compute(objectArray, true);
         VirtualFields vfStream = vfTm.virtualFields();
-        assertEquals("$mObject - Object[] objects", vfStream.toString());
+        assertEquals("§mObject - Object[] §objects", vfStream.toString());
         VirtualFields vfFormal = vfc.compute(runtime.objectTypeInfo());
-        assertEquals("/ - Object $0", vfFormal.toString());
+        assertEquals("/ - Object §0", vfFormal.toString());
         assertNull(vfTm.formalToConcrete());
     }
 
@@ -143,12 +143,12 @@ public class TestVirtualFieldComputer extends CommonTest {
         ParameterizedType tpArray = optional.asParameterizedType().parameters().getFirst().copyWithArrays(1);
         VirtualFieldComputer.VfTm vfTmTpArray = vfc.compute(tpArray, true);
         VirtualFields vfTpArray = vfTmTpArray.virtualFields();
-        assertEquals("$mT - T[] ts", vfTpArray.toString());
+        assertEquals("§mT - T[] §ts", vfTpArray.toString());
         assertNull(vfTmTpArray.formalToConcrete());
 
         ParameterizedType tpArray2 = optional.asParameterizedType().parameters().getFirst().copyWithArrays(2);
         VirtualFields vfTpArray2 = vfc.compute(tpArray2, true).virtualFields();
-        assertEquals("$mT - T[][] tss", vfTpArray2.toString());
+        assertEquals("§mT - T[][] §tss", vfTpArray2.toString());
     }
 
     @DisplayName("List<TP[]>")
@@ -162,7 +162,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("java.util.List<T[]>", listTpArray.descriptor());
         VirtualFieldComputer.VfTm vfTmListTpArray = vfc.compute(listTpArray, true);
         VirtualFields vfListTpArray = vfTmListTpArray.virtualFields();
-        assertEquals("$m - T[][] tss", vfListTpArray.toString());
+        assertEquals("§m - T[][] §tss", vfListTpArray.toString());
         assertEquals("""
                 E=TP#0 in Collection [] --> T=TP#0 in Optional [] dim 1
                 E=TP#0 in List [] --> T=TP#0 in Optional [] dim 1
@@ -175,7 +175,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("java.util.List<T[][]>", listTpArray2.descriptor());
         VirtualFieldComputer.VfTm vfTmListTpArray2 = vfc.compute(listTpArray2, true);
         VirtualFields vfTpArray2 = vfTmListTpArray2.virtualFields();
-        assertEquals("$m - T[][][] tsss", vfTpArray2.toString());
+        assertEquals("§m - T[][][] §tsss", vfTpArray2.toString());
         assertEquals("""
                 E=TP#0 in Collection [] --> T=TP#0 in Optional [] dim 2
                 E=TP#0 in List [] --> T=TP#0 in Optional [] dim 2
@@ -200,7 +200,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("java.util.TreeMap<T,E>", mapTE.descriptor());
         VirtualFieldComputer.VfTm vfTmMapTE = vfc.compute(mapTE, true);
         VirtualFields vfMapTE = vfTmMapTE.virtualFields();
-        assertEquals("$m - TE[] tes", vfMapTE.toString());
+        assertEquals("§m - TE[] §tes", vfMapTE.toString());
         assertEquals("java.util.Optional[T]", vfMapTE.hiddenContent().type().typeInfo()
                 .fields().getFirst().type().typeParameter().descriptor());
         assertEquals("""
@@ -237,12 +237,12 @@ public class TestVirtualFieldComputer extends CommonTest {
                 mapEntryStreamTStreamE.descriptor());
 
         VirtualFieldComputer.VfTm vfTm = vfc.compute(mapEntryStreamTStreamE, false);
-        assertEquals("tses", vfTm.virtualFields().hiddenContent().name());
+        assertEquals("§tses", vfTm.virtualFields().hiddenContent().name());
         ParameterizedType hcType = vfTm.virtualFields().hiddenContent().type();
         assertEquals("java.util.Map.Entry.TSES", hcType.detailedString());
         assertEquals(2, hcType.typeInfo().fields().size());
         FieldInfo ts = hcType.typeInfo().fields().getFirst();
-        assertEquals("ts", ts.name());
+        assertEquals("§ts", ts.name());
         assertEquals("T[]", ts.type().detailedString());
     }
 
@@ -266,10 +266,10 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFields vf = vfc.compute(C);
         // this could be correct, could be wrong, depending on other methods being present or absent
-        assertEquals("$m - XY xy", vf.toString());
+        assertEquals("§m - XY §xy", vf.toString());
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
         VirtualFields vf2 = vfc.compute(oneInstance.returnType(), false).virtualFields();
         // but this one is correct
-        assertEquals("$m - XSYS xsys", vf2.toString());
+        assertEquals("§m - XSYS §xsys", vf2.toString());
     }
 }

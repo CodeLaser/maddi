@@ -69,7 +69,7 @@ public class TestStream extends CommonTest {
         MethodLinkedVariables mlvLarge2 = linkComputer.doMethod(large2);
         VariableData vd0 = VariableDataImpl.of(large2.methodBody().statements().getFirst());
         VariableInfo viStream = vd0.variableInfo("stream");
-        assertEquals("stream.ts~this.list.ts",
+        assertEquals("stream.§ts~this.list.§ts",
                 viStream.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
 
         VariableData vd1 = VariableDataImpl.of(large2.methodBody().statements().get(1));

@@ -45,17 +45,16 @@ public class Util {
 
     public static Variable primaryOfVirtual(Variable variable) {
         if (variable instanceof FieldReference fr) {
-            if (fr.fieldInfo().name().startsWith("$")) {
+            if (fr.fieldInfo().name().startsWith(VirtualFieldComputer.VF_CHAR)) {
                 return primaryOfVirtual(fr.scopeVariable());
             }
-            return null;
         }
         if (variable instanceof DependentVariable dv) {
             Variable primary = primaryOfVirtual(dv.arrayVariable());
-            assert primary == null || dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0; // -1, -2, ...
+            assert primary == dv.arrayVariable() || dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0; // -1, -2, ...
             return primary;
         }
-        return null;
+        return variable;
     }
 
     public static boolean isPartOf(Variable base, Variable sub) {
@@ -70,12 +69,7 @@ public class Util {
     }
 
     public static @NotNull ParameterInfo parameterPrimary(Variable variable) {
-        return (ParameterInfo) primary(variable);
-    }
-
-    static Variable primary(Variable variable) {
-        Variable primary = primaryOfVirtual(variable);
-        return Objects.requireNonNullElse(primary, variable);
+        return (ParameterInfo) primaryOfVirtual(variable);
     }
 
 

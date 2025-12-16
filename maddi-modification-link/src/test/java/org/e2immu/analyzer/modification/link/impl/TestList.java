@@ -296,13 +296,13 @@ public class TestList extends CommonTest {
         TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("$m - E[] es", vfc.compute(arrayList).toString());
+        assertEquals("§m - E[] §es", vfc.compute(arrayList).toString());
 
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = c1.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(c1));
-        assertEquals("[0:c.es~this.es] --> -", mlvC1.toString());
+        assertEquals("[0:c.§es~this.§es] --> -", mlvC1.toString());
 
         MethodInfo get = X.findUniqueMethod("getList", 0);
         MethodLinkedVariables mlv = linkComputer.doMethod(get);
@@ -317,7 +317,7 @@ public class TestList extends CommonTest {
          assertEquals("0:in.ts~c0.ts", viP0.analysis().getOrNull(LINKS, LinksImpl.class).toString());
          */
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
-        assertEquals("[0:in.ts~this.list.ts] --> null", mlvConstructor.toString());
+        assertEquals("[0:in.§ts~this.list.§ts] --> null", mlvConstructor.toString());
     }
 
     @DisplayName("Analyze constructor, ensure recursive computation")
@@ -330,7 +330,7 @@ public class TestList extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
-        assertEquals("[0:in.ts~this.list.ts] --> null", mlvConstructor.toString());
+        assertEquals("[0:in.§ts~this.list.§ts] --> null", mlvConstructor.toString());
     }
 
     @Language("java")
@@ -356,7 +356,7 @@ public class TestList extends CommonTest {
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 1);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:t<this.list.ts] --> null", mlvListAdd.toString());
+        assertEquals("[0:t<this.list.§ts] --> null", mlvListAdd.toString());
     }
 
     @Language("java")
@@ -381,7 +381,7 @@ public class TestList extends CommonTest {
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.ts>1:t, 1:t<0:list.ts] --> null", mlvListAdd.toString());
+        assertEquals("[0:list.§ts>1:t, 1:t<0:list.§ts] --> null", mlvListAdd.toString());
     }
 
     @Language("java")
@@ -413,11 +413,11 @@ public class TestList extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.ts>1:t, 1:t<0:list.ts] --> null", mlvListAdd.toString());
+        assertEquals("[0:list.§ts>1:t, 1:t<0:list.§ts] --> null", mlvListAdd.toString());
 
         MethodInfo add = X.findUniqueMethod("add", 2);
         MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add));
-        assertEquals("[0:k<1:in.ts, 1:in.ts>0:k] --> -", mlvAdd.toString());
+        assertEquals("[0:k<1:in.§ts, 1:in.§ts>0:k] --> -", mlvAdd.toString());
     }
 
 
@@ -443,6 +443,6 @@ public class TestList extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 3);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.ts>1:t1,0:list.ts>2:t2, 1:t1<0:list.ts, 2:t2<0:list.ts] --> null", mlvListAdd.toString());
+        assertEquals("[0:list.§ts>1:t1,0:list.§ts>2:t2, 1:t1<0:list.§ts, 2:t2<0:list.§ts] --> null", mlvListAdd.toString());
     }
 }

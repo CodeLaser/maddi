@@ -52,17 +52,17 @@ public class TestShallow extends CommonTest {
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFields vfX = vfc.compute(X);
-        assertEquals("$m - T t", vfX.toString());
+        assertEquals("§m - T §t", vfX.toString());
 
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodInfo get = X.findUniqueMethod("get", 0);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[] --> get==this.t", mlvGet.toString());
+        assertEquals("[] --> get==this.§t", mlvGet.toString());
 
         MethodInfo set = X.findUniqueMethod("set", 1);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[0:t==this.t] --> -", mlvSet.toString());
+        assertEquals("[0:t==this.§t] --> -", mlvSet.toString());
 
         MethodInfo label = X.findUniqueMethod("label", 1);
         MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
@@ -78,33 +78,33 @@ public class TestShallow extends CommonTest {
         analyzer.doPrimaryType(optional);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFields vfX = vfc.compute(optional);
-        assertEquals("/ - T t", vfX.toString());
+        assertEquals("/ - T §t", vfX.toString());
 
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodInfo get = optional.findUniqueMethod("get", 0);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[] --> get==this.t", mlvGet.toString());
+        assertEquals("[] --> get==this.§t", mlvGet.toString());
 
         MethodInfo set = optional.findUniqueMethod("orElse", 1);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[-] --> orElse==0:other,orElse==this.t", mlvSet.toString());
+        assertEquals("[-] --> orElse==0:other,orElse==this.§t", mlvSet.toString());
 
         MethodInfo orElseThrow = optional.findUniqueMethod("orElseThrow", 0);
         MethodLinkedVariables mlvOrElseThrow = linkComputer.doMethod(orElseThrow);
-        assertEquals("[] --> orElseThrow==this.t", mlvOrElseThrow.toString());
+        assertEquals("[] --> orElseThrow==this.§t", mlvOrElseThrow.toString());
 
         MethodInfo stream = optional.findUniqueMethod("stream", 0);
         MethodLinkedVariables mlvStream = linkComputer.doMethod(stream);
-        assertEquals("[] --> stream.ts>this.t", mlvStream.toString());
+        assertEquals("[] --> stream.§ts>this.§t", mlvStream.toString());
 
         MethodInfo of = optional.findUniqueMethod("of", 1);
         MethodLinkedVariables mlvOf = linkComputer.doMethod(of);
-        assertEquals("[-] --> of.t==0:value", mlvOf.toString());
+        assertEquals("[-] --> of.§t==0:value", mlvOf.toString());
 
         MethodInfo orElseGet = optional.findUniqueMethod("orElseGet", 1);
         MethodLinkedVariables mlvOrElseGet = linkComputer.doMethod(orElseGet);
-        assertEquals("[-] --> orElseGet==this.t,orElseGet==Λ0:supplier", mlvOrElseGet.toString());
+        assertEquals("[-] --> orElseGet==this.§t,orElseGet==Λ0:supplier", mlvOrElseGet.toString());
     }
 
     @DisplayName("Analyze 'List', multiplicity 2, 1 type parameter")
@@ -119,38 +119,38 @@ public class TestShallow extends CommonTest {
                 .findFirst().orElseThrow();
         assertEquals("java.util.List.toArray(T[])", toArrayTs.fullyQualifiedName());
         MethodLinkedVariables mlvToArray = linkComputer.doMethod(toArrayTs);
-        assertEquals("[-] --> toArray.$mT==this.$m", mlvToArray.toString());
+        assertEquals("[-] --> toArray.§mT==this.§m", mlvToArray.toString());
 
         MethodInfo addAll = list.findUniqueMethod("addAll", 1);
         MethodLinkedVariables mlvAddAll = linkComputer.doMethod(addAll);
-        assertEquals("[0:collection.es~this.es] --> -", mlvAddAll.toString());
+        assertEquals("[0:collection.§es~this.§es] --> -", mlvAddAll.toString());
 
         MethodInfo ofVarargs = list.methodStream().filter(mi ->
                         "of".equals(mi.name()) && mi.parameters().size() == 1 && mi.parameters().getFirst().isVarArgs())
                 .findFirst().orElseThrow();
         assertEquals("java.util.List.of(E...)", ofVarargs.fullyQualifiedName());
         MethodLinkedVariables mlvOfVarargs = linkComputer.doMethod(ofVarargs);
-        assertEquals("[-] --> of.es~0:elements.es", mlvOfVarargs.toString());
+        assertEquals("[-] --> of.§es~0:elements.§es", mlvOfVarargs.toString());
 
         MethodInfo of2 = list.findUniqueMethod("of", 2);
         MethodLinkedVariables mlvOf2 = linkComputer.doMethod(of2);
-        assertEquals("[-, -] --> of.es>0:e1,of.es>1:e2", mlvOf2.toString());
+        assertEquals("[-, -] --> of.§es>0:e1,of.§es>1:e2", mlvOf2.toString());
 
         MethodInfo add = list.findUniqueMethod("add", 1);
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
-        assertEquals("[0:e<this.es] --> -", mlvAdd.toString());
+        assertEquals("[0:e<this.§es] --> -", mlvAdd.toString());
 
         MethodInfo set = list.findUniqueMethod("set", 2);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[-, 1:e<this.es] --> set<this.es", mlvSet.toString());
+        assertEquals("[-, 1:e<this.§es] --> set<this.§es", mlvSet.toString());
 
         MethodInfo subList = list.findUniqueMethod("subList", 2);
         MethodLinkedVariables mlvSubList = linkComputer.doMethod(subList);
-        assertEquals("[-, -] --> subList.$m==this.$m,subList.es~this.es", mlvSubList.toString());
+        assertEquals("[-, -] --> subList.§es~this.§es,subList.§m==this.§m", mlvSubList.toString());
 
         MethodInfo get = list.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[-] --> get<this.es", mlvGet.toString());
+        assertEquals("[-] --> get<this.§es", mlvGet.toString());
 
         MethodInfo contains = list.findUniqueMethod("contains", 1);
         MethodLinkedVariables mlvContains = linkComputer.doMethod(contains);
@@ -165,24 +165,24 @@ public class TestShallow extends CommonTest {
 
         MethodInfo entrySet = map.findUniqueMethod("entrySet", 0);
         MethodLinkedVariables mlvEntrySet = linkComputer.doMethod(entrySet);
-        assertEquals("[] --> entrySet.$m==this.$m,entrySet.kvs~this.kvs", mlvEntrySet.toString());
+        assertEquals("[] --> entrySet.§kvs~this.§kvs,entrySet.§m==this.§m", mlvEntrySet.toString());
 
         MethodInfo getOrDefault = map.findUniqueMethod("getOrDefault", 2);
         MethodLinkedVariables mlvGetOrDefault = linkComputer.doMethod(getOrDefault);
-        assertEquals("[-, -] --> getOrDefault<this.kvs[-2].v,getOrDefault==1:defaultValue",
+        assertEquals("[-, -] --> getOrDefault<this.§kvs[-2].§v,getOrDefault==1:defaultValue",
                 mlvGetOrDefault.toString());
 
         MethodInfo get = map.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[-] --> get<this.kvs[-2].v", mlvGet.toString());
+        assertEquals("[-] --> get<this.§kvs[-2].§v", mlvGet.toString());
 
         MethodInfo keySet = map.findUniqueMethod("keySet", 0);
         MethodLinkedVariables mlvKeySet = linkComputer.doMethod(keySet);
-        assertEquals("[] --> keySet.$m==this.$m,keySet.ks~this.kvs[-1].k", mlvKeySet.toString());
+        assertEquals("[] --> keySet.§ks~this.§kvs[-1].§k,keySet.§m==this.§m", mlvKeySet.toString());
 
         MethodInfo values = map.findUniqueMethod("values", 0);
         MethodLinkedVariables mlvValues = linkComputer.doMethod(values);
-        assertEquals("[] --> values.$m==this.$m,values.vs~this.kvs[-2].v", mlvValues.toString());
+        assertEquals("[] --> values.§m==this.§m,values.§vs~this.§kvs[-2].§v", mlvValues.toString());
 
     }
 
@@ -192,32 +192,32 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo stream = javaInspector.compiledTypesManager().getOrLoad(Stream.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("$m - T[] ts", vfc.compute(stream).toString());
+        assertEquals("§m - T[] §ts", vfc.compute(stream).toString());
 
         MethodInfo findFirst = stream.findUniqueMethod("findFirst", 0);
         MethodLinkedVariables mlvFindFirst = linkComputer.doMethod(findFirst);
-        assertEquals("[] --> findFirst.t<this.ts", mlvFindFirst.toString());
+        assertEquals("[] --> findFirst.§t<this.§ts", mlvFindFirst.toString());
 
         MethodInfo of = stream.methodStream()
                 .filter(mi -> "of".equals(mi.name())
                               && mi.parameters().getFirst().parameterizedType().arrays() == 0)
                 .findFirst().orElseThrow();
         MethodLinkedVariables mlvOf = linkComputer.doMethod(of);
-        assertEquals("[-] --> of.ts>0:t", mlvOf.toString());
+        assertEquals("[-] --> of.§ts>0:t", mlvOf.toString());
 
         MethodInfo collect = stream.findUniqueMethod("collect", 1);
         MethodLinkedVariables mlvCollect = linkComputer.doMethod(collect);
-        assertEquals("[0:collector.tars[-1]~this.ts] --> -", mlvCollect.toString());
+        assertEquals("[0:collector.§tars[-1]~this.§ts] --> -", mlvCollect.toString());
 
         MethodInfo generate = stream.findUniqueMethod("generate", 1);
         MethodLinkedVariables mlvGenerate = linkComputer.doMethod(generate);
         // Should we interpret the supplier as a multiplicity 1 or 2 source? Let's stick with the technical 1
-        assertEquals("[-] --> generate.ts>Λ0:s", mlvGenerate.toString());
+        assertEquals("[-] --> generate.§ts>Λ0:s", mlvGenerate.toString());
 
         MethodInfo filter = stream.findUniqueMethod("filter", 1);
         MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
         // there should be no lambda here, the filter cannot produce T elements
-        assertEquals("[-] --> filter.ts~this.ts", mlvFilter.toString());
+        assertEquals("[-] --> filter.§ts~this.§ts", mlvFilter.toString());
     }
 
     @DisplayName("Analyze 'ArrayList' constructors, multiplicity 2, 1 type parameter")
@@ -227,11 +227,11 @@ public class TestShallow extends CommonTest {
         TypeInfo collection = javaInspector.compiledTypesManager().getOrLoad(Collection.class);
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("$m - E[] es", vfc.compute(arrayList).toString());
+        assertEquals("§m - E[] §es", vfc.compute(arrayList).toString());
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = linkComputer.doMethod(c1);
-        assertEquals("[0:c.es~this.es] --> -", mlvC1.toString());
+        assertEquals("[0:c.§es~this.§es] --> -", mlvC1.toString());
 
     }
 
@@ -260,7 +260,7 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
-        assertEquals("[-, 1:t<0:c.ts] --> -", mlvAdd.toString());
+        assertEquals("[-, 1:t<0:c.§ts] --> -", mlvAdd.toString());
     }
 
     @DisplayName("Analyze 'Collections.addAll(...), extra complication: varargs")
@@ -272,6 +272,6 @@ public class TestShallow extends CommonTest {
         assertEquals("java.util.Collections.addAll(java.util.Collection<? super T>,T...)",
                 addAll.fullyQualifiedName());
         MethodLinkedVariables mlvC1 = addAll.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(addAll));
-        assertEquals("[-, 1:elements.ts~0:c.ts] --> -", mlvC1.toString());
+        assertEquals("[-, 1:elements.§ts~0:c.§ts] --> -", mlvC1.toString());
     }
 }

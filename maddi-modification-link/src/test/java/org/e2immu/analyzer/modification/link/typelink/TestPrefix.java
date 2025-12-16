@@ -39,7 +39,7 @@ public class TestPrefix extends CommonTest {
                 }
             }
             """;
-    public static final String EXPECTED12 = "[-, -] --> one.ts>0:x,one.ts>1:y";
+    public static final String EXPECTED12 = "[-, -] --> one.§ts>0:x,one.§ts>1:y";
 
     @Test
     public void test1() {
@@ -59,7 +59,7 @@ public class TestPrefix extends CommonTest {
                 .findFirst().orElseThrow();
         assertEquals("java.util.stream.Stream.of(T)", of1.fullyQualifiedName());
         MethodLinkedVariables tlvOf1 = of1.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> of.ts>0:t", tlvOf1.toString());
+        assertEquals("[-] --> of.§ts>0:t", tlvOf1.toString());
 
         // test SimpleEntry constructor
         TypeInfo simpleEntry = javaInspector.compiledTypesManager().get(AbstractMap.SimpleEntry.class);
@@ -67,17 +67,17 @@ public class TestPrefix extends CommonTest {
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(K,V)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis()
                 .getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:key==this.kv.k, 1:value==this.kv.v] --> -", tlvConstructor1.toString());
+        assertEquals("[0:key==this.§kv.§k, 1:value==this.§kv.§v] --> -", tlvConstructor1.toString());
 
         VariableData vd0 = VariableDataImpl.of(one.methodBody().statements().getFirst());
         VariableInfo viEntry = vd0.variableInfo("entry");
         Links tlvEntry = viEntry.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("entry.xy.x==0:x,entry.xy.y==1:y", tlvEntry.toString());
+        assertEquals("entry.§xy.§x==0:x,entry.§xy.§y==1:y", tlvEntry.toString());
 
         VariableData vd1 = VariableDataImpl.of(one.methodBody().statements().get(1));
         VariableInfo viStream1 = vd1.variableInfo("stream1");
         Links tlvStream1 = viStream1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("stream1.ts>0:x,stream1.ts>1:y,stream1.ts>entry.xy.x,stream1.ts>entry.xy.y,stream1>entry", tlvStream1.toString());
+        assertEquals("stream1.§ts>0:x,stream1.§ts>1:y,stream1.§ts>entry.§xy.§x,stream1.§ts>entry.§xy.§y,stream1>entry", tlvStream1.toString());
 
         MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals(EXPECTED12, tlvOne.toString());
@@ -134,7 +134,7 @@ public class TestPrefix extends CommonTest {
             }
             """;
 
-    private static final String EXPECTED_34 = "[-, -] --> oneStatic.xsys.xs.ts>0:x,oneStatic.xsys.xs>0:x,oneStatic.xsys.ys.ts>1:y,oneStatic.xsys.ys>1:y";
+    private static final String EXPECTED_34 = "[-, -] --> oneStatic.§xsys.§xs.§ts>0:x,oneStatic.§xsys.§xs>0:x,oneStatic.§xsys.§ys.§ts>1:y,oneStatic.§xsys.§ys>1:y";
 
     // see also TestShallowPrefix, which computes the shallow version
     @Test

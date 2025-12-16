@@ -57,19 +57,19 @@ public class TestForEach extends CommonTest {
         TypeInfo iterator = javaInspector.compiledTypesManager().get(Iterator.class);
         MethodInfo next = iterator.findUniqueMethod("next", 0);
         MethodLinkedVariables mtlNext = next.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[] --> next<this.es", mtlNext.toString());
+        assertEquals("[] --> next<this.§es", mtlNext.toString());
 
         Statement forEach = method.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(forEach);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("t<0:list.ts", tlvT1.toString());
+        assertEquals("t<0:list.§ts", tlvT1.toString());
 
         Statement append = forEach.block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("t<0:list.ts", tlvT100.toString());
+        assertEquals("t<0:list.§ts", tlvT100.toString());
     }
 
 
@@ -111,13 +111,13 @@ public class TestForEach extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(forEach);
         VariableInfo ii2 = vd2.variableInfoContainerOrNull("ii").best(Stage.EVALUATION);
         Links tlvT2E = ii2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("ii<iis.$s", tlvT2E.toString());
+        assertEquals("ii<iis.§$s", tlvT2E.toString());
 
         Statement call2 = forEach.block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(call2);
         VariableInfo ii200 = vd200.variableInfo("ii");
         Links tlvII200 = ii200.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("ii<iis.$s", tlvII200.toString(), "Should have been inherited from previous");
+        assertEquals("ii<iis.§$s", tlvII200.toString(), "Should have been inherited from previous");
         MethodCall methodCall = (MethodCall) call2.expression();
 
         // test writeMethodCall

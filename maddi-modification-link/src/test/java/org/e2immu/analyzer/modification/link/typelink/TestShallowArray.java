@@ -46,23 +46,23 @@ public class TestShallowArray extends CommonTest {
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method1));
-        assertEquals("[-] --> method1<0:x.xs", mlv1.toString());
+        assertEquals("[-] --> method1<0:x.§xs", mlv1.toString());
 
         MethodInfo method2 = C.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method2));
-        assertEquals("[-] --> method2<<0:x.xss", mlv2.toString());
+        assertEquals("[-] --> method2<<0:x.§xss", mlv2.toString());
 
         MethodInfo method3 = C.findUniqueMethod("method3", 1);
         MethodLinkedVariables mlv3 = method3.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method3));
-        assertEquals("[-] --> method3.xs<0:x.xss", mlv3.toString());
+        assertEquals("[-] --> method3.§xs<0:x.§xss", mlv3.toString());
 
         MethodInfo method4 = C.findUniqueMethod("method4", 1);
         MethodLinkedVariables mlv4 = method4.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method4));
-        assertEquals("[-] --> method4.xss>0:x.xs", mlv4.toString());
+        assertEquals("[-] --> method4.§xss>0:x.§xs", mlv4.toString());
 
         MethodInfo method5 = C.findUniqueMethod("method5", 1);
         MethodLinkedVariables mlv5 = method5.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method5));
-        assertEquals("[-] --> method5.xsss>>0:x.xs", mlv5.toString());
+        assertEquals("[-] --> method5.§xsss>>0:x.§xs", mlv5.toString());
     }
 
     @Language("java")
@@ -98,22 +98,22 @@ public class TestShallowArray extends CommonTest {
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method1));
-        assertEquals("[-] --> method1<<0:x.xss", mlv1.toString());
+        assertEquals("[-] --> method1<<0:x.§xss", mlv1.toString());
 
         MethodInfo method2 = C.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method2));
-        assertEquals("[-] --> method2<<<0:x.xsss", mlv2.toString());
+        assertEquals("[-] --> method2<<<0:x.§xsss", mlv2.toString());
 
         MethodInfo method3 = C.findUniqueMethod("method3", 1);
         MethodLinkedVariables mlv3 = method3.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method3));
-        assertEquals("[-] --> method3.xs<<0:x.xsss", mlv3.toString());
+        assertEquals("[-] --> method3.§xs<<0:x.§xsss", mlv3.toString());
 
         MethodInfo method4 = C.findUniqueMethod("method4", 1);
         MethodLinkedVariables mlv4 = method4.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method4));
-        assertEquals("[-] --> method4.xs<0:x.xss", mlv4.toString());
+        assertEquals("[-] --> method4.§xs<0:x.§xss", mlv4.toString());
 
         MethodInfo method5 = C.findUniqueMethod("method5", 1);
         MethodLinkedVariables mlv5 = method5.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method5));
-        assertEquals("[-] --> method5.xss~0:x.xss", mlv5.toString());
+        assertEquals("[-] --> method5.§xss~0:x.§xss", mlv5.toString());
     }
 }
