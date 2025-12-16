@@ -22,17 +22,17 @@ public class LinksImpl implements Links {
     public static final Links EMPTY = new LinksImpl();
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
     private final Variable primary;
-    private final Set<Link> linkList;
+    private final Set<Link> linkSet;
 
     // private constructor to bypass the non-null requirement for the primary
     private LinksImpl() {
         this.primary = null;
-        this.linkList = Set.of();
+        this.linkSet = Set.of();
     }
 
-    public LinksImpl(Variable primary, Set<Link> linkList) {
+    public LinksImpl(Variable primary, Set<Link> linkSet) {
         this.primary = Objects.requireNonNull(primary);
-        this.linkList = Objects.requireNonNull(linkList);
+        this.linkSet = Objects.requireNonNull(linkSet);
     }
 
     @Override
@@ -41,8 +41,8 @@ public class LinksImpl implements Links {
     }
 
     @Override
-    public Set<Link> linkList() {
-        return linkList;
+    public Set<Link> linkSet() {
+        return linkSet;
     }
 
     @Override
@@ -57,7 +57,7 @@ public class LinksImpl implements Links {
 
     @Override
     public boolean isEmpty() {
-        return linkList.isEmpty();
+        return linkSet.isEmpty();
     }
 
     @Override
@@ -73,18 +73,18 @@ public class LinksImpl implements Links {
 
     @Override
     public @NotNull Iterator<Link> iterator() {
-        return linkList.iterator();
+        return linkSet.iterator();
     }
 
     @Override
     public @NotNull String toString() {
         if (isEmpty()) return "-";
-        return linkList.stream().map(Object::toString).sorted().collect(Collectors.joining(","));
+        return linkSet.stream().map(Object::toString).sorted().collect(Collectors.joining(","));
     }
 
     @Override
     public Links merge(Links links) {
-        return new LinksImpl(primary, Stream.concat(this.linkList.stream(), links.linkList().stream())
+        return new LinksImpl(primary, Stream.concat(this.linkSet.stream(), links.linkSet().stream())
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
@@ -98,7 +98,7 @@ public class LinksImpl implements Links {
 
         Builder(Links existing) {
             this.primary = existing.primary();
-            links.addAll(existing.linkList());
+            links.addAll(existing.linkSet());
         }
 
         @Override
@@ -122,7 +122,7 @@ public class LinksImpl implements Links {
         @Override
         public Links.Builder addAll(Links other) {
             assert primary == other.primary();
-            this.links.addAll(other.linkList());
+            this.links.addAll(other.linkSet());
             return this;
         }
 
@@ -180,10 +180,10 @@ public class LinksImpl implements Links {
 
     // used by LVC
     @Override
-    public Links changePrimaryTo(Runtime runtime, Variable newPrimary, TranslationMap tm , IntFunction<Links> paramProvider) {
+    public Links changePrimaryTo(Runtime runtime, Variable newPrimary, TranslationMap tm, IntFunction<Links> paramProvider) {
         TranslationMap newPrimaryTm = null;
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
-        for (Link link : linkList) {
+        for (Link link : linkSet) {
             if (link.from().equals(primary)) {
                 Variable translated = translateHandleSupplier(tm, link, paramProvider);
                 builder.add(link.linkNature(), translated);
@@ -206,7 +206,7 @@ public class LinksImpl implements Links {
             if (link.to() instanceof ParameterInfo pi) {
                 Links links = paramProvider.apply(pi.index());
                 // grab the to of the primary
-                return links.linkList().stream().filter(l -> l.from().equals(links.primary())).map(Link::to).findFirst().orElseThrow();
+                return links.linkSet().stream().filter(l -> l.from().equals(links.primary())).map(Link::to).findFirst().orElseThrow();
             } else {
                 throw new UnsupportedOperationException();
             }
@@ -217,6 +217,6 @@ public class LinksImpl implements Links {
     @Override
     public Links translate(TranslationMap translationMap) {
         return new LinksImpl(translationMap.translateVariableRecursively(primary),
-                linkList.stream().map(l -> l.translate(translationMap)).collect(Collectors.toUnmodifiableSet()));
+                linkSet.stream().map(l -> l.translate(translationMap)).collect(Collectors.toUnmodifiableSet()));
     }
 }

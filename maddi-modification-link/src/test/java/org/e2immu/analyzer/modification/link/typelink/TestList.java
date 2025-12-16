@@ -67,10 +67,10 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links tlvK0 = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("k<1:x.ks", tlvK0.toString());
+        assertEquals("k<1:x.ts", tlvK0.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -] --> method<1:x.ks", tlvMethod.toString());
+        assertEquals("[-, -] --> method<1:x.ts", tlvMethod.toString());
     }
 
 
@@ -127,28 +127,28 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo prev0 = vd0.variableInfo("prev");
         Links tlvPrev0 = prev0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("prev<1:x.ks,prev==1:x.ks[0:index]", tlvPrev0.toString());
+        assertEquals("prev<1:x.ts,prev==1:x.ts[0:index]", tlvPrev0.toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo prev1 = vd1.variableInfo("prev");
         Links tlvPrev1 = prev1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("prev<1:x.ks,prev==1:x.ks[0:index]", tlvPrev1.toString());
+        assertEquals("prev<1:x.ts,prev==1:x.ts[0:index]", tlvPrev1.toString());
 
 
         ParameterInfo k = method.parameters().get(2);
         VariableInfo k1 = vd1.variableInfo(k);
         Links tlvK1 = k1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("2:k<1:x.ks,2:k==1:x.ks[0:index]", tlvK1.toString());
+        assertEquals("2:k<1:x.ts,2:k==1:x.ts[0:index]", tlvK1.toString());
 
         ParameterInfo x = method.parameters().get(1);
         VariableInfo x1 = vd1.variableInfo(x);
         Links tlvX1 = x1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("1:x.ks>2:k,1:x.ks>prev,1:x.ks[0:index]==2:k,1:x.ks[0:index]==prev", tlvX1.toString());
+        assertEquals("1:x.ts>2:k,1:x.ts>prev,1:x.ts[0:index]==2:k,1:x.ts[0:index]==prev", tlvX1.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, 1:x.ks>2:k,1:x.ks[0:index]==2:k, 2:k<1:x.ks,2:k==1:x.ks[0:index]] \
-                --> method<1:x.ks,method==1:x.ks[0:index]\
+                [-, 1:x.ts>2:k,1:x.ts[0:index]==2:k, 2:k<1:x.ts,2:k==1:x.ts[0:index]] --> \
+                method<1:x.ts,method==1:x.ts[0:index]\
                 """, tlvMethod.toString());
     }
 
@@ -208,10 +208,10 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo y0 = vd0.variableInfo("y");
         Links tlvY0 = y0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("y.ks~0:x.ks", tlvY0.toString());
+        assertEquals("y.ts~0:x.ts", tlvY0.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> method.ks~0:x.ks", tlvMethod.toString());
+        assertEquals("[-] --> method.ts~0:x.ts", tlvMethod.toString());
     }
 
 
