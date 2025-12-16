@@ -21,8 +21,10 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
@@ -98,11 +100,11 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
                             Variable fromPrimary = params.get(j).links().primary();
                             Variable linkFrom = downgrade(link.from(), fromPrimary);
                             // loop over all the elements in the varargs
-                            addCrosslink(fromPrimary, extra, j, from, linkFrom, linkNature, translatedTo);
+                            addCrosslink(fromPrimary, extra, from, linkFrom, linkNature, translatedTo);
                         }
                     } else {
                         Variable fromPrimary = params.get(i).links().primary();
-                        addCrosslink(fromPrimary, extra, i, from, link.from(), link.linkNature(), translatedTo);
+                        addCrosslink(fromPrimary, extra, from, link.from(), link.linkNature(), translatedTo);
                     }
                 }
             }
@@ -134,7 +136,6 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
 
     private void addCrosslink(Variable fromPrimary,
                               Map<Variable, Links> extra,
-                              int i,
                               ParameterInfo from,
                               Variable linkFrom,
                               LinkNature linkNature,
@@ -198,38 +199,53 @@ public record LinkMethodCall(Runtime runtime, AtomicInteger variableCounter) {
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : ofReturnValue.linkSet()) {
             if (link.from().equals(ofReturnValue.primary())) {
-                Variable translatedTo = translateHandleSupplier(tm, link, paramProvider);
-                if (translatedTo != null) {
-                    builder.add(link.linkNature(), translatedTo);
-                }
+                translateHandleSupplier(tm, link, newPrimary, link.linkNature(), builder, paramProvider);
             } else {
                 // links that are not 'primary'
                 if (newPrimaryTm == null) {
                     newPrimaryTm = runtime.newTranslationMapBuilder().put(ofReturnValue.primary(), newPrimary).build();
                 }
                 Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
-                Variable translatedTo = translateHandleSupplier(tm, link, paramProvider);
-                if (translatedTo != null) {
-                    builder.add(fromTranslated, link.linkNature(), translatedTo);
-                }
+                translateHandleSupplier(tm, link, fromTranslated, link.linkNature(), builder, paramProvider);
             }
         }
         return builder.build();
     }
 
-    private static Variable translateHandleSupplier(TranslationMap tm, Link link, IntFunction<Links> paramProvider) {
-        if (tm == null) return link.to();
+    private void translateHandleSupplier(TranslationMap tm,
+                                         Link link,
+                                         Variable fromTranslated,
+                                         LinkNature linkNature,
+                                         Links.Builder builder,
+                                         IntFunction<Links> paramProvider) {
         if (link.to().parameterizedType().isFunctionalInterface()) {
-            if (link.to() instanceof ParameterInfo pi) {
-                Links links = paramProvider.apply(pi.index());
-                // grab the to of the primary, if it is present (get==c.alternative in the example of a Supplier)
-                return links.linkSet().stream().filter(l -> l.from().equals(links.primary())).map(Link::to).
-                        findFirst().orElse(null);
+            MethodInfo sam = link.to().parameterizedType().typeInfo().singleAbstractMethod();
+            if (sam.parameters().isEmpty()) {
+                if (link.to() instanceof ParameterInfo pi) {
+                    Links links = paramProvider.apply(pi.index());
+                    // grab the to of the primary, if it is present (get==c.alternative in the example of a Supplier)
+                    Variable to = links.linkSet().stream().filter(l -> l.from().equals(links.primary())).map(Link::to).
+                            findFirst().orElse(null);
+                    builder.add(fromTranslated, linkNature, to);
+                } else {
+                    throw new UnsupportedOperationException();
+                }
             } else {
+                // function; we'll add extra!
+                Variable inputOfFunction = null;
+                if (link.to() instanceof ParameterInfo pi) {
+                    Links links = paramProvider.apply(pi.index());
+                    Set<Variable> toPrimaries = links.linkSet().stream().map(l -> Util.primary(l.to())).collect(Collectors.toUnmodifiableSet());
+                    Variable newPrimary = toPrimaries.stream().findFirst().orElse(null);
+                    if (newPrimary != null) {
+
+                    }
+                }
                 throw new UnsupportedOperationException();
             }
+        } else {
+            builder.add(fromTranslated, linkNature, tm.translateVariableRecursively(link.to()));
         }
-        return tm.translateVariableRecursively(link.to());
     }
 
     private @NotNull Links parametersToObject(MethodInfo methodInfo,

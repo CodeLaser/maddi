@@ -228,8 +228,8 @@ public class TestShallow extends CommonTest {
 
         MethodInfo generate = stream.findUniqueMethod("generate", 1);
         MethodLinkedVariables mlvGenerate = linkComputer.doMethod(generate);
-        // Should we interpret the supplier as a multiplicity 1 or 2 source? Let's stick with the technical 1
-        assertEquals("[-] --> generate.§ts>Λ0:s", mlvGenerate.toString());
+        // Should we interpret the supplier as a multiplicity 1 or 2 source? Let's take 2 ~ Stream.map
+        assertEquals("[-] --> generate.§ts~Λ0:s", mlvGenerate.toString());
 
         MethodInfo filter = stream.findUniqueMethod("filter", 1);
         MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
@@ -245,6 +245,10 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvToArrayFunction = linkComputer.doMethod(toArrayFunction);
         // NOTE: this.§ts rather than §as, because of "force"  @Independent(hcReturnValue = true) on the method
         assertEquals("[-] --> toArray.§as~this.§ts", mlvToArrayFunction.toString());
+
+        MethodInfo map = stream.findUniqueMethod("map", 1);
+        MethodLinkedVariables mlvMap = linkComputer.doMethod(map);
+        assertEquals("[-] --> map.§rs~Λ0:function", mlvMap.toString());
     }
 
     @DisplayName("Analyze 'ArrayList' constructors, multiplicity 2, 1 type parameter")

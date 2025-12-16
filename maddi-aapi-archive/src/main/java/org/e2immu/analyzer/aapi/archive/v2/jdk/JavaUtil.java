@@ -3368,7 +3368,7 @@ public class JavaUtil {
 
         //frequency 16
         //@Independent(hc=true)[O] @NotModified[T]
-        T orElseGet(/*@IgnoreModifications[T] @Independent[M]*/@Independent(hcReturnValue = true) Supplier<? extends T> supplier) { return null; }
+        T orElseGet(/*@IgnoreModifications[T] @Independent[M]*/ Supplier<? extends T> supplier) { return null; }
 
         //frequency 54
         //@Independent(hc=true)[O] @NotModified[T]

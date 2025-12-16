@@ -49,16 +49,19 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         // instance method, from return variable to object
         // *************************************************
 
+        boolean forceIntoReturn;
         if (methodInfo.hasReturnValue() && !methodInfo.isStatic() && hcThis != null) {
             Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.DEPENDENT);
             Map<Integer, Integer> dependencies = independent.linkToParametersReturnValue();
             int linkLevelRv = dependencies.getOrDefault(-1, -1);
-            boolean force = linkLevelRv == 1; //HC from return variable to object
+            forceIntoReturn = linkLevelRv == 1; //HC from return variable to object
             if (!independent.isIndependent()) {
                 transfer(ofReturnValue, returnType, hcThis.type(), hcThisFr, independent.isDependent(),
-                        vfThis.mutable(), hcThisTps, force);
+                        vfThis.mutable(), hcThisTps, forceIntoReturn);
             }
+        } else {
+            forceIntoReturn = false;
         }
 
         List<Links> ofParameters = new ArrayList<>(methodInfo.parameters().size());
@@ -72,18 +75,27 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             // a dependence from the parameter into the return variable; we'll add it to the return variable
             // linkLevel 1 == independent HC
 
+            // we preempt the hcReturnValue=true
             if (pi.parameterizedType().isFunctionalInterface()) {
+                // *************************************************
+                // parameter is functional interface
+                // *************************************************
+
                 MethodInfo sam = pi.parameterizedType().typeInfo().singleAbstractMethod();
                 boolean inputHasTypeParameters = sam.parameters().stream()
                         .anyMatch(p -> p.parameterizedType().hasTypeParameters());
-                boolean isSupplier = sam.parameters().isEmpty();
+                // boolean isSupplier = sam.parameters().isEmpty();
                 boolean outputHasTypeParameters = sam.returnType().hasTypeParameters();
-                if (isSupplier && outputHasTypeParameters) {
+                if (outputHasTypeParameters && !forceIntoReturn) {
                     // yes to Supplier<T> (result: T), no to Predicate<T> (result: boolean)
                     ParameterizedType sourceType = pi.parameterizedType().parameters().getLast().withWildcard(null);
                     Set<TypeParameter> sourceVariableTps = collectTypeParametersFromVirtualField(sourceType);
-                    transfer(ofReturnValue, returnType, sourceType, pi, false, null,
-                            sourceVariableTps, false);
+                    Set<TypeParameter> returnTypeTps = returnType.extractTypeParameters();
+                    if (sourceVariableTps.equals(returnTypeTps)) {
+                        // return types agree
+                        transfer(ofReturnValue, returnType, sourceType, pi, false, null,
+                                sourceVariableTps, false);
+                    }
                     ofParameters.add(piBuilder.build());
                     break;
                 } //else TODO
@@ -246,8 +258,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         }
                     } else {
                         // T into Stream<T> for Stream.generate(Supplier<T>)
-                        LinkNature linkNature = deriveLinkNature(arraysFrom, arraysTo);
-                        builder.add(subFrom, linkNature, subTo);
+                        builder.add(subFrom, INTERSECTION_NOT_EMPTY, subTo);
                     }
                 } else {
                     List<TypeParameter> intersection = new ArrayList<>(typeParametersFrom.stream()
