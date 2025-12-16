@@ -13,10 +13,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.api.variable.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -28,7 +25,10 @@ import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public record LinkMethodCall(Runtime runtime, VirtualFieldComputer virtualFieldComputer, AtomicInteger variableCounter) {
+public record LinkMethodCall(Runtime runtime,
+                             VirtualFieldComputer virtualFieldComputer,
+                             AtomicInteger variableCounter,
+                             MethodInfo currentMethod) {
 
     public ExpressionVisitor.Result constructorCall(MethodInfo methodInfo,
                                                     ExpressionVisitor.Result object,
@@ -239,9 +239,22 @@ public record LinkMethodCall(Runtime runtime, VirtualFieldComputer virtualFieldC
                         TranslationMap tm3 = runtime.newTranslationMapBuilder().put(newPrimary, objectPrimary).build(); // FIXME
                         TranslationMap tm2 = runtime.newTranslationMapBuilder().put(links.primary(), builder.primary()).build();
                         for (Link l : links) {
-                            Variable from = tm2.translateVariableRecursively(virtualFieldComputer.upscale(l.from()));
-                            Variable to = tm3.translateVariableRecursively(virtualFieldComputer.upscale(l.to()));
-                            builder.add(from, linkNature, to);
+                            Variable tfrom = tm2.translateVariableRecursively(l.from());
+                            Variable upscaledFrom = virtualFieldComputer.upscale(tfrom, objectPrimary, builder.primary(),
+                                    currentMethod.typeInfo(), false, 0);
+                            int arrayDelta = 0;
+                            Variable lTo = l.to();
+                            if(lTo instanceof DependentVariable) {
+                                continue; // skip this link?
+                            }
+                            //while(lTo instanceof DependentVariable dv){
+                            //    lTo = dv.arrayVariable();
+                            //    --arrayDelta;
+                            //}
+                            Variable tto = tm3.translateVariableRecursively(lTo);
+                            Variable upscaledTo = virtualFieldComputer.upscale(tto, objectPrimary, builder.primary(),
+                                    currentMethod.typeInfo(), true, arrayDelta);
+                            builder.add(upscaledFrom, l.linkNature(), upscaledTo);
                         }
                     } else {
                         throw new UnsupportedOperationException("Expected to find a primary");

@@ -32,6 +32,112 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestStream extends CommonTest {
     @Language("java")
+    private static final String INPUT1a = """
+            package a.b;
+            import java.util.List;
+            import java.util.stream.Stream;
+            public class C {
+                public <Y> Y identity(Y y)  { return y; }
+                public <X> List<X> method(List<X> list) {
+                    return list.stream().map(this::identity).toList();
+                }
+                public <X> List<X> method1(List<X> list) {
+                    Stream<X> stream1 = list.stream();
+                    Stream<X> stream2 = stream1.map(this::identity);
+                    List<X> result = stream2.toList();
+                    return result;
+                }
+            }
+            """;
+
+    @DisplayName("MR identity function")
+    @Test
+    public void test1a() {
+        TypeInfo C = javaInspector.parse(INPUT1a);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo method1 = C.findUniqueMethod("method1", 1);
+        MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
+
+        VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
+        VariableInfo viStream10 = vd0.variableInfo("stream1");
+        Links lvStream10 = viStream10.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("stream1.§xs~0:list.§xs", lvStream10.toString());
+
+        VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
+        VariableInfo viStream21 = vd1.variableInfo("stream2");
+        Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("stream2.§xs~0:list.§xs,stream2.§xs~stream1.§xs", lvStream21.toString());
+
+        VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
+        VariableInfo viResult = vd2.variableInfo("result");
+        Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("result.§xs~0:list.§xs,result.§xs~stream1.§xs,result.§xs~stream2.§xs", lvResult.toString());
+
+        assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
+
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        //FIXME chain fails assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT1b = """
+            package a.b;
+            import java.util.List;
+            import java.util.stream.Stream;
+            public class C {
+                public <Y> Y first(Y[] ys)  { return ys[0]; }
+                public <X> List<X> method(List<X[]> list) {
+                    return list.stream().map(this::first).toList();
+                }
+                public <X> List<X> method1(List<X[]> list) {
+                    Stream<X[]> stream1 = list.stream();
+                    Stream<X> stream2 = stream1.map(this::first);
+                    List<X> result = stream2.toList();
+                    return result;
+                }
+            }
+            """;
+
+    @DisplayName("MR take first element")
+    @Test
+    public void test1b() {
+        TypeInfo C = javaInspector.parse(INPUT1b);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo method1 = C.findUniqueMethod("method1", 1);
+        MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
+
+        VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
+        VariableInfo viStream10 = vd0.variableInfo("stream1");
+        Links lvStream10 = viStream10.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("stream1.§xss~0:list.§xss", lvStream10.toString());
+
+        VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
+        VariableInfo viStream21 = vd1.variableInfo("stream2");
+        Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("stream2.§xs<0:list.§xss,stream2.§xs<stream1.§xss", lvStream21.toString());
+
+        VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
+        VariableInfo viResult = vd2.variableInfo("result");
+        Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("result.§xs~stream2.§xs", lvResult.toString());
+
+        assertEquals("[-] --> method1.§xs<0:list.§xss", mlv1.toString());
+
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        //FIXME chain fails assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
+    }
+
+    @Language("java")
     private static final String INPUT1 = """
             package a.b;
             import java.util.AbstractMap;
