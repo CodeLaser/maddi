@@ -103,8 +103,17 @@ public class TestStream extends CommonTest {
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("""
-                link to entries is missing somehow
-                stream2.§yx.§x~0:entry.§xy.§x,stream2.§yx.§y~0:entry.§xy.§y\
+                the result of "upscaling"
+                
+                §yx.§x == §xy.§x   ->    $yx[-2].§xs == §xy[-1].§xs
+                
+                and combining these 2 gives   $yxs == $xys
+                
+                so we want, eventually,
+                
+                stream2.§yxs[-2].§xs~stream1.§xys[-1].§xs,\
+                stream2.§yxs[-1].§ys~stream1.§xys[-2].§ys,\
+                stream2.§yxs~stream1.§xys
                 """, tlvStream2.toString());
 
         MethodCall mcReverse2 = (MethodCall) ((LocalVariableCreation) reverse2).localVariable().assignmentExpression();
@@ -112,10 +121,10 @@ public class TestStream extends CommonTest {
                 ValueImpl.VariableBooleanMapImpl.EMPTY);
         // These are the OBJECTS of the function
         assertEquals("""
-                a.b.C.reverse(java.util.Map<X,Y>):0:map=false, entries=false, stream1=true\
+                a.b.C.reverse(java.util.Map<X,Y>):0:map=false, entries=false, stream1=true, stream2=false\
                 """, tlvMcReverse2.toString());
 
         MethodLinkedVariables mlvReverse = reverse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("?", mlvReverse.toString());
+        assertEquals("stream2.§yxs~0:map.§xys", mlvReverse.toString());
     }
 }
