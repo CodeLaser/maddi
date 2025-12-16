@@ -642,6 +642,14 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     }
 
     @Override
+    public boolean isEqualToOrInnerClassOf(TypeInfo typeInfo) {
+        if (typeInfo == this) return true;
+        if (compilationUnitOrEnclosingType.isLeft()) return false;
+        if (isStatic()) return false;
+        return compilationUnitOrEnclosingType.getRight().isEqualToOrInnerClassOf(typeInfo);
+    }
+
+    @Override
     public boolean hasBeenInspected() {
         return inspection.isFinal();
     }
