@@ -143,7 +143,7 @@ public record Expand(Runtime runtime) {
                         subsOfPrimary.add(vFrom);
                         subToPrimary.put(vFrom, primary);
                     }
-                    V toPrimary = new V(Util.primaryOfVirtual(l.to()));
+                    V toPrimary = new V(Util.primary(l.to()));
                     Set<V> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
                     V vTo = new V(l.to());
                     if (!vTo.equals(toPrimary)) {
@@ -281,12 +281,12 @@ public record Expand(Runtime runtime) {
         Map<V, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
                         graph.keySet(), start, LinkNature.EMPTY, LinkNature::combine);
-        V startPrimary = new V(Util.primaryOfVirtual(start.v));
+        V startPrimary = new V(Util.primary(start.v));
         return res.entrySet().stream()
                 .filter(e -> !start.equals(e.getKey()))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
                         e -> {
-                            boolean samePrimary = startPrimary.equals(new V(Util.primaryOfVirtual(e.getKey().v)));
+                            boolean samePrimary = startPrimary.equals(new V(Util.primary(e.getKey().v)));
                             return e.getValue().stream().reduce(LinkNature.EMPTY,
                                     (ln1, ln2) -> ln1.best(ln2, samePrimary));
                         }));

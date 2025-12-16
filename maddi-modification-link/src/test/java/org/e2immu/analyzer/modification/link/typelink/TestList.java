@@ -70,7 +70,8 @@ public class TestList extends CommonTest {
         assertEquals("k<1:x.ts", tlvK0.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -] --> method<1:x.ts", tlvMethod.toString());
+        // TODO both this.ts (--> x.ts) and x are primaries
+        assertEquals("[-, -] --> method<1:x,method<1:x.ts", tlvMethod.toString());
     }
 
 
@@ -108,7 +109,7 @@ public class TestList extends CommonTest {
                     x.set(i, k);
                     return prev;
                 }
-                
+            
                 // to have multiplicity 2
                 T[] getTs() { return ts; }
             }

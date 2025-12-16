@@ -4,14 +4,10 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.api.variable.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;
-import java.util.Objects;
 
 public class Util {
     public static Iterable<Variable> goUp(Variable variable) {
@@ -43,33 +39,31 @@ public class Util {
         };
     }
 
-    public static Variable primaryOfVirtual(Variable variable) {
+    public static Variable primary(Variable variable) {
         if (variable instanceof FieldReference fr) {
-            if (fr.fieldInfo().name().startsWith(VirtualFieldComputer.VF_CHAR)) {
-                return primaryOfVirtual(fr.scopeVariable());
+            if (fr.scopeVariable() != null && !(fr.scopeVariable() instanceof This)) {
+                return primary(fr.scopeVariable());
             }
         }
         if (variable instanceof DependentVariable dv) {
-            Variable primary = primaryOfVirtual(dv.arrayVariable());
-            assert primary == dv.arrayVariable() || dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0; // -1, -2, ...
-            return primary;
+            return primary(dv.arrayVariable());
         }
         return variable;
     }
 
     public static boolean isPartOf(Variable base, Variable sub) {
         if (base.equals(sub)) return true;
-        return base.equals(primaryOfVirtual(sub));
+        return base.equals(primary(sub));
     }
 
     public static LocalVariable lvPrimaryOrNull(Variable variable) {
         if (variable instanceof LocalVariable lv) return lv;
-        if (primaryOfVirtual(variable) instanceof LocalVariable lv) return lv;
+        if (primary(variable) instanceof LocalVariable lv) return lv;
         return null;
     }
 
     public static @NotNull ParameterInfo parameterPrimary(Variable variable) {
-        return (ParameterInfo) primaryOfVirtual(variable);
+        return (ParameterInfo) primary(variable);
     }
 
 
