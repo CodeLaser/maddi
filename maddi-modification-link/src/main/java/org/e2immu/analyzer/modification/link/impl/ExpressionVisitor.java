@@ -200,7 +200,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
 
         List<Result> params = cc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
-        return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter)
+        return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
                 .constructorCall(cc.constructor(), object, params, mlvTranslated);
     }
 
@@ -221,7 +221,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             mlvTranslated = mlv.translate(vfTm.formalToConcrete());
         }
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
-        Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter)
+        Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
                 .methodCall(mc.methodInfo(), object, params, mlvTranslated);
         return r.with(new WriteMethodCall(mc, object.links));
     }
