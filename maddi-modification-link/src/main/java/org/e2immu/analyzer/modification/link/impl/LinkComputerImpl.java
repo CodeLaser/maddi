@@ -268,7 +268,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private static void addToVlto(VariableData vd, Variable sub, Map<Variable, Boolean> variablesLinkedToObject) {
-            Variable primary = Util.primaryOfVirtual(sub);
+            Variable primary = Util.primary(sub);
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);

@@ -120,15 +120,15 @@ public class TestMap extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(staticPut2.methodBody().statements().getFirst());
             VariableInfo yy0 = vd0.variableInfo("yy");
             Links tlvY0 = yy0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("yy<0:c.map.kvs[-2].v", tlvY0.toString());
+            assertEquals("yy<0:c.map.§kvs[-2].§v", tlvY0.toString());
             ParameterInfo x = staticPut2.parameters().get(1);
             VariableInfo x0 = vd0.variableInfo(x);
             Links tlvX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-            assertEquals("1:x<0:c.map.kvs[-1].k", tlvX0.toString());
+            assertEquals("1:x<0:c.map.§kvs[-1].§k", tlvX0.toString());
 
             assertEquals("""
-                    [0:c.map.kvs[-1].k>1:x,0:c.map.kvs[-2].v>2:y, 1:x<0:c.map.kvs[-1].k, 2:y<0:c.map.kvs[-2].v]\
-                     --> staticPut2<0:c.map.kvs[-2].v\
+                    [0:c.map.§kvs[-1].§k>1:x,0:c.map.§kvs[-2].§v>2:y, 1:x<0:c.map.§kvs[-1].§k, 2:y<0:c.map.§kvs[-2].§v]\
+                     --> staticPut2<0:c.map.§kvs[-2].§v\
                     """, tlvSPut.toString());
         }
     }
@@ -217,9 +217,9 @@ public class TestMap extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo entries = vd1.variableInfo("entries");
         Links entriesLinks = entries.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("entries.$m==this.map.$m,entries.kvs~this.map.kvs,entries~this.map",
+        assertEquals("entries.§kvs~this.map.§kvs,entries.§m==this.map.§m,entries~this.map",
                 entriesLinks.toString());
-        assertEquals("entries, java.util.Set.$m#entries, java.util.Set.kvs#entries",
+        assertEquals("entries, java.util.Set.§kvs#entries, java.util.Set.§m#entries",
                 entriesLinks.linkSet().stream().map(l -> l.from().fullyQualifiedName()).sorted()
                         .collect(Collectors.joining(", ")));
 
@@ -227,7 +227,7 @@ public class TestMap extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(s2);
         VariableInfo viEntry2 = vd2.variableInfo("entry");
         Links entry2Links = viEntry2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("entry<entries.kvs,entry<this.map.kvs", entry2Links.toString());
+        assertEquals("entry<entries.§kvs,entry<this.map.§kvs", entry2Links.toString());
 
         // map.put(entry.getValue(), entry.getKey());
         Statement s200 = reverse.methodBody().statements().get(2).block().statements().getFirst();
@@ -235,12 +235,12 @@ public class TestMap extends CommonTest {
         VariableInfo viEntry200 = vd200.variableInfo("entry");
         Links entry200Links = viEntry200.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("""
-                entry.kv.k<entries.kvs,\
-                entry.kv.k<map.vks[-2].k,\
-                entry.kv.k<this.map.kvs,\
-                entry.kv.v<entries.kvs,\
-                entry.kv.v<map.vks[-1].v,\
-                entry.kv.v<this.map.kvs,\
+                entry.§kv.§k<entries.§kvs,\
+                entry.§kv.§k<map.§vks[-2].§k,\
+                entry.§kv.§k<this.map.§kvs,\
+                entry.§kv.§v<entries.§kvs,\
+                entry.§kv.§v<map.§vks[-1].§v,\
+                entry.§kv.§v<this.map.§kvs,\
                 entry<entries,\
                 entry<this.map\
                 """, entry200Links.toString());
@@ -249,7 +249,7 @@ public class TestMap extends CommonTest {
         // IMPORTANT reverse0.vks[-1].v~this.map.kvs[-2].v would be correct; however,
         // because "IS_FIELD_OF" followed by "IS_ELEMENT_OF" == "IS_ELEMENT_OF", we lose information
         assertEquals("""
-                [] --> reverse0.vks[-1].v~this.map.kvs,reverse0.vks[-2].k~this.map.kvs\
+                [] --> reverse0.§vks[-1].§v~this.map.§kvs,reverse0.§vks[-2].§k~this.map.§kvs\
                 """, mlvReverse0.toString());
     }
 
