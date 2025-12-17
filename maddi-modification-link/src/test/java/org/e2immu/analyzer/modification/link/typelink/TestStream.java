@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestStream extends CommonTest {
     @Language("java")
-    private static final String INPUT1a = """
+    private static final String INPUT_IDENTITY = """
             package a.b;
             import java.util.List;
             import java.util.stream.Stream;
@@ -50,10 +50,10 @@ public class TestStream extends CommonTest {
             }
             """;
 
-    @DisplayName("MR identity function")
+    @DisplayName("identity function")
     @Test
-    public void test1a() {
-        TypeInfo C = javaInspector.parse(INPUT1a);
+    public void testIdentity() {
+        TypeInfo C = javaInspector.parse(INPUT_IDENTITY);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -70,7 +70,7 @@ public class TestStream extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("stream2.§xs~0:list.§xs,stream2.§xs~stream1.§xs", lvStream21.toString());
+        assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
@@ -85,7 +85,7 @@ public class TestStream extends CommonTest {
     }
 
     @Language("java")
-    private static final String INPUT1b = """
+    private static final String INPUT_TAKE_FIRST = """
             package a.b;
             import java.util.List;
             import java.util.stream.Stream;
@@ -134,10 +134,10 @@ public class TestStream extends CommonTest {
             }
             """;
 
-    @DisplayName("MR take first element")
+    @DisplayName("T[]->T, take first element")
     @Test
-    public void test1b() {
-        TypeInfo C = javaInspector.parse(INPUT1b);
+    public void testTakeFirst() {
+        TypeInfo C = javaInspector.parse(INPUT_TAKE_FIRST);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -155,6 +155,61 @@ public class TestStream extends CommonTest {
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         assertEquals("stream2.§xs<0:list.§xss,stream2.§xs<stream1.§xss", lvStream21.toString());
+
+        VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
+        VariableInfo viResult = vd2.variableInfo("result");
+        Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("result.§xs~stream2.§xs", lvResult.toString());
+
+        assertEquals("[-] --> method1.§xs<0:list.§xss", mlv1.toString());
+
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        //FIXME chain fails assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT_WRAP = """
+            package a.b;
+            import java.util.List;
+            import java.util.stream.Stream;
+            class C {
+                record R<V>(V v) { }
+                <Y> R<Y> wrap(Y y)  { return new R<>(y); }
+                <X> List<R<X>> method(List<X> list) {
+                    return list.stream().map(this::wrap).toList();
+                }
+                <X> List<R<X>> method1(List<X> list) {
+                    Stream<X> stream1 = list.stream();
+                    Stream<R<X>> stream2 = stream1.map(this::wrap);
+                    List<R<X>> result = stream2.toList();
+                    return result;
+                }
+            }
+            """;
+
+    @DisplayName("T->R(T), wrap")
+    @Test
+    public void testWrap() {
+        TypeInfo C = javaInspector.parse(INPUT_WRAP);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo method1 = C.findUniqueMethod("method1", 1);
+        MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
+
+        VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
+        VariableInfo viStream10 = vd0.variableInfo("stream1");
+        Links lvStream10 = viStream10.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("stream1.§xs~0:list.§xs", lvStream10.toString());
+
+        VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
+        VariableInfo viStream21 = vd1.variableInfo("stream2");
+        Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        // wrapping in R ?
+        assertEquals("stream2.§xs~0:list.§xs,stream2.§xs~stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
