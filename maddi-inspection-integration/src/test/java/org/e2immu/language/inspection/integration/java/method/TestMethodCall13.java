@@ -181,15 +181,14 @@ public class TestMethodCall13 extends CommonTest {
     @Test
     public void test3() {
         TypeInfo C = javaInspector.parse(INPUT3);
-        {
-            MethodInfo method = C.findUniqueMethod("method", 1);
-            MethodCall mc = (MethodCall) method.methodBody().statements().getFirst().expression();
-            assertNotNull(mc);
-            assertEquals("java.util.List<X[]>", mc.parameterizedType().detailedString());
-            assertEquals("Type java.util.List<X[]>", mc.concreteReturnType().toString());
-            MethodCall mc2 = (MethodCall) mc.object();
-            assertEquals("Type java.util.stream.Stream<X[]>", mc2.concreteReturnType().toString());
-        }
 
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        MethodCall toList = (MethodCall) method.methodBody().statements().getFirst().expression();
+        assertEquals("java.util.stream.Stream.toList()", toList.methodInfo().fullyQualifiedName());
+        MethodCall map = (MethodCall) toList.object();
+        assertEquals("java.util.stream.Stream.map(java.util.function.Function<? super T,? extends R>)",
+                map.methodInfo().fullyQualifiedName());
+        assertEquals("Type java.util.stream.Stream<X>", map.concreteReturnType().toString());
+        assertEquals("Type java.util.List<X>", toList.concreteReturnType().toString());
     }
 }

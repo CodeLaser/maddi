@@ -249,7 +249,7 @@ public class TestMap extends CommonTest {
         // IMPORTANT reverse0.vks[-1].v~this.map.kvs[-2].v would be correct; however,
         // because "IS_FIELD_OF" followed by "IS_ELEMENT_OF" == "IS_ELEMENT_OF", we lose information
         assertEquals("""
-                [] --> reverse0.§vks[-1].§v~this.map.§kvs,reverse0.§vks[-2].§k~this.map.§kvs\
+                [] --> reverse0.§vks[-1].§v~this.map.§kvs,reverse0.§vks[-2].§k~this.map.§kvs,reverse0~this.map\
                 """, mlvReverse0.toString());
     }
 
@@ -292,10 +292,13 @@ public class TestMap extends CommonTest {
         VariableInfo r0 = vd0.variableInfo("r");
         Links tlvR0 = r0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         // Not as correct as could be
-        assertEquals("r.§vks[-1].§v~0:c.map.§kvs,r.§vks[-2].§k~0:c.map.§kvs", tlvR0.toString());
+        assertEquals("""
+                r.§vks[-1].§v~0:c.map,r.§vks[-1].§v~0:c.map.§kvs,r.§vks[-2].§k~0:c.map,r.§vks[-2].§k~0:c.map.§kvs\
+                """, tlvR0.toString());
 
         assertEquals("""
-                [-] --> staticReverse.§vks[-1].§v~0:c.map.§kvs,staticReverse.§vks[-2].§k~0:c.map.§kvs\
+                [-] --> staticReverse.§vks[-1].§v~0:c.map,staticReverse.§vks[-1].§v~0:c.map.§kvs,\
+                staticReverse.§vks[-2].§k~0:c.map,staticReverse.§vks[-2].§k~0:c.map.§kvs\
                 """, tlvSReverse.toString());
     }
 

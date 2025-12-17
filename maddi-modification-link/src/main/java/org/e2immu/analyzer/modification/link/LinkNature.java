@@ -91,6 +91,14 @@ public enum LinkNature {
                 default -> throw new UnsupportedOperationException();
             };
         }
+
+        if(this == INTERSECTION_NOT_EMPTY) {
+            return switch (other) {
+                case IS_ELEMENT_OF -> IS_ELEMENT_OF;
+                case CONTAINS -> CONTAINS;
+                default -> NONE;
+            };
+        }
         return NONE;
     }
 
