@@ -135,6 +135,10 @@ public class TestStream extends CommonTest {
                     List<X> result = stream2.toList();
                     return result;
                 }
+                 <X> List<X> method3(List<X[]> list) {
+                    Stream<X> stream = list.stream().map(this::first);
+                    return stream.toList();
+                }
                 abstract <H> H[] hiddenContent(Stream<H> h);
                 abstract <H> Stream<H> streamFromHiddenContent(H[] h);
                 abstract <H> H[] createHcArray(int n);
@@ -197,6 +201,15 @@ public class TestStream extends CommonTest {
         assertEquals("result.§xs~stream2.§xs", lvResult.toString());
 
         assertEquals("[-] --> method1.§xs<0:list.§xss", mlv1.toString());
+
+        MethodInfo method3 = C.findUniqueMethod("method3", 1);
+        MethodLinkedVariables mlv3 = method3.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method3));
+
+        VariableData vd30 = VariableDataImpl.of(method3.methodBody().statements().getFirst());
+        VariableInfo vi3Stream = vd30.variableInfo("stream");
+        Links lv3Stream = vi3Stream.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("stream.§xs<0:list.§xss", lv3Stream.toString());
+        assertEquals("method1.§xs<0:list.§xss,method1==result", mlv3.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
