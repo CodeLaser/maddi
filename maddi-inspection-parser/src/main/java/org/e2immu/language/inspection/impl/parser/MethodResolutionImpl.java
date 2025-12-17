@@ -1172,6 +1172,13 @@ public class MethodResolutionImpl implements MethodResolution {
             else add = bestType(context.enclosingType().primaryType(), typesOfParametersFromMethod.get(i),
                         typesOfParametersFromForward.get(i), methodMap);
             typesOfParameters.add(add);
+            if (i < methodInfo.parameters().size()) {
+                ParameterInfo pi = methodInfo.parameters().get(i);
+                if (pi.parameterizedType().typeParameter() != null) {
+                    // see TestMethodCall13,2 (identity, Y -> X)
+                    methodMap.put(pi.parameterizedType().typeParameter(), add);
+                }
+            }
         }
 
         ParameterizedType returnTypeFromMethod;

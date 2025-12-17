@@ -32,6 +32,7 @@ import static org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.VARIAB
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestStream extends CommonTest {
     @Language("java")
@@ -69,7 +70,7 @@ public class TestStream extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-/*
+
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
 
@@ -93,14 +94,23 @@ public class TestStream extends CommonTest {
         MethodInfo method2 = C.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
         assertEquals("[-] --> method2.§xs~0:list.§xs", mlv2.toString());
-*/
+
         MethodInfo method3 = C.findUniqueMethod("method3", 1);
+        {
+            LocalVariableCreation lvc = (LocalVariableCreation) method3.methodBody().statements().getFirst();
+            MethodCall mc = (MethodCall) lvc.localVariable().assignmentExpression();
+            assertNotNull(mc);
+            assertEquals("java.util.List<X>", mc.parameterizedType().detailedString());
+            assertEquals("Type java.util.List<X>", mc.concreteReturnType().toString());
+            MethodCall mc2 = (MethodCall) mc.object();
+            assertEquals("Type java.util.stream.Stream<X>", mc2.concreteReturnType().toString());
+        }
         MethodLinkedVariables mlv3 = method3.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method3));
 
         VariableData vd30 = VariableDataImpl.of(method3.methodBody().statements().getFirst());
         VariableInfo viRes = vd30.variableInfo("res");
         Links lvRes = viRes.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("stream1.§xs~0:list.§xs", lvRes.toString());
+        assertEquals("res.§xs~0:list.§xs", lvRes.toString());
 
         assertEquals("[-] --> method3.§xs~0:list.§xs", mlv3.toString());
 
@@ -190,7 +200,7 @@ public class TestStream extends CommonTest {
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        //FIXME chain fails assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
     }
 
     @Language("java")
@@ -251,7 +261,7 @@ public class TestStream extends CommonTest {
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        //FIXME chain fails assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method.§xs~0:list.§xs", mlv.toString());
     }
 
 
@@ -316,7 +326,7 @@ public class TestStream extends CommonTest {
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        //FIXME chain fails assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
     }
 
     @Language("java")
