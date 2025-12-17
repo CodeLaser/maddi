@@ -89,16 +89,47 @@ public class TestStream extends CommonTest {
             package a.b;
             import java.util.List;
             import java.util.stream.Stream;
-            public class C {
-                public <Y> Y first(Y[] ys)  { return ys[0]; }
-                public <X> List<X> method(List<X[]> list) {
+            abstract class C {
+                <Y> Y first(Y[] ys)  { return ys[0]; }
+                <X> List<X> method(List<X[]> list) {
                     return list.stream().map(this::first).toList();
                 }
-                public <X> List<X> method1(List<X[]> list) {
+                <X> List<X> method1(List<X[]> list) {
                     Stream<X[]> stream1 = list.stream();
                     Stream<X> stream2 = stream1.map(this::first);
                     List<X> result = stream2.toList();
                     return result;
+                }
+                abstract <H> H[] hiddenContent(Stream<H> h);
+                abstract <H> Stream<H> streamFromHiddenContent(H[] h);
+                abstract <H> H[] createHcArray(int n);
+                
+                <X> List<X> method2(List<X[]> list) {
+                    Stream<X[]> stream1 = list.stream();
+                    // here starts replacement code
+                    X[][] hcSource = hiddenContent(stream1);         // stream1.§xss
+                    X[] hcTarget = createHcArray(hcSource.length);   // stream2.§xs
+                    int i=0;
+                    for(X[] element: hcSource) {
+                        hcTarget[i] = first(element); // stream2.§xs == stream1.§xss[-1] OR stream2.§xs < stream1.§xss
+                        ++i;
+                    }
+                    Stream<X> stream2 = streamFromHiddenContent(hcTarget);
+                    // here ends replacement code
+                    List<X> result = stream2.toList();
+                    return result;
+                }
+                
+                // mlv: mapApply.§hs < 0:in.§hss
+                <H> Stream<H> mapApply(Stream<H[]> in) {
+                    H[][] hcSource = hiddenContent(in); // stream1.§xss
+                    H[] hcTarget = createHcArray(hcSource.length);   // stream2.§xs
+                    int i=0;
+                    for(H[] element: hcSource) {
+                        hcTarget[i] = first(element); // stream2.§xs == stream1.§xss[-1] OR stream2.§xs < stream1.§xss
+                        ++i;
+                    }
+                    return streamFromHiddenContent(hcTarget);
                 }
             }
             """;
