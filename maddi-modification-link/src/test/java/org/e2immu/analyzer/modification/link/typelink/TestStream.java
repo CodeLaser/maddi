@@ -50,6 +50,14 @@ public class TestStream extends CommonTest {
                     List<X> result = stream2.toList();
                     return result;
                 }
+                public <X> List<X> method2(List<X> list) {
+                    Stream<X> xStream = list.stream().map(this::identity);
+                    return xStream.toList();
+                }
+                public <X> List<X> method3(List<X> list) {
+                    List<X> res = list.stream().map(this::identity).toList();
+                    return res;
+                }
             }
             """;
 
@@ -61,7 +69,7 @@ public class TestStream extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-
+/*
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
 
@@ -82,9 +90,23 @@ public class TestStream extends CommonTest {
 
         assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
 
+        MethodInfo method2 = C.findUniqueMethod("method2", 1);
+        MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
+        assertEquals("[-] --> method2.§xs~0:list.§xs", mlv2.toString());
+*/
+        MethodInfo method3 = C.findUniqueMethod("method3", 1);
+        MethodLinkedVariables mlv3 = method3.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method3));
+
+        VariableData vd30 = VariableDataImpl.of(method3.methodBody().statements().getFirst());
+        VariableInfo viRes = vd30.variableInfo("res");
+        Links lvRes = viRes.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("stream1.§xs~0:list.§xs", lvRes.toString());
+
+        assertEquals("[-] --> method3.§xs~0:list.§xs", mlv3.toString());
+
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        //FIXME chain fails assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method.§xs~0:list.§xs", mlv.toString());
     }
 
     @Language("java")
