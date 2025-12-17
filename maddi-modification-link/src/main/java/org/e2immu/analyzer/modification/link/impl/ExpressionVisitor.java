@@ -209,16 +209,20 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
 
         MethodLinkedVariables mlvTranslated;
+        Variable objectPrimary = object.links.primary();
         if (currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
             This thisVar = javaInspector.runtime().newThis(mc.methodInfo().typeInfo().asParameterizedType());
             TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
-                    .put(thisVar, object.links.primary())
+                    .put(thisVar, objectPrimary)
                     .build();
             mlvTranslated = mlv.translate(tm);
-        } else {
-            ParameterizedType concreteObjectType = object.links.primary().parameterizedType();
+        } else if (objectPrimary != null) {
+            ParameterizedType concreteObjectType = objectPrimary.parameterizedType();
             VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
             mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+        } else {
+            // static method, without object
+            mlvTranslated = mlv;
         }
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
