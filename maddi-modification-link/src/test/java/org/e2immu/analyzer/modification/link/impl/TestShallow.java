@@ -305,4 +305,69 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvC1 = addAll.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(addAll));
         assertEquals("[-, 1:elements.§ts~0:c.§ts] --> -", mlvC1.toString());
     }
+
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            import org.e2immu.annotation.Independent;
+            import java.util.List;
+            public class C<X> {
+                record R<V>(V v) { }
+                @Independent(hc = true)
+                abstract List<R<X>> method(List<X> list);
+            }
+            """;
+
+    @DisplayName("wrapped")
+    @Test
+    public void test9() {
+        TypeInfo C = javaInspector.parse(INPUT9);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        method.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        method.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.INDEPENDENT_HC);
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("§m - X[] §xs", vfc.compute(C).toString());
+
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+
+        MethodLinkedVariables mlv = linkComputer.doMethod(method);
+        assertEquals("[0:list.§xs~this.§xs] --> method.§xs~this.§xs", mlv.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT9b = """
+            package a.b;
+            import org.e2immu.annotation.Independent;
+            import java.util.List;
+            public abstract class C {
+                record R<V>(V v) { }
+                @Independent(hc = true)
+                abstract <X> List<R<X>> method(List<X> list);
+            }
+            """;
+
+    @DisplayName("wrapped, method type parameter")
+    @Test
+    public void test9b() {
+        TypeInfo C = javaInspector.parse(INPUT9b);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        method.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        method.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.INDEPENDENT_HC);
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("/ - C §0", vfc.compute(C).toString());
+
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+
+        MethodLinkedVariables mlv = linkComputer.doMethod(method);
+        assertEquals("[0:list.§xs~this.§xs] --> method.§xs~this.§xs", mlv.toString());
+    }
 }
