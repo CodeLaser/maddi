@@ -1860,7 +1860,7 @@
  {"name": "Mreversed(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"Tjava.util.List","M":1},"hcsMethod":{"0":[[0]],"1":[[-1]]}}},
  {"name": "Mof(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"PE:1","2":"Tjava.util.List","M":1},"hcsMethod":{"1":[[0]],"2":[[-1]]},"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":2}},
  {"name": "Mof(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"PE:1","2":"Tjava.util.List","M":1},"hcsMethod":{"1":[[0]],"2":[[-1]]},"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"notNullMethod":2}, "sub":
-  {"name": "Pe1(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":[1,{"-1":1}],"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Pe1(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mof(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"hc":{"1":"PE:1","2":"Tjava.util.List","M":1},"hcsMethod":{"1":[[0]],"2":[[-1]]},"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"notNullMethod":2}, "subs":[
   {"name": "Pe1(0)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pe2(1)", "data":{"annotatedApi":1,"containerParameter":1,"hcsParameter":{"1":[[-1]]},"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}]},

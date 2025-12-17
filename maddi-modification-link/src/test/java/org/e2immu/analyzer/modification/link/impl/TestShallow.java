@@ -132,6 +132,13 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvOfVarargs = linkComputer.doMethod(ofVarargs);
         assertEquals("[-] --> of.§es~0:elements.§es", mlvOfVarargs.toString());
 
+        MethodInfo of1 = list.methodStream().filter(mi ->
+                        "of".equals(mi.name()) && mi.parameters().size() == 1 && !mi.parameters().getFirst().isVarArgs())
+                .findFirst().orElseThrow();
+        assertEquals("java.util.List.of(E)", of1.fullyQualifiedName());
+        MethodLinkedVariables mlvOf1 = linkComputer.doMethod(of1);
+        assertEquals("[-] --> of.§es>0:e1", mlvOf1.toString());
+
         MethodInfo of2 = list.findUniqueMethod("of", 2);
         MethodLinkedVariables mlvOf2 = linkComputer.doMethod(of2);
         assertEquals("[-, -] --> of.§es>0:e1,of.§es>1:e2", mlvOf2.toString());
@@ -347,7 +354,7 @@ public class TestShallow extends CommonTest {
             public abstract class C {
                 record R<V>(V v) { }
                 @Independent(hc = true)
-                abstract <X> List<R<X>> method(List<X> list);
+                abstract <X> List<R<X>> method(@Independent(hcReturnValue = true) List<X> list);
             }
             """;
 
@@ -360,14 +367,14 @@ public class TestShallow extends CommonTest {
         MethodInfo method = C.findUniqueMethod("method", 1);
         method.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT_HC);
         method.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
-                ValueImpl.IndependentImpl.INDEPENDENT_HC);
+                new ValueImpl.IndependentImpl(1, Map.of(-1, 1)));
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("/ - C §0", vfc.compute(C).toString());
-
+        // the §0 is "some anonymous virtual field"
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodLinkedVariables mlv = linkComputer.doMethod(method);
-        assertEquals("[0:list.§xs~this.§xs] --> method.§xs~this.§xs", mlv.toString());
+        assertEquals("[-] --> method.§xs~0:list.§xs", mlv.toString());
     }
 }

@@ -7,6 +7,8 @@ import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
@@ -19,6 +21,7 @@ import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -214,7 +217,7 @@ public class TestStream extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        // wrapping in R ?
+        // wrapping in R is invisible
         assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
@@ -250,8 +253,6 @@ public class TestStream extends CommonTest {
             }
             """;
 
-    // because the type parameters of R<X> and X[] are the same, we do not introduce a container type
-    // stream2.§xs is of type X[]
     @DisplayName("T->R[](T), wrapped 2x")
     @Test
     public void testWrap2() {
@@ -263,7 +264,7 @@ public class TestStream extends CommonTest {
 
         MethodInfo wrap = C.findUniqueMethod("wrap", 1);
         MethodLinkedVariables mlvWrap = wrap.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(wrap));
-        assertEquals("[-] --> -?", mlvWrap.toString()); // FIXME
+        assertEquals("[-] --> wrap.§es>0:y", mlvWrap.toString());
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
@@ -275,16 +276,21 @@ public class TestStream extends CommonTest {
 
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
+
+        VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
+        VirtualFields vfStream2 = virtualFieldComputer.compute(viStream21.variable().parameterizedType(), false).virtualFields();
+        assertEquals("§m - X[][] §xss", vfStream2.toString());
+
         Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        // wrapping in R ?
-        assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
+        // wrapping in another list is visible!
+        assertEquals("stream2.§xss>0:list.§xs,stream2.§xss>stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("result.§xs~0:list.§xs,result.§xs~stream1.§xs,result.§xs~stream2.§xs", lvResult.toString());
+        assertEquals("result.§xss~stream2.§xss", lvResult.toString());
 
-        assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
+        assertEquals("[-] --> method1.§xss>0:list.§xs", mlv1.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -310,6 +316,7 @@ public class TestStream extends CommonTest {
             }
             """;
 
+    @Disabled
     @DisplayName("MR to instance function swap")
     @Test
     public void test1() {

@@ -61,6 +61,7 @@ public record LinkMethodCall(Runtime runtime,
     // we're trying for both method calls and normal constructor calls
     // the latter have a newly created temporary local variable as their object primary
     public ExpressionVisitor.Result methodCall(MethodInfo methodInfo,
+                                               ParameterizedType concreteReturnType,
                                                ExpressionVisitor.Result object,
                                                List<ExpressionVisitor.Result> params,
                                                MethodLinkedVariables mlv) {
@@ -71,7 +72,7 @@ public record LinkMethodCall(Runtime runtime,
             extra.put(objectPrimary, object.links());
         }
         Links concreteReturnValue = mlv.ofReturnValue() == null ? LinksImpl.EMPTY :
-                objectToReturnValue(methodInfo, params, mlv, objectPrimary);
+                objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
         if (objectPrimary != null) {
             Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
             extra.merge(objectPrimary, newObjectLinks, Links::merge);
@@ -158,6 +159,7 @@ public record LinkMethodCall(Runtime runtime,
     }
 
     private Links objectToReturnValue(MethodInfo methodInfo,
+                                      ParameterizedType concreteReturnType,
                                       List<ExpressionVisitor.Result> params,
                                       MethodLinkedVariables mlv,
                                       Variable objectPrimary) {
@@ -168,15 +170,10 @@ public record LinkMethodCall(Runtime runtime,
             assert !methodInfo.isVoid() || methodInfo.isConstructor()
                     : "Cannot be a void function if we have a return variable";
             Variable newPrimary = runtime.newLocalVariable("$__rv" + variableCounter.getAndIncrement(),
-                    rvPrimary.parameterizedType());
+                    concreteReturnType);
 
             TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
             if (objectPrimary != null) {
-                assert !methodInfo.isStatic() : """
-                        objectPrimary!=null indicates that we have an instance function.
-                        Therefore we must translate 'this' to the method's object primary""";
-                newPrimary = runtime.newLocalVariable("$__rv" + variableCounter.getAndIncrement(),
-                        rvPrimary.parameterizedType());
                 addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
             }
             // the return value can also contain references to parameters... we should replace them by

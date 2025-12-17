@@ -105,9 +105,21 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // *************************************************
                 // explicit dependence of return variable to parameter
                 // *************************************************
-
-                transfer(ofReturnValue, returnType, pi.parameterizedType(), pi, false, null,
-                        hcThisTps, false);
+                Set<TypeParameter> typeParametersOfSubTo;
+                Variable subTo;
+                if (!methodInfo.typeParameters().isEmpty()) {
+                    // TestShallow,9b
+                    typeParametersOfSubTo = Stream.concat(methodInfo.typeParameters().stream(),
+                            hcThisTps == null ? Stream.of() : hcThisTps.stream()).collect(Collectors.toUnmodifiableSet());
+                    VirtualFields vfSubTo = virtualFieldComputer.compute(pi.parameterizedType(), false).virtualFields();
+                    subTo = runtime.newFieldReference(vfSubTo.hiddenContent(), runtime.newVariableExpression(pi),
+                            vfSubTo.hiddenContent().type());
+                } else {
+                    typeParametersOfSubTo = hcThisTps;
+                    subTo = pi;
+                }
+                transfer(ofReturnValue, returnType, subTo.parameterizedType(), subTo, false, null,
+                        typeParametersOfSubTo, false);
                 // TODO we may have to convert hcThisTps to method parameters
             } else if (!independent.isIndependent()) {
                 if (hcThis != null && !methodInfo.isStatic()) {
