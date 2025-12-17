@@ -222,7 +222,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         }
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
-                .methodCall(mc.methodInfo(), object, params, mlvTranslated);
+                .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated);
         return r.with(new WriteMethodCall(mc, object.links));
     }
 

@@ -2495,7 +2495,7 @@ public class JavaUtil {
 
         //frequency 25
         @ImmutableContainer(hc = true) @NotNull(content = true) @NotModified
-        static <E> List<E> of(/*@Independent(hc=true)[T] @NotModified[O]*/ @Independent(hcReturnValue = true) @NotNull E e1) { return null; }
+        static <E> List<E> of(/*@Independent(hc=true)[T] @NotModified[O]*/ @NotNull E e1) { return null; }
 
         //frequency 4
         @ImmutableContainer(hc = true) @NotNull(content = true) @NotModified
