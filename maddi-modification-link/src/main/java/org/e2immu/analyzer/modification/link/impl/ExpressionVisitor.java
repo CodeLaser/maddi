@@ -216,7 +216,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                     .build();
             mlvTranslated = mlv.translate(tm);
         } else {
-            ParameterizedType concreteObjectType = mc.object().parameterizedType();
+            ParameterizedType concreteObjectType = object.links.primary().parameterizedType();
             VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
             mlvTranslated = mlv.translate(vfTm.formalToConcrete());
         }
