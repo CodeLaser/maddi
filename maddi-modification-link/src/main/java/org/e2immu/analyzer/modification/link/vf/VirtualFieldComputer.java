@@ -332,7 +332,7 @@ public class VirtualFieldComputer {
         return new VirtualFields(mutable, hiddenContent);
     }
 
-    private FieldInfo newField(String name, ParameterizedType type, TypeInfo owner) {
+    public FieldInfo newField(String name, ParameterizedType type, TypeInfo owner) {
         String cleanName = name.replace(VF_CHAR, "");
         FieldInfo fi = runtime.newFieldInfo(VF_CHAR + cleanName, false, type, owner);
         fi.builder().setInitializer(runtime.newEmptyExpression()).commit();
@@ -356,28 +356,4 @@ public class VirtualFieldComputer {
             };
         }
     };
-
-    //-------------------
-
-    public Variable upscale(Variable variable, Variable source, Variable target, TypeInfo owner,
-                            boolean arraysFromSource, int arrayDelta) {
-        if (variable.simpleName().startsWith("§")) {
-
-        } else {
-            VirtualFields vfSource = compute(source.parameterizedType(), false).virtualFields;
-            VirtualFields vfTarget = compute(target.parameterizedType(), false).virtualFields;
-
-            // variable
-            TypeParameter sourceTp = vfSource.hiddenContent().type().typeParameter();
-            TypeParameter targetTp = vfTarget.hiddenContent().type().typeParameter();
-            if (targetTp != null && sourceTp != null) {
-                int arrays = (arraysFromSource ? vfSource.hiddenContent().type().arrays()
-                        : vfTarget.hiddenContent().type().arrays()) + arrayDelta;
-                FieldInfo newField = newField(sourceTp.simpleName().toLowerCase() + "s".repeat(arrays),
-                        vfSource.hiddenContent().type().copyWithArrays(arrays), owner);
-                return runtime.newFieldReference(newField, runtime.newVariableExpression(variable), newField.type());
-            }
-        }
-        return variable;
-    }
 }
