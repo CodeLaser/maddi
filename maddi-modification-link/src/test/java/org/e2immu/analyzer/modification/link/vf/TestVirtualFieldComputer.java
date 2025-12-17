@@ -1,10 +1,13 @@
 package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -271,5 +274,31 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFields vf2 = vfc.compute(oneInstance.returnType(), false).virtualFields();
         // but this one is correct
         assertEquals("§m - XSYS §xsys", vf2.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT11 = """
+            package a.b;
+            import org.e2immu.annotation.Independent;
+            import java.util.List;
+            public class C<X> {
+                record R<V>(V v) { }
+                @Independent(hc = true)
+                abstract List<R<X>> method(List<X> list);
+            }
+            """;
+
+    @DisplayName("wrapped")
+    @Test
+    public void test11() {
+        TypeInfo C = javaInspector.parse(INPUT11);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        TypeInfo R = C.findSubType("R");
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        // NOTE: the §m is there because we have not done the @Final analysis
+        assertEquals("§m - V §v", vfc.compute(R).toString());
+        assertEquals("§m - X[] §xs", vfc.compute(C).toString());
     }
 }

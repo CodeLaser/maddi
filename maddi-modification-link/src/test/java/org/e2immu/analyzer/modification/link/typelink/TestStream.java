@@ -103,7 +103,7 @@ public class TestStream extends CommonTest {
                 abstract <H> H[] hiddenContent(Stream<H> h);
                 abstract <H> Stream<H> streamFromHiddenContent(H[] h);
                 abstract <H> H[] createHcArray(int n);
-                
+            
                 <X> List<X> method2(List<X[]> list) {
                     Stream<X[]> stream1 = list.stream();
                     // here starts replacement code
@@ -119,7 +119,7 @@ public class TestStream extends CommonTest {
                     List<X> result = stream2.toList();
                     return result;
                 }
-                
+            
                 // mlv: mapApply.§hs < 0:in.§hss
                 <H> Stream<H> mapApply(Stream<H[]> in) {
                     H[][] hcSource = hiddenContent(in); // stream1.§xss
@@ -173,13 +173,13 @@ public class TestStream extends CommonTest {
             package a.b;
             import java.util.List;
             import java.util.stream.Stream;
-            class C {
+            class C<X> {
                 record R<V>(V v) { }
                 <Y> R<Y> wrap(Y y)  { return new R<>(y); }
-                <X> List<R<X>> method(List<X> list) {
+                List<R<X>> method(List<X> list) {
                     return list.stream().map(this::wrap).toList();
                 }
-                <X> List<R<X>> method1(List<X> list) {
+                List<R<X>> method1(List<X> list) {
                     Stream<X> stream1 = list.stream();
                     Stream<R<X>> stream2 = stream1.map(this::wrap);
                     List<R<X>> result = stream2.toList();
@@ -188,6 +188,8 @@ public class TestStream extends CommonTest {
             }
             """;
 
+    // because the type parameters of R<X> and X[] are the same, we do not introduce a container type
+    // stream2.§xs is of type X[]
     @DisplayName("T->R(T), wrap")
     @Test
     public void testWrap() {
@@ -196,6 +198,10 @@ public class TestStream extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo wrap = C.findUniqueMethod("wrap", 1);
+        MethodLinkedVariables mlvWrap = wrap.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(wrap));
+        assertEquals("[-] --> wrap.§y==0:y", mlvWrap.toString());
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
@@ -209,14 +215,76 @@ public class TestStream extends CommonTest {
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
         // wrapping in R ?
-        assertEquals("stream2.§xs~0:list.§xs,stream2.§xs~stream1.§xs", lvStream21.toString());
+        assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("result.§xs~stream2.§xs", lvResult.toString());
+        assertEquals("result.§xs~0:list.§xs,result.§xs~stream1.§xs,result.§xs~stream2.§xs", lvResult.toString());
 
-        assertEquals("[-] --> method1.§xs<0:list.§xss", mlv1.toString());
+        assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
+
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        //FIXME chain fails assertEquals("[-] --> method1.§xs~0:list.§xs", mlv.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT_WRAP2 = """
+            package a.b;
+            import java.util.List;
+            import java.util.stream.Stream;
+            class C<X> {
+                record R<V>(V v) { }
+                <Y> List<R<Y>> wrap(Y y)  { return List.of(new R<>(y)); }
+                List<List<R<X>>> method(List<X> list) {
+                    return list.stream().map(this::wrap).toList();
+                }
+                List<List<R<X>>> method1(List<X> list) {
+                    Stream<X> stream1 = list.stream();
+                    Stream<List<R<X>>> stream2 = stream1.map(this::wrap);
+                    List<List<R<X>>> result = stream2.toList();
+                    return result;
+                }
+            }
+            """;
+
+    // because the type parameters of R<X> and X[] are the same, we do not introduce a container type
+    // stream2.§xs is of type X[]
+    @DisplayName("T->R[](T), wrapped 2x")
+    @Test
+    public void testWrap2() {
+        TypeInfo C = javaInspector.parse(INPUT_WRAP2);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo wrap = C.findUniqueMethod("wrap", 1);
+        MethodLinkedVariables mlvWrap = wrap.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(wrap));
+        assertEquals("[-] --> -?", mlvWrap.toString()); // FIXME
+
+        MethodInfo method1 = C.findUniqueMethod("method1", 1);
+        MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
+
+        VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
+        VariableInfo viStream10 = vd0.variableInfo("stream1");
+        Links lvStream10 = viStream10.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("stream1.§xs~0:list.§xs", lvStream10.toString());
+
+        VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
+        VariableInfo viStream21 = vd1.variableInfo("stream2");
+        Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        // wrapping in R ?
+        assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
+
+        VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
+        VariableInfo viResult = vd2.variableInfo("result");
+        Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        assertEquals("result.§xs~0:list.§xs,result.§xs~stream1.§xs,result.§xs~stream2.§xs", lvResult.toString());
+
+        assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));

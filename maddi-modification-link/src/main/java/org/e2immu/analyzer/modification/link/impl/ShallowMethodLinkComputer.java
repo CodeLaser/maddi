@@ -307,7 +307,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 }
 
                 if (dependent) {
-                    if (vfFromType.mutable() != null) {
+                    if (vfFromType.mutable() != null && subMutable != null) {
                         FieldReference mTarget = runtime.newFieldReference(vfFromType.mutable(),
                                 runtime.newVariableExpression(builder.primary()), vfFromType.mutable().type());
                         FieldReference mSource = runtime.newFieldReference(subMutable);
