@@ -137,6 +137,16 @@ public class TestFixedpointPropagationAlgorithm {
         assertEquals("b: ≤, c: X", compute(graph));
     }
 
+    // a ~ b == c < d --> a < d
+    @Test
+    public void test6() {
+        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
+        graph.put(START, Map.of("b", LinkNature.INTERSECTION_NOT_EMPTY));
+        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
+        graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
+        assertEquals("b: ~, c: ~, d: <", compute(graph));
+    }
+
     private String compute(Map<String, Map<String, LinkNature>> graph) {
         Map<String, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
