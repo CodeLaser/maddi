@@ -102,7 +102,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("T=TP#0 in Optional [] --> String", vfTm.formalToConcrete().toString());
     }
 
-    // so even if StringBuilder is mutable, there is no explicit $m because Optional is not mutable
+    // even if Optional is immutable HC, its concrete HC is mutable, so the type has a §m field
     @DisplayName("Optional<StringBuilder>")
     @Test
     public void test4c() {
@@ -111,7 +111,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         ParameterizedType os = runtime.newParameterizedType(optional, List.of(stringBuilder.asParameterizedType()));
         VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
-        assertEquals("/ - StringBuilder §0", vfTm.virtualFields().toString());
+        assertEquals("§m - StringBuilder §0", vfTm.virtualFields().toString());
         assertEquals("T=TP#0 in Optional [] --> StringBuilder", vfTm.formalToConcrete().toString());
     }
 

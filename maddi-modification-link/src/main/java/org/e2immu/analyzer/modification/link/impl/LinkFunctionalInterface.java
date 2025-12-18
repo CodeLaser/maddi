@@ -49,11 +49,12 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             In a supplier, the return value of the SAM must consist of variables external to the lambda,
             as it has no no parameters itself. We directly link to them.
              */
-            return links.linkSet().stream()
-                    .filter(l -> l.from().equals(links.primary()))
-                    .map(l -> new Triplet(fromTranslated, linkNature, l.to()))
-                    .toList();
+      //      return links.linkSet().stream()
+      //              .filter(l -> l.from().equals(links.primary()))
+       //             .map(l -> new Triplet(fromTranslated, linkNature, l.to()))
+      //              .toList();
         }
+
 
         // FUNCTION
         /*

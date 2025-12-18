@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.link.Links;
 import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
+import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 public record ExpressionVisitor(JavaInspector javaInspector,
@@ -174,6 +176,12 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Links.Builder builder = new LinksImpl.Builder(ve.variable());
         // Link link = new LinkImpl(null, LinkNature.IS_IDENTICAL_TO, ve.variable());
         // links.addFirst(link);
+        if (ve.variable().parameterizedType().isFunctionalInterface()
+            && variableData != null && variableData.isKnown(ve.variable().fullyQualifiedName())) {
+            VariableInfo vi = variableData.variableInfo(ve.variable());
+            Links links = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            links.forEach(l -> builder.add(l.from(), l.linkNature(), l.to()));
+        }
         return new Result(builder.build(), extra);
     }
 

@@ -12,7 +12,6 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
-import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -105,9 +104,16 @@ public class VirtualFieldComputer {
             || typeInfo.packageName().equals("java.util.function")) {
             return NONE_NONE;
         }
-        if (pt.parameters().isEmpty() && !utilityClass(typeInfo)) {
-            VirtualFields vf = new VirtualFields(null,
-                    newField("" + typeCounter.getAndIncrement(), pt, typeInfo));
+        if (pt.parameters().isEmpty()) {
+            if (utilityClass(typeInfo)) {
+                return NONE_NONE;
+            }
+            // normal class without type parameters
+            Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
+                    ValueImpl.ImmutableImpl.MUTABLE);
+            FieldInfo mutable = immutable.isMutable() ? newField("m", atomicBooleanPt, typeInfo) : null;
+            FieldInfo hiddenContent = newField("" + typeCounter.getAndIncrement(), pt, typeInfo);
+            VirtualFields vf = new VirtualFields(mutable, hiddenContent);
             return new VfTm(vf, null);
         }
 
@@ -131,36 +137,40 @@ public class VirtualFieldComputer {
         FieldInfo hiddenContent;
         VirtualFieldTranslationMap fieldTm = addTranslation ? new VirtualFieldTranslationMap(runtime) : null;
 
-        if (parameterVfs.isEmpty()) {
-            hiddenContent = null; // nothing here, and nothing in the parameters
-        } else if (parameterVfs.size() == 1) {
-            VirtualFields inner = parameterVfs.getFirst().virtualFields;
-            FieldInfo hc = inner.hiddenContent();
-            if (hc != null) {
-                hiddenContent = newField(hc.name() + "s".repeat(extraMultiplicity),
-                        hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), typeInfo);
-
-                // translation from formal to concrete hidden content variable
-                if (addTranslation) {
-                    for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                        int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - hiddenContent.type().arrays());
-                        fieldTm.put(formalHiddenContent.type().typeParameter(), hiddenContent.type().copyWithArrays(arrayDiff));
+        if (addTranslation) {
+            assert !pt.parameters().isEmpty() && pt.parameters().size() >= parameterVfs.size();
+            if (pt.parameters().size() == 1) {
+                if (parameterVfs.isEmpty()) {
+                    hiddenContent = null;
+                } else {
+                    VirtualFields inner = parameterVfs.getFirst().virtualFields;
+                    FieldInfo hc = inner.hiddenContent();
+                    if (hc != null) {
+                        hiddenContent = newField(hc.name() + "s".repeat(extraMultiplicity),
+                                hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), typeInfo);
+                    } else {
+                        hiddenContent = null;
                     }
                 }
-            } else {
-                hiddenContent = null;
-            }
-        } else if (parameterVfs.stream().allMatch(vf -> vf.virtualFields.hiddenContent() != null
-                                                        && vf.virtualFields.hiddenContent().type().isTypeParameter())) {
-            TypeInfo containerType = makeContainerType(typeInfo, parameterVfs.stream()
-                    .map(vf -> vf.virtualFields.hiddenContent()).toList());
-            ParameterizedType baseType = containerType.asParameterizedType();
-            String baseName = parameterVfs.stream()
-                    .map(vf -> vf.virtualFields.hiddenContent().name()).collect(Collectors.joining());
-            hiddenContent = newField(baseName + "s".repeat(extraMultiplicity),
-                    baseType.copyWithArrays(extraMultiplicity), typeInfo);
+                ParameterizedType p0 = pt.parameters().getFirst();
+                FieldInfo replaceBy = Objects.requireNonNullElseGet(hiddenContent, () ->
+                        newField("$" + "s".repeat(extraMultiplicity),
+                                p0.copyWithArrays(p0.arrays() + extraMultiplicity), typeInfo));
+                for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
+                    int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - replaceBy.type().arrays());
+                    fieldTm.put(formalHiddenContent.type().typeParameter(), replaceBy.type().copyWithArrays(arrayDiff));
+                }
+            } else if (parameterVfs.stream().allMatch(vf -> vf.virtualFields.hiddenContent() != null
+                                                            && vf.virtualFields.hiddenContent().type().isTypeParameter())) {
+                TypeInfo containerType = makeContainerType(typeInfo, parameterVfs.stream()
+                        .map(vf -> vf.virtualFields.hiddenContent()).toList());
+                ParameterizedType baseType = containerType.asParameterizedType();
+                String baseName = parameterVfs.stream()
+                        .map(vf -> vf.virtualFields.hiddenContent().name()).collect(Collectors.joining());
+                hiddenContent = newField(baseName + "s".repeat(extraMultiplicity),
+                        baseType.copyWithArrays(extraMultiplicity), typeInfo);
 
-            if (addTranslation) {
+
                 for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
                     TypeInfo formalContainerType = formalHiddenContent.type().typeInfo();
                     int i = 0;
@@ -171,9 +181,31 @@ public class VirtualFieldComputer {
                         ++i;
                     }
                 }
+
+            } else {
+                throw new UnsupportedOperationException("NYI");
             }
         } else {
-            throw new UnsupportedOperationException("NYI");
+            assert pt.parameters().size() == parameterVfs.size()
+                    : "Not adding a translation, so operating at the formal type";
+            if (parameterVfs.isEmpty()) {
+                hiddenContent = null; // nothing here, and nothing in the parameters
+            } else if (parameterVfs.size() == 1) {
+                // single type parameter
+                FieldInfo hc = parameterVfs.getFirst().virtualFields.hiddenContent();
+                hiddenContent = newField(hc.name() + "s".repeat(extraMultiplicity),
+                        hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), typeInfo);
+            } else {
+                assert parameterVfs.stream().allMatch(vf -> vf.virtualFields.hiddenContent() != null
+                                                            && vf.virtualFields.hiddenContent().type().isTypeParameter());
+                TypeInfo containerType = makeContainerType(typeInfo, parameterVfs.stream()
+                        .map(vf -> vf.virtualFields.hiddenContent()).toList());
+                ParameterizedType baseType = containerType.asParameterizedType();
+                String baseName = parameterVfs.stream()
+                        .map(vf -> vf.virtualFields.hiddenContent().name()).collect(Collectors.joining());
+                hiddenContent = newField(baseName + "s".repeat(extraMultiplicity),
+                        baseType.copyWithArrays(extraMultiplicity), typeInfo);
+            }
         }
 
         return new VfTm(new VirtualFields(mutable, hiddenContent), addTranslation ? fieldTm : null);

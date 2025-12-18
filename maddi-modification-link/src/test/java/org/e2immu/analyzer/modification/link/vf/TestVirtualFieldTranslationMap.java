@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -9,13 +10,11 @@ import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -194,5 +193,50 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             assertEquals("§txyss", tFr.simpleName());
             assertEquals("Type java.util.Map.TXYS[]", tFr.parameterizedType().toString());
         }
+    }
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.Set;
+            import java.util.HashSet;
+            import java.util.List;
+            public class C<X> {
+                interface I { }
+                class II implements I { }
+                Set<II> set = new HashSet<>();
+                void add(II ii) {
+                    set.add(ii);
+                }
+                void add2(II ii) {
+                    add(ii);
+                }
+                void method(List<II> list) {
+                   list.forEach(j -> add(j));
+                }
+            }
+            """;
+
+    @DisplayName("concrete set: no virtual fields, but actual ones")
+    @Test
+    public void test4() {
+        TypeInfo C = javaInspector.parse(INPUT4);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+
+        TypeInfo set = javaInspector.compiledTypesManager().getOrLoad(Set.class);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        VirtualFields vfSet = vfc.compute(set);
+        assertEquals("§m - E[] §es", vfSet.toString());
+
+        TypeInfo II = C.findSubType("II");
+        assertEquals("/ - /", vfc.compute(C).toString());
+        ParameterizedType setII = runtime.newParameterizedType(set, List.of(II.asParameterizedType()));
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(setII, true);
+        assertEquals("§m - /", vfTm.virtualFields().toString());
+
+        FieldReference fr = runtime.newFieldReference(vfSet.hiddenContent());
+        Variable translated = vfTm.formalToConcrete().translateVariableRecursively(fr);
+        assertEquals("this.§$s", translated.toString());
     }
 }

@@ -14,7 +14,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -205,10 +204,14 @@ public class TestSupplier extends CommonTest {
                     Map.Entry<X, Y> entry = optional.orElseGet(() -> new AbstractMap.SimpleEntry<>(altX, altY));
                     return entry;
                 }
+                public Map.Entry<X, Y> method2(Optional<Map.Entry<X, Y>> optional, X altX, Y altY) {
+                    var lambda = () -> new AbstractMap.SimpleEntry<>(altX, altY);
+                    Map.Entry<X, Y> entry = optional.orElseGet(lambda);
+                    return entry;
+                }
             }
             """;
 
-    @Disabled
     @Test
     public void test5() {
         TypeInfo C = javaInspector.parse(INPUT5);
@@ -216,21 +219,36 @@ public class TestSupplier extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(C);
 
-        MethodInfo method = C.findUniqueMethod("method", 3);
+        {
+            MethodInfo method2 = C.findUniqueMethod("method2", 3);
+            MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
 
-        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
-        VariableInfo viX0 = vd0.variableInfo("entry");
-        Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            VariableData vd0 = VariableDataImpl.of(method2.methodBody().statements().getFirst());
+            VariableInfo viLambda = vd0.variableInfo("lambda");
+            Links lvLambda = viLambda.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            assertEquals("lambda.§xy.§x==1:altX,lambda.§xy.§y==2:altY", lvLambda.toString());
 
-        // we care more about correctness of the RHS than of that of the LHS
-        // but the LHS should not be "wrong".
-        // 0 in SimpleEntry<K,V> is not wrong but 0 in Map.Entry<X,Y> would have been better
-        assertEquals("""
-                altX(0[Type java.util.AbstractMap.SimpleEntry<K,V>]:*[Type param X]);\
-                altY(1[Type java.util.AbstractMap.SimpleEntry<K,V>]:*[Type param Y]);\
-                optional(*[Type java.util.Map.Entry<X,Y>]:0[Type java.util.Optional<java.util.Map.Entry<X,Y>>])\
-                """, tlvX.toString());
+            VariableData vd1 = VariableDataImpl.of(method2.methodBody().statements().get(1));
+            VariableInfo viEntry = vd1.variableInfo("entry");
+            Links lvEntry = viEntry.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            assertEquals("entry==0:optional.§xy,entry=...", lvEntry.toString());
+        }
+        {
+            MethodInfo method = C.findUniqueMethod("method", 3);
+            MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+
+            VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+            VariableInfo viX0 = vd0.variableInfo("entry");
+            Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+
+            // we care more about correctness of the RHS than of that of the LHS
+            // but the LHS should not be "wrong".
+            // 0 in SimpleEntry<K,V> is not wrong but 0 in Map.Entry<X,Y> would have been better
+            // assertEquals("""
+            //        entry==0:optional.§xy,entry=....\
+            //         """, tlvX.toString());
+            // assertEquals("[-, -, -] --> method==0:optional.§xy", mlv.toString());
+        }
     }
 }
