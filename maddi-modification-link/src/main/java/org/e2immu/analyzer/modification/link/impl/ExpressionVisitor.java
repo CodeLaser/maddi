@@ -220,10 +220,14 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Variable objectPrimary = object.links.primary();
         if (currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
             This thisVar = javaInspector.runtime().newThis(mc.methodInfo().typeInfo().asParameterizedType());
-            TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
-                    .put(thisVar, objectPrimary)
-                    .build();
-            mlvTranslated = mlv.translate(tm);
+            if (!thisVar.equals(objectPrimary)) {
+                TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
+                        .put(thisVar, objectPrimary)
+                        .build();
+                mlvTranslated = mlv.translate(tm);
+            } else {
+                mlvTranslated = mlv;
+            }
         } else if (objectPrimary != null) {
             ParameterizedType concreteObjectType = objectPrimary.parameterizedType();
             VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);

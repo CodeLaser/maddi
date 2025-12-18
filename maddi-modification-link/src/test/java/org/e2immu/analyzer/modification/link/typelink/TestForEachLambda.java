@@ -56,30 +56,26 @@ public class TestForEachLambda extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(X);
+
         MethodInfo add = X.findUniqueMethod("add", 1);
-        MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        MethodLinkedVariables mtlAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add));
         assertEquals("[0:ii<this.set.§$s] --> null", mtlAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("add2", 1);
-        MethodLinkedVariables add2Mtl = add2.analysis().getOrNull(METHOD_LINKS,
-                MethodLinkedVariablesImpl.class);
+        MethodLinkedVariables add2Mtl = add2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add2));
         assertEquals("[0:ii<this.set.§$s] --> null", add2Mtl.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = add2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
         Statement forEach = method.methodBody().statements().getFirst();
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("e(0:*);ii(0:*);j(0:*);set(0:0)", tlvT1.toString());
-        assertEquals("""
-                e(0[Type java.util.List<a.b.X.II>]:*[Type a.b.X.II]);\
-                ii(0[Type java.util.List<a.b.X.II>]:*[Type a.b.X.II]);\
-                j(0[Type java.util.List<a.b.X.II>]:*[Type a.b.X.II]);\
-                set(0[Type java.util.List<a.b.X.II>]:0[Type java.util.Set<a.b.X.II>])\
-                """, tlvT1.toString());
+        assertEquals("0:list~this.set.§$s", tlvT1.toString());
+
+        assertEquals("[0:list~this.set.§$s] --> null", mlv.toString());
     }
 
 
@@ -252,18 +248,12 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo add = X.findUniqueMethod("put", 2);
         tlc.doPrimaryType(X);
         MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                [#1:map(*[Type a.b.X.II]:1[Type java.util.Map<Integer,a.b.X.II>]);v(*[Type a.b.X.II]:*[Type a.b.X.II])]\
-                """, mtlAdd.toString());
+        assertEquals("[-, 1:ii<this.map.§$$s[-2].§$] --> null", mtlAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("put2", 2);
         MethodLinkedVariables add2Mtl = add2.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                [#1:ii(*[Type a.b.X.II]:*[Type a.b.X.II]);\
-                map(*[Type a.b.X.II]:1[Type java.util.Map<Integer,a.b.X.II>]);\
-                v(*[Type a.b.X.II]:*[Type a.b.X.II])]\
-                """, add2Mtl.toString());
+        assertEquals("[-, 1:ii<this.map.§$$s[-2].§$] --> null", add2Mtl.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
 

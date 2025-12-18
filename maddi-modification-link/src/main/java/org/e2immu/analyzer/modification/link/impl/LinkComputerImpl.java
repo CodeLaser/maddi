@@ -212,7 +212,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 if (expression != null && !expression.isEmpty()) {
                     r = expressionVisitor.visit(expression, previousVd);
                     linkedVariables.putAll(r.extra().map());
-                    linkedVariables.merge(r.links().primary(), r.links(), Links::merge);
+                    if (r.links().primary() != null) {
+                        linkedVariables.merge(r.links().primary(), r.links(), Links::merge);
+                    }
                     writeMethodCalls.addAll(r.writeMethodCalls());
                 } else {
                     r = null;

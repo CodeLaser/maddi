@@ -233,7 +233,6 @@ public record LinkMethodCall(Runtime runtime,
         }
     }
 
-
     private @NotNull Links parametersToObject(MethodInfo methodInfo,
                                               ExpressionVisitor.Result object,
                                               List<ExpressionVisitor.Result> params,
