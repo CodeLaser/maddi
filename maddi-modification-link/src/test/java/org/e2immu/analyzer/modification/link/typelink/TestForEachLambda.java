@@ -17,7 +17,6 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +24,6 @@ import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestForEachLambda extends CommonTest {
 
     @Language("java")
@@ -61,16 +59,12 @@ public class TestForEachLambda extends CommonTest {
         tlc.doPrimaryType(X);
         MethodInfo add = X.findUniqueMethod("add", 1);
         MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[#0:e(*[Type a.b.X.II]:*[Type a.b.X.II]);set(*[Type a.b.X.II]:0[Type java.util.Set<a.b.X.II>])]",
-                mtlAdd.toString());
+        assertEquals("[0:ii<this.set.§$s] --> null", mtlAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("add2", 1);
         MethodLinkedVariables add2Mtl = add2.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                [#0:e(*[Type a.b.X.II]:*[Type a.b.X.II]);ii(*[Type a.b.X.II]:*[Type a.b.X.II]);\
-                set(*[Type a.b.X.II]:0[Type java.util.Set<a.b.X.II>])]\
-                """, add2Mtl.toString());
+        assertEquals("[0:ii<this.set.§$s] --> null", add2Mtl.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
 
@@ -391,8 +385,7 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo add = X.findUniqueMethod("put", 2);
         MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [#0:k(*[Type a.b.X.II]:*[Type a.b.X.II]);map(*[Type a.b.X.II]:0[Type java.util.Map<a.b.X.II,a.b.X.H>]), \
-                #1:map(*[Type a.b.X.H]:1[Type java.util.Map<a.b.X.II,a.b.X.H>]);v(*[Type a.b.X.H]:*[Type a.b.X.H])]\
+                [0:ii<this.map.§kvs[-1].§k, 1:h<this.map.§kvs[-2].§v] --> null\
                 """, mtlAdd.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
@@ -406,18 +399,19 @@ public class TestForEachLambda extends CommonTest {
 
     @Language("java")
     String INPUT10 = """
-                package a.b.ii;
-                class C {
-                    interface II {
-                        void method1(String s);
-                    }
-                    private final II ii;
-                    C(II ii) { this.ii = ii; }
-                    void method(String string) {
-                       string.chars().forEach(c -> ii.method1("ab = " + c));
-                    }
+            package a.b.ii;
+            class C {
+                interface II {
+                    void method1(String s);
                 }
-                """;
+                private final II ii;
+                C(II ii) { this.ii = ii; }
+                void method(String string) {
+                   string.chars().forEach(c -> ii.method1("ab = " + c));
+                }
+            }
+            """;
+
     @DisplayName("forEach without type parameters")
     @Test
     public void test10() {

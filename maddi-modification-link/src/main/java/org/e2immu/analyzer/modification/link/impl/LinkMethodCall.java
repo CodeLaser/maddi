@@ -49,7 +49,7 @@ public record LinkMethodCall(Runtime runtime,
         int i = 0;
         for (ExpressionVisitor.Result r : params) {
             ParameterInfo pi = formalParameters.get(Math.min(formalParameters.size() - 1, i));
-            if (r.links().primary() != null && !pi.parameterizedType().isFunctionalInterface()) {
+            if (r.links() != null && r.links().primary() != null && !pi.parameterizedType().isFunctionalInterface()) {
                 extra.merge(r.links().primary(), r.links(), Links::merge);
             }
             r.extra().forEach(e ->
@@ -246,13 +246,16 @@ public record LinkMethodCall(Runtime runtime,
         TranslationMap tm = tmBuilder.build();
         for (Links links : mlv.ofParameters()) {
             ParameterInfo pi = methodInfo.parameters().get(i);
-            Variable paramPrimary = params.get(i).links().primary();
-            TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
-            if (!links.isEmpty()) {
-                for (Link link : links) {
-                    Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
-                    Variable translatedTo = tm.translateVariableRecursively(link.to());
-                    builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+            Links piLinks = params.get(i).links();
+            if(piLinks != null) {
+                Variable paramPrimary = piLinks.primary();
+                TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
+                if (!links.isEmpty()) {
+                    for (Link link : links) {
+                        Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
+                        Variable translatedTo = tm.translateVariableRecursively(link.to());
+                        builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                    }
                 }
             }
             ++i;
