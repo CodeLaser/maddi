@@ -370,7 +370,7 @@ public class TestShallow extends CommonTest {
                 new ValueImpl.IndependentImpl(1, Map.of(-1, 1)));
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("/ - C §0", vfc.compute(C).toString());
+        assertEquals("§m - C §0", vfc.compute(C).toString());
         // the §0 is "some anonymous virtual field"
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 

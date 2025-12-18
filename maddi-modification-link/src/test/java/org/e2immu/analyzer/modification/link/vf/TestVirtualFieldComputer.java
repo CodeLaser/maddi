@@ -6,8 +6,8 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -300,5 +300,36 @@ public class TestVirtualFieldComputer extends CommonTest {
         // NOTE: the §m is there because we have not done the @Final analysis
         assertEquals("§m - V §v", vfc.compute(R).toString());
         assertEquals("§m - X[] §xs", vfc.compute(C).toString());
+    }
+
+
+    @DisplayName("translation map for container VF")
+    @Test
+    public void test12() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
+        VirtualFields vfMap = vfc.compute(map);
+        assertEquals("§m - KV[] §kvs", vfMap.toString());
+
+        TypeInfo stringBuilder = javaInspector.compiledTypesManager().getOrLoad(StringBuilder.class);
+        TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
+        ParameterizedType mapSE = runtime.newParameterizedType(map, List.of(
+                stringBuilder.asParameterizedType(),
+                list.asParameterizedType().parameters().getFirst()
+        ));
+        assertEquals("java.util.Map<java.lang.StringBuilder,E>", mapSE.descriptor());
+        VirtualFieldComputer.VfTm vfTmMapTE = vfc.compute(mapSE, true);
+        VirtualFields vfMapTE = vfTmMapTE.virtualFields();
+        assertEquals("§m - $E[] §$es", vfMapTE.toString());
+
+        assertEquals("""
+                K=TP#0 in Map [] --> StringBuilder
+                V=TP#1 in Map [] --> E=TP#0 in List []\
+                """, vfTmMapTE.formalToConcrete().toString());
+
+        FieldReference fr = runtime.newFieldReference(vfMap.hiddenContent());
+        Variable translated = vfTmMapTE.formalToConcrete().translateVariableRecursively(fr);
+        assertEquals("this.§$es", translated.toString());
     }
 }
