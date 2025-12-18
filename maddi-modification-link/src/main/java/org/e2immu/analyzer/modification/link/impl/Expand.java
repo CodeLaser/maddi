@@ -90,17 +90,25 @@ public record Expand(Runtime runtime) {
         }
     }
 
+    private static V correctForThis(V primary, V v) {
+        if (primary.v instanceof This) {
+            return new V(Util.primary(v.v));
+        }
+        return primary;
+    }
+
     private void addToGraph(Link l,
-                            V primary,
+                            V primaryIn,
                             Map<V, Map<V, LinkNature>> graph,
                             boolean bidirectional,
                             Map<V, Set<V>> primaryToSub,
                             Map<V, V> subToPrimary) {
         V vFrom = new V(l.from());
         V vTo = new V(l.to());
+        V primary = correctForThis(primaryIn, vFrom);
         mergeEdge(graph, primary, vFrom, l.linkNature(), vTo);
         if (bidirectional) {
-            V toPrimary = subToPrimary.getOrDefault(vTo, vTo);
+            V toPrimary = correctForThis(subToPrimary.getOrDefault(vTo, vTo), vTo);
             mergeEdge(graph, toPrimary, vTo, l.linkNature().reverse(), vFrom);
         }
         if (l.linkNature() == LinkNature.IS_IDENTICAL_TO) {
@@ -133,7 +141,7 @@ public record Expand(Runtime runtime) {
         Map<V, Set<V>> subs = new HashMap<>();
         Map<V, V> subToPrimary = new HashMap<>();
         linkedVariables.entrySet().stream()
-                .filter(e -> !(e.getKey() instanceof This))
+                // .filter(e -> !(e.getKey() instanceof This))
                 .map(Map.Entry::getValue)
                 .forEach(links -> links.linkSet().forEach(l -> {
                     V primary = new V(links.primary());
@@ -153,7 +161,7 @@ public record Expand(Runtime runtime) {
                 }));
         Map<V, Map<V, LinkNature>> graph = new HashMap<>();
         linkedVariables.entrySet().stream()
-                .filter(e -> !(e.getKey() instanceof This))
+                //   .filter(e -> !(e.getKey() instanceof This))
                 .map(Map.Entry::getValue)
                 .forEach(links -> links.linkSet()
                         .stream().filter(l -> !(l.to() instanceof This))
