@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.LinkNature.*;
+import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
 
 public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer virtualFieldComputer) {
@@ -57,7 +58,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             int linkLevelRv = dependencies.getOrDefault(-1, -1);
             forceIntoReturn = linkLevelRv == 1; //HC from return variable to object
             if (!independent.isIndependent()) {
-                transfer(ofReturnValue, returnType, hcThis.type(), hcThisFr, independent.isDependent(),
+                transfer(ofReturnValue, returnType, null, hcThis.type(), hcThisFr, independent.isDependent(),
                         vfThis.mutable(), hcThisTps, forceIntoReturn);
             }
         } else {
@@ -93,7 +94,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     Set<TypeParameter> returnTypeTps = returnType.extractTypeParameters();
                     if (sourceVariableTps.equals(returnTypeTps)) {
                         // return types agree
-                        transfer(ofReturnValue, returnType, sourceType, pi, false, null,
+                        transfer(ofReturnValue, returnType, null, sourceType, pi, false, null,
                                 sourceVariableTps, false);
                     }
                     ofParameters.add(piBuilder.build());
@@ -106,18 +107,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     if (sourceVariableTps.equals(hcThisTps)) {
                         // from parameter into object
                         assert hcThis != null;
-                        FieldInfo paramVf;
-                        if (sourceVariableTps.size() == 1) {
-                            ParameterizedType p0 = pi.parameterizedType().parameters().getFirst();
-                            assert p0.typeParameter() != null : "NYI";
-                            TypeParameter tp0 = sourceVariableTps.stream().findFirst().orElseThrow();
-                            int dim = 1 + p0.arrays();
-                            paramVf = virtualFieldComputer.newField(tp0.simpleName().toLowerCase() + "s".repeat(dim), p0.copyWithArrays(dim), typeInfo);
-                        } else {
-                            throw new UnsupportedOperationException("make container type");
-                        }
                         Links.Builder thisBuilder = new LinksImpl.Builder(runtime.newThis(typeInfo.asParameterizedType()));
-                        transfer(thisBuilder, hcThis.type(), pi.parameterizedType(), pi, independent.isDependent(),
+                        transfer(thisBuilder, hcThis.type(), vfThis, pi.parameterizedType(), pi, independent.isDependent(),
                                 vfThis.mutable(), hcThisTps, false);
                         ofParameters.add(thisBuilder.build());
                     }
@@ -142,7 +133,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     typeParametersOfSubTo = hcThisTps;
                     subTo = pi;
                 }
-                transfer(ofReturnValue, returnType, subTo.parameterizedType(), subTo, false, null,
+                transfer(ofReturnValue, returnType, null, subTo.parameterizedType(), subTo, false, null,
                         typeParametersOfSubTo, false);
                 // TODO we may have to convert hcThisTps to method parameters
             } else if (!independent.isIndependent()) {
@@ -152,7 +143,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     // instance method, from parameter into object
                     // *************************************************
 
-                    transfer(piBuilder, pi.parameterizedType(), hcThis.type(), hcThisFr, independent.isDependent(),
+                    transfer(piBuilder, pi.parameterizedType(), null, hcThis.type(), hcThisFr, independent.isDependent(),
                             vfThis.mutable(), hcThisTps, false);
                 } else {
                     // *************************************************
@@ -176,7 +167,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     if (sourceVariable != null) {
                         Set<TypeParameter> sourceVariableTps
                                 = collectTypeParametersFromVirtualField(sourceVariable.parameterizedType());
-                        transfer(ofReturnValue, returnType, sourceVariable.parameterizedType(),
+                        transfer(ofReturnValue, returnType, null, sourceVariable.parameterizedType(),
                                 sourceVariable, false, null, sourceVariableTps, false);
                     }
                 }
@@ -202,7 +193,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     FieldInfo sourceHc = sourceVfs.hiddenContent();
                     Expression scope = runtime.newVariableExpression(source);
                     FieldReference sourceFr = runtime.newFieldReference(sourceHc, scope, sourceHc.type());
-                    transfer(piBuilder, pi.parameterizedType(), sourceHc.type(), sourceFr, false,
+                    transfer(piBuilder, pi.parameterizedType(), null, sourceHc.type(), sourceFr, false,
                             null, sourceTps, false);
                 }
             }
@@ -219,6 +210,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
     // the virtual fields of the target type get computed as required
     private void transfer(Links.Builder builder,
                           ParameterizedType fromType,
+                          VirtualFields fromVf,
                           ParameterizedType toType,
                           Variable subTo,
                           boolean dependent,
@@ -253,20 +245,30 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 }
             }
         } else {
-            VirtualFields vfFromType = virtualFieldComputer.compute(fromType, false).virtualFields();
+            VirtualFields vfFromType;
+            if (fromType.typeInfo() != null && fromType.typeInfo().typeNature() == VIRTUAL_FIELD) {
+                assert fromVf != null;
+                vfFromType = fromVf;
+            } else {
+                vfFromType = virtualFieldComputer.compute(fromType, false).virtualFields();
+            }
             if (vfFromType.hiddenContent() != null) {
                 FieldReference subFrom = runtime().newFieldReference(vfFromType.hiddenContent(),
                         runtime.newVariableExpression(builder.primary()), vfFromType.hiddenContent().type());
                 // concrete method type parameters
-                Set<TypeParameter> typeParametersFrom = fromType.extractTypeParameters();
+                Set<TypeParameter> typeParametersFrom =
+                        collectTypeParametersFromVirtualField(vfFromType.hiddenContent().type());
                 // more formal type parameters in HC
-                //assert typeParametersFrom.equals(collectTypeParametersFromVirtualField(vfFromType.hiddenContent().type()));
                 int arraysFrom = vfFromType.hiddenContent().type().arrays();
                 int arraysTo = toType.arrays();
                 if (typeParametersFrom.equals(typeParametersOfSubTo) || force) {
                     boolean toIsTp = subTo.parameterizedType().isTypeParameter();
                     boolean fromIsTp = subFrom.parameterizedType().isTypeParameter();
-                    if (toIsTp && fromIsTp || !toIsTp && !fromIsTp && arraysAligned(subFrom.parameterizedType(), subTo.parameterizedType())) {
+                    if (subTo.parameterizedType().isFunctionalInterface()) {
+                        // T into Stream<T> for Stream.generate(Supplier<T>)
+                        builder.add(subFrom, INTERSECTION_NOT_EMPTY, subTo);
+                    } else if (toIsTp && fromIsTp || !toIsTp && !fromIsTp && arraysAligned(subFrom.parameterizedType(),
+                            subTo.parameterizedType())) {
                         // e.g. new ArrayList<>(Collection<> c) this.es ~ c.es
                         // e.g. Map.entrySet() entrySet.kvs ~ this.kvs
                         // e.g. TestShallowPrefix,1 oneInstance.xys>this.xy
@@ -293,8 +295,12 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                             }
                         }
                     } else {
-                        // T into Stream<T> for Stream.generate(Supplier<T>)
-                        builder.add(subFrom, INTERSECTION_NOT_EMPTY, subTo);
+                        // List.toArray()
+                        if (arraysFrom == arraysTo) {
+                            builder.add(subFrom, INTERSECTION_NOT_EMPTY, subTo);
+                        } else {
+                            throw new UnsupportedOperationException("NYI");
+                        }
                     }
                 } else {
                     List<TypeParameter> intersection = new ArrayList<>(typeParametersFrom.stream()

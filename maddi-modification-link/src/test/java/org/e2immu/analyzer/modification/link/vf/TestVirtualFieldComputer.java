@@ -123,7 +123,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         ParameterizedType objectArray = runtime.objectParameterizedType().copyWithArrays(1);
         VirtualFieldComputer.VfTm vfTm = vfc.compute(objectArray, true);
         VirtualFields vfStream = vfTm.virtualFields();
-        assertEquals("§mObject - Object[] §objects", vfStream.toString());
+        assertEquals("§mObject - Object[] §$s", vfStream.toString());
         VirtualFields vfFormal = vfc.compute(runtime.objectTypeInfo());
         assertEquals("/ - Object §0", vfFormal.toString());
         assertNull(vfTm.formalToConcrete());

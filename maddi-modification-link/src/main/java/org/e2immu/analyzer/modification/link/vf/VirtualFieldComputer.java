@@ -365,16 +365,19 @@ public class VirtualFieldComputer {
     private VirtualFields arrayType(ParameterizedType pt) {
         NamedType namedType;
         TypeInfo typeInfo;
+        String baseName;
         if (pt.typeParameter() != null) {
             namedType = pt.typeParameter();
             typeInfo = pt.typeParameter().typeInfo();
+            baseName = namedType.simpleName().toLowerCase();
         } else {
             namedType = pt.typeInfo();
             typeInfo = pt.typeInfo();
+            baseName = "$";
         }
         // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
         FieldInfo mutable = newField("m" + namedType.simpleName(), atomicBooleanPt, typeInfo);
-        String hcName = namedType.simpleName().toLowerCase() + "s".repeat(pt.arrays());
+        String hcName = baseName + "s".repeat(pt.arrays());
         FieldInfo hiddenContent = newField(hcName, pt, typeInfo);
         return new VirtualFields(mutable, hiddenContent);
     }
