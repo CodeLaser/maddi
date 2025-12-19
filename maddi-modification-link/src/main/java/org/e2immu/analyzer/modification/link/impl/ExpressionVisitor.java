@@ -185,7 +185,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Links.Builder builder = new LinksImpl.Builder(a.variableTarget());
         Result rValue = visit(a.value(), variableData);
         Result rTarget = visit(a.target(), variableData);
-        builder.add(LinkNature.IS_IDENTICAL_TO, rValue.links.primary());
+        if (rValue.links != null && rValue.links.primary() != null) {
+            builder.add(LinkNature.IS_IDENTICAL_TO, rValue.links.primary());
+        }
         return new Result(builder.build(), rValue.extraAndLinks().merge(rTarget.extra));
     }
 
