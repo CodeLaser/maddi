@@ -14,7 +14,6 @@ module org.e2immu.analyzer.modification.prepwork {
 
     exports org.e2immu.analyzer.modification.prepwork;
     exports org.e2immu.analyzer.modification.prepwork.callgraph;
-    exports org.e2immu.analyzer.modification.prepwork.delay;
     exports org.e2immu.analyzer.modification.prepwork.escape;
     exports org.e2immu.analyzer.modification.prepwork.variable;
     exports org.e2immu.analyzer.modification.prepwork.variable.impl;
