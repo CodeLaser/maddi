@@ -99,6 +99,10 @@ public class Util {
         return base.equals(primary(sub));
     }
 
+    public static boolean isPrimary(Variable variable) {
+        return variable == primary(variable);
+    }
+
     public static LocalVariable lvPrimaryOrNull(Variable variable) {
         if (variable instanceof LocalVariable lv) return lv;
         if (primary(variable) instanceof LocalVariable lv) return lv;

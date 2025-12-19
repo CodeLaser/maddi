@@ -18,6 +18,7 @@ import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -107,7 +108,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
                 if (immutableSuper == null) {
                     if (activateCycleBreaking) {
                         if (configuration.cycleBreakingStrategy() == CycleBreakingStrategy.NO_INFORMATION_IS_NON_MODIFYING) {
-                            immutableSuperBroken = HiddenContentTypes.hasHc(superType.typeInfo()) ? IMMUTABLE_HC : IMMUTABLE;
+                            immutableSuperBroken = VirtualFieldComputer.hasHiddenContent(superType.typeInfo()) ? IMMUTABLE_HC : IMMUTABLE;
                         } else {
                             return FINAL_FIELDS;
                         }
@@ -133,7 +134,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             Boolean immFromField = loopOverFieldsAndMethods(typeInfo, true);
             if (immFromField == null) return null;
             if (!immFromField) return FINAL_FIELDS;
-            return HiddenContentTypes.hasHc(typeInfo) ? IMMUTABLE_HC : IMMUTABLE;
+            return VirtualFieldComputer.hasHiddenContent(typeInfo) ? IMMUTABLE_HC : IMMUTABLE;
         }
 
         private Immutable immutableSuper(TypeInfo typeInfo) {
@@ -142,7 +143,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             Boolean immFromFieldNonAbstract = loopOverFieldsAndMethods(typeInfo, false);
             if (immFromFieldNonAbstract == null) return null;
             if (!immFromFieldNonAbstract) return FINAL_FIELDS;
-            return HiddenContentTypes.hasHc(typeInfo) ? IMMUTABLE_HC : IMMUTABLE;
+            return VirtualFieldComputer.hasHiddenContent(typeInfo) ? IMMUTABLE_HC : IMMUTABLE;
         }
 
         private static boolean isNotSelf(FieldInfo fieldInfo) {

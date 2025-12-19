@@ -52,9 +52,7 @@ public interface VariableInfo {
 
     // SECOND PASS DATA, assigned in the modification stage; eventually immutable
 
-    LinkedVariables linkedVariables();
-
-    StaticValues staticValues();
+    Links linkedVariables();
 
     PropertyValueMap analysis();
 

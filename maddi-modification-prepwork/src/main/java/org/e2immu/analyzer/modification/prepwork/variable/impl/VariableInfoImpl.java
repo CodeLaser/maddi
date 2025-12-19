@@ -35,8 +35,7 @@ public class VariableInfoImpl implements VariableInfo {
 
     public static final Property DOWNCAST_VARIABLE = new PropertyImpl("downcastVariable", ValueImpl.SetOfTypeInfoImpl.EMPTY);
 
-    private LinkedVariables linkedVariables;
-    private StaticValues staticValues;
+    private Links linkedVariables;
 
     private final PropertyValueMap analysis = new PropertyValueMapImpl();
 
@@ -52,15 +51,14 @@ public class VariableInfoImpl implements VariableInfo {
         this.variableInClosure = variableInClosure;
     }
 
-    public void initializeLinkedVariables(LinkedVariables initialValue) {
+    public void initializeLinkedVariables(Links initialValue) {
         if (this.linkedVariables == null) {
             this.linkedVariables = initialValue;
         }
     }
 
-    public boolean setLinkedVariables(LinkedVariables linkedVariables) {
+    public boolean setLinkedVariables(Links linkedVariables) {
         assert linkedVariables != null;
-        assert !linkedVariables.contains(variable) : "Self references are not allowed";
         if (this.linkedVariables.isNotYetSet() || this.linkedVariables.isDelayed()) {
             this.linkedVariables = linkedVariables;
             return true;
@@ -78,25 +76,14 @@ public class VariableInfoImpl implements VariableInfo {
         return false;
     }
 
-    public void staticValuesSet(StaticValues staticValues) {
-        if (this.staticValues == null || this.staticValues.overwriteAllowed(staticValues)) {
-            this.staticValues = staticValues;
-        }
-    }
-
     @Override
     public Variable variable() {
         return variable;
     }
 
     @Override
-    public LinkedVariables linkedVariables() {
+    public Links linkedVariables() {
         return linkedVariables;
-    }
-
-    @Override
-    public StaticValues staticValues() {
-        return staticValues;
     }
 
     @Override
