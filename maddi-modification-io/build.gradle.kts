@@ -39,7 +39,8 @@ dependencies {
 
     testRuntimeOnly(project(":maddi-aapi-archive"))
     testImplementation("ch.qos.logback:logback-classic")
-    testImplementation(project(":maddi-modification-linkedvariables"))
+    testImplementation(project(":maddi-modification-link"))
+    testImplementation(project(":maddi-modification-analyzer"))
 }
 tasks.withType<Test> {
     maxHeapSize = "2G"

@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link;
+package org.e2immu.analyzer.modification.prepwork.variable;
 
 public enum LinkNature {
     NONE("X"), // there cannot be a link

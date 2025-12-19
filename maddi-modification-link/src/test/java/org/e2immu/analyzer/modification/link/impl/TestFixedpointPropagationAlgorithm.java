@@ -1,6 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.LinkNature;
+import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;

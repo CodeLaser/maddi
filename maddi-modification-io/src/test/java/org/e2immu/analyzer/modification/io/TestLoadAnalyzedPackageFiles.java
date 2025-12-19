@@ -15,8 +15,6 @@
 package org.e2immu.analyzer.modification.io;
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector;
-import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -119,7 +117,7 @@ public class TestLoadAnalyzedPackageFiles {
         assertFalse(methodInfo.isModifying());
         assertSame(IMMUTABLE, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
-
+/*
         TypeInfo hashMap = javaInspector.compiledTypesManager().get(HashMap.class);
 
         // subtype not present:
@@ -133,6 +131,6 @@ public class TestLoadAnalyzedPackageFiles {
         MethodInfo listAdd = list.findUniqueMethod("add", 1);
         ParameterInfo listAdd0 = listAdd.parameters().getFirst();
         Assertions.assertEquals("0=*", listAdd0.analysis().getOrNull(HiddenContentSelector.HCS_PARAMETER,
-                HiddenContentSelector.class).detailed());
+                HiddenContentSelector.class).detailed());*/
     }
 }

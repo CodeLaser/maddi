@@ -883,9 +883,6 @@ public class MethodAnalyzer {
                     handleInnerClass(anonymousClass);
                     return true; // so that the arguments get processed; the current visitor ignores the anonymous class
                 }
-                if (cc.constructor() != null && cc.constructor().isSyntheticArrayConstructor()) {
-                    prepAnalyzer.handleSyntheticArrayConstructor(cc);
-                }
                 if (prepAnalyzer.trackObjectCreations()) {
                     ObjectCreationVariable ocv = new ObjectCreationVariableImpl(currentMethod, cc.source().compact(), cc.parameterizedType());
                     assignedAdd(ocv);

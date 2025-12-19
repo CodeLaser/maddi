@@ -25,7 +25,7 @@ dependencies {
     implementation(project(":maddi-modification-common"))
     implementation(project(":maddi-modification-io"))
     implementation(project(":maddi-modification-prepwork"))
-    implementation(project(":maddi-modification-linkedvariables"))
+//    implementation(project(":maddi-modification-linkedvariables"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-analysis"))

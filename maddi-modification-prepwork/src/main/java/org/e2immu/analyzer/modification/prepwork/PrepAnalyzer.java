@@ -18,17 +18,12 @@ import org.e2immu.analyzer.modification.common.getset.GetSetHelper;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
-import org.e2immu.analyzer.modification.prepwork.hcs.ComputeHCS;
-import org.e2immu.analyzer.modification.prepwork.hct.ComputeHiddenContent;
-import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.slf4j.Logger;
@@ -41,8 +36,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
-
-import static org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes.HIDDEN_CONTENT_TYPES;
 
 /*
 do all the analysis of this phase
@@ -63,8 +56,6 @@ public class PrepAnalyzer {
             t -> t.compilationUnit() != null && !t.compilationUnit().externalLibrary();
 
     private final MethodAnalyzer methodAnalyzer;
-    private final ComputeHiddenContent computeHiddenContent;
-    private final ComputeHCS computeHCS;
     private final Runtime runtime;
     final Options options;
     private int typesProcessed;
@@ -102,8 +93,6 @@ public class PrepAnalyzer {
 
     public PrepAnalyzer(Runtime runtime, Options options) {
         methodAnalyzer = new MethodAnalyzer(runtime, this);
-        computeHiddenContent = new ComputeHiddenContent(runtime);
-        computeHCS = new ComputeHCS(runtime);
         this.runtime = runtime;
         this.options = options;
     }
@@ -189,14 +178,10 @@ public class PrepAnalyzer {
 
     private void doType(TypeInfo typeInfo, List<MethodInfo> gettersAndSetters, List<MethodInfo> otherConstructorsAndMethods) {
         LOGGER.debug("Do type {}", typeInfo);
-        HiddenContentTypes hctType = typeInfo.analysis().getOrCreate(HIDDEN_CONTENT_TYPES, () ->
-                computeHiddenContent.compute(typeInfo));
 
         // recurse
         typeInfo.subTypes().forEach(this::doType);
         typeInfo.constructorAndMethodStream().forEach(mi -> {
-            mi.analysis().getOrCreate(HIDDEN_CONTENT_TYPES, () -> computeHiddenContent.compute(hctType, mi));
-            computeHCS.doHiddenContentSelector(mi);
             boolean isGetSet = !mi.isConstructor() && GetSetHelper.doGetSetAnalysis(mi, mi.methodBody());
             if (isGetSet) {
                 gettersAndSetters.add(mi);
@@ -207,20 +192,7 @@ public class PrepAnalyzer {
         typeInfo.fields().forEach(methodAnalyzer::doInitializerExpression);
     }
 
-    // called from MethodAnalyzer
-    void handleSyntheticArrayConstructor(ConstructorCall cc) {
-        cc.constructor().analysis().getOrCreate(HIDDEN_CONTENT_TYPES, () -> {
-            // synthetic array constructors are not stored listed in typeInfo.constructorAndMethodStream()
-            HiddenContentTypes hctConstructorType = cc.constructor().typeInfo().analysis().getOrCreate(HIDDEN_CONTENT_TYPES,
-                    () -> computeHiddenContent.compute(cc.constructor().typeInfo()));
-            return computeHiddenContent.compute(hctConstructorType, cc.constructor());
-        });
-        computeHCS.doHiddenContentSelector(cc.constructor());
-    }
-
     public void initialize(List<TypeInfo> typesLoaded) {
-        computeHCS.doPrimitives();
-        // while the annotated APIs have HCT/HCS values for a number of types, this line takes care of the rest
-        typesLoaded.stream().filter(TypeInfo::isPrimaryType).forEach(computeHCS::doType);
+        // nothing here at the moment
     }
 }

@@ -15,8 +15,6 @@
 package org.e2immu.analyzer.aapi.parser.archive;
 
 import org.e2immu.analyzer.aapi.parser.CommonTest;
-import org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector;
-import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -28,9 +26,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector.*;
 import org.e2immu.language.cst.api.analysis.Value.Independent;
-import static org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes.HIDDEN_CONTENT_TYPES;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
@@ -50,9 +46,6 @@ public class TestJavaUtil extends CommonTest {
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
-
-        HiddenContentTypes hct = typeInfo.analysis().getOrDefault(HIDDEN_CONTENT_TYPES, HiddenContentTypes.NO_VALUE);
-        assertEquals("0=E", hct.detailedSortedTypes());
     }
 
     @Test
@@ -61,13 +54,6 @@ public class TestJavaUtil extends CommonTest {
         TypeInfo collectionTypeInfo = compiledTypesManager().get(Collection.class);
         MethodInfo methodInfo = typeInfo.findConstructor(collectionTypeInfo);
         assertEquals("java.util.ArrayList.<init>(java.util.Collection<? extends E>)", methodInfo.fullyQualifiedName());
-        HiddenContentTypes methodHct = methodInfo.analysis().getOrDefault(HIDDEN_CONTENT_TYPES, HiddenContentTypes.NO_VALUE);
-        assertEquals("0=E - 1=Collection", methodHct.detailedSortedTypes());
-        assertEquals("ArrayList:E - <init>:Collection", methodHct.toString());
-
-        ParameterInfo p0 = methodInfo.parameters().get(0);
-        HiddenContentSelector paramHcs = p0.analysis().getOrDefault(HCS_PARAMETER, HiddenContentSelector.NONE);
-        assertEquals("0=0,1=*", paramHcs.detailed());
     }
 
 
@@ -197,22 +183,18 @@ public class TestJavaUtil extends CommonTest {
     public void testCollectionsAddAll() {
         TypeInfo typeInfo = compiledTypesManager().get(Collections.class);
         MethodInfo addAll = typeInfo.findUniqueMethod("addAll", 2);
-        assertEquals(" - 0=T, 1=Collection", addAll.analysis().getOrDefault(HIDDEN_CONTENT_TYPES, HiddenContentTypes.NO_VALUE)
-                .detailedSortedTypes());
 
-        ParameterInfo p0 = addAll.parameters().get(0);
+        ParameterInfo p0 = addAll.parameters().getFirst();
         assertTrue(p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE).isFalse());
         Value.Independent independent0 = p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
         Map<Integer, Integer> map = independent0.linkToParametersReturnValue();
         assertEquals(1, map.size());
         assertEquals(1, map.get(1)); // links at HC level (1) to parameter with index 1
-        assertEquals("0=0,1=*", p0.analysis().getOrDefault(HCS_PARAMETER, HiddenContentSelector.NONE).detailed());
 
         ParameterInfo p1 = addAll.parameters().get(1);
         assertTrue(p1.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE).isTrue());
         Value.Independent independent1 = p1.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
         assertTrue(independent1.linkToParametersReturnValue().isEmpty());
-        assertEquals("0=0", p1.analysis().getOrDefault(HCS_PARAMETER, HiddenContentSelector.NONE).detailed());
     }
 
     @Test
@@ -230,8 +212,6 @@ public class TestJavaUtil extends CommonTest {
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
-
-        assertEquals("List:E", typeInfo.analysis().getOrNull(HIDDEN_CONTENT_TYPES, HiddenContentTypes.class).toString());
     }
 
     @Test
@@ -415,18 +395,12 @@ public class TestJavaUtil extends CommonTest {
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
-
-        assertEquals("HashMap:K, V",
-                typeInfo.analysis().getOrNull(HIDDEN_CONTENT_TYPES, HiddenContentTypes.class).toString());
     }
 
 
     @Test
     public void testHashMapEntryIterator() {
         TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
-        TypeInfo sub = typeInfo.findSubType("EntryIterator");
-        assertEquals("0=K, 1=V",
-                sub.analysis().getOrNull(HIDDEN_CONTENT_TYPES, HiddenContentTypes.class).detailedSortedTypes());
     }
 
     @Test
@@ -620,10 +594,6 @@ public class TestJavaUtil extends CommonTest {
 
         assertSame(INDEPENDENT_HC, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
         assertSame(IMMUTABLE_HC, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
-
-        assertEquals("Iterator:E - next:", methodInfo.analysis()
-                .getOrDefault(HIDDEN_CONTENT_TYPES, HiddenContentTypes.NO_VALUE).toString());
-        assertEquals("*", methodInfo.analysis().getOrDefault(HCS_METHOD, NONE).toString());
     }
 
     @Test
