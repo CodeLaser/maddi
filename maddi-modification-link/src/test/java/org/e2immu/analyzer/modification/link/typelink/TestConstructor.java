@@ -6,7 +6,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
@@ -25,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT;
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -77,18 +75,18 @@ public class TestConstructor extends CommonTest {
             Statement s0 = methodB.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo iis = vd0.variableInfo("iis");
-            Links tlvIIS = iis.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvIIS = iis.linkedVariablesOrEmpty();
             assertEquals("iis.§$s~0:input.§$s", tlvIIS.toString());
 
             Statement s1 = methodB.methodBody().statements().get(1);
             VariableInfo removed1 = VariableDataImpl.of(s1).variableInfo("removed");
-            Links tlvT1 = removed1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvT1 = removed1.linkedVariablesOrEmpty();
             assertEquals("removed<0:input.§$s,removed<iis.§$s", tlvT1.toString());
 
             Statement callM2 = methodB.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(callM2);
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
-            Links tlvT2 = removed.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvT2 = removed.linkedVariablesOrEmpty();
             assertEquals("removed<0:input.§$s,removed<iis.§$s", tlvT2.toString());
         }
         {
@@ -97,25 +95,25 @@ public class TestConstructor extends CommonTest {
             Statement s0 = methodA.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo iis = vd0.variableInfo("iis");
-            Links tlvIIS = iis.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvIIS = iis.linkedVariablesOrEmpty();
             assertEquals("iis.§$s~0:input.§$s", tlvIIS.toString());
 
             Statement s1 = methodA.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo iis1 = vd1.variableInfo("iis");
-            Links tlvIIS1 = iis1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvIIS1 = iis1.linkedVariablesOrEmpty();
             assertEquals("iis.§$s~0:input.§$s", tlvIIS1.toString());
 
             Statement s2 = methodA.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(s2);
             VariableInfo iis2 = vd2.variableInfo("iis");
-            Links tlvIIS2 = iis2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvIIS2 = iis2.linkedVariablesOrEmpty();
             assertEquals("iis.§$s>ii,iis.§$s~0:input.§$s", tlvIIS2.toString());
 
             Statement s3 = methodA.methodBody().statements().get(3);
             VariableData vd3 = VariableDataImpl.of(s3);
             VariableInfo iis3 = vd3.variableInfo("iis");
-            Links tlvIIS3 = iis3.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvIIS3 = iis3.linkedVariablesOrEmpty();
             assertEquals("iis.§$s>ii,iis.§$s>ii2,iis.§$s~0:input.§$s", tlvIIS3.toString());
 
             Statement callM2 = methodA.methodBody().statements().get(4);

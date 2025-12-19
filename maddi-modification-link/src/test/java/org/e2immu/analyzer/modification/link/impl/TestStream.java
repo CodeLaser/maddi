@@ -2,8 +2,8 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
@@ -69,24 +69,23 @@ public class TestStream extends CommonTest {
         MethodLinkedVariables mlvLarge2 = linkComputer.doMethod(large2);
         VariableData vd0 = VariableDataImpl.of(large2.methodBody().statements().getFirst());
         VariableInfo viStream = vd0.variableInfo("stream");
-        assertEquals("stream.§ts~this.list.§ts",
-                viStream.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
+        assertEquals("stream.§ts~this.list.§ts", viStream.linkedVariables().toString());
 
         VariableData vd1 = VariableDataImpl.of(large2.methodBody().statements().get(1));
         VariableInfo viFiltered = vd1.variableInfo("filtered");
         assertEquals("filtered.§ts~stream.§ts,filtered.§ts~this.list.§ts",
-                viFiltered.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
+                viFiltered.linkedVariables().toString());
 
         VariableData vd2 = VariableDataImpl.of(large2.methodBody().statements().get(2));
         VariableInfo viFirst = vd2.variableInfo("first");
         assertEquals("""
                 first.§t<filtered.§ts,first.§t<stream.§ts,first.§t<this.list.§ts\
-                """, viFirst.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
+                """, viFirst.linkedVariables().toString());
 
         VariableData vd3 = VariableDataImpl.of(large2.methodBody().statements().get(3));
         VariableInfo viOrElse = vd3.variableInfo("orElse");
         assertEquals("orElse<filtered.§ts,orElse<stream.§ts,orElse<this.list.§ts,orElse==first.§t",
-                viOrElse.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
+                viOrElse.linkedVariables().toString());
 
         assertEquals("[-] --> large2<this.list.§ts", mlvLarge2.toString());
 

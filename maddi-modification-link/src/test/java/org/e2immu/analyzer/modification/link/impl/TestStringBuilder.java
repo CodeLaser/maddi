@@ -14,7 +14,6 @@ import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestStringBuilder extends CommonTest {
@@ -46,19 +45,19 @@ public class TestStringBuilder extends CommonTest {
         Statement newSb = method.methodBody().statements().getFirst();
         VariableData vd0 = VariableDataImpl.of(newSb);
         VariableInfo sb = vd0.variableInfoContainerOrNull("sb").best(Stage.EVALUATION);
-        Links sbLinks = sb.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links sbLinks = sb.linkedVariablesOrEmpty();
         assertEquals("-", sbLinks.toString());
 
         Statement assignT = method.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(assignT);
         VariableInfo t = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
-        Links tLinks = t.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tLinks = t.linkedVariablesOrEmpty();
         assertEquals("t<0:list.§ts", tLinks.toString());
 
         Statement append = method.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(append);
         VariableInfo sb2 = vd2.variableInfoContainerOrNull("sb").best(Stage.EVALUATION);
-        Links sb2Links = sb2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links sb2Links = sb2.linkedVariablesOrEmpty();
         assertEquals("-", sb2Links.toString());
     }
 

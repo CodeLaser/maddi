@@ -1,13 +1,13 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.*;
-import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 /*
@@ -276,7 +275,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);
-                Links links = viPrimary.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links links = Objects.requireNonNullElse(viPrimary.linkedVariables(), LinksImpl.EMPTY);
                 for (Link link : links) {
                     for (Variable v : org.e2immu.analyzer.modification.prepwork.Util.goUp(link.from())) {
                         if (vd.isKnown(v.fullyQualifiedName())) {
@@ -310,7 +309,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                             VariableInfoContainer subVic = subVd.variableInfoContainerOrNull(fqn);
                             if (subVic != null) {
                                 VariableInfo subVi = subVic.best();
-                                Links subTlv = subVi.analysis().getOrNull(LINKS, LinksImpl.class);
+                                Links subTlv = subVi.linkedVariables();
                                 if (subTlv != null) {
                                     collect.addAll(subTlv);
                                 }
@@ -318,11 +317,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         });
                         Links collected = collect.build();
                         if (!collected.isEmpty()) {
-                            VariableInfo merge = vic.best();
-                            assert merge != eval;
-                            if (!merge.analysis().haveAnalyzedValueFor(LINKS)) {
-                                merge.analysis().set(LINKS, collected);
-                            }
+                            VariableInfoImpl merge = (VariableInfoImpl) vic.best();
+                            merge.setLinkedVariables(collected);  // FIXME allow overwrite
                         }
                     });
         }
@@ -334,14 +330,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
-                if (!links.isEmpty() && vic.hasEvaluation()) {
-                    VariableInfo eval = vic.best(Stage.EVALUATION);
-                    try {
-                        eval.analysis().set(LINKS, links);
-                    } catch (IllegalArgumentException iae) {
-                        LinkComputerImpl.this.recursionPrevention.report(methodInfo);
-                        throw iae;
-                    }
+                if (vic.hasEvaluation()) {
+                    VariableInfoImpl eval = (VariableInfoImpl) vic.best(Stage.EVALUATION);
+                    eval.setLinkedVariables(links);
                 }
             });
         }

@@ -6,7 +6,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
@@ -23,7 +22,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -75,7 +73,7 @@ public class TestForEachLambda extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("0:list.§$s~this.set.§$s", tlvT1.toString());
 
         assertEquals("[0:list.§$s~this.set.§$s] --> -", mlv.toString());
@@ -112,7 +110,7 @@ public class TestForEachLambda extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("0:list.§$s~this.set.§$s", tlvT1.toString());
         assertEquals("[0:list.§$s~this.set.§$s] --> -", mlv.toString());
     }
@@ -154,7 +152,7 @@ public class TestForEachLambda extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("0:list.§$s~1:x.set.§$s", tlvT1.toString());
     }
 
@@ -207,7 +205,7 @@ public class TestForEachLambda extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
         // we keep the link, to be able to propagate modifications/type use
         assertEquals("0:list.§$s>0:j", tlvT1.toString());
 
@@ -247,12 +245,12 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo add = X.findUniqueMethod("put", 2);
         tlc.doPrimaryType(X);
         MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:ii<this.map.§$$s[-2].§$] --> -", mtlAdd.toString());
+        assertEquals("[0:i<this.map.§$$s[-1].§$, 1:ii<this.map.§$$s[-2].§$] --> -", mtlAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("put2", 2);
         MethodLinkedVariables add2Mtl = add2.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:ii<this.map.§$$s[-2].§$] --> -", add2Mtl.toString());
+        assertEquals("[0:i<this.map.§$$s[-1].§$, 1:ii<this.map.§$$s[-2].§$] --> -", add2Mtl.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
 
@@ -260,7 +258,7 @@ public class TestForEachLambda extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("ii(1:*);j(1:*);k(0:*);map(1:1);v(1:*)", tlvT1.toString());
         assertEquals("""
                 ii(1[Type java.util.Map<Integer,a.b.X.II>]:*[Type a.b.X.II]);\

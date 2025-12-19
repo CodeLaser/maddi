@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.prepwork.variable.impl;
 
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
@@ -102,7 +102,7 @@ public class LinksImpl implements Links {
             this.primary = primary;
         }
 
-        Builder(Links existing) {
+        public Builder(Links existing) {
             this.primary = existing.primary();
             links.addAll(existing.linkSet());
         }

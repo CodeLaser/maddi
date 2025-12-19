@@ -5,7 +5,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
@@ -23,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -84,14 +82,14 @@ public class TestMap extends CommonTest {
             MethodLinkedVariables mlvSGet = staticGet.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticGet));
             VariableData vd0 = VariableDataImpl.of(staticGet.methodBody().statements().getFirst());
             VariableInfo y0 = vd0.variableInfo("y");
-            Links tlvY0 = y0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvY0 = y0.linkedVariablesOrEmpty();
             // NOTE: kvs and not xys because it is a real field, not a virtual one
             assertEquals("y<1:c.map.§kvs[-2].§v", tlvY0.toString());
             VariableInfo x0 = vd0.variableInfo(staticGet.parameters().getFirst());
 
             assertEquals("[-, -] --> staticGet<1:c.map.§kvs[-2].§v", mlvSGet.toString());
 
-            Links lX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links lX0 = x0.linkedVariablesOrEmpty();
             assertEquals("-", lX0.toString());
         }
 
@@ -100,11 +98,11 @@ public class TestMap extends CommonTest {
             MethodLinkedVariables mlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
             VariableData vd0 = VariableDataImpl.of(staticPut.methodBody().statements().getFirst());
             VariableInfo yy0 = vd0.variableInfo("yy");
-            Links tlvY0 = yy0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvY0 = yy0.linkedVariablesOrEmpty();
             assertEquals("yy<2:c.map.§kvs[-2].§v", tlvY0.toString());
             ParameterInfo x = staticPut.parameters().getFirst();
             VariableInfo x0 = vd0.variableInfo(x);
-            Links tlvX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvX0 = x0.linkedVariablesOrEmpty();
             assertEquals("0:x<2:c.map.§kvs[-1].§k", tlvX0.toString());
 
             assertEquals("""
@@ -119,11 +117,11 @@ public class TestMap extends CommonTest {
                     () -> tlc.doMethod(staticPut2));
             VariableData vd0 = VariableDataImpl.of(staticPut2.methodBody().statements().getFirst());
             VariableInfo yy0 = vd0.variableInfo("yy");
-            Links tlvY0 = yy0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvY0 = yy0.linkedVariablesOrEmpty();
             assertEquals("yy<0:c.map.§kvs[-2].§v", tlvY0.toString());
             ParameterInfo x = staticPut2.parameters().get(1);
             VariableInfo x0 = vd0.variableInfo(x);
-            Links tlvX0 = x0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvX0 = x0.linkedVariablesOrEmpty();
             assertEquals("1:x<0:c.map.§kvs[-1].§k", tlvX0.toString());
 
             assertEquals("""
@@ -216,7 +214,7 @@ public class TestMap extends CommonTest {
         Statement s1 = reverse.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo entries = vd1.variableInfo("entries");
-        Links entriesLinks = entries.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links entriesLinks = entries.linkedVariablesOrEmpty();
         assertEquals("entries.§kvs~this.map.§kvs,entries.§m==this.map.§m,entries~this.map",
                 entriesLinks.toString());
         assertEquals("entries, java.util.Set.§kvs#entries, java.util.Set.§m#entries",
@@ -226,14 +224,14 @@ public class TestMap extends CommonTest {
         Statement s2 = reverse.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(s2);
         VariableInfo viEntry2 = vd2.variableInfo("entry");
-        Links entry2Links = viEntry2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links entry2Links = viEntry2.linkedVariablesOrEmpty();
         assertEquals("entry<entries.§kvs,entry<this.map.§kvs", entry2Links.toString());
 
         // map.put(entry.getValue(), entry.getKey());
         Statement s200 = reverse.methodBody().statements().get(2).block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(s200);
         VariableInfo viEntry200 = vd200.variableInfo("entry");
-        Links entry200Links = viEntry200.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links entry200Links = viEntry200.linkedVariablesOrEmpty();
         assertEquals("""
                 entry.§kv.§k<entries.§kvs,\
                 entry.§kv.§k<map.§vks[-2].§k,\
@@ -266,7 +264,7 @@ public class TestMap extends CommonTest {
         Statement s1 = reverse.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo thisMap1 = vd1.variableInfo("a.b.C.map");
-        Links thisMap1Links = thisMap1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links thisMap1Links = thisMap1.linkedVariablesOrEmpty();
         assertEquals("""
                 this.map.§kvs>entry.§kv.§k,this.map.§kvs>entry.§kv.§v,this.map.§kvs~map.§vks[-1].§v,\
                 this.map.§kvs~map.§vks[-2].§k,this.map>entry\
@@ -278,7 +276,7 @@ public class TestMap extends CommonTest {
         Statement s100 = reverse.methodBody().statements().get(1).block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(s100);
         VariableInfo viEntry100 = vd100.variableInfo("entry");
-        Links entry100Links = viEntry100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links entry100Links = viEntry100.linkedVariablesOrEmpty();
         assertEquals("""
                 entry.§kv.§k<map.§vks[-2].§k,entry.§kv.§k<this.map.§kvs,\
                 entry.§kv.§v<map.§vks[-1].§v,entry.§kv.§v<this.map.§kvs,entry<this.map\
@@ -290,7 +288,7 @@ public class TestMap extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(staticReverse.methodBody().statements().getFirst());
         VariableInfo r0 = vd0.variableInfo("r");
-        Links tlvR0 = r0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvR0 = r0.linkedVariablesOrEmpty();
         // Not as correct as could be
         assertEquals("""
                 r.§vks[-1].§v~0:c.map,r.§vks[-1].§v~0:c.map.§kvs,r.§vks[-2].§k~0:c.map,r.§vks[-2].§k~0:c.map.§kvs\

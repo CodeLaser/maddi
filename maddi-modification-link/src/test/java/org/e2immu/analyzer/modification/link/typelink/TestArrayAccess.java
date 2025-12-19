@@ -2,23 +2,23 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Disabled
@@ -54,7 +54,7 @@ public class TestArrayAccess extends CommonTest {
         Statement assign = forStmt.block().statements().getFirst();
         VariableData vd1 = VariableDataImpl.of(assign);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
-        Links tlvT1 = t1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = t1.linkedVariablesOrEmpty();
         assertEquals("array(*:0);array[i](*:*)", tlvT1.toString());
         assertEquals("array(*[Type param T]:0[Type param T[]]);array[i](*[Type param T]:*[Type param T])",
                 tlvT1.toString());
@@ -62,7 +62,7 @@ public class TestArrayAccess extends CommonTest {
         Statement append = forStmt.block().statements().getLast();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
-        Links tlvT100 = t100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT100 = t100.linkedVariablesOrEmpty();
         assertEquals("array(*:0);array[i](*:*);obj(*:*)", tlvT100.toString());
     }
 
@@ -97,13 +97,13 @@ public class TestArrayAccess extends CommonTest {
         Statement assign = forStmt.block().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(assign);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
-        Links tlvT1 = t1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = t1.linkedVariablesOrEmpty();
         assertEquals("array(*:0);array[i](*:*)", tlvT1.toString());
 
         Statement append = forStmt.block().statements().getLast();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
-        Links tlvT100 = t100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT100 = t100.linkedVariablesOrEmpty();
         assertEquals("array(*:0);array[i](*:*);obj(*:*)", tlvT100.toString());
     }
 
@@ -142,17 +142,18 @@ public class TestArrayAccess extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(assign);
         assertEquals("ii, ii[j], j", vd1.knownVariableNamesToString());
         VariableInfo t1 = vd1.variableInfoContainerOrNull("ii[j]").best(Stage.EVALUATION);
-        Links tlv = t1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlv = t1.linkedVariablesOrEmpty();
         assertEquals("ii(*:0)", tlv.toString());
 
         Statement callMc2 = method.methodBody().statements().getLast();
         VariableData vd2 = VariableDataImpl.of(callMc2);
         VariableInfo ii3 = vd2.variableInfoContainerOrNull("ii[3]").best(Stage.EVALUATION);
-        Links tlvII3 = ii3.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvII3 = ii3.linkedVariablesOrEmpty();
         assertEquals("ii(*:0)", tlvII3.toString());
 
         MethodCall mc2 = (MethodCall) callMc2.expression();
-        Links tlvMc = mc2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Value.VariableBooleanMap tlvMc = mc2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT,
+                ValueImpl.VariableBooleanMapImpl.class);
         assertEquals("ii(*:0);ii[3](*:*)", tlvMc.toString());
         assertEquals("ii(*[Type a.b.X.II]:0[Type a.b.X.II[]]);ii[3](*[Type a.b.X.II]:*[Type a.b.X.II])",
                 tlvMc.toString());

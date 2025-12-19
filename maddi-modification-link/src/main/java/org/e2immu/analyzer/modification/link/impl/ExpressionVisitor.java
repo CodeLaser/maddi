@@ -1,12 +1,8 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.*;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -19,10 +15,10 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 public record ExpressionVisitor(JavaInspector javaInspector,
@@ -158,7 +154,6 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     }
 
     private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData) {
-        if (ve.variable().parameterizedType().isPrimitiveStringClass()) return EMPTY;
         Variable v = ve.variable();
         LinkedVariables extra = LinkedVariablesImpl.EMPTY;
         while (v instanceof DependentVariable dv) {
@@ -179,7 +174,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         if (ve.variable().parameterizedType().isFunctionalInterface()
             && variableData != null && variableData.isKnown(ve.variable().fullyQualifiedName())) {
             VariableInfo vi = variableData.variableInfo(ve.variable());
-            Links links = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links links = Objects.requireNonNullElse(vi.linkedVariables(), LinksImpl.EMPTY);
             links.forEach(l -> builder.add(l.from(), l.linkNature(), l.to()));
         }
         return new Result(builder.build(), extra);
@@ -229,7 +224,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             } else {
                 mlvTranslated1 = mlv;
             }
-            if(!currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
+            if (!currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
                 ParameterizedType concreteObjectType = objectPrimary.parameterizedType();
                 VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
                 mlvTranslated = mlvTranslated1.translate(vfTm.formalToConcrete());

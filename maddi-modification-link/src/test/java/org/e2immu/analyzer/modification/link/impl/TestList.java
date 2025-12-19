@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.*;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -23,7 +24,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -95,10 +95,10 @@ public class TestList extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
-        Links linksK = k0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("k<1:x.ts,k==1:x.ts[0:index]", linksK.toString());
+        Links linksK = k0.linkedVariablesOrEmpty();
+        assertEquals("k<1:x.ts,k==1:x.ts[0:i]", linksK.toString());
 
-        assertEquals("[-, -] --> method<1:x.ts,method==1:x.ts[0:index]", lvMethod.toString());
+        assertEquals("[-, -] --> method<1:x,method<1:x.ts,method==1:x.ts[0:i]", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
@@ -197,7 +197,7 @@ public class TestList extends CommonTest {
         LocalVariableCreation lvc = (LocalVariableCreation) sub.methodBody().statements().get(1);
         var map = smc.handleLvc(lvc, vd0, new ArrayList<>());
         // note the zs.es~0:in.es: 'currentMethod == java.util.List.subList'
-        assertEquals("a.b.X.sub(java.util.List<Z>):0:in=-, zs=zs.M==0:in.M,zs.es~0:in.es", nice(map));
+        assertEquals("a.b.X.sub(java.util.List<Z>):0:in=-, n=-, zs=zs.M==0:in.M,zs.es~0:in.es", nice(map));
 
         // do the whole method
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
