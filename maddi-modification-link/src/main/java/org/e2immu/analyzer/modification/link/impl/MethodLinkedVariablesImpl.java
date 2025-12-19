@@ -45,7 +45,7 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
 
     @Override
     public String toString() {
-        return ofParameters + " --> " + ofReturnValue;
+        return ofParameters + " --> " + (ofReturnValue == null ? "-" : ofReturnValue.toString());
     }
 
     @Override
