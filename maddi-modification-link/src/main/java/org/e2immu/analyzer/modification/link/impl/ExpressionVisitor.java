@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -200,7 +201,20 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
 
         VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
-        MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+        MethodLinkedVariables mlvTranslated1 = mlv.translate(vfTm.formalToConcrete());
+
+        MethodLinkedVariables mlvTranslated;
+        if (!cc.parameterExpressions().isEmpty() && cc.constructor() != null) {
+            TranslationMap.Builder builder = javaInspector.runtime().newTranslationMapBuilder();
+            for (ParameterInfo pi : cc.constructor().parameters()) {
+                if (!pi.isVarArgs() || cc.constructor().parameters().size() >= pi.index()) {
+                    builder.addVariableExpression(pi, cc.parameterExpressions().get(pi.index()));
+                }
+            }
+            mlvTranslated = mlvTranslated1.translate(builder.build());
+        } else {
+            mlvTranslated = mlvTranslated1;
+        }
 
         List<Result> params = cc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
@@ -211,7 +225,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData);
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
 
-        MethodLinkedVariables mlvTranslated;
+        MethodLinkedVariables mlvTranslated2;
         Variable objectPrimary = object.links.primary();
         if (objectPrimary != null) {
             This thisVar = javaInspector.runtime().newThis(mc.methodInfo().typeInfo().asParameterizedType());
@@ -227,13 +241,25 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             if (!currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
                 ParameterizedType concreteObjectType = objectPrimary.parameterizedType();
                 VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
-                mlvTranslated = mlvTranslated1.translate(vfTm.formalToConcrete());
+                mlvTranslated2 = mlvTranslated1.translate(vfTm.formalToConcrete());
             } else {
-                mlvTranslated = mlvTranslated1;
+                mlvTranslated2 = mlvTranslated1;
             }
         } else {
             // static method, without object
-            mlvTranslated = mlv;
+            mlvTranslated2 = mlv;
+        }
+        MethodLinkedVariables mlvTranslated;
+        if (!mc.parameterExpressions().isEmpty()) {
+            TranslationMap.Builder builder = javaInspector.runtime().newTranslationMapBuilder();
+            for (ParameterInfo pi : mc.methodInfo().parameters()) {
+                if (!pi.isVarArgs() || mc.methodInfo().parameters().size() >= pi.index()) {
+                    builder.addVariableExpression(pi, mc.parameterExpressions().get(pi.index()));
+                }
+            }
+            mlvTranslated = mlvTranslated2.translate(builder.build());
+        } else {
+            mlvTranslated = mlvTranslated2;
         }
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)

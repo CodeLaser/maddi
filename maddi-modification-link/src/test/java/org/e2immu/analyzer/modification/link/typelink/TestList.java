@@ -129,23 +129,23 @@ public class TestList extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo prev1 = vd1.variableInfo("prev");
         Links tlvPrev1 = prev1.linkedVariablesOrEmpty();
-        assertEquals("prev<1:x,prev<1:x.ts,prev==1:x.ts[0:i]", tlvPrev1.toString());
+        assertEquals("prev<1:x,prev<1:x.ts,prev==1:x.ts[0:i],prev==2:k", tlvPrev1.toString());
 
 
         ParameterInfo k = method.parameters().get(2);
         VariableInfo k1 = vd1.variableInfo(k);
         Links tlvK1 = k1.linkedVariablesOrEmpty();
-        assertEquals("2:k<1:x.ts,2:k==1:x.ts[0:index]", tlvK1.toString());
+        assertEquals("2:k<1:x,2:k<1:x.ts,2:k==1:x.ts[0:i],2:k==prev", tlvK1.toString());
 
         ParameterInfo x = method.parameters().get(1);
         VariableInfo x1 = vd1.variableInfo(x);
         Links tlvX1 = x1.linkedVariablesOrEmpty();
-        assertEquals("1:x.ts>2:k,1:x.ts>prev,1:x.ts[0:i]==prev,1:x.ts[0:index]==2:k", tlvX1.toString());
+        assertEquals("1:x.ts>2:k,1:x.ts>prev,1:x.ts[0:i]==2:k,1:x.ts[0:i]==prev", tlvX1.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, 1:x.ts>2:k,1:x.ts[0:index]==2:k, 2:k<1:x.ts,2:k==1:x.ts[0:index]] -->\
-                 method<1:x,method<1:x.ts,method==1:x.ts[0:i]\
+                [-, 1:x.ts>2:k,1:x.ts[0:i]==2:k, 2:k<1:x,2:k<1:x.ts,2:k==1:x.ts[0:i]] --> \
+                method<1:x,method<1:x.ts,method==1:x.ts[0:i],method==2:k\
                 """, tlvMethod.toString());
     }
 
