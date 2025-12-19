@@ -1,13 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -22,8 +18,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 
 public record Expand(Runtime runtime) {
     private static final Logger LOGGER = LoggerFactory.getLogger(Expand.class);
@@ -313,7 +307,7 @@ public record Expand(Runtime runtime) {
         } else {
             linkedVariables = new HashMap<>(lvIn);
             previousVd.variableInfoStream().forEach(vi -> {
-                Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
+                Links vLinks = vi.linkedVariables();
                 if (vLinks != null) {
                     linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
                 }
@@ -338,7 +332,7 @@ public record Expand(Runtime runtime) {
 
         Map<Variable, Links> linkedVariables = new HashMap<>();
         vd.variableInfoStream().forEach(vi -> {
-            Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
+            Links vLinks = vi.linkedVariables();
             if (vLinks != null) {
                 linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
             }
@@ -375,7 +369,7 @@ public record Expand(Runtime runtime) {
         Map<Variable, Links> linkedVariables = new HashMap<>(extra.map());
         linkedVariables.merge(links.primary(), links, Links::merge);
         vd.variableInfoStream().forEach(vi -> {
-            Links vLinks = vi.analysis().getOrNull(LINKS, LinksImpl.class);
+            Links vLinks = vi.linkedVariables();
             if (vLinks != null) {
                 linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
             }

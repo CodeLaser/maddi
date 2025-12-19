@@ -5,7 +5,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
@@ -23,7 +22,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Iterator;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -62,13 +60,13 @@ public class TestForEach extends CommonTest {
         Statement forEach = method.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(forEach);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
-        Links tlvT1 = t1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = t1.linkedVariablesOrEmpty();
         assertEquals("t<0:list.§ts", tlvT1.toString());
 
         Statement append = forEach.block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
-        Links tlvT100 = t100.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT100 = t100.linkedVariablesOrEmpty();
         assertEquals("t<0:list.§ts", tlvT100.toString());
     }
 
@@ -104,19 +102,19 @@ public class TestForEach extends CommonTest {
         Statement add = method.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(add);
         VariableInfo iis1 = vd1.variableInfoContainerOrNull("iis").best();
-        Links tlvT1 = iis1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = iis1.linkedVariablesOrEmpty();
         assertEquals("-", tlvT1.toString());
 
         Statement forEach = method.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(forEach);
         VariableInfo ii2 = vd2.variableInfoContainerOrNull("ii").best(Stage.EVALUATION);
-        Links tlvT2E = ii2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT2E = ii2.linkedVariablesOrEmpty();
         assertEquals("ii<iis.§$s", tlvT2E.toString());
 
         Statement call2 = forEach.block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(call2);
         VariableInfo ii200 = vd200.variableInfo("ii");
-        Links tlvII200 = ii200.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvII200 = ii200.linkedVariablesOrEmpty();
         assertEquals("ii<iis.§$s", tlvII200.toString(), "Should have been inherited from previous");
         MethodCall methodCall = (MethodCall) call2.expression();
 

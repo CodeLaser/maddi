@@ -5,7 +5,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
@@ -29,7 +28,6 @@ import java.util.AbstractMap;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT;
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -76,17 +74,17 @@ public class TestStream extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
         VariableInfo viStream10 = vd0.variableInfo("stream1");
-        Links lvStream10 = viStream10.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvStream10 = viStream10.linkedVariablesOrEmpty();
         assertEquals("stream1.§xs~0:list.§xs", lvStream10.toString());
 
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
-        Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
-        Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvResult = viResult.linkedVariablesOrEmpty();
         assertEquals("result.§xs~0:list.§xs,result.§xs~stream1.§xs,result.§xs~stream2.§xs", lvResult.toString());
 
         assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
@@ -109,7 +107,7 @@ public class TestStream extends CommonTest {
 
         VariableData vd30 = VariableDataImpl.of(method3.methodBody().statements().getFirst());
         VariableInfo viRes = vd30.variableInfo("res");
-        Links lvRes = viRes.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvRes = viRes.linkedVariablesOrEmpty();
         assertEquals("res.§xs~0:list.§xs", lvRes.toString());
 
         assertEquals("[-] --> method3.§xs~0:list.§xs", mlv3.toString());
@@ -187,17 +185,17 @@ public class TestStream extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
         VariableInfo viStream10 = vd0.variableInfo("stream1");
-        Links lvStream10 = viStream10.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvStream10 = viStream10.linkedVariablesOrEmpty();
         assertEquals("stream1.§xss~0:list.§xss", lvStream10.toString());
 
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
-        Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         assertEquals("stream2.§xs<0:list.§xss,stream2.§xs<stream1.§xss", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
-        Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvResult = viResult.linkedVariablesOrEmpty();
         assertEquals("result.§xs<0:list.§xss,result.§xs<stream1.§xss,result.§xs~stream2.§xs,result<0:list,result<stream1", lvResult.toString());
 
         assertEquals("[-] --> method1.§xs<0:list.§xss,method1<0:list", mlv1.toString());
@@ -207,7 +205,7 @@ public class TestStream extends CommonTest {
 
         VariableData vd30 = VariableDataImpl.of(method3.methodBody().statements().getFirst());
         VariableInfo vi3Stream = vd30.variableInfo("stream");
-        Links lv3Stream = vi3Stream.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lv3Stream = vi3Stream.linkedVariablesOrEmpty();
         assertEquals("stream.§xs<0:list.§xss", lv3Stream.toString());
         assertEquals("[-] --> method3.§xs<0:list.§xss,method3<0:list", mlv3.toString());
 
@@ -257,18 +255,18 @@ public class TestStream extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
         VariableInfo viStream10 = vd0.variableInfo("stream1");
-        Links lvStream10 = viStream10.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvStream10 = viStream10.linkedVariablesOrEmpty();
         assertEquals("stream1.§xs~0:list.§xs", lvStream10.toString());
 
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
-        Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in R is invisible
         assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
-        Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvResult = viResult.linkedVariablesOrEmpty();
         assertEquals("result.§xs~0:list.§xs,result.§xs~stream1.§xs,result.§xs~stream2.§xs", lvResult.toString());
 
         assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
@@ -317,7 +315,7 @@ public class TestStream extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
         VariableInfo viStream10 = vd0.variableInfo("stream1");
-        Links lvStream10 = viStream10.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvStream10 = viStream10.linkedVariablesOrEmpty();
         assertEquals("stream1.§xs~0:list.§xs", lvStream10.toString());
 
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
@@ -327,13 +325,13 @@ public class TestStream extends CommonTest {
         VirtualFields vfStream2 = virtualFieldComputer.compute(viStream21.variable().parameterizedType(), false).virtualFields();
         assertEquals("§m - X[][] §xss", vfStream2.toString());
 
-        Links lvStream21 = viStream21.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in another list is visible!
         assertEquals("stream2.§xss>0:list.§xs,stream2.§xss>stream1.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
-        Links lvResult = viResult.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links lvResult = viResult.linkedVariablesOrEmpty();
         assertEquals("result.§xss>0:list.§xs,result.§xss>stream1.§xs,result.§xss~stream2.§xss", lvResult.toString());
 
         assertEquals("[-] --> method1.§xss>0:list.§xs,method1>0:list", mlv1.toString());
@@ -390,7 +388,7 @@ public class TestStream extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(reverse.methodBody().statements().getFirst());
         VariableInfo viEntries0 = vd0.variableInfo("entries");
-        Links tlvEntries0 = viEntries0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvEntries0 = viEntries0.linkedVariablesOrEmpty();
         assertEquals("entries.§m==0:map.§m,entries.§xys~0:map.§xys,entries~0:map", tlvEntries0.toString());
 
         Statement reverse1 = reverse.methodBody().statements().get(1);
@@ -403,7 +401,7 @@ public class TestStream extends CommonTest {
         assertEquals("a.b.C.reverse(java.util.Map<X,Y>):0:map=false, entries=true, stream1=false",
                 nice(tlvMcReverse1.map()));
 
-        Links tlvStream1 = viStream1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvStream1 = viStream1.linkedVariablesOrEmpty();
         assertEquals("stream1.§xys~0:map.§xys,stream1.§xys~entries.§xys", tlvStream1.toString());
 
         TypeInfo stream = javaInspector.compiledTypesManager().get(Stream.class);
@@ -414,7 +412,7 @@ public class TestStream extends CommonTest {
         Statement reverse2 = reverse.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(reverse2);
         VariableInfo viStream2 = vd2.variableInfo("stream2");
-        Links tlvStream2 = viStream2.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvStream2 = viStream2.linkedVariablesOrEmpty();
         assertEquals("""
                 the result of "upscaling"
                 

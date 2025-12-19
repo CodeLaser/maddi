@@ -5,7 +5,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import java.util.AbstractMap;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -71,12 +69,12 @@ public class TestPrefix extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(one.methodBody().statements().getFirst());
         VariableInfo viEntry = vd0.variableInfo("entry");
-        Links tlvEntry = viEntry.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvEntry = viEntry.linkedVariablesOrEmpty();
         assertEquals("entry.§xy.§x==0:x,entry.§xy.§y==1:y", tlvEntry.toString());
 
         VariableData vd1 = VariableDataImpl.of(one.methodBody().statements().get(1));
         VariableInfo viStream1 = vd1.variableInfo("stream1");
-        Links tlvStream1 = viStream1.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvStream1 = viStream1.linkedVariablesOrEmpty();
         assertEquals("stream1.§ts>0:x,stream1.§ts>1:y,stream1.§ts>entry.§xy.§x,stream1.§ts>entry.§xy.§y,stream1>entry", tlvStream1.toString());
 
         MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);

@@ -6,7 +6,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -21,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -75,7 +73,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
-        Links tlvEntry = viEntry0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         assertEquals("""
                 ix(*[Type param X]:*[Type param X]);x(*[Type param X]:0[Type java.util.function.BiFunction<X,Y,X>])\
                 """, tlvEntry.toString());
@@ -134,7 +132,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
-        Links tlvEntry = viEntry0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         assertEquals("""
                 ix(*[Type param X]:*[Type param X]);\
                 x([0]0[Type java.util.List<java.util.Set<X>>]:0[Type java.util.function.BiFunction<X,Y,java.util.List<java.util.Set<X>>>])\
@@ -193,7 +191,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
-        Links tlvEntry = viEntry0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         assertEquals("""
                 ix(*[Type param X]:*[Type param X]);\
                 iy(*[Type param Y]:*[Type param Y]);\
@@ -255,7 +253,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
-        Links tlvEntry = viEntry0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         assertEquals("""
                 ix(*[Type param X]:*[Type param X]);\
                 iy(*[Type param Y]:*[Type param Y]);\
@@ -326,7 +324,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
-        Links tlvEntry = viEntry0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         assertEquals("""
                 ix(*[Type param X]:*[Type param X]);\
                 iys(*[Type java.util.List<Y>]:*[Type java.util.List<Y>]);\
@@ -389,7 +387,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
-        Links tlvEntry = viEntry0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         assertEquals("""
                 ix(*[Type param X]:*[Type param X]);\
                 iy(0[Type java.util.List<Y>]:0[Type java.util.List<Y>]);\

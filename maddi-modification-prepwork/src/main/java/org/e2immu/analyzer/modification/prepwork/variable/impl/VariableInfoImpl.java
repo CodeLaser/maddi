@@ -14,7 +14,10 @@
 
 package org.e2immu.analyzer.modification.prepwork.variable.impl;
 
-import org.e2immu.analyzer.modification.prepwork.variable.*;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
 import org.e2immu.language.cst.api.variable.LocalVariable;
@@ -59,7 +62,7 @@ public class VariableInfoImpl implements VariableInfo {
 
     public boolean setLinkedVariables(Links linkedVariables) {
         assert linkedVariables != null;
-        if (this.linkedVariables.isNotYetSet() || this.linkedVariables.isDelayed()) {
+        if (this.linkedVariables == null || this.linkedVariables.isNotYetSet() || this.linkedVariables.isDelayed()) {
             this.linkedVariables = linkedVariables;
             return true;
         }
@@ -84,6 +87,11 @@ public class VariableInfoImpl implements VariableInfo {
     @Override
     public Links linkedVariables() {
         return linkedVariables;
+    }
+
+    @Override
+    public Links linkedVariablesOrEmpty() {
+        return linkedVariables == null ? LinksImpl.EMPTY : linkedVariables;
     }
 
     @Override

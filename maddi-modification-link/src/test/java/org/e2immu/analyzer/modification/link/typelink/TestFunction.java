@@ -5,7 +5,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -59,7 +57,7 @@ public class TestFunction extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("optX");
-        Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("""
                 optional(0[Type java.util.Optional<X>]:[0]0[Type java.util.Optional<java.util.List<X>>])\
                 """, tlvX.toString());
@@ -92,7 +90,7 @@ public class TestFunction extends CommonTest {
         // IMPORTANT: just as in TestSupplier,2, the Map.Entry<X,Y> is seen as a single type
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("optXY");
-        Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("""
                 optional(0[Type java.util.Optional<java.util.Map.Entry<X,Y>>]:\
                 [0]0[Type java.util.Optional<java.util.List<java.util.Map.Entry<X,Y>>>])\

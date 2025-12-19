@@ -6,7 +6,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -24,7 +23,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT;
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -65,14 +63,14 @@ public class TestStreamBasics extends CommonTest {
                 Statement statement = method.methodBody().statements().getFirst();
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("stream.§xs~0:in.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream1");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("stream1.§xs~0:in.§xs,stream1.§xs~stream.§xs", tlv.toString());
             }
 
@@ -123,14 +121,14 @@ public class TestStreamBasics extends CommonTest {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("optional");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("optional.§x<0:in.§xs,optional.§x<stream.§xs,optional.§x<stream1.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("x");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("x<0:in.§xs,x<stream.§xs,x<stream1.§xs,x==optional.§x", tlv.toString());
             }
             {
@@ -183,21 +181,21 @@ public class TestStreamBasics extends CommonTest {
                 Statement statement = method.methodBody().statements().getFirst();
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("stream.§xs~0:in.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("sorted.§xs~0:in.§xs,sorted.§xs~stream.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("list");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("list.§xs~0:in.§xs,list.§xs~sorted.§xs,list.§xs~stream.§xs", tlv.toString());
             }
 
@@ -244,14 +242,14 @@ public class TestStreamBasics extends CommonTest {
                 Statement statement = method.methodBody().statements().getFirst();
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("stream.§$s~0:in.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("stream.§$s~0:in.§$s", tlv.toString());
 
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
@@ -314,21 +312,21 @@ public class TestStreamBasics extends CommonTest {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("sorted.§$s~0:in.§$s,sorted.§$s~stream.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("sorted.§$s~0:in.§$s,sorted.§$s~array.§as,sorted.§$s~stream.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("array");
-                Links tlv = vi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+                Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("array.§as~0:in.§$s,array.§as~sorted.§$s,array.§as~stream.§$s", tlv.toString());
             }
             // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $

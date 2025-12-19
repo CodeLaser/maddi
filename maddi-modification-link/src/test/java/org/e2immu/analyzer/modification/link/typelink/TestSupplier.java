@@ -5,7 +5,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -18,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -58,7 +56,7 @@ public class TestSupplier extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
-        Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x==0:optional.§x,x==1:alternative", tlvX.toString());
 
         assertEquals("""
@@ -100,7 +98,7 @@ public class TestSupplier extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
-        Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x==0:optional.§x,x==this.alternative", tlvX.toString());
 
         assertEquals("[0:optional.§x==this.alternative] --> method==0:optional.§x,method==this.alternative",
@@ -136,7 +134,7 @@ public class TestSupplier extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
-        Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x==0:optional.§x,x==1:c.alternative", tlvX.toString());
     }
 
@@ -184,7 +182,7 @@ public class TestSupplier extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
-        Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x==0:optional.§x,x==1:c.alternative", tlvX.toString());
 
         assertEquals("""
@@ -226,12 +224,12 @@ public class TestSupplier extends CommonTest {
 
             VariableData vd0 = VariableDataImpl.of(method2.methodBody().statements().getFirst());
             VariableInfo viLambda = vd0.variableInfo("lambda");
-            Links lvLambda = viLambda.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links lvLambda = viLambda.linkedVariablesOrEmpty();
             assertEquals("lambda.§xy.§x==1:altX,lambda.§xy.§y==2:altY", lvLambda.toString());
 
             VariableData vd1 = VariableDataImpl.of(method2.methodBody().statements().get(1));
             VariableInfo viEntry = vd1.variableInfo("entry");
-            Links lvEntry = viEntry.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links lvEntry = viEntry.linkedVariablesOrEmpty();
             assertEquals("entry==0:optional.§xy,entry=...", lvEntry.toString());
         }
         {
@@ -240,7 +238,7 @@ public class TestSupplier extends CommonTest {
 
             VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
             VariableInfo viX0 = vd0.variableInfo("entry");
-            Links tlvX = viX0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+            Links tlvX = viX0.linkedVariablesOrEmpty();
 
             // we care more about correctness of the RHS than of that of the LHS
             // but the LHS should not be "wrong".

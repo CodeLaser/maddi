@@ -6,7 +6,6 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
@@ -22,7 +21,6 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -62,7 +60,7 @@ public class TestForEachMethodReference extends CommonTest {
 
         VariableData vdAdd0 = VariableDataImpl.of(add.methodBody().statements().getFirst());
         VariableInfo set0 = vdAdd0.variableInfoContainerOrNull("a.b.X.set").best(Stage.EVALUATION);
-        Links tlvSet0 = set0.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvSet0 = set0.linkedVariablesOrEmpty();
         assertEquals("ii(*[Type a.b.X.II]:0[Type java.util.Set<a.b.X.II>])", tlvSet0.toString());
         MethodLinkedVariables mtlNext = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[#0:e(*[Type a.b.X.II]:*[Type a.b.X.II]);set(*[Type a.b.X.II]:0[Type java.util.Set<a.b.X.II>])]",
@@ -74,7 +72,7 @@ public class TestForEachMethodReference extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
 
         // NOTE: any parameter "e" that shows up: java.util.Set.add(E):0:e
         assertEquals("e(0:*);ii(0:*);set(0:0)", tlvT1.toString());
@@ -117,7 +115,7 @@ public class TestForEachMethodReference extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("set(0:0)", tlvT1.toString());
         assertEquals("""
                 set(0[Type java.util.List<a.b.X.II>]:0[Type java.util.Set<a.b.X.II>])\
@@ -161,7 +159,7 @@ public class TestForEachMethodReference extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("e(0:*);ii(0:*);set(0:0)", tlvT1.toString());
         assertEquals("""
                 e(0[Type java.util.List<a.b.X.II>]:*[Type a.b.X.II]);\
@@ -210,7 +208,7 @@ public class TestForEachMethodReference extends CommonTest {
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
-        Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
+        Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("ii(0:*)", tlvT1.toString());
         assertEquals("ii(0[Type java.util.List<a.b.X.II>]:*[Type a.b.X.II])", tlvT1.toString());
     }

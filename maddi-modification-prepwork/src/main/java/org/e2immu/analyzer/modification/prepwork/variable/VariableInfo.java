@@ -35,6 +35,8 @@ public interface VariableInfo {
         return variableInfoInClosure() != null;
     }
 
+    Links linkedVariablesOrEmpty();
+
     VariableData variableInfoInClosure();
 
     Reads reads();
