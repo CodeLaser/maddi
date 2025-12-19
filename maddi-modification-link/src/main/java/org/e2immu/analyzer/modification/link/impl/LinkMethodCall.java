@@ -49,11 +49,13 @@ public record LinkMethodCall(Runtime runtime,
         int i = 0;
         for (ExpressionVisitor.Result r : params) {
             ParameterInfo pi = formalParameters.get(Math.min(formalParameters.size() - 1, i));
-            if (r.links() != null && r.links().primary() != null && !pi.parameterizedType().isFunctionalInterface()) {
-                extra.merge(r.links().primary(), r.links(), Links::merge);
+            if (!pi.parameterizedType().isFunctionalInterface()) {
+                if (r.links() != null && r.links().primary() != null) {
+                    extra.merge(r.links().primary(), r.links(), Links::merge);
+                }
+                r.extra().forEach(e ->
+                        extra.merge(e.getKey(), e.getValue(), Links::merge));
             }
-            r.extra().forEach(e ->
-                    extra.merge(e.getKey(), e.getValue(), Links::merge));
             ++i;
         }
     }
@@ -245,16 +247,41 @@ public record LinkMethodCall(Runtime runtime,
         TranslationMap tm = tmBuilder.build();
         for (Links links : mlv.ofParameters()) {
             ParameterInfo pi = methodInfo.parameters().get(i);
-            Links piLinks = params.get(i).links();
-            if(piLinks != null) {
+            ExpressionVisitor.Result r = params.get(i);
+            Links piLinks = r.links();
+            if (piLinks != null) {
                 Variable paramPrimary = piLinks.primary();
-                TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
-                if (!links.isEmpty()) {
-                    for (Link link : links) {
-                        Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
-                        Variable translatedTo = tm.translateVariableRecursively(link.to());
-                        builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                if (paramPrimary != null && !paramPrimary.parameterizedType().isFunctionalInterface()) {
+                    TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
+                    if (!links.isEmpty()) {
+                        for (Link link : links) {
+                            Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
+                            Variable translatedTo = tm.translateVariableRecursively(link.to());
+                            builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                        }
                     }
+                }
+            }
+            if (pi.parameterizedType().isFunctionalInterface() && !r.extra().isEmpty()) {
+                // pi is a consumer, the link information is in the extras
+
+                // link from the method call object (list) into this (not into the parameter, not the return value)
+                // returnPrimary ~ this
+                // fromTranslated ~ upscale this
+                //
+                IntFunction<Links> paramProvider = index -> r.extra().map().entrySet().stream()
+                        .filter(e -> e.getKey() instanceof ParameterInfo param && param.index() == index)
+                        .map(Map.Entry::getValue)
+                        .findFirst().orElse(null);
+                for (Link link : links) {
+                    List<LinkFunctionalInterface.Triplet> toAdd =
+                            new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).
+                                    go(pi, link.from(),
+                                            LinkNature.INTERSECTION_NOT_EMPTY,
+                                            builder.primary(),
+                                            paramProvider,
+                                            objectPrimary);
+                    toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
                 }
             }
             ++i;

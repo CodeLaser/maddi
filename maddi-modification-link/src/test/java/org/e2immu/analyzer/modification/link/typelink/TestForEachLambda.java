@@ -111,12 +111,7 @@ public class TestForEachLambda extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("e(0:*);j(0:*);set(0:0)", tlvT1.toString());
-        assertEquals("""
-                e(0[Type java.util.List<a.b.X.II>]:*[Type a.b.X.II]);\
-                j(0[Type java.util.List<a.b.X.II>]:*[Type a.b.X.II]);\
-                set(0[Type java.util.List<a.b.X.II>]:0[Type java.util.Set<a.b.X.II>])\
-                """, tlvT1.toString());
+        assertEquals("0:list.§$s~this.set.§$s", tlvT1.toString());
     }
 
 

@@ -98,6 +98,30 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     }
                     ofParameters.add(piBuilder.build());
                     break;
+                } else if (inputHasTypeParameters && !outputHasTypeParameters && !forceIntoReturn) {
+                    // Consumer<T>
+                    Set<TypeParameter> sourceVariableTps = pi.parameterizedType().parameters().stream()
+                            .flatMap(param -> collectTypeParametersFromVirtualField(param).stream())
+                            .collect(Collectors.toUnmodifiableSet());
+                    if (sourceVariableTps.equals(hcThisTps)) {
+                        // from parameter into object
+                        assert hcThis != null;
+                        FieldInfo paramVf;
+                        if (sourceVariableTps.size() == 1) {
+                            ParameterizedType p0 = pi.parameterizedType().parameters().getFirst();
+                            assert p0.typeParameter() != null : "NYI";
+                            TypeParameter tp0 = sourceVariableTps.stream().findFirst().orElseThrow();
+                            int dim = 1 + p0.arrays();
+                            paramVf = virtualFieldComputer.newField(tp0.simpleName().toLowerCase() + "s".repeat(dim), p0.copyWithArrays(dim), typeInfo);
+                        } else {
+                            throw new UnsupportedOperationException("make container type");
+                        }
+                        Links.Builder thisBuilder = new LinksImpl.Builder(runtime.newThis(typeInfo.asParameterizedType()));
+                        transfer(thisBuilder, hcThis.type(), pi.parameterizedType(), pi, independent.isDependent(),
+                                vfThis.mutable(), hcThisTps, false);
+                        ofParameters.add(thisBuilder.build());
+                    }
+                    break;
                 } //else TODO
             }
             if (linkLevelRv == 1) {
