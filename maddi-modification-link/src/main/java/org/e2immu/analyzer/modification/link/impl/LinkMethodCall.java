@@ -91,7 +91,7 @@ public record LinkMethodCall(Runtime runtime,
         int i = 0;
         assert mlv.ofParameters().size() == methodInfo.parameters().size();
         for (Links links : mlv.ofParameters()) {
-            if (!links.isEmpty()) {
+            if (links != null && !links.isEmpty()) {
                 for (Link link : links) {
                     ParameterInfo to = Util.parameterPrimary(link.to());
                     Variable toPrimary = params.get(to.index()).links().primary();
