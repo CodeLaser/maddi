@@ -124,7 +124,9 @@ public record Expand(Runtime runtime) {
         if (sub.v instanceof FieldReference fr && base.v.equals(fr.scopeVariable())) {
             return new V(runtime.newFieldReference(fr.fieldInfo(), runtime.newVariableExpression(target.v), fr.fieldInfo().type()));
         }
-        throw new UnsupportedOperationException("More complex subbing, to be implemented");
+        TranslationMap tm = runtime.newTranslationMapBuilder().put(base.v, target.v).build();
+        Variable newSub = tm.translateVariableRecursively(sub.v);
+        return new V(newSub);
     }
 
     private record GraphData(Map<V, Map<V, LinkNature>> graph,

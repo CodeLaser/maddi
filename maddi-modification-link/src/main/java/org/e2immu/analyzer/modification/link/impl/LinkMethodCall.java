@@ -1,8 +1,8 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -227,12 +227,10 @@ public record LinkMethodCall(Runtime runtime,
                         new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).go(pi, fromTranslated,
                                 linkNature, builder.primary(), paramProvider, objectPrimary);
                 toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
-            } else {
-                throw new UnsupportedOperationException("? expect link to point to parameter");
+                return;
             }
-        } else {
-            builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
         }
+        builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
     }
 
     private @NotNull Links parametersToObject(MethodInfo methodInfo,

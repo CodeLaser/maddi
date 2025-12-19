@@ -1,11 +1,11 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
+import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -26,9 +26,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.e2immu.analyzer.modification.prepwork.variable.LinkNature.*;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
+import static org.e2immu.analyzer.modification.prepwork.variable.LinkNature.*;
 
 public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer virtualFieldComputer) {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShallowMethodLinkComputer.class);
@@ -356,7 +356,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         FieldReference mSource = runtime.newFieldReference(subMutable);
                         builder.add(mTarget, IS_IDENTICAL_TO, mSource);
                     } else {
-                        throw new UnsupportedOperationException("?");
+                        throw new UnsupportedOperationException("Expected VF " + vfFromType + " of " +
+                                                                fromType + " to have a 'mutable' field");
                     }
                 }
             }

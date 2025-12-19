@@ -12,7 +12,7 @@ import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import java.util.List;
 
 public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
-    final static MethodLinkedVariables EMPTY = new MethodLinkedVariablesImpl(LinksImpl.EMPTY, List.of());
+    public final static MethodLinkedVariables EMPTY = new MethodLinkedVariablesImpl(LinksImpl.EMPTY, List.of());
     public static final Property METHOD_LINKS = new PropertyImpl("methodLinks", EMPTY);
 
 
