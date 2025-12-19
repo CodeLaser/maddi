@@ -5,8 +5,10 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 
+import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 /*
 Links from one variable (primary) and its constituent parts ("fields") to other variables.
@@ -20,6 +22,8 @@ public interface Links extends Iterable<Link>, Value {
     boolean isEmpty();
 
     Set<Link> linkSet();
+
+    Stream<Link> stream();
 
     Links merge(Links links);
 
@@ -43,4 +47,18 @@ public interface Links extends Iterable<Link>, Value {
     // used by LVC
     Links changePrimaryTo(Runtime runtime, Variable newPrimary);
 
+
+    default boolean isDelayed() {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean isNotYetSet() {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean overwriteAllowed(Links linkedVariables) {
+        throw new UnsupportedOperationException();
+    }
+
+    List<Variable> primaryAssigned();
 }

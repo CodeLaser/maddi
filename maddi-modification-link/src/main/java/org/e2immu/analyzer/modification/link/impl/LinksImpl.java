@@ -47,6 +47,11 @@ public class LinksImpl implements Links {
     }
 
     @Override
+    public Stream<Link> stream() {
+        return linkSet.stream();
+    }
+
+    @Override
     public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
         throw new UnsupportedOperationException();
     }
@@ -204,5 +209,14 @@ public class LinksImpl implements Links {
         if(newPrimary==null) return null;
         return new LinksImpl(newPrimary,
                 linkSet.stream().map(l -> l.translate(translationMap)).collect(Collectors.toUnmodifiableSet()));
+    }
+
+    @Override
+    public List<Variable> primaryAssigned() {
+        return linkSet.stream()
+                .filter(l -> l.linkNature()==LinkNature.IS_IDENTICAL_TO)
+                .map(Link::to)
+                .filter(Util::isPrimary)
+                .toList();
     }
 }

@@ -18,12 +18,12 @@ import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeModIndyAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
-import org.e2immu.analyzer.modification.prepwork.variable.*;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -124,13 +124,11 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             assert lastStatement != null;
             VariableData variableData = VariableDataImpl.of(lastStatement);
             doFluentIdentityAnalysis(methodInfo, variableData, PropertyImpl.IDENTITY_METHOD,
-                    e -> e instanceof VariableExpression ve
-                         && ve.variable() instanceof ParameterInfo pi
+                    v -> v instanceof ParameterInfo pi
                          && pi.methodInfo() == methodInfo
                          && pi.index() == 0);
             doFluentIdentityAnalysis(methodInfo, variableData, PropertyImpl.FLUENT_METHOD,
-                    e -> e instanceof VariableExpression ve
-                         && ve.variable() instanceof This thisVar
+                    v -> v instanceof This thisVar
                          && thisVar.typeInfo() == methodInfo.typeInfo());
             doIndependent(methodInfo, variableData);
 
@@ -145,8 +143,8 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             VariableInfo vi = vic.best();
             Bool unmodified = vi.analysis().getOrDefault(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.FALSE);
             if (vi.linkedVariables() != null && (unmodified == null || unmodified.isTrue())) {
-                for (Map.Entry<Variable, Links> entry : vi.linkedVariables()) {
-                    if (entry.getKey() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                for (Link link : vi.linkedVariables()) {
+                    if (link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
                         Bool unmodifiedField = fr.fieldInfo().analysis().getOrNull(UNMODIFIED_FIELD,
                                 ValueImpl.BoolImpl.class);
                         if (unmodifiedField == null) {
@@ -260,7 +258,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         }
 
         private void doFluentIdentityAnalysis(MethodInfo methodInfo, VariableData lastOfMainBlock,
-                                              Property property, Predicate<Expression> predicate) {
+                                              Property property, Predicate<Variable> predicate) {
             if (!methodInfo.analysis().haveAnalyzedValueFor(property)) {
                 boolean identityFluent;
                 if (lastOfMainBlock == null) {
@@ -269,8 +267,8 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
                     VariableInfoContainer vicRv = lastOfMainBlock.variableInfoContainerOrNull(methodInfo.fullyQualifiedName());
                     if (vicRv != null) {
                         VariableInfo viRv = vicRv.best();
-                        StaticValues svRv = viRv.staticValues();
-                        identityFluent = svRv != null && predicate.test(svRv.expression());
+                        List<Variable> svRv = viRv.linkedVariables().primaryAssigned();
+                        identityFluent = svRv.stream().anyMatch(predicate);
                     } else {
                         identityFluent = false;
                     }
@@ -349,10 +347,13 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             if (viRv.linkedVariables() == null) {
                 return null; // not yet
             }
-            LV worstLinkToFields = viRv.linkedVariables().stream()
-                    .filter(e -> e.getKey() instanceof FieldReference fr && fr.scopeIsRecursivelyThis())
-                    .map(Map.Entry::getValue)
-                    .min(LV::compareTo).orElse(LVImpl.LINK_INDEPENDENT);
+            /* FIXME
+            // what can happen?
+            // no link to a field
+            Link worstLinkToFields = viRv.linkedVariables().stream()
+                    .filter(link -> link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis())
+                    .min(LV::compareTo).orElse(null);
+            if(worstLinkToFields == null) return INDEPENDENT;
             if (worstLinkToFields.isStaticallyAssignedOrAssigned()) {
                 Immutable immField = viRv.linkedVariables().stream()
                         .filter(e -> e.getValue().isStaticallyAssignedOrAssigned())
@@ -362,15 +363,14 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
                         .findFirst().orElseThrow();
                 return immField.toCorrespondingIndependent();
             }
-            if (worstLinkToFields.equals(LVImpl.LINK_INDEPENDENT)) return INDEPENDENT;
             if (worstLinkToFields.isCommonHC()) return INDEPENDENT_HC;
-
+*/
             return DEPENDENT;
         }
 
 
         private void fromNonFinalFieldToParameter(TypeInfo typeInfo) {
-            Map<ParameterInfo, StaticValues> svMapParameters = collectReverseFromNonFinalFieldsToParameters(typeInfo);
+       /*   FIXME   Map<ParameterInfo, StaticValues> svMapParameters = collectReverseFromNonFinalFieldsToParameters(typeInfo);
             svMapParameters.forEach((pi, sv) -> {
                 if (!pi.analysis().haveAnalyzedValueFor(STATIC_VALUES_PARAMETER)) {
                     pi.analysis().set(STATIC_VALUES_PARAMETER, sv);
@@ -404,7 +404,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
                             // FIXME waitFor
                         }
                     });
-            return svMapParameters;
+            return svMapParameters;*/
         }
     }
 }
