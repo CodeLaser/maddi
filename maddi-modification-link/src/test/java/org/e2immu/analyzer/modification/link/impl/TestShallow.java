@@ -118,8 +118,12 @@ public class TestShallow extends CommonTest {
                               && mi.parameters().getFirst().parameterizedType().arrays() == 1)
                 .findFirst().orElseThrow();
         assertEquals("java.util.List.toArray(T[])", toArrayTs.fullyQualifiedName());
-        MethodLinkedVariables mlvToArray = linkComputer.doMethod(toArrayTs);
-        assertEquals("[-] --> toArray.§ts~this.§es", mlvToArray.toString());
+        MethodLinkedVariables mlvToArrayTs = linkComputer.doMethod(toArrayTs);
+        assertEquals("[-] --> toArray.§ts~this.§es", mlvToArrayTs.toString());
+
+        MethodInfo toArray = list.findUniqueMethod("toArray", 0);
+        MethodLinkedVariables mlvToArray = linkComputer.doMethod(toArray);
+        assertEquals("[] --> toArray.§$s~this.§es", mlvToArray.toString());
 
         MethodInfo addAll = list.findUniqueMethod("addAll", 1);
         MethodLinkedVariables mlvAddAll = linkComputer.doMethod(addAll);
@@ -218,6 +222,11 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvValues = linkComputer.doMethod(values);
         assertEquals("[] --> values.§m==this.§m,values.§vs~this.§kvs[-2].§v", mlvValues.toString());
 
+        MethodInfo forEachBi = map.findUniqueMethod("forEach", 1);
+        assertEquals("java.util.Map.forEach(java.util.function.BiConsumer<? super K,? super V>)",
+                forEachBi.fullyQualifiedName());
+        MethodLinkedVariables mlvForEachBi = linkComputer.doMethod(forEachBi);
+        assertEquals("[this.§kvs~Λ0:action] --> -", mlvForEachBi.toString());
     }
 
     @DisplayName("Analyze 'Stream', multiplicity 2, 1 type parameter")

@@ -17,6 +17,8 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -245,12 +247,12 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo add = X.findUniqueMethod("put", 2);
         tlc.doPrimaryType(X);
         MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:ii<this.map.§$$s[-2].§$] --> null", mtlAdd.toString());
+        assertEquals("[-, 1:ii<this.map.§$$s[-2].§$] --> -", mtlAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("put2", 2);
         MethodLinkedVariables add2Mtl = add2.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:ii<this.map.§$$s[-2].§$] --> null", add2Mtl.toString());
+        assertEquals("[-, 1:ii<this.map.§$$s[-2].§$] --> -", add2Mtl.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
 
@@ -286,7 +288,10 @@ public class TestForEachLambda extends CommonTest {
                  void put2(H h, II ii) {
                      put(h, ii);
                  }
-                 void method(Map<H, II> map) {
+                 static void method(Map<H, II> map) {
+                    map.forEach((p0, p1) -> put(p0, p1));
+                 }
+                 void method2(Map<H, II> map) {
                     map.forEach((p0, p1) -> put(p0, p1));
                  }
             }
@@ -297,46 +302,30 @@ public class TestForEachLambda extends CommonTest {
     public void test8() {
         TypeInfo X = javaInspector.parse(INPUT8);
 
+        final String LINKS_PUT = "[0:h<this.map.§$$s[-1].§$, 1:ii<this.map.§$$s[-2].§$] --> -";
+
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
         MethodInfo add = X.findUniqueMethod("put", 2);
         MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                [#0:k(*[Type a.b.X.H]:*[Type a.b.X.H]);map(*[Type a.b.X.H]:0[Type java.util.Map<a.b.X.H,a.b.X.II>]), \
-                #1:map(*[Type a.b.X.II]:1[Type java.util.Map<a.b.X.H,a.b.X.II>]);v(*[Type a.b.X.II]:*[Type a.b.X.II])]\
-                """, mtlAdd.toString());
+        assertEquals(LINKS_PUT, mtlAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("put2", 2);
         MethodLinkedVariables add2Mtl = add2.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                [#0:h(*[Type a.b.X.H]:*[Type a.b.X.H]);k(*[Type a.b.X.H]:*[Type a.b.X.H]);\
-                map(*[Type a.b.X.H]:0[Type java.util.Map<a.b.X.H,a.b.X.II>]), \
-                #1:ii(*[Type a.b.X.II]:*[Type a.b.X.II]);\
-                map(*[Type a.b.X.II]:1[Type java.util.Map<a.b.X.H,a.b.X.II>]);\
-                v(*[Type a.b.X.II]:*[Type a.b.X.II])]\
-                """, add2Mtl.toString());
+        assertEquals(LINKS_PUT, add2Mtl.toString());
+
+        final String LINKS_MAP_PUT = "[0:h<this.map.§$$s[-1].§$, 1:ii<this.map.§$$s[-2].§$] --> -";
 
         MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals(LINKS_MAP_PUT, mlvMethod.toString());
 
-        Statement forEach = method.methodBody().statements().getFirst();
-        ParameterInfo map = method.parameters().getFirst();
-        VariableInfo mapVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(map.fullyQualifiedName())
-                .best(Stage.EVALUATION);
-        Links tlvList = mapVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("h(0:*);ii(1:*);k(0:*);map(0:0,1:1);p0(0:*);p1(1:*);v(1:*)", tlvList.toString());
-        assertEquals("""
-                h(0[Type java.util.Map<a.b.X.H,a.b.X.II>]:*[Type a.b.X.H]);\
-                ii(1[Type java.util.Map<a.b.X.H,a.b.X.II>]:*[Type a.b.X.II]);\
-                k(0[Type java.util.Map<a.b.X.H,a.b.X.II>]:*[Type a.b.X.H]);\
-                map(0[Type java.util.Map<a.b.X.H,a.b.X.II>]:0[Type java.util.Map<a.b.X.H,a.b.X.II>],\
-                1[Type java.util.Map<a.b.X.H,a.b.X.II>]:1[Type java.util.Map<a.b.X.H,a.b.X.II>]);\
-                p0(0[Type java.util.Map<a.b.X.H,a.b.X.II>]:*[Type a.b.X.H]);\
-                p1(1[Type java.util.Map<a.b.X.H,a.b.X.II>]:*[Type a.b.X.II]);\
-                v(1[Type java.util.Map<a.b.X.H,a.b.X.II>]:*[Type a.b.X.II])\
-                """, tlvList.toString());
+        MethodInfo method2 = X.findUniqueMethod("method2", 1);
+        MethodLinkedVariables mlvMethod2 = method2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals(LINKS_MAP_PUT, mlvMethod2.toString());
     }
 
 
@@ -367,21 +356,14 @@ public class TestForEachLambda extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(X);
 
-        MethodInfo add = X.findUniqueMethod("put", 2);
-        MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                [0:ii<this.map.§kvs[-1].§k, 1:h<this.map.§kvs[-2].§v] --> null\
-                """, mtlAdd.toString());
+        MethodInfo put = X.findUniqueMethod("put", 2);
+        MethodLinkedVariables mlvPut = put.analysis().getOrCreate(METHOD_LINKS, ()->tlc.doMethod(put));
+        assertEquals("[0:ii<this.map.§$$s[-1].§$, 1:h<this.map.§$$s[-2].§$] --> -", mlvPut.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
-        Statement forEach = method.methodBody().statements().getFirst();
-        ParameterInfo map = method.parameters().getFirst();
-        VariableInfo mapVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(map.fullyQualifiedName())
-                .best(Stage.EVALUATION);
-        Links tlvList = mapVi.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
-        assertEquals("h(0:*);ii(1:*);k(1:*);map(0:1,1:0);p0(0:*);p1(1:*);v(0:*)", tlvList.toString());
+        MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, ()->tlc.doMethod(method));
+        assertEquals("[0:ii<this.map.§$$s[-1].§$, 1:h<this.map.§$$s[-2].§$] --> -", mlvMethod.toString());
     }
 
     @Language("java")
@@ -402,13 +384,25 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("forEach without type parameters")
     @Test
     public void test10() {
-        TypeInfo X = javaInspector.parse(INPUT10);
+        TypeInfo C = javaInspector.parse(INPUT10);
+        TypeInfo II = C.findSubType("II");
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
-        analyzer.doPrimaryType(X);
+        analyzer.doPrimaryType(C);
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("§m - C §0", vfc.compute(C).toString());
+
+        MethodInfo method1 = II.findUniqueMethod("method1", 1);
+        method1.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.INDEPENDENT);
+
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        method.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.INDEPENDENT);
+
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        tlc.doPrimaryType(X);
-        MethodInfo method = X.findUniqueMethod("method", 1);
+        tlc.doPrimaryType(C);
     }
 
 }
