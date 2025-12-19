@@ -41,7 +41,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         MethodInfo sam = pi.parameterizedType().typeInfo().singleAbstractMethod();
         Links links = paramProvider.apply(pi.index());
 
-        if (sam.parameters().isEmpty()) {
+        if (sam.parameters().isEmpty() || sam.noReturnValue()) {
 
             /*
             SUPPLIER: grab the "to" of the primary, if it is present (get==c.alternative in the example of a Supplier)

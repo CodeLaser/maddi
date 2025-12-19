@@ -199,7 +199,9 @@ public class LinksImpl implements Links {
 
     @Override
     public Links translate(TranslationMap translationMap) {
-        return new LinksImpl(translationMap.translateVariableRecursively(primary),
+        Variable newPrimary = translationMap.translateVariableRecursively(primary);
+        if(newPrimary==null) return null;
+        return new LinksImpl(newPrimary,
                 linkSet.stream().map(l -> l.translate(translationMap)).collect(Collectors.toUnmodifiableSet()));
     }
 }

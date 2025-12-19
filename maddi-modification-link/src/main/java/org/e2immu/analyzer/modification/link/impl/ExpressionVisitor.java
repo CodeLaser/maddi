@@ -218,20 +218,24 @@ public record ExpressionVisitor(JavaInspector javaInspector,
 
         MethodLinkedVariables mlvTranslated;
         Variable objectPrimary = object.links.primary();
-        if (currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
+        if (objectPrimary != null) {
             This thisVar = javaInspector.runtime().newThis(mc.methodInfo().typeInfo().asParameterizedType());
+            MethodLinkedVariables mlvTranslated1;
             if (!thisVar.equals(objectPrimary)) {
                 TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
                         .put(thisVar, objectPrimary)
                         .build();
-                mlvTranslated = mlv.translate(tm);
+                mlvTranslated1 = mlv.translate(tm);
             } else {
-                mlvTranslated = mlv;
+                mlvTranslated1 = mlv;
             }
-        } else if (objectPrimary != null) {
-            ParameterizedType concreteObjectType = objectPrimary.parameterizedType();
-            VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
-            mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+            if(!currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
+                ParameterizedType concreteObjectType = objectPrimary.parameterizedType();
+                VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
+                mlvTranslated = mlvTranslated1.translate(vfTm.formalToConcrete());
+            } else {
+                mlvTranslated = mlvTranslated1;
+            }
         } else {
             // static method, without object
             mlvTranslated = mlv;

@@ -181,6 +181,16 @@ public class TestShallow extends CommonTest {
         assertEquals("[-] --> toArray.§ts~this.§es", mlvToArrayFunction.toString());
     }
 
+    @Test
+    public void test3c() {
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        TypeInfo iterable = javaInspector.compiledTypesManager().getOrLoad(Iterable.class);
+
+        MethodInfo forEach = iterable.findUniqueMethod("forEach", 1);
+        MethodLinkedVariables mlvForEach = linkComputer.doMethod(forEach);
+        assertEquals("[this.§ts~Λ0:action] --> -", mlvForEach.toString());
+    }
+
     @DisplayName("Analyze 'Map', multiplicity 2, 2 type parameters")
     @Test
     public void test4() {
@@ -241,7 +251,8 @@ public class TestShallow extends CommonTest {
         MethodInfo filter = stream.findUniqueMethod("filter", 1);
         MethodLinkedVariables mlvFilter = linkComputer.doMethod(filter);
         // there should be no lambda here, the filter cannot produce T elements
-        assertEquals("[-] --> filter.§ts~this.§ts", mlvFilter.toString());
+        // there is a lambda here, because the filter SHOULD not produce T elements (but it technically CAN)
+        assertEquals("[this.§ts~Λ0:predicate] --> filter.§ts~this.§ts", mlvFilter.toString());
 
         MethodInfo toArrayFunction = stream.methodStream()
                 .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
