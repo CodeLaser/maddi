@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.prepwork.variable;
 
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -8,6 +9,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /*
@@ -58,6 +60,10 @@ public interface Links extends Iterable<Link>, Value {
 
     default boolean overwriteAllowed(Links linkedVariables) {
         throw new UnsupportedOperationException();
+    }
+
+    default Set<Variable> toPrimaries() {
+        return linkSet().stream().map(l -> Util.primary(l.to())).collect(Collectors.toUnmodifiableSet());
     }
 
     List<Variable> primaryAssigned();
