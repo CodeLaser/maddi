@@ -12,32 +12,31 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.linkedvariables.lv;
+package org.e2immu.analyzer.modification.analyzer;
 
-import org.e2immu.analyzer.modification.prepwork.variable.Indices;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 
 import java.util.Map;
+import java.util.Set;
 
+/*
+Phase 3:
 
-public record LinkImpl(Indices to, boolean mutable) implements Link {
-    public Link correctTo(Map<Indices, Indices> correctionMap) {
-        return new LinkImpl(correctionMap.getOrDefault(to, to), mutable);
+Given the modification and linking of methods and fields,
+compute independence of methods, fields, parameters, and primary type,
+and forward the modification of fields to the parameters linked to it.
+ */
+public interface TypeModIndyAnalyzer extends Analyzer {
+
+    interface Output extends Analyzer.Output {
+        boolean resolvedInternalCycles();
+
+        Map<MethodInfo, Set<MethodInfo>> waitForMethodModifications();
+
+        Map<MethodInfo, Set<TypeInfo>> waitForTypeIndependence();
+
     }
 
-    @Override
-    public Link merge(Link l2) {
-        return new LinkImpl(to.merge(l2.to()), mutable || l2.mutable());
-    }
-
-    @Override
-    public Link prefixTheirs(int index) {
-        return new LinkImpl(to.prefix(index), mutable);
-    }
-
-    @Override
-    public String toString() {
-        String toStr = to == null ? "NULL" : to.isAll() ? "*" : to.toString();
-        return "LinkImpl[" + toStr + ",mutable=" + mutable + "]";
-    }
+    Output go(TypeInfo primaryType, Map<MethodInfo, Set<MethodInfo>> methodsWaitFor, boolean cycleBreakingActive);
 }

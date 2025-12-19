@@ -12,51 +12,25 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.modification.prepwork.variable;
+package org.e2immu.analyzer.modification.analyzer.impl;
 
-public interface LV extends Comparable<LV> {
+import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-    LV max(LV other);
+public abstract class CommonAnalyzerImpl {
+    public static final Logger DECIDE = LoggerFactory.getLogger("e2immu.modanalyzer.decide");
+    public static final Logger UNDECIDED = LoggerFactory.getLogger("e2immu.modanalyzer.delay");
 
-    boolean isDone();
+    protected final IteratingAnalyzer.Configuration configuration;
 
-    String minimal();
+    protected CommonAnalyzerImpl(IteratingAnalyzer.Configuration configuration) {
+        this.configuration = configuration;
+    }
 
-    boolean isStaticallyAssignedOrAssigned();
+    protected static String highlight(String content) {
+        return "\033[31;1;4m" + content + "\033[0m";
+    }
 
-    boolean mineIsAll();
-
-    boolean overwriteAllowed(LV newValue);
-
-    boolean propagateModification();
-
-    boolean theirsIsAll();
-
-    boolean theirsContainsAll();
-
-    LV prefixMine(int index);
-
-    LV changeToHc();
-
-    boolean haveLinks();
-
-    boolean isDependent();
-
-    boolean isCommonHC();
-
-    String label();
-
-    boolean isInitialDelay();
-
-    boolean isDelayed();
-
-    Links links();
-
-    LV reverse();
-
-    boolean lt(LV other);
-
-    LV min(LV other);
-
-    int value();
+    protected static final String CYCLE_BREAKING = highlight("cycle breaking");
 }

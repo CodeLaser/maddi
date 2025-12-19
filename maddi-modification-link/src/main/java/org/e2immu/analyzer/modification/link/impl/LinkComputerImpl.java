@@ -1,8 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.*;
-import org.e2immu.analyzer.modification.link.Link;
-import org.e2immu.analyzer.modification.link.Links;
+import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
@@ -277,12 +278,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 VariableInfo viPrimary = vd.variableInfo(primary);
                 Links links = viPrimary.analysis().getOrDefault(LINKS, LinksImpl.EMPTY);
                 for (Link link : links) {
-                    for (Variable v : Util.goUp(link.from())) {
+                    for (Variable v : org.e2immu.analyzer.modification.prepwork.Util.goUp(link.from())) {
                         if (vd.isKnown(v.fullyQualifiedName())) {
                             variablesLinkedToObject.put(v, true);
                         }
                     }
-                    for (Variable v : Util.goUp(link.to())) {
+                    for (Variable v : org.e2immu.analyzer.modification.prepwork.Util.goUp(link.to())) {
                         if (vd.isKnown(v.fullyQualifiedName())) {
                             variablesLinkedToObject.put(v, false);
                         }

@@ -1,8 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Link;
-import org.e2immu.analyzer.modification.link.LinkNature;
-import org.e2immu.analyzer.modification.link.Links;
+import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -114,7 +115,7 @@ public class LinksImpl implements Links {
 
         @Override
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
-            assert primary instanceof This || Util.isPartOf(primary, from);
+            assert primary instanceof This || org.e2immu.analyzer.modification.prepwork.Util.isPartOf(primary, from);
             links.add(new LinkImpl(from, linkNature, to));
             return this;
         }
@@ -168,7 +169,7 @@ public class LinksImpl implements Links {
                 ln = linkNature.toString();
             }
             String lambda = to.parameterizedType().isFunctionalInterface() ? LAMBDA : "";
-            return Util.simpleName(from) + ln + lambda + Util.simpleName(to);
+            return org.e2immu.analyzer.modification.prepwork.Util.simpleName(from) + ln + lambda + Util.simpleName(to);
         }
 
         @Override

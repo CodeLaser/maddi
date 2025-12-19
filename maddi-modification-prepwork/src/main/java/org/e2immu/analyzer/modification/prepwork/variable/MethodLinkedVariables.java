@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link;
+package org.e2immu.analyzer.modification.prepwork.variable;
 
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.translate.TranslationMap;

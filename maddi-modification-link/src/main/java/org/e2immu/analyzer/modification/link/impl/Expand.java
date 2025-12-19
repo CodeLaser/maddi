@@ -1,9 +1,10 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Link;
-import org.e2immu.analyzer.modification.link.LinkNature;
-import org.e2immu.analyzer.modification.link.LinkedVariables;
-import org.e2immu.analyzer.modification.link.Links;
+import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.analyzer.modification.prepwork.variable.LinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -92,7 +93,7 @@ public record Expand(Runtime runtime) {
 
     private static V correctForThis(V primary, V v) {
         if (primary.v instanceof This) {
-            return new V(Util.primary(v.v));
+            return new V(org.e2immu.analyzer.modification.prepwork.Util.primary(v.v));
         }
         return primary;
     }
@@ -151,7 +152,7 @@ public record Expand(Runtime runtime) {
                         subsOfPrimary.add(vFrom);
                         subToPrimary.put(vFrom, primary);
                     }
-                    V toPrimary = new V(Util.primary(l.to()));
+                    V toPrimary = new V(org.e2immu.analyzer.modification.prepwork.Util.primary(l.to()));
                     Set<V> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
                     V vTo = new V(l.to());
                     if (!vTo.equals(toPrimary)) {
@@ -183,7 +184,7 @@ public record Expand(Runtime runtime) {
                                              boolean allowLocalVariables) {
         // first do the fields of the primary
         Set<V> fromSetExcludingPrimary = gd.graph.keySet().stream()
-                .filter(v -> Util.isPartOf(primary, v.v) && !v.v.equals(primary))
+                .filter(v -> org.e2immu.analyzer.modification.prepwork.Util.isPartOf(primary, v.v) && !v.v.equals(primary))
                 .collect(Collectors.toUnmodifiableSet());
         V tPrimary = new V(translationMap == null ? primary : translationMap.translateVariableRecursively(primary));
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
@@ -287,12 +288,12 @@ public record Expand(Runtime runtime) {
         Map<V, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
                         graph.keySet(), start, LinkNature.EMPTY, LinkNature::combine);
-        V startPrimary = new V(Util.primary(start.v));
+        V startPrimary = new V(org.e2immu.analyzer.modification.prepwork.Util.primary(start.v));
         return res.entrySet().stream()
                 .filter(e -> !start.equals(e.getKey()))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
                         e -> {
-                            boolean samePrimary = startPrimary.equals(new V(Util.primary(e.getKey().v)));
+                            boolean samePrimary = startPrimary.equals(new V(org.e2immu.analyzer.modification.prepwork.Util.primary(e.getKey().v)));
                             return e.getValue().stream().reduce(LinkNature.EMPTY,
                                     (ln1, ln2) -> ln1.best(ln2, samePrimary));
                         }));

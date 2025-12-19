@@ -1,7 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Links;
-import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -21,6 +21,10 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     public MethodLinkedVariablesImpl(Links ofReturnValue, List<Links> ofParameters) {
         this.ofParameters = ofParameters;
         this.ofReturnValue = ofReturnValue;
+    }
+
+    public static Value decode(Codec codec, Codec.Context context, Codec.EncodedValue ev) {
+        throw new UnsupportedOperationException("NYI");
     }
 
     @Override

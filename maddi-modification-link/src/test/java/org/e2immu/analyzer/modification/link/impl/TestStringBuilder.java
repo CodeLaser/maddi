@@ -2,24 +2,19 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.Links;
-import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.Iterator;
-
 import static org.e2immu.analyzer.modification.link.impl.LinksImpl.LINKS;
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestStringBuilder extends CommonTest {

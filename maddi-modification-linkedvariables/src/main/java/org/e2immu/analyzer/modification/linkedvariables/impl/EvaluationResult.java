@@ -14,8 +14,6 @@
 
 package org.e2immu.analyzer.modification.linkedvariables.impl;
 
-import org.e2immu.analyzer.modification.linkedvariables.lv.LinkedVariablesImpl;
-import org.e2immu.analyzer.modification.linkedvariables.lv.StaticValuesImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.StaticValues;
 import org.e2immu.annotation.Fluent;

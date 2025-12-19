@@ -15,7 +15,6 @@
 package org.e2immu.analyzer.aapi.parser.archive;
 
 import org.e2immu.analyzer.aapi.parser.CommonTest;
-import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -309,10 +308,6 @@ public class TestJavaLang extends CommonTest {
         assertEquals("@Independent(hc=true, hcParameters={0})", independentP2.toString());
         assertSame(NOT_NULL, p2.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(TRUE, p2.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
-
-        HiddenContentTypes hctMethod = methodInfo.analysis().getOrNull(HiddenContentTypes.HIDDEN_CONTENT_TYPES, HiddenContentTypes.class);
-        assertNotNull(hctMethod);
-        assertEquals(" - 0=Object", hctMethod.detailedSortedTypes());
     }
 
 

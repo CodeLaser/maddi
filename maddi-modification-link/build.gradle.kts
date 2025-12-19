@@ -21,10 +21,13 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
+    api(project(":maddi-cst-api"))
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-analysis"))
+    implementation(project(":maddi-cst-io"))
+    implementation(project(":maddi-cst-impl"))
 
     implementation(project(":maddi-modification-prepwork"))
     implementation(project(":maddi-modification-common"))
@@ -32,8 +35,6 @@ dependencies {
     implementation(project(":maddi-aapi-parser"))
 
     testRuntimeOnly(project(":maddi-aapi-archive"))
-    testImplementation(project(":maddi-cst-impl"))
-    testImplementation(project(":maddi-cst-io"))
     testImplementation(project(":maddi-cst-print"))
     testImplementation(project(":maddi-inspection-parser"))
     testImplementation(project(":maddi-inspection-integration"))

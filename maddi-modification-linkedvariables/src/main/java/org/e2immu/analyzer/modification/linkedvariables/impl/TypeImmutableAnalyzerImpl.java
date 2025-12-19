@@ -18,7 +18,6 @@ import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.linkedvariables.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.linkedvariables.TypeImmutableAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;

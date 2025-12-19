@@ -16,10 +16,7 @@ package org.e2immu.analyzer.modification.io;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.modification.linkedvariables.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.linkedvariables.impl.IteratingAnalyzerImpl;
-import org.e2immu.analyzer.modification.linkedvariables.impl.ModAnalyzerForTesting;
-import org.e2immu.analyzer.modification.linkedvariables.impl.MethodModAnalyzerImpl;
+import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;

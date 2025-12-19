@@ -1,8 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.Link;
-import org.e2immu.analyzer.modification.link.LinkNature;
-import org.e2immu.analyzer.modification.link.Links;
+import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -82,7 +83,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
 
         translate + upscale = find the right virtual field that matches the dimensions
          */
-        Set<Variable> toPrimaries = links.linkSet().stream().map(l -> Util.primary(l.to()))
+        Set<Variable> toPrimaries = links.linkSet().stream().map(l -> org.e2immu.analyzer.modification.prepwork.Util.primary(l.to()))
                 .collect(Collectors.toUnmodifiableSet());
         List<Triplet> result = new ArrayList<>();
 

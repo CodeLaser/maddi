@@ -2,7 +2,7 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.MethodInfo;

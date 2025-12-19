@@ -6,6 +6,8 @@ import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;

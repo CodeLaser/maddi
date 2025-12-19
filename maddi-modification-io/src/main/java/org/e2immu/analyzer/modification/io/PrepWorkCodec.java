@@ -15,8 +15,6 @@
 package org.e2immu.analyzer.modification.io;
 
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField;
-import org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector;
-import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -56,9 +54,6 @@ public class PrepWorkCodec {
     }
 
     private static final Map<String, Property> PROPERTY_MAP = Map.of(
-            HiddenContentTypes.HIDDEN_CONTENT_TYPES.key(), HiddenContentTypes.HIDDEN_CONTENT_TYPES,
-            HiddenContentSelector.HCS_METHOD.key(), HiddenContentSelector.HCS_METHOD,
-            HiddenContentSelector.HCS_PARAMETER.key(), HiddenContentSelector.HCS_PARAMETER,
             ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION.key(), ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION);
 
     static class P implements Codec.PropertyProvider {
@@ -74,12 +69,6 @@ public class PrepWorkCodec {
 
         @Override
         public BiFunction<Codec.DI, Codec.EncodedValue, Value> decoder(Class<? extends Value> clazz) {
-            if (HiddenContentTypes.class.equals(clazz)) {
-                return (di, ev) -> HiddenContentTypes.decode(di.codec(), di.context(), ev);
-            }
-            if (HiddenContentSelector.class.equals(clazz)) {
-                return (di, ev) -> HiddenContentSelector.decode(di.codec(), di.context(), ev);
-            }
             // part of construction uses "set of info", which is in ValueImpl.
             return ValueImpl.decoder(clazz);
         }

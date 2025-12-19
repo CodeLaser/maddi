@@ -14,7 +14,7 @@
 
 package org.e2immu.analyzer.modification.io;
 
-import org.e2immu.analyzer.modification.linkedvariables.io.LinkedVariablesCodec;
+import org.e2immu.analyzer.modification.link.io.LinkCodec;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -165,7 +165,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
-        Codec codec = new LinkedVariablesCodec(runtime, javaInspector.mainSources()).codec();
+        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());
         assertEquals(json, written);

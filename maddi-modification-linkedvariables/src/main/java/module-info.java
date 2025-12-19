@@ -1,6 +1,7 @@
 module org.e2immu.analyzer.modification.linkedvariables {
     requires org.e2immu.analyzer.modification.common;
     requires org.e2immu.analyzer.modification.prepwork;
+    requires org.e2immu.analyzer.modification.link;
     requires org.e2immu.language.cst.analysis;
     requires org.e2immu.language.cst.api;
     requires org.e2immu.language.cst.io;
@@ -15,7 +16,4 @@ module org.e2immu.analyzer.modification.linkedvariables {
     exports org.e2immu.analyzer.modification.linkedvariables.impl;
     exports org.e2immu.analyzer.modification.linkedvariables.graph;
     exports org.e2immu.analyzer.modification.linkedvariables.io;
-    exports org.e2immu.analyzer.modification.linkedvariables.staticvalues;
-    exports org.e2immu.analyzer.modification.linkedvariables.lv;
-
 }

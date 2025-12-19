@@ -1,28 +1,32 @@
-/*
- * maddi: a modification analyzer for duplication detection and immutability.
- * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
- *
- * This program is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
- * more details. You should have received a copy of the GNU Lesser General Public
- * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 package org.e2immu.analyzer.modification.prepwork.variable;
 
-import java.util.Map;
+import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.LocalVariable;
+import org.e2immu.language.cst.api.variable.Variable;
+import org.jetbrains.annotations.NotNull;
 
-public interface Link {
-    Link correctTo(Map<Indices, Indices> correctionMap);
 
-    Link merge(Link l2);
+public interface Link extends Comparable<Link> {
+    Variable from();
 
-    Link prefixTheirs(int index);
+    LinkNature linkNature();
 
-    Indices to();
-    boolean mutable();
+    Variable to();
+
+    @Override
+    default int compareTo(@NotNull Link o) {
+        int c = from().compareTo(o.from());
+        if (c != 0) return c;
+        int d = to().compareTo(o.to());
+        if (d != 0) return d;
+        return Long.compare(linkNature().ordinal(), o.linkNature().ordinal());
+    }
+
+    default boolean toIntermediateVariable() {
+        LocalVariable lv = Util.lvPrimaryOrNull(to());
+        return lv != null && lv.simpleName().startsWith("$__");
+    }
+
+    Link translate(TranslationMap translationMap);
 }
