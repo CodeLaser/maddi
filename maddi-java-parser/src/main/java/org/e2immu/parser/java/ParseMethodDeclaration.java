@@ -214,7 +214,7 @@ public class ParseMethodDeclaration extends CommonParse {
         while (i < md.size() && md.get(i) instanceof Delimiter) i++;
 
         ExplicitConstructorInvocation explicitConstructorInvocation;
-        if (i < md.size() && md.get(i) instanceof org.parsers.java.ast.ExplicitConstructorInvocation eci) {
+        if (i < md.size() && md.get(i) instanceof ExplicitConstructorInvocation eci) {
             explicitConstructorInvocation = eci;
             i++;
         } else {

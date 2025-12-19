@@ -34,6 +34,7 @@ public interface DetailedSources {
     Object SUCCEEDING_COMMA = new Object();
     // while the two above work nicely for parameters, fields, type parameters, we need special lists for
     Object ARGUMENT_COMMAS = new Object(); // method call, constructor call, annotation expression
+    Object END_OF_ARGUMENT_LIST = new Object(); // method call, constructor call, annotation expression, pos of ')'
     Object TYPE_ARGUMENT_COMMAS = new Object();
     Object EXTENDS_COMMAS = new Object();
     Object IMPLEMENTS_COMMAS = new Object();
