@@ -55,7 +55,9 @@ public record LinkMethodCall(Runtime runtime,
                 }
                 r.extra().forEach(e ->
                         extra.merge(e.getKey(), e.getValue(), Links::merge));
-            }
+            }// else: the extra information will be used, but it will not be passed on
+            // it contains links related to the lambda parameters, lambda return variable, etc.
+            // See e.g. TestForEachLambda,4
             ++i;
         }
     }
