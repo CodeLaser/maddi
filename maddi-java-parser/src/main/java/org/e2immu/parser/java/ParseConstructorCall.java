@@ -140,6 +140,9 @@ public class ParseConstructorCall extends CommonParse {
             }
             if (detailedSourcesBuilder != null) {
                 addCommaList(commas, detailedSourcesBuilder, DetailedSources.ARGUMENT_COMMAS);
+                Node last = ia.getLast();
+                assert last.getType() == Token.TokenType.RPAREN;
+                detailedSourcesBuilder.put(DetailedSources.END_OF_ARGUMENT_LIST, source(last));
             }
             Source source = detailedSourcesBuilder == null ? source1
                     : source1.withDetailedSources(detailedSourcesBuilder.build());

@@ -14,12 +14,15 @@
 
 package org.e2immu.language.inspection.integration.java.constructor;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.impl.parser.ParseResultImpl;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -128,11 +131,61 @@ public class TestExplicitConstructorInvocation extends CommonTest {
         assertEquals(2, descendants.size());
     }
 
+    @Language("java")
+    private static final String INPUT3 = """
+            package a;
+            
+            public class A {
+                private String name;
+                private int i;
+            
+                public K() { this.name = "test"; }
+                public K(int i) {
+                    this();
+                    this.i = i;
+                }
+                public K(int i, int j, String z) {
+                    this(i + j);
+                }
+                public K(int i, int j, String z, String u) {
+                    this(i, j, z);
+                }
+            }
+            """;
+
+    @Test
+    public void test3() {
+        JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder().setDetailedSources(true).build();
+        TypeInfo typeInfo = javaInspector.parse(INPUT3, options);
+        {
+            MethodInfo constructor = typeInfo.findConstructor(1);
+            Statement explicit = constructor.methodBody().statements().getFirst();
+            assertEquals("9-9:9-15", explicit.source().compact2());
+            assertEquals("9-14:9-14", explicit.source().detailedSources()
+                    .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
+        }
+        {
+            MethodInfo constructor = typeInfo.findConstructor(3);
+            Statement explicit = constructor.methodBody().statements().getFirst();
+            assertEquals("13-9:13-20", explicit.source().compact2());
+            assertEquals("13-19:13-19", explicit.source().detailedSources()
+                    .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
+        }
+        {
+            MethodInfo constructor = typeInfo.findConstructor(4);
+            Statement explicit = constructor.methodBody().statements().getFirst();
+            assertEquals("16-9:16-22", explicit.source().compact2());
+            assertEquals("16-21:16-21", explicit.source().detailedSources()
+                    .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
+            assertEquals("[@16:15-16:15, @16:18-16:18]", explicit.source().detailedSources()
+                    .details(DetailedSources.ARGUMENT_COMMAS).toString());
+        }
+    }
 
     @Language("java")
     private static final String INPUT9 = """
             package a.b;
-
+            
             import java.time.ZoneId;
             import java.time.ZoneOffset;
             import java.time.ZonedDateTime;

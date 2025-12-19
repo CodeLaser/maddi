@@ -63,7 +63,12 @@ public class ParseMethodCall extends CommonParse {
             unparsedArguments.add(ia.get(i));
             i += 2;
         }
-        if (dsb != null) addCommaList(commas, dsb, DetailedSources.ARGUMENT_COMMAS);
+        if (dsb != null) {
+            addCommaList(commas, dsb, DetailedSources.ARGUMENT_COMMAS);
+            Node last = ia.getLast();
+            assert last.getType() == Token.TokenType.RPAREN;
+            dsb.put(DetailedSources.END_OF_ARGUMENT_LIST, source(last));
+        }
 
         if (forwardType.erasure()) {
             Set<ParameterizedType> types = context.methodResolution().computeScope(context, index, methodName,

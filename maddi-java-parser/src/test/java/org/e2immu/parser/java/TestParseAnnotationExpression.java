@@ -73,5 +73,7 @@ public class TestParseAnnotationExpression extends CommonTestParse {
         assertEquals("11-40:11-40, 11-47:11-47",
                 aeMethod2.source().detailedSources().details(DetailedSources.ARGUMENT_COMMAS)
                 .stream().map(Source::compact2).collect(Collectors.joining(", ")));
+        assertEquals("11-54:11-54",
+                aeMethod2.source().detailedSources().detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
     }
 }

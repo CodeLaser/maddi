@@ -40,7 +40,6 @@ import org.parsers.java.ast.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.util.internal.util.StringUtil.pad;
@@ -241,13 +240,19 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
 
         ConstructorDeclaration cd = (ConstructorDeclaration) unparsedEci.getParent();
         List<Comment> comments = parsers.parseStatement().comments(cd);
-        Source source = parsers.parseStatement().source(pad(0, n), cd);
+        Source eciSource = parsers.parseStatement().source(pad(0, n), unparsedEci);
         boolean isSuper = Token.TokenType.SUPER.equals(unparsedEci.getFirst().getType());
 
         List<Object> unparsedArguments = new ArrayList<>();
         int j = 1;
+        DetailedSources.Builder dsb = context.newDetailedSourcesBuilder();
+        List<Node> commas = dsb == null ? null : new ArrayList<>();
         if (unparsedEci.get(1) instanceof InvocationArguments ia) {
             while (j < ia.size() && !(ia.get(j) instanceof Delimiter)) {
+                if (dsb != null && j + 1 < ia.size()
+                    && ia.get(j + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                    commas.add(d);
+                }
                 unparsedArguments.add(ia.get(j));
                 j += 2;
             }
@@ -261,14 +266,20 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
         } else {
             expectedConcreteType = formalType;
         }
-        Expression constructorCall = context.methodResolution().resolveConstructor(context, comments, source,
+        Expression constructorCall = context.methodResolution().resolveConstructor(context, comments, eciSource,
                 pad(0, n), formalType, expectedConcreteType, runtime.diamondNo(), null, runtime.noSource(),
                 unparsedArguments, List.of(), true, false);
+        if (dsb != null) {
+            addCommaList(commas, dsb, DetailedSources.ARGUMENT_COMMAS);
+            Node last = ia.getLast();
+            assert last.getType() == Token.TokenType.RPAREN;
+            dsb.put(DetailedSources.END_OF_ARGUMENT_LIST, source(last));
+        }
         if (constructorCall instanceof ConstructorCall cc) {
             assert cc.constructor() != null;
             return runtime.newExplicitConstructorInvocationBuilder()
                     .addComments(comments)
-                    .setSource(source)
+                    .setSource(dsb == null ? eciSource : eciSource.withDetailedSources(dsb.build()))
                     .setIsSuper(isSuper)
                     .setMethodInfo(cc.constructor())
                     .setParameterExpressions(cc.parameterExpressions())
