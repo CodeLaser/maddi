@@ -49,17 +49,9 @@ public interface Links extends Iterable<Link>, Value {
     // used by LVC
     Links changePrimaryTo(Runtime runtime, Variable newPrimary);
 
-
-    default boolean isDelayed() {
-        throw new UnsupportedOperationException();
-    }
-
-    default boolean isNotYetSet() {
-        throw new UnsupportedOperationException();
-    }
-
     default boolean overwriteAllowed(Links linkedVariables) {
-        throw new UnsupportedOperationException();
+        // the primary changes to/from null
+        return linkSet().isEmpty() && linkedVariables.linkSet().isEmpty();
     }
 
     default Set<Variable> toPrimaries() {

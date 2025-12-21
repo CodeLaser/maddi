@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE;
@@ -110,27 +111,21 @@ public class TestLoadAnalyzedPackageFiles {
     }
 
     private static void doTests(JavaInspectorImpl javaInspector) {
-        TypeInfo typeInfo = javaInspector.compiledTypesManager().get(Object.class);
-        MethodInfo methodInfo = typeInfo.findUniqueMethod("toString", 0);
+        TypeInfo object = javaInspector.compiledTypesManager().get(Object.class);
+        MethodInfo objectToString = object.findUniqueMethod("toString", 0);
         // assertSame(TRUE, methodInfo.analysis().getOrDefault(CONTAINER_METHOD, FALSE));
-        assertSame(NOT_NULL, methodInfo.analysis().getOrDefault(NOT_NULL_METHOD, NULLABLE));
-        assertFalse(methodInfo.isModifying());
-        assertSame(IMMUTABLE, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
-        assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
-/*
-        TypeInfo hashMap = javaInspector.compiledTypesManager().get(HashMap.class);
-
-        // subtype not present:
-        TypeInfo sub = hashMap.findSubType("EntryIterator");
-        assertNull(sub.analysis().getOrNull(HiddenContentTypes.HIDDEN_CONTENT_TYPES,
-                HiddenContentTypes.class));
+        assertSame(NOT_NULL, objectToString.analysis().getOrDefault(NOT_NULL_METHOD, NULLABLE));
+        assertFalse(objectToString.isModifying());
+        assertSame(IMMUTABLE, objectToString.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
+        assertSame(INDEPENDENT, objectToString.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
         TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
-        Assertions.assertEquals("0=E", list.analysis().getOrNull(HiddenContentTypes.HIDDEN_CONTENT_TYPES,
-                HiddenContentTypes.class).detailedSortedTypes());
-        MethodInfo listAdd = list.findUniqueMethod("add", 1);
-        ParameterInfo listAdd0 = listAdd.parameters().getFirst();
-        Assertions.assertEquals("0=*", listAdd0.analysis().getOrNull(HiddenContentSelector.HCS_PARAMETER,
-                HiddenContentSelector.class).detailed());*/
+        MethodInfo listIterator = list.findUniqueMethod("iterator", 0);
+        assertEquals("java.lang.Iterable.iterator(), java.util.Collection.iterator()",
+                listIterator.overrides().stream().map(Object::toString).sorted()
+                        .collect(Collectors.joining(", ")));
+        assertFalse(listIterator.allowsInterrupts());
+        assertFalse(listIterator.isModifying());
+
     }
 }

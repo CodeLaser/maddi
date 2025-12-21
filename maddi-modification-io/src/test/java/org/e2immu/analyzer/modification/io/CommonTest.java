@@ -86,7 +86,7 @@ public class CommonTest {
         prepAnalyzer = new PrepAnalyzer(runtime);
         IteratingAnalyzer.Configuration configuration = new IteratingAnalyzerImpl.ConfigurationBuilder()
                 .setStoreErrors(storeErrorsInPVMap).build();
-        modAnalyzer = new MethodModAnalyzerImpl(runtime, configuration);
+        modAnalyzer = new MethodModAnalyzerImpl(javaInspector, configuration);
     }
 
     protected List<Info> prepWork(TypeInfo typeInfo) {

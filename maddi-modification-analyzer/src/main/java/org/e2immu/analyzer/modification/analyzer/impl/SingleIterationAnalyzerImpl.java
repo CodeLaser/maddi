@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.ImmutableGraph;
 
@@ -43,9 +44,10 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
             implements Output {
     }
 
-    public SingleIterationAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration) {
+    public SingleIterationAnalyzerImpl(JavaInspector javaInspector, IteratingAnalyzer.Configuration configuration) {
         this.configuration = configuration;
-        methodModAnalyzer = new MethodModAnalyzerImpl(runtime, configuration);
+        methodModAnalyzer = new MethodModAnalyzerImpl(javaInspector, configuration);
+        Runtime runtime = javaInspector.runtime();
         fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration);
         typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(runtime, configuration);
         typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(configuration);
