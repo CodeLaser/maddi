@@ -169,7 +169,7 @@ public class RunAnalyzer implements Runnable {
             IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
                     .setStoreErrors(false)
                     .build();
-            IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector.runtime(), modConfig);
+            IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
             analyzer.analyze(order);
 
             // write results

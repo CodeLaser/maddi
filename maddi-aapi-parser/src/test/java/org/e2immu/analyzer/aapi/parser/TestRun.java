@@ -92,8 +92,8 @@ public class TestRun {
             public void afterAnnotatedApiParsing(JavaInspector javaInspector) {
                 int expectCt = switch (context()) {
                     case JDK_HOMEBREW_24 -> 3208;
-                    case JDK_HOMEBREW_21 -> 3558;
-                    case JDK_HOMEBREW_25 -> 3600;
+                    case JDK_HOMEBREW_21 -> 3557;
+                    case JDK_HOMEBREW_25 -> 3599;
                     case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 594;
                     case LIBS_LOG_HOMEBREW_25, LIBS_LOG_ORACLE_24 -> 609;
                     case LIBS_TEST_HOMEBREW_25 -> 619;

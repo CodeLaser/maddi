@@ -1,8 +1,8 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -327,7 +327,14 @@ public record Expand(Runtime runtime) {
         });
         return newLinkedVariables;
     }
-
+/*
+FIXME
+ propagation of modification, and store the result:
+      if (!vii.analysis().haveAnalyzedValueFor(VariableInfoImpl.UNMODIFIED_VARIABLE)) {
+                        boolean unmodified = !modifying.contains(variable);
+                        vii.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.from(unmodified));
+                    }
+ */
 
     public List<Links> parameters(MethodInfo methodInfo, VariableData vd) {
         if (vd == null) return List.of();

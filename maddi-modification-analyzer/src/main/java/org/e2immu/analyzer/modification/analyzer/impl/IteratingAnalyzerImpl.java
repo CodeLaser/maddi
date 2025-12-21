@@ -19,6 +19,7 @@ import org.e2immu.analyzer.modification.analyzer.SingleIterationAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.V;
 import org.e2immu.util.internal.graph.analyser.TypeGraphIO;
@@ -37,11 +38,11 @@ import java.util.stream.Collectors;
 public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements IteratingAnalyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger(IteratingAnalyzerImpl.class);
 
-    private final Runtime runtime;
+    private final JavaInspector javaInspector;
 
-    public IteratingAnalyzerImpl(Runtime runtime, Configuration configuration) {
+    public IteratingAnalyzerImpl(JavaInspector javaInspector, Configuration configuration) {
         super(configuration);
-        this.runtime = runtime;
+        this.javaInspector = javaInspector;
     }
 
     public record ConfigurationImpl(int maxIterations,
@@ -138,7 +139,7 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     public Output analyze(List<Info> analysisOrder) {
         int iterations = 0;
         int prevWaitingForSize = Integer.MAX_VALUE;
-        SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(runtime, configuration);
+        SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         List<AnalyzerException> analyzerExceptions = new LinkedList<>();
         boolean cycleBreakingActive = false;
         while (true) {

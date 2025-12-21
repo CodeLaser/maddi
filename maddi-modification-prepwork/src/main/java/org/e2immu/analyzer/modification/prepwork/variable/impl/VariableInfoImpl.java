@@ -62,7 +62,7 @@ public class VariableInfoImpl implements VariableInfo {
 
     public boolean setLinkedVariables(Links linkedVariables) {
         assert linkedVariables != null;
-        if (this.linkedVariables == null || this.linkedVariables.isNotYetSet() || this.linkedVariables.isDelayed()) {
+        if (this.linkedVariables == null) {
             this.linkedVariables = linkedVariables;
             return true;
         }
@@ -73,10 +73,7 @@ public class VariableInfoImpl implements VariableInfo {
             this.linkedVariables = linkedVariables;
             return true;
         }
-        // FIXME-DEMO this should be an exception thrown
-        LOGGER.warn("Variable {}: new linked variables are not better than old: {}, new {}",
-                variable, this.linkedVariables, linkedVariables);
-        return false;
+        throw new UnsupportedOperationException("Not allowed to overwrite");
     }
 
     @Override

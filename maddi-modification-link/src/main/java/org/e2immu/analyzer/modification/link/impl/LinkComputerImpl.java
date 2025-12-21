@@ -244,6 +244,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (statement instanceof ReturnStatement && r != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
                 ofReturnValue = expand.returnValue(rv, r.links(), r.extra(), vd);
+                VariableInfoImpl vii = ((VariableInfoImpl) vd.variableInfo(rv));
+                vii.setLinkedVariables(ofReturnValue);
             }
             writeOutMethodCallAnalysis(writeMethodCalls, vd);
             return vd;
