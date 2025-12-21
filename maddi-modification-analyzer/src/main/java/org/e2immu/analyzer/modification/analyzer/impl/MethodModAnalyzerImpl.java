@@ -146,9 +146,9 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
 
         private void copyFromVariablesIntoMethodPi(VariableInfo vi, ParameterInfo pi) {
             Links links = vi.linkedVariables();
-            if (vi.isUnmodified() && links != null
-                && links.toPrimaries().stream().noneMatch(v ->
-                    v instanceof FieldReference fr && fr.scopeIsRecursivelyThis())) {
+            if (vi.isUnmodified()) {
+                // FIXME pi can still be indirectly modified IF it is modifiable and linked in a modifiable way to a field
+                //
                 pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, TRUE);
             } // when linked to a field, we must wait for the field to be declared unmodified...
 

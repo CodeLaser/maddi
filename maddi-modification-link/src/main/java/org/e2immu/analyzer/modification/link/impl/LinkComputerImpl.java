@@ -236,7 +236,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 });
             }
             VariableData vd = VariableDataImpl.of(statement);
-            copyEvalIntoVariableData(linkedVariables, previousVd, vd);
+            copyEvalIntoVariableData(linkedVariables, r == null ? Set.of() : r.modified(), previousVd, vd);
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd, linkedVariables);
             }
@@ -326,9 +326,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables,
+                                              Set<Variable> modifiedDuringEvaluation,
                                               VariableData previousVd,
                                               VariableData vd) {
-            Map<Variable, Links> expanded = expand.local(linkedVariables, previousVd, vd);
+            Map<Variable, Links> expanded = expand.local(linkedVariables, modifiedDuringEvaluation, previousVd, vd);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);

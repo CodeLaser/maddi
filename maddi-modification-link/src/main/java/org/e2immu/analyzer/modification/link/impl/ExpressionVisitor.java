@@ -13,11 +13,9 @@ import org.e2immu.language.cst.api.variable.*;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -38,13 +36,16 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     links = additional links for parts of the result
     extra = link information about unrelated variables
      */
-    public record Result(Links links, LinkedVariables extra, List<WriteMethodCall> writeMethodCalls) {
+    public record Result(Links links,
+                         LinkedVariables extra,
+                         Set<Variable> modified,
+                         List<WriteMethodCall> writeMethodCalls) {
         public Result(Links links, LinkedVariables extra) {
-            this(links, extra, List.of());
+            this(links, extra, Set.of(), List.of());
         }
 
-        public Result with(WriteMethodCall writeMethodCall) {
-            return new Result(links, extra, List.of(writeMethodCall));
+        public Result with(Set<Variable> modified, WriteMethodCall writeMethodCall) {
+            return new Result(links, extra, modified, List.of(writeMethodCall));
         }
 
         public LinkedVariables extraAndLinks() {
@@ -54,7 +55,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         }
 
         public Result with(Links links) {
-            return new Result(links, extra, writeMethodCalls);
+            return new Result(links, extra, modified, writeMethodCalls);
         }
 
         public Result merge(Result other) {
@@ -62,7 +63,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
             List<WriteMethodCall> allWriteMethodCalls = Stream.concat(writeMethodCalls.stream(),
                     other.writeMethodCalls.stream()).toList();
-            return new Result(links, combinedExtra, allWriteMethodCalls);
+            Set<Variable> allModified = Stream.concat(modified.stream(),
+                    other.modified.stream()).collect(Collectors.toUnmodifiableSet());
+            return new Result(links, combinedExtra, allModified, allWriteMethodCalls);
         }
     }
 
@@ -266,7 +269,18 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated);
-        return r.with(new WriteMethodCall(mc, object.links));
+        Set<Variable> modified;
+        // FIXME needs more code!
+        if (mc.methodInfo().isModifying()) {
+            if (objectPrimary != null) {
+                modified = Set.of(objectPrimary);
+            } else {
+                modified = Set.of();
+            }
+        } else {
+            modified = Set.of();
+        }
+        return r.with(modified, new WriteMethodCall(mc, object.links));
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
