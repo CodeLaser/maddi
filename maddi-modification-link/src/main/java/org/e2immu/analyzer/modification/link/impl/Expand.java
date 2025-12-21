@@ -13,11 +13,14 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 public record Expand(Runtime runtime) {
     private static final Logger LOGGER = LoggerFactory.getLogger(Expand.class);
@@ -295,15 +298,40 @@ public record Expand(Runtime runtime) {
                         }));
     }
 
+    //-------------------------------------------------------------------------------------------------
+
+    private boolean notLinkedToModified(Links.Builder piBuilder, Set<Variable> modifiedVariables) {
+        for (Link link : piBuilder) {
+            Variable toPrimary = Util.primary(link.to());
+            if (modifiedVariables.contains(toPrimary)) {
+                if (link.linkNature() == LinkNature.IS_IDENTICAL_TO
+                    || link.linkNature() == LinkNature.CONTAINS
+                    || link.linkNature() == LinkNature.HAS_FIELD) {
+                    return false;
+                }
+                if (link.linkNature() == LinkNature.INTERSECTION_NOT_EMPTY) {
+                    // FIXME we need to look at the immutability of the variable's type
+                }
+            }
+        }
+        return true;
+    }
+
+    //-------------------------------------------------------------------------------------------------
+
     /*
      Write the links in terms of variables that we have, removing the temporarily created ones.
      Ensure that we use the variables and not their virtual fields.
      Ensure that v1 == v2 also means that v1.ts == v2.ts, v1.$m == v2.$m, so that these connections can be made.
      Filtering out ? links is done in followGraph.
      */
-    public Map<Variable, Links> local(Map<Variable, Links> lvIn, VariableData previousVd, VariableData vd) {
+    public Map<Variable, Links> local(Map<Variable, Links> lvIn,
+                                      Set<Variable> modifiedDuringEvaluation,
+                                      VariableData previousVd,
+                                      VariableData vd) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables;
+        Set<Variable> modifiedVariables = new HashSet<>(modifiedDuringEvaluation);
         if (previousVd == null) {
             linkedVariables = lvIn;
         } else {
@@ -313,6 +341,7 @@ public record Expand(Runtime runtime) {
                 if (vLinks != null) {
                     linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
                 }
+                if (vi.isModified()) modifiedVariables.add(vi.variable());
             });
         }
         GraphData gd = makeGraph(linkedVariables, true);
@@ -320,21 +349,20 @@ public record Expand(Runtime runtime) {
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
         vd.variableInfoStream().forEach(vi -> {
             Links.Builder piBuilder = followGraph(gd, vi.variable(), null, true);
+            boolean unmodified = !modifiedVariables.contains(vi.variable()) && notLinkedToModified(piBuilder, modifiedVariables);
+            if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
+                vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.from(unmodified));
+            }
+
             piBuilder.removeIf(Link::toIntermediateVariable);
-            if (newLinkedVariables.put(vi.variable(), piBuilder.build()) != null) {
+            Links newLinks = piBuilder.build();
+            if (newLinkedVariables.put(vi.variable(), newLinks) != null) {
                 throw new UnsupportedOperationException("Each real variable must be a primary");
             }
+
         });
         return newLinkedVariables;
     }
-/*
-FIXME
- propagation of modification, and store the result:
-      if (!vii.analysis().haveAnalyzedValueFor(VariableInfoImpl.UNMODIFIED_VARIABLE)) {
-                        boolean unmodified = !modifying.contains(variable);
-                        vii.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.from(unmodified));
-                    }
- */
 
     public List<Links> parameters(MethodInfo methodInfo, VariableData vd) {
         if (vd == null) return List.of();

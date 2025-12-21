@@ -16,16 +16,12 @@ package org.e2immu.analyzer.modification.analyzer.modification;
 
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class TestModificationBasics extends CommonTest {
     @Language("java")
-    private static final String INPUT = """
+    private static final String INPUT1 = """
             package a.b;
             import java.util.List;
             import java.util.Iterator;
@@ -47,8 +43,8 @@ public class TestModificationBasics extends CommonTest {
             """;
 
     @Test
-    public void test() {
-        TypeInfo X = javaInspector.parse(INPUT);
+    public void test1() {
+        TypeInfo X = javaInspector.parse(INPUT1);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -63,7 +59,44 @@ public class TestModificationBasics extends CommonTest {
     }
 
     @Language("java")
-    private static final String INPUT1 = """
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Test {
+                List<String> list = new ArrayList<>();
+                public void add(String s) {
+                    list.add(s);
+                }
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(INPUT2);
+        List<Info> analysisOrder = prepWork(X);
+        analyzer.go(analysisOrder);
+
+        MethodInfo add = X.findUniqueMethod("add", 1);
+        Statement s0 = add.methodBody().statements().getFirst();
+        MethodCall listAddCall = (MethodCall) s0.expression();
+        MethodInfo listAdd = listAddCall.methodInfo();
+        assertEquals("java.util.List.add(E)", listAdd.fullyQualifiedName());
+        assertTrue(listAdd.isModifying());
+
+        VariableData vd = VariableDataImpl.of(s0);
+        VariableInfo viList = vd.variableInfo("a.b.Test.list");
+        assertTrue(viList.isModified());
+
+        FieldInfo list = X.getFieldByName("list", true);
+        assertTrue(list.isModified());
+
+        assertTrue(add.isModifying());
+        assertFalse(add.parameters().getFirst().isModified());
+    }
+
+    @Language("java")
+    private static final String INPUT3 = """
             package a.b;
             import java.util.ArrayList;import java.util.List;
             class X {
@@ -88,8 +121,8 @@ public class TestModificationBasics extends CommonTest {
 
 
     @Test
-    public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+    public void test3() {
+        TypeInfo X = javaInspector.parse(INPUT3);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
         {
@@ -103,9 +136,9 @@ public class TestModificationBasics extends CommonTest {
             assertFalse(m.isModifying());
             ParameterInfo pi0 = m.parameters().getFirst();
             assertFalse(pi0.isUnmodified());
-            VariableData vd0 = VariableDataImpl.of( m.methodBody().statements().getFirst());
+            VariableData vd0 = VariableDataImpl.of(m.methodBody().statements().getFirst());
             VariableInfo vi0m = vd0.variableInfo("m");
-            assertEquals("*M-2-0M|*-0:_synthetic_list, -1-:_synthetic_list[0], *M-2-0M|*-0.0:list",
+            assertEquals("m<0:list.§$s",
                     vi0m.linkedVariables().toString());
         }
         {
@@ -116,18 +149,14 @@ public class TestModificationBasics extends CommonTest {
             {
                 VariableData vd1 = VariableDataImpl.of(m.methodBody().statements().get(1));
                 VariableInfo vi1m = vd1.variableInfo("m");
-                assertEquals("*M-2-0M|*-0:_synthetic_list, -1-:_synthetic_list[0], *M-4-0M:copy, *M-2-0M|*-0.0:list",
-                        vi1m.linkedVariables().toString());
+                assertEquals("m<0:list.§$s,m<copy.§$s", vi1m.linkedVariables().toString());
                 VariableInfo vi1list = vd1.variableInfo(pi0);
                 assertFalse(vi1list.isModified());
             }
             {
                 VariableData vd2 = VariableDataImpl.of(m.methodBody().statements().get(2));
                 VariableInfo vi2m = vd2.variableInfo("m");
-                assertEquals("""
-                                *M-2-0M|*-0:_synthetic_list, -1-:_synthetic_list[0], *M-4-0M:copy, -2-|*-0:i, \
-                                -2-|*-0:k, *M-2-0M|*-0.0:list\
-                                """,
+                assertEquals("m.i<0:list.§$s,m.i<copy.§$s,m.i==1:k,m<0:list,m<copy",
                         vi2m.linkedVariables().toString());
                 VariableInfo vi1list = vd2.variableInfo(pi0);
                 assertTrue(vi1list.isModified());

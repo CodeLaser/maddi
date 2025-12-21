@@ -137,6 +137,11 @@ public class LinksImpl implements Links {
             links.removeIf(linkPredicate);
         }
 
+        @Override
+        public @NotNull Iterator<Link> iterator() {
+            return links.iterator();
+        }
+
         public Links build() {
             return new LinksImpl(primary, Set.copyOf(links));
         }
