@@ -163,11 +163,11 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo sub = X.findUniqueMethod("sub", 1);
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
 
-        assertEquals("sub.M==0:in.M,sub.§zs~0:in.§zs,sub~0:in", mlvSub.toString());
+        assertEquals("[-] --> sub.§m==0:in.§m,sub.§zs~0:in.§zs,sub~0:in", mlvSub.toString());
     }
 
 
