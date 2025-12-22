@@ -23,9 +23,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 /*
 convention:
@@ -307,6 +309,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         String fqn = variable.fullyQualifiedName();
                         Links.Builder collect = eval == null ? new LinksImpl.Builder(variable)
                                 : new LinksImpl.Builder(eval);
+                        AtomicBoolean unmodified = new AtomicBoolean(true);
                         vds.forEach(subVd -> {
                             VariableInfoContainer subVic = subVd.variableInfoContainerOrNull(fqn);
                             if (subVic != null) {
@@ -315,13 +318,17 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 if (subTlv != null) {
                                     collect.addAll(subTlv);
                                 }
+                                if (subVi.isModified()) unmodified.set(false);
                             }
                         });
+                        assert vic.hasMerge();
+                        VariableInfoImpl merge = (VariableInfoImpl) vic.best();
                         Links collected = collect.build();
                         if (!collected.isEmpty()) {
-                            VariableInfoImpl merge = (VariableInfoImpl) vic.best();
-                            merge.setLinkedVariables(collected);  // FIXME allow overwrite
+                            merge.setLinkedVariables(collected);
                         }
+                        merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
+                                ValueImpl.BoolImpl.from(unmodified.get()));
                     });
         }
 

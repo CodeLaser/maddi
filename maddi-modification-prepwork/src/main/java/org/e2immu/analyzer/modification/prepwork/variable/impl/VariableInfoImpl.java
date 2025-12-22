@@ -29,8 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class VariableInfoImpl implements VariableInfo {
-    private static final Logger LOGGER = LoggerFactory.getLogger(VariableInfoImpl.class);
-
     public static final Property UNMODIFIED_VARIABLE = new PropertyImpl("unmodifiedVariable");
     public static final Property MODIFIED_FI_COMPONENTS_VARIABLE =
             new PropertyImpl("modifiedFunctionalInterfaceComponentsVariable",
@@ -52,12 +50,6 @@ public class VariableInfoImpl implements VariableInfo {
         this.assignments = assignments;
         this.reads = reads;
         this.variableInClosure = variableInClosure;
-    }
-
-    public void initializeLinkedVariables(Links initialValue) {
-        if (this.linkedVariables == null) {
-            this.linkedVariables = initialValue;
-        }
     }
 
     public boolean setLinkedVariables(Links linkedVariables) {

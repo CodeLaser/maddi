@@ -347,9 +347,10 @@ public record Expand(Runtime runtime) {
         GraphData gd = makeGraph(linkedVariables, true);
         LOGGER.debug("Bi-directional graph for local: {}", gd.graph);
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
-        vd.variableInfoStream().forEach(vi -> {
+        vd.variableInfoStream(Stage.EVALUATION).forEach(vi -> {
             Links.Builder piBuilder = followGraph(gd, vi.variable(), null, true);
-            boolean unmodified = !modifiedVariables.contains(vi.variable()) && notLinkedToModified(piBuilder, modifiedVariables);
+            boolean unmodified = !modifiedVariables.contains(vi.variable())
+                                 && notLinkedToModified(piBuilder, modifiedVariables);
             if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
                 vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.from(unmodified));
             }
