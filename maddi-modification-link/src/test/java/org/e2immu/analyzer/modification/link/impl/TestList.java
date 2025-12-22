@@ -305,14 +305,12 @@ public class TestList extends CommonTest {
         assertEquals("getList==this.list", mlv.ofReturnValue().toString());
 
         MethodInfo constructor = X.findConstructor(1);
-        LinkComputerImpl.SourceMethodComputer smc = linkComputer.new SourceMethodComputer(constructor);
-        /*
-         code commented out because it writes the analysis, and doMethod() will want to do that too
-         VariableData vd = smc.doStatement(constructor.methodBody().statements().getFirst(), null);
-         VariableInfo viP0 = vd.variableInfo(constructor.parameters().getFirst());
-         assertEquals("0:in.ts~c0.ts", viP0.analysis().getOrNull(LINKS, LinksImpl.class).toString());
-         */
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
+
+        VariableData vd = VariableDataImpl.of(constructor.methodBody().statements().getFirst());
+        VariableInfo viList = vd.variableInfo("a.b.X.list");
+        assertEquals("this.list.§ts~0:in.§ts", viList.linkedVariables().toString());
+
         assertEquals("[0:in.§ts~this.list.§ts] --> -", mlvConstructor.toString());
     }
 
