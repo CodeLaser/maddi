@@ -48,13 +48,13 @@ public class TestRecord extends CommonTest {
 
         VariableData vd1 = VariableDataImpl.of(wrap1.methodBody().statements().get(1));
         VariableInfo viList = vd1.variableInfo("list");
-        assertEquals("list.§es>0:y,list.§es>r.§y,list>r",
+        assertEquals("list.§es∋0:y,list.§es∋r.§y,list∋r",
                 viList.linkedVariables().toString());
 
-        assertEquals("[-] --> wrap1.§es>0:y", mlvWrap1.toString());
+        assertEquals("[-] --> wrap1.§es∋0:y", mlvWrap1.toString());
 
         MethodInfo wrap = C.findUniqueMethod("wrap", 1);
         MethodLinkedVariables mlvWrap = wrap.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(wrap));
-        assertEquals("[-] --> wrap.§es>0:y", mlvWrap.toString());
+        assertEquals("[-] --> wrap.§es∋0:y", mlvWrap.toString());
     }
 }

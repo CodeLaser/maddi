@@ -292,7 +292,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                         runtime.newVariableExpression(subFrom), fieldFrom.type());
                                 FieldReference subSubTo = runtime.newFieldReference(fieldTo,
                                         runtime.newVariableExpression(subTo), fieldTo.type());
-                                builder.add(subSubFrom, CONTAINS, subSubTo);
+                                builder.add(subSubFrom, CONTAINS_AS_MEMBER, subSubTo);
                             }
                         }
                     } else {
@@ -333,7 +333,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                 assert theField != null;
                                 DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
                                         runtime.newInt(theField.negative()));
-                                builder.add(dv, CONTAINS, subTo);
+                                builder.add(dv, CONTAINS_AS_MEMBER, subTo);
                             }
                         } else {
                             // indexing, e.g. TestShallowPrefix,3:  oneStatic.xy.x==0:x (totalFrom 0)
@@ -380,7 +380,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         if (arrays < arraysSource) {
             return IS_ELEMENT_OF;
         }
-        return CONTAINS;
+        return CONTAINS_AS_MEMBER;
     }
 
     private record FF(FieldInfo fieldInfo, int index) {

@@ -79,7 +79,7 @@ public class TestStream extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(large2.methodBody().statements().get(2));
         VariableInfo viFirst = vd2.variableInfo("first");
         assertEquals("""
-                first.§t<filtered.§ts,first.§t<stream.§ts,first.§t<this.list.§ts\
+                first.§t∈filtered.§ts,first.§t<stream.§ts,first.§t<this.list.§ts\
                 """, viFirst.linkedVariables().toString());
 
         VariableData vd3 = VariableDataImpl.of(large2.methodBody().statements().get(3));

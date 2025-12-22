@@ -71,7 +71,7 @@ public class TestMapManual extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get<this.map.eArray[-1].v", mlv.ofReturnValue().toString());
+        assertEquals("get∈this.map.eArray[-1].v", mlv.ofReturnValue().toString());
     }
 
     private static void setMethodLinkedVariablesOfMapGet(TypeInfo map, EInfo eInfo) {
@@ -82,7 +82,7 @@ public class TestMapManual extends CommonTest {
                         .add(mapGetRv, LinkNature.IS_ELEMENT_OF, eInfo.thisMapEV)
                         .build(),
                 List.of());
-        assertEquals("[] --> get<this.eArray[-1].v", mlvGet.toString());
+        assertEquals("[] --> get∈this.eArray[-1].v", mlvGet.toString());
         mapGet.analysis().set(METHOD_LINKS, mlvGet);
     }
 
@@ -168,7 +168,7 @@ public class TestMapManual extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(getOrDefault);
         assertEquals("""
-                getOrDefault<this.map.eArray[-1].v,getOrDefault==1:defaultValue\
+                getOrDefault==1:defaultValue,getOrDefault∈this.map.eArray[-1].v\
                 """, mlv.ofReturnValue().toString());
     }
 

@@ -52,7 +52,7 @@ public class TestStringBuilder extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(assignT);
         VariableInfo t = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tLinks = t.linkedVariablesOrEmpty();
-        assertEquals("t<0:list.§ts", tLinks.toString());
+        assertEquals("t∈0:list.§ts", tLinks.toString());
 
         Statement append = method.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(append);

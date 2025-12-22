@@ -25,7 +25,6 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -62,7 +61,7 @@ public class TestStaticValuesMerge extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo vi0y = vd0.variableInfo("y");
-        assertEquals("y<0:array,y==0:array[0]", vi0y.linkedVariables().toString());
+        assertEquals("y==0:array[0],y∈0:array", vi0y.linkedVariables().toString());
 
         Statement s1 = method.methodBody().statements().get(1);
         VariableData vd100 = VariableDataImpl.of(s1.block().statements().getFirst());
@@ -104,7 +103,7 @@ public class TestStaticValuesMerge extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo vi0y = vd0.variableInfo("y");
-        assertEquals("y<0:array,y==0:array[0]", vi0y.linkedVariables().toString());
+        assertEquals("y==0:array[0],y∈0:array", vi0y.linkedVariables().toString());
 
         VariableData vd100 = VariableDataImpl.of(method.methodBody().statements().get(1).block().statements().getFirst());
         VariableInfo vi100y = vd100.variableInfo("y");

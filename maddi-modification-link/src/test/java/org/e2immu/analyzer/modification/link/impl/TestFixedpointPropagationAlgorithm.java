@@ -21,130 +21,55 @@ public class TestFixedpointPropagationAlgorithm {
         assertEquals("b: ==", compute(graph));
     }
 
+    // a == b ∋ c --> a ∋ c
     @Test
     public void test2() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.IS_IDENTICAL_TO));
-        graph.put("b", Map.of("c", LinkNature.CONTAINS));
+        graph.put("b", Map.of("c", LinkNature.CONTAINS_AS_MEMBER));
 
-        assertEquals("b: ==, c: >", compute(graph));
+        assertEquals("b: ==, c: ∋", compute(graph));
     }
 
-    // a > b == c < d --> a ~ d
+    // a and d share an element
+    // a ∋ b == c ∈ d --> a ~ d
     @Test
     public void test3() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.CONTAINS));
+        graph.put(START, Map.of("b", LinkNature.CONTAINS_AS_MEMBER));
         graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
         graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
-        assertEquals("b: >, c: >, d: ~", compute(graph));
+        assertEquals("b: ∋, c: ∋, d: ~", compute(graph));
     }
 
-    // a < b == c > d --> no relation between a and d
+    // a ∈ b == c ∋ d --> no relation between a and d
     @Test
     public void test3b() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.IS_ELEMENT_OF));
         graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
-        graph.put("c", Map.of("d", LinkNature.CONTAINS));
-        assertEquals("b: <, c: <, d: X", compute(graph));
+        graph.put("c", Map.of("d", LinkNature.CONTAINS_AS_MEMBER));
+        assertEquals("b: ∈, c: ∈, d: X", compute(graph));
     }
 
-    // a < b == c ≥ d --> no relation between a and d
-    @Test
-    public void test3d() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.IS_ELEMENT_OF));
-        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
-        graph.put("c", Map.of("d", LinkNature.HAS_FIELD));
-        assertEquals("b: <, c: <, d: X", compute(graph));
-    }
-
-    // ≥ is "hasField", ≤ is "is field of"
-    // a ≥ b == c < d --> a ~ d
-    @Test
-    public void test4() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.HAS_FIELD));
-        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
-        graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
-        assertEquals("b: ≥, c: ≥, d: ~", compute(graph));
-    }
-
-    // a ≥ b == c > d --> a > d
-    @Test
-    public void test4b() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.HAS_FIELD));
-        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
-        graph.put("c", Map.of("d", LinkNature.CONTAINS));
-        assertEquals("b: ≥, c: ≥, d: >", compute(graph));
-    }
-
-    // a ≥ b == c ~ d --> a ~ d
-    @Test
-    public void test4c() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.HAS_FIELD));
-        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
-        graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
-        assertEquals("b: ≥, c: ≥, d: ~", compute(graph));
-    }
-
-    // a ≥ b == c : d --> a ~ d
-    @Test
-    public void test4d() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.HAS_FIELD));
-        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
-        graph.put("c", Map.of("d", LinkNature.IS_FIELD_OF));
-        assertEquals("b: ≥, c: ≥, d: ~", compute(graph));
-    }
-
-    // a ≤ b < c --> a < c
-    @Test
-    public void test5a() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.IS_FIELD_OF));
-        graph.put("b", Map.of("c", LinkNature.IS_ELEMENT_OF));
-        assertEquals("b: ≤, c: <", compute(graph));
-    }
-
-    // a ≤ b ~ c --> a ~ c
-    @Test
-    public void test5b() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.IS_FIELD_OF));
-        graph.put("b", Map.of("c", LinkNature.INTERSECTION_NOT_EMPTY));
-        assertEquals("b: ≤, c: ~", compute(graph));
-    }
-
-    // a ≤ b > c --> a X c
-    @Test
-    public void test5c() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.IS_FIELD_OF));
-        graph.put("b", Map.of("c", LinkNature.CONTAINS));
-        assertEquals("b: ≤, c: X", compute(graph));
-    }
-
-    // a ≤ b ≥ c --> a X c
-    @Test
-    public void test5d() {
-        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
-        graph.put(START, Map.of("b", LinkNature.IS_FIELD_OF));
-        graph.put("b", Map.of("c", LinkNature.HAS_FIELD));
-        assertEquals("b: ≤, c: X", compute(graph));
-    }
-
-    // a ~ b == c < d --> a < d
+    // a ~ b == c ∈ d --> a ∈ d
     @Test
     public void test6() {
         Map<String, Map<String, LinkNature>> graph = new HashMap<>();
         graph.put(START, Map.of("b", LinkNature.INTERSECTION_NOT_EMPTY));
         graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
         graph.put("c", Map.of("d", LinkNature.IS_ELEMENT_OF));
-        assertEquals("b: ~, c: ~, d: <", compute(graph));
+        assertEquals("b: ~, c: ~, d: X", compute(graph));
+    }
+
+    // a ~ b == c ∋ d --> a ∋ d
+    @Test
+    public void test6b() {
+        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
+        graph.put(START, Map.of("b", LinkNature.INTERSECTION_NOT_EMPTY));
+        graph.put("b", Map.of("c", LinkNature.IS_IDENTICAL_TO));
+        graph.put("c", Map.of("d", LinkNature.CONTAINS_AS_MEMBER));
+        assertEquals("b: ~, c: ~, d: X", compute(graph));
     }
 
     private String compute(Map<String, Map<String, LinkNature>> graph) {

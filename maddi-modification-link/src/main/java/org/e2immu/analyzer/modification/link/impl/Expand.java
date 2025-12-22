@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -82,9 +83,11 @@ public record Expand(Runtime runtime) {
                                   LinkNature linkNature,
                                   V to) {
         mergeEdge(graph, from, linkNature, to);
-        if (!from.equals(primary) && !(primary.v instanceof This)) {
-            mergeEdge(graph, primary, LinkNature.HAS_FIELD, from);
-            mergeEdge(graph, from, LinkNature.IS_FIELD_OF, primary);
+        if (!from.equals(primary)
+           // && !from.v.simpleName().startsWith("§")
+            && !(primary.v instanceof This)) {
+            mergeEdge(graph, primary, LinkNature.CONTAINS_AS_MEMBER, from);
+            mergeEdge(graph, from, LinkNature.IS_ELEMENT_OF, primary);
         }
     }
 
@@ -125,7 +128,8 @@ public record Expand(Runtime runtime) {
 
     private V makeComparableSub(V base, V sub, V target) {
         if (sub.v instanceof FieldReference fr && base.v.equals(fr.scopeVariable())) {
-            return new V(runtime.newFieldReference(fr.fieldInfo(), runtime.newVariableExpression(target.v), fr.fieldInfo().type()));
+            VariableExpression tve = runtime.newVariableExpression(target.v);
+            return new V(runtime.newFieldReference(fr.fieldInfo(), tve, fr.fieldInfo().type()));
         }
         TranslationMap tm = runtime.newTranslationMapBuilder().put(base.v, target.v).build();
         Variable newSub = tm.translateVariableRecursively(sub.v);
@@ -140,9 +144,7 @@ public record Expand(Runtime runtime) {
     private GraphData makeGraph(Map<Variable, Links> linkedVariables, boolean bidirectional) {
         Map<V, Set<V>> subs = new HashMap<>();
         Map<V, V> subToPrimary = new HashMap<>();
-        linkedVariables.entrySet().stream()
-                // .filter(e -> !(e.getKey() instanceof This))
-                .map(Map.Entry::getValue)
+        linkedVariables.values()
                 .forEach(links -> links.linkSet().forEach(l -> {
                     V primary = new V(links.primary());
                     Set<V> subsOfPrimary = subs.computeIfAbsent(primary, _ -> new HashSet<>());
@@ -160,9 +162,7 @@ public record Expand(Runtime runtime) {
                     }
                 }));
         Map<V, Map<V, LinkNature>> graph = new HashMap<>();
-        linkedVariables.entrySet().stream()
-                //   .filter(e -> !(e.getKey() instanceof This))
-                .map(Map.Entry::getValue)
+        linkedVariables.values()
                 .forEach(links -> links.linkSet()
                         .stream().filter(l -> !(l.to() instanceof This))
                         .forEach(l -> addToGraph(l, new V(links.primary()), graph, bidirectional, subs, subToPrimary)));
@@ -305,8 +305,7 @@ public record Expand(Runtime runtime) {
             Variable toPrimary = Util.primary(link.to());
             if (modifiedVariables.contains(toPrimary)) {
                 if (link.linkNature() == LinkNature.IS_IDENTICAL_TO
-                    || link.linkNature() == LinkNature.CONTAINS
-                    || link.linkNature() == LinkNature.HAS_FIELD) {
+                    || link.linkNature() == LinkNature.CONTAINS_AS_MEMBER) {
                     return false;
                 }
                 if (link.linkNature() == LinkNature.INTERSECTION_NOT_EMPTY) {
