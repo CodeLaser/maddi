@@ -167,18 +167,21 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         VariableData doBlock(Block block, VariableData previousVd) {
             VariableData vd = previousVd;
+            boolean first = true;
             for (Statement statement : block.statements()) {
                 if (statement instanceof Block b) {
                     // a block among the statements
                     vd = doBlock(b, vd);
                 } else {
-                    vd = doStatement(statement, vd);
+                    vd = doStatement(statement, vd, first);
                 }
+                first = false;
             }
             return vd;
         }
 
-        public VariableData doStatement(Statement statement, VariableData previousVd) {
+        public VariableData doStatement(Statement statement, VariableData previousVd, boolean first) {
+            Stage stageOfPrevious = first ? Stage.EVALUATION : Stage.MERGE;
             Map<Variable, Links> linkedVariables = new HashMap<>();
             List<ExpressionVisitor.WriteMethodCall> writeMethodCalls = new LinkedList<>();
             LocalVariable forEachLv;
@@ -234,11 +237,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (statement instanceof ForStatement fs) {
                 fs.updaters().forEach(updater -> {
                     ExpressionVisitor.Result u = expressionVisitor.visit(updater, previousVd);
-                    // FIXME merge result into ...?
+                    if (u.links() != null && u.links().primary() != null) {
+                        linkedVariables.merge(u.links().primary(), u.links(), Links::merge);
+                    }
+                    u.extra().forEach(e -> linkedVariables.merge(e.getKey(), e.getValue(),
+                            Links::merge));
                 });
             }
             VariableData vd = VariableDataImpl.of(statement);
-            copyEvalIntoVariableData(linkedVariables, r == null ? Set.of() : r.modified(), previousVd, vd);
+            Set<Variable> modifiedDuringEvaluation = r == null ? Set.of() : r.modified();
+            copyEvalIntoVariableData(linkedVariables, modifiedDuringEvaluation, previousVd, stageOfPrevious, vd);
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd, linkedVariables);
             }
@@ -253,15 +261,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return vd;
         }
 
-        private void writeOutMethodCallAnalysis(List<ExpressionVisitor.WriteMethodCall> writeMethodCalls, VariableData vd) {
+        private void writeOutMethodCallAnalysis(List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
+                                                VariableData vd) {
             for (ExpressionVisitor.WriteMethodCall wmc : writeMethodCalls) {
                 // rather than taking the links in wmc, we want the fully expanded links
                 // (after running copyEvalIntoVariableData)
                 Map<Variable, Boolean> variablesLinkedToObject = new HashMap<>();
                 for (Link l : wmc.linksFromObject()) {
-                    addToVlto(vd, l.to(), variablesLinkedToObject);
+                    addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject);
                 }
-                addToVlto(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
+                addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
                 if (!variablesLinkedToObject.isEmpty()) {
                     try {
                         wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
@@ -274,7 +283,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
         }
 
-        private static void addToVlto(VariableData vd, Variable sub, Map<Variable, Boolean> variablesLinkedToObject) {
+        private static void addToVariablesLinkedToObject(VariableData vd,
+                                                         Variable sub,
+                                                         Map<Variable, Boolean> variablesLinkedToObject) {
             Variable primary = Util.primary(sub);
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
@@ -297,7 +308,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void handleSubBlocks(Statement statement, VariableData vd, Map<Variable, Links> linkedVariables) {
-            List<VariableData> vds = statement.subBlockStream().map(block -> doBlock(block, vd))
+            List<VariableData> vds = statement.subBlockStream()
+                    .filter(block -> !block.isEmpty())
+                    .map(block -> doBlock(block, vd))
                     .filter(Objects::nonNull)
                     .toList();
             vd.variableInfoContainerStream()
@@ -315,7 +328,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                             if (subVic != null) {
                                 VariableInfo subVi = subVic.best();
                                 Links subTlv = subVi.linkedVariables();
-                                if (subTlv != null) {
+                                if (subTlv != null && subTlv.primary() != null) {
                                     collect.addAll(subTlv);
                                 }
                                 if (subVi.isModified()) unmodified.set(false);
@@ -335,8 +348,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables,
                                               Set<Variable> modifiedDuringEvaluation,
                                               VariableData previousVd,
+                                              Stage stageOfPrevious,
                                               VariableData vd) {
-            Map<Variable, Links> expanded = expand.local(linkedVariables, modifiedDuringEvaluation, previousVd, vd);
+            Map<Variable, Links> expanded = expand.local(linkedVariables, modifiedDuringEvaluation, previousVd,
+                    stageOfPrevious, vd);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);

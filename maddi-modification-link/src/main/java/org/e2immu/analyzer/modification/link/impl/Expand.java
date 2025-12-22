@@ -328,6 +328,7 @@ public record Expand(Runtime runtime) {
     public Map<Variable, Links> local(Map<Variable, Links> lvIn,
                                       Set<Variable> modifiedDuringEvaluation,
                                       VariableData previousVd,
+                                      Stage stageOfPrevious,
                                       VariableData vd) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables;
@@ -336,7 +337,7 @@ public record Expand(Runtime runtime) {
             linkedVariables = lvIn;
         } else {
             linkedVariables = new HashMap<>(lvIn);
-            previousVd.variableInfoStream().forEach(vi -> {
+            previousVd.variableInfoStream(stageOfPrevious).forEach(vi -> {
                 Links vLinks = vi.linkedVariables();
                 if (vLinks != null) {
                     linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);

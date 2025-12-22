@@ -240,7 +240,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         if (rValue.links != null && rValue.links.primary() != null) {
             builder.add(LinkNature.IS_IDENTICAL_TO, rValue.links.primary());
         }
-        return new Result(builder.build(), rValue.extraAndLinks().merge(rTarget.extra))
+        return new Result(builder.build(), LinkedVariablesImpl.EMPTY)
+                .merge(rValue)
+                .merge(rTarget)
                 .addModified(Util.scopeVariables(a.variableTarget()));
     }
 
