@@ -9,7 +9,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImp
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -19,6 +18,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -146,6 +146,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     public class SourceMethodComputer {
         final MethodInfo methodInfo;
         final ExpressionVisitor expressionVisitor;
+        final Set<Variable> erase = new HashSet<>();
         Links ofReturnValue;
 
         public SourceMethodComputer(MethodInfo methodInfo) {
@@ -182,82 +183,81 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         public VariableData doStatement(Statement statement, VariableData previousVd, boolean first) {
             Stage stageOfPrevious = first ? Stage.EVALUATION : Stage.MERGE;
-            Map<Variable, Links> linkedVariables = new HashMap<>();
-            List<ExpressionVisitor.WriteMethodCall> writeMethodCalls = new LinkedList<>();
             LocalVariable forEachLv;
             boolean evaluate;
 
+            ExpressionVisitor.Result r;
             switch (statement) {
                 case LocalVariableCreation lvc -> {
-                    linkedVariables.putAll(handleLvc(lvc, previousVd, writeMethodCalls));
+                    r = handleLvc(lvc, previousVd);
                     evaluate = false;
                     forEachLv = null;
                 }
                 case ForEachStatement fe -> {
-                    handleLvc(fe.initializer(), previousVd, writeMethodCalls);
+                    r = handleLvc(fe.initializer(), previousVd);
                     forEachLv = fe.initializer().localVariable();
                     evaluate = false;
                 }
                 case ForStatement fs -> {
-                    fs.initializers().stream()
+                    r = fs.initializers().stream()
                             .filter(i -> i instanceof LocalVariableCreation)
-                            .forEach(i ->
-                                    handleLvc((LocalVariableCreation) i, previousVd, writeMethodCalls));
+                            .map(i ->
+                                    handleLvc((LocalVariableCreation) i, previousVd))
+                            .reduce(ExpressionVisitor.EMPTY, ExpressionVisitor.Result::merge);
                     evaluate = true;
                     forEachLv = null;
                 }
                 default -> {
                     evaluate = true;
                     forEachLv = null;
+                    r = null;
                 }
             }
-            ExpressionVisitor.Result r;
             if (evaluate) {
                 Expression expression = statement.expression();
                 if (expression != null && !expression.isEmpty()) {
-                    r = expressionVisitor.visit(expression, previousVd);
-                    linkedVariables.putAll(r.extra().map());
-                    if (r.links().primary() != null) {
-                        linkedVariables.merge(r.links().primary(), r.links(), Links::merge);
-                    }
-                    writeMethodCalls.addAll(r.writeMethodCalls());
-                } else {
-                    r = null;
+                    Expression e = javaInspector.runtime().sortAndSimplify(true, expression);
+                    ExpressionVisitor.Result u = expressionVisitor.visit(e, previousVd);
+                    r = r == null ? u : r.merge(u);
                 }
-            } else {
-                r = null;
             }
             if (forEachLv != null) {
-                ExpressionVisitor.Result r2 = new ForEach(javaInspector.runtime(), expressionVisitor)
-                        .linkIntoIterable(forEachLv.parameterizedType(), statement.expression(), previousVd);
-                linkedVariables.put(r2.links().primary(), r2.links());
-                r2.extra().forEach(e -> linkedVariables.merge(e.getKey(), e.getValue(), Links::merge));
-                linkedVariables.put(forEachLv, new LinksImpl.Builder(forEachLv).add(LinkNature.IS_IDENTICAL_TO, r2.links().primary()).build());
+                Expression e = javaInspector.runtime().sortAndSimplify(true, statement.expression());
+                ExpressionVisitor.Result u = new ForEach(javaInspector.runtime(), expressionVisitor)
+                        .linkIntoIterable(forEachLv.parameterizedType(), e, previousVd);
+                Links newLinks = new LinksImpl.Builder(forEachLv)
+                        .add(LinkNature.IS_IDENTICAL_TO, u.links().primary())
+                        .build();
+                r = u.addExtra(Map.of(forEachLv, newLinks));
             }
             if (statement instanceof ForStatement fs) {
-                fs.updaters().forEach(updater -> {
-                    ExpressionVisitor.Result u = expressionVisitor.visit(updater, previousVd);
-                    if (u.links() != null && u.links().primary() != null) {
-                        linkedVariables.merge(u.links().primary(), u.links(), Links::merge);
-                    }
-                    u.extra().forEach(e -> linkedVariables.merge(e.getKey(), e.getValue(),
-                            Links::merge));
-                });
+                for (Expression updater : fs.updaters()) {
+                    Expression sorted = javaInspector.runtime().sortAndSimplify(true, updater);
+                    ExpressionVisitor.Result u = expressionVisitor.visit(sorted, previousVd);
+                    r = r == null ? u : r.merge(u);
+                }
             }
             VariableData vd = VariableDataImpl.of(statement);
-            Set<Variable> modifiedDuringEvaluation = r == null ? Set.of() : r.modified();
-            copyEvalIntoVariableData(linkedVariables, modifiedDuringEvaluation, previousVd, stageOfPrevious, vd);
+            if (r != null) {
+                r = r.copyLinksToExtra();
+            }
+            if (r != null) {
+                this.erase.addAll(r.erase());
+                copyEvalIntoVariableData(r, previousVd, stageOfPrevious, vd);
+            }
             if (statement.hasSubBlocks()) {
-                handleSubBlocks(statement, vd, linkedVariables);
+                handleSubBlocks(statement, vd, r);
             }
 
-            if (statement instanceof ReturnStatement && r != null) {
+            if (statement instanceof ReturnStatement && r != null && r.links() != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
                 ofReturnValue = expand.returnValue(rv, r.links(), r.extra(), vd);
                 VariableInfoImpl vii = ((VariableInfoImpl) vd.variableInfo(rv));
                 vii.setLinkedVariables(ofReturnValue);
             }
-            writeOutMethodCallAnalysis(writeMethodCalls, vd);
+            if (r != null) {
+                writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
+            }
             return vd;
         }
 
@@ -307,7 +307,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
         }
 
-        private void handleSubBlocks(Statement statement, VariableData vd, Map<Variable, Links> linkedVariables) {
+        private void handleSubBlocks(Statement statement, VariableData vd, ExpressionVisitor.Result r) {
             List<VariableData> vds = statement.subBlockStream()
                     .filter(block -> !block.isEmpty())
                     .map(block -> doBlock(block, vd))
@@ -318,7 +318,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .forEach(vic -> {
                         VariableInfo best = vic.best(Stage.EVALUATION);
                         Variable variable = best.variable();
-                        Links eval = linkedVariables.get(variable);
+                        Links eval = r == null ? null : r.extra().map().get(variable);
                         String fqn = variable.fullyQualifiedName();
                         Links.Builder collect = eval == null ? new LinksImpl.Builder(variable)
                                 : new LinksImpl.Builder(eval);
@@ -345,16 +345,23 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     });
         }
 
-        private void copyEvalIntoVariableData(Map<Variable, Links> linkedVariables,
-                                              Set<Variable> modifiedDuringEvaluation,
+        private void copyEvalIntoVariableData(ExpressionVisitor.Result r,
                                               VariableData previousVd,
                                               Stage stageOfPrevious,
                                               VariableData vd) {
+            Set<Variable> modifiedDuringEvaluation = r == null ? Set.of() : r.modified();
+            Map<Variable, Links> linkedVariables = r == null ? Map.of() : r.extra().map();
             Map<Variable, Links> expanded = expand.local(linkedVariables, modifiedDuringEvaluation, previousVd,
                     stageOfPrevious, vd);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
-                Links links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
+                Links links;
+                if (this.erase.contains(vi.variable())
+                    || !Collections.disjoint(Util.scopeVariables(vi.variable()), this.erase)) {
+                    links = new LinksImpl(vi.variable(), Set.of());
+                } else {
+                    links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
+                }
                 if (vic.hasEvaluation()) {
                     VariableInfoImpl eval = (VariableInfoImpl) vic.best(Stage.EVALUATION);
                     eval.setLinkedVariables(links);
@@ -362,32 +369,32 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             });
         }
 
-        public Map<Variable, Links> handleLvc(LocalVariableCreation lvc, VariableData previousVd,
-                                              List<ExpressionVisitor.WriteMethodCall> writeMethodCalls) {
-            Map<Variable, Links> linkedVariables = new HashMap<>();
-            lvc.localVariableStream().forEach(lv -> {
-                if (!lv.assignmentExpression().isEmpty()) {
-                    ExpressionVisitor.Result r = expressionVisitor.visit(lv.assignmentExpression(), previousVd);
-                    r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
-                    writeMethodCalls.addAll(r.writeMethodCalls());
-
-                    if (!r.links().isEmpty()) {
-                        linkedVariables.put(lv, r.links().changePrimaryTo(javaInspector.runtime(), lv));
-                    }
-                    // FIXME we need this code, but not here
-                    if (lv.assignmentExpression() instanceof VariableExpression ve &&
-                        r.links().primary() != null && ve.parameterizedType().equals(lv.parameterizedType())) {
-                        // make sure that we link the variables with '=='
-                        linkedVariables.merge(lv,
-                                new LinksImpl.Builder(lv)
-                                        .add(LinkNature.IS_IDENTICAL_TO, r.links().primary())
-                                        .build(),
-                                Links::merge);
-                    }
-                }
-            });
-            return linkedVariables;
+        public ExpressionVisitor.Result handleLvc(LocalVariableCreation lvc, VariableData previousVd) {
+            return lvc.localVariableStream()
+                    .map(lv -> handleSingleLvc(previousVd, lv))
+                    .reduce(ExpressionVisitor.EMPTY, ExpressionVisitor.Result::merge);
         }
 
+        private ExpressionVisitor.@NotNull Result handleSingleLvc(VariableData previousVd, LocalVariable lv) {
+            ExpressionVisitor.Result r;
+            if (!lv.assignmentExpression().isEmpty()) {
+                Map<Variable, Links> linkedVariables = new HashMap<>();
+                Expression e = javaInspector.runtime().sortAndSimplify(true, lv.assignmentExpression());
+                r = expressionVisitor.visit(e, previousVd);
+                //r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
+                if (!r.links().isEmpty()) {
+                    linkedVariables.put(lv, r.links().changePrimaryTo(javaInspector.runtime(), lv));
+                }
+                if (r.links().primary() != null) {
+                    // make sure that we link the variables with '==', as we do in ExpressionVisitor.assignment
+                    Links newLinks = new LinksImpl.Builder(lv)
+                            .add(LinkNature.IS_IDENTICAL_TO, r.links().primary())
+                            .build();
+                    linkedVariables.merge(lv, newLinks, Links::merge);
+                }
+                return r.addExtra(linkedVariables);
+            }
+            return ExpressionVisitor.EMPTY;
+        }
     }
 }

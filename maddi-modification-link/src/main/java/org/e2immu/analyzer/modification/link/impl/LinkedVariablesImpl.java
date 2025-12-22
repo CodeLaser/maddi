@@ -31,7 +31,7 @@ public record LinkedVariablesImpl(Map<Variable, Links> links) implements LinkedV
         if (other.isEmpty()) return this;
         HashMap<Variable, Links> map = new HashMap<>(links);
         other.map().forEach((v, l)->map.merge(v, l, Links::merge));
-        return new LinkedVariablesImpl(map);
+        return new LinkedVariablesImpl(Map.copyOf(map));
     }
 
     @Override
