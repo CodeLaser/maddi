@@ -54,7 +54,7 @@ public class TestShallowPrefix extends CommonTest {
         assertEquals("§m - XY[] §xys", vfOneInstance.toString());
 
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
-        assertEquals("[-, -] --> oneStatic.§xys[-1]>0:x,oneStatic.§xys[-2]>1:y", tlv1Static.toString());
+        assertEquals("[-, -] --> oneStatic.§xys[-1]∋0:x,oneStatic.§xys[-2]∋1:y", tlv1Static.toString());
 
         VirtualFields vfThis = vfc.compute(C);
         // see TestVirtualFieldComputer,10
@@ -62,7 +62,7 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                [0:x==this.§xy.§x, 1:y==this.§xy.§y] --> oneInstance.§m==this.§m,oneInstance.§xys>this.§xy\
+                [0:x==this.§xy.§x, 1:y==this.§xy.§y] --> oneInstance.§m==this.§m,oneInstance.§xys∋this.§xy\
                 """, tlv1Instance.toString());
     }
 
@@ -103,7 +103,7 @@ public class TestShallowPrefix extends CommonTest {
                 vfc.compute(oneInstance.returnType(), false).virtualFields().toString());
 
         MethodLinkedVariables mlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
-        assertEquals("[-, -] --> oneStatic.§xsys.§xs>0:x,oneStatic.§xsys.§ys>1:y", mlv1Static.toString());
+        assertEquals("[-, -] --> oneStatic.§xsys.§xs∋0:x,oneStatic.§xsys.§ys∋1:y", mlv1Static.toString());
 
         VirtualFields vfThis = vfc.compute(C);
         // see TestVirtualFieldComputer,10
@@ -111,8 +111,8 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                [0:x==this.§xy.§x, 1:y==this.§xy.§y] --> oneInstance.§m==this.§m,\
-                oneInstance.§xsys.§xs>this.§xy.§x,oneInstance.§xsys.§ys>this.§xy.§y\
+                [0:x==this.§xy.§x, 1:y==this.§xy.§y] --> \
+                oneInstance.§m==this.§m,oneInstance.§xsys.§xs∋this.§xy.§x,oneInstance.§xsys.§ys∋this.§xy.§y\
                 """, tlv1Instance.toString());
     }
 

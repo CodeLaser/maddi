@@ -46,7 +46,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
 
             if(sam.noReturnValue() && links.isEmpty()) {
                 // we must keep the connection to the primary (see TestForEachLambda,6)
-                return List.of(new Triplet(fromTranslated, LinkNature.CONTAINS, links.primary()));
+                return List.of(new Triplet(fromTranslated, LinkNature.CONTAINS_AS_MEMBER, links.primary()));
             }
             /*
             SUPPLIER: grab the "to" of the primary, if it is present (get==c.alternative in the example of a Supplier)

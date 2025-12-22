@@ -170,7 +170,7 @@ public class LinksImpl implements Links {
         @Override
         public @NotNull String toString() {
             String ln;
-            if (linkNature == LinkNature.IS_ELEMENT_OF || linkNature == LinkNature.CONTAINS) {
+            if (linkNature == LinkNature.IS_ELEMENT_OF || linkNature == LinkNature.CONTAINS_AS_MEMBER) {
                 int fromArrays = from.parameterizedType().arrays();
                 int toArrays = to.parameterizedType().arrays();
                 int numSymbols = Math.max(1, Math.abs(fromArrays - toArrays));

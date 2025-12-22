@@ -70,7 +70,7 @@ public class TestConstructor extends CommonTest {
             MethodInfo removeFirst = list.findUniqueMethod("removeFirst", 0);
             MethodLinkedVariables removeFirstMtl = removeFirst.analysis().getOrNull(METHOD_LINKS,
                     MethodLinkedVariablesImpl.class);
-            assertEquals("[] --> removeFirst<this.§es", removeFirstMtl.toString());
+            assertEquals("[] --> removeFirst∈this.§es", removeFirstMtl.toString());
 
             Statement s0 = methodB.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);

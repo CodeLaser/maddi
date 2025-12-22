@@ -3,19 +3,14 @@ package org.e2immu.analyzer.modification.prepwork.variable;
 public enum LinkNature {
     NONE("X"), // there cannot be a link
     EMPTY("?"), // start of algorithms
-    // more than 0-0, object identity
+
     IS_IDENTICAL_TO("=="),
 
-    //0-0
     INTERSECTION_NOT_EMPTY("~"),
+    IS_ELEMENT_OF("∈"),
+    CONTAINS_AS_MEMBER("∋"),
 
-    //*-0
-    IS_ELEMENT_OF("<"),
-    //0-*
-    CONTAINS(">"),
-
-    IS_FIELD_OF("≤"),
-    HAS_FIELD("≥");
+    ;
     private final String label;
 
     LinkNature(String label) {
@@ -27,21 +22,15 @@ public enum LinkNature {
      */
     public LinkNature best(LinkNature other, boolean samePrimary) {
         if (this == IS_IDENTICAL_TO || other == IS_IDENTICAL_TO) return IS_IDENTICAL_TO;
-        if(samePrimary) {
-            if (this == IS_FIELD_OF || other == IS_FIELD_OF) return IS_FIELD_OF;
-            if (this == HAS_FIELD || other == HAS_FIELD) return HAS_FIELD;
-        }
         if (this == IS_ELEMENT_OF || other == IS_ELEMENT_OF) return IS_ELEMENT_OF;
-        if (this == CONTAINS || other == CONTAINS) return CONTAINS;
+        if (this == CONTAINS_AS_MEMBER || other == CONTAINS_AS_MEMBER) return CONTAINS_AS_MEMBER;
         if (this == INTERSECTION_NOT_EMPTY || other == INTERSECTION_NOT_EMPTY) return INTERSECTION_NOT_EMPTY;
         return this;
     }
 
     public LinkNature reverse() {
-        if (this == IS_ELEMENT_OF) return CONTAINS;
-        if (this == CONTAINS) return IS_ELEMENT_OF;
-        if (this == IS_FIELD_OF) return HAS_FIELD;
-        if (this == HAS_FIELD) return IS_FIELD_OF;
+        if (this == IS_ELEMENT_OF) return CONTAINS_AS_MEMBER;
+        if (this == CONTAINS_AS_MEMBER) return IS_ELEMENT_OF;
         return this;
     }
 
@@ -60,43 +49,17 @@ public enum LinkNature {
 
         if (this == IS_ELEMENT_OF) {
             return switch (other) {
-                case INTERSECTION_NOT_EMPTY, IS_FIELD_OF -> IS_ELEMENT_OF;
-                case CONTAINS, HAS_FIELD -> NONE; // asymmetric!
+                case INTERSECTION_NOT_EMPTY -> NONE;
+                case CONTAINS_AS_MEMBER -> NONE; // asymmetric!
                 default -> throw new UnsupportedOperationException();
             };
         }
 
-        if (this == CONTAINS) {
+        if (this == CONTAINS_AS_MEMBER) {
             return switch (other) {
-                case IS_FIELD_OF -> NONE;
-                case HAS_FIELD, INTERSECTION_NOT_EMPTY -> CONTAINS;
+                case INTERSECTION_NOT_EMPTY -> NONE;
                 case IS_ELEMENT_OF -> INTERSECTION_NOT_EMPTY; // asymmetric
                 default -> throw new UnsupportedOperationException();
-            };
-        }
-
-        if (this == IS_FIELD_OF) {
-            return switch (other) {
-                case IS_ELEMENT_OF -> IS_ELEMENT_OF;
-                case INTERSECTION_NOT_EMPTY -> INTERSECTION_NOT_EMPTY;
-                case CONTAINS, HAS_FIELD -> NONE; // asymmetric!
-                default -> throw new UnsupportedOperationException();
-            };
-        }
-
-        if (this == HAS_FIELD) {
-            return switch (other) {
-                case INTERSECTION_NOT_EMPTY, IS_ELEMENT_OF, IS_FIELD_OF -> INTERSECTION_NOT_EMPTY; // asymmetric
-                case CONTAINS -> CONTAINS;
-                default -> throw new UnsupportedOperationException();
-            };
-        }
-
-        if(this == INTERSECTION_NOT_EMPTY) {
-            return switch (other) {
-                case IS_ELEMENT_OF -> IS_ELEMENT_OF;
-                case CONTAINS -> CONTAINS;
-                default -> NONE;
             };
         }
         return NONE;
