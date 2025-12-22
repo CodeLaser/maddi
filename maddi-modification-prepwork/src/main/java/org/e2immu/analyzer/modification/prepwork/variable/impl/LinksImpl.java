@@ -127,7 +127,7 @@ public class LinksImpl implements Links {
 
         @Override
         public Links.Builder addAll(Links other) {
-            assert primary == other.primary();
+            assert primary.equals(other.primary());
             this.links.addAll(other.linkSet());
             return this;
         }
