@@ -25,6 +25,8 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -47,6 +49,7 @@ public class TestStaticValuesMerge extends CommonTest {
             }
             """;
 
+    @DisplayName("test the 'erase' system, 1")
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
@@ -80,7 +83,7 @@ public class TestStaticValuesMerge extends CommonTest {
                 void method(int[] array) {
                     int y = array[0];
                     if(array[1]>10) {
-                        y += 9 * array[3] - array[4];
+                        y = 9 * array[3] - array[4];
                     }
                     System.out.println(array[0] +" ? "+y);
                     array[0] = y;
@@ -88,6 +91,7 @@ public class TestStaticValuesMerge extends CommonTest {
             }
             """;
 
+    @DisplayName("test the 'erase' system, 2")
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);

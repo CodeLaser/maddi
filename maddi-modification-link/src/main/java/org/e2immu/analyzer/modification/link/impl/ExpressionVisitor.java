@@ -39,9 +39,22 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                          LinkedVariables extra,
                          Set<Variable> modified,
                          List<WriteMethodCall> writeMethodCalls,
-                         Map<Variable, Set<ParameterizedType>> casts) {
+                         Map<Variable, Set<ParameterizedType>> casts,
+                         Set<Variable> erase) {
         public Result(Links links, LinkedVariables extra) {
-            this(links, extra, new HashSet<>(), new ArrayList<>(), new HashMap<>());
+            this(links, extra, new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>());
+        }
+
+        public void addErase(Variable variable) {
+            this.erase.add(variable);
+        }
+
+        public @NotNull Result addExtra(Map<Variable, Links> linkedVariables) {
+            if (!linkedVariables.isEmpty()) {
+                return new Result(links, extra.merge(new LinkedVariablesImpl(linkedVariables)),
+                        modified, writeMethodCalls, casts, erase);
+            }
+            return this;
         }
 
         public Result addModified(Set<Variable> modified) {
@@ -59,37 +72,53 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             return this;
         }
 
+        public Result eraseLinksPrimary() {
+            if (links.primary() != null) {
+                erase.add(links.primary());
+            }
+            return this;
+        }
+
         public Result with(Links links) {
-            return new Result(links, extra, modified, writeMethodCalls, casts);
+            return new Result(links, extra, modified, writeMethodCalls, casts, erase);
         }
 
         public Result merge(Result other) {
+            if (this == EMPTY) return other;
+            if (other == EMPTY) return this;
             LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
-            if(other.links != null && other.links.primary() != null) {
+            if (other.links != null && other.links.primary() != null) {
                 combinedExtra = combinedExtra.merge(new LinkedVariablesImpl(Map.of(other.links.primary(), other.links)));
             }
-            this.writeMethodCalls.addAll(other.writeMethodCalls);
-            this.modified.addAll(other.modified);
+            Result r = new Result(this.links, combinedExtra, new HashSet<>(this.modified),
+                    new ArrayList<>(this.writeMethodCalls), new HashMap<>(this.casts), new HashSet<>(this.erase));
+            r.writeMethodCalls.addAll(other.writeMethodCalls);
+            r.modified.addAll(other.modified);
             other.casts.forEach((v, set) ->
-                    casts.computeIfAbsent(v, vv -> new HashSet<>()).addAll(set));
-            return new Result(this.links, combinedExtra, this.modified, this.writeMethodCalls, this.casts);
+                    r.casts.computeIfAbsent(v, _ -> new HashSet<>()).addAll(set));
+            r.erase.addAll(other.erase);
+            return r;
         }
 
         public Result moveLinksToExtra() {
             if (links.primary() != null) {
-                this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
+                LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
+                return new Result(LinksImpl.EMPTY, newExtra, modified, writeMethodCalls, casts, erase);
             }
-            return new Result(LinksImpl.EMPTY, extra, modified, writeMethodCalls, casts);
+            return this;
         }
 
-        public LinkedVariables extraAndLinks() {
-            Map<Variable, Links> map = new HashMap<>(extra.map());
-            map.merge(links.primary(), links, Links::merge);
-            return new LinkedVariablesImpl(map);
+        public Result copyLinksToExtra() {
+            if (links.primary() != null) {
+                LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
+                return new Result(links, newExtra, modified, writeMethodCalls, casts, erase);
+            }
+            return this;
         }
     }
 
-    static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY);
+    static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(),
+            List.of(), Map.of(), Set.of());
 
     public Result visit(Expression expression, VariableData variableData) {
         return switch (expression) {
@@ -113,9 +142,10 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                     .reduce(EMPTY, Result::merge);
             case ArrayLength al -> visit(al.scope(), variableData).moveLinksToExtra();
             case EnclosedExpression ee -> visit(ee.inner(), variableData);
-            case UnaryOperator uo -> visit(uo.expression(), variableData);
+            case UnaryOperator uo -> visit(uo.expression(), variableData).with(LinksImpl.EMPTY);
             case GreaterThanZero gt0 -> visit(gt0.expression(), variableData);
-            case BinaryOperator bo -> visit(bo.lhs(), variableData).merge(visit(bo.rhs(), variableData));
+            case BinaryOperator bo -> visit(bo.lhs(), variableData)
+                    .merge(visit(bo.rhs(), variableData)).with(LinksImpl.EMPTY);
             case ConstantExpression<?> _, TypeExpression _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
@@ -123,14 +153,14 @@ public record ExpressionVisitor(JavaInspector javaInspector,
 
     /*
     simple passthrough, except
-    1. narrowing casts on primitives return EMPTY
+    1. narrowing casts on primitives return ERASE (as for an operation on a primitive)
     2. variable casts are stored for the DOWNCAST info
      */
     private Result cast(VariableData variableData, Cast cast) {
-        if (narrowingCast(cast.expression().parameterizedType(), cast.parameterizedType())) {
-            return EMPTY;
-        }
         Result r = visit(cast.expression(), variableData);
+        if (narrowingCast(cast.expression().parameterizedType(), cast.parameterizedType())) {
+            return r.with(LinksImpl.EMPTY);
+        }
         if (cast.expression() instanceof VariableExpression ve) {
             return r.addCast(ve.variable(), cast.parameterizedType());
         }
@@ -242,7 +272,11 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         if (rValue.links != null && rValue.links.primary() != null) {
             builder.add(LinkNature.IS_IDENTICAL_TO, rValue.links.primary());
         }
-        return new Result(builder.build(), LinkedVariablesImpl.EMPTY)
+        Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
+        if (a.assignmentOperator() != null || rValue.links == null || rValue.links.primary() == null) {
+            result.addErase(a.variableTarget());
+        }
+        return result
                 .merge(rValue)
                 .merge(rTarget)
                 .addModified(Util.scopeVariables(a.variableTarget()));

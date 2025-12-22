@@ -211,7 +211,7 @@ public class LinksImpl implements Links {
     @Override
     public Links translate(TranslationMap translationMap) {
         Variable newPrimary = translationMap.translateVariableRecursively(primary);
-        if(newPrimary==null) return null;
+        if (newPrimary == null) return null;
         return new LinksImpl(newPrimary,
                 linkSet.stream().map(l -> l.translate(translationMap)).collect(Collectors.toUnmodifiableSet()));
     }
@@ -219,7 +219,7 @@ public class LinksImpl implements Links {
     @Override
     public List<Variable> primaryAssigned() {
         return linkSet.stream()
-                .filter(l -> l.linkNature()==LinkNature.IS_IDENTICAL_TO)
+                .filter(l -> l.linkNature() == LinkNature.IS_IDENTICAL_TO)
                 .map(Link::to)
                 .filter(Util::isPrimary)
                 .toList();
