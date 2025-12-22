@@ -65,7 +65,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
 
         public Result merge(Result other) {
             LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
-
+            if(other.links != null && other.links.primary() != null) {
+                combinedExtra = combinedExtra.merge(new LinkedVariablesImpl(Map.of(other.links.primary(), other.links)));
+            }
             this.writeMethodCalls.addAll(other.writeMethodCalls);
             this.modified.addAll(other.modified);
             other.casts.forEach((v, set) ->
