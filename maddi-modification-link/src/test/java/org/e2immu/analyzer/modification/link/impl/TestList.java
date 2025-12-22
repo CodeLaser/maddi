@@ -72,7 +72,7 @@ public class TestList extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get==this.ts[0:index],get∈this.ts", mlv.ofReturnValue().toString());
+        assertEquals("get∈this.ts,get≡this.ts[0:index]", mlv.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'method', given method links for 'get'")
@@ -88,7 +88,7 @@ public class TestList extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         // first, do get()
         MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("get==this.ts[0:index],get∈this.ts", lvGet.ofReturnValue().toString());
+        assertEquals("get∈this.ts,get≡this.ts[0:index]", lvGet.ofReturnValue().toString());
 
         // then, do method
         MethodLinkedVariables lvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -96,9 +96,9 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links linksK = k0.linkedVariablesOrEmpty();
-        assertEquals("k==1:x.ts[0:i],k∈1:x.ts", linksK.toString());
+        assertEquals("k∈1:x.ts,k≡1:x.ts[0:i]", linksK.toString());
 
-        assertEquals("[-, -] --> method==1:x.ts[0:i],method∈1:x,method∈1:x.ts", lvMethod.toString());
+        assertEquals("[-, -] --> method≡1:x.ts[0:i],method∈1:x,method∈1:x.ts", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
@@ -123,7 +123,7 @@ public class TestList extends CommonTest {
         assertEquals("java.util.List.of(E)", of.descriptor());
         MethodLinkedVariablesImpl mlvOf = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(ofRv)
-                        .add(rvContent, LinkNature.CONTAINS_AS_MEMBER, of.parameters().getFirst())
+                        .add(rvContent, LinkNatureImpl.CONTAINS_AS_MEMBER, of.parameters().getFirst())
                         .build(),
                 List.of(LinksImpl.EMPTY));
         assertEquals("[-] --> of.tArray∋0:e1", mlvOf.toString());
@@ -138,7 +138,7 @@ public class TestList extends CommonTest {
         // test the evaluation of T t = ts[0]
         LocalVariableCreation lvc = (LocalVariableCreation) asShortList.methodBody().statements().getFirst();
         ExpressionVisitor.Result r = smc.handleLvc(lvc, null);
-        assertEquals("t: t==this.ts[0]; this.ts[0]: this.ts[0]∈this.ts", r.extra().toString());
+        assertEquals("t: t≡this.ts[0]; this.ts[0]: this.ts[0]∈this.ts", r.extra().toString());
 
         // test the evaluation of List.of(t)
         VariableData vd0 = VariableDataImpl.of(lvc);
@@ -166,7 +166,7 @@ public class TestList extends CommonTest {
         MethodInfo sub = X.findUniqueMethod("sub", 1);
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
 
-        assertEquals("[-] --> sub.§m==0:in.§m,sub.§zs~0:in.§zs,sub~0:in", mlvSub.toString());
+        assertEquals("[-] --> sub.§m≡0:in.§m,sub.§zs~0:in.§zs,sub~0:in", mlvSub.toString());
     }
 
 
@@ -185,14 +185,14 @@ public class TestList extends CommonTest {
         ExpressionVisitor ev = new ExpressionVisitor(javaInspector, new VirtualFieldComputer(javaInspector), tlc, smc,
                 set, new RecursionPrevention(false), new AtomicInteger());
         ExpressionVisitor.Result r = ev.visit(assignment, null);
-        assertEquals("this.ts[1:index]==0:t", r.links().toString());
+        assertEquals("this.ts[1:index]≡0:t", r.links().toString());
         assertEquals("0:t: -; this.ts[1:index]: this.ts[1:index]∈this.ts", r.extra().toString());
 
         // now the same, but as a statement; then, the data will be saved
         VariableData vd = smc.doStatement(set.methodBody().statements().getFirst(), null, true);
         List<Links> list = new Expand(runtime).parameters(set, vd);
         // MethodLinkedVariables mlv = tlc.doMethod(set)
-        assertEquals("0:t==this.ts[1:index],0:t∈this.ts", list.getFirst().toString());
+        assertEquals("0:t∈this.ts,0:t≡this.ts[1:index]", list.getFirst().toString());
     }
 
     @Language("java")
@@ -222,11 +222,11 @@ public class TestList extends CommonTest {
         MethodInfo get = X.findUniqueMethod("getList", 0);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("getList==this.list", mlv.ofReturnValue().toString());
+        assertEquals("getList≡this.list", mlv.ofReturnValue().toString());
 
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = tlc.doMethod(constructor);
-        assertEquals("[0:in==this.list] --> -", mlvConstructor.toString());
+        assertEquals("[0:in≡this.list] --> -", mlvConstructor.toString());
     }
 
     @Language("java")
@@ -266,7 +266,7 @@ public class TestList extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("getList", 0);
         MethodLinkedVariables mlv = linkComputer.doMethod(get);
-        assertEquals("getList==this.list", mlv.ofReturnValue().toString());
+        assertEquals("getList≡this.list", mlv.ofReturnValue().toString());
 
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);

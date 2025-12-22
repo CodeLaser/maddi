@@ -170,7 +170,7 @@ public class LinksImpl implements Links {
         @Override
         public @NotNull String toString() {
             String ln;
-            if (linkNature == LinkNature.IS_ELEMENT_OF || linkNature == LinkNature.CONTAINS_AS_MEMBER) {
+            if (linkNature.multiplySymbols()) {
                 int fromArrays = from.parameterizedType().arrays();
                 int toArrays = to.parameterizedType().arrays();
                 int numSymbols = Math.max(1, Math.abs(fromArrays - toArrays));
@@ -219,7 +219,7 @@ public class LinksImpl implements Links {
     @Override
     public List<Variable> primaryAssigned() {
         return linkSet.stream()
-                .filter(l -> l.linkNature() == LinkNature.IS_IDENTICAL_TO)
+                .filter(l -> l.linkNature().isIdenticalTo())
                 .map(Link::to)
                 .filter(Util::isPrimary)
                 .toList();

@@ -244,7 +244,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         while (v instanceof DependentVariable dv) {
             v = dv.arrayVariable();
             if (v != null) {
-                Links vLinks = new LinksImpl.Builder(dv).add(LinkNature.IS_ELEMENT_OF, v).build();
+                Links vLinks = new LinksImpl.Builder(dv).add(LinkNatureImpl.IS_ELEMENT_OF, v).build();
                 extra = extra.merge(new LinkedVariablesImpl(Map.of(dv, vLinks)));
             }
         }
@@ -270,7 +270,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result rValue = visit(a.value(), variableData);
         Result rTarget = visit(a.target(), variableData);
         if (rValue.links != null && rValue.links.primary() != null) {
-            builder.add(LinkNature.IS_IDENTICAL_TO, rValue.links.primary());
+            builder.add(LinkNatureImpl.IS_IDENTICAL_TO, rValue.links.primary());
         }
         Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
         if (a.assignmentOperator() != null || rValue.links == null || rValue.links.primary() == null) {
