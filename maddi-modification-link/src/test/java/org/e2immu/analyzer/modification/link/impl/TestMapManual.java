@@ -79,7 +79,7 @@ public class TestMapManual extends CommonTest {
         ReturnVariable mapGetRv = new ReturnVariableImpl(mapGet);
         MethodLinkedVariablesImpl mlvGet = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(mapGetRv)
-                        .add(mapGetRv, LinkNature.IS_ELEMENT_OF, eInfo.thisMapEV)
+                        .add(mapGetRv, LinkNatureImpl.IS_ELEMENT_OF, eInfo.thisMapEV)
                         .build(),
                 List.of());
         assertEquals("[] --> get∈this.eArray[-1].v", mlvGet.toString());
@@ -112,8 +112,8 @@ public class TestMapManual extends CommonTest {
         FieldReference mapKeySetRvTArray = runtime.newFieldReference(setTArray, mapKeySetRvVe, setTArray.type());
         MethodLinkedVariablesImpl mlvGet = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(mapKeySetRv)
-                        .add(mapKeySetRvTArray, LinkNature.INTERSECTION_NOT_EMPTY, eInfo.thisMapEK)
-                        .add(mapKeySetRvM, LinkNature.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
+                        .add(mapKeySetRvTArray, LinkNatureImpl.SHARES_ELEMENTS, eInfo.thisMapEK)
+                        .add(mapKeySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
                         .build(),
                 List.of());
         assertEquals("[] --> keySet.M==this.M,keySet.tArray~this.eArray[-1].k", mlvGet.toString());
@@ -198,8 +198,8 @@ public class TestMapManual extends CommonTest {
         FieldReference mapEntrySetRvEArray = runtime.newFieldReference(eInfo.eArray, mapEntrySetRvVe, eInfo.eArrayPt);
         MethodLinkedVariablesImpl mlvGet = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(mapEntrySetRv)
-                        .add(mapEntrySetRvEArray, LinkNature.INTERSECTION_NOT_EMPTY, eArray)
-                        .add(mapEntrySetRvM, LinkNature.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
+                        .add(mapEntrySetRvEArray, LinkNatureImpl.SHARES_ELEMENTS, eArray)
+                        .add(mapEntrySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
                         .build(),
                 List.of());
         assertEquals("[] --> entrySet.M==this.M,entrySet.eArray~this.eArray", mlvGet.toString());

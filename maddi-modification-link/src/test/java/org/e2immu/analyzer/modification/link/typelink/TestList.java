@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.*;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
@@ -52,7 +53,7 @@ public class TestList extends CommonTest {
         FieldInfo tsField = X.getFieldByName("ts", true);
         FieldReference ts = runtime.newFieldReference(tsField);
         get.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(
-                new LinksImpl.Builder(rv).add(LinkNature.IS_ELEMENT_OF, ts).build(), List.of()));
+                new LinksImpl.Builder(rv).add(LinkNatureImpl.IS_ELEMENT_OF, ts).build(), List.of()));
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -194,7 +195,7 @@ public class TestList extends CommonTest {
         FieldReference ts = runtime.newFieldReference(tsField);
         FieldReference rvTs = runtime.newFieldReference(tsField, runtime.newVariableExpression(rv), tsField.type());
         copy.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(
-                new LinksImpl.Builder(rv).add(rvTs, LinkNature.INTERSECTION_NOT_EMPTY, ts).build(), List.of()));
+                new LinksImpl.Builder(rv).add(rvTs, LinkNatureImpl.SHARES_ELEMENTS, ts).build(), List.of()));
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);

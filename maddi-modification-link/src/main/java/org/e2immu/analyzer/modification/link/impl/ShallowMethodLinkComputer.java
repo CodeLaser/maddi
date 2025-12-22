@@ -26,6 +26,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
 import static org.e2immu.analyzer.modification.prepwork.variable.LinkNature.*;
@@ -267,7 +268,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     boolean fromIsTp = subFrom.parameterizedType().isTypeParameter();
                     if (subTo.parameterizedType().isFunctionalInterface()) {
                         // T into Stream<T> for Stream.generate(Supplier<T>)
-                        builder.add(subFrom, INTERSECTION_NOT_EMPTY, subTo);
+                        builder.add(subFrom, IS_SUBSET_OF, subTo);
                     } else if (toIsTp && fromIsTp || !toIsTp && !fromIsTp && arraysAligned(subFrom.parameterizedType(),
                             subTo.parameterizedType())) {
                         // e.g. new ArrayList<>(Collection<> c) this.es ~ c.es
@@ -298,7 +299,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     } else {
                         // List.toArray()
                         if (arraysFrom == arraysTo) {
-                            builder.add(subFrom, INTERSECTION_NOT_EMPTY, subTo);
+                            builder.add(subFrom, IS_SUBSET_OF, subTo);
                         } else {
                             throw new UnsupportedOperationException("NYI");
                         }
@@ -315,7 +316,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                     assert theField != null;
                                     DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
                                             runtime.newInt(theField.negative()));
-                                    builder.add(dv, INTERSECTION_NOT_EMPTY, subTo);
+                                    builder.add(dv, IS_SUBSET_OF, subTo);
                                 } else {
                                     // slice across: TestShallow,4: keySet.ks~this.kvs[-1].k
                                     FF theField = findField(intersection.getFirst(), toType.typeInfo());
@@ -325,7 +326,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                     Expression scope = runtime.newVariableExpression(dv);
                                     FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope,
                                             theField.fieldInfo.type());
-                                    builder.add(subFrom, INTERSECTION_NOT_EMPTY, slice);
+                                    builder.add(subFrom, IS_SUBSET_OF, slice);
                                 }
                             } else if (arraysTo == 0) {
                                 // slice to a single element: TestShallowPrefix,1: oneStatic.xys[-1]>0:x
@@ -375,7 +376,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
     private static LinkNature deriveLinkNature(int arrays, int arraysSource) {
         if (arrays == arraysSource) {
-            return arrays == 0 ? IS_IDENTICAL_TO : INTERSECTION_NOT_EMPTY;
+            return arrays == 0 ? IS_IDENTICAL_TO : IS_SUBSET_OF;
         }
         if (arrays < arraysSource) {
             return IS_ELEMENT_OF;

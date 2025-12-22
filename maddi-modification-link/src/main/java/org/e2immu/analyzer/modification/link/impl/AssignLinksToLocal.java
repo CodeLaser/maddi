@@ -13,7 +13,7 @@ public record AssignLinksToLocal(Runtime runtime) {
         Links.Builder rvBuilder = new LinksImpl.Builder(target);
 
         if(primary != null) {
-            rvBuilder.add(LinkNature.IS_IDENTICAL_TO, primary);
+            rvBuilder.add(LinkNatureImpl.IS_IDENTICAL_TO, primary);
         }
         if(target != null) {
             Links reassigned = links.changePrimaryTo(runtime, target);

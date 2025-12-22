@@ -154,8 +154,8 @@ public record LinkMethodCall(Runtime runtime,
     }
 
     private LinkNature varargsLinkNature(LinkNature linkNature) {
-        if (linkNature == LinkNature.INTERSECTION_NOT_EMPTY || linkNature == LinkNature.IS_IDENTICAL_TO) {
-            return LinkNature.IS_ELEMENT_OF;
+        if (linkNature == LinkNatureImpl.SHARES_ELEMENTS || linkNature == LinkNatureImpl.IS_IDENTICAL_TO) {
+            return LinkNatureImpl.IS_ELEMENT_OF;
         }
         return linkNature;
     }
@@ -275,7 +275,7 @@ public record LinkMethodCall(Runtime runtime,
                     List<LinkFunctionalInterface.Triplet> toAdd =
                             new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).
                                     go(pi, link.from(),
-                                            LinkNature.INTERSECTION_NOT_EMPTY,
+                                            LinkNatureImpl.SHARES_ELEMENTS,
                                             builder.primary(),
                                             paramProvider,
                                             objectPrimary);
