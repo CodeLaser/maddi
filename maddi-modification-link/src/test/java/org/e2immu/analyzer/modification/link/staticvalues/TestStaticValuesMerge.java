@@ -18,12 +18,12 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -59,15 +59,17 @@ public class TestStaticValuesMerge extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo vi0y = vd0.variableInfo("y");
-        assertEquals("E=array[0]", vi0y.linkedVariables().toString());
+        assertEquals("y<0:array,y==0:array[0]", vi0y.linkedVariables().toString());
 
-        VariableData vd100 = VariableDataImpl.of(method.methodBody().statements().get(1).block().statements().getFirst());
+        Statement s1 = method.methodBody().statements().get(1);
+        VariableData vd100 = VariableDataImpl.of(s1.block().statements().getFirst());
         VariableInfo vi100y = vd100.variableInfo("y");
-        assertEquals("", vi100y.linkedVariables().toString()); // multiple values
+        assertEquals("-", vi100y.linkedVariables().toString()); // multiple values
 
-        VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
+        Statement s2 = method.methodBody().statements().get(2);
+        VariableData vd1 = VariableDataImpl.of(s2);
         VariableInfo vi1y = vd1.variableInfo("y");
-                assertEquals("", vi1y.linkedVariables().toString()); // multiple values
+                assertEquals("-", vi1y.linkedVariables().toString()); // multiple values
 
     }
 
@@ -102,11 +104,11 @@ public class TestStaticValuesMerge extends CommonTest {
 
         VariableData vd100 = VariableDataImpl.of(method.methodBody().statements().get(1).block().statements().getFirst());
         VariableInfo vi100y = vd100.variableInfo("y");
-        assertEquals("-", vi100y.linkedVariables().toString()); // multiple values
+        assertEquals("-", vi100y.linkedVariables().toString()); // binary operator
 
-        VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
-        VariableInfo vi1y = vd1.variableInfo("y");
-        assertEquals("-", vi1y.linkedVariables().toString()); // multiple values
+        VariableData vd2 = VariableDataImpl.of(method.methodBody().statements().get(2));
+        VariableInfo vi1y = vd2.variableInfo("y");
+        assertEquals("-", vi1y.linkedVariables().toString()); // value + empty -> empty
 
     }
 

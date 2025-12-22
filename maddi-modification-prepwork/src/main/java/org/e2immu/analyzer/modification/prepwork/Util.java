@@ -20,7 +20,10 @@ import org.e2immu.language.cst.api.variable.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;
+import java.util.Set;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.prepwork.StatementIndex.*;
 
@@ -123,6 +126,18 @@ public class Util {
             return primary(dv.arrayVariable());
         }
         return variable;
+    }
+
+    public static Set<Variable> scopeVariables(Variable variable) {
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return Stream.concat(scopeVariables(fr.scopeVariable()).stream(), Stream.of(fr.scopeVariable()))
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+        if(variable instanceof DependentVariable dv) {
+            return Stream.concat(scopeVariables(dv.arrayVariable()).stream(), Stream.of(dv.arrayVariable()))
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+        return Set.of();
     }
 
     public static String simpleName(Variable variable) {

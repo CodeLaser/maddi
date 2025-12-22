@@ -12,9 +12,13 @@ public record AssignLinksToLocal(Runtime runtime) {
         Variable primary = links.primary();
         Links.Builder rvBuilder = new LinksImpl.Builder(target);
 
-        rvBuilder.add(LinkNature.IS_IDENTICAL_TO, primary);
-        Links reassigned = links.changePrimaryTo(runtime, target);
-        reassigned.linkSet().forEach(link -> rvBuilder.add(link.from(), link.linkNature(), link.to()));
+        if(primary != null) {
+            rvBuilder.add(LinkNature.IS_IDENTICAL_TO, primary);
+        }
+        if(target != null) {
+            Links reassigned = links.changePrimaryTo(runtime, target);
+            reassigned.linkSet().forEach(link -> rvBuilder.add(link.from(), link.linkNature(), link.to()));
+        }
         return rvBuilder.build();
     }
 }

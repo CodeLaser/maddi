@@ -145,7 +145,6 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
         }
 
         private void copyFromVariablesIntoMethodPi(VariableInfo vi, ParameterInfo pi) {
-            Links links = vi.linkedVariables();
             if (vi.isUnmodified()) {
                 // FIXME pi can still be indirectly modified IF it is modifiable and linked in a modifiable way to a field
                 //

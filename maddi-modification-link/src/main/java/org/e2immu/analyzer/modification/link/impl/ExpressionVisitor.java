@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.expression.*;
@@ -15,8 +16,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -39,33 +38,52 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     public record Result(Links links,
                          LinkedVariables extra,
                          Set<Variable> modified,
-                         List<WriteMethodCall> writeMethodCalls) {
+                         List<WriteMethodCall> writeMethodCalls,
+                         Map<Variable, Set<ParameterizedType>> casts) {
         public Result(Links links, LinkedVariables extra) {
-            this(links, extra, Set.of(), List.of());
+            this(links, extra, new HashSet<>(), new ArrayList<>(), new HashMap<>());
         }
 
-        public Result with(Set<Variable> modified, WriteMethodCall writeMethodCall) {
-            return new Result(links, extra, modified, List.of(writeMethodCall));
+        public Result addModified(Set<Variable> modified) {
+            this.modified.addAll(modified);
+            return this;
+        }
+
+        public Result add(WriteMethodCall writeMethodCall) {
+            this.writeMethodCalls.add(writeMethodCall);
+            return this;
+        }
+
+        public Result addCast(Variable variable, ParameterizedType pt) {
+            this.casts.computeIfAbsent(variable, _ -> new HashSet<>()).add(pt);
+            return this;
+        }
+
+        public Result with(Links links) {
+            return new Result(links, extra, modified, writeMethodCalls, casts);
+        }
+
+        public Result merge(Result other) {
+            LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
+
+            this.writeMethodCalls.addAll(other.writeMethodCalls);
+            this.modified.addAll(other.modified);
+            other.casts.forEach((v, set) ->
+                    casts.computeIfAbsent(v, vv -> new HashSet<>()).addAll(set));
+            return new Result(this.links, combinedExtra, this.modified, this.writeMethodCalls, this.casts);
+        }
+
+        public Result moveLinksToExtra() {
+            if (links.primary() != null) {
+                this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
+            }
+            return new Result(LinksImpl.EMPTY, extra, modified, writeMethodCalls, casts);
         }
 
         public LinkedVariables extraAndLinks() {
             Map<Variable, Links> map = new HashMap<>(extra.map());
             map.merge(links.primary(), links, Links::merge);
             return new LinkedVariablesImpl(map);
-        }
-
-        public Result with(Links links) {
-            return new Result(links, extra, modified, writeMethodCalls);
-        }
-
-        public Result merge(Result other) {
-            if (other.links.isEmpty() && other.extra.isEmpty()) return this;
-            LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
-            List<WriteMethodCall> allWriteMethodCalls = Stream.concat(writeMethodCalls.stream(),
-                    other.writeMethodCalls.stream()).toList();
-            Set<Variable> allModified = Stream.concat(modified.stream(),
-                    other.modified.stream()).collect(Collectors.toUnmodifiableSet());
-            return new Result(links, combinedExtra, allModified, allWriteMethodCalls);
         }
     }
 
@@ -79,6 +97,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case MethodReference mr -> methodReference(variableData, mr);
             case ConstructorCall cc -> constructorCall(variableData, cc);
             case Lambda lambda -> lambda(lambda);
+            case Cast cast -> cast(variableData, cast);
+            case InstanceOf instanceOf -> instanceOf(variableData, instanceOf);
 
             case InlineConditional ic -> inlineConditional(ic, variableData);
             case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData))
@@ -89,7 +109,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                     .reduce(EMPTY, Result::merge);
             case CommaExpression ce -> ce.expressions().stream().map(e -> visit(e, variableData))
                     .reduce(EMPTY, Result::merge);
-            case ArrayLength al -> visit(al.scope(), variableData).with(LinksImpl.EMPTY);
+            case ArrayLength al -> visit(al.scope(), variableData).moveLinksToExtra();
             case EnclosedExpression ee -> visit(ee.inner(), variableData);
             case UnaryOperator uo -> visit(uo.expression(), variableData);
             case GreaterThanZero gt0 -> visit(gt0.expression(), variableData);
@@ -97,6 +117,35 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case ConstantExpression<?> _, TypeExpression _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
+    }
+
+    /*
+    simple passthrough, except
+    1. narrowing casts on primitives return EMPTY
+    2. variable casts are stored for the DOWNCAST info
+     */
+    private Result cast(VariableData variableData, Cast cast) {
+        if (narrowingCast(cast.expression().parameterizedType(), cast.parameterizedType())) {
+            return EMPTY;
+        }
+        Result r = visit(cast.expression(), variableData);
+        if (cast.expression() instanceof VariableExpression ve) {
+            return r.addCast(ve.variable(), cast.parameterizedType());
+        }
+        return r;
+    }
+
+    // long -> int etc.
+    private boolean narrowingCast(ParameterizedType from, ParameterizedType to) {
+        return from.isPrimitiveExcludingVoid()
+               && to.isPrimitiveExcludingVoid()
+               && !from.equals(to)
+               && javaInspector.runtime().widestType(from, to).equals(from);
+    }
+
+
+    private Result instanceOf(VariableData variableData, InstanceOf instanceOf) {
+        throw new UnsupportedOperationException();
     }
 
     private Result methodReference(VariableData variableData, MethodReference mr) {
@@ -191,7 +240,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         if (rValue.links != null && rValue.links.primary() != null) {
             builder.add(LinkNature.IS_IDENTICAL_TO, rValue.links.primary());
         }
-        return new Result(builder.build(), rValue.extraAndLinks().merge(rTarget.extra));
+        return new Result(builder.build(), rValue.extraAndLinks().merge(rTarget.extra))
+                .addModified(Util.scopeVariables(a.variableTarget()));
     }
 
     private Result constructorCall(VariableData variableData, ConstructorCall cc) {
@@ -269,18 +319,20 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated);
-        Set<Variable> modified;
-        // FIXME needs more code!
-        if (mc.methodInfo().isModifying()) {
-            if (objectPrimary != null) {
-                modified = Set.of(objectPrimary);
-            } else {
-                modified = Set.of();
-            }
-        } else {
-            modified = Set.of();
+        Set<Variable> modified = new HashSet<>();
+
+        if (mc.methodInfo().isModifying() && objectPrimary != null) {
+            modified.add(objectPrimary);
         }
-        return r.with(modified, new WriteMethodCall(mc, object.links));
+        for (ParameterInfo pi : mc.methodInfo().parameters()) {
+            if (pi.isModified() && params.size() > pi.index()) {
+                Result rp = params.get(pi.index());
+                if (rp.links != null && rp.links.primary() != null) {
+                    modified.add(rp.links.primary());
+                }
+            }
+        }
+        return r.addModified(modified).add(new WriteMethodCall(mc, object.links));
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
