@@ -25,9 +25,10 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.Reader;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -59,7 +60,6 @@ public class TestModificationParameter extends CommonTest {
             }
             """;
 
-    @DisplayName("parameter is array type, modification")
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
@@ -101,10 +101,14 @@ public class TestModificationParameter extends CommonTest {
             }
             """;
 
-    @DisplayName("parameter is reader, read inside expression, modification")
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
+
+        TypeInfo readerType = javaInspector.compiledTypesManager().getOrLoad(Reader.class);
+        MethodInfo readMethod = readerType.findUniqueMethod("read", 3);
+        assertTrue(readMethod.isModifying());
+
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
         MethodInfo methodInfo = X.findUniqueMethod("readFully", 1);
@@ -120,5 +124,67 @@ public class TestModificationParameter extends CommonTest {
         assertTrue(viReader.isModified());
 
         assertTrue(reader.isModified());
+    }
+
+    @Language("java")
+    private static final String INPUT3 = """
+            import java.io.File;
+            import java.util.List;
+            
+            class Function18024_file101780 {
+                private int findSources(File dir, List<String> args) {
+                    File[] files = dir.listFiles();
+                    if (files == null || files.length == 0) return 0;
+                    int found = 0;
+                    for (int i = 0; i < files.length; i++) {
+                        File file = files[i];
+                        if (file.isDirectory()) {
+                            found += findSources(file, args);
+                        } else if (file.getName().endsWith(".java")) {
+                            args.add(file.toString());
+                            found++;
+                        }
+                    }
+                    return found;
+                }
+            }
+            """;
+
+    @Test
+    public void test3() {
+        TypeInfo B = javaInspector.parse(INPUT3);
+
+        TypeInfo file = javaInspector.compiledTypesManager().getOrLoad(File.class);
+        MethodInfo listFiles = file.findUniqueMethod("listFiles", 0);
+        assertTrue(listFiles.isNonModifying());
+
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+        MethodInfo findSources = B.findUniqueMethod("findSources", 2);
+        ParameterInfo dir = findSources.parameters().getFirst();
+        assertEquals("dir", dir.name());
+
+        VariableData vd0 = VariableDataImpl.of(findSources.methodBody().statements().getFirst());
+        VariableInfo viDir0 = vd0.variableInfo(dir);
+        assertTrue(viDir0.isUnmodified());
+
+        Statement s1 = findSources.methodBody().statements().get(1);
+        VariableData vd100 = VariableDataImpl.of(s1.block().statements().getFirst());
+        VariableInfo viDir100 = vd100.variableInfo(dir);
+        assertTrue(viDir100.isUnmodified());
+
+        VariableData vd1 = VariableDataImpl.of(s1);
+        VariableInfo viDir1 = vd1.variableInfo(dir);
+        assertTrue(viDir1.isUnmodified());
+
+        VariableData vd4 = VariableDataImpl.of(findSources.methodBody().statements().get(4));
+        VariableInfo viDir4 = vd4.variableInfo(dir);
+        assertTrue(viDir4.isUnmodified());
+
+        assertTrue(dir.isUnmodified());
+        assertFalse(dir.isModified());
+
+        ParameterInfo p1 = findSources.parameters().get(1);
+        assertTrue(p1.isModified());
     }
 }
