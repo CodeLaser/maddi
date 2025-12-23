@@ -262,7 +262,7 @@ public class TestList extends CommonTest {
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = c1.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(c1));
-        assertEquals("[0:c.§es⊆this.§es] --> -", mlvC1.toString());
+        assertEquals("[0:c.§es⊇this.§es] --> -", mlvC1.toString());
 
         MethodInfo get = X.findUniqueMethod("getList", 0);
         MethodLinkedVariables mlv = linkComputer.doMethod(get);
@@ -288,7 +288,7 @@ public class TestList extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
-        assertEquals("[0:in.§ts~this.list.§ts] --> -", mlvConstructor.toString());
+        assertEquals("[0:in.§ts⊇this.list.§ts] --> -", mlvConstructor.toString());
     }
 
     @Language("java")
@@ -354,6 +354,9 @@ public class TestList extends CommonTest {
                 boolean add(K k, List<K> in) {
                     return listAdd(in, k);
                 }
+                static <L> boolean add2(L l, List<L> in) {
+                    return listAdd(in, l);
+                }
             }
             """;
 
@@ -375,9 +378,12 @@ public class TestList extends CommonTest {
 
         MethodInfo add = X.findUniqueMethod("add", 2);
         MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add));
-        assertEquals("[0:k∈1:in.§ts, 1:in.§ts∋0:k] --> -", mlvAdd.toString());
-    }
+        assertEquals("[0:k∈1:in.§ks, 1:in.§ks∋0:k] --> -", mlvAdd.toString());
 
+        MethodInfo add2 = X.findUniqueMethod("add2", 2);
+        MethodLinkedVariables mlvAdd2 = add2.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add2));
+        assertEquals("[0:l∈1:in.§ls, 1:in.§ls∋0:l] --> -", mlvAdd2.toString());
+    }
 
     @Language("java")
     private static final String INPUT8 = """
@@ -402,5 +408,45 @@ public class TestList extends CommonTest {
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 3);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
         assertEquals("[0:list.§ts∋1:t1,0:list.§ts∋2:t2, 1:t1∈0:list.§ts, 2:t2∈0:list.§ts] --> -", mlvListAdd.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            import java.util.Collections;
+            import java.util.List;
+            class X<K> {
+                static <T> List<T> one(T t) {
+                   return List.of(t);
+                }
+                List<K> callOne(K k) {
+                    return one(k);
+                }
+                static <L> List<L> callOne2(L l) {
+                    return one(l);
+                }
+            }
+            """;
+
+    @DisplayName("Analyze static List.of()")
+    @Test
+    public void test9() {
+        TypeInfo X = javaInspector.parse(INPUT9);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        MethodInfo listAdd = X.findUniqueMethod("one", 1);
+        MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
+        assertEquals("[-] --> one.§ts∋0:t", mlvListAdd.toString());
+
+        MethodInfo add = X.findUniqueMethod("callOne", 1);
+        MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add));
+        assertEquals("[-] --> callOne.§ks∋0:k", mlvAdd.toString());
+
+        MethodInfo add2 = X.findUniqueMethod("callOne2", 1);
+        MethodLinkedVariables mlvAdd2 = add2.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add2));
+        assertEquals("[-] --> callOne2.§ls∋0:l", mlvAdd2.toString());
     }
 }

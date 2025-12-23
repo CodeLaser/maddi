@@ -116,14 +116,14 @@ public class TestMapManual extends CommonTest {
                         .add(mapKeySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
                         .build(),
                 List.of());
-        assertEquals("[] --> keySet.M==this.M,keySet.tArray~this.eArray[-1].k", mlvGet.toString());
+        assertEquals("[] --> keySet.M≡this.M,keySet.tArray~this.eArray[-1].k", mlvGet.toString());
         mapKeySet.analysis().set(METHOD_LINKS, mlvGet);
 
         MethodInfo keySet = X.findUniqueMethod("keySet", 0);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(keySet);
         assertEquals("""
-                keySet.M==this.map.M,keySet.tArray~this.map.eArray[-1].k\
+                keySet.M≡this.map.M,keySet.tArray~this.map.eArray[-1].k\
                 """, mlv.ofReturnValue().toString());
     }
 
@@ -168,7 +168,7 @@ public class TestMapManual extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(getOrDefault);
         assertEquals("""
-                getOrDefault==1:defaultValue,getOrDefault∈this.map.eArray[-1].v\
+                getOrDefault∈this.map.eArray[-1].v,getOrDefault≡1:defaultValue\
                 """, mlv.ofReturnValue().toString());
     }
 
@@ -202,7 +202,7 @@ public class TestMapManual extends CommonTest {
                         .add(mapEntrySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
                         .build(),
                 List.of());
-        assertEquals("[] --> entrySet.M==this.M,entrySet.eArray~this.eArray", mlvGet.toString());
+        assertEquals("[] --> entrySet.M≡this.M,entrySet.eArray~this.eArray", mlvGet.toString());
         mapEntrySet.analysis().set(METHOD_LINKS, mlvGet);
 
 
@@ -210,7 +210,7 @@ public class TestMapManual extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(entrySet);
         assertEquals("""
-                entrySet.M==this.map.M,entrySet.eArray~this.map.eArray\
+                entrySet.M≡this.map.M,entrySet.eArray~this.map.eArray\
                 """, mlv.ofReturnValue().toString());
     }
 

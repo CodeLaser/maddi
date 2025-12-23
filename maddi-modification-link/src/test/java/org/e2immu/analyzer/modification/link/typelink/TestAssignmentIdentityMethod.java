@@ -47,7 +47,7 @@ public class TestAssignmentIdentityMethod extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodInfo notNull = X.findUniqueMethod("notNull", 1);
         MethodLinkedVariables mlvNotNull =notNull.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(notNull));
-        assertEquals("[-] --> notNull==0:t", mlvNotNull.toString());
+        assertEquals("[-] --> notNull≡0:t", mlvNotNull.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables tlvMethod = tlc.doMethod(method);
@@ -55,23 +55,23 @@ public class TestAssignmentIdentityMethod extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo tt0 = vd0.variableInfo("tt");
         Links tlvTt0 = tt0.linkedVariablesOrEmpty();
-        assertEquals("tt==0:t", tlvTt0.toString());
+        assertEquals("tt≡0:t", tlvTt0.toString());
 
         // does the value get carried over to the next statement?
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo tt1 = vd1.variableInfo("tt");
         Links tlvTt1 = tt1.linkedVariablesOrEmpty();
-        assertEquals("tt==0:t,tt==ttt", tlvTt1.toString());
+        assertEquals("tt≡0:t,tt≡ttt", tlvTt1.toString());
 
         // now look at ttt, result of @Identity
 
         VariableInfo ttt1 = vd1.variableInfo("ttt");
         Links tlvTtt1 = ttt1.linkedVariablesOrEmpty();
-        assertEquals("ttt==0:t,ttt==tt", tlvTtt1.toString());
+        assertEquals("ttt≡0:t,ttt≡tt", tlvTtt1.toString());
 
         // NOTE: this is different from the shallow one; but has the same meaning
-        assertEquals("[-] --> method==0:t", tlvMethod.toString());
+        assertEquals("[-] --> method≡0:t", tlvMethod.toString());
     }
 
     @Test
@@ -84,10 +84,10 @@ public class TestAssignmentIdentityMethod extends CommonTest {
 
         MethodInfo notNull = X.findUniqueMethod("notNull", 1);
         MethodLinkedVariables tlvNotNull = notNull.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> notNull==0:t", tlvNotNull.toString());
+        assertEquals("[-] --> notNull≡0:t", tlvNotNull.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:t==this.§t] --> method==this.§t", tlvMethod.toString());
+        assertEquals("[0:t≡this.§t] --> method≡this.§t", tlvMethod.toString());
     }
 }

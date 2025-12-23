@@ -62,7 +62,7 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                [0:x==this.§xy.§x, 1:y==this.§xy.§y] --> oneInstance.§m==this.§m,oneInstance.§xys∋this.§xy\
+                [0:x≡this.§xy.§x, 1:y≡this.§xy.§y] --> oneInstance.§m≡this.§m,oneInstance.§xys∋this.§xy\
                 """, tlv1Instance.toString());
     }
 
@@ -111,8 +111,8 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                [0:x==this.§xy.§x, 1:y==this.§xy.§y] --> \
-                oneInstance.§m==this.§m,oneInstance.§xsys.§xs∋this.§xy.§x,oneInstance.§xsys.§ys∋this.§xy.§y\
+                [0:x≡this.§xy.§x, 1:y≡this.§xy.§y] --> \
+                oneInstance.§m≡this.§m,oneInstance.§xsys.§xs∋this.§xy.§x,oneInstance.§xsys.§ys∋this.§xy.§y\
                 """, tlv1Instance.toString());
     }
 
@@ -153,11 +153,11 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodLinkedVariables tlv1Instance = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
         assertEquals("""
-                [0:x==this.§xy.§x, 1:y==this.§xy.§y] --> oneInstance.§m==this.§m,oneInstance.§xy==this.§xy\
+                [0:x≡this.§xy.§x, 1:y≡this.§xy.§y] --> oneInstance.§m≡this.§m,oneInstance.§xy≡this.§xy\
                 """, tlv1Instance.toString());
 
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
-        assertEquals("[-, -] --> oneStatic.§xy.§x==0:x,oneStatic.§xy.§y==1:y", tlv1Static.toString());
+        assertEquals("[-, -] --> oneStatic.§xy.§x≡0:x,oneStatic.§xy.§y≡1:y", tlv1Static.toString());
     }
 
 

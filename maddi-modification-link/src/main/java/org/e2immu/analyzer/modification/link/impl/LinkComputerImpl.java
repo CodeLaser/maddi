@@ -158,7 +158,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         public MethodLinkedVariables go() {
             VariableData vd = doBlock(methodInfo.methodBody(), null);
-            // ...
             List<Links> ofParameters = expand.parameters(methodInfo, vd);
 
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters);

@@ -154,8 +154,11 @@ public record LinkMethodCall(Runtime runtime,
     }
 
     private LinkNature varargsLinkNature(LinkNature linkNature) {
-        if (linkNature == LinkNatureImpl.SHARES_ELEMENTS || linkNature == LinkNatureImpl.IS_IDENTICAL_TO) {
+        if (linkNature == LinkNatureImpl.IS_SUBSET_OF) {
             return LinkNatureImpl.IS_ELEMENT_OF;
+        }
+        if (linkNature == LinkNatureImpl.IS_SUPERSET_OF) {
+            return LinkNatureImpl.CONTAINS_AS_MEMBER;
         }
         return linkNature;
     }
