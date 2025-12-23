@@ -24,6 +24,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -141,19 +142,27 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             VariableInfoContainer vic = variableData.variableInfoContainerOrNull(pi.fullyQualifiedName());
             if (vic == null) return;
             VariableInfo vi = vic.best();
-            Bool unmodified = vi.analysis().getOrDefault(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.FALSE);
-            if (vi.linkedVariables() != null && (unmodified == null || unmodified.isTrue())) {
-                for (Link link : vi.linkedVariables()) {
-                    if (link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
-                        Bool unmodifiedField = fr.fieldInfo().analysis().getOrNull(UNMODIFIED_FIELD,
-                                ValueImpl.BoolImpl.class);
-                        if (unmodifiedField == null) {
-                            unmodified = null;
-                            waitForField.computeIfAbsent(methodInfo, m -> new HashSet<>()).add(fr.fieldInfo());
-                            break;
-                        } else if (unmodifiedField.isFalse()) {
-                            unmodified = FALSE;
-                            break;
+            Value.Immutable imm = analysisHelper.typeImmutable(pi.parameterizedType());
+            Bool unmodified;
+            if (imm.isImmutable()) {
+                unmodified = TRUE;
+            } else {
+                unmodified = vi.analysis().getOrDefault(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.FALSE);
+
+                if (vi.linkedVariables() != null && (unmodified == null || unmodified.isTrue())) {
+                    // FIXME if mutable, check for §m; if HC, check for a HC link such as ~
+                    for (Link link : vi.linkedVariables()) {
+                        if (link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                            Bool unmodifiedField = fr.fieldInfo().analysis().getOrNull(UNMODIFIED_FIELD,
+                                    ValueImpl.BoolImpl.class);
+                            if (unmodifiedField == null) {
+                                unmodified = null;
+                                waitForField.computeIfAbsent(methodInfo, m -> new HashSet<>()).add(fr.fieldInfo());
+                                break;
+                            } else if (unmodifiedField.isFalse()) {
+                                unmodified = FALSE;
+                                break;
+                            }
                         }
                     }
                 }

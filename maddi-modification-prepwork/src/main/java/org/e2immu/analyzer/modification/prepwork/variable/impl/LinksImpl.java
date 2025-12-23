@@ -133,6 +133,13 @@ public class LinksImpl implements Links {
         }
 
         @Override
+        public boolean contains(Variable from, LinkNature reverse, Variable to) {
+            return this.links.stream().anyMatch(l -> l.from().equals(from)
+                                                     && l.linkNature().equals(reverse)
+                                                     && l.to().equals(to));
+        }
+
+        @Override
         public void removeIf(Predicate<Link> linkPredicate) {
             links.removeIf(linkPredicate);
         }

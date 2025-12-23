@@ -15,6 +15,7 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +37,11 @@ public record Expand(Runtime runtime) {
             String fqn1 = newFqn(v);
             String fqn2 = newFqn(v1);
             return fqn1.equals(fqn2);
+        }
+
+        @Override
+        public @NotNull String toString() {
+            return Util.simpleName(v);
         }
 
         @Override
@@ -85,7 +91,7 @@ public record Expand(Runtime runtime) {
                                   V to) {
         mergeEdge(graph, from, linkNature, to);
         if (!from.equals(primary) && !(primary.v instanceof This)
-            && !from.v.simpleName().startsWith("§")
+            //   && !from.v.simpleName().startsWith("§")
             && from.v instanceof FieldReference && primary.v.equals(fieldScope(from.v))) {
             mergeEdge(graph, primary, LinkNatureImpl.CONTAINS_AS_FIELD, from);
             mergeEdge(graph, from, LinkNatureImpl.IS_FIELD_OF, primary);
@@ -97,7 +103,7 @@ public record Expand(Runtime runtime) {
             if (fr.scopeVariable() instanceof This) return v;
             if (fr.scopeVariable() != null) return fieldScope(fr.scopeVariable());
         }
-        return null;
+        return v;
     }
 
     private static V correctForThis(V primary, V v) {
@@ -190,113 +196,36 @@ public record Expand(Runtime runtime) {
                                              Variable primary,
                                              TranslationMap translationMap,
                                              boolean allowLocalVariables) {
-        // first do the fields of the primary
-        Set<V> fromSetExcludingPrimary = gd.graph.keySet().stream()
-                .filter(v -> org.e2immu.analyzer.modification.prepwork.Util.isPartOf(primary, v.v) && !v.v.equals(primary))
-                .collect(Collectors.toUnmodifiableSet());
         V tPrimary = new V(translationMap == null ? primary : translationMap.translateVariableRecursively(primary));
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
-        // keep a set to avoid X->Y.ys and X.xs->Y.ys; so add the latter first
-        Set<V> natureTos = new HashSet<>();
-        // keep a set for each "to" variable to avoid X->Y.z and X.ys->Y.z
-        Map<V, Set<V>> toPrimaryToFromNatures = new HashMap<>();
-        // for this second map/set to be effective, the links should be processed in "order",
-        // with the primary of "to" coming after "to" itself
-        V vPrimary = new V(primary);
-
-        for (V from : fromSetExcludingPrimary) {
+        var fromSet = gd.graph.keySet().stream()
+                .filter(v -> org.e2immu.analyzer.modification.prepwork.Util.isPartOf(primary, v.v))
+                .collect(Collectors.toUnmodifiableSet());
+        for (V from : fromSet) {
             Map<V, LinkNature> all = bestPath(gd.graph, from);
             V tFrom = new V(translationMap == null ? from.v : translationMap.translateVariableRecursively(from.v));
             for (Map.Entry<V, LinkNature> entry : all.entrySet()) {
-                V to = entry.getKey();
-                if (!gd.primaries.contains(to)) {
-                    acceptAndAddLink(vPrimary, allowLocalVariables, entry, to,
-                            gd.subToPrimary.getOrDefault(to, to),
-                            toPrimaryToFromNatures, true, tFrom, builder, natureTos);
-                }
-            }
-            for (Map.Entry<V, LinkNature> entry : all.entrySet()) {
-                V to = entry.getKey();
-                if (gd.primaries.contains(to)) {
-                    acceptAndAddLink(vPrimary, allowLocalVariables, entry, to, to, toPrimaryToFromNatures,
-                            false, tFrom, builder, natureTos);
-                }
-            }
-        }
-        // then the primary itself
-        if (gd.graph.containsKey(vPrimary)) {
-            Map<V, LinkNature> allFromPrimary = bestPath(gd.graph, vPrimary);
-            for (Map.Entry<V, LinkNature> entry : allFromPrimary.entrySet()) {
-                V to = entry.getKey();
-                if (!gd.primaries.contains(to)) {
-                    acceptAndAddPrimaryLink(allowLocalVariables, entry, to,
-                            gd.subToPrimary.getOrDefault(to, to),
-                            natureTos, toPrimaryToFromNatures, true,
-                            builder, tPrimary);
-                }
-            }
-            for (Map.Entry<V, LinkNature> entry : allFromPrimary.entrySet()) {
-                V to = entry.getKey();
-                if (gd.primaries.contains(to)) {
-                    acceptAndAddPrimaryLink(allowLocalVariables, entry, to, to, natureTos, toPrimaryToFromNatures,
-                            false, builder, tPrimary);
+                LinkNature linkNature = entry.getValue();
+                Variable toV = entry.getKey().v;
+                Variable tFromV = tFrom.v;
+                if (linkNature.valid()
+                    && (allowLocalVariables || containsNoLocalVariable(toV))
+                    // remove internal references (field inside primary to primary or other field in primary)
+                    && !Util.isPartOf(tFromV, toV)
+                    && !Util.isPartOf(toV, tFromV)
+                    // don't add if the reverse is already present in this builder
+                    && !builder.contains(toV, linkNature.reverse(), tFromV)) {
+                    builder.add(tFromV, linkNature, toV);
                 }
             }
         }
         return builder;
     }
 
-    private static void acceptAndAddPrimaryLink(boolean allowLocalVariables,
-                                                Map.Entry<V, LinkNature> entry,
-                                                V to,
-                                                V toPrimary,
-                                                Set<V> natureTos,
-                                                Map<V, Set<V>> toPrimaryToFromNatures,
-                                                boolean addToToPrimary,
-                                                Links.Builder builder,
-                                                V tPrimary) {
-        LinkNature linkNature = entry.getValue();
-        if (acceptLink(tPrimary, allowLocalVariables, entry, to)
-            // remove links that already exist for some sub in exactly the same way
-            && !natureTos.contains(to)
-            && (toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>()).add(tPrimary) || addToToPrimary)) {
-            builder.add(tPrimary.v, linkNature, to.v);
-        }
-    }
-
-    private static void acceptAndAddLink(V primary,
-                                         boolean allowLocalVariables,
-                                         Map.Entry<V, LinkNature> entry,
-                                         V to,
-                                         V toPrimary,
-                                         Map<V, Set<V>> toPrimaryToFromNatures,
-                                         boolean addToToPrimary,
-                                         V tFrom,
-                                         Links.Builder builder,
-                                         Set<V> natureTos) {
-        LinkNature linkNature = entry.getValue();
-        if (acceptLink(primary, allowLocalVariables, entry, to)
-            && (toPrimaryToFromNatures.computeIfAbsent(toPrimary, _ -> new HashSet<>()).add(tFrom) || addToToPrimary)) {
-            builder.add(tFrom.v, linkNature, to.v);
-            natureTos.add(to);
-        }
-    }
-
-    private static boolean acceptLink(V primary,
-                                      boolean allowLocalVariables,
-                                      Map.Entry<V, LinkNature> entry,
-                                      V to) {
-        return entry.getValue().valid()
-               && (allowLocalVariables || containsNoLocalVariable(to.v))
-               // remove internal references (field inside primary to primary or other field in primary)
-               && !Util.isPartOf(primary.v, to.v);
-    }
-
     private static Map<V, LinkNature> bestPath(Map<V, Map<V, LinkNature>> graph, V start) {
         Map<V, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
                         graph.keySet(), start, LinkNatureImpl.EMPTY, LinkNature::combine);
-        V startPrimary = new V(org.e2immu.analyzer.modification.prepwork.Util.primary(start.v));
         return res.entrySet().stream()
                 .filter(e -> !start.equals(e.getKey()))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
@@ -400,8 +329,9 @@ public record Expand(Runtime runtime) {
         to see the reverse of param -> field. See e.g. TestList,4 (set)
          */
         GraphData gd = makeGraph(linkedVariables, true);
-        LOGGER.debug("Bi-directional graph for parameters: {}", gd.graph);
-
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Bi-directional graph for parameters:\n{}", printGraph(gd.graph));
+        }
         List<Links> linksPerParameter = new ArrayList<>(methodInfo.parameters().size());
         for (ParameterInfo pi : methodInfo.parameters()) {
             Links.Builder piBuilder = followGraph(gd, pi, null, false);
@@ -431,8 +361,9 @@ public record Expand(Runtime runtime) {
         });
 
         GraphData gd = makeGraph(linkedVariables, false);
-        LOGGER.debug("Return graph: {}", gd.graph);
-
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Return graph, primary {}:\n{}", primary, printGraph(gd.graph));
+        }
         Links.Builder rvBuilder = followGraph(gd, primary, tm, false);
 
         if (containsNoLocalVariable(primary)) {

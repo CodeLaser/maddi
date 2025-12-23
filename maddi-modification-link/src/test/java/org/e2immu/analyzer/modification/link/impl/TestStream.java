@@ -69,25 +69,33 @@ public class TestStream extends CommonTest {
         MethodLinkedVariables mlvLarge2 = linkComputer.doMethod(large2);
         VariableData vd0 = VariableDataImpl.of(large2.methodBody().statements().getFirst());
         VariableInfo viStream = vd0.variableInfo("stream");
-        assertEquals("stream.§ts⊆this.list.§ts", viStream.linkedVariables().toString());
+        assertEquals("stream.§ts≤this.list,stream.§ts⊆this.list.§ts,stream∩this.list,stream∩this.list.§ts",
+                viStream.linkedVariables().toString());
 
         VariableData vd1 = VariableDataImpl.of(large2.methodBody().statements().get(1));
         VariableInfo viFiltered = vd1.variableInfo("filtered");
-        assertEquals("filtered.§ts⊆stream.§ts,filtered.§ts⊆this.list.§ts",
+        assertEquals("""
+                        filtered.§ts≤stream,filtered.§ts≤this.list,filtered.§ts⊆stream.§ts,\
+                        filtered.§ts⊆this.list.§ts,filtered∩stream,filtered∩stream.§ts,filtered∩this.list,filtered∩this.list.§ts\
+                        """,
                 viFiltered.linkedVariables().toString());
 
         VariableData vd2 = VariableDataImpl.of(large2.methodBody().statements().get(2));
         VariableInfo viFirst = vd2.variableInfo("first");
         assertEquals("""
-                first.§t∈filtered.§ts,first.§t∈stream.§ts,first.§t∈this.list.§ts\
+                first.§t∈filtered.§ts,first.§t∈stream.§ts,first.§t∈this.list.§ts,first.§t≤filtered,\
+                first.§t≤stream,first.§t≤this.list,first∩filtered,first∩filtered.§ts,first∩stream,\
+                first∩stream.§ts,first∩this.list,first∩this.list.§ts\
                 """, viFirst.linkedVariables().toString());
 
         VariableData vd3 = VariableDataImpl.of(large2.methodBody().statements().get(3));
         VariableInfo viOrElse = vd3.variableInfo("orElse");
-        assertEquals("orElse∈filtered.§ts,orElse∈stream.§ts,orElse∈this.list.§ts,orElse≡first.§t",
-                viOrElse.linkedVariables().toString());
+        assertEquals("""
+                orElse∈filtered.§ts,orElse∈stream.§ts,orElse∈this.list.§ts,orElse≡first.§t,orElse≤filtered,\
+                orElse≤stream,orElse≤this.list,orElse≺first\
+                """, viOrElse.linkedVariables().toString());
 
-        assertEquals("[-] --> large2∈this.list.§ts", mlvLarge2.toString());
+        assertEquals("[-] --> large2∈this.list.§ts,large2≤this.list", mlvLarge2.toString());
 
         MethodInfo large1 = X.findUniqueMethod("large1", 1);
         MethodLinkedVariables mlvLarge1 = linkComputer.doMethod(large1);
@@ -95,11 +103,11 @@ public class TestStream extends CommonTest {
 
         MethodInfo large4 = X.findUniqueMethod("large4", 1);
         MethodLinkedVariables mlvLarge4 = linkComputer.doMethod(large4);
-        assertEquals("[-] --> large4∈this.list.§ts", mlvLarge4.toString());
+        assertEquals("[-] --> large4∈this.list.§ts,large4≤this.list", mlvLarge4.toString());
 
         MethodInfo large3 = X.findUniqueMethod("large3", 1);
         MethodLinkedVariables mlvLarge3 = linkComputer.doMethod(large3);
-        assertEquals("[-] --> large3∈this.list.§ts", mlvLarge3.toString());
+        assertEquals("[-] --> large3∈this.list.§ts,large3≤this.list", mlvLarge3.toString());
 
     }
 }
