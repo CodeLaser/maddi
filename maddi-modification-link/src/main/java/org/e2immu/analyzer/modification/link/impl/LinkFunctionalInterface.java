@@ -54,7 +54,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             In a supplier, the return value of the SAM must consist of variables external to the lambda,
             as it has no no parameters itself. We directly link to them.
              */
-            return links.linkSet().stream()
+            return links.stream()
                     .filter(l -> l.from().equals(links.primary()))
                     .map(l -> new Triplet(fromTranslated, linkNature, l.to()))
                     .toList();
@@ -83,7 +83,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
 
         translate + upscale = find the right virtual field that matches the dimensions
          */
-        Set<Variable> toPrimaries = links.linkSet().stream().map(l -> org.e2immu.analyzer.modification.prepwork.Util.primary(l.to()))
+        Set<Variable> toPrimaries = links.stream().map(l -> org.e2immu.analyzer.modification.prepwork.Util.primary(l.to()))
                 .collect(Collectors.toUnmodifiableSet());
         List<Triplet> result = new ArrayList<>();
 

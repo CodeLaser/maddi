@@ -49,11 +49,11 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         MethodInfo setYs = X.findUniqueMethod("setYs", 2);
         MethodLinkedVariables mlvSetYs = setYs.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(setYs));
-        assertEquals("[-, 1:y∈this.ys,1:y≡this.ys[0:i]] --> -", mlvSetYs.toString());
+        assertEquals("[-, 1:y≡this.ys[0:i],1:y∈this.ys] --> -", mlvSetYs.toString());
 
         MethodInfo getYs = X.findUniqueMethod("getYs", 1);
         MethodLinkedVariables mlvGetYs = getYs.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getYs));
-        assertEquals("[-] --> getYs∈this.ys,getYs≡this.ys[0:i]", mlvGetYs.toString());
+        assertEquals("[-] --> getYs≡this.ys[0:i],getYs∈this.ys", mlvGetYs.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 0);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -61,7 +61,7 @@ public class TestStaticValuesIndexing extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viY = vd0.variableInfo("y");
         // TODO evaluation of param must occur inside LinkMethodCall, seems not to happen for this occasion
-        assertEquals("y≡this.ys[0]", viY.linkedVariables().toString());
+        assertEquals("y≡this.ys[0],y∈this.ys", viY.linkedVariables().toString());
         assertEquals("[] --> method∈this.ys,method≡this.ys[0],method≡this.ys[1]", mlv.toString());
     }
 }

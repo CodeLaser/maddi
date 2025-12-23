@@ -135,7 +135,7 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x≡0:optional.§x,x≡1:c.alternative", tlvX.toString());
+        assertEquals("x≡1:c.alternative,x≡0:optional.§x", tlvX.toString());
     }
 
 
@@ -183,11 +183,11 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x≡0:optional.§x,x≡1:c.alternative", tlvX.toString());
+        assertEquals("x≡1:c.alternative,x≡0:optional.§x", tlvX.toString());
 
         assertEquals("""
-                [0:optional.§x≡1:c.alternative, 1:c.alternative≡0:optional.§x] --> \
-                method≡0:optional.§x,method≡1:c.alternative\
+                [0:optional.§x≡1:c.alternative, 1:c.alternative≡0:optional.§x] \
+                --> method≡1:c.alternative,method≡0:optional.§x\
                 """, mlvMethod.toString());
     }
 

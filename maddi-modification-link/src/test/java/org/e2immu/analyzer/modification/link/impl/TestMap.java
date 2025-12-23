@@ -2,8 +2,8 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
@@ -45,11 +45,11 @@ public class TestMap extends CommonTest {
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = getOrDefault.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getOrDefault));
-        assertEquals("getWithDefault∈this.map.§kvs[-2].§v,getWithDefault≡1:defaultValue",
+        assertEquals("getWithDefault≡1:defaultValue,getWithDefault∈this.map.§kvs[-2].§v",
                 mlv.ofReturnValue().toString());
 
-        MethodLinkedVariables mlv2 =  getOrDefault2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getOrDefault2));
-        assertEquals("getWithDefault2∈this.map.§kvs[-2].§v,getWithDefault2≡1:defaultValue",
+        MethodLinkedVariables mlv2 = getOrDefault2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getOrDefault2));
+        assertEquals("getWithDefault2≡1:defaultValue,getWithDefault2∈this.map.§kvs[-2].§v",
                 mlv2.ofReturnValue().toString());
     }
 

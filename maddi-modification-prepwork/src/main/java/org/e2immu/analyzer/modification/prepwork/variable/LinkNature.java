@@ -2,6 +2,8 @@ package org.e2immu.analyzer.modification.prepwork.variable;
 
 public interface LinkNature {
 
+    boolean important();
+
     boolean isIdenticalTo();
 
     boolean multiplySymbols();

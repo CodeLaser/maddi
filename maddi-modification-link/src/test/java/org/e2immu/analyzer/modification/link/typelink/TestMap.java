@@ -215,7 +215,7 @@ public class TestMap extends CommonTest {
         assertEquals("entries.§kvs~this.map.§kvs,entries.§m==this.map.§m,entries~this.map",
                 entriesLinks.toString());
         assertEquals("entries, java.util.Set.§kvs#entries, java.util.Set.§m#entries",
-                entriesLinks.linkSet().stream().map(l -> l.from().fullyQualifiedName()).sorted()
+                entriesLinks.stream().map(l -> l.from().fullyQualifiedName()).sorted()
                         .collect(Collectors.joining(", ")));
 
         Statement s2 = reverse.methodBody().statements().get(2);

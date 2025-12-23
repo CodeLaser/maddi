@@ -13,25 +13,28 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LinksImpl implements Links {
-    public static final Links EMPTY = new LinksImpl();
+    public static final Links EMPTY = new LinksImpl(null);
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
     public static final String LAMBDA = "Λ";
     private final Variable primary;
-    private final Set<Link> linkSet;
+    private final List<Link> linkSet;
 
     // private constructor to bypass the non-null requirement for the primary
-    private LinksImpl() {
-        this.primary = null;
-        this.linkSet = Set.of();
+    public LinksImpl(Variable variable) {
+        this.primary = variable;
+        this.linkSet = List.of();
     }
 
-    public LinksImpl(Variable primary, Set<Link> linkSet) {
+    public LinksImpl(Variable primary, List<Link> linkSet) {
         this.primary = Objects.requireNonNull(primary);
         this.linkSet = Objects.requireNonNull(linkSet);
     }
@@ -42,7 +45,7 @@ public class LinksImpl implements Links {
     }
 
     @Override
-    public Set<Link> linkSet() {
+    public Iterable<Link> linkSet() {
         return linkSet;
     }
 
@@ -85,13 +88,14 @@ public class LinksImpl implements Links {
     @Override
     public @NotNull String toString() {
         if (isEmpty()) return "-";
-        return linkSet.stream().map(Object::toString).sorted().collect(Collectors.joining(","));
+        // don't sort, they have been sorted by Expand.followGraph
+        return linkSet.stream().map(Object::toString).collect(Collectors.joining(","));
     }
 
     @Override
     public Links merge(Links links) {
-        return new LinksImpl(primary, Stream.concat(this.linkSet.stream(), links.linkSet().stream())
-                .collect(Collectors.toUnmodifiableSet()));
+        return new LinksImpl(primary, Stream.concat(this.linkSet.stream(), links.stream())
+                .toList());
     }
 
     public static class Builder implements Links.Builder {
@@ -104,7 +108,7 @@ public class LinksImpl implements Links {
 
         public Builder(Links existing) {
             this.primary = existing.primary();
-            links.addAll(existing.linkSet());
+            existing.forEach(links::add);
         }
 
         @Override
@@ -126,9 +130,14 @@ public class LinksImpl implements Links {
         }
 
         @Override
+        public void prepend(LinkNature linkNature, Variable to) {
+            links.addFirst(new LinkImpl(primary, linkNature, to));
+        }
+
+        @Override
         public Links.Builder addAll(Links other) {
             assert primary.equals(other.primary());
-            this.links.addAll(other.linkSet());
+            other.linkSet().forEach(links::add);
             return this;
         }
 
@@ -150,7 +159,7 @@ public class LinksImpl implements Links {
         }
 
         public Links build() {
-            return new LinksImpl(primary, Set.copyOf(links));
+            return new LinksImpl(primary, List.copyOf(links));
         }
     }
 
@@ -220,7 +229,7 @@ public class LinksImpl implements Links {
         Variable newPrimary = translationMap.translateVariableRecursively(primary);
         if (newPrimary == null) return null;
         return new LinksImpl(newPrimary,
-                linkSet.stream().map(l -> l.translate(translationMap)).collect(Collectors.toUnmodifiableSet()));
+                linkSet.stream().map(l -> l.translate(translationMap)).toList());
     }
 
     @Override
