@@ -196,7 +196,7 @@ public class TestStream extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("result.§xs≤0:list.§xss,result.§xs≤stream1.§xss,result.§xs⊆stream2.§xs",
+        assertEquals("result.§xs⊆stream2.§xs,result.§xs≤0:list.§xss,result.§xs≤stream1.§xss",
                 lvResult.toString());
 
         assertEquals("[-] --> method1.§xs≤0:list.§xss", mlv1.toString());
@@ -249,7 +249,7 @@ public class TestStream extends CommonTest {
 
         MethodInfo wrap = C.findUniqueMethod("wrap", 1);
         MethodLinkedVariables mlvWrap = wrap.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(wrap));
-        assertEquals("[-] --> wrap.§y==0:y", mlvWrap.toString());
+        assertEquals("[-] --> wrap.§y≡0:y", mlvWrap.toString());
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
@@ -257,24 +257,24 @@ public class TestStream extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
         VariableInfo viStream10 = vd0.variableInfo("stream1");
         Links lvStream10 = viStream10.linkedVariablesOrEmpty();
-        assertEquals("stream1.§xs~0:list.§xs", lvStream10.toString());
+        assertEquals("stream1.§xs⊆0:list.§xs", lvStream10.toString());
 
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in R is invisible
-        assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
+        assertEquals("stream2.§xs≡stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("result.§xs~0:list.§xs,result.§xs~stream1.§xs,result.§xs~stream2.§xs", lvResult.toString());
+        assertEquals("result.§xs⊆0:list.§xs,result.§xs⊆stream1.§xs,result.§xs⊆stream2.§xs", lvResult.toString());
 
-        assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
+        assertEquals("[-] --> method1.§xs⊆0:list.§xs", mlv1.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> method.§xs~0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method.§xs⊆0:list.§xs", mlv.toString());
     }
 
 
@@ -309,7 +309,7 @@ public class TestStream extends CommonTest {
 
         MethodInfo wrap = C.findUniqueMethod("wrap", 1);
         MethodLinkedVariables mlvWrap = wrap.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(wrap));
-        assertEquals("[-] --> wrap.§$s≥0:y,wrap≥0:y", mlvWrap.toString());
+        assertEquals("[-] --> wrap.§$s≥0:y", mlvWrap.toString());
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
@@ -328,20 +328,14 @@ public class TestStream extends CommonTest {
 
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in another list is visible!
-        assertEquals("""
-                stream2.§xss∩0:list,stream2.§xss∩0:list.§xs,stream2.§xss∩stream1,stream2.§xss≥stream1.§xs,\
-                stream2∩0:list,stream2∩0:list.§xs,stream2∩stream1,stream2≥stream1.§xs\
-                """, lvStream21.toString());
+        assertEquals("stream2.§xss≥stream1.§xs,stream2.§xss∩0:list.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("""
-                result.§xss≤stream2,result.§xss⊆stream2.§xss,result∩0:list,\
-                result∩0:list.§xs,result∩stream1,result∩stream1.§xs,result∩stream2,result∩stream2.§xss\
-                """, lvResult.toString());
+        assertEquals("result.§xss⊆stream2.§xss,result∩0:list.§xs,result∩stream1.§xs", lvResult.toString());
 
-        assertEquals("[-] --> method1.§xss≥0:list,method1.§xss≥0:list.§xs,method1≥0:list,method1≥0:list.§xs", mlv1.toString());
+        assertEquals("[-] --> method1.§xss≥0:list.§xs", mlv1.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));

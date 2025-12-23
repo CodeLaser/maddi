@@ -130,7 +130,7 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("x");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("x∈0:in.§xs,x∈stream.§xs,x∈stream1.§xs,x≡optional.§x", tlv.toString());
+                assertEquals("x≡optional.§x,x∈0:in.§xs,x∈stream.§xs,x∈stream1.§xs", tlv.toString());
             }
             {
                 MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
@@ -321,7 +321,7 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("sorted.§$s⊆0:in.§$s,sorted.§$s⊆stream.§$s,sorted.§$s⊇array.§as", tlv.toString());
+                assertEquals("sorted.§$s⊇array.§as,sorted.§$s⊆0:in.§$s,sorted.§$s⊆stream.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
