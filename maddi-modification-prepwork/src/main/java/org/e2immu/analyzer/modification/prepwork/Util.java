@@ -99,6 +99,7 @@ public class Util {
 
     public static boolean isPartOf(Variable base, Variable sub) {
         if (base.equals(sub)) return true;
+        if (base instanceof This) return sub.scopeIsRecursively(base);
         return base.equals(primary(sub));
     }
 
@@ -133,7 +134,7 @@ public class Util {
             return Stream.concat(scopeVariables(fr.scopeVariable()).stream(), Stream.of(fr.scopeVariable()))
                     .collect(Collectors.toUnmodifiableSet());
         }
-        if(variable instanceof DependentVariable dv) {
+        if (variable instanceof DependentVariable dv) {
             return Stream.concat(scopeVariables(dv.arrayVariable()).stream(), Stream.of(dv.arrayVariable()))
                     .collect(Collectors.toUnmodifiableSet());
         }

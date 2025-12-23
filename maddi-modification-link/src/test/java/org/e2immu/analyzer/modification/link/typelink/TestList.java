@@ -64,11 +64,10 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links tlvK0 = k0.linkedVariablesOrEmpty();
-        assertEquals("k<1:x.ts", tlvK0.toString());
+        assertEquals("k∈1:x.ts", tlvK0.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        // TODO both this.ts (--> x.ts) and x are primaries
-        assertEquals("[-, -] --> method<1:x,method<1:x.ts", tlvMethod.toString());
+        assertEquals("[-, -] --> method∈1:x.ts", tlvMethod.toString());
     }
 
 
@@ -83,11 +82,11 @@ public class TestList extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodLinkedVariables tlvGet = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> get==this.§t", tlvGet.toString());
+        assertEquals("[-] --> get≡this.§t", tlvGet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -] --> method==1:x.§k", tlvMethod.toString());
+        assertEquals("[-, -] --> method≡1:x.§k", tlvMethod.toString());
     }
 
     @Language("java")
@@ -125,28 +124,28 @@ public class TestList extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo prev0 = vd0.variableInfo("prev");
         Links tlvPrev0 = prev0.linkedVariablesOrEmpty();
-        assertEquals("prev<1:x.ts,prev==1:x.ts[0:i]", tlvPrev0.toString());
+        assertEquals("prev≡1:x.ts[0:i],prev∈1:x.ts", tlvPrev0.toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo prev1 = vd1.variableInfo("prev");
         Links tlvPrev1 = prev1.linkedVariablesOrEmpty();
-        assertEquals("prev<1:x,prev<1:x.ts,prev==1:x.ts[0:i],prev==2:k", tlvPrev1.toString());
+        assertEquals("prev≡1:x.ts[0:i],prev≡2:k,prev∈1:x.ts", tlvPrev1.toString());
 
 
         ParameterInfo k = method.parameters().get(2);
         VariableInfo k1 = vd1.variableInfo(k);
         Links tlvK1 = k1.linkedVariablesOrEmpty();
-        assertEquals("2:k<1:x,2:k<1:x.ts,2:k==1:x.ts[0:i],2:k==prev", tlvK1.toString());
+        assertEquals("2:k≡1:x.ts[0:i],2:k≡prev,2:k∈1:x.ts", tlvK1.toString());
 
         ParameterInfo x = method.parameters().get(1);
         VariableInfo x1 = vd1.variableInfo(x);
         Links tlvX1 = x1.linkedVariablesOrEmpty();
-        assertEquals("1:x.ts>2:k,1:x.ts>prev,1:x.ts[0:i]==2:k,1:x.ts[0:i]==prev", tlvX1.toString());
+        assertEquals("1:x.ts∋2:k,1:x.ts∋prev,1:x.ts[0:i]≡2:k,1:x.ts[0:i]≡prev", tlvX1.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, 1:x.ts>2:k,1:x.ts[0:i]==2:k, 2:k<1:x,2:k<1:x.ts,2:k==1:x.ts[0:i]] --> \
-                method<1:x,method<1:x.ts,method==1:x.ts[0:i],method==2:k\
+                [-, 1:x.ts∋2:k,1:x.ts[0:i]≡2:k, 2:k≡1:x.ts[0:i],2:k∈1:x.ts] \
+                --> method≡1:x.ts[0:i],method≡2:k,method∈1:x.ts\
                 """, tlvMethod.toString());
     }
 
@@ -161,11 +160,11 @@ public class TestList extends CommonTest {
 
         MethodInfo set = X.findUniqueMethod("set", 2);
         MethodLinkedVariables tlvSet = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:t<this.§ts] --> -", tlvSet.toString());
+        assertEquals("[-, 1:t∈this.§ts] --> -", tlvSet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 3);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -, -] --> method<1:x.§ks,method==2:k", tlvMethod.toString());
+        assertEquals("[-, -, -] --> method∈1:x.§ks,method≡2:k", tlvMethod.toString());
     }
 
     @Language("java")
@@ -223,11 +222,11 @@ public class TestList extends CommonTest {
 
         MethodInfo copy = X.findUniqueMethod("copy", 0);
         MethodLinkedVariables tlvSet = copy.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[] --> copy.§m==this.§m,copy.§t==this.§t", tlvSet.toString());
+        assertEquals("[] --> copy.§t≡this.§t,copy.§m≡this.§m", tlvSet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> method.§k==0:x.§k", tlvMethod.toString());
+        assertEquals("[-] --> method.§k≡0:x.§k", tlvMethod.toString());
     }
 
 
@@ -269,7 +268,7 @@ public class TestList extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(callM2);
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
             Links tlvT1 = removed.linkedVariablesOrEmpty();
-            assertEquals("removed<iis.§$s", tlvT1.toString());
+            assertEquals("removed∈iis.§$s", tlvT1.toString());
         }
         {
             MethodInfo methodA = X.findUniqueMethod("methodA", 0);

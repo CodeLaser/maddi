@@ -59,17 +59,17 @@ public class TestForEach extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(forEach);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
-        assertEquals("t∈0:list.§ts,t≤0:list", tlvT1.toString());
+        assertEquals("t∈0:list.§ts", tlvT1.toString());
 
         VariableInfo list1 = vd1.variableInfo(list, Stage.EVALUATION);
         Links lvList1 = list1.linkedVariablesOrEmpty();
-        assertEquals("t∈0:list.§ts,t≤0:list", lvList1.toString());
+        assertEquals("0:list.§ts∋t", lvList1.toString());
 
         Statement append = forEach.block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.linkedVariablesOrEmpty();
-        assertEquals("t∈0:list.§ts,t≤0:list", tlvT100.toString());
+        assertEquals("t∈0:list.§ts", tlvT100.toString());
     }
 
 
