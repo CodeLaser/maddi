@@ -155,11 +155,11 @@ public class TestMap extends CommonTest {
 
         MethodInfo staticPut = X.findUniqueMethod("staticPut", 3);
         MethodLinkedVariables tlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
-        assertEquals("[-, -, -] --> staticPut==1:y,staticPut∈2:c.§xys[-2].§y", tlvSPut.toString());
+        assertEquals("[-, -, -] --> staticPut≡1:y,staticPut∈2:c.§xys[-2].§y", tlvSPut.toString());
 
         MethodInfo staticPut2 = X.findUniqueMethod("staticPut2", 3);
         MethodLinkedVariables tlvS2Put = staticPut2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut2));
-        assertEquals("[-, -, -] --> staticPut2==2:y,staticPut2∈0:c.§xys[-2].§y", tlvS2Put.toString());
+        assertEquals("[-, -, -] --> staticPut2∈0:c.§xys[-2].§y,staticPut2≡2:y", tlvS2Put.toString());
     }
 
     @Language("java")
@@ -212,9 +212,9 @@ public class TestMap extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo entries = vd1.variableInfo("entries");
         Links entriesLinks = entries.linkedVariablesOrEmpty();
-        assertEquals("entries.§kvs~this.map.§kvs,entries.§m==this.map.§m,entries~this.map",
+        assertEquals("entries.§kvs⊆this.map.§kvs,entries.§m≡this.map.§m",
                 entriesLinks.toString());
-        assertEquals("entries, java.util.Set.§kvs#entries, java.util.Set.§m#entries",
+        assertEquals("java.util.Set.§kvs#entries, java.util.Set.§m#entries",
                 entriesLinks.stream().map(l -> l.from().fullyQualifiedName()).sorted()
                         .collect(Collectors.joining(", ")));
 
@@ -222,7 +222,7 @@ public class TestMap extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(s2);
         VariableInfo viEntry2 = vd2.variableInfoContainerOrNull("entry").best(Stage.EVALUATION);
         Links entry2Links = viEntry2.linkedVariablesOrEmpty();
-        assertEquals("entry<entries.§kvs,entry<this.map.§kvs", entry2Links.toString());
+        assertEquals("entry∈this.map.§kvs,entry∈entries.§kvs", entry2Links.toString());
 
         // map.put(entry.getValue(), entry.getKey());
         Statement s200 = reverse.methodBody().statements().get(2).block().statements().getFirst();
@@ -230,14 +230,12 @@ public class TestMap extends CommonTest {
         VariableInfo viEntry200 = vd200.variableInfo("entry");
         Links entry200Links = viEntry200.linkedVariablesOrEmpty();
         assertEquals("""
-                entry.§kv.§k<entries.§kvs,\
-                entry.§kv.§k<map.§vks[-2].§k,\
-                entry.§kv.§k<this.map.§kvs,\
-                entry.§kv.§v<entries.§kvs,\
-                entry.§kv.§v<map.§vks[-1].§v,\
-                entry.§kv.§v<this.map.§kvs,\
-                entry<entries,\
-                entry<this.map\
+                entry.§kv.§k∈map.§vks[-2].§k,\
+                entry.§kv.§k≤this.map.§kvs,\
+                entry.§kv.§k≤entries.§kvs,\
+                entry.§kv.§v∈map.§vks[-1].§v,\
+                entry∈this.map.§kvs,\
+                entry∈entries.§kvs\
                 """, entry200Links.toString());
 
 
@@ -306,11 +304,11 @@ public class TestMap extends CommonTest {
 
         MethodInfo reverse = X.findUniqueMethod("reverse", 0);
         MethodLinkedVariables tlvReverse = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
-        assertEquals("[] --> reverse.§m==this.§m,reverse.§vk==this.§kv", tlvReverse.toString());
+        assertEquals("[] --> reverse.§vk≡this.§kv,reverse.§m≡this.§m", tlvReverse.toString());
 
         MethodInfo method = X.findUniqueMethod("staticReverse", 1);
         MethodLinkedVariables tlvSReverse = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> staticReverse.§yx==0:c.§xy", tlvSReverse.toString());
+        assertEquals("[-] --> staticReverse.§yx≡0:c.§xy", tlvSReverse.toString());
     }
 
 }

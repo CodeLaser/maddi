@@ -20,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntFunction;
 import java.util.stream.Stream;
@@ -185,14 +186,18 @@ public record LinkMethodCall(Runtime runtime,
             // actual arguments
             int index = 0;
             for (ExpressionVisitor.Result pr : params) {
-                if (pr.links().primary() != null) {
-                    tmBuilder.put(methodInfo.parameters().get(index), pr.links().primary());
-                }
+                Variable to = Objects.requireNonNullElseGet(pr.links().primary(), this::newDummyLocalVariable);
+                tmBuilder.put(methodInfo.parameters().get(index), to);
                 ++index;
             }
             return changePrimaryTo(mlv.ofReturnValue(), newPrimary, tmBuilder.build(), i -> params.get(i).links(), objectPrimary);
         }
         return LinksImpl.EMPTY;
+    }
+
+    private LocalVariable newDummyLocalVariable() {
+        return runtime.newLocalVariable("$__l" + variableCounter.getAndIncrement(),
+                runtime.objectParameterizedType());
     }
 
     public Links changePrimaryTo(Links ofReturnValue,
@@ -245,6 +250,15 @@ public record LinkMethodCall(Runtime runtime,
         Links.Builder builder = new LinksImpl.Builder(objectPrimary);
         TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
         addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            if (pi.index() < params.size()) {
+                ExpressionVisitor.Result result = params.get(pi.index());
+                if(result != null && result.links() != null ) {
+                    Variable primary = result.links().primary();
+                    tmBuilder.put(pi, Objects.requireNonNullElseGet(primary, this::newDummyLocalVariable));
+                }
+            }
+        }
         TranslationMap tm = tmBuilder.build();
         for (Links links : mlv.ofParameters()) {
             ParameterInfo pi = methodInfo.parameters().get(i);
@@ -252,13 +266,16 @@ public record LinkMethodCall(Runtime runtime,
             Links piLinks = r.links();
             if (piLinks != null) {
                 Variable paramPrimary = piLinks.primary();
-                if (paramPrimary != null && !paramPrimary.parameterizedType().isFunctionalInterface()) {
-                    TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(pi, paramPrimary).build();
+                if (paramPrimary == null || !paramPrimary.parameterizedType().isFunctionalInterface()) {
                     if (!links.isEmpty()) {
                         for (Link link : links) {
-                            Variable translatedFrom = newPrimaryTm.translateVariableRecursively(link.from());
+                            Variable translatedFrom = tm.translateVariableRecursively(link.from());
                             Variable translatedTo = tm.translateVariableRecursively(link.to());
-                            builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                            if (Util.isPartOf(objectPrimary, translatedTo)) {
+                                builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                            } else if(Util.isPartOf(objectPrimary, translatedTo)) {
+                                builder.add(translatedTo, link.linkNature(), translatedFrom);
+                            }
                         }
                     }
                 }

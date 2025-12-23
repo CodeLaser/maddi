@@ -60,8 +60,11 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viY = vd0.variableInfo("y");
-        // TODO evaluation of param must occur inside LinkMethodCall, seems not to happen for this occasion
-        assertEquals("y≡this.ys[0],y∈this.ys", viY.linkedVariables().toString());
-        assertEquals("[] --> method∈this.ys,method≡this.ys[0],method≡this.ys[1]", mlv.toString());
+        assertEquals("y≡this.ys[$__l1],y∈this.ys", viY.linkedVariables().toString());
+
+        VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
+        VariableInfo viY1 = vd1.variableInfo("y");
+        assertEquals("y≡this.ys[$__l1],y≡this.ys[$__l3],y∈this.ys", viY1.linkedVariables().toString());
+        assertEquals("[] --> method∈this.ys", mlv.toString());
     }
 }
