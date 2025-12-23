@@ -75,23 +75,23 @@ public class TestStream extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
         VariableInfo viStream10 = vd0.variableInfo("stream1");
         Links lvStream10 = viStream10.linkedVariablesOrEmpty();
-        assertEquals("stream1.§xs~0:list.§xs", lvStream10.toString());
+        assertEquals("stream1.§xs⊆0:list.§xs", lvStream10.toString());
 
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
-        assertEquals("stream2.§xs==stream1.§xs,stream2.§xs~0:list.§xs,stream2~stream1", lvStream21.toString());
+        assertEquals("stream2.§xs≡stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("result.§xs~0:list.§xs,result.§xs~stream1.§xs,result.§xs~stream2.§xs", lvResult.toString());
+        assertEquals("result.§xs⊆0:list.§xs,result.§xs⊆stream1.§xs,result.§xs⊆stream2.§xs", lvResult.toString());
 
-        assertEquals("[-] --> method1.§xs~0:list.§xs", mlv1.toString());
+        assertEquals("[-] --> method1.§xs⊆0:list.§xs", mlv1.toString());
 
         MethodInfo method2 = C.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
-        assertEquals("[-] --> method2.§xs~0:list.§xs", mlv2.toString());
+        assertEquals("[-] --> method2.§xs⊆0:list.§xs", mlv2.toString());
 
         MethodInfo method3 = C.findUniqueMethod("method3", 1);
         {
@@ -108,13 +108,13 @@ public class TestStream extends CommonTest {
         VariableData vd30 = VariableDataImpl.of(method3.methodBody().statements().getFirst());
         VariableInfo viRes = vd30.variableInfo("res");
         Links lvRes = viRes.linkedVariablesOrEmpty();
-        assertEquals("res.§xs~0:list.§xs", lvRes.toString());
+        assertEquals("res.§xs⊆0:list.§xs", lvRes.toString());
 
-        assertEquals("[-] --> method3.§xs~0:list.§xs", mlv3.toString());
+        assertEquals("[-] --> method3.§xs⊆0:list.§xs", mlv3.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> method.§xs~0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method.§xs⊆0:list.§xs", mlv.toString());
     }
 
     @Language("java")
@@ -186,17 +186,17 @@ public class TestStream extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method1.methodBody().statements().getFirst());
         VariableInfo viStream10 = vd0.variableInfo("stream1");
         Links lvStream10 = viStream10.linkedVariablesOrEmpty();
-        assertEquals("stream1.§xss~0:list.§xss", lvStream10.toString());
+        assertEquals("stream1.§xss⊆0:list.§xss", lvStream10.toString());
 
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
-        assertEquals("stream2.§xs<0:list.§xss,stream2.§xs<stream1.§xss", lvStream21.toString());
+        assertEquals("stream2.§xs∈0:list.§xss,stream2.§xs∈stream1.§xss", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("result.§xs<0:list.§xss,result.§xs<stream1.§xss,result.§xs~stream2.§xs,result<0:list,result<stream1", lvResult.toString());
+        assertEquals("result.§xs⊆stream2.§xs + link to list is lost!!", lvResult.toString());
 
         assertEquals("[-] --> method1.§xs<0:list.§xss,method1<0:list", mlv1.toString());
 

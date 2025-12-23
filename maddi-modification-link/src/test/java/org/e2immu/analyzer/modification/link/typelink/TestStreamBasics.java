@@ -64,23 +64,23 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("stream.§xs~0:in.§xs", tlv.toString());
+                assertEquals("stream.§xs⊆0:in.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream1");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("stream1.§xs~0:in.§xs,stream1.§xs~stream.§xs", tlv.toString());
+                assertEquals("stream1.§xs⊆0:in.§xs,stream1.§xs⊆stream.§xs", tlv.toString());
             }
 
             MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-, -] --> method1.§xs~0:in.§xs", tlv.toString());
+            assertEquals("[-, -] --> method1.§xs⊆0:in.§xs", tlv.toString());
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 2);
             MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-, -] --> method.§xs~0:in.§xs", tlv.toString());
+            assertEquals("[-, -] --> method.§xs⊆0:in.§xs", tlv.toString());
         }
     }
 
@@ -122,24 +122,25 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("optional");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("optional.§x<0:in.§xs,optional.§x<stream.§xs,optional.§x<stream1.§xs", tlv.toString());
+                assertEquals("optional.§x∈0:in.§xs,optional.§x∈stream.§xs,optional.§x∈stream1.§xs",
+                        tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("x");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("x<0:in.§xs,x<stream.§xs,x<stream1.§xs,x==optional.§x", tlv.toString());
+                assertEquals("x∈0:in.§xs,x∈stream.§xs,x∈stream1.§xs,x≡optional.§x", tlv.toString());
             }
             {
                 MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-                assertEquals("[-, -] --> method1<0:in.§xs", tlv.toString());
+                assertEquals("[-, -] --> method1∈0:in.§xs", tlv.toString());
             }
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 2);
             MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-, -] --> method<0:in.§xs", tlv.toString());
+            assertEquals("[-, -] --> method∈0:in.§xs", tlv.toString());
         }
     }
 
@@ -182,29 +183,29 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("stream.§xs~0:in.§xs", tlv.toString());
+                assertEquals("stream.§xs⊆0:in.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("sorted.§xs~0:in.§xs,sorted.§xs~stream.§xs", tlv.toString());
+                assertEquals("sorted.§xs⊆0:in.§xs,sorted.§xs⊆stream.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("list");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("list.§xs~0:in.§xs,list.§xs~sorted.§xs,list.§xs~stream.§xs", tlv.toString());
+                assertEquals("list.§xs⊆0:in.§xs,list.§xs⊆sorted.§xs,list.§xs⊆stream.§xs", tlv.toString());
             }
 
-            assertEquals("[-] --> method1.§xs~0:in.§xs", mlv.toString());
+            assertEquals("[-] --> method1.§xs⊆0:in.§xs", mlv.toString());
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 1);
             MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-            assertEquals("[-] --> method.§xs~0:in.§xs", mlv.toString());
+            assertEquals("[-] --> method.§xs⊆0:in.§xs", mlv.toString());
         }
     }
 
@@ -243,14 +244,14 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("stream.§$s~0:in.§$s", tlv.toString());
+                assertEquals("stream.§$s⊆0:in.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(1);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("stream.§$s~0:in.§$s", tlv.toString());
+                assertEquals("stream.§$s⊆0:in.§$s", tlv.toString());
 
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
                 Value.VariableBooleanMap tlvEntry = anyMatch.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
@@ -313,30 +314,30 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("sorted.§$s~0:in.§$s,sorted.§$s~stream.§$s", tlv.toString());
+                assertEquals("sorted.§$s⊆0:in.§$s,sorted.§$s⊆stream.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("sorted.§$s~0:in.§$s,sorted.§$s~array.§as,sorted.§$s~stream.§$s", tlv.toString());
+                assertEquals("sorted.§$s⊆0:in.§$s,sorted.§$s⊆stream.§$s,sorted.§$s⊇array.§as", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("array");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("array.§as~0:in.§$s,array.§as~sorted.§$s,array.§as~stream.§$s", tlv.toString());
+                assertEquals("array.§as⊆0:in.§$s,array.§as⊆sorted.§$s,array.§as⊆stream.§$s", tlv.toString());
             }
             // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $
-            assertEquals("[-] --> method1.§as~0:in.§$s", mlv.toString());
+            assertEquals("[-] --> method1.§as⊆0:in.§$s", mlv.toString());
         }
 
         // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables tlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> method.§as~0:in.§$s", tlv.toString());
+        assertEquals("[-] --> method.§as⊆0:in.§$s", tlv.toString());
     }
 
 
