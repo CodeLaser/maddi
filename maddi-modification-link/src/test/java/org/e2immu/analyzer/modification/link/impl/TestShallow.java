@@ -127,7 +127,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo addAll = list.findUniqueMethod("addAll", 1);
         MethodLinkedVariables mlvAddAll = linkComputer.doMethod(addAll);
-        assertEquals("[0:collection.§es⊇this.§es] --> -", mlvAddAll.toString());
+        assertEquals("[0:collection.§es~this.§es] --> -", mlvAddAll.toString());
 
         MethodInfo ofVarargs = list.methodStream().filter(mi ->
                         "of".equals(mi.name()) && mi.parameters().size() == 1 && mi.parameters().getFirst().isVarArgs())
@@ -363,7 +363,7 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodLinkedVariables mlv = linkComputer.doMethod(method);
-        assertEquals("[0:list.§xs~this.§xs] --> method.§xs~this.§xs", mlv.toString());
+        assertEquals("[0:list.§xs~this.§xs] --> method.§xs⊆this.§xs", mlv.toString());
     }
 
 
@@ -396,6 +396,6 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodLinkedVariables mlv = linkComputer.doMethod(method);
-        assertEquals("[-] --> method.§xs~0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method.§xs⊆0:list.§xs", mlv.toString());
     }
 }

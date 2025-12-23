@@ -84,10 +84,20 @@ public record Expand(Runtime runtime) {
                                   LinkNature linkNature,
                                   V to) {
         mergeEdge(graph, from, linkNature, to);
-        if (!from.equals(primary) && !(primary.v instanceof This)) {
+        if (!from.equals(primary) && !(primary.v instanceof This)
+            && !from.v.simpleName().startsWith("§")
+            && from.v instanceof FieldReference && primary.v.equals(fieldScope(from.v))) {
             mergeEdge(graph, primary, LinkNatureImpl.CONTAINS_AS_FIELD, from);
             mergeEdge(graph, from, LinkNatureImpl.IS_FIELD_OF, primary);
         }
+    }
+
+    private static Variable fieldScope(Variable v) {
+        if (v instanceof FieldReference fr) {
+            if (fr.scopeVariable() instanceof This) return v;
+            if (fr.scopeVariable() != null) return fieldScope(fr.scopeVariable());
+        }
+        return null;
     }
 
     private static V correctForThis(V primary, V v) {
@@ -311,6 +321,16 @@ public record Expand(Runtime runtime) {
         return true;
     }
 
+    private static String printGraph(Map<V, Map<V, LinkNature>> graph) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<V, Map<V, LinkNature>> e : graph.entrySet()) {
+            for (Map.Entry<V, LinkNature> e2 : e.getValue().entrySet()) {
+                sb.append(Util.simpleName(e.getKey().v)).append(" ").append(e2.getValue()).append(" ")
+                        .append(Util.simpleName(e2.getKey().v)).append("\n");
+            }
+        }
+        return sb.toString();
+    }
     //-------------------------------------------------------------------------------------------------
 
     /*
@@ -340,7 +360,9 @@ public record Expand(Runtime runtime) {
             });
         }
         GraphData gd = makeGraph(linkedVariables, true);
-        LOGGER.debug("Bi-directional graph for local: {}", gd.graph);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(gd.graph));
+        }
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
         vd.variableInfoStream(Stage.EVALUATION).forEach(vi -> {
             Links.Builder piBuilder = followGraph(gd, vi.variable(), null, true);

@@ -29,8 +29,24 @@ import java.util.stream.Stream;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
-import static org.e2immu.analyzer.modification.prepwork.variable.LinkNature.*;
 
+/*
+rules for ⊆ instead of ≡, ~
+
+- the return value of a function can have its hidden content ⊆ the hidden content of its source.
+  This is because the hidden content must come from the source.
+- a varargs parameter can have its hidden content ⊆ the destination. This is an extension of the use of multiple
+  single elements.
+- a new object can have its hidden content ⊆ the constructor parameters
+- the input of a lambda function/consumer is ⊆ this
+
+These rules mean that we still use ~ for the 'normal' transfer of hidden content from parameter to/from this.
+
+The ⊆ / ⊇ links must change into a ~ after a modification on such an object.
+Their main advantage is that ∈ followed by ⊆ is still ∈.
+Their natural application is a stream, where e.g. the filter input is part of the filter source,
+the filter output again part of the input, etc. Many streams reduce the amount of hidden content from a source.
+ */
 public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer virtualFieldComputer) {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShallowMethodLinkComputer.class);
 
@@ -61,7 +77,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             forceIntoReturn = linkLevelRv == 1; //HC from return variable to object
             if (!independent.isIndependent()) {
                 transfer(ofReturnValue, returnType, null, hcThis.type(), hcThisFr, independent.isDependent(),
-                        vfThis.mutable(), hcThisTps, forceIntoReturn);
+                        vfThis.mutable(), hcThisTps, forceIntoReturn, IS_SUBSET_OF);
             }
         } else {
             forceIntoReturn = false;
@@ -97,7 +113,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     if (sourceVariableTps.equals(returnTypeTps)) {
                         // return types agree
                         transfer(ofReturnValue, returnType, null, sourceType, pi, false, null,
-                                sourceVariableTps, false);
+                                sourceVariableTps, false, IS_SUBSET_OF);
                     }
                     ofParameters.add(piBuilder.build());
                     break;
@@ -111,7 +127,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         assert hcThis != null;
                         Links.Builder thisBuilder = new LinksImpl.Builder(runtime.newThis(typeInfo.asParameterizedType()));
                         transfer(thisBuilder, hcThis.type(), vfThis, pi.parameterizedType(), pi, independent.isDependent(),
-                                vfThis.mutable(), hcThisTps, false);
+                                vfThis.mutable(), hcThisTps, false, IS_SUPERSET_OF);
                         ofParameters.add(thisBuilder.build());
                     }
                     break;
@@ -128,15 +144,16 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     // TestShallow,9b
                     typeParametersOfSubTo = Stream.concat(methodInfo.typeParameters().stream(),
                             hcThisTps == null ? Stream.of() : hcThisTps.stream()).collect(Collectors.toUnmodifiableSet());
-                    VirtualFields vfSubTo = virtualFieldComputer.compute(pi.parameterizedType(), false).virtualFields();
+                    VirtualFields vfSubTo = virtualFieldComputer.compute(pi.parameterizedType(),
+                            false).virtualFields();
                     subTo = runtime.newFieldReference(vfSubTo.hiddenContent(), runtime.newVariableExpression(pi),
                             vfSubTo.hiddenContent().type());
                 } else {
                     typeParametersOfSubTo = hcThisTps;
                     subTo = pi;
                 }
-                transfer(ofReturnValue, returnType, null, subTo.parameterizedType(), subTo, false, null,
-                        typeParametersOfSubTo, false);
+                transfer(ofReturnValue, returnType, null, subTo.parameterizedType(), subTo,
+                        false, null, typeParametersOfSubTo, false, IS_SUBSET_OF);
                 // TODO we may have to convert hcThisTps to method parameters
             } else if (!independent.isIndependent()) {
                 if (hcThis != null && !methodInfo.isStatic()) {
@@ -145,8 +162,10 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     // instance method, from parameter into object
                     // *************************************************
 
-                    transfer(piBuilder, pi.parameterizedType(), null, hcThis.type(), hcThisFr, independent.isDependent(),
-                            vfThis.mutable(), hcThisTps, false);
+                    transfer(piBuilder, pi.parameterizedType(), null, hcThis.type(), hcThisFr,
+                            independent.isDependent(),
+                            vfThis.mutable(), hcThisTps, false,
+                            methodInfo.isConstructor() ? IS_SUPERSET_OF : SHARES_ELEMENTS);
                 } else {
                     // *************************************************
                     // static method, from return variable into parameter
@@ -170,7 +189,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         Set<TypeParameter> sourceVariableTps
                                 = collectTypeParametersFromVirtualField(sourceVariable.parameterizedType());
                         transfer(ofReturnValue, returnType, null, sourceVariable.parameterizedType(),
-                                sourceVariable, false, null, sourceVariableTps, false);
+                                sourceVariable, false, null, sourceVariableTps, false,
+                                IS_SUBSET_OF);
                     }
                 }
             }
@@ -187,7 +207,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 // see TestShallow,7,8
                 if (linkLevelPi == 1) {
                     ParameterInfo source = methodInfo.parameters().get(i);
-                    VirtualFields sourceVfs = virtualFieldComputer.compute(source.parameterizedType(), false).virtualFields();
+                    VirtualFields sourceVfs = virtualFieldComputer.compute(source.parameterizedType(),
+                            false).virtualFields();
                     Set<TypeParameter> sourceTps = correspondingTypeParameters(source.parameterizedType().typeInfo(),
                             sourceVfs.hiddenContent()).stream()
                             .map(tp -> formalToConcrete(tp, source.parameterizedType()))
@@ -196,7 +217,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     Expression scope = runtime.newVariableExpression(source);
                     FieldReference sourceFr = runtime.newFieldReference(sourceHc, scope, sourceHc.type());
                     transfer(piBuilder, pi.parameterizedType(), null, sourceHc.type(), sourceFr, false,
-                            null, sourceTps, false);
+                            null, sourceTps, false, IS_SUBSET_OF);
                 }
             }
             ofParameters.add(piBuilder.build());
@@ -218,12 +239,13 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                           boolean dependent,
                           FieldInfo subMutable,
                           Set<TypeParameter> typeParametersOfSubTo,
-                          boolean force) {
+                          boolean force,
+                          LinkNature subShareSuper) {
         if (fromType.typeParameter() != null && fromType.arrays() == 0) {
             assert fromType.typeParameter().typeBounds().isEmpty() : """
                     cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
                     the type parameter can be dependent""";
-            LinkNature linkNature = deriveLinkNature(0, toType.arrays());
+            LinkNature linkNature = deriveLinkNature(0, toType.arrays(), subShareSuper);
             if (fromType.typeParameter().equals(toType.typeParameter())) {
                 // 'to' is a type parameter, e.g. T[] ts
                 // Optional.orElseGet(Supplier<T>) -> orElseGet == Λ0:supplier
@@ -241,7 +263,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
                                 runtime.newInt(theField.negative()));
                         Expression scope = runtime.newVariableExpression(dv);
-                        FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope, theField.fieldInfo.type());
+                        FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope,
+                                theField.fieldInfo.type());
                         builder.add(linkNature, slice);
                     }
                 }
@@ -268,13 +291,13 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     boolean fromIsTp = subFrom.parameterizedType().isTypeParameter();
                     if (subTo.parameterizedType().isFunctionalInterface()) {
                         // T into Stream<T> for Stream.generate(Supplier<T>)
-                        builder.add(subFrom, IS_SUBSET_OF, subTo);
+                        builder.add(subFrom, subShareSuper, subTo);
                     } else if (toIsTp && fromIsTp || !toIsTp && !fromIsTp && arraysAligned(subFrom.parameterizedType(),
                             subTo.parameterizedType())) {
                         // e.g. new ArrayList<>(Collection<> c) this.es ~ c.es
                         // e.g. Map.entrySet() entrySet.kvs ~ this.kvs
                         // e.g. TestShallowPrefix,1 oneInstance.xys>this.xy
-                        LinkNature linkNature = deriveLinkNature(arraysFrom, arraysTo);
+                        LinkNature linkNature = deriveLinkNature(arraysFrom, arraysTo, subShareSuper);
                         builder.add(subFrom, linkNature, subTo);
                     } else if (!toIsTp && !fromIsTp) {
                         // e.g. TestShallowPrefix,2 oneInstance.xsys to .xy; arrays not aligned (different!)
@@ -314,7 +337,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                 if (toType.typeParameter() != null) {
                                     FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                                     assert theField != null;
-                                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
+                                    DependentVariable dv = runtime.newDependentVariable(
+                                            runtime().newVariableExpression(subFrom),
                                             runtime.newInt(theField.negative()));
                                     builder.add(dv, IS_SUBSET_OF, subTo);
                                 } else {
@@ -342,7 +366,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                             FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                             assert theField != null;
                             int totalFrom = arraysFrom + theField.fieldInfo.type().arrays();
-                            LinkNature linkNature = deriveLinkNature(totalFrom, arraysTo);
+                            LinkNature linkNature = deriveLinkNature(totalFrom, arraysTo, subShareSuper);
                             FieldReference subSubFrom = runtime.newFieldReference(theField.fieldInfo,
                                     runtime.newVariableExpression(subFrom), theField.fieldInfo.type());
                             builder.add(subSubFrom, linkNature, subTo);
@@ -374,9 +398,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         fi.type().arrays() == toPt.typeInfo().fields().get(fi.indexInType()).type().arrays());
     }
 
-    private static LinkNature deriveLinkNature(int arrays, int arraysSource) {
+    private static LinkNature deriveLinkNature(int arrays, int arraysSource, LinkNature subShareSuper) {
         if (arrays == arraysSource) {
-            return arrays == 0 ? IS_IDENTICAL_TO : IS_SUBSET_OF;
+            return arrays == 0 ? IS_IDENTICAL_TO : subShareSuper;
         }
         if (arrays < arraysSource) {
             return IS_ELEMENT_OF;
