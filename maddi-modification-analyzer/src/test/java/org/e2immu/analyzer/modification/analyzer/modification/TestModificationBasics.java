@@ -138,8 +138,7 @@ public class TestModificationBasics extends CommonTest {
             assertFalse(pi0.isUnmodified());
             VariableData vd0 = VariableDataImpl.of(m.methodBody().statements().getFirst());
             VariableInfo vi0m = vd0.variableInfo("m");
-            assertEquals("m∈0:list.§$s,m≤0:list",
-                    vi0m.linkedVariables().toString());
+            assertEquals("m∈0:list.§$s", vi0m.linkedVariables().toString());
         }
         {
             MethodInfo m = X.findUniqueMethod("modifyParam3", 2);
@@ -150,15 +149,14 @@ public class TestModificationBasics extends CommonTest {
                 VariableData vd1 = VariableDataImpl.of(m.methodBody().statements().get(1));
                 VariableInfo vi1m = vd1.variableInfo("m");
                 // copy ⊆ list, so m is not an element of copy!
-                assertEquals("m∈0:list.§$s,m≤0:list", vi1m.linkedVariables().toString());
+                assertEquals("m∈0:list.§$s", vi1m.linkedVariables().toString());
                 VariableInfo vi1list = vd1.variableInfo(pi0);
                 assertFalse(vi1list.isModified());
             }
             {
                 VariableData vd2 = VariableDataImpl.of(m.methodBody().statements().get(2));
                 VariableInfo vi2m = vd2.variableInfo("m");
-                assertEquals("m.i≡1:k,m.i≤0:list,m.i≤0:list.§$s,m∈0:list.§$s,m∩copy,m∩copy.§$s,m≤0:list,m≻1:k",
-                        vi2m.linkedVariables().toString());
+                assertEquals("m.i≡1:k,m.i≤0:list.§$s,m∈0:list.§$s", vi2m.linkedVariables().toString());
                 VariableInfo vi1list = vd2.variableInfo(pi0);
                 assertTrue(vi1list.isModified());
             }
