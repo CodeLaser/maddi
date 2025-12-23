@@ -359,7 +359,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links links;
                 if (this.erase.contains(vi.variable())
                     || !Collections.disjoint(Util.scopeVariables(vi.variable()), this.erase)) {
-                    links = new LinksImpl(vi.variable(), Set.of());
+                    links = new LinksImpl(vi.variable());
                 } else {
                     links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
                 }

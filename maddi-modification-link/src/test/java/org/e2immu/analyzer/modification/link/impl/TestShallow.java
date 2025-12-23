@@ -88,7 +88,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo set = optional.findUniqueMethod("orElse", 1);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[-] --> orElse≡0:other,orElse≡this.§t", mlvSet.toString());
+        assertEquals("[-] --> orElse≡this.§t,orElse≡0:other", mlvSet.toString());
 
         MethodInfo orElseThrow = optional.findUniqueMethod("orElseThrow", 0);
         MethodLinkedVariables mlvOrElseThrow = linkComputer.doMethod(orElseThrow);
@@ -220,7 +220,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo values = map.findUniqueMethod("values", 0);
         MethodLinkedVariables mlvValues = linkComputer.doMethod(values);
-        assertEquals("[] --> values.§m≡this.§m,values.§vs⊆this.§kvs[-2].§v", mlvValues.toString());
+        assertEquals("[] --> values.§vs⊆this.§kvs[-2].§v,values.§m≡this.§m", mlvValues.toString());
 
         MethodInfo forEachBi = map.findUniqueMethod("forEach", 1);
         assertEquals("java.util.Map.forEach(java.util.function.BiConsumer<? super K,? super V>)",

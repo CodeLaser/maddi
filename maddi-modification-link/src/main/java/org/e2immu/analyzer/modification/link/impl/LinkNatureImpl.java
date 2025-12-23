@@ -5,29 +5,28 @@ import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 //https://unicodemap.com/range/47/Mathematical_Operators/
 
 public class LinkNatureImpl implements LinkNature {
+    // rank is from least interesting to most interesting
+
     public static final LinkNatureImpl NONE = new LinkNatureImpl("X", -2);
     public static final LinkNatureImpl EMPTY = new LinkNatureImpl("∅", -1);
 
-    public static final LinkNatureImpl OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 0);
-    public static final LinkNatureImpl IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 1);
-    public static final LinkNatureImpl OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 2);
+    public static final LinkNatureImpl IS_FIELD_OF = new LinkNatureImpl("≺", 0);
+    public static final LinkNatureImpl CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 1);
+    public static final LinkNatureImpl SHARES_FIELDS = new LinkNatureImpl("≈", 2);
 
-    public static final LinkNatureImpl SHARES_ELEMENTS = new LinkNatureImpl("~", 3);
-    public static final LinkNatureImpl SHARES_FIELDS = new LinkNatureImpl("≈", 4);
+    public static final LinkNatureImpl OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 3);
+    public static final LinkNatureImpl IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 4);
+    public static final LinkNatureImpl OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 5);
 
-    public static final LinkNatureImpl IS_SUBSET_OF = new LinkNatureImpl("⊆", 5);
-    public static final LinkNatureImpl IS_SUPERSET_OF = new LinkNatureImpl("⊇", 6);
+    public static final LinkNatureImpl SHARES_ELEMENTS = new LinkNatureImpl("~", 6);
 
-    public static final LinkNatureImpl IS_ELEMENT_OF = new LinkNatureImpl("∈", 7);
-    public static final LinkNatureImpl CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 7);
+    public static final LinkNatureImpl IS_SUBSET_OF = new LinkNatureImpl("⊆", 7);
+    public static final LinkNatureImpl IS_SUPERSET_OF = new LinkNatureImpl("⊇", 8);
 
-    public static final LinkNatureImpl IS_IDENTICAL_TO = new LinkNatureImpl("≡", 9);
+    public static final LinkNatureImpl IS_ELEMENT_OF = new LinkNatureImpl("∈", 9);
+    public static final LinkNatureImpl CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 10);
 
-    // precedes, succeeds
-    // element inclusion in formal objects
-    public static final LinkNatureImpl IS_FIELD_OF = new LinkNatureImpl("≺", 10);
-    public static final LinkNatureImpl CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 11);
-
+    public static final LinkNatureImpl IS_IDENTICAL_TO = new LinkNatureImpl("≡", 11);
 
     private final String symbol;
     private final int rank;
@@ -60,6 +59,11 @@ public class LinkNatureImpl implements LinkNature {
     @Override
     public boolean valid() {
         return rank >= 0;
+    }
+
+    @Override
+    public boolean important() {
+        return rank >= 6;
     }
 
     @Override

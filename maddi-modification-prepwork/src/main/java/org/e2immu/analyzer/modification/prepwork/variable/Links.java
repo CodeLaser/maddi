@@ -23,7 +23,7 @@ public interface Links extends Iterable<Link>, Value {
 
     boolean isEmpty();
 
-    Set<Link> linkSet();
+    Iterable<Link> linkSet();
 
     Stream<Link> stream();
 
@@ -42,6 +42,8 @@ public interface Links extends Iterable<Link>, Value {
 
         boolean contains(Variable from, LinkNature reverse, Variable to);
 
+        void prepend(LinkNature linkNature, Variable to);
+
         Variable primary();
 
         void removeIf(Predicate<Link> link);
@@ -53,11 +55,11 @@ public interface Links extends Iterable<Link>, Value {
 
     default boolean overwriteAllowed(Links linkedVariables) {
         // the primary changes to/from null
-        return linkSet().isEmpty() && linkedVariables.linkSet().isEmpty();
+        return isEmpty() && linkedVariables.isEmpty();
     }
 
     default Set<Variable> toPrimaries() {
-        return linkSet().stream().map(l -> Util.primary(l.to())).collect(Collectors.toUnmodifiableSet());
+        return stream().map(l -> Util.primary(l.to())).collect(Collectors.toUnmodifiableSet());
     }
 
     List<Variable> primaryAssigned();

@@ -178,7 +178,7 @@ public record Expand(Runtime runtime) {
                 }));
         Map<V, Map<V, LinkNature>> graph = new HashMap<>();
         linkedVariables.values()
-                .forEach(links -> links.linkSet()
+                .forEach(links -> links
                         .stream().filter(l -> !(l.to() instanceof This))
                         .forEach(l -> addToGraph(l, new V(links.primary()), graph, bidirectional, subs, subToPrimary)));
         return new GraphData(graph, subs.keySet(), subToPrimary);
@@ -191,30 +191,61 @@ public record Expand(Runtime runtime) {
         return variable.variableStreamDescend().noneMatch(v -> v instanceof LocalVariable);
     }
 
+    private record PC(Variable v1, Variable v2) {
+    }
 
+    // sorting is needed to consistently take the same direction for tests
     private static Links.Builder followGraph(GraphData gd,
                                              Variable primary,
                                              TranslationMap translationMap,
                                              boolean allowLocalVariables) {
         V tPrimary = new V(translationMap == null ? primary : translationMap.translateVariableRecursively(primary));
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
-        var fromSet = gd.graph.keySet().stream()
+        var fromList = gd.graph.keySet().stream()
                 .filter(v -> org.e2immu.analyzer.modification.prepwork.Util.isPartOf(primary, v.v))
-                .collect(Collectors.toUnmodifiableSet());
-        for (V from : fromSet) {
+                .sorted((v1, v2) -> {
+                    if (Util.isPartOf(v1.v, v2.v)) return 1;
+                    if (Util.isPartOf(v2.v, v1.v)) return -1;
+                    return v1.v.fullyQualifiedName().compareTo(v2.v.fullyQualifiedName());
+                })
+                .toList();
+
+        // stream.§$s⊆0:in.§$s
+        Set<PC> combinations = new HashSet<>();
+        for (V from : fromList) {
             Map<V, LinkNature> all = bestPath(gd.graph, from);
             V tFrom = new V(translationMap == null ? from.v : translationMap.translateVariableRecursively(from.v));
-            for (Map.Entry<V, LinkNature> entry : all.entrySet()) {
+            Variable tFromV = tFrom.v;
+            List<Map.Entry<V, LinkNature>> entries = all.entrySet().stream()
+                    .sorted((e1, e2) -> {
+                        int c = e2.getValue().rank() - e1.getValue().rank();
+                        if (c != 0) return c;
+                        boolean p1 = Util.isPrimary(e1.getKey().v);
+                        boolean p2 = Util.isPrimary(e2.getKey().v);
+                        if (p1 && !p2) return 1;
+                        if (p2 && !p1) return -1;
+                        // subs first, best score first
+                        return e1.getKey().v.fullyQualifiedName().compareTo(e2.getKey().v.fullyQualifiedName());
+                    })
+                    .toList();
+            Variable primaryFrom = Util.primary(tFromV);
+            LOGGER.debug("Entries of {}: {}", from, entries);
+            for (Map.Entry<V, LinkNature> entry : entries) {
                 LinkNature linkNature = entry.getValue();
                 Variable toV = entry.getKey().v;
-                Variable tFromV = tFrom.v;
+                Variable primaryTo = Util.primary(toV);
                 if (linkNature.valid()
                     && (allowLocalVariables || containsNoLocalVariable(toV))
                     // remove internal references (field inside primary to primary or other field in primary)
-                    && !Util.isPartOf(tFromV, toV)
-                    && !Util.isPartOf(toV, tFromV)
+                    && !primaryTo.equals(primaryFrom)
                     // don't add if the reverse is already present in this builder
-                    && !builder.contains(toV, linkNature.reverse(), tFromV)) {
+                    && !builder.contains(toV, linkNature.reverse(), tFromV)
+                    // when adding p.sub < q.sub, don't add p < q.sub, p.sub < q
+                    && (combinations.add(new PC(primaryFrom, toV))
+                        && combinations.add(new PC(tFromV, primaryTo))
+                        // respect the order, we must add, even if we then accept the extra link
+                        || linkNature.important())
+                ) {
                     builder.add(tFromV, linkNature, toV);
                 }
             }
@@ -294,15 +325,15 @@ public record Expand(Runtime runtime) {
         }
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
         vd.variableInfoStream(Stage.EVALUATION).forEach(vi -> {
-            Links.Builder piBuilder = followGraph(gd, vi.variable(), null, true);
+            Links.Builder builder = followGraph(gd, vi.variable(), null, true);
             boolean unmodified = !modifiedVariables.contains(vi.variable())
-                                 && notLinkedToModified(piBuilder, modifiedVariables);
+                                 && notLinkedToModified(builder, modifiedVariables);
             if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
                 vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.from(unmodified));
             }
 
-            piBuilder.removeIf(Link::toIntermediateVariable);
-            Links newLinks = piBuilder.build();
+            builder.removeIf(Link::toIntermediateVariable);
+            Links newLinks = builder.build();
             if (newLinkedVariables.put(vi.variable(), newLinks) != null) {
                 throw new UnsupportedOperationException("Each real variable must be a primary");
             }
@@ -334,8 +365,8 @@ public record Expand(Runtime runtime) {
         }
         List<Links> linksPerParameter = new ArrayList<>(methodInfo.parameters().size());
         for (ParameterInfo pi : methodInfo.parameters()) {
-            Links.Builder piBuilder = followGraph(gd, pi, null, false);
-            linksPerParameter.add(piBuilder.build());
+            Links.Builder builder = followGraph(gd, pi, null, false);
+            linksPerParameter.add(builder.build());
         }
 
         return linksPerParameter;
@@ -364,12 +395,12 @@ public record Expand(Runtime runtime) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Return graph, primary {}:\n{}", primary, printGraph(gd.graph));
         }
-        Links.Builder rvBuilder = followGraph(gd, primary, tm, false);
+        Links.Builder builder = followGraph(gd, primary, tm, false);
 
         if (containsNoLocalVariable(primary)) {
-            rvBuilder.add(IS_IDENTICAL_TO, primary);
+            builder.prepend(IS_IDENTICAL_TO, primary);
         }
-        return rvBuilder.build();
+        return builder.build();
     }
 
 }
