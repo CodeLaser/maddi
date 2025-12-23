@@ -2,18 +2,15 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.Stage;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -49,6 +46,7 @@ public class TestForEach extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         MethodInfo method = X.findUniqueMethod("nice", 1);
+        ParameterInfo list = method.parameters().getFirst();
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
 
@@ -61,13 +59,17 @@ public class TestForEach extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(forEach);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
-        assertEquals("t∈0:list.§ts", tlvT1.toString());
+        assertEquals("t∈0:list.§ts,t≤0:list", tlvT1.toString());
+
+        VariableInfo list1 = vd1.variableInfo(list, Stage.EVALUATION);
+        Links lvList1 = list1.linkedVariablesOrEmpty();
+        assertEquals("t∈0:list.§ts,t≤0:list", lvList1.toString());
 
         Statement append = forEach.block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.linkedVariablesOrEmpty();
-        assertEquals("t∈0:list.§ts", tlvT100.toString());
+        assertEquals("t∈0:list.§ts,t≤0:list", tlvT100.toString());
     }
 
 

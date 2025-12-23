@@ -40,6 +40,8 @@ public interface Links extends Iterable<Link>, Value {
 
         Builder add(Variable from, LinkNature linkNature, Variable to);
 
+        boolean contains(Variable from, LinkNature reverse, Variable to);
+
         Variable primary();
 
         void removeIf(Predicate<Link> link);

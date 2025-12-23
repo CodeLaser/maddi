@@ -1,10 +1,15 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 public class FixpointPropagationAlgorithm {
+    private static final Logger LOGGER = LoggerFactory.getLogger(FixpointPropagationAlgorithm.class);
+
     public static <V, L> Map<V, Set<L>> computePathLabels(
             Function<V, Map<V, L>> graph,
             Set<V> keySet,
@@ -36,6 +41,7 @@ public class FixpointPropagationAlgorithm {
                     // If this label is new for w, add & propagate
                     if (labels.computeIfAbsent(w, _ -> new HashSet<>()).add(newLabel)) {
                         worklist.add(w);
+                        LOGGER.debug("Start {}: -> {} add {}", start, w, newLabel);
                     }
                 }
             }

@@ -123,7 +123,7 @@ public class TestMapManual extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(keySet);
         assertEquals("""
-                keySet.M≡this.map.M,keySet.tArray~this.map.eArray[-1].k\
+                keySet.M≡this.map.M,keySet.tArray~this.map.eArray[-1].k,keySet≻this.map.M\
                 """, mlv.ofReturnValue().toString());
     }
 
@@ -210,7 +210,7 @@ public class TestMapManual extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(entrySet);
         assertEquals("""
-                entrySet.M≡this.map.M,entrySet.eArray~this.map.eArray\
+                entrySet.M≡this.map.M,entrySet.eArray~this.map.eArray,entrySet≻this.map.M\
                 """, mlv.ofReturnValue().toString());
     }
 
