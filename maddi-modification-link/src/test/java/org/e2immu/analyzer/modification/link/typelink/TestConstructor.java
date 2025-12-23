@@ -3,14 +3,10 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.Stage;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.MethodCall;
@@ -76,18 +72,24 @@ public class TestConstructor extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo iis = vd0.variableInfo("iis");
             Links tlvIIS = iis.linkedVariablesOrEmpty();
-            assertEquals("iis.§$s~0:input.§$s", tlvIIS.toString());
+            assertEquals("iis.§$s⊆0:input.§$s", tlvIIS.toString());
 
             Statement s1 = methodB.methodBody().statements().get(1);
-            VariableInfo removed1 = VariableDataImpl.of(s1).variableInfo("removed");
+            VariableData vd1 = VariableDataImpl.of(s1);
+            VariableInfo removed1 = vd1.variableInfo("removed");
             Links tlvT1 = removed1.linkedVariablesOrEmpty();
-            assertEquals("removed<0:input.§$s,removed<iis.§$s", tlvT1.toString());
+            assertEquals("removed∈0:input.§$s,removed∈iis.§$s", tlvT1.toString());
+
+            VariableInfo iis1 = vd1.variableInfo("iis");
+            Links tlvIIS1 = iis1.linkedVariablesOrEmpty();
+            // NOTE: the ~ instead of ⊆ is because iis has been modified!
+            assertEquals("iis.§$s∋removed,iis.§$s~0:input.§$s", tlvIIS1.toString());
 
             Statement callM2 = methodB.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(callM2);
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
             Links tlvT2 = removed.linkedVariablesOrEmpty();
-            assertEquals("removed<0:input.§$s,removed<iis.§$s", tlvT2.toString());
+            assertEquals("removed∈0:input.§$s,removed∈iis.§$s", tlvT2.toString());
         }
         {
             MethodInfo methodA = X.findUniqueMethod("methodA", 1);

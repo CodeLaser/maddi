@@ -283,41 +283,28 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     }
 
     private Result constructorCall(VariableData variableData, ConstructorCall cc) {
-        Result object;
-        if (cc.object() == null || cc.object().isEmpty()) {
-            LocalVariable lv = javaInspector.runtime().newLocalVariable("$__c" + variableCounter.getAndIncrement(),
-                    cc.parameterizedType());
-            object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
-        } else {
-            object = visit(cc.object(), variableData);
-        }
-        MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
+        assert cc.object() == null || cc.object().isEmpty() : "NYI";
 
+        LocalVariable lv = javaInspector.runtime().newLocalVariable("$__c" + variableCounter.getAndIncrement(),
+                cc.parameterizedType());
+        Result object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
+
+        // only translate wrt concrete type
+        MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
         VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
         MethodLinkedVariables mlvTranslated1 = mlv.translate(vfTm.formalToConcrete());
 
-        MethodLinkedVariables mlvTranslated;
-        if (!cc.parameterExpressions().isEmpty() && cc.constructor() != null) {
-            TranslationMap.Builder builder = javaInspector.runtime().newTranslationMapBuilder();
-            for (ParameterInfo pi : cc.constructor().parameters()) {
-                if (!pi.isVarArgs() || cc.constructor().parameters().size() >= pi.index()) {
-                    builder.addVariableExpression(pi, cc.parameterExpressions().get(pi.index()));
-                }
-            }
-            mlvTranslated = mlvTranslated1.translate(builder.build());
-        } else {
-            mlvTranslated = mlvTranslated1;
-        }
-
+        // NOTE translation with respect to parameters happens in LMC.methodCall()
         List<Result> params = cc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
-                .constructorCall(cc.constructor(), object, params, mlvTranslated);
+                .constructorCall(cc.constructor(), object, params, mlvTranslated1);
     }
 
     private Result methodCall(VariableData variableData, MethodCall mc) {
         Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData);
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
 
+        // translate conditionally wrt concrete type, evaluated object
         MethodLinkedVariables mlvTranslated2;
         Variable objectPrimary = object.links.primary();
         if (objectPrimary != null) {
@@ -342,21 +329,11 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             // static method, without object
             mlvTranslated2 = mlv;
         }
-        MethodLinkedVariables mlvTranslated;
-        if (!mc.parameterExpressions().isEmpty()) {
-            TranslationMap.Builder builder = javaInspector.runtime().newTranslationMapBuilder();
-            for (ParameterInfo pi : mc.methodInfo().parameters()) {
-                if (!pi.isVarArgs() || mc.methodInfo().parameters().size() >= pi.index()) {
-                    builder.addVariableExpression(pi, mc.parameterExpressions().get(pi.index()));
-                }
-            }
-            mlvTranslated = mlvTranslated2.translate(builder.build());
-        } else {
-            mlvTranslated = mlvTranslated2;
-        }
+
+        // NOTE translation with respect to parameters happens in LMC.methodCall()
         List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
         Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
-                .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated);
+                .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
         Set<Variable> modified = new HashSet<>();
 
         if (mc.methodInfo().isModifying() && objectPrimary != null) {

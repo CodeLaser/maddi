@@ -114,6 +114,6 @@ public class TestShallowArray extends CommonTest {
 
         MethodInfo method5 = C.findUniqueMethod("method5", 1);
         MethodLinkedVariables mlv5 = method5.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method5));
-        assertEquals("[-] --> method5.§xss~0:x.§xss", mlv5.toString());
+        assertEquals("[-] --> method5.§xss⊆0:x.§xss", mlv5.toString());
     }
 }
