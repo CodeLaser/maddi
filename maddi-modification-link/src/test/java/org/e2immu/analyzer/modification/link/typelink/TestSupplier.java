@@ -2,11 +2,11 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
@@ -48,7 +48,7 @@ public class TestSupplier extends CommonTest {
         MethodLinkedVariables mlvOrElseGet = orElseGet.analysis().getOrCreate(METHOD_LINKS, () ->
                 tlc.doMethod(orElseGet));
         assertEquals("""
-                [-] --> orElseGet==this.§t,orElseGet==Λ0:supplier\
+                [-] --> orElseGet≡this.§t,orElseGet≡Λ0:supplier\
                 """, mlvOrElseGet.toString());
 
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
@@ -57,10 +57,10 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x==0:optional.§x,x==1:alternative", tlvX.toString());
+        assertEquals("x≡0:optional.§x,x≡1:alternative", tlvX.toString());
 
         assertEquals("""
-                [0:optional.§x==1:alternative, 1:alternative==0:optional.§x] --> method==0:optional.§x,method==1:alternative\
+                [0:optional.§x≡1:alternative, 1:alternative≡0:optional.§x] --> method≡0:optional.§x,method≡1:alternative\
                 """, mlvMethod.toString());
     }
 
@@ -91,7 +91,7 @@ public class TestSupplier extends CommonTest {
 
         MethodInfo supplier = C.findUniqueMethod("supplier", 0);
         MethodLinkedVariables mlvSupplier = supplier.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(supplier));
-        assertEquals("[] --> supplier==this.alternative", mlvSupplier.toString());
+        assertEquals("[] --> supplier≡this.alternative", mlvSupplier.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -99,9 +99,9 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x==0:optional.§x,x==this.alternative", tlvX.toString());
+        assertEquals("x≡0:optional.§x,x≡this.alternative", tlvX.toString());
 
-        assertEquals("[0:optional.§x==this.alternative] --> method==0:optional.§x,method==this.alternative",
+        assertEquals("[0:optional.§x≡this.alternative] --> method≡0:optional.§x,method≡this.alternative",
                 mlv.toString());
     }
 
@@ -135,7 +135,7 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x==0:optional.§x,x==1:c.alternative", tlvX.toString());
+        assertEquals("x≡0:optional.§x,x≡1:c.alternative", tlvX.toString());
     }
 
 
@@ -169,12 +169,12 @@ public class TestSupplier extends CommonTest {
 
         MethodInfo supplier = C.findUniqueMethod("supplier", 0);
         MethodLinkedVariables mlvSupplier = supplier.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[] --> supplier==this.alternative", mlvSupplier.toString());
+        assertEquals("[] --> supplier≡this.alternative", mlvSupplier.toString());
 
         MethodInfo callSupplier = C.findUniqueMethod("callSupplier", 1);
         MethodLinkedVariables mlvCallSupplier = callSupplier.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> callSupplier==0:c.alternative", mlvCallSupplier.toString());
+        assertEquals("[-] --> callSupplier≡0:c.alternative", mlvCallSupplier.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 2);
         MethodLinkedVariables mlvMethod = method.analysis().getOrNull(METHOD_LINKS,
@@ -183,11 +183,11 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x==0:optional.§x,x==1:c.alternative", tlvX.toString());
+        assertEquals("x≡0:optional.§x,x≡1:c.alternative", tlvX.toString());
 
         assertEquals("""
-                [0:optional.§x==1:c.alternative,0:optional.§x~1:c, 1:c.alternative==0:optional.§x,1:c~0:optional] \
-                --> method==0:optional.§x,method==1:c.alternative,method~1:c\
+                [0:optional.§x≡1:c.alternative, 1:c.alternative≡0:optional.§x] --> \
+                method≡0:optional.§x,method≡1:c.alternative\
                 """, mlvMethod.toString());
     }
 
@@ -225,12 +225,12 @@ public class TestSupplier extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(method2.methodBody().statements().getFirst());
             VariableInfo viLambda = vd0.variableInfo("lambda");
             Links lvLambda = viLambda.linkedVariablesOrEmpty();
-            assertEquals("lambda.§xy.§x==1:altX,lambda.§xy.§y==2:altY", lvLambda.toString());
+            assertEquals("lambda.§xy.§x≡1:altX,lambda.§xy.§y≡2:altY", lvLambda.toString());
 
             VariableData vd1 = VariableDataImpl.of(method2.methodBody().statements().get(1));
             VariableInfo viEntry = vd1.variableInfo("entry");
             Links lvEntry = viEntry.linkedVariablesOrEmpty();
-            assertEquals("entry==0:optional.§xy,entry=...", lvEntry.toString());
+            assertEquals("entry≡0:optional.§xy,entry=...", lvEntry.toString());
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 3);
@@ -244,9 +244,9 @@ public class TestSupplier extends CommonTest {
             // but the LHS should not be "wrong".
             // 0 in SimpleEntry<K,V> is not wrong but 0 in Map.Entry<X,Y> would have been better
             // assertEquals("""
-            //        entry==0:optional.§xy,entry=....\
+            //        entry≡0:optional.§xy,entry=....\
             //         """, tlvX.toString());
-            // assertEquals("[-, -, -] --> method==0:optional.§xy", mlv.toString());
+            // assertEquals("[-, -, -] --> method≡0:optional.§xy", mlv.toString());
         }
     }
 }

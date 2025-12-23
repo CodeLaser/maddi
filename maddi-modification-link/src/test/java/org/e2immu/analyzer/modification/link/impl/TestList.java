@@ -4,16 +4,14 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.*;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.variable.FieldReference;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,7 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestList extends CommonTest {
 
@@ -101,7 +98,7 @@ public class TestList extends CommonTest {
         assertEquals("[-, -] --> method∈1:x.ts,method≡1:x.ts[0:i]", lvMethod.toString());
     }
 
-    @DisplayName("Analyze 'asShortList', manually inserting values for List.of()")
+    @DisplayName("Analyze 'asShortList'")
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT1);
@@ -109,49 +106,15 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
-        MethodInfo of = list.methodStream()
-                .filter(m -> "of".equals(m.name()) &&
-                             m.parameters().size() == 1
-                             && m.parameters().getFirst().parameterizedType().arrays() == 0)
-                .findFirst().orElseThrow();
-        ReturnVariable ofRv = new ReturnVariableImpl(of);
-        FieldInfo virtualContentField = runtime.newFieldInfo("tArray", false,
-                runtime.newParameterizedType(list.typeParameters().getFirst(), 1, null), list);
-        FieldReference rvContent = runtime.newFieldReference(virtualContentField, runtime.newVariableExpression(ofRv),
-                virtualContentField.type());
-        assertEquals("java.util.List.of(E)", of.descriptor());
-        MethodLinkedVariablesImpl mlvOf = new MethodLinkedVariablesImpl(
-                new LinksImpl.Builder(ofRv)
-                        .add(rvContent, LinkNatureImpl.CONTAINS_AS_MEMBER, of.parameters().getFirst())
-                        .build(),
-                List.of(LinksImpl.EMPTY));
-        assertEquals("[-] --> of.tArray∋0:e1", mlvOf.toString());
-        of.analysis().set(METHOD_LINKS, mlvOf);
-
         MethodInfo asShortList = X.findUniqueMethod("asShortList", 0);
-        LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
-        LinkComputerImpl.SourceMethodComputer smc = tlc.new SourceMethodComputer(asShortList);
-        ExpressionVisitor ev = new ExpressionVisitor(javaInspector, new VirtualFieldComputer(javaInspector), tlc, smc,
-                asShortList, new RecursionPrevention(false), new AtomicInteger());
-
-        // test the evaluation of T t = ts[0]
-        LocalVariableCreation lvc = (LocalVariableCreation) asShortList.methodBody().statements().getFirst();
-        ExpressionVisitor.Result r = smc.handleLvc(lvc, null);
-        assertEquals("t: t≡this.ts[0]; this.ts[0]: this.ts[0]∈this.ts", r.extra().toString());
-
-        // test the evaluation of List.of(t)
-        VariableData vd0 = VariableDataImpl.of(lvc);
-        ExpressionVisitor.Result r2 = ev.visit(asShortList.methodBody().statements().getLast().expression(), vd0);
-        assertEquals("$__rv0.tArray∋t", r2.links().toString());
+        LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, true, false);
 
         // rv0.tArray>t + t=this.ts[0] + this.ts[0]<this.ts  = asShortList.tArray~this.ts
         MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(asShortList));
 
-        assertEquals("""
-                asShortList.tArray~this.ts,asShortList.tArray∋this.ts[0]\
-                """, lvAsShortList.ofReturnValue().toString());
+        assertEquals("asShortList.§ts~this.ts,asShortList.§ts∋this.ts[0]",
+                lvAsShortList.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'sub'")

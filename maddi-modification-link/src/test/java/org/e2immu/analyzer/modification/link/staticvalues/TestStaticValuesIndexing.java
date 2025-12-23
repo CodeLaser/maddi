@@ -10,7 +10,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,18 +49,19 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         MethodInfo setYs = X.findUniqueMethod("setYs", 2);
         MethodLinkedVariables mlvSetYs = setYs.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(setYs));
-        assertEquals("[-, 1:y<this.ys,1:y==this.ys[0:i]] --> -", mlvSetYs.toString());
+        assertEquals("[-, 1:y∈this.ys,1:y≡this.ys[0:i]] --> -", mlvSetYs.toString());
 
         MethodInfo getYs = X.findUniqueMethod("getYs", 1);
         MethodLinkedVariables mlvGetYs = getYs.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getYs));
-        assertEquals("[-] --> getYs<this.ys,getYs==this.ys[0:i]", mlvGetYs.toString());
+        assertEquals("[-] --> getYs∈this.ys,getYs≡this.ys[0:i]", mlvGetYs.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 0);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viY = vd0.variableInfo("y");
-        assertEquals("y==this.ys[0]", viY.linkedVariables().toString());
-        assertEquals("[] --> method<this.ys,method==this.ys[0],method==this.ys[1]", mlv.toString());
+        // TODO evaluation of param must occur inside LinkMethodCall, seems not to happen for this occasion
+        assertEquals("y≡this.ys[0]", viY.linkedVariables().toString());
+        assertEquals("[] --> method∈this.ys,method≡this.ys[0],method≡this.ys[1]", mlv.toString());
     }
 }
