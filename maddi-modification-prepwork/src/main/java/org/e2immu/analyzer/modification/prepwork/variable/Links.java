@@ -47,6 +47,8 @@ public interface Links extends Iterable<Link>, Value {
         Variable primary();
 
         void removeIf(Predicate<Link> link);
+
+        void replaceSubsetSuperset(Variable modified);
     }
 
     // methods that do something

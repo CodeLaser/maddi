@@ -10,6 +10,8 @@ public interface LinkNature {
 
     int rank();
 
+    LinkNature replaceSubsetSuperset();
+
     LinkNature reverse();
 
     boolean valid();

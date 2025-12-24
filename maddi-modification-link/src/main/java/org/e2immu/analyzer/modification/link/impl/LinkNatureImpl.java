@@ -67,6 +67,12 @@ public class LinkNatureImpl implements LinkNature {
     }
 
     @Override
+    public LinkNature replaceSubsetSuperset() {
+        if (this == IS_SUBSET_OF || this == IS_SUPERSET_OF) return SHARES_ELEMENTS;
+        return this;
+    }
+
+    @Override
     public LinkNature reverse() {
         if (this == IS_ELEMENT_OF) return CONTAINS_AS_MEMBER;
         if (this == CONTAINS_AS_MEMBER) return IS_ELEMENT_OF;

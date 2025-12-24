@@ -33,6 +33,8 @@ public interface MethodInfo extends Info {
 
     boolean isFactoryMethod();
 
+    boolean isFinalizer();
+
     boolean isSyntheticArrayConstructor();
 
     Set<MethodModifier> methodModifiers();

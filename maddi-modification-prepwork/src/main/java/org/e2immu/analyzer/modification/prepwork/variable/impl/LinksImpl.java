@@ -12,6 +12,8 @@ import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class LinksImpl implements Links {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LinksImpl.class);
+
     public static final Links EMPTY = new LinksImpl(null);
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
     public static final String LAMBDA = "Λ";
@@ -154,6 +158,11 @@ public class LinksImpl implements Links {
         }
 
         @Override
+        public void replaceSubsetSuperset(Variable modified) {
+            links.replaceAll(l -> l.replaceSubsetSuperset(modified));
+        }
+
+        @Override
         public @NotNull Iterator<Link> iterator() {
             return links.iterator();
         }
@@ -202,6 +211,16 @@ public class LinksImpl implements Links {
         public Link translate(TranslationMap translationMap) {
             return new LinkImpl(translationMap.translateVariableRecursively(from),
                     linkNature, translationMap.translateVariableRecursively(to));
+        }
+
+        @Override
+        public Link replaceSubsetSuperset(Variable modified) {
+            LinkNature ln2 = linkNature.replaceSubsetSuperset();
+            if (ln2 != linkNature && (Util.primary(from).equals(modified) || Util.primary(to).equals(modified))) {
+                LOGGER.info("Change {} -> {} for {} because of modification on {}", linkNature, ln2, this, modified);
+                return new LinkImpl(from, ln2, to);
+            }
+            return this;
         }
     }
 
