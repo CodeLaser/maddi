@@ -229,7 +229,7 @@ public record Expand(Runtime runtime) {
                     })
                     .toList();
             Variable primaryFrom = Util.primary(tFromV);
-            LOGGER.debug("Entries of {}: {}", from, entries);
+            //LOGGER.debug("Entries of {}: {}", from, entries);
             for (Map.Entry<V, LinkNature> entry : entries) {
                 LinkNature linkNature = entry.getValue();
                 Variable toV = entry.getKey().v;
@@ -331,7 +331,9 @@ public record Expand(Runtime runtime) {
             if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
                 vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.from(unmodified));
             }
-
+            if (!unmodified) {
+                builder.replaceSubsetSuperset(vi.variable());
+            }
             builder.removeIf(Link::toIntermediateVariable);
             Links newLinks = builder.build();
             if (newLinkedVariables.put(vi.variable(), newLinks) != null) {

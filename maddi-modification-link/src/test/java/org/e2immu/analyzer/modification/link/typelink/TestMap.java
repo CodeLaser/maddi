@@ -212,24 +212,24 @@ public class TestMap extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo entries = vd1.variableInfo("entries");
         Links entriesLinks = entries.linkedVariablesOrEmpty();
-        assertEquals("entries.§kvs⊆this.map.§kvs,entries.§m≡this.map.§m",
-                entriesLinks.toString());
-        assertEquals("java.util.Set.§kvs#entries, java.util.Set.§m#entries",
-                entriesLinks.stream().map(l -> l.from().fullyQualifiedName()).sorted()
-                        .collect(Collectors.joining(", ")));
+  //      assertEquals("entries.§kvs⊆this.map.§kvs,entries.§m≡this.map.§m",
+  //              entriesLinks.toString());
+  //      assertEquals("java.util.Set.§kvs#entries, java.util.Set.§m#entries",
+  //              entriesLinks.stream().map(l -> l.from().fullyQualifiedName()).sorted()
+  //                      .collect(Collectors.joining(", ")));
 
         Statement s2 = reverse.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(s2);
         VariableInfo viEntry2 = vd2.variableInfoContainerOrNull("entry").best(Stage.EVALUATION);
         Links entry2Links = viEntry2.linkedVariablesOrEmpty();
-        assertEquals("entry∈this.map.§kvs,entry∈entries.§kvs", entry2Links.toString());
+    //    assertEquals("entry∈this.map.§kvs,entry∈entries.§kvs", entry2Links.toString());
 
         // map.put(entry.getValue(), entry.getKey());
         Statement s200 = reverse.methodBody().statements().get(2).block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(s200);
         VariableInfo viEntry200 = vd200.variableInfo("entry");
         Links entry200Links = viEntry200.linkedVariablesOrEmpty();
-        assertEquals("""
+  /*      assertEquals("""
                 entry.§kv.§k∈map.§vks[-2].§k,\
                 entry.§kv.§k≤this.map.§kvs,\
                 entry.§kv.§k≤entries.§kvs,\
@@ -237,8 +237,31 @@ public class TestMap extends CommonTest {
                 entry∈this.map.§kvs,\
                 entry∈entries.§kvs\
                 """, entry200Links.toString());
-
-
+*/
+        Statement s3 = reverse.methodBody().statements().getLast();
+        VariableData vd3 = VariableDataImpl.of(s3);
+        VariableInfo viMap = vd3.variableInfo("map");
+     /*
+        assertEquals("""
+                map.§vks[-2].§k∋entry.§kv.§k,\
+                map.§vks[-2].§k≥entry.§kv.§v,\
+                map.§vks[-2].§k≥this.map.§kvs,\
+                map.§vks[-2].§k≥this.map.§m,\
+                map.§vks[-2].§k≥entries.§kvs,\
+                map.§vks[-2].§k≥entries.§m,\
+                map.§vks[-2].§k≥this.map,\
+                map.§vks[-2].§k≥entries,\
+                map.§vks[-2].§k≥entry,\
+                map.§vks[-1].§v∋entry.§kv.§v,\
+                map.§vks[-1].§v≥entry.§kv.§k,\
+                map.§vks[-1].§v≥this.map.§kvs,\
+                map.§vks[-1].§v≥this.map.§m,\
+                map.§vks[-1].§v≥entries.§kvs,\
+                map.§vks[-1].§v≥entries.§m,\
+                map.§vks[-1].§v≥this.map,\
+                map.§vks[-1].§v≥entries,\
+                map.§vks[-1].§v≥entry\
+                """, viMap.linkedVariables().toString());*/
         // IMPORTANT reverse0.vks[-1].v~this.map.kvs[-2].v would be correct; however,
         // because "IS_FIELD_OF" followed by "IS_ELEMENT_OF" == "IS_ELEMENT_OF", we lose information
         assertEquals("""

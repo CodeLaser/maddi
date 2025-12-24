@@ -339,7 +339,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
         Set<Variable> modified = new HashSet<>();
 
-        if (mc.methodInfo().isModifying() && objectPrimary != null) {
+        if (mc.methodInfo().isModifying() && objectPrimary != null && !mc.methodInfo().isFinalizer()) {
             modified.add(objectPrimary);
         }
         for (ParameterInfo pi : mc.methodInfo().parameters()) {
