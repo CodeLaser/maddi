@@ -6,7 +6,6 @@ import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
@@ -111,11 +110,12 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
         }
 
         private void copyFromVariablesIntoMethod(MethodInfo methodInfo, VariableData variableData) {
+            Map<Variable, Boolean> modifiedComponentsMethod = new HashMap<>();
             boolean allFieldsUnmodified = true;
             for (VariableInfo vi : variableData.variableInfoStream().toList()) {
                 Variable v = vi.variable();
                 if (v instanceof ParameterInfo pi && pi.methodInfo() == methodInfo) {
-                    copyFromVariablesIntoMethodPi(vi, pi);
+                    copyFromVariablesIntoMethodPi(variableData, vi, pi);
                 } else if (v instanceof This ||
                            (v instanceof FieldReference fr && (fr.scopeIsRecursivelyThis() || fr.isStatic()))
                            && fr.fieldInfo().analysis().getOrDefault(IGNORE_MODIFICATIONS_FIELD, FALSE).isFalse()
@@ -124,6 +124,9 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
                     boolean assignment = !vi.assignments().isEmpty();
                     if ((modification || assignment) && !methodInfo.isConstructor()) {
                         allFieldsUnmodified = false;
+                        if (v instanceof FieldReference || vi.isVariableInClosure()) {
+                            modifiedComponentsMethod.put(v, true);
+                        }
                     }
                     if (vi.isVariableInClosure()) {
                         VariableData vd = vi.variableInfoInClosure();
@@ -142,17 +145,24 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
                 methodInfo.analysis().setAllowControlledOverwrite(NON_MODIFYING_METHOD,
                         ValueImpl.BoolImpl.from(allFieldsUnmodified));
             }
+            methodInfo.analysis().setAllowControlledOverwrite(MODIFIED_COMPONENTS_METHOD,
+                    new ValueImpl.VariableBooleanMapImpl(modifiedComponentsMethod));
         }
 
-        private void copyFromVariablesIntoMethodPi(VariableInfo vi, ParameterInfo pi) {
-            if (vi.isUnmodified()) {
-                // FIXME pi can still be indirectly modified IF it is modifiable and linked in a modifiable way to a field
-                //
+        private void copyFromVariablesIntoMethodPi(VariableData variableData, VariableInfo vi, ParameterInfo pi) {
+            if (vi.isUnmodified() && vi.linkedVariables().toPrimaries().stream()
+                    .noneMatch(tp -> tp instanceof FieldReference fr && fr.scopeIsThis())) {
                 pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, TRUE);
             } // when linked to a field, we must wait for the field to be declared unmodified...
 
             // IMPORTANT: we also store this in case of !modified; see TestLinkCast,2
             // a parameter can be of type Object, not modified, even though, via casting, its hidden content is modified
+
+            Map<Variable, Boolean> modifiedComponents = computeModifiedComponents(variableData, pi);
+            if (!modifiedComponents.isEmpty()) {
+                Value.VariableBooleanMap vbm = translateVariableBooleanMapToThisScope(pi, modifiedComponents);
+                pi.analysis().setAllowControlledOverwrite(MODIFIED_COMPONENTS_PARAMETER, vbm);
+            }
 
             Value.VariableBooleanMap mfi = vi.analysis().getOrNull(MODIFIED_FI_COMPONENTS_VARIABLE,
                     ValueImpl.VariableBooleanMapImpl.class);
@@ -165,6 +175,16 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
             if (!casts.typeInfoSet().isEmpty()) {
                 pi.analysis().setAllowControlledOverwrite(DOWNCAST_PARAMETER, casts);
             }
+        }
+
+        // modification check on fields of parameter
+        private Map<Variable, Boolean> computeModifiedComponents(VariableData variableData, ParameterInfo pi) {
+            if (pi.parameterizedType().isTypeParameter()) return Map.of();
+            return variableData.variableInfoStream()
+                    .filter(vi -> vi.variable() instanceof FieldReference fr && fr.scopeIsRecursively(pi))
+                    .filter(VariableInfo::isModified)
+                    .map(VariableInfo::variable)
+                    .collect(Collectors.toUnmodifiableMap(v -> v, v -> true));
         }
 
         private Value.VariableBooleanMap translateVariableBooleanMapToThisScope(ParameterInfo pi, Map<Variable, Boolean> vbm) {
