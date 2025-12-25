@@ -139,14 +139,13 @@ public class LinkNatureImpl implements LinkNature {
         }
 
         if (this == IS_SUPERSET_OF) {
+            if (other == IS_SUBSET_OF || other == SHARES_ELEMENTS) return SHARES_ELEMENTS;
             if (other == CONTAINS_AS_FIELD || other == OBJECT_GRAPH_CONTAINS) return OBJECT_GRAPH_CONTAINS;
             if (other == CONTAINS_AS_MEMBER) return CONTAINS_AS_MEMBER;
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF
-                || other == IS_SUBSET_OF
+                || other == SHARES_FIELDS
                 || other == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_OVERLAPS;
-            if (other == SHARES_ELEMENTS) return SHARES_ELEMENTS;
-            if (other == SHARES_FIELDS) return OBJECT_GRAPH_OVERLAPS;
         }
 
         if (this == IS_IN_OBJECT_GRAPH) {
