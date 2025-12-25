@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -316,7 +317,9 @@ public record Expand(Runtime runtime) {
                 if (vLinks != null) {
                     linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
                 }
-                if (vi.isModified()) modifiedVariables.add(vi.variable());
+                Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
+                boolean explicitlyModified = unmodified != null && unmodified.isFalse();
+                if (explicitlyModified) modifiedVariables.add(vi.variable());
             });
         }
         GraphData gd = makeGraph(linkedVariables, true);
