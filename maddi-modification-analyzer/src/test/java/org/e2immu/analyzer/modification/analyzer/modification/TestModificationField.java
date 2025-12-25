@@ -197,12 +197,42 @@ public class TestModificationField extends CommonTest {
                 .getOrNull(PropertyImpl.MODIFIED_COMPONENTS_METHOD, ValueImpl.VariableBooleanMapImpl.class);
         assertEquals("this.in=true, this.status=true", mcm.toString());
 
+        MethodInfo readBlock = X.findUniqueMethod("readBlock", 0);
+        {
+            Statement tryStmt = readBlock.methodBody().statements().get(2).block().statements().getFirst();
+            Statement whileStmt = tryStmt.block().statements().get(1);
+            Statement ifInWhile = whileStmt.block().statements().get(1);
+
+            VariableData vd2000101 = VariableDataImpl.of(ifInWhile);
+            VariableInfo blockSize2000101 = vd2000101.variableInfo(blockSizeFr);
+            assertFalse(blockSize2000101.isModified());
+
+            VariableData vd20001 = VariableDataImpl.of(whileStmt);
+            VariableInfo blockSize20001 = vd20001.variableInfo(blockSizeFr);
+            assertFalse(blockSize20001.isModified());
+
+            VariableData vd200 = VariableDataImpl.of(tryStmt);
+            VariableInfo blockSize200 = vd200.variableInfo(blockSizeFr);
+            assertFalse(blockSize200.isModified());
+
+            VariableData vd2 = VariableDataImpl.of(readBlock.methodBody().statements().get(2));
+            VariableInfo blockSize0 = vd2.variableInfo(blockSizeFr);
+            assertFalse(blockSize0.isModified());
+
+            VariableData vdLast = VariableDataImpl.of(readBlock.methodBody().statements().getLast());
+            VariableInfo blockSizeLast = vdLast.variableInfo(blockSizeFr);
+            assertFalse(blockSizeLast.isModified());
+        }
         MethodInfo readNetscapeExt = X.findUniqueMethod("readNetscapeExt", 0);
         {
             Statement s000 = readNetscapeExt.methodBody().statements().getFirst().block().statements().getFirst();
             VariableData vd000 = VariableDataImpl.of(s000);
             VariableInfo viBlockSize = vd000.variableInfo(blockSizeFr);
             assertFalse(viBlockSize.isModified()); // it is assigned, not modified!!
+
+            VariableData vdLast = VariableDataImpl.of(readNetscapeExt.methodBody().statements().getLast());
+            VariableInfo blockSizeLast = vdLast.variableInfo(blockSizeFr);
+            assertFalse(blockSizeLast.isModified());
         }
         Statement s00102 = readNetscapeExt.methodBody().statements().getFirst().block().statements().get(1).block().statements().get(2);
         VariableData vds00102 = VariableDataImpl.of(s00102);

@@ -8,6 +8,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -332,7 +333,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 if (subTlv != null && subTlv.primary() != null) {
                                     collect.addAll(subTlv);
                                 }
-                                if (subVi.isModified()) unmodified.set(false);
+                                Value.Bool subUnmodified = subVi.analysis().getOrNull(UNMODIFIED_VARIABLE,
+                                        ValueImpl.BoolImpl.class);
+                                boolean explicitlyModified = subUnmodified != null && subUnmodified.isFalse();
+                                if (explicitlyModified) unmodified.set(false);
                             }
                         });
                         assert vic.hasMerge();

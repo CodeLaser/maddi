@@ -81,13 +81,6 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             return this;
         }
 
-        public Result eraseLinksPrimary() {
-            if (links.primary() != null) {
-                erase.add(links.primary());
-            }
-            return this;
-        }
-
         public Result with(Links links) {
             return new Result(links, extra, modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts,
                     erase);
@@ -271,8 +264,6 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             extra = extra.merge(r.extra);
         }
         Links.Builder builder = new LinksImpl.Builder(ve.variable());
-        // Link link = new LinkImpl(null, LinkNature.IS_IDENTICAL_TO, ve.variable());
-        // links.addFirst(link);
         if (ve.variable().parameterizedType().isFunctionalInterface()
             && variableData != null && variableData.isKnown(ve.variable().fullyQualifiedName())) {
             VariableInfo vi = variableData.variableInfo(ve.variable());
