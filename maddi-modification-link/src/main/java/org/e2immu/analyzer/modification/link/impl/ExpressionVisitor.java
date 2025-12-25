@@ -1,18 +1,18 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.*;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
@@ -20,6 +20,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 
 public record ExpressionVisitor(JavaInspector javaInspector,
                                 VirtualFieldComputer virtualFieldComputer,
@@ -40,11 +41,12 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     public record Result(Links links,
                          LinkedVariables extra,
                          Set<Variable> modified,
+                         Set<Variable> modifiedFunctionalInterfaceComponents,
                          List<WriteMethodCall> writeMethodCalls,
                          Map<Variable, Set<ParameterizedType>> casts,
                          Set<Variable> erase) {
         public Result(Links links, LinkedVariables extra) {
-            this(links, extra, new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>());
+            this(links, extra, new HashSet<>(), new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>());
         }
 
         public void addErase(Variable variable) {
@@ -54,13 +56,18 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         public @NotNull Result addExtra(Map<Variable, Links> linkedVariables) {
             if (!linkedVariables.isEmpty()) {
                 return new Result(links, extra.merge(new LinkedVariablesImpl(linkedVariables)),
-                        modified, writeMethodCalls, casts, erase);
+                        modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts, erase);
             }
             return this;
         }
 
         public Result addModified(Set<Variable> modified) {
             this.modified.addAll(modified);
+            return this;
+        }
+
+        public Result addModifiedFunctionalInterfaceComponents(Set<Variable> set) {
+            this.modifiedFunctionalInterfaceComponents.addAll(set);
             return this;
         }
 
@@ -82,7 +89,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         }
 
         public Result with(Links links) {
-            return new Result(links, extra, modified, writeMethodCalls, casts, erase);
+            return new Result(links, extra, modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts,
+                    erase);
         }
 
         public Result merge(Result other) {
@@ -92,10 +100,15 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             if (other.links != null && other.links.primary() != null) {
                 combinedExtra = combinedExtra.merge(new LinkedVariablesImpl(Map.of(other.links.primary(), other.links)));
             }
-            Result r = new Result(this.links, combinedExtra, new HashSet<>(this.modified),
-                    new ArrayList<>(this.writeMethodCalls), new HashMap<>(this.casts), new HashSet<>(this.erase));
+            Result r = new Result(this.links, combinedExtra,
+                    new HashSet<>(this.modified),
+                    new HashSet<>(modifiedFunctionalInterfaceComponents),
+                    new ArrayList<>(this.writeMethodCalls),
+                    new HashMap<>(this.casts),
+                    new HashSet<>(this.erase));
             r.writeMethodCalls.addAll(other.writeMethodCalls);
             r.modified.addAll(other.modified);
+            r.modifiedFunctionalInterfaceComponents.addAll(other.modifiedFunctionalInterfaceComponents);
             other.casts.forEach((v, set) ->
                     r.casts.computeIfAbsent(v, _ -> new HashSet<>()).addAll(set));
             r.erase.addAll(other.erase);
@@ -105,7 +118,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         public Result moveLinksToExtra() {
             if (links.primary() != null) {
                 LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
-                return new Result(LinksImpl.EMPTY, newExtra, modified, writeMethodCalls, casts, erase);
+                return new Result(LinksImpl.EMPTY, newExtra, modified, modifiedFunctionalInterfaceComponents,
+                        writeMethodCalls, casts, erase);
             }
             return this;
         }
@@ -113,41 +127,42 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         public Result copyLinksToExtra() {
             if (links.primary() != null) {
                 LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
-                return new Result(links, newExtra, modified, writeMethodCalls, casts, erase);
+                return new Result(links, newExtra, modified, modifiedFunctionalInterfaceComponents,
+                        writeMethodCalls, casts, erase);
             }
             return this;
         }
     }
 
-    static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(),
+    static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(), Set.of(),
             List.of(), Map.of(), Set.of());
 
-    public Result visit(Expression expression, VariableData variableData) {
+    public Result visit(Expression expression, VariableData variableData, Stage stage) {
         return switch (expression) {
-            case VariableExpression ve -> variableExpression(ve, variableData);
-            case Assignment a -> assignment(variableData, a);
-            case MethodCall mc -> methodCall(variableData, mc);
-            case MethodReference mr -> methodReference(variableData, mr);
-            case ConstructorCall cc -> constructorCall(variableData, cc);
+            case VariableExpression ve -> variableExpression(ve, variableData, stage);
+            case Assignment a -> assignment(variableData, stage, a);
+            case MethodCall mc -> methodCall(variableData, stage, mc);
+            case MethodReference mr -> methodReference(variableData, stage, mr);
+            case ConstructorCall cc -> constructorCall(variableData, stage, cc);
             case Lambda lambda -> lambda(lambda);
-            case Cast cast -> cast(variableData, cast);
+            case Cast cast -> cast(variableData, stage, cast);
             case InstanceOf instanceOf -> instanceOf(variableData, instanceOf);
 
-            case InlineConditional ic -> inlineConditional(ic, variableData);
-            case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData))
+            case InlineConditional ic -> inlineConditional(ic, variableData, stage);
+            case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData, stage))
                     .reduce(EMPTY, Result::merge);
-            case And and -> and.expressions().stream().map(e -> visit(e, variableData))
+            case And and -> and.expressions().stream().map(e -> visit(e, variableData, stage))
                     .reduce(EMPTY, Result::merge);
-            case Or or -> or.expressions().stream().map(e -> visit(e, variableData))
+            case Or or -> or.expressions().stream().map(e -> visit(e, variableData, stage))
                     .reduce(EMPTY, Result::merge);
-            case CommaExpression ce -> ce.expressions().stream().map(e -> visit(e, variableData))
+            case CommaExpression ce -> ce.expressions().stream().map(e -> visit(e, variableData, stage))
                     .reduce(EMPTY, Result::merge);
-            case ArrayLength al -> visit(al.scope(), variableData).moveLinksToExtra();
-            case EnclosedExpression ee -> visit(ee.inner(), variableData);
-            case UnaryOperator uo -> visit(uo.expression(), variableData).with(LinksImpl.EMPTY);
-            case GreaterThanZero gt0 -> visit(gt0.expression(), variableData);
-            case BinaryOperator bo -> visit(bo.lhs(), variableData)
-                    .merge(visit(bo.rhs(), variableData)).with(LinksImpl.EMPTY);
+            case ArrayLength al -> visit(al.scope(), variableData, stage).moveLinksToExtra();
+            case EnclosedExpression ee -> visit(ee.inner(), variableData, stage);
+            case UnaryOperator uo -> visit(uo.expression(), variableData, stage).with(LinksImpl.EMPTY);
+            case GreaterThanZero gt0 -> visit(gt0.expression(), variableData, stage);
+            case BinaryOperator bo -> visit(bo.lhs(), variableData, stage)
+                    .merge(visit(bo.rhs(), variableData, stage)).with(LinksImpl.EMPTY);
             case ConstantExpression<?> _, TypeExpression _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
@@ -158,8 +173,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     1. narrowing casts on primitives return ERASE (as for an operation on a primitive)
     2. variable casts are stored for the DOWNCAST info
      */
-    private Result cast(VariableData variableData, Cast cast) {
-        Result r = visit(cast.expression(), variableData);
+    private Result cast(VariableData variableData, Stage stage, Cast cast) {
+        Result r = visit(cast.expression(), variableData, stage);
         if (narrowingCast(cast.expression().parameterizedType(), cast.parameterizedType())) {
             return r.with(LinksImpl.EMPTY);
         }
@@ -182,10 +197,10 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         throw new UnsupportedOperationException();
     }
 
-    private Result methodReference(VariableData variableData, MethodReference mr) {
+    private Result methodReference(VariableData variableData, Stage stage, MethodReference mr) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(mr.methodInfo());
 
-        Result object = visit(mr.scope(), variableData);
+        Result object = visit(mr.scope(), variableData, stage);
         Links newRv;
         if (object.links.primary() != null) {
             This thisVar = javaInspector.runtime().newThis(mr.methodInfo().typeInfo().asParameterizedType());
@@ -224,10 +239,10 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
     }
 
-    private @NotNull Result inlineConditional(InlineConditional ic, VariableData variableData) {
-        Result rc = visit(ic.condition(), variableData);
-        Result rt = visit(ic.ifTrue(), variableData);
-        Result rf = visit(ic.ifFalse(), variableData);
+    private @NotNull Result inlineConditional(InlineConditional ic, VariableData variableData, Stage stage) {
+        Result rc = visit(ic.condition(), variableData, stage);
+        Result rt = visit(ic.ifTrue(), variableData, stage);
+        Result rf = visit(ic.ifFalse(), variableData, stage);
         Runtime runtime = javaInspector.runtime();
         Variable newPrimary = runtime.newLocalVariable("$__ic" + variableCounter.getAndIncrement(),
                 ic.parameterizedType());
@@ -240,7 +255,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         return new Result(newLinks, merge.extra);
     }
 
-    private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData) {
+    private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData, Stage stage) {
         Variable v = ve.variable();
         LinkedVariables extra = LinkedVariablesImpl.EMPTY;
         while (v instanceof DependentVariable dv) {
@@ -252,7 +267,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         }
 
         if (v instanceof FieldReference fr) {
-            Result r = visit(fr.scope(), variableData);
+            Result r = visit(fr.scope(), variableData, stage);
             extra = extra.merge(r.extra);
         }
         Links.Builder builder = new LinksImpl.Builder(ve.variable());
@@ -267,10 +282,10 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         return new Result(builder.build(), extra);
     }
 
-    private Result assignment(VariableData variableData, Assignment a) {
+    private Result assignment(VariableData variableData, Stage stage, Assignment a) {
         Links.Builder builder = new LinksImpl.Builder(a.variableTarget());
-        Result rValue = visit(a.value(), variableData);
-        Result rTarget = visit(a.target(), variableData);
+        Result rValue = visit(a.value(), variableData, stage);
+        Result rTarget = visit(a.target(), variableData, stage);
         if (rValue.links != null && rValue.links.primary() != null) {
             builder.add(LinkNatureImpl.IS_IDENTICAL_TO, rValue.links.primary());
         }
@@ -284,7 +299,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                 .addModified(Util.scopeVariables(a.variableTarget()));
     }
 
-    private Result constructorCall(VariableData variableData, ConstructorCall cc) {
+    private Result constructorCall(VariableData variableData, Stage stage, ConstructorCall cc) {
         assert cc.object() == null || cc.object().isEmpty() : "NYI";
 
         LocalVariable lv = javaInspector.runtime().newLocalVariable("$__c" + variableCounter.getAndIncrement(),
@@ -297,13 +312,17 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlvTranslated1 = mlv.translate(vfTm.formalToConcrete());
 
         // NOTE translation with respect to parameters happens in LMC.methodCall()
-        List<Result> params = cc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
+        List<Result> params = cc.parameterExpressions().stream()
+                .map(e -> visit(e, variableData, stage))
+                .toList();
         return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
                 .constructorCall(cc.constructor(), object, params, mlvTranslated1);
     }
 
-    private Result methodCall(VariableData variableData, MethodCall mc) {
-        Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData);
+    private Result methodCall(VariableData variableData, Stage stage, MethodCall mc) {
+        // recursion, translation
+
+        Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData, stage);
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
 
         // translate conditionally wrt concrete type, evaluated object
@@ -329,76 +348,146 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             }
         } else {
             // static method, without object; but there may be method type parameters involved
-            TranslationMap vfTm = makeVfTmForStaticMethods(mc);
+            TranslationMap vfTm = new VirtualFieldTranslationMapForStaticMethods(javaInspector.runtime()).go(mc);
             mlvTranslated2 = mlv.translate(vfTm);
         }
 
         // NOTE translation with respect to parameters happens in LMC.methodCall()
-        List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData)).toList();
+        List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData, stage))
+                .toList();
+
+        // handle all matters 'linking'
+
         Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
-        Set<Variable> modified = new HashSet<>();
 
-        if (mc.methodInfo().isModifying() && objectPrimary != null && !mc.methodInfo().isFinalizer()) {
-            modified.add(objectPrimary);
-        }
-        for (ParameterInfo pi : mc.methodInfo().parameters()) {
-            if (pi.isModified() && params.size() > pi.index()) {
-                Result rp = params.get(pi.index());
-                if (rp.links != null && rp.links.primary() != null) {
-                    modified.add(rp.links.primary());
-                }
+        // handle all matters 'modification'
+
+        Set<Variable> modified = new HashSet<>();
+        Set<Variable> modifiedFunctionalInterfaceComponents = new HashSet<>();
+
+        handleMethodModification(mc, objectPrimary, modifiedFunctionalInterfaceComponents, modified);
+        if (!mc.methodInfo().parameters().isEmpty()) {
+            PropagateComponents pc = new PropagateComponents(javaInspector.runtime(), variableData, stage);
+            for (ParameterInfo pi : mc.methodInfo().parameters()) {
+                handleParameterModification(mc, pi, params, modified, pc);
             }
         }
-        return r.addModified(modified).add(new WriteMethodCall(mc, object.links));
+        return r.addModified(modified)
+                .addModifiedFunctionalInterfaceComponents(modifiedFunctionalInterfaceComponents)
+                .add(new WriteMethodCall(mc, object.links));
     }
 
-    // static call, but with method type parameters
-    private TranslationMap makeVfTmForStaticMethods(MethodCall mc) {
-        VirtualFieldTranslationMap vfTm = new VirtualFieldTranslationMap(javaInspector.runtime());
-        for (TypeParameter tp : mc.methodInfo().typeParameters()) {
-            ParameterizedType bestValue = findValue(mc, tp);
-            vfTm.put(tp, bestValue);
-        }
-        return vfTm;
-    }
-
-    private ParameterizedType findValue(MethodCall mc, TypeParameter tp) {
-        for (ParameterInfo pi : mc.methodInfo().parameters()) {
+    private void handleParameterModification(MethodCall mc,
+                                             ParameterInfo pi,
+                                             List<Result> params,
+                                             Set<Variable> modified,
+                                             PropagateComponents pc) {
+        if (pi.isModified()) {
             if (pi.isVarArgs()) {
-                for (int i = pi.index(); i < mc.parameterExpressions().size(); ++i) {
-                    ParameterizedType concrete = mc.parameterExpressions().get(i).parameterizedType();
-                    ParameterizedType res = extractValueForTp(pi.parameterizedType().copyWithOneFewerArrays(),
-                            concrete, tp);
-                    if (res != null) return res;
+                for (int i = mc.methodInfo().parameters().size() - 1; i < mc.parameterExpressions().size(); i++) {
+                    Result rp = params.get(i);
+                    handleModifiedParameter(mc.parameterExpressions().get(i), rp, modified);
                 }
             } else {
-                ParameterizedType res = extractValueForTp(pi.parameterizedType(),
-                        mc.parameterExpressions().get(pi.index()).parameterizedType(), tp);
-                if (res != null) return res;
+                Result rp = params.get(pi.index());
+                handleModifiedParameter(mc.parameterExpressions().get(pi.index()), rp, modified);
             }
         }
-        // try the return type
-        throw new UnsupportedOperationException("NYI");
+            /*
+             when a method reference has been passed on, and that method appears to be modifying, we set the scope
+             of the method reference modified as well. If that scope is 'this', the current method will become modifying.
+             If the parameters of this method have modified components, we check if we have a value for these components,
+             and propagate their modification too.
+             */
+        pc.propagateComponents(MODIFIED_FI_COMPONENTS_PARAMETER, mc, pi,
+                (e, mapValue, map) -> {
+                    if (e instanceof MethodReference mr) {
+                        if (mapValue) {
+                            propagateModificationOfObject(modified, mr);
+                            for (ParameterInfo mrPi : mr.methodInfo().parameters()) {
+                                propagateModificationOfParameter(modified, pi, map, mrPi);
+                            }
+                        } //TODO else ensureNotModifying(mr);
+                    }
+                });
+        pc.propagateComponents(MODIFIED_COMPONENTS_PARAMETER, mc, pi,
+                (e, mapValue, map) -> {
+                    if (e instanceof VariableExpression ve2 && mapValue) {
+                        modified.add(ve2.variable());
+                    }
+                });
     }
 
-    private ParameterizedType extractValueForTp(ParameterizedType formal, ParameterizedType concrete, TypeParameter tp) {
-        // X, concrete T[];  X[], formal T[]; ...
-        if (tp.equals(formal.typeParameter())) {
-            return concrete.copyWithArrays(concrete.arrays() - formal.arrays());
-        }
-        // List<T>, concrete  List<K>
-        if (formal.typeInfo() != null && formal.typeInfo().equals(concrete.typeInfo())
-            && formal.parameters().size() == concrete.parameters().size()) {
-            int i = 0;
-            for (ParameterizedType fp : formal.parameters()) {
-                ParameterizedType res = extractValueForTp(fp, concrete.parameters().get(i), tp);
-                if (res != null) return res;
-                ++i;
+    private void handleMethodModification(MethodCall mc,
+                                          Variable objectPrimary,
+                                          Set<Variable> modifiedFunctionalInterfaceComponents,
+                                          Set<Variable> modified) {
+        if (objectPrimary != null && !mc.methodInfo().isFinalizer()) {
+            boolean modifying = mc.methodInfo().isModifying();
+            if (objectPrimary.parameterizedType().isFunctionalInterface()
+                && objectPrimary instanceof FieldReference fr
+                && !fr.isStatic() && !fr.scopeIsRecursivelyThis()) {
+                modifiedFunctionalInterfaceComponents.add(objectPrimary);
+            } else if (modifying) {
+                modified.add(objectPrimary);
+                Value.VariableBooleanMap modifiedComponents = mc.methodInfo().analysis().getOrNull(MODIFIED_COMPONENTS_METHOD,
+                        ValueImpl.VariableBooleanMapImpl.class);
+                if (modifiedComponents != null
+                    && mc.object() instanceof VariableExpression ve
+                    // we must check for 'this', to eliminate simple assignments
+                    && !(ve.variable() instanceof This)) {
+                    for (Map.Entry<Variable, Boolean> entry : modifiedComponents.map().entrySet()) {
+                        // translate "this" of the method's instance type to the current scope
+                        ParameterizedType pt = mc.object().parameterizedType().typeInfo().asParameterizedType();
+                        This thisInSv = javaInspector.runtime().newThis(pt);
+                        TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
+                                .put(thisInSv, ve.variable())
+                                .build();
+                        Variable v = tm.translateVariableRecursively(entry.getKey());
+                        modified.add(v);
+                    }
+                }
             }
         }
-        // FIXME isAssignable... use generics helper
-        return null;
+    }
+
+    private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
+        if (rp.links != null && rp.links.primary() != null) {
+            modified.add(rp.links.primary());
+        }
+        if (argument instanceof MethodReference mr) {
+            propagateModificationOfObject(modified, mr);
+        }
+    }
+
+    private void propagateModificationOfObject(Set<Variable> modified, MethodReference mr) {
+        if (mr.methodInfo().isModifying() && mr.scope() instanceof VariableExpression ve) {
+            modified.add(ve.variable());
+        }
+    }
+
+    private void propagateModificationOfParameter(Set<Variable> modified,
+                                                  ParameterInfo pi,
+                                                  Map<Variable, Expression> map,
+                                                  ParameterInfo mrPi) {
+        Value.VariableBooleanMap modComp = mrPi.analysis().getOrDefault(MODIFIED_COMPONENTS_PARAMETER,
+                ValueImpl.VariableBooleanMapImpl.EMPTY);
+        if (!modComp.isEmpty()) {
+            TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
+                    .put(mrPi, javaInspector.runtime().newThis(pi.parameterizedType()))
+                    .build();
+            for (Map.Entry<Variable, Boolean> entry : modComp.map().entrySet()) {
+                if (entry.getValue()) {
+                    // modified component
+                    Variable translated = tm.translateVariableRecursively(entry.getKey());
+                    Expression value = map.get(translated);
+                    if (value instanceof VariableExpression ve) {
+                        modified.add(ve.variable());
+                    }
+                }
+            }
+        }
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {

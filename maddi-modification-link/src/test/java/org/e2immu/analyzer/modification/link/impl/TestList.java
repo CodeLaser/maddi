@@ -148,7 +148,7 @@ public class TestList extends CommonTest {
         LinkComputerImpl.SourceMethodComputer smc = tlc.new SourceMethodComputer(set);
         ExpressionVisitor ev = new ExpressionVisitor(javaInspector, new VirtualFieldComputer(javaInspector), tlc, smc,
                 set, new RecursionPrevention(false), new AtomicInteger());
-        ExpressionVisitor.Result r = ev.visit(assignment, null);
+        ExpressionVisitor.Result r = ev.visit(assignment, null, null);
         assertEquals("this.ts[1:index]≡0:t", r.links().toString());
         assertEquals("0:t: -; this.ts[1:index]: this.ts[1:index]∈this.ts", r.extra().toString());
 
