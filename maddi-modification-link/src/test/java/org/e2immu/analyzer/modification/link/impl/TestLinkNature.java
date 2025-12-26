@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -8,18 +9,23 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestLinkNature {
 
+    List<LinkNature> all = new ArrayList<>();
 
-    @Test
-    public void test() {
-        List<LinkNature> all = new ArrayList<>();
+    @BeforeEach
+    public void beforeEach() {
         Collections.addAll(all,
                 OBJECT_GRAPH_OVERLAPS, IS_IN_OBJECT_GRAPH, OBJECT_GRAPH_CONTAINS,
                 SHARES_ELEMENTS, SHARES_FIELDS,
                 IS_SUBSET_OF, IS_SUPERSET_OF, IS_ELEMENT_OF, CONTAINS_AS_MEMBER,
                 IS_IDENTICAL_TO, IS_FIELD_OF, CONTAINS_AS_FIELD);
+    }
+
+    @Test
+    public void test() {
         StringBuilder sb = new StringBuilder();
         sb.append("   ");
         for (LinkNature ln : all) sb.append(" ").append(ln);
@@ -34,5 +40,23 @@ public class TestLinkNature {
         }
         sb.append("\n");
         System.out.println(sb);
+    }
+
+    @Test
+    public void test2() {
+        int count = 0;
+        for (LinkNature ln1 : all) {
+            for (LinkNature ln2 : all) {
+                LinkNature combined = ln1.combine(ln2);
+                LinkNature symmetric = ln2.reverse().combine(ln1.reverse());
+                if (combined != symmetric.reverse() || combined.reverse() != symmetric) {
+                    System.out.println(ln1 + " " + ln2 + " => " + combined + "  but "
+                                       + ln2.reverse() + " " + ln1.reverse() + " => " + symmetric);
+                    ++count;
+                }
+            }
+        }
+        System.out.println("Combinations to fix: " + (count / 2));
+        assertEquals(0, count / 2);
     }
 }

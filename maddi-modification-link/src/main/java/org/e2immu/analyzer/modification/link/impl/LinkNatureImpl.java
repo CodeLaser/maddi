@@ -97,22 +97,20 @@ public class LinkNatureImpl implements LinkNature {
 
         if (this == IS_ELEMENT_OF) {
             if (other == IS_SUBSET_OF) return IS_ELEMENT_OF;
-            if (other == IS_IN_OBJECT_GRAPH || other == IS_FIELD_OF
-                || other == SHARES_ELEMENTS || other == SHARES_FIELDS) return IS_IN_OBJECT_GRAPH;
+            if (other == IS_IN_OBJECT_GRAPH || other == IS_FIELD_OF) return IS_IN_OBJECT_GRAPH;
         }
 
         if (this == IS_FIELD_OF) {
             if (other == IS_ELEMENT_OF
                 || other == IS_SUBSET_OF
-                || other == IS_IN_OBJECT_GRAPH
-                || other == SHARES_ELEMENTS || other == SHARES_FIELDS) return IS_IN_OBJECT_GRAPH;
+                || other == IS_IN_OBJECT_GRAPH) return IS_IN_OBJECT_GRAPH;
         }
 
         if (this == IS_SUBSET_OF) {
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF
-                || other == IS_IN_OBJECT_GRAPH
-                || other == SHARES_ELEMENTS || other == SHARES_FIELDS) return IS_IN_OBJECT_GRAPH;
+                || other == IS_IN_OBJECT_GRAPH) return IS_IN_OBJECT_GRAPH;
+            if (other == SHARES_ELEMENTS || other == SHARES_FIELDS) return OBJECT_GRAPH_OVERLAPS;
         }
 
         if (this == CONTAINS_AS_MEMBER) {
@@ -120,6 +118,8 @@ public class LinkNatureImpl implements LinkNature {
             if (other == IS_ELEMENT_OF) return SHARES_ELEMENTS;
             if (other == IS_FIELD_OF
                 || other == IS_SUBSET_OF
+                || other == SHARES_ELEMENTS
+                || other == SHARES_FIELDS
                 || other == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_OVERLAPS;
             if (other == CONTAINS_AS_FIELD
                 || other == IS_SUPERSET_OF
@@ -131,6 +131,8 @@ public class LinkNatureImpl implements LinkNature {
             if (other == IS_FIELD_OF) return SHARES_FIELDS;
             if (other == IS_SUBSET_OF
                 || other == IS_ELEMENT_OF
+                || other == SHARES_ELEMENTS
+                || other == SHARES_FIELDS
                 || other == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_OVERLAPS;
             if (other == CONTAINS_AS_MEMBER
                 || other == IS_SUPERSET_OF
@@ -158,30 +160,30 @@ public class LinkNatureImpl implements LinkNature {
                 || other == IS_SUPERSET_OF
                 || other == CONTAINS_AS_FIELD) return OBJECT_GRAPH_CONTAINS;
             if (other == IS_IN_OBJECT_GRAPH
+                || other == SHARES_ELEMENTS
+                || other == SHARES_FIELDS
                 || other == IS_SUBSET_OF
                 || other == IS_ELEMENT_OF
-                || other == IS_FIELD_OF
-            ) return OBJECT_GRAPH_OVERLAPS;
-
+                || other == IS_FIELD_OF) return OBJECT_GRAPH_OVERLAPS;
         }
 
         if (this == SHARES_ELEMENTS) {
             if (other == IS_SUBSET_OF) return SHARES_ELEMENTS;
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF
-                || other == IS_IN_OBJECT_GRAPH)
-                return IS_IN_OBJECT_GRAPH;
+                || other == IS_IN_OBJECT_GRAPH
+                || other == IS_SUPERSET_OF) return OBJECT_GRAPH_OVERLAPS;
         }
+
         if (this == SHARES_FIELDS) {
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF
                 || other == IS_SUBSET_OF
+                || other == IS_SUPERSET_OF
                 || other == IS_IN_OBJECT_GRAPH)
-                return IS_IN_OBJECT_GRAPH;
+                return OBJECT_GRAPH_OVERLAPS;
         }
-        if (this == OBJECT_GRAPH_OVERLAPS) {
-            if (other != CONTAINS_AS_FIELD) return OBJECT_GRAPH_OVERLAPS;
-        }
+
         return NONE;
     }
 
@@ -195,7 +197,7 @@ public class LinkNatureImpl implements LinkNature {
             // a.b ∋⊇≥ c => a ≥ c
             return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
         }
-        return List.of();
+        return List.of(OBJECT_GRAPH_OVERLAPS);
     }
 
     @Override
@@ -208,18 +210,13 @@ public class LinkNatureImpl implements LinkNature {
             // a ∋⊇≥ b.c => a ≥ c
             return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
         }
-        return List.of();
+        return List.of(OBJECT_GRAPH_OVERLAPS);
     }
 
 
     @Override
     public List<LinkNature> redundantUp() {
-        if (this == IS_ELEMENT_OF || this == CONTAINS_AS_MEMBER
-            || this == IS_SUBSET_OF || this == IS_SUPERSET_OF
-            || this == IS_IN_OBJECT_GRAPH || this == OBJECT_GRAPH_CONTAINS) {
-            // a.b ∈⊆⊇∋ c.d => a ∩ c
-            return List.of(OBJECT_GRAPH_OVERLAPS);
-        }
-        return List.of();
+        if (this == IS_IDENTICAL_TO) return List.of(SHARES_FIELDS, OBJECT_GRAPH_OVERLAPS);
+        return List.of(OBJECT_GRAPH_OVERLAPS);
     }
 }
