@@ -22,6 +22,8 @@ Some noteworthy combinations are:
 * a ∋ b ∈ c implies a ~ c; similarly, a ⊇ b ⊆ c implies a ~ c 
 * a ∈ b ⊆ c implies a ∈ c; reversing this, a ⊇ b ∋ c implies a ∋ c
 
+See `operator.adoc` for a comprehensive table.
+
 ## Virtual fields
 
 All virtual fields' names start with § character, illegal in Java.

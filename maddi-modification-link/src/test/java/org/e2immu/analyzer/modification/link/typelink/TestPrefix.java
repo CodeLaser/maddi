@@ -75,7 +75,9 @@ public class TestPrefix extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(one.methodBody().statements().get(1));
         VariableInfo viStream1 = vd1.variableInfo("stream1");
         Links tlvStream1 = viStream1.linkedVariablesOrEmpty();
-        assertEquals("stream1.§$s∋entry,stream1.§$s≥0:x,stream1.§$s≥1:y", tlvStream1.toString());
+        assertEquals("""
+                stream1.§$s∋entry,stream1.§$s≥entry.§xy.§x,stream1.§$s≥entry.§xy.§y,stream1.§$s≥0:x,stream1.§$s≥1:y\
+                """, tlvStream1.toString());
 
         MethodLinkedVariables tlvOne = one.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals(EXPECTED12, tlvOne.toString());
