@@ -60,7 +60,7 @@ public class TestFixedpointPropagationAlgorithm {
         graph.put(START, Map.of("b", SHARES_ELEMENTS));
         graph.put("b", Map.of("c", IS_IDENTICAL_TO));
         graph.put("c", Map.of("d", IS_ELEMENT_OF));
-        assertEquals("b: ~, c: ~, d: ≤", compute(graph));
+        assertEquals("b: ~, c: ~, d: ∩", compute(graph));
     }
 
     // a ~ b == c ∋ d --> a ∋ d

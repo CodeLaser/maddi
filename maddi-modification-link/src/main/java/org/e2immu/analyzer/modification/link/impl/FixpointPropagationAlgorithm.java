@@ -41,7 +41,7 @@ public class FixpointPropagationAlgorithm {
                     // If this label is new for w, add & propagate
                     if (labels.computeIfAbsent(w, _ -> new HashSet<>()).add(newLabel)) {
                         worklist.add(w);
-                        //LOGGER.debug("Start {}: -> {} add {}", start, w, newLabel);
+                        LOGGER.debug("Start {}: {} -> {} add {}", start, u, w, newLabel);
                     }
                 }
             }

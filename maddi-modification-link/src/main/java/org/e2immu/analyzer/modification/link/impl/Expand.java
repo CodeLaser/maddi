@@ -327,17 +327,19 @@ public record Expand(Runtime runtime) {
                                       Stage stageOfPrevious,
                                       VariableData vd) {
         // copy everything into lv
-        Map<Variable, Links> linkedVariables;
+        Map<Variable, Links> linkedVariables = new HashMap<>();
+        lvIn.entrySet().stream()
+                .filter(e -> !(e.getKey() instanceof This))
+                .filter(e -> e.getValue().primary() != null)
+                .forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
         Set<Variable> modifiedVariables = new HashSet<>(modifiedDuringEvaluation);
-        if (previousVd == null) {
-            linkedVariables = lvIn;
-        } else {
-            linkedVariables = new HashMap<>(lvIn);
+        if (previousVd != null) {
             previousVd.variableInfoStream(stageOfPrevious)
                     .filter(vi -> !(vi.variable() instanceof This))
                     .forEach(vi -> {
                         Links vLinks = vi.linkedVariables();
-                        if (vLinks != null) {
+                        if (vLinks != null && vLinks.primary() != null) {
+                            assert !(vLinks.primary() instanceof This);
                             linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
                         }
                         Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
@@ -357,9 +359,12 @@ public record Expand(Runtime runtime) {
         vd.variableInfoStream(Stage.EVALUATION)
                 .filter(vi -> !(vi.variable() instanceof This))
                 .forEach(vi -> {
+                    // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
+                    //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
                     Links.Builder builder = followGraph(gd, vi.variable(), null, true);
                     boolean unmodified = !modifiedVariables.contains(vi.variable())
                                          && notLinkedToModified(builder, modifiedVariables);
+                    builder.removeIf(Link::toIntermediateVariable);
                     if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
                         Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
                         vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
@@ -367,7 +372,6 @@ public record Expand(Runtime runtime) {
                     if (!unmodified) {
                         builder.replaceSubsetSuperset(vi.variable());
                     }
-                    builder.removeIf(Link::toIntermediateVariable);
                     Links newLinks = builder.build();
                     if (newLinkedVariables.put(vi.variable(), newLinks) != null) {
                         throw new UnsupportedOperationException("Each real variable must be a primary");
