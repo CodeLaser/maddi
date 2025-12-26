@@ -8,6 +8,7 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -136,7 +137,12 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case Assignment a -> assignment(variableData, stage, a);
             case MethodCall mc -> methodCall(variableData, stage, mc);
             case MethodReference mr -> methodReference(variableData, stage, mr);
-            case ConstructorCall cc -> constructorCall(variableData, stage, cc);
+            case ConstructorCall cc -> {
+                if (cc.anonymousClass() != null) {
+                    yield anonymousClassAsFunctionalInterface(variableData, stage, cc);
+                }
+                yield constructorCall(variableData, stage, cc);
+            }
             case Lambda lambda -> lambda(lambda);
             case Cast cast -> cast(variableData, stage, cast);
             case InstanceOf instanceOf -> instanceOf(variableData, instanceOf);
@@ -217,21 +223,6 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         return new Result(newRv, new LinkedVariablesImpl(map));
     }
 
-    private @NotNull Result lambda(Lambda lambda) {
-        MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
-
-        ParameterizedType concreteObjectType = lambda.concreteReturnType();
-        VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
-        MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
-        int i = 0;
-        Map<Variable, Links> map = new HashMap<>();
-        for (Links paramLinks : mlvTranslated.ofParameters()) {
-            map.put(lambda.methodInfo().parameters().get(i), paramLinks);
-            ++i;
-        }
-        return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
-    }
-
     private @NotNull Result inlineConditional(InlineConditional ic, VariableData variableData, Stage stage) {
         Result rc = visit(ic.condition(), variableData, stage);
         Result rt = visit(ic.ifTrue(), variableData, stage);
@@ -309,6 +300,54 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
                 .constructorCall(cc.constructor(), object, params, mlvTranslated1);
     }
+
+    private @NotNull Result lambda(Lambda lambda) {
+        MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
+
+        ParameterizedType concreteObjectType = lambda.concreteReturnType();
+        VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
+        MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+        int i = 0;
+        Map<Variable, Links> map = new HashMap<>();
+        for (Links paramLinks : mlvTranslated.ofParameters()) {
+            map.put(lambda.methodInfo().parameters().get(i), paramLinks);
+            ++i;
+        }
+        return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
+    }
+
+    private Result anonymousClassAsFunctionalInterface(VariableData variableData, Stage stage, ConstructorCall cc) {
+        TypeInfo anonymousTypeInfo = cc.anonymousClass();
+
+        MethodInfo sami = anonymousTypeImplementsFunctionalInterface(anonymousTypeInfo);
+        if (sami != null) {
+
+            MethodLinkedVariables mlv = linkComputer.recurseMethod(sami);
+            VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
+            MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+            int i = 0;
+            Map<Variable, Links> map = new HashMap<>();
+            for (Links paramLinks : mlvTranslated.ofParameters()) {
+                map.put(sami.parameters().get(i), paramLinks);
+                ++i;
+            }
+            return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
+        }
+        // TODO call recursion
+        return EMPTY;
+    }
+
+    private MethodInfo anonymousTypeImplementsFunctionalInterface(TypeInfo typeInfo) {
+        if (!typeInfo.parentClass().isJavaLangObject()) return null;
+        if (!typeInfo.interfacesImplemented().isEmpty()) {
+            if (typeInfo.interfacesImplemented().size() > 1) return null;
+            if (!typeInfo.interfacesImplemented().getFirst().isFunctionalInterface()) return null;
+        }
+        List<MethodInfo> methods = typeInfo.methods();
+        if (methods.size() != 1) return null;
+        return methods.getFirst();
+    }
+
 
     private Result methodCall(VariableData variableData, Stage stage, MethodCall mc) {
         // recursion, translation
@@ -482,6 +521,10 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
+        if (methodInfo.equals(currentMethod)) {
+            return new MethodLinkedVariablesImpl(LinksImpl.EMPTY,
+                    methodInfo.parameters().stream().map(_ -> LinksImpl.EMPTY).toList());
+        }
         RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
         return switch (how) {
             case GET -> methodInfo.analysis().getOrDefault(METHOD_LINKS, MethodLinkedVariablesImpl.EMPTY);

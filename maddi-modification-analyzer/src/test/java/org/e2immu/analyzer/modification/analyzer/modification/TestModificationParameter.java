@@ -19,12 +19,15 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -187,4 +190,125 @@ public class TestModificationParameter extends CommonTest {
         ParameterInfo p1 = findSources.parameters().get(1);
         assertTrue(p1.isModified());
     }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.io.File;
+            import java.io.IOException;
+            import java.nio.file.*;
+            import java.nio.file.attribute.BasicFileAttributes;
+            import java.util.Collections;
+            import java.util.LinkedList;
+            import java.util.List;
+            class X {
+                List<String> list(Path path) throws IOException {
+                    List<String> list = new LinkedList<>();
+            
+                    Files.walkFileTree(path,
+                            Collections.singleton(FileVisitOption.FOLLOW_LINKS),
+                            Integer.MAX_VALUE,
+                            new FileVisitor<>() {
+                                public FileVisitResult preVisitDirectory(Path p, BasicFileAttributes attrs) {
+                                    list.add(p.toString());
+                                    return FileVisitResult.CONTINUE;
+                                }
+            
+                                @Override
+                                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)  {
+                                    list.add(file.toString());
+                                    return FileVisitResult.CONTINUE;
+                                }
+            
+                                @Override
+                                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                                    return FileVisitResult.SKIP_SUBTREE;
+                                }
+            
+                                @Override
+                                public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
+                                    if(exc instanceof Object) throw new UnsupportedOperationException();
+                                    return FileVisitResult.CONTINUE;
+                                }
+            
+                            });
+                    return list;
+                }
+            }
+            """;
+
+    @Test
+    public void test4() {
+        TypeInfo B = javaInspector.parse(INPUT4);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+        MethodInfo list = B.findUniqueMethod("list", 1);
+        MethodCall walkFileTree = (MethodCall) list.methodBody().statements().get(1).expression();
+        ConstructorCall cc = (ConstructorCall) walkFileTree.parameterExpressions().get(3);
+        TypeInfo anon = cc.anonymousClass();
+        MethodInfo preVisitDirectory = anon.findUniqueMethod("preVisitDirectory", 2);
+        VariableData vdLast = VariableDataImpl.of(preVisitDirectory.methodBody().lastStatement());
+        assertEquals("""
+                a.b.X.$0.preVisitDirectory(java.nio.file.Path,java.nio.file.attribute.BasicFileAttributes), \
+                a.b.X.$0.preVisitDirectory(java.nio.file.Path,java.nio.file.attribute.BasicFileAttributes):0:p, \
+                java.nio.file.FileVisitResult.CONTINUE, list\
+                """, vdLast.knownVariableNamesToString());
+        VariableInfo viList = vdLast.variableInfo("list");
+        assertTrue(viList.isModified());
+
+        assertTrue(preVisitDirectory.isModifying());
+
+    }
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            public class X {
+                static class M { int i; M(int i) { this.i = i; } void setI(int i) { this.i = i; } }
+                static Go callGo(int i) {
+                    M m = new M(i);
+                    return new Go(m);
+                }
+                static class Go {
+                    private M m;
+                    Go(M m) {
+                        this.m = m;
+                    }
+                    void inc() {
+                        this.m.i++;
+                    }
+                }
+                static class Go2 {
+                    private M m;
+                    Go2(M m) {
+                        this.m = m;
+                    }
+                    int get() {
+                        return this.m.i;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("does the modification travel via the field?")
+    @Test
+    public void test5() {
+        TypeInfo X = javaInspector.parse(INPUT5);
+        List<Info> analysisOrder = prepWork(X);
+        analyzer.go(analysisOrder);
+        {
+            TypeInfo go = X.findSubType("Go");
+            MethodInfo constructor = go.findConstructor(1);
+            ParameterInfo p0 = constructor.parameters().getFirst();
+            assertFalse(p0.isUnmodified());
+        }
+        {
+            TypeInfo go = X.findSubType("Go2");
+            MethodInfo constructor = go.findConstructor(1);
+            ParameterInfo p0 = constructor.parameters().getFirst();
+            assertTrue(p0.isUnmodified());
+        }
+    }
+
 }

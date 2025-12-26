@@ -276,8 +276,9 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
                     VariableInfoContainer vicRv = lastOfMainBlock.variableInfoContainerOrNull(methodInfo.fullyQualifiedName());
                     if (vicRv != null) {
                         VariableInfo viRv = vicRv.best();
-                        List<Variable> svRv = viRv.linkedVariables().primaryAssigned();
-                        identityFluent = svRv.stream().anyMatch(predicate);
+                        List<Variable> svRv = viRv.linkedVariables() == null ? null
+                                : viRv.linkedVariables().primaryAssigned();
+                        identityFluent = svRv != null && svRv.stream().anyMatch(predicate);
                     } else {
                         identityFluent = false;
                     }

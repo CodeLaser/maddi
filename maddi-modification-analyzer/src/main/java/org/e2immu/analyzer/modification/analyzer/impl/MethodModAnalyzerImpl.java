@@ -150,8 +150,10 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
         }
 
         private void copyFromVariablesIntoMethodPi(VariableData variableData, VariableInfo vi, ParameterInfo pi) {
-            if (vi.isUnmodified() && vi.linkedVariables().toPrimaries().stream()
-                    .noneMatch(tp -> tp instanceof FieldReference fr && fr.scopeIsThis())) {
+            if (vi.isUnmodified()
+                && vi.linkedVariables() != null
+                && vi.linkedVariables().toPrimaries().stream()
+                        .noneMatch(tp -> tp instanceof FieldReference fr && fr.scopeIsThis())) {
                 pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, TRUE);
             } // when linked to a field, we must wait for the field to be declared unmodified...
 
