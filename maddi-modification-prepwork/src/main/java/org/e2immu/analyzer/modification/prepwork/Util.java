@@ -113,6 +113,16 @@ public class Util {
         return null;
     }
 
+    public static Variable oneBelowThis(Variable v) {
+        if (v instanceof FieldReference fr && fr.scopeVariable() != null && !fr.scopeIsThis()) {
+            return oneBelowThis(fr.scopeVariable());
+        }
+        if (v instanceof DependentVariable dv) {
+            return oneBelowThis(dv.arrayVariable());
+        }
+        return v;
+    }
+
     public static @NotNull ParameterInfo parameterPrimary(Variable variable) {
         return (ParameterInfo) primary(variable);
     }

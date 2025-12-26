@@ -31,6 +31,8 @@ public interface Links extends Iterable<Link>, Value {
 
     Links translate(TranslationMap translationMap);
 
+    Iterable<Links> removeThisAsPrimary();
+
     interface Builder extends Iterable<Link> {
         Links build();
 

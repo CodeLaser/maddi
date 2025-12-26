@@ -1,14 +1,20 @@
 package org.e2immu.analyzer.modification.prepwork.variable;
 
-public interface LinkNature {
+import java.util.List;
 
-    boolean important();
+public interface LinkNature {
 
     boolean isIdenticalTo();
 
     boolean multiplySymbols();
 
     int rank();
+
+    List<LinkNature> redundantFromUp();
+
+    List<LinkNature> redundantToUp();
+
+    List<LinkNature> redundantUp();
 
     LinkNature replaceSubsetSuperset();
 

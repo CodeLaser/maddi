@@ -192,7 +192,11 @@ public record Expand(Runtime runtime) {
         return variable.variableStreamDescend().noneMatch(v -> v instanceof LocalVariable);
     }
 
-    private record PC(Variable v1, Variable v2) {
+    private record PC(Variable from, LinkNature linkNature, Variable to) {
+        @Override
+        public @NotNull String toString() {
+            return Util.simpleName(from) + " " + linkNature + " " + Util.simpleName(to);
+        }
     }
 
     // sorting is needed to consistently take the same direction for tests
@@ -212,7 +216,8 @@ public record Expand(Runtime runtime) {
                 .toList();
 
         // stream.§$s⊆0:in.§$s
-        Set<PC> combinations = new HashSet<>();
+        Set<PC> block = new HashSet<>();
+
         for (V from : fromList) {
             Map<V, LinkNature> all = bestPath(gd.graph, from);
             V tFrom = new V(translationMap == null ? from.v : translationMap.translateVariableRecursively(from.v));
@@ -230,7 +235,8 @@ public record Expand(Runtime runtime) {
                     })
                     .toList();
             Variable primaryFrom = Util.primary(tFromV);
-            //LOGGER.debug("Entries of {}: {}", from, entries);
+            LOGGER.debug("Entries of {}: {}", from, entries);
+
             for (Map.Entry<V, LinkNature> entry : entries) {
                 LinkNature linkNature = entry.getValue();
                 Variable toV = entry.getKey().v;
@@ -239,15 +245,30 @@ public record Expand(Runtime runtime) {
                     && (allowLocalVariables || containsNoLocalVariable(toV))
                     // remove internal references (field inside primary to primary or other field in primary)
                     && !primaryTo.equals(primaryFrom)
-                    // don't add if the reverse is already present in this builder
-                    && !builder.contains(toV, linkNature.reverse(), tFromV)
-                    // when adding p.sub < q.sub, don't add p < q.sub, p.sub < q
-                    && (combinations.add(new PC(primaryFrom, toV))
-                        && combinations.add(new PC(tFromV, primaryTo))
-                        // respect the order, we must add, even if we then accept the extra link
-                        || linkNature.important())
-                ) {
+                    && block.add(new PC(tFromV, linkNature, toV))) {
                     builder.add(tFromV, linkNature, toV);
+                    // don't add if the reverse is already present in this builder
+                    block.add(new PC(toV, linkNature.reverse(), tFromV));
+                    // when adding p.sub < q.sub, don't add p < q.sub, p.sub < q
+                    Set<Variable> scopeFrom = Util.scopeVariables(tFromV);
+                    for (LinkNature lnUp : linkNature.redundantFromUp()) {
+                        for (Variable sv : scopeFrom) {
+                            block.add(new PC(sv, lnUp, toV));
+                        }
+                    }
+                    Set<Variable> scopeTo = Util.scopeVariables(toV);
+                    for (LinkNature lnUp : linkNature.redundantToUp()) {
+                        for (Variable sv : scopeTo) {
+                            block.add(new PC(tFromV, lnUp, sv));
+                        }
+                    }
+                    for (LinkNature lnBoth : linkNature.redundantUp()) {
+                        for (Variable fromUp : scopeFrom) {
+                            for (Variable toUp : scopeTo) {
+                                block.add(new PC(fromUp, lnBoth, toUp));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -312,38 +333,47 @@ public record Expand(Runtime runtime) {
             linkedVariables = lvIn;
         } else {
             linkedVariables = new HashMap<>(lvIn);
-            previousVd.variableInfoStream(stageOfPrevious).forEach(vi -> {
-                Links vLinks = vi.linkedVariables();
-                if (vLinks != null) {
-                    linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
-                }
-                Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
-                boolean explicitlyModified = unmodified != null && unmodified.isFalse();
-                if (explicitlyModified) modifiedVariables.add(vi.variable());
-            });
+            previousVd.variableInfoStream(stageOfPrevious)
+                    .filter(vi -> !(vi.variable() instanceof This))
+                    .forEach(vi -> {
+                        Links vLinks = vi.linkedVariables();
+                        if (vLinks != null) {
+                            linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
+                        }
+                        Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
+                        boolean explicitlyModified = unmodified != null && unmodified.isFalse();
+                        if (explicitlyModified) modifiedVariables.add(vi.variable());
+                    });
         }
+        assert linkedVariables.entrySet().stream().noneMatch(e ->
+                e.getKey() instanceof This || e.getValue().primary() == null || e.getValue().primary() instanceof This)
+                : "Not linking null or 'this'";
+
         GraphData gd = makeGraph(linkedVariables, true);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(gd.graph));
         }
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
-        vd.variableInfoStream(Stage.EVALUATION).forEach(vi -> {
-            Links.Builder builder = followGraph(gd, vi.variable(), null, true);
-            boolean unmodified = !modifiedVariables.contains(vi.variable())
-                                 && notLinkedToModified(builder, modifiedVariables);
-            if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
-                vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.from(unmodified));
-            }
-            if (!unmodified) {
-                builder.replaceSubsetSuperset(vi.variable());
-            }
-            builder.removeIf(Link::toIntermediateVariable);
-            Links newLinks = builder.build();
-            if (newLinkedVariables.put(vi.variable(), newLinks) != null) {
-                throw new UnsupportedOperationException("Each real variable must be a primary");
-            }
+        vd.variableInfoStream(Stage.EVALUATION)
+                .filter(vi -> !(vi.variable() instanceof This))
+                .forEach(vi -> {
+                    Links.Builder builder = followGraph(gd, vi.variable(), null, true);
+                    boolean unmodified = !modifiedVariables.contains(vi.variable())
+                                         && notLinkedToModified(builder, modifiedVariables);
+                    if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
+                        Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
+                        vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
+                    }
+                    if (!unmodified) {
+                        builder.replaceSubsetSuperset(vi.variable());
+                    }
+                    builder.removeIf(Link::toIntermediateVariable);
+                    Links newLinks = builder.build();
+                    if (newLinkedVariables.put(vi.variable(), newLinks) != null) {
+                        throw new UnsupportedOperationException("Each real variable must be a primary");
+                    }
 
-        });
+                });
         return newLinkedVariables;
     }
 
@@ -351,12 +381,15 @@ public record Expand(Runtime runtime) {
         if (vd == null) return List.of();
 
         Map<Variable, Links> linkedVariables = new HashMap<>();
-        vd.variableInfoStream().forEach(vi -> {
-            Links vLinks = vi.linkedVariables();
-            if (vLinks != null) {
-                linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
-            }
-        });
+        vd.variableInfoStream()
+                .filter(vi -> !(vi.variable() instanceof This))
+                .forEach(vi -> {
+                    Links vLinks = vi.linkedVariables();
+                    if (vLinks != null && vLinks.primary() != null) {
+                        assert !(vLinks.primary() instanceof This);
+                        linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
+                    }
+                });
 
         /*
         why a bidirectional graph for the parameters, and only a directional one for the return value?
@@ -389,12 +422,14 @@ public record Expand(Runtime runtime) {
 
         Map<Variable, Links> linkedVariables = new HashMap<>(extra.map());
         linkedVariables.merge(links.primary(), links, Links::merge);
-        vd.variableInfoStream().forEach(vi -> {
-            Links vLinks = vi.linkedVariables();
-            if (vLinks != null) {
-                linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
-            }
-        });
+        vd.variableInfoStream()
+                .filter(vi -> !(vi.variable() instanceof This))
+                .forEach(vi -> {
+                    Links vLinks = vi.linkedVariables();
+                    if (vLinks != null) {
+                        linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
+                    }
+                });
 
         GraphData gd = makeGraph(linkedVariables, false);
         if (LOGGER.isDebugEnabled()) {

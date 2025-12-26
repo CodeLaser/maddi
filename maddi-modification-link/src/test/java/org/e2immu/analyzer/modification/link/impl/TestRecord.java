@@ -47,7 +47,7 @@ public class TestRecord extends CommonTest {
 
         VariableData vd1 = VariableDataImpl.of(wrap1.methodBody().statements().get(1));
         VariableInfo viList = vd1.variableInfo("list");
-        assertEquals("list.§$s∋r,list.§$s≥0:y", viList.linkedVariables().toString());
+        assertEquals("list.§$s∋r,list.§$s≥r.§y,list.§$s≥0:y", viList.linkedVariables().toString());
 
         assertEquals("[-] --> wrap1.§$s≥0:y", mlvWrap1.toString());
 
