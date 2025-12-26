@@ -78,7 +78,12 @@ public record LinkMethodCall(Runtime runtime,
                 objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
         if (objectPrimary != null) {
             Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
-            extra.merge(objectPrimary, newObjectLinks, Links::merge);
+            if (newObjectLinks.primary() instanceof This && !newObjectLinks.isEmpty()) {
+                newObjectLinks.removeThisAsPrimary().forEach(links ->
+                        extra.merge(links.primary(), links, Links::merge));
+            } else {
+                extra.merge(objectPrimary, newObjectLinks, Links::merge);
+            }
         } else {
             linksBetweenParameters(methodInfo, params, mlv, extra);
         }
@@ -253,7 +258,7 @@ public record LinkMethodCall(Runtime runtime,
         for (ParameterInfo pi : methodInfo.parameters()) {
             if (pi.index() < params.size()) {
                 ExpressionVisitor.Result result = params.get(pi.index());
-                if(result != null && result.links() != null ) {
+                if (result != null && result.links() != null) {
                     Variable primary = result.links().primary();
                     tmBuilder.put(pi, Objects.requireNonNullElseGet(primary, this::newDummyLocalVariable));
                 }
@@ -273,7 +278,7 @@ public record LinkMethodCall(Runtime runtime,
                             Variable translatedTo = tm.translateVariableRecursively(link.to());
                             if (Util.isPartOf(objectPrimary, translatedTo)) {
                                 builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
-                            } else if(Util.isPartOf(objectPrimary, translatedTo)) {
+                            } else if (Util.isPartOf(objectPrimary, translatedTo)) {
                                 builder.add(translatedTo, link.linkNature(), translatedFrom);
                             }
                         }

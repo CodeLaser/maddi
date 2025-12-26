@@ -2,6 +2,8 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 
+import java.util.List;
+
 //https://unicodemap.com/range/47/Mathematical_Operators/
 
 public class LinkNatureImpl implements LinkNature {
@@ -58,12 +60,7 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public boolean valid() {
-        return rank >= 0;
-    }
-
-    @Override
-    public boolean important() {
-        return rank >= 6;
+        return rank >= 2;
     }
 
     @Override
@@ -80,6 +77,8 @@ public class LinkNatureImpl implements LinkNature {
         if (this == CONTAINS_AS_FIELD) return IS_FIELD_OF;
         if (this == IS_SUBSET_OF) return IS_SUPERSET_OF;
         if (this == IS_SUPERSET_OF) return IS_SUBSET_OF;
+        if (this == OBJECT_GRAPH_CONTAINS) return IS_IN_OBJECT_GRAPH;
+        if (this == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_CONTAINS;
         return this;
     }
 
@@ -186,4 +185,41 @@ public class LinkNatureImpl implements LinkNature {
         return NONE;
     }
 
+    @Override
+    public List<LinkNature> redundantFromUp() {
+        if (this == IS_ELEMENT_OF || this == IS_SUBSET_OF || this == IS_IN_OBJECT_GRAPH) {
+            // a.b ∈⊆≤ c => a ≤ c
+            return List.of(IS_IN_OBJECT_GRAPH, OBJECT_GRAPH_OVERLAPS);
+        }
+        if (this == CONTAINS_AS_MEMBER || this == IS_SUPERSET_OF || this == OBJECT_GRAPH_CONTAINS) {
+            // a.b ∋⊇≥ c => a ≥ c
+            return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
+        }
+        return List.of();
+    }
+
+    @Override
+    public List<LinkNature> redundantToUp() {
+        if (this == IS_ELEMENT_OF || this == IS_SUBSET_OF || this == IS_IN_OBJECT_GRAPH) {
+            // a ∈⊆≤~ b.c => a ≤ c
+            return List.of(IS_IN_OBJECT_GRAPH, OBJECT_GRAPH_OVERLAPS);
+        }
+        if (this == CONTAINS_AS_MEMBER || this == IS_SUPERSET_OF || this == OBJECT_GRAPH_CONTAINS) {
+            // a ∋⊇≥ b.c => a ≥ c
+            return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
+        }
+        return List.of();
+    }
+
+
+    @Override
+    public List<LinkNature> redundantUp() {
+        if (this == IS_ELEMENT_OF || this == CONTAINS_AS_MEMBER
+            || this == IS_SUBSET_OF || this == IS_SUPERSET_OF
+            || this == IS_IN_OBJECT_GRAPH || this == OBJECT_GRAPH_CONTAINS) {
+            // a.b ∈⊆⊇∋ c.d => a ∩ c
+            return List.of(OBJECT_GRAPH_OVERLAPS);
+        }
+        return List.of();
+    }
 }

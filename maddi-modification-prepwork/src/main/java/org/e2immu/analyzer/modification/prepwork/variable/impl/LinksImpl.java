@@ -15,10 +15,7 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -258,5 +255,21 @@ public class LinksImpl implements Links {
                 .map(Link::to)
                 .filter(Util::isPrimary)
                 .toList();
+    }
+
+    // if primary is a, make a collection of links, with the level below a as the new primaries
+    // e.g. a.b.c -> x becomes b.c -> x in primary b
+    @Override
+    public Iterable<Links> removeThisAsPrimary() {
+        assert primary instanceof This;
+        Map<Variable, Builder> builders = new HashMap<>();
+        for (Link link : this) {
+            Variable newPrimary = Util.oneBelowThis(link.from());
+            if (!(newPrimary instanceof This)) {
+                builders.computeIfAbsent(newPrimary, _ -> new Builder(newPrimary))
+                        .add(link.from(), link.linkNature(), link.to());
+            } // else: ignore
+        }
+        return builders.values().stream().map(Builder::build).toList();
     }
 }
