@@ -333,13 +333,18 @@ public class TestStream extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
         Links lvResult = viResult.linkedVariablesOrEmpty();
-        assertEquals("result.§xss⊆stream2.§xss,result∩0:list.§xs,result∩stream1.§xs", lvResult.toString());
+        assertEquals("result.§xss⊆stream2.§xss,result.§xss∩0:list.§xs,result.§xss∩stream1.§xs", lvResult.toString());
 
-        assertEquals("[-] --> method1.§xss≥0:list.§xs", mlv1.toString());
+        VariableInfo viStream22 = vd2.variableInfo("stream2");
+        Links lvStream22 = viStream22.linkedVariablesOrEmpty();
+        // wrapping in another list is visible!
+        assertEquals("stream2.§xss⊇result.§xss,stream2.§xss≥stream1.§xs,stream2.§xss∩0:list.§xs", lvStream22.toString());
+
+        assertEquals("[-] --> method1.§xss∩0:list.§xs", mlv1.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> method∩0:list.§xs", mlv.toString());
+        assertEquals("[-] --> method.§xss∩0:list.§xs", mlv.toString());
     }
 
     @Language("java")

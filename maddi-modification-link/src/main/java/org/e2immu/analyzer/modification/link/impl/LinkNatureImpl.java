@@ -98,6 +98,8 @@ public class LinkNatureImpl implements LinkNature {
         if (this == IS_ELEMENT_OF) {
             if (other == IS_SUBSET_OF) return IS_ELEMENT_OF;
             if (other == IS_IN_OBJECT_GRAPH || other == IS_FIELD_OF) return IS_IN_OBJECT_GRAPH;
+            // (*)
+            if (other == OBJECT_GRAPH_OVERLAPS) return OBJECT_GRAPH_OVERLAPS;
         }
 
         if (this == IS_FIELD_OF) {
@@ -111,6 +113,9 @@ public class LinkNatureImpl implements LinkNature {
                 || other == IS_FIELD_OF
                 || other == IS_IN_OBJECT_GRAPH) return IS_IN_OBJECT_GRAPH;
             if (other == SHARES_ELEMENTS || other == SHARES_FIELDS) return OBJECT_GRAPH_OVERLAPS;
+
+            // (*)
+            if (other == OBJECT_GRAPH_CONTAINS || other == OBJECT_GRAPH_OVERLAPS) return OBJECT_GRAPH_OVERLAPS;
         }
 
         if (this == CONTAINS_AS_MEMBER) {
@@ -120,7 +125,8 @@ public class LinkNatureImpl implements LinkNature {
                 || other == IS_SUBSET_OF
                 || other == SHARES_ELEMENTS
                 || other == SHARES_FIELDS
-                || other == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_OVERLAPS;
+                || other == IS_IN_OBJECT_GRAPH
+                || other == OBJECT_GRAPH_OVERLAPS) return OBJECT_GRAPH_OVERLAPS;
             if (other == CONTAINS_AS_FIELD
                 || other == IS_SUPERSET_OF
                 || other == OBJECT_GRAPH_CONTAINS) return OBJECT_GRAPH_CONTAINS;
@@ -146,6 +152,7 @@ public class LinkNatureImpl implements LinkNature {
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF
                 || other == SHARES_FIELDS
+                || other == OBJECT_GRAPH_OVERLAPS // (*)
                 || other == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_OVERLAPS;
         }
 
@@ -153,6 +160,7 @@ public class LinkNatureImpl implements LinkNature {
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF
                 || other == IS_SUBSET_OF) return IS_IN_OBJECT_GRAPH;
+            if (other == IS_SUPERSET_OF) return OBJECT_GRAPH_OVERLAPS; // (*)
         }
 
         if (this == OBJECT_GRAPH_CONTAINS) {
@@ -164,6 +172,7 @@ public class LinkNatureImpl implements LinkNature {
                 || other == SHARES_FIELDS
                 || other == IS_SUBSET_OF
                 || other == IS_ELEMENT_OF
+                || other == OBJECT_GRAPH_OVERLAPS // (*)
                 || other == IS_FIELD_OF) return OBJECT_GRAPH_OVERLAPS;
         }
 
@@ -172,6 +181,7 @@ public class LinkNatureImpl implements LinkNature {
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF
                 || other == IS_IN_OBJECT_GRAPH
+                || other == OBJECT_GRAPH_OVERLAPS
                 || other == IS_SUPERSET_OF) return OBJECT_GRAPH_OVERLAPS;
         }
 
@@ -184,6 +194,21 @@ public class LinkNatureImpl implements LinkNature {
                 return OBJECT_GRAPH_OVERLAPS;
         }
 
+        /* (*)
+           "object graph overlaps" is one less accurate than "~", shares elements.
+           The latter degrades into the former when a ⊆ and ⊇ reversal is encountered (e.g. TestConstructor,1, method A)
+           or when the hidden content is wrapped in some record (TestMap,2, TestStream,testWrap2)
+           In this context, ⊆ ⊇ ∈ ∋ is seen as spanning all internal structures, while ∩ either selects or wraps one.
+           Therefore, we can maintain that the outcome is again ∩.
+         */
+        if (this == OBJECT_GRAPH_OVERLAPS) {
+            if (other == IS_SUBSET_OF
+                || other == IS_SUPERSET_OF
+                || other == CONTAINS_AS_MEMBER
+                || other == IS_ELEMENT_OF
+                || other == SHARES_ELEMENTS
+                || other == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_OVERLAPS;
+        }
         return NONE;
     }
 

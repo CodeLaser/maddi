@@ -265,7 +265,7 @@ public class TestMap extends CommonTest {
         // IMPORTANT reverse0.vks[-1].v~this.map.kvs[-2].v would be correct; however,
         // because "IS_FIELD_OF" followed by "IS_ELEMENT_OF" == "IS_ELEMENT_OF", we lose information
         assertEquals("""
-                [] --> reverse0.§vks[-1].§v~this.map.§kvs,reverse0.§vks[-2].§k~this.map.§kvs,reverse0~this.map\
+                [] --> reverse0.§vks[-2].§k∩this.map.§kvs,reverse0.§vks[-1].§v∩this.map.§kvs\
                 """, mlvReverse0.toString());
     }
 
@@ -284,19 +284,23 @@ public class TestMap extends CommonTest {
         VariableInfo thisMap1 = vd1.variableInfo("a.b.C.map");
         Links thisMap1Links = thisMap1.linkedVariablesOrEmpty();
         assertEquals("""
-                this.map.§kvs>entry.§kv.§k,this.map.§kvs>entry.§kv.§v,this.map.§kvs~map.§vks[-1].§v,\
-                this.map.§kvs~map.§vks[-2].§k,this.map>entry\
+                this.map.§kvs∋entry,this.map.§kvs≥entry.§kv.§k,this.map.§kvs≥entry.§kv.§v,\
+                this.map.§kvs∩map.§vks[-2].§k,\
+                this.map.§kvs∩map.§vks[-1].§v\
                 """, thisMap1Links.toString());
 
-        assertEquals("", mlvReverse.toString());
+        assertEquals("[] --> reverse.§vks[-2].§k∩this.map.§kvs,reverse.§vks[-1].§v∩this.map.§kvs",
+                mlvReverse.toString());
 
         Statement s100 = reverse.methodBody().statements().get(1).block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(s100);
         VariableInfo viEntry100 = vd100.variableInfo("entry");
         Links entry100Links = viEntry100.linkedVariablesOrEmpty();
         assertEquals("""
-                entry.§kv.§k<map.§vks[-2].§k,entry.§kv.§k<this.map.§kvs,\
-                entry.§kv.§v<map.§vks[-1].§v,entry.§kv.§v<this.map.§kvs,entry<this.map\
+                entry.§kv.§k∈map.§vks[-2].§k,\
+                entry.§kv.§k≤this.map.§kvs,\
+                entry.§kv.§v∈map.§vks[-1].§v,\
+                entry.§kv.§v≤this.map.§kvs,entry∈this.map.§kvs\
                 """, entry100Links.toString());
 
         MethodInfo staticReverse = C.findUniqueMethod("staticReverse", 1);
@@ -308,12 +312,11 @@ public class TestMap extends CommonTest {
         Links tlvR0 = r0.linkedVariablesOrEmpty();
         // Not as correct as could be
         assertEquals("""
-                r.§vks[-1].§v~0:c.map,r.§vks[-1].§v~0:c.map.§kvs,r.§vks[-2].§k~0:c.map,r.§vks[-2].§k~0:c.map.§kvs\
+                r.§vks[-2].§k∩0:c.map.§kvs,r.§vks[-1].§v∩0:c.map.§kvs\
                 """, tlvR0.toString());
 
         assertEquals("""
-                [-] --> staticReverse.§vks[-1].§v~0:c.map,staticReverse.§vks[-1].§v~0:c.map.§kvs,\
-                staticReverse.§vks[-2].§k~0:c.map,staticReverse.§vks[-2].§k~0:c.map.§kvs\
+                [-] --> staticReverse.§vks[-2].§k∩0:c.map.§kvs,staticReverse.§vks[-1].§v∩0:c.map.§kvs\
                 """, tlvSReverse.toString());
     }
 
