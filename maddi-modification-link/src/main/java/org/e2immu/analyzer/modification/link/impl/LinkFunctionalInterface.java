@@ -6,24 +6,24 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DependentVariable;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_MEMBER;
+import static org.e2immu.analyzer.modification.prepwork.Util.virtual;
 
 public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virtualFieldComputer,
                                       MethodInfo currentMethod) {
@@ -148,20 +148,55 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         Variable upscaled;
         TypeParameter sourceTp = vfMapSource.hiddenContent().type().typeParameter();
         TypeParameter targetTp = vfMapTarget.hiddenContent().type().typeParameter();
+        int arrays = dimensionsFromMapSource ? vfMapSource.hiddenContent().type().arrays()
+                : vfMapTarget.hiddenContent().type().arrays();
         if (targetTp != null && sourceTp != null) {
-            int arrays = dimensionsFromMapSource ? vfMapSource.hiddenContent().type().arrays()
-                    : vfMapTarget.hiddenContent().type().arrays();
             FieldInfo newField = virtualFieldComputer.newField(sourceTp.simpleName().toLowerCase() + "s".repeat(arrays),
                     vfMapSource.hiddenContent().type().copyWithArrays(arrays), currentMethod.typeInfo());
             // the scope must be the primary of translated, since we're completely re-creating the virtual field
             Variable primaryOfTranslated = Util.primary(translated);
             upscaled = runtime.newFieldReference(newField, runtime.newVariableExpression(primaryOfTranslated),
                     newField.type());
+        } else if (translated instanceof FieldReference frK && virtual(frK)
+                   && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv) && arrays > 0) {
+            // TestStream,1
+            // vfMapSource = XY[] §xys, vfMapTarget = YX[] §yxs
+            // variable = return swap.§yx.§x, translated $__rv2.§yx.§x, dim = false
+            // variable = entry.§xy.§x, translated stream1.§xy.§x, dim = true
+            // what we want: $__rv2.§yxs[-2].§y  -> replace §yx by §yxs[-2]
+            //               stream1.§xys[-1].§x -> replace §xy by §xys[-1]
+            FI correspondingField = correspondingField(frKv, frK.fieldInfo());
+            int sliceIndex = -1 - correspondingField.index;
+            TypeInfo enclosing = frKv.fieldInfo().type().typeInfo().compilationUnitOrEnclosingType().getRight();
+            String newTypeName = frKv.fieldInfo().simpleName().toUpperCase().replace("§", "") + "S".repeat(arrays);
+            TypeInfo newContainerType = virtualFieldComputer.makeContainerType(enclosing,
+                    newTypeName,
+                    frKv.fieldInfo().type().typeInfo().fields());
+            String newFieldName = frKv.fieldInfo().simpleName().replace("§", "") + "s".repeat(arrays);
+            FieldInfo newFieldInfo = virtualFieldComputer.newField(newFieldName, newContainerType.asParameterizedType().copyWithArrays(arrays), frKv.fieldInfo().owner());
+            FieldReference scope = runtime.newFieldReference(newFieldInfo, frKv.scope(), newFieldInfo.type());
+            DependentVariable slice = runtime.newDependentVariable(runtime.newVariableExpression(scope),
+                    runtime.newInt(sliceIndex));
+            upscaled = runtime.newFieldReference(frK.fieldInfo(), runtime.newVariableExpression(slice), frK.parameterizedType());
         } else {
             upscaled = translated;
         }
 
         LOGGER.debug("translated and upscale: {} -> {} -> {}", variable, translated, upscaled);
         return upscaled;
+    }
+
+    private record FI(FieldInfo fieldInfo, int index) {
+    }
+
+    private static FI correspondingField(FieldReference frKv, FieldInfo sub) {
+        int i = 0;
+        for (FieldInfo fi : frKv.fieldInfo().type().typeInfo().fields()) {
+            if (fi.type().equals(sub.type())) {
+                return new FI(fi, i);
+            }
+            ++i;
+        }
+        throw new UnsupportedOperationException();
     }
 }

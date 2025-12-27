@@ -10,6 +10,8 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.e2immu.analyzer.modification.prepwork.Util.virtual;
+
 public class ExpandSlice {
 
     private record F2(FieldInfo kv, FieldInfo k) {
@@ -55,7 +57,7 @@ public class ExpandSlice {
                 && frK.scopeVariable() instanceof DependentVariable dvK && negative(dvK.indexExpression())
                 && dvK.arrayVariable() instanceof FieldReference frKv && virtual(frKv)) {
                 for (Map.Entry<Expand.V, LinkNature> entry2 : entry.getValue().entrySet()) {
-                    if (LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue())
+                    if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalTo())
                         && entry2.getKey().v() instanceof FieldReference fr2K && virtual(fr2K)
                         && fr2K.scopeVariable() instanceof DependentVariable dv && negative(dv.indexExpression())
                         && dv.arrayVariable() instanceof FieldReference fr2Vks && virtual(fr2Vks)) {
@@ -86,7 +88,7 @@ public class ExpandSlice {
         if (kv.type().typeInfo() != null && VirtualFieldComputer.VIRTUAL_FIELD == kv.type().typeInfo().typeNature()) {
             Set<FieldInfo> subs = kv.type().typeInfo().fields().stream().collect(Collectors.toUnmodifiableSet());
             Set<FieldInfo> concrete = fields.stream().map(F2::k).collect(Collectors.toUnmodifiableSet());
-            return subs.equals(concrete);
+       //     return subs.equals(concrete);
         }
         // FIXME other conditions if not virtual field?
         return true;
@@ -95,9 +97,4 @@ public class ExpandSlice {
     private static boolean negative(Expression expression) {
         return expression.isNumeric() && expression.numericValue() < 0;
     }
-
-    private static boolean virtual(FieldReference fr) {
-        return fr.fieldInfo().name().startsWith("§");
-    }
-
 }
