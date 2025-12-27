@@ -30,7 +30,7 @@ public record Expand(Runtime runtime) {
     private static final Logger LOGGER = LoggerFactory.getLogger(Expand.class);
 
     // different equality from Variable: container virtual fields
-    private record V(Variable v) {
+    record V(Variable v) {
         @Override
         public boolean equals(Object object) {
             if (!(object instanceof V(Variable v1)) || v1 == null) return false;
@@ -114,21 +114,21 @@ public record Expand(Runtime runtime) {
         return primary;
     }
 
-    private void addToGraph(Link l,
+    private void addToGraph(Variable lFrom, LinkNature linkNature, Variable lTo,
                             V primaryIn,
                             Map<V, Map<V, LinkNature>> graph,
                             boolean bidirectional,
                             Map<V, Set<V>> primaryToSub,
                             Map<V, V> subToPrimary) {
-        V vFrom = new V(l.from());
-        V vTo = new V(l.to());
+        V vFrom = new V(lFrom);
+        V vTo = new V(lTo);
         V primary = correctForThis(primaryIn, vFrom);
-        mergeEdge(graph, primary, vFrom, l.linkNature(), vTo);
+        mergeEdge(graph, primary, vFrom, linkNature, vTo);
         if (bidirectional) {
             V toPrimary = correctForThis(subToPrimary.getOrDefault(vTo, vTo), vTo);
-            mergeEdge(graph, toPrimary, vTo, l.linkNature().reverse(), vFrom);
+            mergeEdge(graph, toPrimary, vTo, linkNature.reverse(), vFrom);
         }
-        if (l.linkNature() == IS_IDENTICAL_TO) {
+        if (linkNature == IS_IDENTICAL_TO) {
             Set<V> subsOfFrom = primaryToSub.get(vFrom);
             if (subsOfFrom != null) {
                 subsOfFrom.forEach(s ->
@@ -181,7 +181,11 @@ public record Expand(Runtime runtime) {
         linkedVariables.values()
                 .forEach(links -> links
                         .stream().filter(l -> !(l.to() instanceof This))
-                        .forEach(l -> addToGraph(l, new V(links.primary()), graph, bidirectional, subs, subToPrimary)));
+                        .forEach(l -> addToGraph(l.from(), l.linkNature(), l.to(), new V(links.primary()),
+                                graph, bidirectional, subs, subToPrimary)));
+        List<PC> extra = new ExpandSlice().completeSliceInformation(graph);
+        extra.forEach(pc -> addToGraph(pc.from, pc.linkNature, pc.to, new V(Util.primary(pc.from)), graph,
+                bidirectional, subs, subToPrimary));
         return new GraphData(graph, subs.keySet(), subToPrimary);
     }
 
@@ -192,7 +196,7 @@ public record Expand(Runtime runtime) {
         return variable.variableStreamDescend().noneMatch(v -> v instanceof LocalVariable);
     }
 
-    private record PC(Variable from, LinkNature linkNature, Variable to) {
+    record PC(Variable from, LinkNature linkNature, Variable to) {
         @Override
         public @NotNull String toString() {
             return Util.simpleName(from) + " " + linkNature + " " + Util.simpleName(to);

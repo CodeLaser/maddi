@@ -262,12 +262,19 @@ public class TestForEachLambda extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(map.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
-        assertEquals("0:map.§$$s~this.map.§$$s[-2].§$,0:map.§$$s~this.map.§$$s[-1].§$", tlvT1.toString());
+        assertEquals("""
+                0:map.§$$s[-1].§$~this.map.§$$s[-2].§$,\
+                0:map.§$$s[-2].§$~this.map.§$$s[-1].§$,\
+                0:map.§$$s~this.map.§$$s\
+                """, tlvT1.toString());
 
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:map.§$$s~this.map.§$$s[-2].§$,0:map.§$$s~this.map.§$$s[-1].§$] --> -",
-                mlv2.toString());
+        assertEquals("""
+                [0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
+                0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                0:map.§$$s~this.map.§$$s] --> -\
+                """, mlv2.toString());
     }
 
 
@@ -316,7 +323,11 @@ public class TestForEachLambda extends CommonTest {
                 MethodLinkedVariablesImpl.class);
         assertEquals(LINKS_PUT, add2Mtl.toString());
 
-        final String LINKS_MAP_PUT = "[0:h∈this.map.§$$s[-1].§$, 1:ii∈this.map.§$$s[-2].§$] --> -";
+        final String LINKS_MAP_PUT = """
+                [0:map.§$$s[-1].§$~this.map.§$$s[-2].§$,\
+                0:map.§$$s[-2].§$~this.map.§$$s[-1].§$,\
+                0:map.§$$s~this.map.§$$s] --> -\
+                """;
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
@@ -362,7 +373,11 @@ public class TestForEachLambda extends CommonTest {
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[0:ii∈this.map.§$$s[-1].§$, 1:h∈this.map.§$$s[-2].§$] --> -", mlvMethod.toString());
+        assertEquals("""
+                [0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
+                0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                0:map.§$$s~this.map.§$$s] --> -\
+                """, mlvMethod.toString());
     }
 
     @Language("java")
