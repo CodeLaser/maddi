@@ -20,7 +20,6 @@ import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -358,15 +357,15 @@ public class TestStream extends CommonTest {
                 private Map.Entry<Y, X> swap(Map.Entry<X, Y> entry) {
                     return new AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey());
                 }
-                public void reverse(Map<X, Y> map) {
+                public Stream<Map.Entry<Y,X>> reverse(Map<X, Y> map) {
                     Set<Map.Entry<X,Y>> entries = map.entrySet();
                     Stream<Map.Entry<X,Y>> stream1 = entries.stream();
                     Stream<Map.Entry<Y,X>> stream2 = stream1.map(this::swap);
+                    return stream2;
                 }
             }
             """;
 
-    @Disabled
     @DisplayName("MR to instance function swap")
     @Test
     public void test1() {
@@ -383,11 +382,12 @@ public class TestStream extends CommonTest {
         TypeInfo simpleEntry = javaInspector.compiledTypesManager().get(AbstractMap.SimpleEntry.class);
         MethodInfo constructor1 = simpleEntry.findConstructor(2);
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(K,V)", constructor1.fullyQualifiedName());
-        MethodLinkedVariables tlvConstructor1 = constructor1.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:key==this.§kv.§k, 1:value==this.§kv.§v] --> -", tlvConstructor1.toString());
+        MethodLinkedVariables tlvConstructor1 = constructor1.analysis().getOrNull(METHOD_LINKS,
+                MethodLinkedVariablesImpl.class);
+        assertEquals("[0:key≡this.§kv.§k, 1:value≡this.§kv.§v] --> -", tlvConstructor1.toString());
 
         MethodLinkedVariables tlvSwap = swap.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> swap.§yx.§x==0:entry.§xy.§x,swap.§yx.§y==0:entry.§xy.§y", tlvSwap.toString());
+        assertEquals("[-] --> swap.§yx.§x≡0:entry.§xy.§x,swap.§yx.§y≡0:entry.§xy.§y", tlvSwap.toString());
 
         // start reverse
         MethodInfo reverse = C.findUniqueMethod("reverse", 1);
@@ -395,7 +395,7 @@ public class TestStream extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(reverse.methodBody().statements().getFirst());
         VariableInfo viEntries0 = vd0.variableInfo("entries");
         Links tlvEntries0 = viEntries0.linkedVariablesOrEmpty();
-        assertEquals("entries.§m==0:map.§m,entries.§xys~0:map.§xys,entries~0:map", tlvEntries0.toString());
+        assertEquals("entries.§m≡0:map.§m,entries.§xys⊆0:map.§xys", tlvEntries0.toString());
 
         Statement reverse1 = reverse.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(reverse1);
@@ -408,29 +408,20 @@ public class TestStream extends CommonTest {
                 nice(tlvMcReverse1.map()));
 
         Links tlvStream1 = viStream1.linkedVariablesOrEmpty();
-        assertEquals("stream1.§xys~0:map.§xys,stream1.§xys~entries.§xys", tlvStream1.toString());
+        assertEquals("stream1.§xys⊆0:map.§xys,stream1.§xys⊆entries.§xys", tlvStream1.toString());
 
         TypeInfo stream = javaInspector.compiledTypesManager().get(Stream.class);
         MethodInfo map = stream.findUniqueMethod("map", 1);
         MethodLinkedVariables tlvMap = map.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(map));
-        assertEquals("[-] --> map.§rs~Λ0:function", tlvMap.toString());
+        assertEquals("[-] --> map.§rs⊆Λ0:function", tlvMap.toString());
 
+        // method reference this::swap
         Statement reverse2 = reverse.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(reverse2);
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.linkedVariablesOrEmpty();
         assertEquals("""
-                the result of "upscaling"
-                
-                §yx.§x == §xy.§x   ->    $yx[-2].§xs == §xy[-1].§xs
-                
-                and combining these 2 gives   $yxs == $xys
-                
-                so we want, eventually,
-                
-                stream2.§yxs[-2].§xs~stream1.§xys[-1].§xs,\
-                stream2.§yxs[-1].§ys~stream1.§xys[-2].§ys,\
-                stream2.§yxs~stream1.§xys
+                stream2.§yxs.§x≡stream1.§xys.§x,stream2.§yxs.§y≡stream1.§xys.§y,stream2.§yxs~stream1.§xys,link to 0:may\
                 """, tlvStream2.toString());
 
         MethodCall mcReverse2 = (MethodCall) ((LocalVariableCreation) reverse2).localVariable().assignmentExpression();
