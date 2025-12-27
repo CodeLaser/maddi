@@ -251,7 +251,7 @@ public class VirtualFieldComputer {
                && typeInfo.fields().stream().allMatch(FieldInfo::isStatic);
     }
 
-    private TypeInfo makeContainerType(TypeInfo typeInfo, String typeName, List<FieldInfo> hiddenContentComponents) {
+    public TypeInfo makeContainerType(TypeInfo typeInfo, String typeName, List<FieldInfo> hiddenContentComponents) {
         TypeInfo newType = runtime.newTypeInfo(typeInfo, typeName);
         newType.builder()
                 .setTypeNature(VIRTUAL_FIELD)

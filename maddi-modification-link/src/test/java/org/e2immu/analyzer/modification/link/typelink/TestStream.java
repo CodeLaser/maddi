@@ -421,7 +421,8 @@ public class TestStream extends CommonTest {
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.linkedVariablesOrEmpty();
         assertEquals("""
-                stream2.§yxs.§x≡stream1.§xys.§x,stream2.§yxs.§y≡stream1.§xys.§y,stream2.§yxs~stream1.§xys,link to 0:may\
+                stream2.§yxs[-2].§x≡stream1.§xys[-1].§x,stream2.§yxs[-1].§y≡stream1.§xys[-2].§y,\
+                stream2.§yxs~stream1.§xys,stream2.§yxs~0:map.§xys,stream2.§yxs~entries.§xys\
                 """, tlvStream2.toString());
 
         MethodCall mcReverse2 = (MethodCall) ((LocalVariableCreation) reverse2).localVariable().assignmentExpression();
@@ -433,6 +434,6 @@ public class TestStream extends CommonTest {
                 """, tlvMcReverse2.toString());
 
         MethodLinkedVariables mlvReverse = reverse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("stream2.§yxs~0:map.§xys", mlvReverse.toString());
+        assertEquals("[-] --> reverse.§yxs~0:map.§xys", mlvReverse.toString());
     }
 }

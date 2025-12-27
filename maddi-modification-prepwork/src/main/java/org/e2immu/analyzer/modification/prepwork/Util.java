@@ -187,4 +187,8 @@ public class Util {
     public static String beyond(String index) {
         return index + END;
     }
+
+    public static boolean virtual(FieldReference fr) {
+        return fr.fieldInfo().name().startsWith("§");
+    }
 }
