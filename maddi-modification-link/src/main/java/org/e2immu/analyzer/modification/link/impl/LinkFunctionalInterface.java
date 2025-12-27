@@ -121,8 +121,6 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 }
             }
         }
-        // TODO post-processing? stream2.§yxs[-2].§xs~stream1.§xys[-1].§xs + stream2.§yxs[-1].§ys~stream1.§xys[-2].§ys
-        //  into stream2.§yxs~stream1.§xys
         return result;
     }
 
@@ -131,10 +129,10 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                         Variable base,
                                         Variable sub) {
         if (functionalType.parameters().size() < 2) return base;
-        ParameterizedType sourcePt = functionalType.parameters().get(i);
-        TypeParameter sourceTp = sourcePt.typeParameter();
-        String name = "$";// sourceTp.simpleName().toLowerCase(); // FIXME should be subname i in base.fieldInfo
-        FieldInfo newField = virtualFieldComputer.newField(name, sourcePt, currentMethod.typeInfo());
+        ParameterizedType sourcePt = sub.parameterizedType();
+        String name = sourcePt.typeParameter() != null ? sourcePt.typeParameter().simpleName().toLowerCase() : "$";
+        String names = name + "s".repeat(sourcePt.arrays());
+        FieldInfo newField = virtualFieldComputer.newField(names, sourcePt, sourcePt.typeInfo());
         DependentVariable slice = runtime.newDependentVariable(runtime.newVariableExpression(base),
                 runtime.newInt(-1 - i));
         return runtime.newFieldReference(newField, runtime.newVariableExpression(slice), newField.type());

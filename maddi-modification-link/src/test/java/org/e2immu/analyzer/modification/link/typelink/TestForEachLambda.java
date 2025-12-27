@@ -7,15 +7,13 @@ import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.Stage;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
@@ -262,17 +260,24 @@ public class TestForEachLambda extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(map.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
+
+        Link link = tlvT1.stream().findFirst().orElseThrow();
+        assertEquals("map.§$$s[-1].§$", link.from().toString());
+        assertEquals("Type a.b.X.II",
+                ((FieldReference) link.from()).fieldInfo().type().toString());
+
         assertEquals("""
                 0:map.§$$s[-1].§$~this.map.§$$s[-2].§$,\
                 0:map.§$$s[-2].§$~this.map.§$$s[-1].§$,\
                 0:map.§$$s~this.map.§$$s\
                 """, tlvT1.toString());
 
+
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
-                0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                [0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
                 0:map.§$$s~this.map.§$$s] --> -\
                 """, mlv2.toString());
     }
@@ -324,8 +329,8 @@ public class TestForEachLambda extends CommonTest {
         assertEquals(LINKS_PUT, add2Mtl.toString());
 
         final String LINKS_MAP_PUT = """
-                [0:map.§$$s[-1].§$~this.map.§$$s[-2].§$,\
-                0:map.§$$s[-2].§$~this.map.§$$s[-1].§$,\
+                [0:map.§$$s[-2].§$~this.map.§$$s[-1].§$,\
+                0:map.§$$s[-1].§$~this.map.§$$s[-2].§$,\
                 0:map.§$$s~this.map.§$$s] --> -\
                 """;
 
@@ -374,8 +379,8 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("""
-                [0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
-                0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                [0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
                 0:map.§$$s~this.map.§$$s] --> -\
                 """, mlvMethod.toString());
     }
