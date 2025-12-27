@@ -239,7 +239,7 @@ public record Expand(Runtime runtime) {
                     })
                     .toList();
             Variable primaryFrom = Util.primary(tFromV);
-            LOGGER.debug("Entries of {}: {}", from, entries);
+            //LOGGER.debug("Entries of {}: {}", from, entries);
 
             for (Map.Entry<V, LinkNature> entry : entries) {
                 LinkNature linkNature = entry.getValue();

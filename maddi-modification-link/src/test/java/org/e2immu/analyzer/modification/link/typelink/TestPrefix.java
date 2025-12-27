@@ -134,7 +134,7 @@ public class TestPrefix extends CommonTest {
             }
             """;
 
-    private static final String EXPECTED_34 = "[-, -] --> oneStatic.§xsys.§xs.§xs∋0:x,oneStatic.§xsys.§ys.§ys∋1:y";
+    private static final String EXPECTED_34 = "[-, -] --> oneStatic.§xsys.§xs∋0:x,oneStatic.§xsys.§ys∋1:y";
 
     // see also TestShallowPrefix, which computes the shallow version
     @Test

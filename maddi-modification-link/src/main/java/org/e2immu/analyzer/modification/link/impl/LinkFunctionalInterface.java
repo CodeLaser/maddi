@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -62,10 +63,18 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             int i = 0;
             for (Links links : linksList) {
                 for (Link link : links) {
-                    if (link.from().equals(links.primary())) {
-                        Triplet t = new Triplet(createVirtualField(pi.parameterizedType(),
-                                i, fromTranslated, link.from()), linkNature, link.to());
-                        result.add(t);
+                    if (!(Util.primary(link.to()) instanceof ReturnVariable)) {
+                        if (link.from().equals(links.primary())) {
+                            // also accommodate for suppliers
+                            Triplet t = new Triplet(createVirtualField(pi.parameterizedType(),
+                                    i, fromTranslated, link.from()), linkNature, link.to());
+                            result.add(t);
+                        } else {
+                            TranslationMap tm = runtime.newTranslationMapBuilder().put(Util.primary(link.from()), fromTranslated).build();
+                            Variable tFrom = tm.translateVariableRecursively(link.from());
+                            Triplet t = new Triplet(tFrom, linkNature, link.to());
+                            result.add(t);
+                        }
                     }
                 }
                 ++i;
@@ -128,6 +137,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                         Variable base,
                                         Variable sub) {
         if (functionalType.parameters().size() < 2) return base;
+        // essentially for a BiConsumer: (x,y)-> ...
         ParameterizedType sourcePt = sub.parameterizedType();
         String name = sourcePt.typeParameter() != null ? sourcePt.typeParameter().simpleName().toLowerCase() : "$";
         String names = name + "s".repeat(sourcePt.arrays());
