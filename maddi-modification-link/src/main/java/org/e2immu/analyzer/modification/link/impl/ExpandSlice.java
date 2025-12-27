@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 
@@ -86,12 +87,14 @@ public class ExpandSlice {
         FieldInfo kv = fields.getFirst().kv;
         if (fields.stream().skip(1).anyMatch(f2 -> !f2.kv.equals(kv))) return false;
         if (kv.type().typeInfo() != null && VirtualFieldComputer.VIRTUAL_FIELD == kv.type().typeInfo().typeNature()) {
-            Set<FieldInfo> subs = kv.type().typeInfo().fields().stream().collect(Collectors.toUnmodifiableSet());
-            Set<FieldInfo> concrete = fields.stream().map(F2::k).collect(Collectors.toUnmodifiableSet());
-       //     return subs.equals(concrete);
+            Set<ParameterizedType> subs = kv.type().typeInfo().fields().stream()
+                    .map(FieldInfo::type)
+                    .collect(Collectors.toUnmodifiableSet());
+            Set<ParameterizedType> concrete = fields.stream()
+                    .map(f2 -> f2.k.type()).collect(Collectors.toUnmodifiableSet());
+            return kv.type().typeInfo().fields().size() == fields.size() && subs.equals(concrete);
         }
-        // FIXME other conditions if not virtual field?
-        return true;
+        throw new UnsupportedOperationException("NYI");
     }
 
     private static boolean negative(Expression expression) {
