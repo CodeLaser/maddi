@@ -194,6 +194,58 @@ public class TestSupplier extends CommonTest {
     @Language("java")
     private static final String INPUT5 = """
             package a.b;
+            import java.util.Optional;
+            import java.util.List;
+            public class C<X> {
+                public X method(Optional<List<X>> optional, List<X> main) {
+                    List<X> xList = optional.orElseGet(() -> main.subList(0, 2));
+                    return xList;
+                }
+                public X method2(Optional<List<X>> optional, List<X> main) {
+                    var lambda = () -> main.subList(0, 2);
+                    List<X> xList = optional.orElseGet(lambda);
+                    return xList;
+                }
+            }
+            """;
+
+    @Test
+    public void test5Method() {
+        TypeInfo C = javaInspector.parse(INPUT5);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        TypeInfo optional = javaInspector.compiledTypesManager().get(Optional.class);
+        MethodInfo orElseGet = optional.findUniqueMethod("orElseGet", 1);
+        MethodLinkedVariables mlvOrElseGet = orElseGet.analysis().getOrCreate(METHOD_LINKS, () ->
+                tlc.doMethod(orElseGet));
+        assertEquals("""
+                [-] --> orElseGet≡this.§t,orElseGet≡Λ0:supplier\
+                """, mlvOrElseGet.toString());
+
+        MethodInfo method = C.findUniqueMethod("method", 2);
+        MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
+                tlc.doMethod(method));
+
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo viX0 = vd0.variableInfo("xList");
+        Links tlvX = viX0.linkedVariablesOrEmpty();
+        assertEquals("""
+                xList.§xs≡0:optional.§xs,xList.§xs≡1:main.§xs,xList.§m≡1:main.§m,xList.§m≡optional.§m\
+                """, tlvX.toString());
+
+        assertEquals("""
+                [0:optional.§xs≡1:main.§xs, 1:main.§xs≡0:optional.§xs] --> \
+                method.§xs≡0:optional.§xs,method.§xs≡1:main.§xs,method.§m≡1:main.§m\
+                """, mlvMethod.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
             import java.util.AbstractMap;
             import java.util.Map;
             import java.util.Optional;
@@ -211,8 +263,8 @@ public class TestSupplier extends CommonTest {
             """;
 
     @Test
-    public void test5() {
-        TypeInfo C = javaInspector.parse(INPUT5);
+    public void test7() {
+        TypeInfo C = javaInspector.parse(INPUT7);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);

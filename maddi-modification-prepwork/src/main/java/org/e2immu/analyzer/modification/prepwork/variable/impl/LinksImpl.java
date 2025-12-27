@@ -6,11 +6,15 @@ import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.expression.VariableExpressionImpl;
+import org.e2immu.language.cst.impl.variable.FieldReferenceImpl;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -206,8 +210,18 @@ public class LinksImpl implements Links {
 
         @Override
         public Link translate(TranslationMap translationMap) {
-            return new LinkImpl(translationMap.translateVariableRecursively(from),
-                    linkNature, translationMap.translateVariableRecursively(to));
+            Variable tFrom = translationMap.translateVariableRecursively(from);
+            Variable tTo = translationMap.translateVariableRecursively(to);
+            if (linkNature.isIdenticalTo() && Util.isPrimary(tFrom) && to.parameterizedType().arrays() == 0
+                && tTo.parameterizedType().arrays() > 0
+                && tTo instanceof FieldReference fr) {
+                // upgrade: orElseGet==this.§t ==> orElseGet==this.§xs ==> orElseGet.§xs==this.§xs
+                Variable ttFrom = new FieldReferenceImpl(fr.fieldInfo(),
+                        new VariableExpressionImpl.Builder().setVariable(tFrom).build(), null,
+                        fr.fieldInfo().type());
+                return new LinkImpl(ttFrom, linkNature, tTo);
+            }
+            return new LinkImpl(tFrom, linkNature, tTo);
         }
 
         @Override
