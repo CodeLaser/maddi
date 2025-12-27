@@ -195,7 +195,7 @@ public record LinkMethodCall(Runtime runtime,
                 tmBuilder.put(methodInfo.parameters().get(index), to);
                 ++index;
             }
-            return changePrimaryTo(mlv.ofReturnValue(), newPrimary, tmBuilder.build(), i -> params.get(i).links(), objectPrimary);
+            return changePrimaryTo(mlv.ofReturnValue(), newPrimary, tmBuilder.build(), i -> List.of(params.get(i).links()), objectPrimary);
         }
         return LinksImpl.EMPTY;
     }
@@ -208,20 +208,20 @@ public record LinkMethodCall(Runtime runtime,
     public Links changePrimaryTo(Links ofReturnValue,
                                  Variable newPrimary,
                                  TranslationMap tm,
-                                 IntFunction<Links> paramProvider,
+                                 IntFunction<List<Links>> samLinks,
                                  Variable objectPrimary) {
         TranslationMap newPrimaryTm = null;
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : ofReturnValue.linkSet()) {
             if (link.from().equals(ofReturnValue.primary())) {
-                translateHandleSupplier(tm, link, newPrimary, link.linkNature(), builder, paramProvider, objectPrimary);
+                translateHandleSupplier(tm, link, newPrimary, link.linkNature(), builder, samLinks, objectPrimary);
             } else {
                 // links that are not 'primary'
                 if (newPrimaryTm == null) {
                     newPrimaryTm = runtime.newTranslationMapBuilder().put(ofReturnValue.primary(), newPrimary).build();
                 }
                 Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
-                translateHandleSupplier(tm, link, fromTranslated, link.linkNature(), builder, paramProvider, objectPrimary);
+                translateHandleSupplier(tm, link, fromTranslated, link.linkNature(), builder, samLinks, objectPrimary);
             }
         }
         return builder.build();
@@ -232,13 +232,13 @@ public record LinkMethodCall(Runtime runtime,
                                          Variable fromTranslated,
                                          LinkNature linkNature,
                                          Links.Builder builder,
-                                         IntFunction<Links> paramProvider,
+                                         IntFunction<List<Links>> paramProvider,
                                          Variable objectPrimary) {
         if (link.to().parameterizedType().isFunctionalInterface()) {
             if (link.to() instanceof ParameterInfo pi) {
                 List<LinkFunctionalInterface.Triplet> toAdd =
                         new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).go(pi, fromTranslated,
-                                linkNature, builder.primary(), paramProvider, objectPrimary);
+                                linkNature, builder.primary(), paramProvider.apply(pi.index()), objectPrimary);
                 toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
                 return;
             }
@@ -292,17 +292,17 @@ public record LinkMethodCall(Runtime runtime,
                 // returnPrimary ~ this
                 // fromTranslated ~ upscale this
                 //
-                IntFunction<Links> paramProvider = index -> r.extra().map().entrySet().stream()
-                        .filter(e -> e.getKey() instanceof ParameterInfo param && param.index() == index)
+                List<Links> linksList =  r.extra().map().entrySet().stream()
+                        .filter(e -> e.getKey() instanceof ParameterInfo)
                         .map(Map.Entry::getValue)
-                        .findFirst().orElse(null);
+                        .toList();
                 for (Link link : links) {
                     List<LinkFunctionalInterface.Triplet> toAdd =
                             new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).
                                     go(pi, link.from(),
                                             LinkNatureImpl.SHARES_ELEMENTS,
                                             builder.primary(),
-                                            paramProvider,
+                                            linksList,
                                             objectPrimary);
                     toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
                 }

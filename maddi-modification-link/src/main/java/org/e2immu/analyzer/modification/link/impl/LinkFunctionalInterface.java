@@ -1,11 +1,11 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -20,8 +20,9 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.function.IntFunction;
 import java.util.stream.Collectors;
+
+import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_MEMBER;
 
 public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virtualFieldComputer,
                                       MethodInfo currentMethod) {
@@ -34,19 +35,20 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                      Variable fromTranslated,
                      LinkNature linkNature,
                      Variable returnPrimary,
-                     IntFunction<Links> paramProvider,
+                     List<Links> linksList,
                      Variable objectPrimary) {
 
         // FUNCTIONAL INTERFACE
 
         MethodInfo sam = pi.parameterizedType().typeInfo().singleAbstractMethod();
-        Links links = paramProvider.apply(pi.index());
+        if (linksList.isEmpty()) return List.of();
 
         if (sam.parameters().isEmpty() || sam.noReturnValue()) {
-
-            if(sam.noReturnValue() && links.isEmpty()) {
+            if (sam.noReturnValue() && linksList.stream().allMatch(Links::isEmpty)) {
                 // we must keep the connection to the primary (see TestForEachLambda,6)
-                return List.of(new Triplet(fromTranslated, LinkNatureImpl.CONTAINS_AS_MEMBER, links.primary()));
+                return linksList.stream()
+                        .map(links -> new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()))
+                        .toList();
             }
             /*
             SUPPLIER: grab the "to" of the primary, if it is present (get==c.alternative in the example of a Supplier)
@@ -54,9 +56,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             In a supplier, the return value of the SAM must consist of variables external to the lambda,
             as it has no no parameters itself. We directly link to them.
              */
-            return links.stream()
-                    .filter(l -> l.from().equals(links.primary()))
-                    .map(l -> new Triplet(fromTranslated, linkNature, l.to()))
+            return linksList.stream().flatMap(links -> links.stream()
+                            .filter(l -> l.from().equals(links.primary()))
+                            .map(l -> new Triplet(fromTranslated, linkNature, l.to())))
                     .toList();
         }
 
@@ -83,25 +85,27 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
 
         translate + upscale = find the right virtual field that matches the dimensions
          */
-        Set<Variable> toPrimaries = links.stream().map(l -> org.e2immu.analyzer.modification.prepwork.Util.primary(l.to()))
-                .collect(Collectors.toUnmodifiableSet());
         List<Triplet> result = new ArrayList<>();
+        for (Links links : linksList) {
+            Set<Variable> toPrimaries = links.stream().map(l -> org.e2immu.analyzer.modification.prepwork.Util.primary(l.to()))
+                    .collect(Collectors.toUnmodifiableSet());
 
-        VirtualFields vfMapSource = virtualFieldComputer.compute(objectPrimary.parameterizedType(), false)
-                .virtualFields();
-        VirtualFields vfMapTarget = virtualFieldComputer.compute(returnPrimary.parameterizedType(), false)
-                .virtualFields();
+            VirtualFields vfMapSource = virtualFieldComputer.compute(objectPrimary.parameterizedType(), false)
+                    .virtualFields();
+            VirtualFields vfMapTarget = virtualFieldComputer.compute(returnPrimary.parameterizedType(), false)
+                    .virtualFields();
 
-        for (Variable newPrimary : toPrimaries) {
-            TranslationMap tmMapSource = runtime.newTranslationMapBuilder().put(newPrimary, objectPrimary).build(); // FIXME
-            TranslationMap tmMapTarget = runtime.newTranslationMapBuilder().put(links.primary(), returnPrimary).build();
-            for (Link l : links) {
-                Variable from = translateAndRecreateVirtualFields(tmMapTarget, l.from(), vfMapSource, vfMapTarget,
-                        false);
-                Variable to = translateAndRecreateVirtualFields(tmMapSource, l.to(), vfMapSource, vfMapTarget,
-                        true);
-                if (from != null && to != null) {
-                    result.add(new Triplet(from, l.linkNature(), to));
+            for (Variable newPrimary : toPrimaries) {
+                TranslationMap tmMapSource = runtime.newTranslationMapBuilder().put(newPrimary, objectPrimary).build(); // FIXME
+                TranslationMap tmMapTarget = runtime.newTranslationMapBuilder().put(links.primary(), returnPrimary).build();
+                for (Link l : links) {
+                    Variable from = translateAndRecreateVirtualFields(tmMapTarget, l.from(), vfMapSource, vfMapTarget,
+                            false);
+                    Variable to = translateAndRecreateVirtualFields(tmMapSource, l.to(), vfMapSource, vfMapTarget,
+                            true);
+                    if (from != null && to != null) {
+                        result.add(new Triplet(from, l.linkNature(), to));
+                    }
                 }
             }
         }

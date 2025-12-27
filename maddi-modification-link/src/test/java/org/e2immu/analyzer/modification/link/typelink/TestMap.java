@@ -2,9 +2,9 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -17,7 +17,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -163,12 +162,45 @@ public class TestMap extends CommonTest {
     }
 
     @Language("java")
+    private static final String INPUT1B = """
+            package a.b;
+            import java.util.List;
+            import java.util.Map;
+            public class C<K, V> {
+                Map<K, V> map;
+            
+                C(Map<K, V> map) { this.map = map; }
+            
+                public void init(List<K> keys, List<V> values) {
+                    int i=0;
+                    for(K key: keys) {
+                        V value = values.get(i++);
+                        map.put(key, value);
+                    }
+                }
+            }
+            """;
+
+    @Test
+    public void test1b() {
+        TypeInfo C = javaInspector.parse(INPUT1B);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        MethodInfo init = C.findUniqueMethod("init", 2);
+
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodLinkedVariables mlv = init.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(init));
+        assertEquals("[0:keys.§ks~this.map.§kvs[-1].§k, 1:values.§vs~this.map.§kvs[-2].§v] --> -",
+                mlv.toString());
+    }
+
+    @Language("java")
     private static final String INPUT2 = """
             package a.b;
             import java.util.Map;
             import java.util.HashMap;
-            import java.util.Set;import java.util.stream.Collectors;
-            
+            import java.util.Set;
+            import java.util.stream.Collectors;
             public class C<K, V> {
                 Map<K, V> map;
             
@@ -180,7 +212,7 @@ public class TestMap extends CommonTest {
                     for(Map.Entry<K, V> entry: entries) {
                         map.put(entry.getValue(), entry.getKey());
                     }
-                    return map;
+                    return new C<>(map);
                 }
             
                 private C<V, K> reverse() {
@@ -188,7 +220,7 @@ public class TestMap extends CommonTest {
                     for(Map.Entry<K, V> entry: this.map.entrySet()) {
                         map.put(entry.getValue(), entry.getKey());
                     }
-                    return map;
+                    return new C<>(map);
                 }
             
                 public static <Y, X> C<Y, X> staticReverse(C<X,Y> c) {
@@ -205,67 +237,57 @@ public class TestMap extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        MethodInfo reverse = C.findUniqueMethod("reverse0", 0);
-        MethodLinkedVariables mlvReverse0 = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
+        MethodInfo reverse0 = C.findUniqueMethod("reverse0", 0);
+        MethodLinkedVariables mlvReverse0 = reverse0.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse0));
 
-        Statement s1 = reverse.methodBody().statements().get(1);
+        Statement s1 = reverse0.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo entries = vd1.variableInfo("entries");
         Links entriesLinks = entries.linkedVariablesOrEmpty();
-  //      assertEquals("entries.§kvs⊆this.map.§kvs,entries.§m≡this.map.§m",
-  //              entriesLinks.toString());
-  //      assertEquals("java.util.Set.§kvs#entries, java.util.Set.§m#entries",
-  //              entriesLinks.stream().map(l -> l.from().fullyQualifiedName()).sorted()
-  //                      .collect(Collectors.joining(", ")));
+        assertEquals("entries.§kvs⊆this.map.§kvs,entries.§m≡this.map.§m",
+                entriesLinks.toString());
 
-        Statement s2 = reverse.methodBody().statements().get(2);
+
+        Statement s2 = reverse0.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(s2);
         VariableInfo viEntry2 = vd2.variableInfoContainerOrNull("entry").best(Stage.EVALUATION);
         Links entry2Links = viEntry2.linkedVariablesOrEmpty();
-    //    assertEquals("entry∈this.map.§kvs,entry∈entries.§kvs", entry2Links.toString());
+        assertEquals("entry∈this.map.§kvs,entry∈entries.§kvs", entry2Links.toString());
 
         // map.put(entry.getValue(), entry.getKey());
-        Statement s200 = reverse.methodBody().statements().get(2).block().statements().getFirst();
+        Statement s200 = reverse0.methodBody().statements().get(2).block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(s200);
         VariableInfo viEntry200 = vd200.variableInfo("entry");
         Links entry200Links = viEntry200.linkedVariablesOrEmpty();
-  /*      assertEquals("""
+        assertEquals("""
                 entry.§kv.§k∈map.§vks[-2].§k,\
                 entry.§kv.§k≤this.map.§kvs,\
                 entry.§kv.§k≤entries.§kvs,\
                 entry.§kv.§v∈map.§vks[-1].§v,\
+                entry.§kv.§v≤this.map.§kvs,\
+                entry.§kv.§v≤entries.§kvs,\
                 entry∈this.map.§kvs,\
                 entry∈entries.§kvs\
                 """, entry200Links.toString());
-*/
-        Statement s3 = reverse.methodBody().statements().getLast();
+
+        Statement s3 = reverse0.methodBody().statements().getLast();
         VariableData vd3 = VariableDataImpl.of(s3);
         VariableInfo viMap = vd3.variableInfo("map");
-     /*
+
         assertEquals("""
                 map.§vks[-2].§k∋entry.§kv.§k,\
-                map.§vks[-2].§k≥entry.§kv.§v,\
-                map.§vks[-2].§k≥this.map.§kvs,\
-                map.§vks[-2].§k≥this.map.§m,\
-                map.§vks[-2].§k≥entries.§kvs,\
-                map.§vks[-2].§k≥entries.§m,\
-                map.§vks[-2].§k≥this.map,\
-                map.§vks[-2].§k≥entries,\
-                map.§vks[-2].§k≥entry,\
+                map.§vks[-2].§k∩entry.§kv.§v,\
+                map.§vks[-2].§k∩this.map.§kvs,\
+                map.§vks[-2].§k∩entries.§kvs,\
                 map.§vks[-1].§v∋entry.§kv.§v,\
-                map.§vks[-1].§v≥entry.§kv.§k,\
-                map.§vks[-1].§v≥this.map.§kvs,\
-                map.§vks[-1].§v≥this.map.§m,\
-                map.§vks[-1].§v≥entries.§kvs,\
-                map.§vks[-1].§v≥entries.§m,\
-                map.§vks[-1].§v≥this.map,\
-                map.§vks[-1].§v≥entries,\
-                map.§vks[-1].§v≥entry\
-                """, viMap.linkedVariables().toString());*/
+                map.§vks[-1].§v∩entry.§kv.§k,\
+                map.§vks[-1].§v∩this.map.§kvs,\
+                map.§vks[-1].§v∩entries.§kvs\
+                """, viMap.linkedVariables().toString());
         // IMPORTANT reverse0.vks[-1].v~this.map.kvs[-2].v would be correct; however,
         // because "IS_FIELD_OF" followed by "IS_ELEMENT_OF" == "IS_ELEMENT_OF", we lose information
         assertEquals("""
-                [] --> reverse0.§vks[-2].§k∩this.map.§kvs,reverse0.§vks[-1].§v∩this.map.§kvs\
+                [] --> reverse0.map.§vks[-2].§k∩this.map.§kvs,reverse0.map.§vks[-1].§v∩this.map.§kvs\
                 """, mlvReverse0.toString());
     }
 
@@ -289,7 +311,7 @@ public class TestMap extends CommonTest {
                 this.map.§kvs∩map.§vks[-1].§v\
                 """, thisMap1Links.toString());
 
-        assertEquals("[] --> reverse.§vks[-2].§k∩this.map.§kvs,reverse.§vks[-1].§v∩this.map.§kvs",
+        assertEquals("[] --> reverse.map.§vks[-2].§k∩this.map.§kvs,reverse.map.§vks[-1].§v∩this.map.§kvs",
                 mlvReverse.toString());
 
         Statement s100 = reverse.methodBody().statements().get(1).block().statements().getFirst();
@@ -312,11 +334,11 @@ public class TestMap extends CommonTest {
         Links tlvR0 = r0.linkedVariablesOrEmpty();
         // Not as correct as could be
         assertEquals("""
-                r.§vks[-2].§k∩0:c.map.§kvs,r.§vks[-1].§v∩0:c.map.§kvs\
+                r.map.§vks[-2].§k∩0:c.map.§kvs,r.map.§vks[-1].§v∩0:c.map.§kvs\
                 """, tlvR0.toString());
 
         assertEquals("""
-                [-] --> staticReverse.§vks[-2].§k∩0:c.map.§kvs,staticReverse.§vks[-1].§v∩0:c.map.§kvs\
+                [-] --> staticReverse.map.§vks[-2].§k∩0:c.map.§kvs,staticReverse.map.§vks[-1].§v∩0:c.map.§kvs\
                 """, tlvSReverse.toString());
     }
 
