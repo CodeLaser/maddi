@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.vf;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -30,7 +31,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         TypeParameter arrayListTp = arrayList.typeParameters().getFirst();
 
-        VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+        VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(null, runtime);
         ftm.put(arrayListTp, iterableTp.asParameterizedType());
 
         ReturnVariable rv = new ReturnVariableImpl(arrayList.findUniqueMethod("get", 1));
@@ -58,7 +59,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         TypeParameter list0 = list.typeParameters().getFirst();
         {
             // replace type parameter by other type parameter
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(optional.typeParameters().getFirst(), list0.asParameterizedType());
 
             FieldReference fr = runtime.newFieldReference(vfListTpArray.hiddenContent());
@@ -69,7 +70,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         }
         {
             // inject array VF into array VF
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(optional.typeParameters().getFirst(), list0.asParameterizedType().copyWithArrays(1));
 
             FieldReference fr = runtime.newFieldReference(vfListTpArray.hiddenContent());
@@ -80,7 +81,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         }
         {
             // inject ordinary type into array VF
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(optional.typeParameters().getFirst(), runtime.stringParameterizedType());
 
             FieldReference fr = runtime.newFieldReference(vfListTpArray.hiddenContent());
@@ -100,7 +101,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             VirtualFields vfMapTE = vfTmMapTE.virtualFields();
             assertEquals("§m - TE[] §tes", vfMapTE.toString());
 
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(optional.typeParameters().getFirst(), vfMapTE.hiddenContent().type());
 
             FieldReference fr = runtime.newFieldReference(vfListTpArray.hiddenContent());
@@ -131,7 +132,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         TypeParameter map0 = map.typeParameters().getFirst();
         {
             // replace type parameter
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(optional.typeParameters().getFirst(), map0.asParameterizedType());
 
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
@@ -141,7 +142,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         }
         {
             // inject array VF
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(optional.typeParameters().getFirst(), map0.asParameterizedType());
             TypeParameter map1 = map.typeParameters().getLast();
             ftm.put(list.typeParameters().getFirst(), map1.asParameterizedType().copyWithArrays(1));
@@ -153,7 +154,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         }
         {
             // inject ordinary type as the second parameter
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(list.typeParameters().getFirst(), runtime.stringParameterizedType());
 
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
@@ -163,7 +164,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         }
         {
             // inject ordinary type array String[] as the second parameter
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(list.typeParameters().getFirst(), runtime.stringParameterizedType().copyWithArrays(1));
 
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
@@ -185,7 +186,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             VirtualFields vfMapXY = vfTmMapXY.virtualFields();
             assertEquals("§m - XY[] §xys", vfMapXY.toString());
 
-            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMap(runtime);
+            VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(list.typeParameters().getFirst(), vfMapXY.hiddenContent().type());
 
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());

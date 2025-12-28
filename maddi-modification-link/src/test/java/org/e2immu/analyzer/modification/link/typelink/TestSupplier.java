@@ -234,12 +234,12 @@ public class TestSupplier extends CommonTest {
         VariableInfo viX0 = vd0.variableInfo("xList");
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("""
-                xList.§xs≡0:optional.§xs,xList.§xs≡1:main.§xs,xList.§m≡1:main.§m,xList.§m≡optional.§m\
+                xList.§m≡0:optional.§m,xList.§xs≡1:main.§xs,xList.§xs⊆0:optional.§xs,xList.§m≡1:main.§m\
                 """, tlvX.toString());
 
         assertEquals("""
-                [0:optional.§xs≡1:main.§xs, 1:main.§xs≡0:optional.§xs] --> \
-                method.§xs≡0:optional.§xs,method.§xs≡1:main.§xs,method.§m≡1:main.§m\
+                [0:optional.§xs⊇1:main.§xs, 1:main.§xs⊆0:optional.§xs] --> \
+                method.§m≡0:optional.§m,method.§xs≡1:main.§xs,method.§xs⊆0:optional.§xs,method.§m≡1:main.§m\
                 """, mlvMethod.toString());
     }
 

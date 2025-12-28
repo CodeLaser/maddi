@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.vf;
 
+import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -93,11 +94,15 @@ public class VirtualFieldComputer {
 
     // ----- computation of "temporary" virtual fields
 
+    public FieldInfo newMField(TypeInfo typeInfo) {
+        return newField("m", atomicBooleanPt, typeInfo);
+    }
+
     public VirtualFields compute(TypeInfo typeInfo) {
         return compute(typeInfo.asParameterizedType(), false).virtualFields;
     }
 
-    public record VfTm(VirtualFields virtualFields, TranslationMap formalToConcrete) {
+    public record VfTm(VirtualFields virtualFields, VirtualFieldTranslationMap formalToConcrete) {
     }
 
     private static final VfTm NONE_NONE = new VfTm(NONE, null);
@@ -127,7 +132,7 @@ public class VirtualFieldComputer {
             // normal class without type parameters
             Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
                     ValueImpl.ImmutableImpl.MUTABLE);
-            FieldInfo mutable = immutable.isMutable() ? newField("m", atomicBooleanPt, typeInfo) : null;
+            FieldInfo mutable = immutable.isMutable() ? newMField(typeInfo) : null;
             FieldInfo hiddenContent = newField("" + typeCounter.getAndIncrement(), pt, typeInfo);
             VirtualFields vf = new VirtualFields(mutable, hiddenContent);
             return new VfTm(vf, null);
@@ -142,15 +147,15 @@ public class VirtualFieldComputer {
                 .toList();
         FieldInfo mutable;
         if (parameterVfs.stream().anyMatch(vf -> vf != null && vf.virtualFields.mutable() != null)) {
-            mutable = newField("m", atomicBooleanPt, typeInfo);
+            mutable = newMField(typeInfo);
         } else {
             Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
                     ValueImpl.ImmutableImpl.MUTABLE);
-            mutable = immutable.isMutable() ? newField("m", atomicBooleanPt, typeInfo)
-                    : null;
+            mutable = immutable.isMutable() ? newMField(typeInfo) : null;
         }
         FieldInfo hiddenContent;
-        VirtualFieldTranslationMap fieldTm = addTranslation ? new VirtualFieldTranslationMap(runtime) : null;
+        VirtualFieldTranslationMap fieldTm = addTranslation
+                ? new VirtualFieldTranslationMapImpl(this, runtime) : null;
 
         VfTm first = parameterVfs.getFirst();
         if (addTranslation) {

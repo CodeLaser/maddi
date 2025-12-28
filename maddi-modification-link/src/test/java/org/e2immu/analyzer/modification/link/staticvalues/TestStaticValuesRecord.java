@@ -18,6 +18,7 @@ import org.e2immu.analyzer.modification.common.getset.ApplyGetSetTranslation;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -268,6 +269,64 @@ public class TestStaticValuesRecord extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
 
         MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        LocalVariableCreation rLvc = (LocalVariableCreation) method.methodBody().statements().getFirst();
+        LocalVariable r = rLvc.localVariable();
+
+        VariableData vd0 = VariableDataImpl.of(rLvc);
+        VariableInfo rVi0 = vd0.variableInfo(r);
+        assertEquals("r.§$s≡0:in", rVi0.linkedVariables().toString());
+
+        assertEquals("[-] --> method≡0:in", mlv.toString());
+     /*   ReturnStatement rs = (ReturnStatement) method.methodBody().statements().get(1);
+
+        VariableData vd1 = VariableDataImpl.of(rs);
+        VariableInfo rVi1 = vd1.variableInfo(r);
+        assertEquals(rVi0.staticValues(), rVi1.staticValues());
+
+        VariableInfo rvVi1 = vd1.variableInfo(method.fullyQualifiedName());
+        // 4 and M: we have type T, immutable HC, but a concrete choice Set, Mutable
+        assertEquals("*M-2-0M|*-0:r, -1-:t", rvVi1.linkedVariables().toString());
+        // we don't want E=r.t here, that one can be substituted again because r.t=in
+        assertEquals("E=in", rvVi1.staticValues().toString());
+
+        StaticValues methodSv = method.analysis().getOrNull(STATIC_VALUES_METHOD, StaticValuesImpl.class);
+        assertEquals("E=in", methodSv.toString());
+*/
+        // TODO after TypeModIndyAnalyzer, we should have:
+        // @Identity method, we return the first parameter
+        //assertSame(TRUE, method.analysis().getOrDefault(PropertyImpl.IDENTITY_METHOD, FALSE));
+        //assertSame(FALSE, method.analysis().getOrDefault(PropertyImpl.FLUENT_METHOD, FALSE));
+    }
+
+
+    @Language("java")
+    private static final String INPUT4b = """
+            package a.b;
+            import java.util.Set;
+            class X {
+                interface R<T> { T t(); R<T> embed(T t); }
+                Set<String> method(Set<String> in, R<Set<String>> rr) {
+                    R<Set<String>> r = rr.embed(in);
+                    return r.t();
+                }
+            }
+            """;
+
+    @DisplayName("values in record, @Identity, accessor")
+    @Test
+    public void test4b() {
+        TypeInfo X = javaInspector.parse(INPUT4b);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo R = X.findSubType("R");
+        assertEquals("§m - T §t",vfc.compute(R).toString());
+
+        MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         LocalVariableCreation rLvc = (LocalVariableCreation) method.methodBody().statements().getFirst();
         LocalVariable r = rLvc.localVariable();

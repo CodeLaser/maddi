@@ -4,17 +4,15 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
-import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.expression.VariableExpressionImpl;
-import org.e2immu.language.cst.impl.variable.FieldReferenceImpl;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +31,7 @@ public class LinksImpl implements Links {
     private final Variable primary;
     private final List<Link> linkSet;
 
-    // private constructor to bypass the non-null requirement for the primary
+    // constructor to bypass the non-null requirement for the primary
     public LinksImpl(Variable variable) {
         this.primary = variable;
         this.linkSet = List.of();
@@ -174,9 +172,9 @@ public class LinksImpl implements Links {
     }
 
     // private so that we can ensure that only the links builder can make link objects
-    private record LinkImpl(Variable from, LinkNature linkNature, Variable to) implements Link {
+    public record LinkImpl(Variable from, LinkNature linkNature, Variable to) implements Link {
 
-        private LinkImpl {
+        public LinkImpl {
             assert from != null;
             assert to != null;
             assert linkNature != null;
@@ -212,15 +210,6 @@ public class LinksImpl implements Links {
         public Link translate(TranslationMap translationMap) {
             Variable tFrom = translationMap.translateVariableRecursively(from);
             Variable tTo = translationMap.translateVariableRecursively(to);
-            if (linkNature.isIdenticalTo() && Util.isPrimary(tFrom) && to.parameterizedType().arrays() == 0
-                && tTo.parameterizedType().arrays() > 0
-                && tTo instanceof FieldReference fr) {
-                // upgrade: orElseGet==this.§t ==> orElseGet==this.§xs ==> orElseGet.§xs==this.§xs
-                Variable ttFrom = new FieldReferenceImpl(fr.fieldInfo(),
-                        new VariableExpressionImpl.Builder().setVariable(tFrom).build(), null,
-                        fr.fieldInfo().type());
-                return new LinkImpl(ttFrom, linkNature, tTo);
-            }
             return new LinkImpl(tFrom, linkNature, tTo);
         }
 
@@ -258,8 +247,24 @@ public class LinksImpl implements Links {
     public Links translate(TranslationMap translationMap) {
         Variable newPrimary = translationMap.translateVariableRecursively(primary);
         if (newPrimary == null) return null;
+        if (translationMap instanceof VirtualFieldTranslationMap vfTm) {
+            return new LinksImpl(newPrimary,
+                    linkSet.stream().flatMap(l -> translateCorrect(vfTm, l)).toList());
+        }
         return new LinksImpl(newPrimary,
                 linkSet.stream().map(l -> l.translate(translationMap)).toList());
+    }
+
+    private Stream<Link> translateCorrect(VirtualFieldTranslationMap translationMap, Link link) {
+        Link tLink = link.translate(translationMap);
+        // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
+        if (link.linkNature().isIdenticalTo() && Util.isPrimary(tLink.from())
+            && link.to().parameterizedType().arrays() == 0
+            && tLink.to().parameterizedType().arrays() > 0
+            && tLink.to() instanceof FieldReference fr) {
+            return translationMap.upgrade(link, tLink, fr);
+        }
+        return Stream.of(tLink);
     }
 
     @Override

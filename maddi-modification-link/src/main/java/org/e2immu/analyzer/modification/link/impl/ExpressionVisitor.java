@@ -378,7 +378,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             }
         } else {
             // static method, without object; but there may be method type parameters involved
-            TranslationMap vfTm = new VirtualFieldTranslationMapForStaticMethods(javaInspector.runtime()).go(mc);
+            TranslationMap vfTm = new VirtualFieldTranslationMapForStaticMethods(javaInspector.runtime())
+                    .go(virtualFieldComputer, mc);
             mlvTranslated2 = mlv.translate(vfTm);
         }
 

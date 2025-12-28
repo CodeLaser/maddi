@@ -1,6 +1,8 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldTranslationMap;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldTranslationMapImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
@@ -11,8 +13,8 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 public record VirtualFieldTranslationMapForStaticMethods(Runtime runtime) {
 
     // static call, but with method type parameters
-    TranslationMap go(MethodCall mc) {
-        VirtualFieldTranslationMap vfTm = new VirtualFieldTranslationMap(runtime);
+    VirtualFieldTranslationMap go(VirtualFieldComputer virtualFieldComputer, MethodCall mc) {
+        VirtualFieldTranslationMap vfTm = new VirtualFieldTranslationMapImpl(virtualFieldComputer, runtime);
         for (TypeParameter tp : mc.methodInfo().typeParameters()) {
             ParameterizedType bestValue = findValue(mc, tp);
             vfTm.put(tp, bestValue);

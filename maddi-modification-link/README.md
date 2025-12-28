@@ -13,13 +13,12 @@ A link is a triple `(from, linkNature, to)`, where `from` and `to` are variables
 * ≈ _shares fields with_
 * ≤ _is part of the object graph of_
 * ≥ _contains in its object graph_
-* ∩ _object graphs overlap_: this is the least informative of the operators
-  
+* ∩ _object graphs overlap_: this is the least informative of the relations.
 
 Making a graph out of these links is done using a fixpoint propagation algorithm, and a binary operator on `linkNature`.
 Some noteworthy combinations are:
 
-* a ∋ b ∈ c implies a ~ c; similarly, a ⊇ b ⊆ c implies a ~ c 
+* a ∋ b ∈ c implies a ~ c; similarly, a ⊇ b ⊆ c implies a ~ c
 * a ∈ b ⊆ c implies a ∈ c; reversing this, a ⊇ b ∋ c implies a ∋ c
 
 See `operator.adoc` for a comprehensive table.
@@ -27,11 +26,77 @@ See `operator.adoc` for a comprehensive table.
 ## Virtual fields
 
 All virtual fields' names start with § character, illegal in Java.
+They are created when a type is either abstract, or seen as abstract by the shallow link analyzer, with the purpose of
+being able to link variables with compatible types.
+
+Each abstract type gets up to two virtual fields:
+
+* the mutation field `§m`
+* the hidden content field
+  The combination of these virtual fields are sufficient to express linking.
+
+Hidden content fields are of twe different types:
+
+* a type parameter in some array dimension
+* a container of type parameters in some array dimension
+
+There is no distinction between one-dimensional arrays and the collection types `Colletion`, `List`, `Set` from the
+point of view of virtual fields. Containers are used for types with multiple type parameters, such as `Map`.
+
+The name of a hidden content field is a reflection of its type: all type parameters are represented in lowercase, and
+and `s` is added for each extra dimension.
+
+Hidden content fields appear in abstract and in concrete form. Their type and name changes accordingly.
+Any non-type parameter is represented by `$`.
+
+For example, `List<E>` gets two virtual fields: `§m` and `§es`. The latter is of type `E[]` and therefore its name
+consists of the `e` followed by one `s`.
+In a concrete situation, the `§es` changes names to become
+
+* `§xs` for `List<X>`
+* `§$s` for `List<Object>`
+* `§tss` for `List<T[]>` or `List<List<T>>`.
+
+### Elements
+
+The relations ~, ⊆, ⊇ require virtual fields of at least dimension 1 (1 `s`) on either side. LHS and RHS must be of the
+same dimension.
+The relation ∈ requires a virtual field on the RHS; the LHS is either
+
+* a variable of a type that corresponds to the virtual field on the RHS, without the arrays
+* a virtual field of a variable that corresponds to the virtual field on the RHS, with fewer arrays (but at least one)
+
+Examples:
+
+```
+a[0] ∈ a.§xs         X[] a
+a[0][0] ∈∈ a.§xss    X[][] a
+a[0].§xs ∈ a.§xs     X[][] a
+```
+
+The ∈ relation is written multiple times for additional dimensions to be spanned.
+
+### Indexing, slicing
+
+The hidden content field of `Map<K,V>` is `§kvs`, i.e., a container of `k` and `v`, with a single array dimension.
+A `Map.Entry<K, V>` has a hidden content field `§kv`, without the `s`.
+One can say that the first entry `entry ∈ map.§kvs`.
+
+All `k` elements in a map can be expressed with the slice `§kvs[-1].§k`.
+Indexing in `entry`, we can write
+```
+entry.§kv.§v ∈ map.§kvs[-2].§v
+```
+
+### Concrete situations
+
+solving problems in TestStaticValuesRecord,4.
 
 ## Shallow method analysis
 
 In the case of methods, from parameter into object, array types use ~.
-All other combinations use ⊆ or ⊇: 
+All other combinations use ⊆ or ⊇:
+
 * from the parameter into the object, in case of constructors (⊇)
 * from the return value into the object or parameter (⊆)
 * from the object into a functional interface parameter (consumer, function, ⊆)
