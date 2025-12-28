@@ -16,6 +16,7 @@ package org.e2immu.analyzer.modification.prepwork;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.variable.*;
 import org.jetbrains.annotations.NotNull;
 
@@ -121,6 +122,14 @@ public class Util {
             return oneBelowThis(dv.arrayVariable());
         }
         return v;
+    }
+
+    public static TypeInfo owner(Variable v) {
+        if (v instanceof FieldReference fr) return fr.fieldInfo().owner();
+        if (v instanceof DependentVariable dv) return owner(dv.arrayVariable());
+        return v.parameterizedType().typeParameter() != null
+                ? v.parameterizedType().typeParameter().typeInfo()
+                : v.parameterizedType().typeInfo();
     }
 
     public static @NotNull ParameterInfo parameterPrimary(Variable variable) {

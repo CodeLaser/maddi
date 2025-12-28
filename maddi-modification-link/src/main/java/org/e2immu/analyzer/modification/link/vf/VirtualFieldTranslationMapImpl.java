@@ -1,13 +1,16 @@
 package org.e2immu.analyzer.modification.link.vf;
 
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -18,21 +21,44 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VF_CHAR;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 
-public class VirtualFieldTranslationMap implements TranslationMap {
+public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap {
 
     private final Runtime runtime;
+    private final VirtualFieldComputer virtualFieldComputer;
     private final Map<TypeParameter, ParameterizedType> map = new HashMap<>();
 
-    public VirtualFieldTranslationMap(Runtime runtime) {
+    public VirtualFieldTranslationMapImpl(VirtualFieldComputer virtualFieldComputer, Runtime runtime) {
         this.runtime = runtime;
+        this.virtualFieldComputer = virtualFieldComputer;
     }
 
+    @Override
     public void put(TypeParameter in, ParameterizedType out) {
         this.map.put(in, out);
+    }
+
+    @Override
+    public Stream<Link> upgrade(Link link, Link tLink, FieldReference fr) {
+        // upgrade: orElseGet==this.§t ==> orElseGet==this.§xs ==> orElseGet.§xs⊆this.§xs
+        Variable ttFrom = runtime.newFieldReference(fr.fieldInfo(),
+                runtime.newVariableExpression(tLink.from()),
+                fr.fieldInfo().type());
+        FieldInfo mFieldFrom = virtualFieldComputer.newMField(Util.owner(ttFrom));
+        Variable mFrom = runtime.newFieldReference(mFieldFrom, runtime.newVariableExpression(tLink.from()),
+                mFieldFrom.type());
+        FieldInfo mFieldTo = virtualFieldComputer.newMField(Util.owner(ttFrom));
+        Variable toPrimary = Util.primary(tLink.to());
+        Variable mTo = runtime.newFieldReference(mFieldTo, runtime.newVariableExpression(toPrimary),
+                mFieldTo.type());
+        Link mLink = new LinksImpl.LinkImpl(mFrom, LinkNatureImpl.IS_IDENTICAL_TO, mTo);
+        Stream<Link> mStream = Stream.of(mLink); // FIXME conditional on mutable
+        LinksImpl.LinkImpl newLink = new LinksImpl.LinkImpl(ttFrom, LinkNatureImpl.IS_SUBSET_OF, tLink.to());
+        return Stream.concat(mStream, Stream.of(newLink));
     }
 
     @Override
