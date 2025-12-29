@@ -14,6 +14,7 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -149,6 +150,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         final ExpressionVisitor expressionVisitor;
         final Set<Variable> erase = new HashSet<>();
         Links ofReturnValue;
+        final Set<LocalVariable> variablesRepresentingConstants = new HashSet<>();
 
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
@@ -157,9 +159,31 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     new AtomicInteger());
         }
 
+        private TranslationMap replaceConstants(VariableData vd, Stage stage, ExpressionVisitor.Result r) {
+            TranslateConstants tc = new TranslateConstants(javaInspector.runtime());
+            for (LocalVariable lv : variablesRepresentingConstants) {
+                tc.put(lv, lv.assignmentExpression());
+            }
+            if (vd != null) {
+                vd.variableInfoStream(stage).forEach(vi -> {
+                    if (vi.linkedVariables() != null) {
+                        vi.linkedVariables().stream()
+                                .filter(l -> l.from().equals(vi.variable())
+                                             && l.linkNature().isIdenticalTo()
+                                             && l.to() instanceof LocalVariable)
+                                .map(l -> tc.get(l.to()))
+                                .filter(Objects::nonNull)
+                                .findFirst()
+                                .ifPresent(constant -> tc.put(vi.variable(), constant));
+                    }
+                });
+            }
+            return tc;
+        }
+
         public MethodLinkedVariables go() {
             VariableData vd = doBlock(methodInfo.methodBody(), null);
-            List<Links> ofParameters = expand.parameters(methodInfo, vd);
+            List<Links> ofParameters = expand.parameters(methodInfo, vd, replaceConstants(vd, Stage.MERGE, null));
 
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
@@ -239,13 +263,20 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     r = r == null ? u : r.merge(u);
                 }
             }
+            TranslationMap replaceConstants;
+            if (r != null) {
+                this.variablesRepresentingConstants.addAll(r.variablesRepresentingConstants());
+                replaceConstants = replaceConstants(previousVd, stageOfPrevious, r);
+            } else {
+                replaceConstants = null;
+            }
             VariableData vd = VariableDataImpl.of(statement);
             if (r != null) {
                 r = r.copyLinksToExtra();
             }
             if (r != null) {
                 this.erase.addAll(r.erase());
-                copyEvalIntoVariableData(r, previousVd, stageOfPrevious, vd);
+                copyEvalIntoVariableData(r, previousVd, stageOfPrevious, vd, replaceConstants);
             }
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd, r);
@@ -253,7 +284,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
             if (statement instanceof ReturnStatement && r != null && r.links() != null) {
                 ReturnVariable rv = new ReturnVariableImpl(methodInfo);
-                ofReturnValue = expand.returnValue(rv, r.links(), r.extra(), vd);
+                ofReturnValue = expand.returnValue(rv, r.links(), r.extra(), vd, replaceConstants);
                 VariableInfoImpl vii = ((VariableInfoImpl) vd.variableInfo(rv));
                 vii.setLinkedVariables(ofReturnValue);
             }
@@ -353,11 +384,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private void copyEvalIntoVariableData(ExpressionVisitor.Result r,
                                               VariableData previousVd,
                                               Stage stageOfPrevious,
-                                              VariableData vd) {
+                                              VariableData vd,
+                                              TranslationMap replaceConstants) {
             Set<Variable> modifiedDuringEvaluation = r == null ? Set.of() : r.modified();
             Map<Variable, Links> linkedVariables = r == null ? Map.of() : r.extra().map();
             Map<Variable, Links> expanded = expand.local(linkedVariables, modifiedDuringEvaluation, previousVd,
-                    stageOfPrevious, vd);
+                    stageOfPrevious, vd, replaceConstants);
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links;

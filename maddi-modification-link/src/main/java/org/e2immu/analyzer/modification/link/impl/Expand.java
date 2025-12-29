@@ -318,31 +318,6 @@ public record Expand(Runtime runtime) {
         return sb.toString();
     }
 
-    private TranslationMap replaceConstants(VariableData variableData, Stage stage, Map<Variable, Links> newLinks) {
-        TranslateConstants tc = new TranslateConstants(runtime);
-        for (Links links : newLinks.values()) {
-            loopOverLinks(links, tc);
-        }
-        if (variableData != null) {
-            variableData.variableInfoStream(stage).forEach(vi -> {
-                if (vi.linkedVariables() != null) {
-                    loopOverLinks(vi.linkedVariables(), tc);
-                }
-            });
-        }
-        return tc;
-    }
-
-    private static void loopOverLinks(Links links, TranslateConstants tc) {
-        for (Link link : links) {
-            if (link.to() instanceof LocalVariable lv
-                && lv.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
-                && link.linkNature().isIdenticalTo()) {
-                tc.put(link.from(), lv.assignmentExpression());
-                tc.put(lv, lv.assignmentExpression());
-            }
-        }
-    }
     //-------------------------------------------------------------------------------------------------
 
     /*
@@ -355,14 +330,14 @@ public record Expand(Runtime runtime) {
                                       Set<Variable> modifiedDuringEvaluation,
                                       VariableData previousVd,
                                       Stage stageOfPrevious,
-                                      VariableData vd) {
-        TranslationMap tm = replaceConstants(previousVd, stageOfPrevious, lvIn);
+                                      VariableData vd,
+                                      TranslationMap replaceConstants) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables = new HashMap<>();
         lvIn.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .filter(e -> e.getValue().primary() != null)
-                .forEach(e -> linkedVariables.put(e.getKey(), e.getValue().translate(tm)));
+                .forEach(e -> linkedVariables.put(e.getKey(), e.getValue().translate(replaceConstants)));
         Set<Variable> modifiedVariables = new HashSet<>(modifiedDuringEvaluation);
         if (previousVd != null) {
             previousVd.variableInfoStream(stageOfPrevious)
@@ -371,7 +346,7 @@ public record Expand(Runtime runtime) {
                         Links vLinks = vi.linkedVariables();
                         if (vLinks != null && vLinks.primary() != null) {
                             assert !(vLinks.primary() instanceof This);
-                            linkedVariables.merge(vLinks.primary(), vLinks.translate(tm), Links::merge);
+                            linkedVariables.merge(vLinks.primary(), vLinks.translate(replaceConstants), Links::merge);
                         }
                         Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
                         boolean explicitlyModified = unmodified != null && unmodified.isFalse();
@@ -412,7 +387,7 @@ public record Expand(Runtime runtime) {
         return newLinkedVariables;
     }
 
-    public List<Links> parameters(MethodInfo methodInfo, VariableData vd) {
+    public List<Links> parameters(MethodInfo methodInfo, VariableData vd, TranslationMap replaceConstants) {
         if (vd == null) return List.of();
 
         Map<Variable, Links> linkedVariables = new HashMap<>();
@@ -422,7 +397,7 @@ public record Expand(Runtime runtime) {
                     Links vLinks = vi.linkedVariables();
                     if (vLinks != null && vLinks.primary() != null) {
                         assert !(vLinks.primary() instanceof This);
-                        linkedVariables.merge(vLinks.primary(), vLinks, Links::merge);
+                        linkedVariables.merge(vLinks.primary(), vLinks.translate(replaceConstants), Links::merge);
                     }
                 });
 
@@ -450,22 +425,26 @@ public record Expand(Runtime runtime) {
     - find as many links to fields and parameters
     - remove (intermediate) links to local variables
     */
-    public Links returnValue(ReturnVariable returnVariable, Links links, LinkedVariables extra, VariableData vd) {
+    public Links returnValue(ReturnVariable returnVariable,
+                             Links links,
+                             LinkedVariables extra,
+                             VariableData vd,
+                             TranslationMap replaceConstants) {
         Variable primary1 = links.primary();
         if (primary1 == null) return LinksImpl.EMPTY;
-        TranslationMap tm2 = replaceConstants(vd, Stage.EVALUATION, extra.map());
-        Variable primary = tm2.translateVariableRecursively(primary1);
+        Variable primary = replaceConstants.translateVariableRecursively(primary1);
 
         TranslationMap tm = runtime.newTranslationMapBuilder().put(primary, returnVariable).build();
-        
-        Map<Variable, Links> linkedVariables = new HashMap<>(extra.map());
-        linkedVariables.merge(links.primary(), links, Links::merge);
+
+        Map<Variable, Links> linkedVariables = new HashMap<>();
+        extra.map().forEach((v, ls) -> linkedVariables.put(v, ls.translate(replaceConstants)));
+        linkedVariables.merge(primary, links.translate(tm), Links::merge);
         vd.variableInfoStream()
                 .filter(vi -> !(vi.variable() instanceof This))
                 .forEach(vi -> {
                     Links vLinks = vi.linkedVariables();
                     if (vLinks != null) {
-                        linkedVariables.merge(vLinks.primary(), vLinks.translate(tm2), Links::merge);
+                        linkedVariables.merge(vLinks.primary(), vLinks.translate(replaceConstants), Links::merge);
                     }
                 });
 

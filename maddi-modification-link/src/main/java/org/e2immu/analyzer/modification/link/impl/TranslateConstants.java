@@ -3,7 +3,6 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.HashMap;
@@ -19,6 +18,10 @@ public class TranslateConstants implements TranslationMap {
 
     public void put(Variable v, Expression e) {
         map.put(v, e);
+    }
+
+    public Expression get(Variable v) {
+        return map.get(v);
     }
 
     @Override

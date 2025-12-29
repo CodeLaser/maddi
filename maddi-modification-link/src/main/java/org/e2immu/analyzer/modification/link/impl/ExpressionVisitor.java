@@ -45,9 +45,11 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                          Set<Variable> modifiedFunctionalInterfaceComponents,
                          List<WriteMethodCall> writeMethodCalls,
                          Map<Variable, Set<ParameterizedType>> casts,
-                         Set<Variable> erase) {
+                         Set<Variable> erase,
+                         Set<LocalVariable> variablesRepresentingConstants) {
         public Result(Links links, LinkedVariables extra) {
-            this(links, extra, new HashSet<>(), new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>());
+            this(links, extra, new HashSet<>(), new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>(),
+                    new HashSet<>());
         }
 
         public void addErase(Variable variable) {
@@ -57,7 +59,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         public @NotNull Result addExtra(Map<Variable, Links> linkedVariables) {
             if (!linkedVariables.isEmpty()) {
                 return new Result(links, extra.merge(new LinkedVariablesImpl(linkedVariables)),
-                        modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts, erase);
+                        modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts, erase,
+                        variablesRepresentingConstants);
             }
             return this;
         }
@@ -82,9 +85,28 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             return this;
         }
 
+        public Result addVariableRepresentingConstant(LocalVariable lv) {
+            this.variablesRepresentingConstants.add(lv);
+            return this;
+        }
+
+        public Result addVariablesRepresentingConstant(List<Result> params) {
+            params.forEach(p -> this.variablesRepresentingConstants.addAll(p.variablesRepresentingConstants));
+            return this;
+        }
+
+        public Result addVariablesRepresentingConstant(Result object) {
+            this.variablesRepresentingConstants.addAll(object.variablesRepresentingConstants);
+            return this;
+        }
+
+        public Set<LocalVariable> variablesRepresentingConstants() {
+            return variablesRepresentingConstants;
+        }
+
         public Result with(Links links) {
             return new Result(links, extra, modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts,
-                    erase);
+                    erase, variablesRepresentingConstants);
         }
 
         public Result merge(Result other) {
@@ -99,10 +121,12 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                     new HashSet<>(modifiedFunctionalInterfaceComponents),
                     new ArrayList<>(this.writeMethodCalls),
                     new HashMap<>(this.casts),
-                    new HashSet<>(this.erase));
+                    new HashSet<>(this.erase),
+                    new HashSet<>(this.variablesRepresentingConstants));
             r.writeMethodCalls.addAll(other.writeMethodCalls);
             r.modified.addAll(other.modified);
             r.modifiedFunctionalInterfaceComponents.addAll(other.modifiedFunctionalInterfaceComponents);
+            r.variablesRepresentingConstants.addAll(other.variablesRepresentingConstants);
             other.casts.forEach((v, set) ->
                     r.casts.computeIfAbsent(v, _ -> new HashSet<>()).addAll(set));
             r.erase.addAll(other.erase);
@@ -113,7 +137,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             if (links.primary() != null) {
                 LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
                 return new Result(LinksImpl.EMPTY, newExtra, modified, modifiedFunctionalInterfaceComponents,
-                        writeMethodCalls, casts, erase);
+                        writeMethodCalls, casts, erase, variablesRepresentingConstants);
             }
             return this;
         }
@@ -122,14 +146,14 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             if (links.primary() != null) {
                 LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
                 return new Result(links, newExtra, modified, modifiedFunctionalInterfaceComponents,
-                        writeMethodCalls, casts, erase);
+                        writeMethodCalls, casts, erase, variablesRepresentingConstants);
             }
             return this;
         }
     }
 
     static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(), Set.of(),
-            List.of(), Map.of(), Set.of());
+            List.of(), Map.of(), Set.of(), Set.of());
 
     public Result visitExpandFunctionalInterfaceVariables(Expression expression, VariableData variableData, Stage stage) {
         if (variableData != null && expression instanceof VariableExpression ve && ve.variable().parameterizedType().isFunctionalInterface()) {
@@ -190,7 +214,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     Result constantExpression(ConstantExpression<?> ce) {
         LocalVariable lv = javaInspector.runtime().newLocalVariable(LinksImpl.CONSTANT_VARIABLE + variableCounter.getAndIncrement(),
                 ce.parameterizedType(), ce);
-        return new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
+        return new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY).addVariableRepresentingConstant(lv);
     }
 
     /*
@@ -328,7 +352,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                 .map(e -> visitExpandFunctionalInterfaceVariables(e, variableData, stage))
                 .toList();
         return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
-                .constructorCall(cc.constructor(), object, params, mlvTranslated1);
+                .constructorCall(cc.constructor(), object, params, mlvTranslated1)
+                .addVariablesRepresentingConstant(params)
+                .addVariablesRepresentingConstant(object);
     }
 
     private @NotNull Result lambda(Lambda lambda, boolean wrap) {
@@ -462,7 +488,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         }
         return r.addModified(modified)
                 .addModifiedFunctionalInterfaceComponents(modifiedFunctionalInterfaceComponents)
-                .add(new WriteMethodCall(mc, object.links));
+                .add(new WriteMethodCall(mc, object.links))
+                .addVariablesRepresentingConstant(params)
+                .addVariablesRepresentingConstant(object);
     }
 
     private void handleParameterModification(MethodCall mc,
