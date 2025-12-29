@@ -10,6 +10,7 @@ import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -28,6 +29,17 @@ public class LinksImpl implements Links {
     public static final Links EMPTY = new LinksImpl(null);
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
     public static final String LAMBDA = "Λ";
+
+    // is not intermediate, can survive local linking
+    public static final String FUNCTIONAL_INTERFACE_VARIABLE = "$_fi";
+
+    // see toIsIntermediateVariable()
+    public static final String INTERMEDIATE_VARIABLE = "$__";
+    public static final String INTERMEDIATE_RETURN_VARIABLE = "$__rv";
+    public static final String INTERMEDIATE_LOCAL_VARIABLE = "$__l";
+    public static final String INTERMEDIATE_CONDITIONAL_VARIABLE = "$__ic";
+    public static final String INTERMEDIATE_CONSTRUCTOR_VARIABLE = "$__c";
+
     private final Variable primary;
     private final List<Link> linkSet;
 
@@ -186,6 +198,13 @@ public class LinksImpl implements Links {
             return !(v instanceof FieldReference fr && "§m".equals(fr.fieldInfo().name())
                      && fr.scopeVariable() instanceof FieldReference fr2 && fr2.fieldInfo().name().startsWith("§"));
         }
+
+        @Override
+        public boolean toIsIntermediateVariable() {
+            LocalVariable lv = Util.lvPrimaryOrNull(to);
+            return lv != null && lv.simpleName().startsWith(INTERMEDIATE_VARIABLE);
+        }
+
         @Override
         public boolean equals(Object object) {
             if (!(object instanceof LinkImpl link)) return false;
@@ -232,7 +251,7 @@ public class LinksImpl implements Links {
         @Override
         public boolean containsVirtualFields() {
             return from instanceof FieldReference fr && Util.virtual(fr)
-                    || to instanceof FieldReference fr2 && Util.virtual(fr2);
+                   || to instanceof FieldReference fr2 && Util.virtual(fr2);
         }
     }
 
@@ -309,7 +328,7 @@ public class LinksImpl implements Links {
 
     @Override
     public boolean containsVirtualFields() {
-        if(primary instanceof FieldReference fr && Util.virtual(fr)) return true;
+        if (primary instanceof FieldReference fr && Util.virtual(fr)) return true;
         return linkSet.stream().anyMatch(Link::containsVirtualFields);
     }
 }

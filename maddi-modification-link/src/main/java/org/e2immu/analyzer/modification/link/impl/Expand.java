@@ -368,7 +368,7 @@ public record Expand(Runtime runtime) {
                     Links.Builder builder = followGraph(gd, vi.variable(), null, true);
                     boolean unmodified = !modifiedVariables.contains(vi.variable())
                                          && notLinkedToModified(builder, modifiedVariables);
-                    builder.removeIf(Link::toIntermediateVariable);
+                    builder.removeIf(Link::toIsIntermediateVariable);
                     if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
                         Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
                         vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);

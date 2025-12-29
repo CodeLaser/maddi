@@ -131,6 +131,26 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(), Set.of(),
             List.of(), Map.of(), Set.of());
 
+    public Result visitExpandFunctionalInterfaceVariables(Expression expression, VariableData variableData, Stage stage) {
+        if (variableData != null && expression instanceof VariableExpression ve && ve.variable().parameterizedType().isFunctionalInterface()) {
+            FunctionalInterfaceVariable fiv = findFunctionalInterfaceVariable(ve.variable(), variableData, stage);
+            if (fiv != null) {
+                return fiv.result();
+            }
+        }
+        if (expression instanceof Lambda lambda) return lambda(lambda, false);
+        return visit(expression, variableData, stage);
+    }
+
+    private FunctionalInterfaceVariable findFunctionalInterfaceVariable(Variable variable, VariableData variableData, Stage stage) {
+        VariableInfoContainer vic = variableData.variableInfoContainerOrNull(variable.fullyQualifiedName());
+        if (vic == null) return null;
+        VariableInfo vi = vic.best(stage);
+        return vi.linkedVariables().stream().filter(l -> l.to() instanceof FunctionalInterfaceVariable)
+                .map(l -> (FunctionalInterfaceVariable) l.to())
+                .findFirst().orElse(null);
+    }
+
     public Result visit(Expression expression, VariableData variableData, Stage stage) {
         return switch (expression) {
             case VariableExpression ve -> variableExpression(ve, variableData, stage);
@@ -143,7 +163,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                 }
                 yield constructorCall(variableData, stage, cc);
             }
-            case Lambda lambda -> lambda(lambda);
+            case Lambda lambda -> lambda(lambda, true);
             case Cast cast -> cast(variableData, stage, cast);
             case InstanceOf instanceOf -> instanceOf(variableData, instanceOf);
 
@@ -228,8 +248,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result rt = visit(ic.ifTrue(), variableData, stage);
         Result rf = visit(ic.ifFalse(), variableData, stage);
         Runtime runtime = javaInspector.runtime();
-        Variable newPrimary = runtime.newLocalVariable("$__ic" + variableCounter.getAndIncrement(),
-                ic.parameterizedType());
+        String name = LinksImpl.INTERMEDIATE_CONDITIONAL_VARIABLE + variableCounter.getAndIncrement();
+        Variable newPrimary = runtime.newLocalVariable(name, ic.parameterizedType());
         // we must link the new primary to both rt and rf links
         AssignLinksToLocal atl = new AssignLinksToLocal(runtime);
         Links rtChanged = atl.go(newPrimary, rt.links);
@@ -284,8 +304,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     private Result constructorCall(VariableData variableData, Stage stage, ConstructorCall cc) {
         assert cc.object() == null || cc.object().isEmpty() : "NYI";
 
-        LocalVariable lv = javaInspector.runtime().newLocalVariable("$__c" + variableCounter.getAndIncrement(),
-                cc.parameterizedType());
+        String name = LinksImpl.INTERMEDIATE_CONSTRUCTOR_VARIABLE + variableCounter.getAndIncrement();
+        LocalVariable lv = javaInspector.runtime().newLocalVariable(name, cc.parameterizedType());
         Result object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
 
         // only translate wrt concrete type
@@ -299,13 +319,13 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         }
         // NOTE translation with respect to parameters happens in LMC.methodCall()
         List<Result> params = cc.parameterExpressions().stream()
-                .map(e -> visit(e, variableData, stage))
+                .map(e -> visitExpandFunctionalInterfaceVariables(e, variableData, stage))
                 .toList();
         return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
                 .constructorCall(cc.constructor(), object, params, mlvTranslated1);
     }
 
-    private @NotNull Result lambda(Lambda lambda) {
+    private @NotNull Result lambda(Lambda lambda, boolean wrap) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
 
         ParameterizedType concreteObjectType = lambda.concreteReturnType();
@@ -322,7 +342,17 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             map.put(lambda.methodInfo().parameters().get(i), paramLinks);
             ++i;
         }
-        return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
+        Result wrapped = new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
+        if (wrap) {
+            FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(
+                    LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE + variableCounter.getAndIncrement(),
+                    lambda.concreteFunctionalType(),
+                    javaInspector.runtime().newEmptyExpression(),
+                    wrapped);
+            Links links = new LinksImpl.Builder(fiv).build();
+            return new Result(links, LinkedVariablesImpl.EMPTY);
+        }
+        return wrapped;
     }
 
     private Result anonymousClassAsFunctionalInterface(VariableData variableData, Stage stage, ConstructorCall cc) {
@@ -403,7 +433,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         }
 
         // NOTE translation with respect to parameters happens in LMC.methodCall()
-        List<Result> params = mc.parameterExpressions().stream().map(e -> visit(e, variableData, stage))
+        List<Result> params = mc.parameterExpressions().stream()
+                .map(e -> visitExpandFunctionalInterfaceVariables(e, variableData, stage))
                 .toList();
 
         // handle all matters 'linking'
