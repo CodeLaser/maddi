@@ -203,8 +203,8 @@ public class TestSupplier extends CommonTest {
                 }
                 public X method2(Optional<List<X>> optional, List<X> main) {
                     var lambda = () -> main.subList(0, 2);
-                    List<X> xList = optional.orElseGet(lambda);
-                    return xList;
+                  //  List<X> xList = optional.orElseGet(lambda);
+                  //  return xList;
                 }
             }
             """;
@@ -227,6 +227,32 @@ public class TestSupplier extends CommonTest {
                 """, mlvOrElseGet.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 2);
+        MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
+                tlc.doMethod(method));
+
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo viX0 = vd0.variableInfo("xList");
+        Links tlvX = viX0.linkedVariablesOrEmpty();
+        assertEquals("""
+                xList.§m≡0:optional.§m,xList.§xs≡1:main.§xs,xList.§xs⊆0:optional.§xs,xList.§m≡1:main.§m\
+                """, tlvX.toString());
+
+        assertEquals("""
+                [0:optional.§xs⊇1:main.§xs, 1:main.§xs⊆0:optional.§xs] --> \
+                method.§m≡0:optional.§m,method.§xs≡1:main.§xs,method.§xs⊆0:optional.§xs,method.§m≡1:main.§m\
+                """, mlvMethod.toString());
+    }
+
+    @Test
+    public void test5Method2() {
+        TypeInfo C = javaInspector.parse(INPUT5);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo method = C.findUniqueMethod("method2", 2);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
                 tlc.doMethod(method));
 

@@ -60,4 +60,10 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
                 ofReturnValue == null ? null : ofReturnValue.translate(translationMap),
                 ofParameters.stream().map(l -> l.translate(translationMap)).toList());
     }
+
+    @Override
+    public boolean virtual() {
+        return ofReturnValue != null && ofReturnValue.containsVirtualFields()
+                || ofParameters.stream().anyMatch(Links::containsVirtualFields);
+    }
 }

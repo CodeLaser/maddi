@@ -72,6 +72,24 @@ public class Util {
         };
     }
 
+    public static boolean hasVirtualFields(Variable v) {
+        if (v instanceof ReturnVariable rv) {
+            return rv.methodInfo().isAbstract() || rv.methodInfo().typeInfo().compilationUnit().externalLibrary();
+        }
+        if (v instanceof ParameterInfo pi) {
+            return pi.methodInfo().isAbstract() || pi.methodInfo().typeInfo().compilationUnit().externalLibrary();
+        }
+        TypeInfo typeInfo;
+        if (v.parameterizedType().typeInfo() != null) {
+            typeInfo = v.parameterizedType().typeInfo();
+        } else if (v.parameterizedType().typeParameter() != null) {
+            typeInfo = v.parameterizedType().typeParameter().typeInfo();
+        } else {
+            return false; // wildcard type
+        }
+        return typeInfo.isAbstract() || typeInfo.compilationUnit().externalLibrary();
+    }
+
     /**
      * all
      *
@@ -138,7 +156,10 @@ public class Util {
 
     public static Variable primary(Variable variable) {
         if (variable instanceof FieldReference fr) {
-            if (fr.scopeVariable() != null && !(fr.scopeVariable() instanceof This)) {
+            if (fr.scopeVariable() != null
+                // accept this.§xs, but not this.v.§xs
+                // see e.g. TestPrefix,3 for the this.§xs situation
+                && (!(fr.scopeVariable() instanceof This) || fr.fieldInfo().name().startsWith("§"))) {
                 return primary(fr.scopeVariable());
             }
         }

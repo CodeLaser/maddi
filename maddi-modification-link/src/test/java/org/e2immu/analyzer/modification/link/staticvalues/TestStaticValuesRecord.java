@@ -27,6 +27,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
@@ -275,24 +276,14 @@ public class TestStaticValuesRecord extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(rLvc);
         VariableInfo rVi0 = vd0.variableInfo(r);
-        assertEquals("r.§$s≡0:in", rVi0.linkedVariables().toString());
+
+        // IMPORTANT: R is not an abstract type, it is very concrete and can be analyzed!
+        // but, because 't' is an unbound type parameter, it can gain virtual fields
+        assertEquals("r.t≡0:in", rVi0.linkedVariables().toString());
 
         assertEquals("[-] --> method≡0:in", mlv.toString());
-     /*   ReturnStatement rs = (ReturnStatement) method.methodBody().statements().get(1);
+        ReturnStatement rs = (ReturnStatement) method.methodBody().statements().get(1);
 
-        VariableData vd1 = VariableDataImpl.of(rs);
-        VariableInfo rVi1 = vd1.variableInfo(r);
-        assertEquals(rVi0.staticValues(), rVi1.staticValues());
-
-        VariableInfo rvVi1 = vd1.variableInfo(method.fullyQualifiedName());
-        // 4 and M: we have type T, immutable HC, but a concrete choice Set, Mutable
-        assertEquals("*M-2-0M|*-0:r, -1-:t", rvVi1.linkedVariables().toString());
-        // we don't want E=r.t here, that one can be substituted again because r.t=in
-        assertEquals("E=in", rvVi1.staticValues().toString());
-
-        StaticValues methodSv = method.analysis().getOrNull(STATIC_VALUES_METHOD, StaticValuesImpl.class);
-        assertEquals("E=in", methodSv.toString());
-*/
         // TODO after TypeModIndyAnalyzer, we should have:
         // @Identity method, we return the first parameter
         //assertSame(TRUE, method.analysis().getOrDefault(PropertyImpl.IDENTITY_METHOD, FALSE));
@@ -313,7 +304,7 @@ public class TestStaticValuesRecord extends CommonTest {
             }
             """;
 
-    @DisplayName("values in record, @Identity, accessor")
+    @DisplayName("values in record, embed in abstract type")
     @Test
     public void test4b() {
         TypeInfo X = javaInspector.parse(INPUT4b);
@@ -324,7 +315,7 @@ public class TestStaticValuesRecord extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
         TypeInfo R = X.findSubType("R");
-        assertEquals("§m - T §t",vfc.compute(R).toString());
+        assertEquals("§m - T §t", vfc.compute(R).toString());
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -333,28 +324,12 @@ public class TestStaticValuesRecord extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(rLvc);
         VariableInfo rVi0 = vd0.variableInfo(r);
-        assertEquals("r.§$s≡0:in", rVi0.linkedVariables().toString());
+        assertEquals("r.§m≡1:rr.§m,r.§$s≡1:rr.§$s,r.§$s~0:in.§$s", rVi0.linkedVariables().toString());
 
-        assertEquals("[-] --> method≡0:in", mlv.toString());
-     /*   ReturnStatement rs = (ReturnStatement) method.methodBody().statements().get(1);
-
-        VariableData vd1 = VariableDataImpl.of(rs);
-        VariableInfo rVi1 = vd1.variableInfo(r);
-        assertEquals(rVi0.staticValues(), rVi1.staticValues());
-
-        VariableInfo rvVi1 = vd1.variableInfo(method.fullyQualifiedName());
-        // 4 and M: we have type T, immutable HC, but a concrete choice Set, Mutable
-        assertEquals("*M-2-0M|*-0:r, -1-:t", rvVi1.linkedVariables().toString());
-        // we don't want E=r.t here, that one can be substituted again because r.t=in
-        assertEquals("E=in", rvVi1.staticValues().toString());
-
-        StaticValues methodSv = method.analysis().getOrNull(STATIC_VALUES_METHOD, StaticValuesImpl.class);
-        assertEquals("E=in", methodSv.toString());
-*/
-        // TODO after TypeModIndyAnalyzer, we should have:
-        // @Identity method, we return the first parameter
-        //assertSame(TRUE, method.analysis().getOrDefault(PropertyImpl.IDENTITY_METHOD, FALSE));
-        //assertSame(FALSE, method.analysis().getOrDefault(PropertyImpl.FLUENT_METHOD, FALSE));
+        assertEquals("""
+                [0:in.§$s~1:rr.§$s,0:in.§m≡1:rr.§m, 1:rr.§$s~0:in.§$s,1:rr.§m≡0:in.§m] --> \
+                method.§$s⊆1:rr.§$s,method.§$s∩0:in.§$s\
+                """, mlv.toString());
     }
 
 
