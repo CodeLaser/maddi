@@ -200,4 +200,53 @@ public class TestModificationBasics extends CommonTest {
         MethodInfo insertionSort = B.findUniqueMethod("insertionSort", 3);
         assertTrue(insertionSort.parameters().getFirst().isModified());
     }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            class X {
+                record R<T>(Set<T> s, List<T> l) {}
+                static <T> void method(T t) {
+                    Set<T> set = new HashSet<>();
+                    List<T> list = new ArrayList<>();
+                    R<T> r = new R<>(set, list);
+                    Set<T> set2 = r.s;
+                    set2.add(t); // assert that set has been modified, but not list
+                }
+            }
+            """;
+
+    // follows TestStaticValuesRecord,8
+    @DisplayName("pack and unpack, with local variables")
+    @Test
+    public void test5() {
+        TypeInfo X = javaInspector.parse(INPUT5);
+        List<Info> ao = prepWork(X);
+        analyzer.go(ao);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+
+        Statement s2 = method.methodBody().statements().get(2);
+        VariableData vd2 = VariableDataImpl.of(s2);
+
+        VariableInfo vi2Set = vd2.variableInfo("set");
+        assertFalse(vi2Set.isModified());
+
+        VariableInfo vi2List = vd2.variableInfo("list");
+        assertFalse(vi2List.isModified());
+
+        Statement s4 = method.methodBody().statements().get(4);
+        VariableData vd4 = VariableDataImpl.of(s4);
+
+        VariableInfo vi4Set = vd4.variableInfo("set");
+        assertTrue(vi4Set.isModified());
+
+        VariableInfo vi4List = vd4.variableInfo("list");
+        assertFalse(vi4List.isModified());
+    }
+
 }

@@ -266,6 +266,7 @@ public record LinkMethodCall(Runtime runtime,
         }
         TranslationMap tm = tmBuilder.build();
         for (Links links : mlv.ofParameters()) {
+            assert links != null;
             ParameterInfo pi = methodInfo.parameters().get(i);
             ExpressionVisitor.Result r = params.get(i);
             Links piLinks = r.links();
