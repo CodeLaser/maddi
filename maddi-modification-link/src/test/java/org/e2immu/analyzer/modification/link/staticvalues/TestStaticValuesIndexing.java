@@ -47,7 +47,7 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         VariableInfo vi0J = vd0.variableInfo("j");
         assertEquals("j≡$_ce0", vi0J.linkedVariables().toString());
-        assertEquals("[-] --> method≡0:a[3]", mlv.toString());
+        assertEquals("[-] --> method≡0:a[3],method∈0:a", mlv.toString());
     }
 
     @Language("java")
@@ -91,12 +91,11 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viY = vd0.variableInfo("y");
-        assertEquals("y≡this.ys[$_ce0],y∈this.ys", viY.linkedVariables().toString());
+        assertEquals("y≡this.ys[0],y∈this.ys", viY.linkedVariables().toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo viY1 = vd1.variableInfo("y");
-        assertEquals("y≡this.ys[$_ce0],y≡this.ys[$_ce2],y∈this.ys", viY1.linkedVariables().toString());
-        assertEquals("[] --> method∈this.ys", mlv.toString());
-        // FIXME should we not expect more?
+        assertEquals("y≡this.ys[0],y≡this.ys[1],y∈this.ys", viY1.linkedVariables().toString());
+        assertEquals("[] --> method≡this.ys[0],method≡this.ys[1],method∈this.ys", mlv.toString());
     }
 }
