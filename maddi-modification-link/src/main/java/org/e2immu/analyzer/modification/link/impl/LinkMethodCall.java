@@ -180,8 +180,8 @@ public record LinkMethodCall(Runtime runtime,
                     : "the links of the method return value must be in the return variable";
             assert !methodInfo.isVoid() || methodInfo.isConstructor()
                     : "Cannot be a void function if we have a return variable";
-            Variable newPrimary = runtime.newLocalVariable("$__rv" + variableCounter.getAndIncrement(),
-                    concreteReturnType);
+            String name = LinksImpl.INTERMEDIATE_RETURN_VARIABLE + variableCounter.getAndIncrement();
+            Variable newPrimary = runtime.newLocalVariable(name, concreteReturnType);
 
             TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
             if (objectPrimary != null) {
@@ -201,7 +201,7 @@ public record LinkMethodCall(Runtime runtime,
     }
 
     private LocalVariable newDummyLocalVariable() {
-        return runtime.newLocalVariable("$__l" + variableCounter.getAndIncrement(),
+        return runtime.newLocalVariable(LinksImpl.INTERMEDIATE_LOCAL_VARIABLE + variableCounter.getAndIncrement(),
                 runtime.objectParameterizedType());
     }
 
@@ -292,7 +292,7 @@ public record LinkMethodCall(Runtime runtime,
                 // returnPrimary ~ this
                 // fromTranslated ~ upscale this
                 //
-                List<Links> linksList =  r.extra().map().entrySet().stream()
+                List<Links> linksList = r.extra().map().entrySet().stream()
                         .filter(e -> e.getKey() instanceof ParameterInfo)
                         .map(Map.Entry::getValue)
                         .toList();
