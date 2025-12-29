@@ -32,6 +32,7 @@ public class LinksImpl implements Links {
 
     // is not intermediate, can survive local linking
     public static final String FUNCTIONAL_INTERFACE_VARIABLE = "$_fi";
+    public static final String CONSTANT_VARIABLE = "$_ce";
 
     // see toIsIntermediateVariable()
     public static final String INTERMEDIATE_VARIABLE = "$__";

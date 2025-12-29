@@ -10,6 +10,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,36 @@ import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesIm
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestStaticValuesIndexing extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            import java.util.Set;
+            class X {
+                int method(int[] a) {
+                    int j=3;
+                    return a[j];
+                }
+            }
+            """;
+
+    @DisplayName("indexing: expand")
+    @Test
+    public void test1() {
+        TypeInfo X = javaInspector.parse(INPUT1);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+
+        Statement s0 = method.methodBody().statements().getFirst();
+        VariableData vd0 = VariableDataImpl.of(s0);
+
+        VariableInfo vi0J = vd0.variableInfo("j");
+        assertEquals("j≡$_ce0", vi0J.linkedVariables().toString());
+        assertEquals("[-] --> method≡0:a[3]", mlv.toString());
+    }
 
     @Language("java")
     private static final String INPUT2 = """
@@ -60,11 +91,12 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viY = vd0.variableInfo("y");
-        assertEquals("y≡this.ys[$__l1],y∈this.ys", viY.linkedVariables().toString());
+        assertEquals("y≡this.ys[$_ce0],y∈this.ys", viY.linkedVariables().toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo viY1 = vd1.variableInfo("y");
-        assertEquals("y≡this.ys[$__l1],y≡this.ys[$__l3],y∈this.ys", viY1.linkedVariables().toString());
+        assertEquals("y≡this.ys[$_ce0],y≡this.ys[$_ce2],y∈this.ys", viY1.linkedVariables().toString());
         assertEquals("[] --> method∈this.ys", mlv.toString());
+        // FIXME should we not expect more?
     }
 }

@@ -25,6 +25,36 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class TestStaticValues1 extends CommonTest {
 
     @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            import java.util.Set;
+            class X {
+                int method() {
+                    int j=3;
+                    return j;
+                }
+            }
+            """;
+
+    @DisplayName("direct assignment")
+    @Test
+    public void test1() {
+        TypeInfo X = javaInspector.parse(INPUT1);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo method = X.findUniqueMethod("method", 0);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+
+        Statement s0 = method.methodBody().statements().getFirst();
+        VariableData vd0 = VariableDataImpl.of(s0);
+
+        VariableInfo vi0J = vd0.variableInfo("j");
+        assertEquals("j≡$_ce0", vi0J.linkedVariables().toString());
+        assertEquals("[] --> -", mlv.toString());
+    }
+
+    @Language("java")
     private static final String INPUT2 = """
             package a.b;
             import java.util.Set;
