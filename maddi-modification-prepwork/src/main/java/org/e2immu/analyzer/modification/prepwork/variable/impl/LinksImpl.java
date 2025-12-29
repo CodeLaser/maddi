@@ -178,8 +178,14 @@ public class LinksImpl implements Links {
             assert from != null;
             assert to != null;
             assert linkNature != null;
+            assert doNotStackMOnTopOfVirtualField(from);
+            assert doNotStackMOnTopOfVirtualField(to);
         }
 
+        private static boolean doNotStackMOnTopOfVirtualField(Variable v) {
+            return !(v instanceof FieldReference fr && "§m".equals(fr.fieldInfo().name())
+                     && fr.scopeVariable() instanceof FieldReference fr2 && fr2.fieldInfo().name().startsWith("§"));
+        }
         @Override
         public boolean equals(Object object) {
             if (!(object instanceof LinkImpl link)) return false;
@@ -222,6 +228,12 @@ public class LinksImpl implements Links {
             }
             return this;
         }
+
+        @Override
+        public boolean containsVirtualFields() {
+            return from instanceof FieldReference fr && Util.virtual(fr)
+                    || to instanceof FieldReference fr2 && Util.virtual(fr2);
+        }
     }
 
     @Override
@@ -258,7 +270,10 @@ public class LinksImpl implements Links {
     private Stream<Link> translateCorrect(VirtualFieldTranslationMap translationMap, Link link) {
         Link tLink = link.translate(translationMap);
         // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
+        // upgrade: 0:key≡this.§kv.§k ==> 0:xs≡this.§xsys.§xs ==> 0:xs.§xs⊆this.§xsys.§xs
+        // FIXME 0:xs has no virtual fields
         if (link.linkNature().isIdenticalTo() && Util.isPrimary(tLink.from())
+            && Util.hasVirtualFields(tLink.from())
             && link.to().parameterizedType().arrays() == 0
             && tLink.to().parameterizedType().arrays() > 0
             && tLink.to() instanceof FieldReference fr) {
@@ -290,5 +305,11 @@ public class LinksImpl implements Links {
             } // else: ignore
         }
         return builders.values().stream().map(Builder::build).toList();
+    }
+
+    @Override
+    public boolean containsVirtualFields() {
+        if(primary instanceof FieldReference fr && Util.virtual(fr)) return true;
+        return linkSet.stream().anyMatch(Link::containsVirtualFields);
     }
 }

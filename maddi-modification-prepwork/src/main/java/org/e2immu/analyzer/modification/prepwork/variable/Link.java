@@ -8,6 +8,8 @@ import org.jetbrains.annotations.NotNull;
 
 
 public interface Link extends Comparable<Link> {
+    boolean containsVirtualFields();
+
     Variable from();
 
     LinkNature linkNature();

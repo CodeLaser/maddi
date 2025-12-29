@@ -290,9 +290,13 @@ public record ExpressionVisitor(JavaInspector javaInspector,
 
         // only translate wrt concrete type
         MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
-        VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
-        MethodLinkedVariables mlvTranslated1 = mlv.translate(vfTm.formalToConcrete());
-
+        MethodLinkedVariables mlvTranslated1;
+        if (mlv.virtual()) {
+            VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
+            mlvTranslated1 = mlv.translate(vfTm.formalToConcrete());
+        } else {
+            mlvTranslated1 = mlv;
+        }
         // NOTE translation with respect to parameters happens in LMC.methodCall()
         List<Result> params = cc.parameterExpressions().stream()
                 .map(e -> visit(e, variableData, stage))
@@ -305,8 +309,13 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
 
         ParameterizedType concreteObjectType = lambda.concreteReturnType();
-        VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
-        MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+        MethodLinkedVariables mlvTranslated;
+        if (mlv.virtual()) {
+            VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
+            mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+        } else {
+            mlvTranslated = mlv;
+        }
         int i = 0;
         Map<Variable, Links> map = new HashMap<>();
         for (Links paramLinks : mlvTranslated.ofParameters()) {
@@ -323,8 +332,13 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         if (sami != null) {
 
             MethodLinkedVariables mlv = linkComputer.recurseMethod(sami);
-            VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
-            MethodLinkedVariables mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+            MethodLinkedVariables mlvTranslated;
+            if (mlv.virtual()) {
+                VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
+                mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+            } else {
+                mlvTranslated = mlv;
+            }
             int i = 0;
             Map<Variable, Links> map = new HashMap<>();
             for (Links paramLinks : mlvTranslated.ofParameters()) {
@@ -371,9 +385,14 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             }
             if (!currentMethod.typeInfo().isEqualToOrInnerClassOf(mc.methodInfo().typeInfo())) {
                 ParameterizedType concreteObjectType = objectPrimary.parameterizedType();
-                VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
-                mlvTranslated2 = mlvTranslated1.translate(vfTm.formalToConcrete());
+                if (mlvTranslated1.virtual()) {
+                    VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
+                    mlvTranslated2 = mlvTranslated1.translate(vfTm.formalToConcrete());
+                } else {
+                    mlvTranslated2 = mlvTranslated1;
+                }
             } else {
+                // no transformation needed
                 mlvTranslated2 = mlvTranslated1;
             }
         } else {

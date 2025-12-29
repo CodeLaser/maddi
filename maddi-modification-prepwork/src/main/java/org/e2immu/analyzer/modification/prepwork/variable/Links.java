@@ -19,6 +19,8 @@ MethodLinkedVariables.
  */
 public interface Links extends Iterable<Link>, Value {
 
+    boolean containsVirtualFields();
+
     Variable primary();
 
     boolean isEmpty();
