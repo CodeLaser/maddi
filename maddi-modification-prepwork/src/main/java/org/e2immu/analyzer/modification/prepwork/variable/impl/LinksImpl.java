@@ -276,8 +276,9 @@ public class LinksImpl implements Links {
 
     @Override
     public Links translate(TranslationMap translationMap) {
+        if (primary == null) return LinksImpl.EMPTY;
         Variable newPrimary = translationMap.translateVariableRecursively(primary);
-        if (newPrimary == null) return null;
+        if (newPrimary == null) return LinksImpl.EMPTY;
         if (translationMap instanceof VirtualFieldTranslationMap vfTm) {
             return new LinksImpl(newPrimary,
                     linkSet.stream().flatMap(l -> translateCorrect(vfTm, l)).toList());
@@ -290,7 +291,6 @@ public class LinksImpl implements Links {
         Link tLink = link.translate(translationMap);
         // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
         // upgrade: 0:key≡this.§kv.§k ==> 0:xs≡this.§xsys.§xs ==> 0:xs.§xs⊆this.§xsys.§xs
-        // FIXME 0:xs has no virtual fields
         if (link.linkNature().isIdenticalTo() && Util.isPrimary(tLink.from())
             && Util.hasVirtualFields(tLink.from())
             && link.to().parameterizedType().arrays() == 0

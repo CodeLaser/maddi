@@ -9,6 +9,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -55,14 +56,20 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         ParameterizedType returnType = methodInfo.returnType();
         TypeInfo typeInfo = methodInfo.typeInfo();
         ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
-        Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
 
+        Value.FieldValue fv = methodInfo.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD, ValueImpl.GetSetValueImpl.EMPTY);
+        if (fv.field() != null && methodInfo.isAbstract()
+            // TODO better way of checking "non-standard get/set"
+            && methodInfo.annotations().stream().anyMatch(ae -> "GetSet".equals(ae.typeInfo().simpleName()))) {
+            return abstractGetterSetter(methodInfo, fv, rv);
+        }
         // virtual fields of the default source = the object ~ "this"
         VirtualFields vfThis = virtualFieldComputer.compute(typeInfo.asParameterizedType(),
                 false).virtualFields();
         FieldInfo hcThis = vfThis.hiddenContent();
         FieldReference hcThisFr = hcThis == null ? null : runtime.newFieldReference(hcThis);
         Set<TypeParameter> hcThisTps = hcThis == null ? null : correspondingTypeParameters(typeInfo, hcThis);
+        Links.Builder ofReturnValue = new LinksImpl.Builder(rv);
 
         // *************************************************
         // instance method, from return variable to object
@@ -477,4 +484,29 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         return dependenciesPrev.getOrDefault(pi.index(), -1);
     }
 
+    // see TestStaticValuesRecord,7: @GetSet("variables") Object variable(int i);
+    // we can't really use the virtual field computer, because this is a "fake" getter/setter
+
+    private MethodLinkedVariables abstractGetterSetter(MethodInfo methodInfo, Value.FieldValue fv, ReturnVariableImpl rv) {
+        if (fv.setter()) {
+            throw new UnsupportedOperationException();
+        }
+        LinksImpl.Builder builder = new LinksImpl.Builder(rv);
+        ParameterizedType baseType = methodInfo.returnType();
+        String n = baseType.typeParameter() != null ? baseType.typeParameter().simpleName().toLowerCase() : "$";
+        if (methodInfo.parameters().isEmpty()) {
+            // rv ≡ this.§t  (where §t is a virtual field representing an object of type 'baseType')
+            FieldInfo fieldInfo = virtualFieldComputer.newField(n + "s", baseType, methodInfo.typeInfo());
+            FieldReference t = runtime.newFieldReference(fieldInfo);
+            builder.add(IS_IDENTICAL_TO, t);
+        } else if (methodInfo.parameters().size() == 1) {
+            // rv ∈ this.§ts (where §ts is a virtual field representing an array of 'baseType' elements)
+            ParameterizedType arrayType = baseType.copyWithArrays(baseType.arrays() + 1);
+            FieldInfo fieldInfo = virtualFieldComputer.newField(n + "s", arrayType, methodInfo.typeInfo());
+            VariableExpression virtualField = runtime.newVariableExpression(runtime.newFieldReference(fv.field()));
+            FieldReference ts = runtime.newFieldReference(fieldInfo, virtualField, fieldInfo.type());
+            builder.add(IS_ELEMENT_OF, ts);
+        }
+        return new MethodLinkedVariablesImpl(builder.build(), methodInfo.parameters().isEmpty() ? List.of() : List.of(LinksImpl.EMPTY));
+    }
 }
