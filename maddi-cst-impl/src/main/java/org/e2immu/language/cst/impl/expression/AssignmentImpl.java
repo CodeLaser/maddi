@@ -253,7 +253,8 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
         Expression translated = translationMap.translateExpression(this);
         if (translated == null) return this; // allow break out
         if (translated != this) return translated;
-        VariableExpression translatedTarget = (VariableExpression) target.translate(translationMap);
+        Expression tTarget = target.translate(translationMap);
+        VariableExpression translatedTarget = tTarget instanceof VariableExpression ve ? ve : target;
         Expression translatedValue = value.translate(translationMap);
         if (translatedValue == this.value && translatedTarget == this.target) return this;
 

@@ -506,6 +506,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             VariableExpression virtualField = runtime.newVariableExpression(runtime.newFieldReference(fv.field()));
             FieldReference ts = runtime.newFieldReference(fieldInfo, virtualField, fieldInfo.type());
             builder.add(IS_ELEMENT_OF, ts);
+            DependentVariable dv = runtime.newDependentVariable(runtime.newVariableExpression(ts),
+                    runtime.newVariableExpression(methodInfo.parameters().getFirst()));
+            builder.add(IS_IDENTICAL_TO, dv);
         }
         return new MethodLinkedVariablesImpl(builder.build(), methodInfo.parameters().isEmpty() ? List.of() : List.of(LinksImpl.EMPTY));
     }

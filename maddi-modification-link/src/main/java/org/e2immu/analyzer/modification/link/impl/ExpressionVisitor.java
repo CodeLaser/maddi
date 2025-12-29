@@ -166,7 +166,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case Lambda lambda -> lambda(lambda, true);
             case Cast cast -> cast(variableData, stage, cast);
             case InstanceOf instanceOf -> instanceOf(variableData, instanceOf);
-
+            case ConstantExpression<?> ce -> constantExpression(ce);
             case InlineConditional ic -> inlineConditional(ic, variableData, stage);
             case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData, stage))
                     .reduce(EMPTY, Result::merge);
@@ -182,9 +182,15 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             case GreaterThanZero gt0 -> visit(gt0.expression(), variableData, stage);
             case BinaryOperator bo -> visit(bo.lhs(), variableData, stage)
                     .merge(visit(bo.rhs(), variableData, stage)).with(LinksImpl.EMPTY);
-            case ConstantExpression<?> _, TypeExpression _ -> EMPTY;
+            case TypeExpression _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
+    }
+
+    Result constantExpression(ConstantExpression<?> ce) {
+        LocalVariable lv = javaInspector.runtime().newLocalVariable(LinksImpl.CONSTANT_VARIABLE + variableCounter.getAndIncrement(),
+                ce.parameterizedType(), ce);
+        return new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
     }
 
     /*
