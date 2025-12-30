@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.element.RecordPattern;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -189,7 +190,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             }
             case Lambda lambda -> lambda(lambda, true);
             case Cast cast -> cast(variableData, stage, cast);
-            case InstanceOf instanceOf -> instanceOf(variableData, instanceOf);
+            case InstanceOf instanceOf -> instanceOf(variableData, stage, instanceOf);
             case ConstantExpression<?> ce -> constantExpression(ce);
             case InlineConditional ic -> inlineConditional(ic, variableData, stage);
             case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData, stage))
@@ -242,8 +243,37 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     }
 
 
-    private Result instanceOf(VariableData variableData, InstanceOf instanceOf) {
-        throw new UnsupportedOperationException();
+    private Result instanceOf(VariableData variableData, Stage stage, InstanceOf instanceOf) {
+        if (instanceOf.patternVariable() != null) {
+            Result r = visit(instanceOf.expression(), variableData, stage);
+            if (instanceOf.expression() instanceof VariableExpression ve) {
+                r.addCast(ve.variable(), instanceOf.testType());
+                Links.Builder linksBuilder = new LinksImpl.Builder(ve.variable());
+                // a instanceof B b -> a ≡ b
+                if (instanceOf.patternVariable().localVariable() != null) {
+                    LocalVariable lv = instanceOf.patternVariable().localVariable();
+                    if (!lv.isUnnamed()) {
+                        linksBuilder.add(LinkNatureImpl.IS_IDENTICAL_TO, lv);
+                        return r.moveLinksToExtra().with(linksBuilder.build());
+                    }
+                } else if (instanceOf.patternVariable().recordType() != null) {
+                    // a instanceof Point(Coord x, Coord y) -> x is field of a, y is field of a
+                    recursivelyAddToBuilder(linksBuilder, instanceOf.patternVariable());
+                    return r.moveLinksToExtra().with(linksBuilder.build());
+                }
+            }
+            return r.moveLinksToExtra(); // result is a boolean
+        }
+        return EMPTY;
+    }
+
+    private void recursivelyAddToBuilder(Links.Builder linksBuilder, RecordPattern recordPattern) {
+        for (RecordPattern rp : recordPattern.patterns()) {
+            recursivelyAddToBuilder(linksBuilder, rp);
+        }
+        if (recordPattern.localVariable() != null && !recordPattern.localVariable().isUnnamed()) {
+            linksBuilder.add(LinkNatureImpl.CONTAINS_AS_FIELD, recordPattern.localVariable());
+        }
     }
 
     private Result methodReference(VariableData variableData, Stage stage, MethodReference mr) {
