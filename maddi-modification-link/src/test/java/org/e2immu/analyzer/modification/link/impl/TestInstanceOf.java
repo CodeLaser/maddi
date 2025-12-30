@@ -53,14 +53,14 @@ public class TestInstanceOf extends CommonTest {
             Statement s0 = setAdd.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo viObject0E = vd0.variableInfo(object, Stage.EVALUATION);
-            assertEquals("0:object≡set", viObject0E.linkedVariables().toString());
+            assertEquals("0:object→set", viObject0E.linkedVariables().toString());
             assertFalse(viObject0E.isModified());
         }
         {
             Statement s000 = setAdd.methodBody().statements().getFirst();
             VariableData vd000 = VariableDataImpl.of(s000);
             VariableInfo viObject000 = vd000.variableInfo(object);
-            assertEquals("0:object≡set,0:object.§es≡set.§es,0:object.§es∋1:s,0:object≡set", viObject000.linkedVariables().toString());
+            assertEquals("0:object→set,0:object.§es→set.§es,0:object.§es∋1:s,0:object→set", viObject000.linkedVariables().toString());
             assertTrue(viObject000.isModified());
         }
         assertTrue(object.isModified());
@@ -100,7 +100,7 @@ public class TestInstanceOf extends CommonTest {
             Statement s000 = method.methodBody().statements().getFirst().block().statements().getFirst();
             VariableData vd000 = VariableDataImpl.of(s000);
             VariableInfo vi000O = vd000.variableInfo("o");
-            assertEquals("o.§es≡set.§es,o.§es∋1:s,o.§es≺0:i,o≡set", vi000O.linkedVariables().toString());
+            assertEquals("o.§es→set.§es,o.§es∋1:s,o.§es≺0:i,o→set", vi000O.linkedVariables().toString());
             // o ≺ 0:i is not visible
             assertTrue(vi000O.isModified());
 

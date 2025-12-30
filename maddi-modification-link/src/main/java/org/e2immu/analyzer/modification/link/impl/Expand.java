@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.IS_IDENTICAL_TO;
+import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 public record Expand(Runtime runtime) {
@@ -94,8 +94,8 @@ public record Expand(Runtime runtime) {
         if (!from.equals(primary) && !(primary.v instanceof This)
             //   && !from.v.simpleName().startsWith("§")
             && from.v instanceof FieldReference && primary.v.equals(fieldScope(from.v))) {
-            mergeEdge(graph, primary, LinkNatureImpl.CONTAINS_AS_FIELD, from);
-            mergeEdge(graph, from, LinkNatureImpl.IS_FIELD_OF, primary);
+            mergeEdge(graph, primary, CONTAINS_AS_FIELD, from);
+            mergeEdge(graph, from, IS_FIELD_OF, primary);
         }
     }
 
@@ -128,16 +128,16 @@ public record Expand(Runtime runtime) {
             V toPrimary = correctForThis(subToPrimary.getOrDefault(vTo, vTo), vTo);
             mergeEdge(graph, toPrimary, vTo, linkNature.reverse(), vFrom);
         }
-        if (linkNature == IS_IDENTICAL_TO) {
+        if (linkNature == IS_IDENTICAL_TO || linkNature == IS_ASSIGNED_FROM || linkNature == IS_ASSIGNED_TO) {
             Set<V> subsOfFrom = primaryToSub.get(vFrom);
             if (subsOfFrom != null) {
                 subsOfFrom.forEach(s ->
-                        mergeEdge(graph, s, IS_IDENTICAL_TO, makeComparableSub(vFrom, s, vTo)));
+                        mergeEdge(graph, s, linkNature.reverse(), makeComparableSub(vFrom, s, vTo)));
             }
             Set<V> subsOfTo = primaryToSub.get(vTo);
             if (subsOfTo != null) {
                 subsOfTo.forEach(s ->
-                        mergeEdge(graph, makeComparableSub(vTo, s, vFrom), IS_IDENTICAL_TO, s));
+                        mergeEdge(graph, makeComparableSub(vTo, s, vFrom), linkNature, s));
             }
         }
     }
@@ -297,12 +297,13 @@ public record Expand(Runtime runtime) {
             if (modifiedVariables.contains(toPrimary)) {
                 LinkNature ln = link.linkNature();
                 if (ln == IS_IDENTICAL_TO
-                    || ln == LinkNatureImpl.CONTAINS_AS_MEMBER
-                    || ln == LinkNatureImpl.CONTAINS_AS_FIELD
-                    || ln == LinkNatureImpl.OBJECT_GRAPH_CONTAINS) {
+                    || ln == IS_ASSIGNED_FROM
+                    || ln == CONTAINS_AS_MEMBER
+                    || ln == CONTAINS_AS_FIELD
+                    || ln == OBJECT_GRAPH_CONTAINS) {
                     return false;
                 }
-                if (ln == LinkNatureImpl.SHARES_ELEMENTS || ln == LinkNatureImpl.SHARES_FIELDS) {
+                if (ln == SHARES_ELEMENTS || ln == SHARES_FIELDS) {
                     // TODO do we need to look at the immutability of the variable's type?
                     return false;
                 }
@@ -459,7 +460,7 @@ public record Expand(Runtime runtime) {
         Links.Builder builder = followGraph(gd, primary, tm, false);
 
         if (containsNoLocalVariable(primary)) {
-            builder.prepend(IS_IDENTICAL_TO, primary);
+            builder.prepend(IS_ASSIGNED_FROM, primary);
         }
         return builder.build();
     }

@@ -255,7 +255,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                 if (instanceOf.patternVariable().localVariable() != null) {
                     LocalVariable lv = instanceOf.patternVariable().localVariable();
                     if (!lv.isUnnamed()) {
-                        linksBuilder.add(LinkNatureImpl.IS_IDENTICAL_TO, lv);
+                        linksBuilder.add(LinkNatureImpl.IS_ASSIGNED_TO, lv);
                         return r.moveLinksToExtra().with(linksBuilder.build());
                     }
                 } else if (instanceOf.patternVariable().recordType() != null) {
@@ -354,7 +354,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result rValue = visit(a.value(), variableData, stage);
         Result rTarget = visit(a.target(), variableData, stage);
         if (rValue.links != null && rValue.links.primary() != null) {
-            builder.add(LinkNatureImpl.IS_IDENTICAL_TO, rValue.links.primary());
+            builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links.primary());
         }
         Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
         if (a.assignmentOperator() != null || rValue.links == null || rValue.links.primary() == null) {

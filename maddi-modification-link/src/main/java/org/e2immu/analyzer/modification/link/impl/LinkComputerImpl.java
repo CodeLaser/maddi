@@ -253,7 +253,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 ExpressionVisitor.Result u = new ForEach(javaInspector.runtime(), expressionVisitor)
                         .linkIntoIterable(forEachLv.parameterizedType(), e, previousVd, stageOfPrevious);
                 Links newLinks = new LinksImpl.Builder(forEachLv)
-                        .add(LinkNatureImpl.IS_IDENTICAL_TO, u.links().primary())
+                        .add(LinkNatureImpl.IS_ASSIGNED_FROM, u.links().primary())
                         .build();
                 r = u.addExtra(Map.of(forEachLv, newLinks));
             }
@@ -466,7 +466,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 if (r.links().primary() != null) {
                     // make sure that we link the variables with '==', as we do in ExpressionVisitor.assignment
                     Links newLinks = new LinksImpl.Builder(lv)
-                            .add(LinkNatureImpl.IS_IDENTICAL_TO, r.links().primary())
+                            .add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary())
                             .build();
                     linkedVariables.merge(lv, newLinks, Links::merge);
                 }

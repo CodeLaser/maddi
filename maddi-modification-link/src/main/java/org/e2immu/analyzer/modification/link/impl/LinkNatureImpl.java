@@ -28,7 +28,11 @@ public class LinkNatureImpl implements LinkNature {
     public static final LinkNatureImpl IS_ELEMENT_OF = new LinkNatureImpl("∈", 9);
     public static final LinkNatureImpl CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 10);
 
-    public static final LinkNatureImpl IS_IDENTICAL_TO = new LinkNatureImpl("≡", 11);
+    // java a=b implies a ← b
+    public static final LinkNatureImpl IS_ASSIGNED_FROM = new LinkNatureImpl("←", 11);
+    public static final LinkNatureImpl IS_ASSIGNED_TO = new LinkNatureImpl("→", 12);
+
+    public static final LinkNatureImpl IS_IDENTICAL_TO = new LinkNatureImpl("≡", 13);
 
     private final String symbol;
     private final int rank;
@@ -79,6 +83,8 @@ public class LinkNatureImpl implements LinkNature {
         if (this == IS_SUPERSET_OF) return IS_SUBSET_OF;
         if (this == OBJECT_GRAPH_CONTAINS) return IS_IN_OBJECT_GRAPH;
         if (this == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_CONTAINS;
+        if (this == IS_ASSIGNED_FROM) return IS_ASSIGNED_TO;
+        if (this == IS_ASSIGNED_TO) return IS_ASSIGNED_FROM;
         return this;
     }
 
@@ -94,6 +100,8 @@ public class LinkNatureImpl implements LinkNature {
         if (this == NONE || other == NONE) return NONE;
         if (other == IS_IDENTICAL_TO) return this;
         if (this == IS_IDENTICAL_TO) return other;
+        if (other == IS_ASSIGNED_TO) return this; // a R b → c implies a R c;
+        if (this == IS_ASSIGNED_FROM) return other; // a ← b R c implies a R c
 
         if (this == IS_ELEMENT_OF) {
             if (other == IS_SUBSET_OF) return IS_ELEMENT_OF;
@@ -222,7 +230,9 @@ public class LinkNatureImpl implements LinkNature {
             // a.b ∋⊇≥ c => a ≥ c
             return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
         }
-        if (this == IS_IDENTICAL_TO || this == SHARES_ELEMENTS || this == SHARES_FIELDS) {
+        if (this == IS_IDENTICAL_TO
+            || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO
+            || this == SHARES_ELEMENTS || this == SHARES_FIELDS) {
             return List.of(OBJECT_GRAPH_OVERLAPS, IS_FIELD_OF, CONTAINS_AS_FIELD);
         }
         return List.of(OBJECT_GRAPH_OVERLAPS);
@@ -238,7 +248,8 @@ public class LinkNatureImpl implements LinkNature {
             // a ∋⊇≥ b.c => a ≥ c
             return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
         }
-        if (this == IS_IDENTICAL_TO || this == SHARES_ELEMENTS || this == SHARES_FIELDS) {
+        if (this == IS_IDENTICAL_TO || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO
+            || this == SHARES_ELEMENTS || this == SHARES_FIELDS) {
             return List.of(OBJECT_GRAPH_OVERLAPS, CONTAINS_AS_FIELD, IS_FIELD_OF);
         }
         return List.of(OBJECT_GRAPH_OVERLAPS);
@@ -247,7 +258,9 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public List<LinkNature> redundantUp() {
-        if (this == IS_IDENTICAL_TO) return List.of(SHARES_FIELDS, OBJECT_GRAPH_OVERLAPS);
+        if (this == IS_IDENTICAL_TO || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO) {
+            return List.of(SHARES_FIELDS, OBJECT_GRAPH_OVERLAPS);
+        }
         return List.of(OBJECT_GRAPH_OVERLAPS);
     }
 }

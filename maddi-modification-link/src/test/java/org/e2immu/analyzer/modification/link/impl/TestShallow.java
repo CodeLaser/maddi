@@ -16,7 +16,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -58,11 +57,11 @@ public class TestShallow extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("get", 0);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[] --> get≡this.§t", mlvGet.toString());
+        assertEquals("[] --> get←this.§t", mlvGet.toString());
 
         MethodInfo set = X.findUniqueMethod("set", 1);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[0:t≡this.§t] --> -", mlvSet.toString());
+        assertEquals("[0:t→this.§t] --> -", mlvSet.toString());
 
         MethodInfo label = X.findUniqueMethod("label", 1);
         MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
@@ -103,11 +102,11 @@ public class TestShallow extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("get", 0);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[] --> get≡this.§t", mlvGet.toString());
+        assertEquals("[] --> get←this.§t", mlvGet.toString());
 
         MethodInfo set = X.findUniqueMethod("set", 1);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[0:t≡this.§t] --> -", mlvSet.toString());
+        assertEquals("[0:t→this.§t] --> -", mlvSet.toString());
 
         MethodInfo label = X.findUniqueMethod("label", 1);
         MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
@@ -129,15 +128,15 @@ public class TestShallow extends CommonTest {
 
         MethodInfo get = optional.findUniqueMethod("get", 0);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[] --> get≡this.§t", mlvGet.toString());
+        assertEquals("[] --> get←this.§t", mlvGet.toString());
 
         MethodInfo set = optional.findUniqueMethod("orElse", 1);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[-] --> orElse≡this.§t,orElse≡0:other", mlvSet.toString());
+        assertEquals("[-] --> orElse←this.§t,orElse←0:other", mlvSet.toString());
 
         MethodInfo orElseThrow = optional.findUniqueMethod("orElseThrow", 0);
         MethodLinkedVariables mlvOrElseThrow = linkComputer.doMethod(orElseThrow);
-        assertEquals("[] --> orElseThrow≡this.§t", mlvOrElseThrow.toString());
+        assertEquals("[] --> orElseThrow←this.§t", mlvOrElseThrow.toString());
 
         MethodInfo stream = optional.findUniqueMethod("stream", 0);
         MethodLinkedVariables mlvStream = linkComputer.doMethod(stream);
@@ -145,11 +144,11 @@ public class TestShallow extends CommonTest {
 
         MethodInfo of = optional.findUniqueMethod("of", 1);
         MethodLinkedVariables mlvOf = linkComputer.doMethod(of);
-        assertEquals("[-] --> of.§t≡0:value", mlvOf.toString());
+        assertEquals("[-] --> of.§t←0:value", mlvOf.toString());
 
         MethodInfo orElseGet = optional.findUniqueMethod("orElseGet", 1);
         MethodLinkedVariables mlvOrElseGet = linkComputer.doMethod(orElseGet);
-        assertEquals("[-] --> orElseGet≡this.§t,orElseGet≡Λ0:supplier", mlvOrElseGet.toString());
+        assertEquals("[-] --> orElseGet←this.§t,orElseGet←Λ0:supplier", mlvOrElseGet.toString());
     }
 
     @DisplayName("Analyze 'List', multiplicity 2, 1 type parameter")
@@ -252,7 +251,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo getOrDefault = map.findUniqueMethod("getOrDefault", 2);
         MethodLinkedVariables mlvGetOrDefault = linkComputer.doMethod(getOrDefault);
-        assertEquals("[-, -] --> getOrDefault∈this.§kvs[-2].§v,getOrDefault≡1:defaultValue",
+        assertEquals("[-, -] --> getOrDefault∈this.§kvs[-2].§v,getOrDefault←1:defaultValue",
                 mlvGetOrDefault.toString());
 
         MethodInfo get = map.findUniqueMethod("get", 1);

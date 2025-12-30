@@ -84,7 +84,7 @@ public class TestStream extends CommonTest {
         VariableData vd3 = VariableDataImpl.of(large2.methodBody().statements().get(3));
         VariableInfo viOrElse = vd3.variableInfo("orElse");
         assertEquals("""
-                orElse≡first.§t,orElse∈this.list.§ts,orElse∈filtered.§ts,orElse∈stream.§ts\
+                orElse←first.§t,orElse∈this.list.§ts,orElse∈filtered.§ts,orElse∈stream.§ts\
                 """, viOrElse.linkedVariables().toString());
 
         assertEquals("[-] --> large2∈this.list.§ts", mlvLarge2.toString());
