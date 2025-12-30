@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -17,8 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestVirtualFieldTranslationMap extends CommonTest {
 
@@ -239,5 +239,54 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         FieldReference fr = runtime.newFieldReference(vfSet.hiddenContent());
         Variable translated = vfTm.formalToConcrete().translateVariableRecursively(fr);
         assertEquals("this.§$s", translated.toString());
+
+        FieldInfo setF = C.getFieldByName("set", true);
+        VirtualFieldComputer.VfTm vfTmSetF = vfc.compute(setF.type(), true);
+        assertEquals("""
+                E=TP#0 in Collection [] --> a.b.C.II
+                E=TP#0 in Set [] --> a.b.C.II
+                T=TP#0 in Iterable [] --> a.b.C.II\
+                """, vfTmSetF.formalToConcrete().toString());
+        // FIXME / ?? should Set not have a virtual field?
+        assertEquals("§m - /", vfTmSetF.virtualFields().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4b = """
+            package a.b;
+            import java.util.Set;
+            import java.util.HashSet;
+            import java.util.List;
+            public class C<X> {
+                interface I { }
+                class II implements I { }
+                Set set = new HashSet<>();
+                void add(II ii) {
+                    set.add(ii);
+                }
+                void add2(II ii) {
+                    add(ii);
+                }
+                void method(List list) {
+                   list.forEach(j -> add(j));
+                }
+            }
+            """;
+
+    // FIXME should we use Object?
+    @DisplayName("concrete set, without type parameters")
+    @Test
+    public void test4b() {
+        TypeInfo C = javaInspector.parse(INPUT4b);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        FieldInfo set = C.getFieldByName("set", true);
+        assertEquals("Type java.util.Set", set.type().toString());
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(set.type(), true);
+        assertEquals("§m - Set §0", vfTm.virtualFields().toString());
+        assertNull(vfTm.formalToConcrete());
     }
 }
