@@ -162,7 +162,8 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
     }
 
     private FieldReference handleFieldReference(FieldReference fr, String newName, ParameterizedType newType) {
-        TypeInfo owner = newType.typeParameter() != null ? newType.typeParameter().typeInfo() : newType.typeInfo();
+        TypeInfo owner = newType.typeParameter() != null ? newType.typeParameter().typeInfo()
+                : newType.typeInfo() != null ? newType.typeInfo() : runtime.objectTypeInfo();
         String cleanName = newName.replace(VF_CHAR, "");
         FieldInfo newFieldInfo = runtime.newFieldInfo(VF_CHAR + cleanName, false, newType, owner);
         Expression tScope = fr.scope().translate(this);

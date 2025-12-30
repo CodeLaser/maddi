@@ -284,19 +284,20 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         MethodLinkedVariables mlv = linkComputer.recurseMethod(mr.methodInfo());
 
         Result object = visit(mr.scope(), variableData, stage);
-        Links newRv;
+        MethodLinkedVariables tMlv;
         if (object.links.primary() != null) {
             This thisVar = javaInspector.runtime().newThis(mr.methodInfo().typeInfo().asParameterizedType());
             TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
                     .put(thisVar, object.links.primary())
                     .build();
-            newRv = mlv.ofReturnValue().translate(tm);
+            tMlv = mlv.translate(tm);
         } else {
-            newRv = mlv.ofReturnValue();
+            tMlv = mlv;
         }
+        Links newRv = tMlv.ofReturnValue();
         int i = 0;
         Map<Variable, Links> map = new HashMap<>();
-        for (Links paramLinks : mlv.ofParameters()) {
+        for (Links paramLinks : tMlv.ofParameters()) {
             map.put(mr.methodInfo().parameters().get(i), paramLinks);
             ++i;
         }
