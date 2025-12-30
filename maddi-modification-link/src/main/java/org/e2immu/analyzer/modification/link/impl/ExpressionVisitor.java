@@ -268,8 +268,10 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     }
 
     private void recursivelyAddToBuilder(Links.Builder linksBuilder, RecordPattern recordPattern) {
-        for (RecordPattern rp : recordPattern.patterns()) {
-            recursivelyAddToBuilder(linksBuilder, rp);
+        if (recordPattern.patterns() != null) {
+            for (RecordPattern rp : recordPattern.patterns()) {
+                recursivelyAddToBuilder(linksBuilder, rp);
+            }
         }
         if (recordPattern.localVariable() != null && !recordPattern.localVariable().isUnnamed()) {
             linksBuilder.add(LinkNatureImpl.CONTAINS_AS_FIELD, recordPattern.localVariable());

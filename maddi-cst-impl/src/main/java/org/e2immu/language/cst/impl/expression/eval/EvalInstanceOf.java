@@ -14,7 +14,10 @@
 
 package org.e2immu.language.cst.impl.expression.eval;
 
-import org.e2immu.language.cst.api.expression.*;
+import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.expression.Instance;
+import org.e2immu.language.cst.api.expression.InstanceOf;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
@@ -28,6 +31,10 @@ public class EvalInstanceOf {
     public Expression eval(Expression value, InstanceOf instanceOf) {
         if (value.isNullConstant()) {
             return runtime.constantFalse();
+        }
+        if (instanceOf.patternVariable() != null && !instanceOf.patternVariable().unnamedPattern()) {
+            // local variable, or record pattern
+            return instanceOf;
         }
         ParameterizedType testType = instanceOf.testType();
         if (testType.isJavaLangObject()) {

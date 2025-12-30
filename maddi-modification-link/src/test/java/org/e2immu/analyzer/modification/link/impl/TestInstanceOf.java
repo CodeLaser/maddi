@@ -1,6 +1,5 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.io.DecoratorImpl;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
@@ -9,9 +8,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -22,11 +19,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.Set;
-
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.DOWNCAST_PARAMETER;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.SetOfTypeInfoImpl.EMPTY;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestInstanceOf extends CommonTest {
@@ -76,17 +69,17 @@ public class TestInstanceOf extends CommonTest {
         assertTrue(object.isModified());
         assertEquals("[0:object.§es∋1:s, 1:s∈0:object.§es] --> -", mlv.toString());
     }
+
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
-            class X5 {
-                record Point(int x, int y) {}
-                enum Color { RED, GREEN, BLUE }
-                record ColoredPoint(Point p, Color c) {}
-                record Rectangle(ColoredPoint upperLeft, ColoredPoint lowerRight) {}
-                static void printXCoordOfUpperLeftPointWithPatterns(Rectangle r) {
-                    if (r instanceof Rectangle(ColoredPoint(Point(int x, int _), Color c), _)) {
-                         System.out.println("Upper-left corner: " + x);
+            import java.util.Set;
+            class X {
+                interface I { }
+                record R(Object o) implements I {}
+                void method(I i, String s) {
+                    if(i instanceof R(Object o) && o instanceof Set set) {
+                        set.add(s);
                     }
                 }
             }
@@ -100,32 +93,36 @@ public class TestInstanceOf extends CommonTest {
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
 
-        MethodInfo method = X.findUniqueMethod("printXCoordOfUpperLeftPointWithPatterns", 1);
+        MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
         VariableData vd = VariableDataImpl.of(method);
         assertNotNull(vd);
-        ParameterInfo r = method.parameters().getFirst();
+        ParameterInfo i = method.parameters().getFirst();
+        {
+            Statement s000 = method.methodBody().statements().getFirst().block().statements().getFirst();
+            VariableData vd000 = VariableDataImpl.of(s000);
+            VariableInfo vi000O = vd000.variableInfo("o");
+            assertEquals("o.§es≡set.§es,o.§es∋1:s,o≡set", vi000O.linkedVariables().toString());
+            // o ≺ 0:i is not visible
+            assertTrue(vi000O.isModified());
+        }
         {
             Statement s0 = method.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
-            VariableInfo vi0Set = vd0.variableInfo("c");
-            assertEquals("set≡0:r.object", vi0Set.linkedVariables().toString());
-            assertFalse(vi0Set.isModified());
-        }
-        {
-            Statement s1 = method.methodBody().statements().get(1);
-            VariableData vd1 = VariableDataImpl.of(s1);
-            VariableInfo vi1Set = vd1.variableInfo("r");
-            assertEquals("set.§$s≡0:r.object.§$s,set.§$s∋1:s,set≡0:r.object", vi1Set.linkedVariables().toString());
-            assertTrue(vi1Set.isModified());
-            VariableInfo vi1R = vd1.variableInfo(r);
-            assertTrue(vi1R.isModified());
-        }
-        assertTrue(r.isModified());
-        assertEquals("[0:r.object≥1:s,0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -", mlv.toString());
+            VariableInfo viI0E = vd0.variableInfo(i, Stage.EVALUATION);
+            assertEquals("-", viI0E.linkedVariables().toString());
+            assertFalse(viI0E.isModified());
 
-        Value.VariableBooleanMap map = r.analysis().getOrDefault(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER,
+            VariableInfo viI0M = vd0.variableInfo(i, Stage.MERGE);
+            assertEquals("0:i≻o", viI0M.linkedVariables().toString());
+            //FIXME??   assertTrue(viI0M.isModified());
+        }
+
+        assertTrue(i.isModified());
+        assertEquals("[0:i≥1:s, 1:s≤0:i] --> -", mlv.toString());
+
+        Value.VariableBooleanMap map = i.analysis().getOrDefault(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER,
                 ValueImpl.VariableBooleanMapImpl.EMPTY);
         assertEquals(1, map.map().size());
         assertEquals("{this.object=true}", map.map().toString());
