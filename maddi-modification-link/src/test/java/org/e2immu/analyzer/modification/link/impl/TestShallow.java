@@ -70,6 +70,51 @@ public class TestShallow extends CommonTest {
     }
 
 
+    @Language("java")
+    private static final String INPUT1b = """
+            package a.b;
+            import org.e2immu.annotation.Independent;
+            public interface X<T extends Comparable<? super T>> {
+                @Independent(hc = true)
+                T get();
+                void set(@Independent(hc = true) T t);
+                String label(int k);
+            }
+            """;
+
+    @DisplayName("Analyze 'get/set', multiplicity 1, with bound type parameter")
+    @Test
+    public void test1b() {
+        TypeInfo X = javaInspector.parse(INPUT1b);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+
+        // run the shallow analyzer to detect the annotations
+        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, annotatedApiParser,
+                true);
+        shallowAnalyzer.go(List.of(X));
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        VirtualFields vfX = vfc.compute(X);
+        assertEquals("§m - T §t", vfX.toString());
+
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+
+        MethodInfo get = X.findUniqueMethod("get", 0);
+        MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
+        assertEquals("[] --> get≡this.§t", mlvGet.toString());
+
+        MethodInfo set = X.findUniqueMethod("set", 1);
+        MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
+        assertEquals("[0:t≡this.§t] --> -", mlvSet.toString());
+
+        MethodInfo label = X.findUniqueMethod("label", 1);
+        MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
+        assertEquals("[-] --> -", mlvLabel.toString());
+    }
+
+
     @DisplayName("Analyze 'Optional', multiplicity 1, 1 type parameter")
     @Test
     public void test2() {

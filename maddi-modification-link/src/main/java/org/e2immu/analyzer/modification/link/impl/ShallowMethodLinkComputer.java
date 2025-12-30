@@ -248,10 +248,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                           Set<TypeParameter> typeParametersOfSubTo,
                           boolean force,
                           LinkNature subShareSuper) {
+        FieldInfo vfFromTypeMutable;
         if (fromType.typeParameter() != null && fromType.arrays() == 0) {
-            assert fromType.typeParameter().typeBounds().isEmpty() : """
-                    cannot deal with type bounds at the moment; obviously, if a type bound is mutable,
-                    the type parameter can be dependent""";
             LinkNature linkNature = deriveLinkNature(0, toType.arrays(), subShareSuper);
             if (fromType.typeParameter().equals(toType.typeParameter())) {
                 // 'to' is a type parameter, e.g. T[] ts
@@ -275,6 +273,13 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         builder.add(linkNature, slice);
                     }
                 }
+            }
+            TypeInfo bestType = fromType.bestTypeInfo();
+            if (bestType != null) {
+                VirtualFields vf = virtualFieldComputer.compute(bestType);
+                vfFromTypeMutable = vf.mutable();
+            } else {
+                vfFromTypeMutable = null;
             }
         } else {
             VirtualFields vfFromType;
@@ -380,19 +385,16 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         }
                     }
                 }
-
-                if (dependent) {
-                    if (vfFromType.mutable() != null && subMutable != null) {
-                        FieldReference mTarget = runtime.newFieldReference(vfFromType.mutable(),
-                                runtime.newVariableExpression(builder.primary()), vfFromType.mutable().type());
-                        FieldReference mSource = runtime.newFieldReference(subMutable);
-                        builder.add(mTarget, IS_IDENTICAL_TO, mSource);
-                    } else {
-                        throw new UnsupportedOperationException("Expected VF " + vfFromType + " of " +
-                                                                fromType + " to have a 'mutable' field");
-                    }
-                }
+                vfFromTypeMutable = vfFromType.mutable();
+            } else {
+                vfFromTypeMutable = null;
             }
+        }
+        if (dependent && vfFromTypeMutable != null && subMutable != null) {
+            FieldReference mTarget = runtime.newFieldReference(vfFromTypeMutable,
+                    runtime.newVariableExpression(builder.primary()), vfFromTypeMutable.type());
+            FieldReference mSource = runtime.newFieldReference(subMutable);
+            builder.add(mTarget, IS_IDENTICAL_TO, mSource);
         }
     }
 
