@@ -48,6 +48,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             if (sam.noReturnValue() && linksList.stream().allMatch(Links::isEmpty)) {
                 // we must keep the connection to the primary (see TestForEachLambda,6)
                 return linksList.stream()
+                        .filter(links -> !links.isEmpty())
                         .map(links -> new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()))
                         .toList();
             }

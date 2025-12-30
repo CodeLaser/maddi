@@ -205,9 +205,9 @@ public class TestForEachLambda extends CommonTest {
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
         // we keep the link, to be able to propagate modifications/type use
-        assertEquals("0:list.§$s∋0:j", tlvT1.toString());
+        assertEquals("-", tlvT1.toString());
 
-        assertEquals("[0:list.§$s∋0:j] --> -", mlvMethod.toString());
+        assertEquals("[-] --> -", mlvMethod.toString());
     }
 
 

@@ -16,12 +16,10 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestArrayAccess extends CommonTest {
 
     @Language("java")
@@ -55,15 +53,13 @@ public class TestArrayAccess extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(assign);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
-        assertEquals("array(*:0);array[i](*:*)", tlvT1.toString());
-        assertEquals("array(*[Type param T]:0[Type param T[]]);array[i](*[Type param T]:*[Type param T])",
-                tlvT1.toString());
+        assertEquals("t≡0:array[i],t∈0:array", tlvT1.toString());
 
         Statement append = forStmt.block().statements().getLast();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.linkedVariablesOrEmpty();
-        assertEquals("array(*:0);array[i](*:*);obj(*:*)", tlvT100.toString());
+        assertEquals("t≡0:array[i],t∈0:array", tlvT100.toString());
     }
 
     @Language("java")
@@ -98,13 +94,13 @@ public class TestArrayAccess extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(assign);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
-        assertEquals("array(*:0);array[i](*:*)", tlvT1.toString());
+        assertEquals("t≡0:array[i],t∈0:array", tlvT1.toString());
 
         Statement append = forStmt.block().statements().getLast();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.linkedVariablesOrEmpty();
-        assertEquals("array(*:0);array[i](*:*);obj(*:*)", tlvT100.toString());
+        assertEquals("t≡0:array[i],t∈0:array", tlvT100.toString());
     }
 
     @Language("java")
@@ -139,23 +135,22 @@ public class TestArrayAccess extends CommonTest {
 
         Statement forStmt = method.methodBody().statements().get(1);
         Statement assign = forStmt.block().statements().getFirst();
-        VariableData vd1 = VariableDataImpl.of(assign);
-        assertEquals("ii, ii[j], j", vd1.knownVariableNamesToString());
-        VariableInfo t1 = vd1.variableInfoContainerOrNull("ii[j]").best(Stage.EVALUATION);
-        Links tlv = t1.linkedVariablesOrEmpty();
-        assertEquals("ii(*:0)", tlv.toString());
+        VariableData vd100 = VariableDataImpl.of(assign);
+        assertEquals("ii, ii[j], j", vd100.knownVariableNamesToString());
+        VariableInfo iij100E = vd100.variableInfo("ii[j]");
+        assertEquals("-", iij100E.linkedVariables().toString()); // NOT: ii[j]∈ii
+        VariableInfo ii100E = vd100.variableInfo("ii");
+        assertEquals("-", ii100E.linkedVariables().toString()); // NOT: ii[j]∈ii
 
         Statement callMc2 = method.methodBody().statements().getLast();
         VariableData vd2 = VariableDataImpl.of(callMc2);
         VariableInfo ii3 = vd2.variableInfoContainerOrNull("ii[3]").best(Stage.EVALUATION);
         Links tlvII3 = ii3.linkedVariablesOrEmpty();
-        assertEquals("ii(*:0)", tlvII3.toString());
+        assertEquals("-", tlvII3.toString()); // NOT: ii[3]∈ii
 
         MethodCall mc2 = (MethodCall) callMc2.expression();
         Value.VariableBooleanMap tlvMc = mc2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT,
                 ValueImpl.VariableBooleanMapImpl.class);
-        assertEquals("ii(*:0);ii[3](*:*)", tlvMc.toString());
-        assertEquals("ii(*[Type a.b.X.II]:0[Type a.b.X.II[]]);ii[3](*[Type a.b.X.II]:*[Type a.b.X.II])",
-                tlvMc.toString());
+        assertEquals("ii=true", tlvMc.toString()); // NOT: ii=false, ii[3]=true
     }
 }
