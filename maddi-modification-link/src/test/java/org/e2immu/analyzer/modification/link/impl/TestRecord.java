@@ -43,7 +43,7 @@ public class TestRecord extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(wrap1.methodBody().statements().getFirst());
         VariableInfo viR = vd0.variableInfo("r");
-        assertEquals("r.v≡0:y", viR.linkedVariables().toString());
+        assertEquals("r.v←0:y", viR.linkedVariables().toString());
 
         VariableData vd1 = VariableDataImpl.of(wrap1.methodBody().statements().get(1));
         VariableInfo viList = vd1.variableInfo("list");

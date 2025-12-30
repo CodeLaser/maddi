@@ -116,7 +116,7 @@ public class TestSupplier extends CommonTest {
 
         MethodInfo supplier = C.findUniqueMethod("supplier", 0);
         MethodLinkedVariables mlvSupplier = supplier.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(supplier));
-        assertEquals("[] --> supplier≡this.alternative", mlvSupplier.toString());
+        assertEquals("[] --> supplier←this.alternative", mlvSupplier.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -194,12 +194,12 @@ public class TestSupplier extends CommonTest {
 
         MethodInfo supplier = C.findUniqueMethod("supplier", 0);
         MethodLinkedVariables mlvSupplier = supplier.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[] --> supplier≡this.alternative", mlvSupplier.toString());
+        assertEquals("[] --> supplier←this.alternative", mlvSupplier.toString());
 
         MethodInfo callSupplier = C.findUniqueMethod("callSupplier", 1);
         MethodLinkedVariables mlvCallSupplier = callSupplier.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> callSupplier≡0:c.alternative", mlvCallSupplier.toString());
+        assertEquals("[-] --> callSupplier←0:c.alternative", mlvCallSupplier.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 2);
         MethodLinkedVariables mlvMethod = method.analysis().getOrNull(METHOD_LINKS,
@@ -208,7 +208,7 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x≡1:c.alternative,x≡0:optional.§x", tlvX.toString());
+        assertEquals("x←1:c.alternative,x←0:optional.§x", tlvX.toString());
 
         assertEquals("""
                 [0:optional.§x≡1:c.alternative, 1:c.alternative≡0:optional.§x] \

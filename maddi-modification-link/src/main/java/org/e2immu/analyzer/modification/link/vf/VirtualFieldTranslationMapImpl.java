@@ -59,7 +59,7 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
                 : "Ensure that §m is never appended to a virtual field itself";
         Variable mTo = runtime.newFieldReference(mFieldTo, runtime.newVariableExpression(toPrimary),
                 mFieldTo.type());
-        Link mLink = new LinksImpl.LinkImpl(mFrom, LinkNatureImpl.IS_IDENTICAL_TO, mTo);
+        Link mLink = new LinksImpl.LinkImpl(mFrom, LinkNatureImpl.IS_ASSIGNED_FROM, mTo);
         Stream<Link> mStream = Stream.of(mLink); // FIXME conditional on mutable
         LinksImpl.LinkImpl newLink = new LinksImpl.LinkImpl(ttFrom, LinkNatureImpl.IS_SUBSET_OF, tLink.to());
         return Stream.concat(mStream, Stream.of(newLink));

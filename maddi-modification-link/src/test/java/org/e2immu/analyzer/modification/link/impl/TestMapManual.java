@@ -168,7 +168,7 @@ public class TestMapManual extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(getOrDefault);
         assertEquals("""
-                getOrDefault≡1:defaultValue,getOrDefault∈this.map.eArray[-1].v\
+                getOrDefault←1:defaultValue,getOrDefault∈this.map.eArray[-1].v\
                 """, mlv.ofReturnValue().toString());
     }
 

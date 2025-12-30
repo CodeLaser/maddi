@@ -56,8 +56,7 @@ public class TestBiFunction extends CommonTest {
 
         MethodInfo join = C.findUniqueMethod("extract", 2);
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        // FIXME do we want 0:x ≡ this.jx ?? not correct
-        assertEquals("[0:x≡this.jx, -] --> extract≡0:x,extract≡this.jx", tlvJoin.toString());
+        assertEquals("[-, -] --> extract←0:x,extract←this.jx", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
