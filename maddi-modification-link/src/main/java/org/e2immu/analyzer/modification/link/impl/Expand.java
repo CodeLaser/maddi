@@ -245,7 +245,7 @@ public record Expand(Runtime runtime) {
                 LinkNature linkNature = entry.getValue();
                 Variable toV = entry.getKey().v;
                 Variable primaryTo = Util.primary(toV);
-                if (linkNature.valid()
+                if ((linkNature.rank() >= 2 || linkNature.rank() >= 0 && !primaryFrom.equals(primaryTo))
                     && (allowLocalVariables || containsNoLocalVariable(toV))
                     // remove internal references (field inside primary to primary or other field in primary)
                     && !primaryTo.equals(primaryFrom)
@@ -291,16 +291,20 @@ public record Expand(Runtime runtime) {
 
     //-------------------------------------------------------------------------------------------------
 
-    private boolean notLinkedToModified(Links.Builder piBuilder, Set<Variable> modifiedVariables) {
-        for (Link link : piBuilder) {
+    private boolean notLinkedToModified(Links.Builder builder, Set<Variable> modifiedVariables) {
+        for (Link link : builder) {
             Variable toPrimary = Util.primary(link.to());
             if (modifiedVariables.contains(toPrimary)) {
-                if (link.linkNature() == IS_IDENTICAL_TO
-                    || link.linkNature() == LinkNatureImpl.CONTAINS_AS_MEMBER) {
+                LinkNature ln = link.linkNature();
+                if (ln == IS_IDENTICAL_TO
+                    || ln == LinkNatureImpl.CONTAINS_AS_MEMBER
+                    || ln == LinkNatureImpl.CONTAINS_AS_FIELD
+                    || ln == LinkNatureImpl.OBJECT_GRAPH_CONTAINS) {
                     return false;
                 }
-                if (link.linkNature() == LinkNatureImpl.SHARES_ELEMENTS) {
-                    // FIXME we need to look at the immutability of the variable's type
+                if (ln == LinkNatureImpl.SHARES_ELEMENTS || ln == LinkNatureImpl.SHARES_FIELDS) {
+                    // TODO do we need to look at the immutability of the variable's type?
+                    return false;
                 }
             }
         }

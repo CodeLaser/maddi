@@ -169,6 +169,10 @@ public class TestCast extends CommonTest {
         MethodInfo methodInfo = B.findUniqueMethod("method", 1);
 
         ParameterInfo pi0 = methodInfo.parameters().getFirst();
+        Value.Independent objectIndependent = pi0.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.DEPENDENT);
+        assertTrue(objectIndependent.isIndependent());
+
         Statement s0If = methodInfo.methodBody().statements().getFirst();
         Statement s000Add = s0If.block().statements().getFirst();
         VariableData vd000 = VariableDataImpl.of(s000Add);

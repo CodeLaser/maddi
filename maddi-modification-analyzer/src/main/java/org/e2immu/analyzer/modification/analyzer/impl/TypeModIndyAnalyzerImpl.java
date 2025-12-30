@@ -18,6 +18,7 @@ import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeModIndyAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
@@ -357,25 +358,18 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             if (viRv.linkedVariables() == null) {
                 return null; // not yet
             }
-            /* FIXME
-            // what can happen?
-            // no link to a field
-            Link worstLinkToFields = viRv.linkedVariables().stream()
-                    .filter(link -> link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis())
-                    .min(LV::compareTo).orElse(null);
-            if(worstLinkToFields == null) return INDEPENDENT;
-            if (worstLinkToFields.isStaticallyAssignedOrAssigned()) {
-                Immutable immField = viRv.linkedVariables().stream()
-                        .filter(e -> e.getValue().isStaticallyAssignedOrAssigned())
-                        .map(Map.Entry::getKey)
-                        .filter(v -> v instanceof FieldReference fr && fr.scopeIsRecursivelyThis())
-                        .map(v -> analysisHelper.typeImmutable(v.parameterizedType()))
-                        .findFirst().orElseThrow();
-                return immField.toCorrespondingIndependent();
+            boolean immutableHc = false;
+            for (Link link : viRv.linkedVariables()) {
+                Variable primaryTo = Util.primary(link.to());
+                if (primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                    if (primaryTo == link.to() && link.linkNature().isIdenticalTo()) {
+                        Immutable fieldImmutable = analysisHelper.typeImmutable(primaryTo.parameterizedType());
+                        if (fieldImmutable.isMutable()) return DEPENDENT;
+                        if (fieldImmutable.isImmutableHC()) immutableHc = true;
+                    }
+                } // else FIXME other links!!
             }
-            if (worstLinkToFields.isCommonHC()) return INDEPENDENT_HC;
-*/
-            return DEPENDENT;
+            return immutableHc ? INDEPENDENT_HC : INDEPENDENT;
         }
 
 
