@@ -222,6 +222,9 @@ public class LinkNatureImpl implements LinkNature {
             // a.b ∋⊇≥ c => a ≥ c
             return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
         }
+        if (this == IS_IDENTICAL_TO || this == SHARES_ELEMENTS || this == SHARES_FIELDS) {
+            return List.of(OBJECT_GRAPH_OVERLAPS, IS_FIELD_OF, CONTAINS_AS_FIELD);
+        }
         return List.of(OBJECT_GRAPH_OVERLAPS);
     }
 
@@ -234,6 +237,9 @@ public class LinkNatureImpl implements LinkNature {
         if (this == CONTAINS_AS_MEMBER || this == IS_SUPERSET_OF || this == OBJECT_GRAPH_CONTAINS) {
             // a ∋⊇≥ b.c => a ≥ c
             return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
+        }
+        if (this == IS_IDENTICAL_TO || this == SHARES_ELEMENTS || this == SHARES_FIELDS) {
+            return List.of(OBJECT_GRAPH_OVERLAPS, CONTAINS_AS_FIELD, IS_FIELD_OF);
         }
         return List.of(OBJECT_GRAPH_OVERLAPS);
     }
