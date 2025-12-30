@@ -45,7 +45,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                          Set<Variable> modified,
                          Set<Variable> modifiedFunctionalInterfaceComponents,
                          List<WriteMethodCall> writeMethodCalls,
-                         Map<Variable, Set<ParameterizedType>> casts,
+                         Map<Variable, Set<TypeInfo>> casts,
                          Set<Variable> erase,
                          Set<LocalVariable> variablesRepresentingConstants) {
         public Result(Links links, LinkedVariables extra) {
@@ -81,7 +81,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             return this;
         }
 
-        public Result addCast(Variable variable, ParameterizedType pt) {
+        public Result addCast(Variable variable, TypeInfo pt) {
             this.casts.computeIfAbsent(variable, _ -> new HashSet<>()).add(pt);
             return this;
         }
@@ -228,8 +228,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         if (narrowingCast(cast.expression().parameterizedType(), cast.parameterizedType())) {
             return r.with(LinksImpl.EMPTY);
         }
-        if (cast.expression() instanceof VariableExpression ve) {
-            return r.addCast(ve.variable(), cast.parameterizedType());
+        if (cast.expression() instanceof VariableExpression ve && cast.parameterizedType().typeInfo() != null) {
+            return r.addCast(ve.variable(), cast.parameterizedType().typeInfo());
         }
         return r;
     }
@@ -247,7 +247,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         if (instanceOf.patternVariable() != null) {
             Result r = visit(instanceOf.expression(), variableData, stage);
             if (instanceOf.expression() instanceof VariableExpression ve) {
-                r.addCast(ve.variable(), instanceOf.testType());
+                if (instanceOf.testType().typeInfo() != null) {
+                    r.addCast(ve.variable(), instanceOf.testType().typeInfo());
+                }
                 Links.Builder linksBuilder = new LinksImpl.Builder(ve.variable());
                 // a instanceof B b -> a ≡ b
                 if (instanceOf.patternVariable().localVariable() != null) {

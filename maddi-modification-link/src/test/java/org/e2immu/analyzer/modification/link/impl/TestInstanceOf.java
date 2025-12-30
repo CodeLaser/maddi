@@ -8,13 +8,10 @@ import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -116,17 +113,11 @@ public class TestInstanceOf extends CommonTest {
 
             VariableInfo viI0M = vd0.variableInfo(i, Stage.MERGE);
             assertEquals("0:i≻o", viI0M.linkedVariables().toString());
-            //FIXME??   assertTrue(viI0M.isModified());
+            assertTrue(viI0M.isModified());
         }
 
         assertTrue(i.isModified());
         assertEquals("[0:i≥1:s, 1:s≤0:i] --> -", mlv.toString());
-
-        Value.VariableBooleanMap map = i.analysis().getOrDefault(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER,
-                ValueImpl.VariableBooleanMapImpl.EMPTY);
-        assertEquals(1, map.map().size());
-        assertEquals("{this.object=true}", map.map().toString());
-
     }
 
 }

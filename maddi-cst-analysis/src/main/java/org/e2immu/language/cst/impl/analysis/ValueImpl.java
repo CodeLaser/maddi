@@ -894,6 +894,7 @@ public abstract class ValueImpl implements Value {
     }
 
     public record SetOfInfoImpl(Set<? extends Info> infoSet) implements SetOfInfo {
+        public static SetOfInfo EMPTY = new SetOfInfoImpl(Set.of());
 
         @Override
         public boolean isDefault() {
