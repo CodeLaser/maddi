@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.DOWNCAST_VARIABLE;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 /*
@@ -277,6 +278,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (r != null) {
                 this.erase.addAll(r.erase());
                 copyEvalIntoVariableData(r, previousVd, stageOfPrevious, vd, replaceConstants);
+                if (!r.casts().isEmpty()) {
+                    writeCasts(r.casts(), previousVd, stageOfPrevious, vd);
+                }
             }
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd, r);
@@ -292,6 +296,29 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
             }
             return vd;
+        }
+
+        private void writeCasts(Map<Variable, Set<TypeInfo>> casts,
+                                VariableData previous,
+                                Stage stageOfPrevious,
+                                VariableData variableData) {
+            if (previous != null) {
+                previous.variableInfoStream(stageOfPrevious).forEach(vi -> {
+                    if (variableData.isKnown(vi.variable().fullyQualifiedName())) {
+                        Value.SetOfTypeInfo set = vi.analysis().getOrDefault(VariableInfoImpl.DOWNCAST_VARIABLE,
+                                ValueImpl.SetOfTypeInfoImpl.EMPTY);
+                        if (!set.typeInfoSet().isEmpty()) {
+                            casts.computeIfAbsent(vi.variable(), _ -> new HashSet<>()).addAll(set.typeInfoSet());
+                        }
+                    }
+                });
+            }
+            casts.forEach((v, set) -> {
+                VariableInfoContainer vic = variableData.variableInfoContainerOrNull(v.fullyQualifiedName());
+                VariableInfoImpl vii = (VariableInfoImpl) vic.best(Stage.EVALUATION);
+                vii.analysis().setAllowControlledOverwrite(VariableInfoImpl.DOWNCAST_VARIABLE,
+                        new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(set)));
+            });
         }
 
         private void writeOutMethodCallAnalysis(List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
@@ -356,6 +383,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         Links.Builder collect = eval == null ? new LinksImpl.Builder(variable)
                                 : new LinksImpl.Builder(eval);
                         AtomicBoolean unmodified = new AtomicBoolean(true);
+                        Set<TypeInfo> downcasts = new HashSet<>(best.analysis().getOrDefault(DOWNCAST_VARIABLE,
+                                ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet());
                         vds.forEach(subVd -> {
                             VariableInfoContainer subVic = subVd.variableInfoContainerOrNull(fqn);
                             if (subVic != null) {
@@ -368,6 +397,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                         ValueImpl.BoolImpl.class);
                                 boolean explicitlyModified = subUnmodified != null && subUnmodified.isFalse();
                                 if (explicitlyModified) unmodified.set(false);
+
+                                Value.SetOfTypeInfo subDowncasts = subVi.analysis().getOrDefault(DOWNCAST_VARIABLE,
+                                        ValueImpl.SetOfTypeInfoImpl.EMPTY);
+                                downcasts.addAll(subDowncasts.typeInfoSet());
                             }
                         });
                         assert vic.hasMerge();
@@ -378,6 +411,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         }
                         merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
                                 ValueImpl.BoolImpl.from(unmodified.get()));
+                        if (!downcasts.isEmpty()) {
+                            merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
+                                    new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)));
+                        }
                     });
         }
 
