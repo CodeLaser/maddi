@@ -439,6 +439,10 @@ public abstract class CommonParse {
             if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
                 dsb.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
             }
+            Operator operator = node.firstChildOfType(Operator.class);
+            if(operator != null && Token.TokenType.ASSIGN.equals(operator.getType())) {
+                dsb.put(DetailedSources.SUCCEEDING_EQUALS, source(operator));
+            }
         }
     }
 
