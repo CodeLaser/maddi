@@ -65,11 +65,8 @@ public class TestBiFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("""
-                ix(*[Type param X]:*[Type param X]);\
-                jx(0[Type a.b.C<X,Y>]:*[Type param X]);\
-                x(*[Type param X]:0[Type java.util.function.BiFunction<X,Y,X>])\
-                """, tlvEntry.toString());
+        // no need for this.§x, no need for §x
+        assertEquals("xx←this.ix,xx←this.iy", tlvEntry.toString());
     }
 
 }
