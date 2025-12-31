@@ -265,7 +265,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         // indexing: TestShallowPrefix,1:
                         FieldReference subSubTo = runtime.newFieldReference(theField.fieldInfo,
                                 runtime.newVariableExpression(subTo), theField.fieldInfo.type());
-                        builder.add(IS_ASSIGNED_FROM, subSubTo);
+                        builder.add(IS_ASSIGNED_TO, subSubTo);
                     } else {
                         DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
                                 runtime.newInt(theField.negative()));
@@ -414,7 +414,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                                LinkNature subShareSuper,
                                                boolean reverseIsAssignedFrom) {
         if (arrays == arraysSource) {
-            return arrays == 0 ? (reverseIsAssignedFrom ? IS_ASSIGNED_TO: IS_ASSIGNED_FROM) : subShareSuper;
+            return arrays == 0 ? (reverseIsAssignedFrom ? IS_ASSIGNED_TO : IS_ASSIGNED_FROM) : subShareSuper;
         }
         if (arrays < arraysSource) {
             return IS_ELEMENT_OF;

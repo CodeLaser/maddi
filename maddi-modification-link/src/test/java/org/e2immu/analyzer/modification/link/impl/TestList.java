@@ -111,9 +111,8 @@ public class TestList extends CommonTest {
         MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(asShortList));
 
-        assertEquals("""
-                asShortList.§ts∋this.ts[0],asShortList.§ts~this.ts\
-                """, lvAsShortList.ofReturnValue().toString());
+        assertEquals("asShortList.§ts∋this.ts[0],asShortList.§ts~this.ts",
+                lvAsShortList.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'sub'")
@@ -152,9 +151,9 @@ public class TestList extends CommonTest {
         assertEquals("0:t→this.ts[1:index],0:t∈this.ts", viP0.linkedVariables().toString());
 
         VariableInfo viTsIndex = vd0.variableInfo("a.b.X.ts[a.b.X.set(T,int):1:index]");
-        assertEquals("", viTsIndex.linkedVariables().toString());
+        assertEquals("this.ts[1:index]←0:t", viTsIndex.linkedVariables().toString());
 
-        assertEquals("", mlv.toString());
+        assertEquals("[0:t→this.ts[1:index],0:t∈this.ts, -] --> -", mlv.toString());
     }
 
     @Language("java")
