@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -10,13 +11,16 @@ import java.util.List;
 
 public class AppliedFunctionalInterfaceVariable extends LocalVariableImpl {
     private final List<ExpressionVisitor.Result> params;
+    private final ParameterInfo sourceOfFunctionalInterface;
 
     public AppliedFunctionalInterfaceVariable(String name,
                                               ParameterizedType parameterizedType,
                                               Expression assignmentExpression,
+                                              ParameterInfo sourceOfFunctionalInterface,
                                               List<ExpressionVisitor.Result> params) {
         super(name, parameterizedType, assignmentExpression);
         this.params = params;
+        this.sourceOfFunctionalInterface = sourceOfFunctionalInterface;
     }
 
     public boolean containsNoLocalVariables() {
@@ -36,5 +40,9 @@ public class AppliedFunctionalInterfaceVariable extends LocalVariableImpl {
 
     public List<ExpressionVisitor.Result> params() {
         return params;
+    }
+
+    public ParameterInfo sourceOfFunctionalInterface() {
+        return sourceOfFunctionalInterface;
     }
 }

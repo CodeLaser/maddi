@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.IntFunction;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 public record LinkMethodCall(Runtime runtime,
@@ -79,7 +79,8 @@ public record LinkMethodCall(Runtime runtime,
             concreteReturnValue = LinksImpl.EMPTY;
         } else if (Util.methodIsSamOfJavaUtilFunctional(methodInfo)) {
             assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
-            concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, mlv);
+            concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, mlv,
+                    objectPrimary);
         } else {
             concreteReturnValue = objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
         }
@@ -206,7 +207,8 @@ public record LinkMethodCall(Runtime runtime,
             ++index;
         }
         TranslationMap tm = tmBuilder.build();
-        IntFunction<List<Links>> samLinks = i -> List.of(params.get(i).links());
+        Function<Variable, List<Links>> samLinks = v ->
+                v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
         TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(ofReturnValue.primary(), newPrimary).build();
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : ofReturnValue.linkSet()) {
@@ -230,25 +232,56 @@ public record LinkMethodCall(Runtime runtime,
                                            Variable fromTranslated,
                                            LinkNature linkNature,
                                            Links.Builder builder,
-                                           IntFunction<List<Links>> paramProvider,
+                                           Function<Variable, List<Links>> paramProvider,
                                            Variable objectPrimary) {
-        if (link.to().parameterizedType().isFunctionalInterface()) {
-            if (link.to() instanceof ParameterInfo pi) {
-                List<LinkFunctionalInterface.Triplet> toAdd =
-                        new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).go(pi, fromTranslated,
-                                linkNature, builder.primary(), paramProvider.apply(pi.index()), objectPrimary);
-                toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
-                return;
-            }
+        ParameterizedType parameterizedType = link.to().parameterizedType();
+        if (parameterizedType.isFunctionalInterface()) {
+            List<LinkFunctionalInterface.Triplet> toAdd =
+                    new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).go(parameterizedType, fromTranslated,
+                            linkNature, builder.primary(), paramProvider.apply(link.to()), objectPrimary);
+            toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
+            return;
+
+        }
+        if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
+            List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
+            // translate params in list with values from applied.params()
+            List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
+            List<LinkFunctionalInterface.Triplet> toAdd =
+                    new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
+                            .go(applied.sourceOfFunctionalInterface().parameterizedType(),
+                                    fromTranslated, linkNature, builder.primary(), translated,
+                                    objectPrimary);
+            toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
+            return;
         }
         builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
     }
 
+    private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<ExpressionVisitor.Result> params) {
+        return list.stream().map(links -> replaceParametersByEvalInApplied(links, params)).toList();
+    }
+
+    private Links replaceParametersByEvalInApplied(Links links, List<ExpressionVisitor.Result> params) {
+        Links.Builder builder = new LinksImpl.Builder(links.primary());
+        for (Link link : links) {
+            if (link.to() instanceof ParameterInfo pi) {
+                // replace
+                Variable primary = Objects.requireNonNullElse(params.get(pi.index()).links().primary(), link.to());
+                builder.add(link.from(), link.linkNature(), primary);
+            } else {
+                // copy
+                builder.add(link.from(), link.linkNature(), link.to());
+            }
+        }
+        return builder.build();
+    }
 
     private Links parametersToReturnValue(MethodInfo methodInfo,
                                           ParameterizedType concreteReturnType,
                                           List<ExpressionVisitor.Result> params,
-                                          MethodLinkedVariables mlv) {
+                                          MethodLinkedVariables mlv,
+                                          Variable objectPrimary) {
         Links ofReturnValue = mlv.ofReturnValue();
         Variable rvPrimary = ofReturnValue.primary();
 
@@ -259,7 +292,9 @@ public record LinkMethodCall(Runtime runtime,
 
         Variable applied = new AppliedFunctionalInterfaceVariable(
                 LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE + variableCounter.getAndIncrement(),
-                concreteReturnType, runtime.newEmptyExpression(), params);
+                concreteReturnType, runtime.newEmptyExpression(),
+                objectPrimary instanceof ParameterInfo pi ? pi : null,
+                params);
         Links.Builder builder = new LinksImpl.Builder(rvPrimary);
         builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, applied);
         return builder.build();
@@ -305,7 +340,8 @@ public record LinkMethodCall(Runtime runtime,
                     }
                 }
             }
-            if (pi.parameterizedType().isFunctionalInterface() && !r.extra().isEmpty()) {
+            ParameterizedType parameterizedType = pi.parameterizedType();
+            if (parameterizedType.isFunctionalInterface() && !r.extra().isEmpty()) {
                 // pi is a consumer, the link information is in the extras
 
                 // link from the method call object (list) into this (not into the parameter, not the return value)
@@ -319,7 +355,7 @@ public record LinkMethodCall(Runtime runtime,
                 for (Link link : links) {
                     List<LinkFunctionalInterface.Triplet> toAdd =
                             new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).
-                                    go(pi, link.from(),
+                                    go(parameterizedType, link.from(),
                                             LinkNatureImpl.SHARES_ELEMENTS,
                                             builder.primary(),
                                             linksList,

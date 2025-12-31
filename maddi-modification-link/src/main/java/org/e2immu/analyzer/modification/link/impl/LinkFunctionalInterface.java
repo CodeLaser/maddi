@@ -32,7 +32,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
     record Triplet(Variable from, LinkNature linkNature, Variable to) {
     }
 
-    List<Triplet> go(ParameterInfo pi,
+    List<Triplet> go(ParameterizedType functionalInterfaceType,
                      Variable fromTranslated,
                      LinkNature linkNature,
                      Variable returnPrimary,
@@ -41,7 +41,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
 
         // FUNCTIONAL INTERFACE
 
-        MethodInfo sam = pi.parameterizedType().typeInfo().singleAbstractMethod();
+        MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
         if (linksList.isEmpty()) return List.of();
 
         if (sam.parameters().isEmpty() || sam.noReturnValue()) {
@@ -67,7 +67,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                     if (!(Util.primary(link.to()) instanceof ReturnVariable)) {
                         if (link.from().equals(links.primary())) {
                             // also accommodate for suppliers
-                            Triplet t = new Triplet(createVirtualField(pi.parameterizedType(),
+                            Triplet t = new Triplet(createVirtualField(functionalInterfaceType,
                                     i, fromTranslated, link.from()), linkNature, link.to());
                             result.add(t);
                         } else {
