@@ -174,30 +174,43 @@ public record LinkMethodCall(Runtime runtime,
                                       List<ExpressionVisitor.Result> params,
                                       MethodLinkedVariables mlv,
                                       Variable objectPrimary) {
-        Variable rvPrimary = mlv.ofReturnValue().primary();
-        if (rvPrimary != null && !mlv.ofReturnValue().isEmpty()) {
-            assert rvPrimary instanceof ReturnVariable
-                    : "the links of the method return value must be in the return variable";
-            assert !methodInfo.isVoid() || methodInfo.isConstructor()
-                    : "Cannot be a void function if we have a return variable";
-            String name = LinksImpl.INTERMEDIATE_RETURN_VARIABLE + variableCounter.getAndIncrement();
-            Variable newPrimary = runtime.newLocalVariable(name, concreteReturnType);
-
-            TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
-            if (objectPrimary != null) {
-                addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
-            }
-            // the return value can also contain references to parameters... we should replace them by
-            // actual arguments
-            int index = 0;
-            for (ExpressionVisitor.Result pr : params) {
-                Variable to = Objects.requireNonNullElseGet(pr.links().primary(), this::newDummyLocalVariable);
-                tmBuilder.put(methodInfo.parameters().get(index), to);
-                ++index;
-            }
-            return changePrimaryTo(mlv.ofReturnValue(), newPrimary, tmBuilder.build(), i -> List.of(params.get(i).links()), objectPrimary);
+        Links ofReturnValue = mlv.ofReturnValue();
+        Variable rvPrimary = ofReturnValue.primary();
+        if (rvPrimary == null || ofReturnValue.isEmpty()) {
+            return LinksImpl.EMPTY;
         }
-        return LinksImpl.EMPTY;
+        assert rvPrimary instanceof ReturnVariable
+                : "the links of the method return value must be in the return variable";
+        assert !methodInfo.isVoid() || methodInfo.isConstructor()
+                : "Cannot be a void function if we have a return variable";
+        String name = LinksImpl.INTERMEDIATE_RETURN_VARIABLE + variableCounter.getAndIncrement();
+        Variable newPrimary = runtime.newLocalVariable(name, concreteReturnType);
+
+        TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
+        if (objectPrimary != null) {
+            addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
+        }
+        // the return value can also contain references to parameters... we should replace them by
+        // actual arguments
+        int index = 0;
+        for (ExpressionVisitor.Result pr : params) {
+            Variable to = Objects.requireNonNullElseGet(pr.links().primary(), this::newDummyLocalVariable);
+            tmBuilder.put(methodInfo.parameters().get(index), to);
+            ++index;
+        }
+        TranslationMap tm = tmBuilder.build();
+        IntFunction<List<Links>> samLinks = i -> List.of(params.get(i).links());
+        TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(ofReturnValue.primary(), newPrimary).build();
+        Links.Builder builder = new LinksImpl.Builder(newPrimary);
+        for (Link link : ofReturnValue.linkSet()) {
+            if (link.from().equals(ofReturnValue.primary())) {
+                translateHandleFunctional(tm, link, newPrimary, link.linkNature(), builder, samLinks, objectPrimary);
+            } else {
+                Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
+                translateHandleFunctional(tm, link, fromTranslated, link.linkNature(), builder, samLinks, objectPrimary);
+            }
+        }
+        return builder.build();
     }
 
     private LocalVariable newDummyLocalVariable() {
@@ -205,35 +218,13 @@ public record LinkMethodCall(Runtime runtime,
                 runtime.objectParameterizedType());
     }
 
-    public Links changePrimaryTo(Links ofReturnValue,
-                                 Variable newPrimary,
-                                 TranslationMap tm,
-                                 IntFunction<List<Links>> samLinks,
-                                 Variable objectPrimary) {
-        TranslationMap newPrimaryTm = null;
-        Links.Builder builder = new LinksImpl.Builder(newPrimary);
-        for (Link link : ofReturnValue.linkSet()) {
-            if (link.from().equals(ofReturnValue.primary())) {
-                translateHandleSupplier(tm, link, newPrimary, link.linkNature(), builder, samLinks, objectPrimary);
-            } else {
-                // links that are not 'primary'
-                if (newPrimaryTm == null) {
-                    newPrimaryTm = runtime.newTranslationMapBuilder().put(ofReturnValue.primary(), newPrimary).build();
-                }
-                Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
-                translateHandleSupplier(tm, link, fromTranslated, link.linkNature(), builder, samLinks, objectPrimary);
-            }
-        }
-        return builder.build();
-    }
-
-    private void translateHandleSupplier(TranslationMap defaultTm,
-                                         Link link,
-                                         Variable fromTranslated,
-                                         LinkNature linkNature,
-                                         Links.Builder builder,
-                                         IntFunction<List<Links>> paramProvider,
-                                         Variable objectPrimary) {
+    private void translateHandleFunctional(TranslationMap defaultTm,
+                                           Link link,
+                                           Variable fromTranslated,
+                                           LinkNature linkNature,
+                                           Links.Builder builder,
+                                           IntFunction<List<Links>> paramProvider,
+                                           Variable objectPrimary) {
         if (link.to().parameterizedType().isFunctionalInterface()) {
             if (link.to() instanceof ParameterInfo pi) {
                 List<LinkFunctionalInterface.Triplet> toAdd =

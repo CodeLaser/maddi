@@ -169,27 +169,34 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             Variable primaryOfTranslated = Util.primary(translated);
             upscaled = runtime.newFieldReference(newField, runtime.newVariableExpression(primaryOfTranslated),
                     newField.type());
-        } else if (translated instanceof FieldReference frK && virtual(frK)
-                   && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv) && arrays > 0) {
-            // TestStream,1
-            // vfMapSource = XY[] §xys, vfMapTarget = YX[] §yxs
-            // variable = return swap.§yx.§x, translated $__rv2.§yx.§x, dim = false
-            // variable = entry.§xy.§x, translated stream1.§xy.§x, dim = true
-            // what we want: $__rv2.§yxs[-2].§y  -> replace §yx by §yxs[-2]
-            //               stream1.§xys[-1].§x -> replace §xy by §xys[-1]
-            FI correspondingField = correspondingField(frKv, frK.fieldInfo());
-            int sliceIndex = -1 - correspondingField.index;
-            TypeInfo enclosing = frKv.fieldInfo().type().typeInfo().compilationUnitOrEnclosingType().getRight();
-            String newTypeName = frKv.fieldInfo().simpleName().toUpperCase().replace("§", "") + "S".repeat(arrays);
-            TypeInfo newContainerType = virtualFieldComputer.makeContainerType(enclosing,
-                    newTypeName,
-                    frKv.fieldInfo().type().typeInfo().fields());
-            String newFieldName = frKv.fieldInfo().simpleName().replace("§", "") + "s".repeat(arrays);
-            FieldInfo newFieldInfo = virtualFieldComputer.newField(newFieldName, newContainerType.asParameterizedType().copyWithArrays(arrays), frKv.fieldInfo().owner());
-            FieldReference scope = runtime.newFieldReference(newFieldInfo, frKv.scope(), newFieldInfo.type());
-            DependentVariable slice = runtime.newDependentVariable(runtime.newVariableExpression(scope),
-                    runtime.newInt(sliceIndex));
-            upscaled = runtime.newFieldReference(frK.fieldInfo(), runtime.newVariableExpression(slice), frK.parameterizedType());
+        } else if (translated instanceof FieldReference frK && virtual(frK)) {
+            if (frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv) && arrays > 0) {
+                // TestStream,1
+                // vfMapSource = XY[] §xys, vfMapTarget = YX[] §yxs
+                // variable = return swap.§yx.§x, translated $__rv2.§yx.§x, dim = false
+                // variable = entry.§xy.§x, translated stream1.§xy.§x, dim = true
+                // what we want: $__rv2.§yxs[-2].§y  -> replace §yx by §yxs[-2]
+                //               stream1.§xys[-1].§x -> replace §xy by §xys[-1]
+                FI correspondingField = correspondingField(frKv, frK.fieldInfo());
+                int sliceIndex = -1 - correspondingField.index;
+                TypeInfo enclosing = frKv.fieldInfo().type().typeInfo().compilationUnitOrEnclosingType().getRight();
+                String newTypeName = frKv.fieldInfo().simpleName().toUpperCase().replace("§", "") + "S".repeat(arrays);
+                TypeInfo newContainerType = virtualFieldComputer.makeContainerType(enclosing,
+                        newTypeName,
+                        frKv.fieldInfo().type().typeInfo().fields());
+                String newFieldName = frKv.fieldInfo().simpleName().replace("§", "") + "s".repeat(arrays);
+                FieldInfo newFieldInfo = virtualFieldComputer.newField(newFieldName, newContainerType.asParameterizedType().copyWithArrays(arrays), frKv.fieldInfo().owner());
+                FieldReference scope = runtime.newFieldReference(newFieldInfo, frKv.scope(), newFieldInfo.type());
+                DependentVariable slice = runtime.newDependentVariable(runtime.newVariableExpression(scope),
+                        runtime.newInt(sliceIndex));
+                upscaled = runtime.newFieldReference(frK.fieldInfo(), runtime.newVariableExpression(slice), frK.parameterizedType());
+            } else {
+                // TestFunction,2
+                // variable = this.§es, translated = optional.§es, arrays = 1
+                // what we want  optional.§es -> optional.§xys
+                FieldInfo newField = vfMapSource.hiddenContent();
+                upscaled = runtime.newFieldReference(newField, frK.scope(), newField.type());
+            }
         } else {
             upscaled = translated;
         }

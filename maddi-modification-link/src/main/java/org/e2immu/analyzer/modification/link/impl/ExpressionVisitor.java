@@ -489,7 +489,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                         // when the return type parameter agrees with the input type parameter, also translate that one!
                         // TP#0 in Optional->Map.Entry.XY[], but U (method TP in .map(...)) needs translating too:
                         // map.§u ⊆ 0:mapper must become map.§xys ⊆ ...
-                        tm2 = new VirtualFieldTranslationMapForMethodParameters(javaInspector().runtime())
+                        tm2 = new VirtualFieldTranslationMapForMethodParameters(virtualFieldComputer, javaInspector().runtime())
                                 .go(vfTm.formalToConcrete(), mc);
                     } else {
                         tm2 = vfTm.formalToConcrete();
@@ -504,8 +504,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             }
         } else {
             // static method, without object; but there may be method type parameters involved
-            TranslationMap vfTm = new VirtualFieldTranslationMapForStaticMethods(javaInspector.runtime())
-                    .go(virtualFieldComputer, mc);
+            TranslationMap vfTm = new VirtualFieldTranslationMapForMethodParameters(virtualFieldComputer, javaInspector.runtime())
+                    .staticCall(mc);
             mlvTranslated2 = mlv.translate(vfTm);
         }
 
