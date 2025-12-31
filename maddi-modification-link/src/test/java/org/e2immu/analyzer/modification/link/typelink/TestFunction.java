@@ -2,18 +2,20 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -84,13 +86,18 @@ public class TestFunction extends CommonTest {
         MethodInfo method = C.findUniqueMethod("method", 1);
         tlc.doPrimaryType(C);
 
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        ParameterInfo optional = method.parameters().getFirst();
+        VirtualFields vfOptional = vfc.compute(optional.parameterizedType(), true).virtualFields();
+        assertEquals("§m - XY[] §xys", vfOptional.toString());
+
         // IMPORTANT: just as in TestSupplier,2, the Map.Entry<X,Y> is seen as a single type
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("optXY");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("optXY∈0:optional.§es", tlvX.toString());
+        assertEquals("optXY∈0:optional.§xys", tlvX.toString());
 
-        assertEquals("[-] --> method∈0:optional.§es",
+        assertEquals("[-] --> method∈0:optional.§xys",
                 method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
     }
 }
