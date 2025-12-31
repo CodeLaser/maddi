@@ -198,7 +198,11 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 upscaled = runtime.newFieldReference(newField, frK.scope(), newField.type());
             }
         } else {
-            upscaled = translated;
+            // TestFunction,2 variable = this, translated = $__rv0,
+            // what we want  $__rv0.§xy
+            // note that this one equals "fromTranslated" from the 'go' method
+            upscaled = runtime.newFieldReference(vfMapTarget.hiddenContent(), runtime.newVariableExpression(translated),
+                    vfMapTarget.hiddenContent().type());
         }
 
         LOGGER.debug("translated and upscale: {} -> {} -> {}", variable, translated, upscaled);
