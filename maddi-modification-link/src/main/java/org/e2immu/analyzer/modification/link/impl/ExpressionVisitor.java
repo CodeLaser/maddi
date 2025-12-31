@@ -484,7 +484,17 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                 ParameterizedType concreteObjectType = objectPrimary.parameterizedType();
                 if (mlvTranslated1.virtual()) {
                     VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
-                    mlvTranslated2 = mlvTranslated1.translate(vfTm.formalToConcrete());
+                    TranslationMap tm2;
+                    if (!mc.methodInfo().typeParameters().isEmpty()) {
+                        // when the return type parameter agrees with the input type parameter, also translate that one!
+                        // TP#0 in Optional->Map.Entry.XY[], but U (method TP in .map(...)) needs translating too:
+                        // map.§u ⊆ 0:mapper must become map.§xys ⊆ ...
+                        tm2 = new VirtualFieldTranslationMapForMethodParameters(javaInspector().runtime())
+                                .go(vfTm.formalToConcrete(), mc);
+                    } else {
+                        tm2 = vfTm.formalToConcrete();
+                    }
+                    mlvTranslated2 = mlvTranslated1.translate(tm2);
                 } else {
                     mlvTranslated2 = mlvTranslated1;
                 }
