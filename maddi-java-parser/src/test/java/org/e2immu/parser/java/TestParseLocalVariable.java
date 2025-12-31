@@ -14,6 +14,8 @@
 
 package org.e2immu.parser.java;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.ArrayLength;
 import org.e2immu.language.cst.api.expression.BinaryOperator;
 import org.e2immu.language.cst.api.expression.IntConstant;
@@ -28,6 +30,8 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -48,7 +52,7 @@ public class TestParseLocalVariable extends CommonTestParse {
     public void test() {
         TypeInfo typeInfo = parse(INPUT);
         assertEquals("C", typeInfo.simpleName());
-        MethodInfo methodInfo = typeInfo.methods().get(0);
+        MethodInfo methodInfo = typeInfo.methods().getFirst();
         assertEquals("length", methodInfo.name());
         assertEquals("a.b.C.length(String[])", methodInfo.fullyQualifiedName());
 
@@ -80,9 +84,52 @@ public class TestParseLocalVariable extends CommonTestParse {
             assertEquals("return a+1;", rs.toString());
         } else fail();
         assertEquals(1, methodInfo.parameters().size());
-        ParameterInfo pi = methodInfo.parameters().get(0);
+        ParameterInfo pi = methodInfo.parameters().getFirst();
         assertEquals("args", pi.name());
         ParameterizedType pt = pi.parameterizedType();
         assertEquals(1, pt.arrays());
+    }
+
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            class C {
+              public int length(String[] args) {
+                int a = args.length, b = 3;
+                return a+1;
+              }
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = parse(INPUT2, true);
+        assertEquals("C", typeInfo.simpleName());
+        MethodInfo methodInfo = typeInfo.methods().getFirst();
+        assertEquals("length", methodInfo.name());
+
+        Block block = methodInfo.methodBody();
+        if (block.statements().getFirst() instanceof LocalVariableCreation lvc) {
+            LocalVariable lv = lvc.localVariable();
+            assertFalse(lvc.hasSingleDeclaration());
+            assertFalse(lvc.otherLocalVariables().isEmpty());
+            assertEquals("a", lv.fullyQualifiedName());
+            if (lv.assignmentExpression() instanceof ArrayLength al) {
+                if (al.scope() instanceof VariableExpression ve) {
+                    assertEquals("args", ve.variable().simpleName());
+                    assertEquals("Type String[]", ve.variable().parameterizedType().toString());
+                } else fail();
+            } else fail();
+            assertEquals("args.length", lv.assignmentExpression().toString());
+
+            LocalVariable lv2 = lvc.otherLocalVariables().getFirst();
+            assertEquals("b", lv2.simpleName());
+
+            List<Source> sources = lvc.source().detailedSources().details(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS);
+            assertEquals(2, sources.size());
+            assertEquals("@4:11-4:11", sources.getFirst().toString());
+            assertEquals("@4:28-4:28", sources.getLast().toString());
+        } else fail();
     }
 }
