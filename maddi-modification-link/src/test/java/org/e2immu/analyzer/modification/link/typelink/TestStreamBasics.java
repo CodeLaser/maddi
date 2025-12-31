@@ -321,23 +321,23 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("sorted.§$s⊇array.§as,sorted.§$s⊆0:in.§$s,sorted.§$s⊆stream.§$s", tlv.toString());
+                assertEquals("sorted.§$s⊇array.§$s,sorted.§$s⊆0:in.§$s,sorted.§$s⊆stream.§$s", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("array");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("array.§as⊆0:in.§$s,array.§as⊆sorted.§$s,array.§as⊆stream.§$s", tlv.toString());
+                assertEquals("array.§$s⊆0:in.§$s,array.§$s⊆sorted.§$s,array.§$s⊆stream.§$s", tlv.toString());
             }
             // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $
-            assertEquals("[-] --> method1.§as⊆0:in.§$s", mlv.toString());
+            assertEquals("[-] --> method1.§$s⊆0:in.§$s", mlv.toString());
         }
 
         // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $
         MethodInfo method = C.findUniqueMethod("method", 1);
         MethodLinkedVariables tlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> method.§as⊆0:in.§$s", tlv.toString());
+        assertEquals("[-] --> method.§$s⊆0:in.§$s", tlv.toString());
     }
 
 
