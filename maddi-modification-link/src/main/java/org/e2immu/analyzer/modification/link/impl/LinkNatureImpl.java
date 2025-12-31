@@ -49,7 +49,7 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public boolean isIdenticalTo() {
-        return this == IS_IDENTICAL_TO;
+        return this == IS_IDENTICAL_TO || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO;
     }
 
     @Override
@@ -102,6 +102,13 @@ public class LinkNatureImpl implements LinkNature {
         if (this == IS_IDENTICAL_TO) return other;
         if (other == IS_ASSIGNED_TO) return this; // a R b → c implies a R c;
         if (this == IS_ASSIGNED_FROM) return other; // a ← b R c implies a R c
+
+        if (other == IS_ASSIGNED_FROM && this != IS_ASSIGNED_TO) {
+            return this; //a R b ← c implies a R c, but not for →
+        }
+        if (this == IS_ASSIGNED_TO && other != IS_ASSIGNED_FROM) {
+            return other; // a → b R c implies a R c, but not for ←
+        }
 
         if (this == IS_ELEMENT_OF) {
             if (other == IS_SUBSET_OF) return IS_ELEMENT_OF;

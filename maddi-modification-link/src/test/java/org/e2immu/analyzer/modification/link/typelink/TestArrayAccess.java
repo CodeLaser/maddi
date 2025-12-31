@@ -53,13 +53,13 @@ public class TestArrayAccess extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(assign);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
-        assertEquals("t≡0:array[i],t∈0:array", tlvT1.toString());
+        assertEquals("t←0:array[i],t∈0:array", tlvT1.toString());
 
         Statement append = forStmt.block().statements().getLast();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.linkedVariablesOrEmpty();
-        assertEquals("t≡0:array[i],t∈0:array", tlvT100.toString());
+        assertEquals("t←0:array[i],t∈0:array", tlvT100.toString());
     }
 
     @Language("java")
@@ -94,13 +94,13 @@ public class TestArrayAccess extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(assign);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
-        assertEquals("t≡0:array[i],t∈0:array", tlvT1.toString());
+        assertEquals("t←0:array[i],t∈0:array", tlvT1.toString());
 
         Statement append = forStmt.block().statements().getLast();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.linkedVariablesOrEmpty();
-        assertEquals("t≡0:array[i],t∈0:array", tlvT100.toString());
+        assertEquals("t←0:array[i],t∈0:array", tlvT100.toString());
     }
 
     @Language("java")

@@ -74,7 +74,7 @@ public class TestBoundTypeParameter extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get≡this.ts[0:index],get∈this.ts", mlv.ofReturnValue().toString());
+        assertEquals("get←this.ts[0:index],get∈this.ts", mlv.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'method', given method links for 'get'")
@@ -90,7 +90,7 @@ public class TestBoundTypeParameter extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         // first, do get()
         MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("get≡this.ts[0:index],get∈this.ts", lvGet.ofReturnValue().toString());
+        assertEquals("get←this.ts[0:index],get∈this.ts", lvGet.ofReturnValue().toString());
 
         // then, do method
         MethodLinkedVariables lvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -98,9 +98,9 @@ public class TestBoundTypeParameter extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links linksK = k0.linkedVariablesOrEmpty();
-        assertEquals("k≡1:x.ts[0:i],k∈1:x.ts", linksK.toString());
+        assertEquals("k←1:x.ts[0:i],k∈1:x.ts", linksK.toString());
 
-        assertEquals("[-, -] --> method≡1:x.ts[0:i],method∈1:x.ts", lvMethod.toString());
+        assertEquals("[-, -] --> method←1:x.ts[0:i],method∈1:x.ts", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList'")
@@ -154,14 +154,14 @@ public class TestBoundTypeParameter extends CommonTest {
         ExpressionVisitor ev = new ExpressionVisitor(javaInspector, new VirtualFieldComputer(javaInspector), tlc, smc,
                 set, new RecursionPrevention(false), new AtomicInteger());
         ExpressionVisitor.Result r = ev.visit(assignment, null, null);
-        assertEquals("this.ts[1:index]≡0:t", r.links().toString());
+        assertEquals("this.ts[1:index]←0:t", r.links().toString());
         assertEquals("0:t: -; this.ts[1:index]: this.ts[1:index]∈this.ts", r.extra().toString());
 
         // now the same, but as a statement; then, the data will be saved
         VariableData vd = smc.doStatement(set.methodBody().statements().getFirst(), null, true);
         List<Links> list = new Expand(runtime).parameters(set, vd, new TranslateConstants(runtime));
         // MethodLinkedVariables mlv = tlc.doMethod(set)
-        assertEquals("0:t≡this.ts[1:index],0:t∈this.ts", list.getFirst().toString());
+        assertEquals("0:t→this.ts[1:index],0:t∈this.ts", list.getFirst().toString());
     }
 
     @DisplayName("Analyze 'compareFirst'")
@@ -204,11 +204,11 @@ public class TestBoundTypeParameter extends CommonTest {
         MethodInfo get = X.findUniqueMethod("getList", 0);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("getList≡this.list", mlv.ofReturnValue().toString());
+        assertEquals("getList←this.list", mlv.ofReturnValue().toString());
 
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = tlc.doMethod(constructor);
-        assertEquals("[0:in≡this.list] --> -", mlvConstructor.toString());
+        assertEquals("[0:in→this.list] --> -", mlvConstructor.toString());
     }
 
     @Language("java")
@@ -248,7 +248,7 @@ public class TestBoundTypeParameter extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("getList", 0);
         MethodLinkedVariables mlv = linkComputer.doMethod(get);
-        assertEquals("getList≡this.list", mlv.ofReturnValue().toString());
+        assertEquals("getList←this.list", mlv.ofReturnValue().toString());
 
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);

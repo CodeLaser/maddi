@@ -132,7 +132,7 @@ public record Expand(Runtime runtime) {
             Set<V> subsOfFrom = primaryToSub.get(vFrom);
             if (subsOfFrom != null) {
                 subsOfFrom.forEach(s ->
-                        mergeEdge(graph, s, linkNature.reverse(), makeComparableSub(vFrom, s, vTo)));
+                        mergeEdge(graph, s, linkNature, makeComparableSub(vFrom, s, vTo)));
             }
             Set<V> subsOfTo = primaryToSub.get(vTo);
             if (subsOfTo != null) {
@@ -298,6 +298,7 @@ public record Expand(Runtime runtime) {
                 LinkNature ln = link.linkNature();
                 if (ln == IS_IDENTICAL_TO
                     || ln == IS_ASSIGNED_FROM
+                    || ln == IS_ASSIGNED_TO
                     || ln == CONTAINS_AS_MEMBER
                     || ln == CONTAINS_AS_FIELD
                     || ln == OBJECT_GRAPH_CONTAINS) {

@@ -65,12 +65,12 @@ public class TestPrefix extends CommonTest {
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(K,V)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis()
                 .getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:key≡this.§kv.§k, 1:value≡this.§kv.§v] --> -", tlvConstructor1.toString());
+        assertEquals("[0:key→this.§kv.§k, 1:value→this.§kv.§v] --> -", tlvConstructor1.toString());
 
         VariableData vd0 = VariableDataImpl.of(one.methodBody().statements().getFirst());
         VariableInfo viEntry = vd0.variableInfo("entry");
         Links tlvEntry = viEntry.linkedVariablesOrEmpty();
-        assertEquals("entry.§xy.§x≡0:x,entry.§xy.§y≡1:y", tlvEntry.toString());
+        assertEquals("entry.§xy.§x←0:x,entry.§xy.§y←1:y", tlvEntry.toString());
 
         VariableData vd1 = VariableDataImpl.of(one.methodBody().statements().get(1));
         VariableInfo viStream1 = vd1.variableInfo("stream1");

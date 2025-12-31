@@ -154,11 +154,11 @@ public class TestMap extends CommonTest {
 
         MethodInfo staticPut = X.findUniqueMethod("staticPut", 3);
         MethodLinkedVariables tlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
-        assertEquals("[-, -, -] --> staticPut≡1:y,staticPut∈2:c.§xys[-2].§y", tlvSPut.toString());
+        assertEquals("[-, -, -] --> staticPut←1:y,staticPut∈2:c.§xys[-2].§y", tlvSPut.toString());
 
         MethodInfo staticPut2 = X.findUniqueMethod("staticPut2", 3);
         MethodLinkedVariables tlvS2Put = staticPut2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut2));
-        assertEquals("[-, -, -] --> staticPut2∈0:c.§xys[-2].§y,staticPut2≡2:y", tlvS2Put.toString());
+        assertEquals("[-, -, -] --> staticPut2∈0:c.§xys[-2].§y,staticPut2←2:y", tlvS2Put.toString());
     }
 
     @Language("java")
@@ -367,11 +367,11 @@ public class TestMap extends CommonTest {
 
         MethodInfo reverse = X.findUniqueMethod("reverse", 0);
         MethodLinkedVariables tlvReverse = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
-        assertEquals("[] --> reverse.§vk≡this.§kv,reverse.§m≡this.§m", tlvReverse.toString());
+        assertEquals("[] --> reverse.§vk←this.§kv,reverse.§m≡this.§m", tlvReverse.toString());
 
         MethodInfo method = X.findUniqueMethod("staticReverse", 1);
         MethodLinkedVariables tlvSReverse = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
-        assertEquals("[-] --> staticReverse.§yx≡0:c.§xy", tlvSReverse.toString());
+        assertEquals("[-] --> staticReverse.§yx←0:c.§xy", tlvSReverse.toString());
     }
 
 }

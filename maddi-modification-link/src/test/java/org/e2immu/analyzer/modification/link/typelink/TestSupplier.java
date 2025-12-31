@@ -55,7 +55,7 @@ public class TestSupplier extends CommonTest {
         MethodLinkedVariables mlvOrElseGet = orElseGet.analysis().getOrCreate(METHOD_LINKS, () ->
                 tlc.doMethod(orElseGet));
         assertEquals("""
-                [-] --> orElseGet≡this.§t,orElseGet≡Λ0:supplier\
+                [-] --> orElseGet←this.§t,orElseGet←Λ0:supplier\
                 """, mlvOrElseGet.toString());
 
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
@@ -64,10 +64,10 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x≡0:optional.§x,x≡1:alternative", tlvX.toString());
+        assertEquals("x←0:optional.§x,x←1:alternative", tlvX.toString());
 
         assertEquals("""
-                [0:optional.§x≡1:alternative, 1:alternative≡0:optional.§x] --> method≡0:optional.§x,method≡1:alternative\
+                [0:optional.§x←1:alternative, 1:alternative→0:optional.§x] --> method←0:optional.§x,method←1:alternative\
                 """, mlvMethod.toString());
     }
 
@@ -124,7 +124,7 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x≡0:optional.§x,x≡this.alternative", tlvX.toString());
+        assertEquals("x←0:optional.§x,x←this.alternative", tlvX.toString());
 
         assertEquals("[0:optional.§x≡this.alternative] --> method≡0:optional.§x,method≡this.alternative",
                 mlv.toString());
