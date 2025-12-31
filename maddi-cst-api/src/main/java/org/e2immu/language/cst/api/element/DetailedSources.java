@@ -32,6 +32,8 @@ public interface DetailedSources {
     Object PRECEDING_COMMA = new Object();
     // for any sequence separated by ,: this one is added on the element that precedes the ,
     Object SUCCEEDING_COMMA = new Object();
+    // for field declarators: int i=3, j=5
+    Object SUCCEEDING_EQUALS = new Object();
     // while the two above work nicely for parameters, fields, type parameters, we need special lists for
     Object ARGUMENT_COMMAS = new Object(); // method call, constructor call, annotation expression
     Object END_OF_ARGUMENT_LIST = new Object(); // method call, constructor call, annotation expression, pos of ')'
@@ -41,6 +43,7 @@ public interface DetailedSources {
     Object PERMITS_COMMAS = new Object();
     Object THROWS_COMMAS = new Object();
     Object LOCAL_VARIABLE_COMMAS = new Object();
+    Object LOCAL_VARIABLE_ASSIGNMENT_OPERATORS = new Object();
 
     Source detail(Object object);
 

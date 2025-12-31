@@ -14,6 +14,7 @@
 
 package org.e2immu.parser.java;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.MultiLineComment;
 import org.e2immu.language.cst.api.element.SingleLineComment;
 import org.e2immu.language.cst.api.expression.BinaryOperator;
@@ -65,21 +66,21 @@ public class TestParseFields extends CommonTestParse {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = parse(INPUT);
+        TypeInfo typeInfo = parse(INPUT, true);
         assertEquals("C", typeInfo.simpleName());
 
         assertEquals(1, typeInfo.comments().size());
-        if (typeInfo.comments().get(0) instanceof SingleLineComment c) {
+        if (typeInfo.comments().getFirst() instanceof SingleLineComment c) {
             assertEquals(" class comment", c.comment());
         } else fail();
 
 
-        FieldInfo a = typeInfo.fields().get(0);
+        FieldInfo a = typeInfo.fields().getFirst();
         assertSame(a, typeInfo.getFieldByName("a", true));
         assertTrue(a.access().isPackage());
         assertEquals(5, a.source().beginLine());
         assertEquals(1, a.comments().size());
-        if (a.comments().get(0) instanceof MultiLineComment mlc) {
+        if (a.comments().getFirst() instanceof MultiLineComment mlc) {
             assertEquals("/* not final */\n", mlc.print(null).toString());
         } else fail();
 
@@ -98,6 +99,8 @@ public class TestParseFields extends CommonTestParse {
             assertEquals("' '", ce.print(null).toString());
         } else fail();
         assertFalse(c.isFinal());
+        assertEquals("@8:20-8:20", c.source().detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS)
+                .toString());
 
         FieldInfo d = typeInfo.getFieldByName("d", true);
         assertTrue(d.isFinal());
@@ -116,11 +119,11 @@ public class TestParseFields extends CommonTestParse {
         } else fail();
         assertEquals(1, d.annotations().size());
 
-        MethodInfo methodInfo = typeInfo.methods().get(0);
+        MethodInfo methodInfo = typeInfo.methods().getFirst();
         assertEquals("a", methodInfo.name());
         Block block = methodInfo.methodBody();
         assertEquals(1, block.size());
-        if (block.statements().get(0) instanceof ReturnStatement rs) {
+        if (block.statements().getFirst() instanceof ReturnStatement rs) {
             if (rs.expression() instanceof VariableExpression ve) {
                 if (ve.variable() instanceof FieldReference fr) {
                     assertSame(a, fr.fieldInfo());
@@ -132,8 +135,12 @@ public class TestParseFields extends CommonTestParse {
 
         FieldInfo t = typeInfo.getFieldByName("t", true);
         assertEquals(1, t.comments().size());
+        assertEquals("@15:12-15:12", t.source().detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS)
+                .toString());
         FieldInfo s = typeInfo.getFieldByName("s", true);
         assertTrue(s.comments().isEmpty());
+        assertEquals("@15:21-15:21", s.source().detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS)
+                .toString());
         FieldInfo u = typeInfo.getFieldByName("u", false);
         assertNull(u);
     }
