@@ -524,15 +524,18 @@ public class ParseStatement extends CommonParse {
         i++;
         boolean first = true;
         List<Node> commas = detailedSourcesBuilder != null ? new ArrayList<>() : null;
+        List<Node> assignmentOperators = detailedSourcesBuilder != null ? new ArrayList<>() : null;
         while (i < nvd.size() && nvd.get(i) instanceof VariableDeclarator vd) {
             if (detailedSourcesBuilder != null && i + 1 < nvd.size()
                 && nvd.get(i + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
                 commas.add(d);
             }
             Node vd0 = vd.getFirst();
+            Node assignmentOperator;
             LocalVariable lv;
             if (vd0 instanceof KeyWord && Token.TokenType.UNDERSCORE.equals(vd0.getType())) {
                 lv = runtime.newUnnamedLocalVariable(baseType, runtime.newEmptyExpression());
+                assignmentOperator = null;
             } else {
                 Identifier identifier;
                 ParameterizedType type;
@@ -556,6 +559,13 @@ public class ParseStatement extends CommonParse {
                     lv = runtime.newLocalVariable(variableName, type, expression);
                     // replace! See TestAssignment,2 for the cause of this silly construction
                     context.variableContext().add(lv);
+                    if (detailedSourcesBuilder != null) {
+                        assignmentOperator = vd.get(1);
+                    } else {
+                        assignmentOperator = null;
+                    }
+                } else {
+                    assignmentOperator = null;
                 }
                 if (detailedSourcesBuilder != null) {
                     detailedSourcesBuilder.put(lv, source(identifier));
@@ -568,9 +578,14 @@ public class ParseStatement extends CommonParse {
                 builder.addOtherLocalVariable(lv);
             }
             i += 2;
+            if (detailedSourcesBuilder != null) {
+                assignmentOperators.add(assignmentOperator);
+            }
         }
         if (detailedSourcesBuilder != null) {
             addCommaList(commas, detailedSourcesBuilder, DetailedSources.LOCAL_VARIABLE_COMMAS);
+            detailedSourcesBuilder.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS,
+                    assignmentOperators.stream().map(o -> o == null ? null : source(o)).toList());
         }
         lvcModifiers.forEach(builder::addModifier);
         return builder
@@ -623,6 +638,9 @@ public class ParseStatement extends CommonParse {
         VariableDeclarator vd = (VariableDeclarator) varDeclaration.get(i);
         Identifier identifier = (Identifier) vd.get(0);
         ForwardType forwardType = context.emptyForwardType();
+        if (detailedSourcesBuilder != null) {
+            detailedSourcesBuilder.put(DetailedSources.SUCCEEDING_EQUALS, source(vd.get(1)));
+        }
         Expression expression = parsers.parseExpression().parse(context, index, forwardType, vd.get(2));
         String variableName = identifier.getSource();
         ParameterizedType type = expression.parameterizedType();
