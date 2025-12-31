@@ -100,7 +100,7 @@ public class TestInstanceOf extends CommonTest {
             Statement s000 = method.methodBody().statements().getFirst().block().statements().getFirst();
             VariableData vd000 = VariableDataImpl.of(s000);
             VariableInfo vi000O = vd000.variableInfo("o");
-            assertEquals("o.§es→set.§es,o.§es∋1:s,o.§es≺0:i,o→set", vi000O.linkedVariables().toString());
+            assertEquals("o.§es→set.§es,o.§es∋1:s,o→set,o∩0:i", vi000O.linkedVariables().toString());
             // o ≺ 0:i is not visible
             assertTrue(vi000O.isModified());
 

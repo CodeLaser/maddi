@@ -79,7 +79,7 @@ public class TestStream extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method1.methodBody().statements().get(1));
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
-        assertEquals("stream2.§xs≡stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
+        assertEquals("stream2.§xs←stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
@@ -248,7 +248,7 @@ public class TestStream extends CommonTest {
 
         MethodInfo wrap = C.findUniqueMethod("wrap", 1);
         MethodLinkedVariables mlvWrap = wrap.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(wrap));
-        assertEquals("[-] --> wrap.v≡0:y", mlvWrap.toString());
+        assertEquals("[-] --> wrap.v←0:y", mlvWrap.toString());
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
@@ -262,7 +262,7 @@ public class TestStream extends CommonTest {
         VariableInfo viStream21 = vd1.variableInfo("stream2");
         Links lvStream21 = viStream21.linkedVariablesOrEmpty();
         // wrapping in R is invisible
-        assertEquals("stream2.§xs≡stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
+        assertEquals("stream2.§xs←stream1.§xs,stream2.§xs⊆0:list.§xs", lvStream21.toString());
 
         VariableData vd2 = VariableDataImpl.of(method1.methodBody().statements().get(2));
         VariableInfo viResult = vd2.variableInfo("result");
@@ -384,10 +384,10 @@ public class TestStream extends CommonTest {
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(K,V)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[0:key≡this.§kv.§k, 1:value≡this.§kv.§v] --> -", tlvConstructor1.toString());
+        assertEquals("[0:key→this.§kv.§k, 1:value→this.§kv.§v] --> -", tlvConstructor1.toString());
 
         MethodLinkedVariables tlvSwap = swap.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> swap.§yx.§x≡0:entry.§xy.§x,swap.§yx.§y≡0:entry.§xy.§y", tlvSwap.toString());
+        assertEquals("[-] --> swap.§yx.§x←0:entry.§xy.§x,swap.§yx.§y←0:entry.§xy.§y", tlvSwap.toString());
 
         // start reverse
         MethodInfo reverse = C.findUniqueMethod("reverse", 1);
@@ -421,7 +421,7 @@ public class TestStream extends CommonTest {
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.linkedVariablesOrEmpty();
         assertEquals("""
-                stream2.§yxs[-2].§x≡stream1.§xys[-1].§x,stream2.§yxs[-1].§y≡stream1.§xys[-2].§y,\
+                stream2.§yxs[-2].§x←stream1.§xys[-1].§x,stream2.§yxs[-1].§y←stream1.§xys[-2].§y,\
                 stream2.§yxs~stream1.§xys,stream2.§yxs~0:map.§xys,stream2.§yxs~entries.§xys\
                 """, tlvStream2.toString());
 
