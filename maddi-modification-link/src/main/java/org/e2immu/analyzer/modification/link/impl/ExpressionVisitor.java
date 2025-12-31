@@ -469,7 +469,9 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         // translate conditionally wrt concrete type, evaluated object
         MethodLinkedVariables mlvTranslated2;
         Variable objectPrimary = object.links.primary();
-        if (objectPrimary != null) {
+        if (Util.methodIsSamOfJavaUtilFunctional(mc.methodInfo())) {
+            mlvTranslated2 = mlv; // no point doing anything
+        } else if (objectPrimary != null) {
             This thisVar = javaInspector.runtime().newThis(mc.methodInfo().typeInfo().asParameterizedType());
             MethodLinkedVariables mlvTranslated1;
             if (!thisVar.equals(objectPrimary)) {

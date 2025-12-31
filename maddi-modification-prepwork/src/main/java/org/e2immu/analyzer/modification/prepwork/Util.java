@@ -15,6 +15,7 @@
 package org.e2immu.analyzer.modification.prepwork;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.variable.*;
@@ -220,5 +221,10 @@ public class Util {
 
     public static boolean virtual(FieldReference fr) {
         return fr.fieldInfo().name().startsWith("§");
+    }
+
+    public static boolean methodIsSamOfJavaUtilFunctional(MethodInfo methodInfo) {
+        return "java.util.function".equals(methodInfo.typeInfo().packageName())
+               && methodInfo.isAbstract();
     }
 }
