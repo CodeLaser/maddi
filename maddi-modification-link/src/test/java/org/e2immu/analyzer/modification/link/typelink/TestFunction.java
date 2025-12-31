@@ -95,7 +95,7 @@ public class TestFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("optXY");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("optXY∈0:optional.§xys", tlvX.toString());
+        assertEquals("optXY.§xy∈0:optional.§xys", tlvX.toString());
 
         assertEquals("[-] --> method∈0:optional.§xys",
                 method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
