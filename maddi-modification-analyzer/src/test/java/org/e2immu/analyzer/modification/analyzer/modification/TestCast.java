@@ -112,7 +112,7 @@ public class TestCast extends CommonTest {
             Statement s0 = noCast.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo viO0 = vd0.variableInfo("o");
-            assertEquals("o≡0:r.object", viO0.linkedVariables().toString());
+            assertEquals("o←0:r.object", viO0.linkedVariables().toString());
         }
 
         MethodInfo setAdd = X.findUniqueMethod("setAdd", 2);
@@ -125,14 +125,14 @@ public class TestCast extends CommonTest {
             Statement s0 = setAdd.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo vi0Set = vd0.variableInfo("set");
-            assertEquals("set≡0:r.object", vi0Set.linkedVariables().toString());
+            assertEquals("set←0:r.object", vi0Set.linkedVariables().toString());
             assertFalse(vi0Set.isModified());
         }
         {
             Statement s1 = setAdd.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1Set = vd1.variableInfo("set");
-            assertEquals("set.§$s≡0:r.object.§$s,set.§$s∋1:s,set≡0:r.object", vi1Set.linkedVariables().toString());
+            assertEquals("set.§$s←0:r.object.§$s,set.§$s∋1:s,set←0:r.object", vi1Set.linkedVariables().toString());
             assertTrue(vi1Set.isModified());
             VariableInfo vi1R = vd1.variableInfo(r);
             assertTrue(vi1R.isModified());
