@@ -74,8 +74,15 @@ public record LinkMethodCall(Runtime runtime,
         if (!object.links().isEmpty()) {
             extra.put(objectPrimary, object.links());
         }
-        Links concreteReturnValue = mlv.ofReturnValue() == null ? LinksImpl.EMPTY :
-                objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
+        Links concreteReturnValue;
+        if (mlv.ofReturnValue() == null) {
+            concreteReturnValue = LinksImpl.EMPTY;
+        } else if (Util.methodIsSamOfJavaUtilFunctional(methodInfo)) {
+            assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
+            concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, mlv);
+        } else {
+            concreteReturnValue = objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
+        }
         if (objectPrimary != null) {
             Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
             if (newObjectLinks.primary() instanceof This && !newObjectLinks.isEmpty()) {
@@ -235,6 +242,27 @@ public record LinkMethodCall(Runtime runtime,
             }
         }
         builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
+    }
+
+
+    private Links parametersToReturnValue(MethodInfo methodInfo,
+                                          ParameterizedType concreteReturnType,
+                                          List<ExpressionVisitor.Result> params,
+                                          MethodLinkedVariables mlv) {
+        Links ofReturnValue = mlv.ofReturnValue();
+        Variable rvPrimary = ofReturnValue.primary();
+
+        assert rvPrimary instanceof ReturnVariable
+                : "the links of the method return value must be in the return variable";
+        assert !methodInfo.isVoid() || methodInfo.isConstructor()
+                : "Cannot be a void function if we have a return variable";
+
+        Variable applied = new AppliedFunctionalInterfaceVariable(
+                LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE + variableCounter.getAndIncrement(),
+                concreteReturnType, runtime.newEmptyExpression(), params);
+        Links.Builder builder = new LinksImpl.Builder(rvPrimary);
+        builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, applied);
+        return builder.build();
     }
 
     private @NotNull Links parametersToObject(MethodInfo methodInfo,

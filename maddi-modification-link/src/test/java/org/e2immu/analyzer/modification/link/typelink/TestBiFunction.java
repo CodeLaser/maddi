@@ -60,11 +60,7 @@ public class TestBiFunction extends CommonTest {
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                biFunction(*[Type param X]:2[Type java.util.function.BiFunction<X,Y,X>])\
-                [#0:ix(*[Type param X]:0[Type java.util.function.BiFunction<X,Y,X>]);\
-                iy(*[Type param Y]:1[Type java.util.function.BiFunction<X,Y,X>])]\
-                """, tlvMake.toString());
+        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");

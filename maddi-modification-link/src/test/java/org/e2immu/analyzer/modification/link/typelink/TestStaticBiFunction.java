@@ -3,22 +3,19 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -62,11 +59,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                biFunction(*[Type param X]:2[Type java.util.function.BiFunction<X,Y,X>])\
-                [#0:ix(*[Type param X]:0[Type java.util.function.BiFunction<X,Y,X>]);\
-                iy(*[Type param Y]:1[Type java.util.function.BiFunction<X,Y,X>])]\
-                """, tlvMake.toString());
+        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
@@ -119,11 +112,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                biFunction(*[Type java.util.List<java.util.Set<X>>]:2[Type java.util.function.BiFunction<X,Y,java.util.List<java.util.Set<X>>>])\
-                [#0:ix(*[Type param X]:0[Type java.util.function.BiFunction<X,Y,java.util.List<java.util.Set<X>>>]);\
-                iy(*[Type param Y]:1[Type java.util.function.BiFunction<X,Y,java.util.List<java.util.Set<X>>>])]\
-                """, tlvMake.toString());
+        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
@@ -173,13 +162,8 @@ public class TestStaticBiFunction extends CommonTest {
         assertEquals("[-, -] --> join.§xy.§x←0:x,join.§xy.§y←1:y", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
-        MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
-                MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                biFunction(*[Type java.util.Map.Entry<X,Y>]:2[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<X,Y>>])\
-                [#0:ix(*[Type param X]:0[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<X,Y>>]);\
-                iy(*[Type param Y]:1[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<X,Y>>])]\
-                """, tlvMake.toString());
+        MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
@@ -232,13 +216,8 @@ public class TestStaticBiFunction extends CommonTest {
         assertEquals("[-, -] --> join.§yx.§x←0:x,join.§yx.§y←1:y", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
-        MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
-                MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                biFunction(*[Type java.util.Map.Entry<Y,X>]:2[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<Y,X>>])\
-                [#0:ix(*[Type param X]:0[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<Y,X>>]);\
-                iy(*[Type param Y]:1[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<Y,X>>])]\
-                """, tlvMake.toString());
+        MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
@@ -294,11 +273,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                biFunction(*[Type java.util.Map.Entry<Y,X>]:2[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>])\
-                [#0:ix(*[Type param X]:0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>]);\
-                iys(*[Type java.util.List<Y>]:1[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>])]\
-                """, tlvMake.toString());
+        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
@@ -354,11 +329,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                biFunction(*[Type java.util.Map.Entry<Y,X>]:2[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>])\
-                [#0:ix(*[Type param X]:0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>]);\
-                iy(0[Type java.util.List<Y>]:[1]0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>])]\
-                """, tlvMake.toString());
+        assertEquals("[-] --> make←$_fi1", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
@@ -369,12 +340,6 @@ public class TestStaticBiFunction extends CommonTest {
                 x(1[Type java.util.Map.Entry<Y,X>]:0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>]);\
                 ys(0[Type java.util.Map.Entry<Y,X>]:[1]0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>])\
                 """, tlvEntry.toString());
-        String s2 = """
-                ix(*[Type param X]:*[Type param X]);\
-                iy(*[Type param X]:0[Type java.util.List<Y>]);\
-                x(1[Type java.util.Map.Entry<Y,X>]:0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>]);\
-                ys(0[Type java.util.Map.Entry<Y,X>]:[1]0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>])\
-                """;
     }
 
 }

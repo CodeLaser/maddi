@@ -193,7 +193,9 @@ public record Expand(Runtime runtime) {
         assert variable.variableStreamDescend().noneMatch(v -> v instanceof ReturnVariable) : """
                 Return variables should not occur here: the result of LinkMethodCall should never contain them.
                 """;
-        return variable.variableStreamDescend().noneMatch(v -> v instanceof LocalVariable);
+        return variable.variableStreamDescend()
+                .allMatch(v -> !(v instanceof LocalVariable lv)
+                               || lv instanceof AppliedFunctionalInterfaceVariable a && a.containsNoLocalVariables());
     }
 
     record PC(Variable from, LinkNature linkNature, Variable to) {
@@ -460,6 +462,7 @@ public record Expand(Runtime runtime) {
         }
         Links.Builder builder = followGraph(gd, primary, tm, false);
 
+        if (primary instanceof ReturnVariable) return builder.build();
         if (containsNoLocalVariable(primary)) {
             builder.prepend(IS_ASSIGNED_FROM, primary);
         }
