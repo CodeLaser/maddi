@@ -103,10 +103,12 @@ public class LinkNatureImpl implements LinkNature {
         if (other == IS_ASSIGNED_TO) return this; // a R b → c implies a R c;
         if (this == IS_ASSIGNED_FROM) return other; // a ← b R c implies a R c
 
-        if (other == IS_ASSIGNED_FROM && this != IS_ASSIGNED_TO) {
+        if (other == IS_ASSIGNED_FROM && this != IS_ASSIGNED_TO
+            && this != CONTAINS_AS_FIELD) {
             return this; //a R b ← c implies a R c, but not for →
         }
-        if (this == IS_ASSIGNED_TO && other != IS_ASSIGNED_FROM) {
+        if (this == IS_ASSIGNED_TO && other != IS_ASSIGNED_FROM
+            && other != IS_FIELD_OF) {
             return other; // a → b R c implies a R c, but not for ←
         }
 

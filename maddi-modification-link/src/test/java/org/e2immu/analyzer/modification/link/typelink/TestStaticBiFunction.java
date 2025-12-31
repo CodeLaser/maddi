@@ -23,7 +23,6 @@ import java.util.List;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestStaticBiFunction extends CommonTest {
 
     @Language("java")
@@ -59,9 +58,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         MethodInfo join = C.findUniqueMethod("extract", 2);
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                x(*[Type param X]:*[Type param X])\
-                """, tlvJoin.toString());
+        assertEquals("[-, -] --> extract←0:x", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
@@ -117,9 +114,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
         // NOTE the E instead of X... on the LHS, we can have formal values
-        assertEquals("""
-                x([0]0[Type java.util.List<java.util.Set<E>>]:*[Type param X])\
-                """, tlvJoin.toString());
+        assertEquals("[-, -] --> extract.§$s≥0:x", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
@@ -175,10 +170,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo join = C.findUniqueMethod("join", 2);
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                x(0[Type java.util.AbstractMap.SimpleEntry<K,V>]:*[Type param X]);\
-                y(1[Type java.util.AbstractMap.SimpleEntry<K,V>]:*[Type param Y])\
-                """, tlvJoin.toString());
+        assertEquals("[-, -] --> join.§xy.§x←0:x,join.§xy.§y←1:y", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
@@ -237,10 +229,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo join = C.findUniqueMethod("join", 2);
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                x(1[Type java.util.AbstractMap.SimpleEntry<K,V>]:*[Type param X]);\
-                y(0[Type java.util.AbstractMap.SimpleEntry<K,V>]:*[Type param Y])\
-                """, tlvJoin.toString());
+        assertEquals("[-, -] --> join.§yx.§x←0:x,join.§yx.§y←1:y", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
@@ -297,21 +286,10 @@ public class TestStaticBiFunction extends CommonTest {
         tlc.doPrimaryType(C);
         MethodInfo method = C.findUniqueMethod("method", 0);
 
-        TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
-        MethodInfo getFirst = list.findUniqueMethod("getFirst", 0);
-        MethodLinkedVariables tlvGetFirst = getFirst.analysis().getOrNull(METHOD_LINKS,
-                MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                return getFirst(*[Type param E]:0[Type java.util.List<E>])\
-                """, tlvGetFirst.toString());
-
         MethodInfo join = C.findUniqueMethod("join", 2);
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                x(1[Type java.util.AbstractMap.SimpleEntry<K,V>]:*[Type param X]);\
-                ys(0[Type java.util.AbstractMap.SimpleEntry<K,V>]:0[Type java.util.List<Y>])\
-                """, tlvJoin.toString());
+        assertEquals("[-, -] --> join.§yx.§x←0:x,join.§yx.§y∈1:ys.§ys", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
@@ -371,10 +349,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo join = C.findUniqueMethod("join", 2);
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                x(1[Type java.util.AbstractMap.SimpleEntry<K,V>]:*[Type param X]);\
-                ys(0[Type java.util.AbstractMap.SimpleEntry<K,V>]:0[Type java.util.List<Y>])\
-                """, tlvJoin.toString());
+        assertEquals("[-, -] --> join.§yx.§x←0:x,join.§yx.§y∈1:ys.§ys", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,

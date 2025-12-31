@@ -2,7 +2,6 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
@@ -20,7 +19,6 @@ import java.util.Optional;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestSupplier extends CommonTest {
     @Language("java")
@@ -66,9 +64,7 @@ public class TestSupplier extends CommonTest {
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x←0:optional.§x,x←1:alternative", tlvX.toString());
 
-        assertEquals("""
-                [0:optional.§x←1:alternative, 1:alternative→0:optional.§x] --> method←0:optional.§x,method←1:alternative\
-                """, mlvMethod.toString());
+        assertEquals("[-, -] --> method←0:optional.§x,method←1:alternative", mlvMethod.toString());
     }
 
     @Test
@@ -84,9 +80,7 @@ public class TestSupplier extends CommonTest {
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
                 tlc.doMethod(method));
 
-        assertEquals("""
-                [0:optional.§x≡1:alternative, 1:alternative≡0:optional.§x] --> method2≡0:optional.§x,method2≡1:alternative\
-                """, mlvMethod.toString());
+        assertEquals("[-, -] --> method2←0:optional.§x,method2←1:alternative", mlvMethod.toString());
     }
 
     @Language("java")
@@ -126,8 +120,7 @@ public class TestSupplier extends CommonTest {
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x←0:optional.§x,x←this.alternative", tlvX.toString());
 
-        assertEquals("[0:optional.§x≡this.alternative] --> method≡0:optional.§x,method≡this.alternative",
-                mlv.toString());
+        assertEquals("[-] --> method←0:optional.§x,method←this.alternative", mlv.toString());
     }
 
 
@@ -160,7 +153,7 @@ public class TestSupplier extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("x");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("x≡1:c.alternative,x≡0:optional.§x", tlvX.toString());
+        assertEquals("x←1:c.alternative,x←0:optional.§x", tlvX.toString());
     }
 
 
@@ -210,10 +203,7 @@ public class TestSupplier extends CommonTest {
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("x←1:c.alternative,x←0:optional.§x", tlvX.toString());
 
-        assertEquals("""
-                [0:optional.§x≡1:c.alternative, 1:c.alternative≡0:optional.§x] \
-                --> method≡1:c.alternative,method≡0:optional.§x\
-                """, mlvMethod.toString());
+        assertEquals("[-, -] --> method←1:c.alternative,method←0:optional.§x", mlvMethod.toString());
     }
 
     @Language("java")
@@ -247,9 +237,7 @@ public class TestSupplier extends CommonTest {
         MethodInfo orElseGet = optional.findUniqueMethod("orElseGet", 1);
         MethodLinkedVariables mlvOrElseGet = orElseGet.analysis().getOrCreate(METHOD_LINKS, () ->
                 tlc.doMethod(orElseGet));
-        assertEquals("""
-                [-] --> orElseGet≡this.§t,orElseGet≡Λ0:supplier\
-                """, mlvOrElseGet.toString());
+        assertEquals("[-] --> orElseGet←this.§t,orElseGet←Λ0:supplier", mlvOrElseGet.toString());
 
         MethodInfo method = C.findUniqueMethod("method", 2);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
@@ -259,12 +247,12 @@ public class TestSupplier extends CommonTest {
         VariableInfo viX0 = vd0.variableInfo("xList");
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("""
-                xList.§m≡0:optional.§m,xList.§xs≡1:main.§xs,xList.§xs⊆0:optional.§xs,xList.§m≡1:main.§m\
+                xList.§m←0:optional.§m,xList.§xs←1:main.§xs,xList.§xs⊆0:optional.§xs,xList.§m←1:main.§m\
                 """, tlvX.toString());
 
         assertEquals("""
                 [0:optional.§xs⊇1:main.§xs, 1:main.§xs⊆0:optional.§xs] --> \
-                method.§m≡0:optional.§m,method.§xs≡1:main.§xs,method.§xs⊆0:optional.§xs,method.§m≡1:main.§m\
+                method.§m←0:optional.§m,method.§xs←1:main.§xs,method.§xs⊆0:optional.§xs,method.§m←1:main.§m\
                 """, mlvMethod.toString());
     }
 
@@ -283,11 +271,11 @@ public class TestSupplier extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viLambda0 = vd0.variableInfo("lambda");
-        assertEquals("lambda≡Λ$_fi0", viLambda0.linkedVariables().toString());
+        assertEquals("lambda←Λ$_fi0", viLambda0.linkedVariables().toString());
 
         assertEquals("""
                 [0:optional.§xs⊇1:main.§xs, 1:main.§xs⊆0:optional.§xs] --> \
-                method2.§m≡0:optional.§m,method2.§xs≡1:main.§xs,method2.§xs⊆0:optional.§xs,method2.§m≡1:main.§m\
+                method2.§m←0:optional.§m,method2.§xs←1:main.§xs,method2.§xs⊆0:optional.§xs,method2.§m←1:main.§m\
                 """, mlvMethod.toString());
     }
 
@@ -325,31 +313,29 @@ public class TestSupplier extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(method2.methodBody().statements().getFirst());
             VariableInfo viLambda = vd0.variableInfo("lambda");
             Links lvLambda = viLambda.linkedVariablesOrEmpty();
-            assertEquals("lambda≡Λ$_fi0", lvLambda.toString());
+            assertEquals("lambda←Λ$_fi0", lvLambda.toString());
 
             VariableData vd1 = VariableDataImpl.of(method2.methodBody().statements().get(1));
             VariableInfo viEntry = vd1.variableInfo("entry");
             Links lvEntry = viEntry.linkedVariablesOrEmpty();
             assertEquals("""
-                    entry.§xy.§x≡0:optional.§xy.§xy.§x,entry.§xy.§x≡1:altX,entry.§xy.§y≡0:optional.§xy.§xy.§y,\
-                    entry.§xy.§y≡2:altY,entry.§xy~0:optional.§xy.§xy,entry≡0:optional.§xy\
+                    entry.§xy.§x←0:optional.§xy.§xy.§x,entry.§xy.§x←1:altX,entry.§xy.§y←0:optional.§xy.§xy.§y,\
+                    entry.§xy.§y←2:altY,entry.§xy~0:optional.§xy.§xy,entry←0:optional.§xy\
                     """, lvEntry.toString());
 
             assertEquals("""
-                    [0:optional.§xy.§xy.§x≡1:altX,0:optional.§xy.§xy.§y≡2:altY, \
-                    1:altX≡0:optional.§xy.§xy.§x, 2:altY≡0:optional.§xy.§xy.§y] --> \
-                    method2.§xy.§x≡0:optional.§xy.§xy.§x,method2.§xy.§x≡1:altX,method2.§xy.§y≡0:optional.§xy.§xy.§y,\
-                    method2.§xy.§y≡2:altY,method2.§xy~0:optional.§xy.§xy,method2≡0:optional.§xy\
+                    [-, -, -] --> method2.§xy.§x←0:optional.§xy.§xy.§x,method2.§xy.§x←1:altX,\
+                    method2.§xy.§y←0:optional.§xy.§xy.§y,method2.§xy.§y←2:altY,\
+                    method2.§xy~0:optional.§xy.§xy,method2←0:optional.§xy\
                     """, mlv2.toString());
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 3);
             MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
             assertEquals("""
-                    [0:optional.§xy.§xy.§x≡1:altX,0:optional.§xy.§xy.§y≡2:altY, \
-                    1:altX≡0:optional.§xy.§xy.§x, 2:altY≡0:optional.§xy.§xy.§y] --> \
-                    method.§xy.§x≡0:optional.§xy.§xy.§x,method.§xy.§x≡1:altX,method.§xy.§y≡0:optional.§xy.§xy.§y,\
-                    method.§xy.§y≡2:altY,method.§xy~0:optional.§xy.§xy,method≡0:optional.§xy\
+                    [-, -, -] --> method.§xy.§x←0:optional.§xy.§xy.§x,method.§xy.§x←1:altX,\
+                    method.§xy.§y←0:optional.§xy.§xy.§y,method.§xy.§y←2:altY,\
+                    method.§xy~0:optional.§xy.§xy,method←0:optional.§xy\
                     """, mlv.toString());
         }
     }

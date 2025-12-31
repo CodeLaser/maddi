@@ -21,14 +21,13 @@ import java.util.Optional;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestFunction extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
             import java.util.List;
             import java.util.Optional;
-            public class C<X> { 
+            public class C<X> {
                 public X method(Optional<List<X>> optional) {
                     Optional<X> optX = optional.map(List::getFirst);
                     return optX.orElseThrow();
@@ -50,17 +49,15 @@ public class TestFunction extends CommonTest {
         MethodInfo map = optional.findUniqueMethod("map", 1);
         MethodLinkedVariables tlvMap = map.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("""
-                return map(0[Type java.util.Optional<U>]:1[Type java.util.function.Function<? super T,? extends U>])\
-                [#0:return map(0[Type java.util.function.Function<? super T,? extends U>]:0[Type java.util.Optional<T>])]\
-                """, tlvMap.toString());
+        assertEquals("[-] --> map.§u⊆Λ0:mapper", tlvMap.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("optX");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("""
-                optional(0[Type java.util.Optional<X>]:[0]0[Type java.util.Optional<java.util.List<X>>])\
-                """, tlvX.toString());
+        assertEquals("optX.§x∈0:optional.§xs", tlvX.toString());
+
+        assertEquals("[-] --> method∈0:optional.§xs",
+                method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
     }
 
     @Language("java")
@@ -91,9 +88,9 @@ public class TestFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viX0 = vd0.variableInfo("optXY");
         Links tlvX = viX0.linkedVariablesOrEmpty();
-        assertEquals("""
-                optional(0[Type java.util.Optional<java.util.Map.Entry<X,Y>>]:\
-                [0]0[Type java.util.Optional<java.util.List<java.util.Map.Entry<X,Y>>>])\
-                """, tlvX.toString());
+        assertEquals("optXY∈0:optional.§es", tlvX.toString());
+
+        assertEquals("[-] --> method∈0:optional.§es",
+                method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
     }
 }
