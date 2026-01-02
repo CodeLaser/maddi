@@ -24,7 +24,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 
-public record ExpressionVisitor(JavaInspector javaInspector,
+public record ExpressionVisitor(Runtime runtime,
+                                JavaInspector javaInspector,
                                 VirtualFieldComputer virtualFieldComputer,
                                 LinkComputerRecursion linkComputer,
                                 LinkComputerImpl.SourceMethodComputer sourceMethodComputer,
@@ -213,7 +214,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     }
 
     Result constantExpression(ConstantExpression<?> ce) {
-        LocalVariable lv = javaInspector.runtime().newLocalVariable(LinksImpl.CONSTANT_VARIABLE + variableCounter.getAndIncrement(),
+        LocalVariable lv = runtime.newLocalVariable(LinksImpl.CONSTANT_VARIABLE + variableCounter.getAndIncrement(),
                 ce.parameterizedType(), ce);
         return new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY).addVariableRepresentingConstant(lv);
     }
@@ -239,7 +240,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         return from.isPrimitiveExcludingVoid()
                && to.isPrimitiveExcludingVoid()
                && !from.equals(to)
-               && javaInspector.runtime().widestType(from, to).equals(from);
+               && runtime.widestType(from, to).equals(from);
     }
 
 
@@ -286,8 +287,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result object = visit(mr.scope(), variableData, stage);
         MethodLinkedVariables tMlv;
         if (object.links.primary() != null) {
-            This thisVar = javaInspector.runtime().newThis(mr.methodInfo().typeInfo().asParameterizedType());
-            TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
+            This thisVar = runtime.newThis(mr.methodInfo().typeInfo().asParameterizedType());
+            TranslationMap tm = runtime.newTranslationMapBuilder()
                     .put(thisVar, object.links.primary())
                     .build();
             tMlv = mlv.translate(tm);
@@ -312,7 +313,6 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Result rc = visit(ic.condition(), variableData, stage);
         Result rt = visit(ic.ifTrue(), variableData, stage);
         Result rf = visit(ic.ifFalse(), variableData, stage);
-        Runtime runtime = javaInspector.runtime();
         String name = LinksImpl.INTERMEDIATE_CONDITIONAL_VARIABLE + variableCounter.getAndIncrement();
         Variable newPrimary = runtime.newLocalVariable(name, ic.parameterizedType());
         // we must link the new primary to both rt and rf links
@@ -327,12 +327,17 @@ public record ExpressionVisitor(JavaInspector javaInspector,
     private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData, Stage stage) {
         Variable v = ve.variable();
         LinkedVariables extra = LinkedVariablesImpl.EMPTY;
-        while (v instanceof DependentVariable dv) {
+        if (v instanceof DependentVariable dv) {
+            Result r = visit(dv.indexExpression(), variableData, stage).copyLinksToExtra();
+            extra = extra.merge(r.extra);
             v = dv.arrayVariable();
             if (v != null) {
                 Links vLinks = new LinksImpl.Builder(dv).add(LinkNatureImpl.IS_ELEMENT_OF, v).build();
                 extra = extra.merge(new LinkedVariablesImpl(Map.of(dv, vLinks)));
             }
+            Result rArray = visit(dv.arrayExpression(), variableData, stage);
+            Links.Builder builder = new LinksImpl.Builder(ve.variable());
+            return new Result(builder.build(), extra.merge(rArray.extra));
         }
 
         if (v instanceof FieldReference fr) {
@@ -370,7 +375,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         assert cc.object() == null || cc.object().isEmpty() : "NYI";
 
         String name = LinksImpl.INTERMEDIATE_CONSTRUCTOR_VARIABLE + variableCounter.getAndIncrement();
-        LocalVariable lv = javaInspector.runtime().newLocalVariable(name, cc.parameterizedType());
+        LocalVariable lv = runtime.newLocalVariable(name, cc.parameterizedType());
         Result object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
 
         // only translate wrt concrete type
@@ -386,7 +391,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         List<Result> params = cc.parameterExpressions().stream()
                 .map(e -> visitExpandFunctionalInterfaceVariables(e, variableData, stage))
                 .toList();
-        return new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
+        return new LinkMethodCall(runtime, virtualFieldComputer, variableCounter, currentMethod)
                 .constructorCall(cc.constructor(), object, params, mlvTranslated1)
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
@@ -414,7 +419,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(
                     LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE + variableCounter.getAndIncrement(),
                     lambda.concreteFunctionalType(),
-                    javaInspector.runtime().newEmptyExpression(),
+                    runtime.newEmptyExpression(),
                     wrapped);
             Links links = new LinksImpl.Builder(fiv).build();
             return new Result(links, LinkedVariablesImpl.EMPTY);
@@ -462,20 +467,29 @@ public record ExpressionVisitor(JavaInspector javaInspector,
 
     private Result methodCall(VariableData variableData, Stage stage, MethodCall mc) {
         // recursion, translation
-
         Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData, stage);
-        MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
+        Variable objectPrimary = object.links.primary();
 
+        Value.FieldValue fv = mc.methodInfo().getSetField();
+        if (fv.field() != null) {
+            if (!fv.setter() && mc.parameterExpressions().isEmpty() && objectPrimary != null) {
+                VariableExpression ve = runtime.newVariableExpression(
+                        runtime.newFieldReference(fv.field(),
+                                runtime.newVariableExpression(objectPrimary), mc.concreteReturnType()));
+                return variableExpression(ve, variableData, stage);
+            }
+        }
+
+        MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
         // translate conditionally wrt concrete type, evaluated object
         MethodLinkedVariables mlvTranslated2;
-        Variable objectPrimary = object.links.primary();
         if (Util.methodIsSamOfJavaUtilFunctional(mc.methodInfo())) {
             mlvTranslated2 = mlv; // no point doing anything
         } else if (objectPrimary != null) {
-            This thisVar = javaInspector.runtime().newThis(mc.methodInfo().typeInfo().asParameterizedType());
+            This thisVar = runtime.newThis(mc.methodInfo().typeInfo().asParameterizedType());
             MethodLinkedVariables mlvTranslated1;
             if (!thisVar.equals(objectPrimary)) {
-                TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
+                TranslationMap tm = runtime.newTranslationMapBuilder()
                         .put(thisVar, objectPrimary)
                         .build();
                 mlvTranslated1 = mlv.translate(tm);
@@ -506,7 +520,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
             }
         } else {
             // static method, without object; but there may be method type parameters involved
-            TranslationMap vfTm = new VirtualFieldTranslationMapForMethodParameters(virtualFieldComputer, javaInspector.runtime())
+            TranslationMap vfTm = new VirtualFieldTranslationMapForMethodParameters(virtualFieldComputer, runtime)
                     .staticCall(mc);
             mlvTranslated2 = mlv.translate(vfTm);
         }
@@ -518,7 +532,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
 
         // handle all matters 'linking'
 
-        Result r = new LinkMethodCall(javaInspector.runtime(), virtualFieldComputer, variableCounter, currentMethod)
+        Result r = new LinkMethodCall(runtime, virtualFieldComputer, variableCounter, currentMethod)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
 
         // handle all matters 'modification'
@@ -528,7 +542,7 @@ public record ExpressionVisitor(JavaInspector javaInspector,
 
         handleMethodModification(mc, objectPrimary, modifiedFunctionalInterfaceComponents, modified);
         if (!mc.methodInfo().parameters().isEmpty()) {
-            PropagateComponents pc = new PropagateComponents(javaInspector.runtime(), variableData, stage);
+            PropagateComponents pc = new PropagateComponents(runtime, variableData, stage);
             for (ParameterInfo pi : mc.methodInfo().parameters()) {
                 handleParameterModification(mc, pi, params, modified, pc);
             }
@@ -602,8 +616,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
                     for (Map.Entry<Variable, Boolean> entry : modifiedComponents.map().entrySet()) {
                         // translate "this" of the method's instance type to the current scope
                         ParameterizedType pt = mc.object().parameterizedType().typeInfo().asParameterizedType();
-                        This thisInSv = javaInspector.runtime().newThis(pt);
-                        TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
+                        This thisInSv = runtime.newThis(pt);
+                        TranslationMap tm = runtime.newTranslationMapBuilder()
                                 .put(thisInSv, ve.variable())
                                 .build();
                         Variable v = tm.translateVariableRecursively(entry.getKey());
@@ -636,8 +650,8 @@ public record ExpressionVisitor(JavaInspector javaInspector,
         Value.VariableBooleanMap modComp = mrPi.analysis().getOrDefault(MODIFIED_COMPONENTS_PARAMETER,
                 ValueImpl.VariableBooleanMapImpl.EMPTY);
         if (!modComp.isEmpty()) {
-            TranslationMap tm = javaInspector.runtime().newTranslationMapBuilder()
-                    .put(mrPi, javaInspector.runtime().newThis(pi.parameterizedType()))
+            TranslationMap tm = runtime.newTranslationMapBuilder()
+                    .put(mrPi, runtime.newThis(pi.parameterizedType()))
                     .build();
             for (Map.Entry<Variable, Boolean> entry : modComp.map().entrySet()) {
                 if (entry.getValue()) {
