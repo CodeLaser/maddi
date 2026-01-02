@@ -242,16 +242,23 @@ public record Expand(Runtime runtime) {
                     })
                     .toList();
             Variable primaryFrom = Util.primary(tFromV);
+            Variable firstRealFrom = Util.firstRealVariable(tFromV);
+
             //LOGGER.debug("Entries of {}: {}", from, entries);
 
             for (Map.Entry<V, LinkNature> entry : entries) {
                 LinkNature linkNature = entry.getValue();
                 Variable toV = entry.getKey().v;
                 Variable primaryTo = Util.primary(toV);
-                if ((linkNature.rank() >= 2 || linkNature.rank() >= 0 && !primaryFrom.equals(primaryTo))
+                Variable firstRealTo = Util.firstRealVariable(toV);
+                if (linkNature.rank() >= 0
                     && (allowLocalVariables || containsNoLocalVariable(toV))
                     // remove internal references (field inside primary to primary or other field in primary)
-                    && !primaryTo.equals(primaryFrom)
+                    // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
+                    && (!primaryTo.equals(primaryFrom) ||
+                        !firstRealFrom.equals(primaryFrom) &&
+                        !firstRealTo.equals(primaryTo) &&
+                        !firstRealFrom.equals(firstRealTo))
                     && block.add(new PC(tFromV, linkNature, toV))) {
                     builder.add(tFromV, linkNature, toV);
                     // don't add if the reverse is already present in this builder

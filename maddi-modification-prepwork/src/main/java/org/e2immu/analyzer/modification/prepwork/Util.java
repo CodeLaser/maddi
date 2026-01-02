@@ -164,6 +164,18 @@ public class Util {
         return variable;
     }
 
+    public static Variable firstRealVariable(Variable variable) {
+        if (variable instanceof FieldReference fr) {
+            if (fr.scopeVariable() != null && fr.fieldInfo().name().startsWith("§")) {
+                return firstRealVariable(fr.scopeVariable());
+            }
+        }
+        if (variable instanceof DependentVariable dv) {
+            return firstRealVariable(dv.arrayVariable());
+        }
+        return variable;
+    }
+
     public static boolean isPartOf(Variable base, Variable sub) {
         if (base.equals(sub)) return true;
         if (sub instanceof FieldReference fr) {
