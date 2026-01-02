@@ -117,12 +117,6 @@ public class Util {
         return index.compareTo(scope) >= 0;
     }
 
-    public static boolean isPartOf(Variable base, Variable sub) {
-        if (base.equals(sub)) return true;
-        if (base instanceof This) return sub.scopeIsRecursively(base);
-        return base.equals(primary(sub));
-    }
-
     public static boolean isPrimary(Variable variable) {
         return variable == primary(variable);
     }
@@ -168,6 +162,19 @@ public class Util {
             return primary(dv.arrayVariable());
         }
         return variable;
+    }
+
+    public static boolean isPartOf(Variable base, Variable sub) {
+        if (base.equals(sub)) return true;
+        if (sub instanceof FieldReference fr) {
+            if (fr.scopeVariable() != null) {
+                return isPartOf(base, fr.scopeVariable());
+            }
+        }
+        if (sub instanceof DependentVariable dv) {
+            return isPartOf(base, dv.arrayVariable());
+        }
+        return false;
     }
 
     public static Set<Variable> scopeVariables(Variable variable) {
