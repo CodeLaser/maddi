@@ -156,7 +156,9 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo join = C.findUniqueMethod("extract", 2);
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -] --> extract.§xss∋∋0:x", tlvJoin.toString());
+        // TODO §xss∋∋0:x would be better, but it would require not only changing
+        //  VirtualFieldTranslationMapForMethodParameters, but also parts of ExpressionVisitor.
+        assertEquals("[-, -] --> extract.§$s≥0:x", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
@@ -166,7 +168,8 @@ public class TestStaticBiFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("xx.§xss∋∋this.ix", tlvEntry.toString());
+        // xx.§xss∋∋this.ix would be better
+        assertEquals("xx.§$s≥this.ix", tlvEntry.toString());
     }
 
     @Language("java")

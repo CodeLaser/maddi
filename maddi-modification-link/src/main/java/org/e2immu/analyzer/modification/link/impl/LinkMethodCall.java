@@ -17,12 +17,10 @@ import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public record LinkMethodCall(Runtime runtime,
@@ -265,14 +263,21 @@ public record LinkMethodCall(Runtime runtime,
     private Links replaceParametersByEvalInApplied(Links links, List<ExpressionVisitor.Result> params) {
         Links.Builder builder = new LinksImpl.Builder(links.primary());
         for (Link link : links) {
-            if (link.to() instanceof ParameterInfo pi) {
-                // replace
-                Variable primary = Objects.requireNonNullElse(params.get(pi.index()).links().primary(), link.to());
-                builder.add(link.from(), link.linkNature(), primary);
+            Set<ParameterInfo> pis = link.to().variableStreamDescend()
+                    .filter(v -> v instanceof ParameterInfo)
+                    .map(v -> (ParameterInfo) v)
+                    .collect(Collectors.toUnmodifiableSet());
+            Variable to;
+            if (!pis.isEmpty()) {
+                TranslationMap.Builder tmb = runtime.newTranslationMapBuilder();
+                pis.forEach(pi -> tmb.put(pi,
+                        Objects.requireNonNullElse(params.get(pi.index()).links().primary(), pi)));
+                to = tmb.build().translateVariableRecursively(link.to());
             } else {
-                // copy
-                builder.add(link.from(), link.linkNature(), link.to());
+                to = link.to();
             }
+
+            builder.add(link.from(), link.linkNature(), to);
         }
         return builder.build();
     }

@@ -25,6 +25,7 @@ public record VirtualFieldTranslationMapForMethodParameters(VirtualFieldComputer
         }
         return vfTm;
     }
+
     // static call, but with method type parameters
     VirtualFieldTranslationMap staticCall(MethodCall mc) {
         VirtualFieldTranslationMap vfTm = new VirtualFieldTranslationMapImpl(virtualFieldComputer, runtime);
@@ -57,6 +58,11 @@ public record VirtualFieldTranslationMapForMethodParameters(VirtualFieldComputer
     private ParameterizedType extractValueForTp(ParameterizedType formal, ParameterizedType concrete, TypeParameter tp) {
         // X, concrete T[];  X[], formal T[]; ...
         if (tp.equals(formal.typeParameter())) {
+            /* TODO E, concrete Set<X> -> we want to drill down; see TestStaticBiFunction,2b
+              if ("Type java.util.Set<X>".equals(concrete.toString())) {
+                  return concrete.parameters().getFirst().copyWithArrays(1);
+              }
+            */
             return concrete.copyWithArrays(concrete.arrays() - formal.arrays());
         }
         // List<T>, concrete  List<K>
