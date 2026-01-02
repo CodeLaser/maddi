@@ -123,7 +123,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 TranslationMap.Builder tmMapSourceBuilder = runtime.newTranslationMapBuilder();
                 if (!Util.isPartOf(objectPrimary, newPrimary)) {
                     tmMapSourceBuilder.put(newPrimary, objectPrimary);
-                } // else: TestStaticBiFunction,1,2
+                } // else: TestStaticBiFunction,1,2 we don't want this.ix --> this
                 TranslationMap tmMapSource = tmMapSourceBuilder.build();
                 TranslationMap tmMapTarget = runtime.newTranslationMapBuilder().put(links.primary(), returnPrimary).build();
                 for (Link l : links) {
