@@ -161,7 +161,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                                        VirtualFields vfMapTarget,
                                                        boolean dimensionsFromMapSource) {
         if (variable instanceof DependentVariable) {
-            return null; // TODO see TestStream.testTakeFirst()
+            return null; // TODO see impl/TestStream.testTakeFirst()
         }
         Variable translated = tm.translateVariableRecursively(variable);
         Variable upscaled;
