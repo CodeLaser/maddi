@@ -320,9 +320,10 @@ public class TestStaticValues1 extends CommonTest {
             assertEquals(expected, vi0S.linkedVariables().toString());
         }
         {
-            Statement s1 = method.methodBody().statements().getFirst();
+            Statement s1 = method.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
-            assertEquals("0:s.r.i←$_ce0,?", vd1.variableInfo(s).linkedVariables().toString());
+            assertEquals("0:s.r.i←$_ce0,0:s.r.j→0:s.k",
+                    vd1.variableInfo(s).linkedVariables().toString());
         }
     }
 
