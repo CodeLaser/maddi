@@ -36,124 +36,6 @@ public record ExpressionVisitor(Runtime runtime,
     public record WriteMethodCall(Expression methodCall, Links linksFromObject) {
     }
 
-    /*
-    primary = end result
-    links = additional links for parts of the result
-    extra = link information about unrelated variables
-     */
-    public record Result(Links links,
-                         LinkedVariables extra,
-                         Set<Variable> modified,
-                         Set<Variable> modifiedFunctionalInterfaceComponents,
-                         List<WriteMethodCall> writeMethodCalls,
-                         Map<Variable, Set<TypeInfo>> casts,
-                         Set<Variable> erase,
-                         Set<LocalVariable> variablesRepresentingConstants) {
-        public Result(Links links, LinkedVariables extra) {
-            this(links, extra, new HashSet<>(), new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>(),
-                    new HashSet<>());
-        }
-
-        public void addErase(Variable variable) {
-            this.erase.add(variable);
-        }
-
-        public @NotNull Result addExtra(Map<Variable, Links> linkedVariables) {
-            if (!linkedVariables.isEmpty()) {
-                return new Result(links, extra.merge(new LinkedVariablesImpl(linkedVariables)),
-                        modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts, erase,
-                        variablesRepresentingConstants);
-            }
-            return this;
-        }
-
-        public Result addModified(Set<Variable> modified) {
-            this.modified.addAll(modified);
-            return this;
-        }
-
-        public Result addModifiedFunctionalInterfaceComponents(Set<Variable> set) {
-            this.modifiedFunctionalInterfaceComponents.addAll(set);
-            return this;
-        }
-
-        public Result add(WriteMethodCall writeMethodCall) {
-            this.writeMethodCalls.add(writeMethodCall);
-            return this;
-        }
-
-        public Result addCast(Variable variable, TypeInfo pt) {
-            this.casts.computeIfAbsent(variable, _ -> new HashSet<>()).add(pt);
-            return this;
-        }
-
-        public Result addVariableRepresentingConstant(LocalVariable lv) {
-            this.variablesRepresentingConstants.add(lv);
-            return this;
-        }
-
-        public Result addVariablesRepresentingConstant(List<Result> params) {
-            params.forEach(p -> this.variablesRepresentingConstants.addAll(p.variablesRepresentingConstants));
-            return this;
-        }
-
-        public Result addVariablesRepresentingConstant(Result object) {
-            this.variablesRepresentingConstants.addAll(object.variablesRepresentingConstants);
-            return this;
-        }
-
-        public Set<LocalVariable> variablesRepresentingConstants() {
-            return variablesRepresentingConstants;
-        }
-
-        public Result with(Links links) {
-            return new Result(links, extra, modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts,
-                    erase, variablesRepresentingConstants);
-        }
-
-        public Result merge(Result other) {
-            if (this == EMPTY) return other;
-            if (other == EMPTY) return this;
-            LinkedVariables combinedExtra = extra.isEmpty() ? other.extra : extra.merge(other.extra);
-            if (other.links != null && other.links.primary() != null) {
-                combinedExtra = combinedExtra.merge(new LinkedVariablesImpl(Map.of(other.links.primary(), other.links)));
-            }
-            Result r = new Result(this.links, combinedExtra,
-                    new HashSet<>(this.modified),
-                    new HashSet<>(modifiedFunctionalInterfaceComponents),
-                    new ArrayList<>(this.writeMethodCalls),
-                    new HashMap<>(this.casts),
-                    new HashSet<>(this.erase),
-                    new HashSet<>(this.variablesRepresentingConstants));
-            r.writeMethodCalls.addAll(other.writeMethodCalls);
-            r.modified.addAll(other.modified);
-            r.modifiedFunctionalInterfaceComponents.addAll(other.modifiedFunctionalInterfaceComponents);
-            r.variablesRepresentingConstants.addAll(other.variablesRepresentingConstants);
-            other.casts.forEach((v, set) ->
-                    r.casts.computeIfAbsent(v, _ -> new HashSet<>()).addAll(set));
-            r.erase.addAll(other.erase);
-            return r;
-        }
-
-        public Result moveLinksToExtra() {
-            if (links.primary() != null) {
-                LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
-                return new Result(LinksImpl.EMPTY, newExtra, modified, modifiedFunctionalInterfaceComponents,
-                        writeMethodCalls, casts, erase, variablesRepresentingConstants);
-            }
-            return this;
-        }
-
-        public Result copyLinksToExtra() {
-            if (links.primary() != null) {
-                LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
-                return new Result(links, newExtra, modified, modifiedFunctionalInterfaceComponents,
-                        writeMethodCalls, casts, erase, variablesRepresentingConstants);
-            }
-            return this;
-        }
-    }
-
     static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(), Set.of(),
             List.of(), Map.of(), Set.of(), Set.of());
 
@@ -286,10 +168,10 @@ public record ExpressionVisitor(Runtime runtime,
 
         Result object = visit(mr.scope(), variableData, stage);
         MethodLinkedVariables tMlv;
-        if (object.links.primary() != null) {
+        if (object.links().primary() != null) {
             This thisVar = runtime.newThis(mr.methodInfo().typeInfo().asParameterizedType());
             TranslationMap tm = runtime.newTranslationMapBuilder()
-                    .put(thisVar, object.links.primary())
+                    .put(thisVar, object.links().primary())
                     .build();
             tMlv = mlv.translate(tm);
         } else {
@@ -302,9 +184,9 @@ public record ExpressionVisitor(Runtime runtime,
             map.put(mr.methodInfo().parameters().get(i), paramLinks);
             ++i;
         }
-        if (object.links.primary() != null) {
-            map.merge(object.links.primary(), object.links, Links::merge);
-            object.extra.forEach(e -> map.merge(e.getKey(), e.getValue(), Links::merge));
+        if (object.links().primary() != null) {
+            map.merge(object.links().primary(), object.links(), Links::merge);
+            object.extra().forEach(e -> map.merge(e.getKey(), e.getValue(), Links::merge));
         }
         return new Result(newRv, new LinkedVariablesImpl(map));
     }
@@ -317,11 +199,11 @@ public record ExpressionVisitor(Runtime runtime,
         Variable newPrimary = runtime.newLocalVariable(name, ic.parameterizedType());
         // we must link the new primary to both rt and rf links
         AssignLinksToLocal atl = new AssignLinksToLocal(runtime);
-        Links rtChanged = atl.go(newPrimary, rt.links);
-        Links rfChanged = atl.go(newPrimary, rf.links);
+        Links rtChanged = atl.go(newPrimary, rt.links());
+        Links rfChanged = atl.go(newPrimary, rf.links());
         Links newLinks = rtChanged.merge(rfChanged);
         Result merge = rc.merge(rt).merge(rf);
-        return new Result(newLinks, merge.extra);
+        return new Result(newLinks, merge.extra());
     }
 
     private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData, Stage stage) {
@@ -329,7 +211,7 @@ public record ExpressionVisitor(Runtime runtime,
         LinkedVariables extra = LinkedVariablesImpl.EMPTY;
         if (v instanceof DependentVariable dv) {
             Result r = visit(dv.indexExpression(), variableData, stage).copyLinksToExtra();
-            extra = extra.merge(r.extra);
+            extra = extra.merge(r.extra());
             v = dv.arrayVariable();
             if (v != null) {
                 Links vLinks = new LinksImpl.Builder(dv).add(LinkNatureImpl.IS_ELEMENT_OF, v).build();
@@ -337,12 +219,12 @@ public record ExpressionVisitor(Runtime runtime,
             }
             Result rArray = visit(dv.arrayExpression(), variableData, stage);
             Links.Builder builder = new LinksImpl.Builder(ve.variable());
-            return new Result(builder.build(), extra.merge(rArray.extra));
+            return new Result(builder.build(), extra.merge(rArray.extra()));
         }
 
         if (v instanceof FieldReference fr) {
             Result r = visit(fr.scope(), variableData, stage);
-            extra = extra.merge(r.extra);
+            extra = extra.merge(r.extra());
         }
         Links.Builder builder = new LinksImpl.Builder(ve.variable());
         if (ve.variable().parameterizedType().isFunctionalInterface()
@@ -358,11 +240,11 @@ public record ExpressionVisitor(Runtime runtime,
         Links.Builder builder = new LinksImpl.Builder(a.variableTarget());
         Result rValue = visit(a.value(), variableData, stage);
         Result rTarget = visit(a.target(), variableData, stage);
-        if (rValue.links != null && rValue.links.primary() != null) {
-            builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links.primary());
+        if (rValue.links() != null && rValue.links().primary() != null) {
+            builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links().primary());
         }
         Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
-        if (a.assignmentOperator() != null || rValue.links == null || rValue.links.primary() == null) {
+        if (a.assignmentOperator() != null || rValue.links() == null || rValue.links().primary() == null) {
             result.addErase(a.variableTarget());
         }
         return result
@@ -468,7 +350,7 @@ public record ExpressionVisitor(Runtime runtime,
     private Result methodCall(VariableData variableData, Stage stage, MethodCall mc) {
         // recursion, translation
         Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData, stage);
-        Variable objectPrimary = object.links.primary();
+        Variable objectPrimary = object.links().primary();
 
         Value.FieldValue fv = mc.methodInfo().getSetField();
         if (fv.field() != null) {
@@ -549,7 +431,7 @@ public record ExpressionVisitor(Runtime runtime,
         }
         return r.addModified(modified)
                 .addModifiedFunctionalInterfaceComponents(modifiedFunctionalInterfaceComponents)
-                .add(new WriteMethodCall(mc, object.links))
+                .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
     }
@@ -629,8 +511,8 @@ public record ExpressionVisitor(Runtime runtime,
     }
 
     private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
-        if (rp.links != null && rp.links.primary() != null) {
-            modified.add(rp.links.primary());
+        if (rp.links() != null && rp.links().primary() != null) {
+            modified.add(rp.links().primary());
         }
         if (argument instanceof MethodReference mr) {
             propagateModificationOfObject(modified, mr);

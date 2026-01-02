@@ -10,14 +10,14 @@ import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
 import java.util.List;
 
 public class AppliedFunctionalInterfaceVariable extends LocalVariableImpl {
-    private final List<ExpressionVisitor.Result> params;
+    private final List<Result> params;
     private final ParameterInfo sourceOfFunctionalInterface;
 
     public AppliedFunctionalInterfaceVariable(String name,
                                               ParameterizedType parameterizedType,
                                               Expression assignmentExpression,
                                               ParameterInfo sourceOfFunctionalInterface,
-                                              List<ExpressionVisitor.Result> params) {
+                                              List<Result> params) {
         super(name, parameterizedType, assignmentExpression);
         this.params = params;
         this.sourceOfFunctionalInterface = sourceOfFunctionalInterface;
@@ -27,7 +27,7 @@ public class AppliedFunctionalInterfaceVariable extends LocalVariableImpl {
         return params().stream().allMatch(AppliedFunctionalInterfaceVariable::containsNoLocalVariables);
     }
 
-    private static boolean containsNoLocalVariables(ExpressionVisitor.Result p) {
+    private static boolean containsNoLocalVariables(Result p) {
         return p.links() == null
                || p.links().primary() == null
                || p.links().isEmpty() && containsNoLocalVariable(p.links().primary())
@@ -38,7 +38,7 @@ public class AppliedFunctionalInterfaceVariable extends LocalVariableImpl {
         return variable.variableStreamDescend().noneMatch(v -> v instanceof LocalVariable);
     }
 
-    public List<ExpressionVisitor.Result> params() {
+    public List<Result> params() {
         return params;
     }
 

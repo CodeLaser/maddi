@@ -14,10 +14,10 @@ import java.util.List;
 
 public record ForEach(Runtime runtime, ExpressionVisitor expressionVisitor) {
 
-    public ExpressionVisitor.Result linkIntoIterable(ParameterizedType elementType,
-                                                     Expression forEachExpression,
-                                                     VariableData previousVd,
-                                                     Stage stageOfPrevious) {
+    public Result linkIntoIterable(ParameterizedType elementType,
+                                   Expression forEachExpression,
+                                   VariableData previousVd,
+                                   Stage stageOfPrevious) {
         TypeInfo iterator = runtime.getFullyQualified(Iterator.class, false);
         TypeInfo iterableType = runtime.getFullyQualified(Iterable.class, false);
         MethodInfo iterableIterator = iterableType.findUniqueMethod("iterator", 0);
