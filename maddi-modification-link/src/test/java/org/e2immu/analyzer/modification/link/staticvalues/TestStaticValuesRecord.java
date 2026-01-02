@@ -25,7 +25,10 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
@@ -36,8 +39,6 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.*;
@@ -470,7 +471,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(bLvc);
             VariableInfo bVi0 = vd0.variableInfo(b);
             // code of ExpressionAnalyzer.methodCallStaticValue
-            assertEquals("b.variables∋0:in,b.variables[0]←0:in,b.variables[0:pos]←0:in",
+            assertEquals("b.variables[0]←0:in,b.variables[0:pos]←0:in,b.variables∋0:in",
                     bVi0.linkedVariables().toString());
         }
         {
@@ -645,11 +646,11 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd4 = VariableDataImpl.of(s4);
 
         VariableInfo vi4R = vd4.variableInfo("r");
-        assertEquals("""
-                r.l←list,r.s→set2,r.s←set,r.s≥0:t,r.s∩set.§ts,r.s∩set2.§ts,\
-                r.s.§ts→set2.§ts,r.s.§ts∋0:t,r.s.§ts~set.§ts,r≈set\
-                """, vi4R.linkedVariables().toString());
-
+        // old version of "Util.isPartOf"
+        //        r.l←list,r.s→set2,r.s←set,r.s≥0:t,r.s∩set.§ts,r.s∩set2.§ts,\
+        //        r.s.§ts→set2.§ts,r.s.§ts∋0:t,r.s.§ts~set.§ts,r≈set\
+        assertEquals("r.l←list,r.s.§ts→set2.§ts,r.s.§ts∋0:t,r.s.§ts~set.§ts,r.s→set2,r.s←set,r≈set",
+                vi4R.linkedVariables().toString());
         VariableInfo vi4Set = vd4.variableInfo("set");
         // should never link to 'list'!!
         assertEquals("set.§ts→set2.§ts,set.§ts∋0:t,set.§ts~r.s.§ts,set→r.s,set→set2",
@@ -711,10 +712,8 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(s2);
 
             VariableInfo vi4R = vd2.variableInfo("r");
-            assertEquals("""
-                    r.l←1:list,r.s→set2,r.s←0:set,r.s≥2:t,r.s∩0:set.§ts,r.s∩set2.§ts,\
-                    r.s.§ts→set2.§ts,r.s.§ts∋2:t,r.s.§ts~0:set.§ts,r≈0:set\
-                    """, vi4R.linkedVariables().toString());
+            assertEquals("r.l←1:list,r.s.§ts→set2.§ts,r.s.§ts∋2:t,r.s.§ts~0:set.§ts,r.s→set2,r.s←0:set,r≈0:set",
+                    vi4R.linkedVariables().toString());
 
             VariableInfo vi4Set = vd2.variableInfo(set);
             assertEquals("0:set.§ts→set2.§ts,0:set.§ts∋2:t,0:set.§ts~r.s.§ts,0:set→r.s,0:set→set2",
