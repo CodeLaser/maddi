@@ -30,23 +30,23 @@ public record LinkMethodCall(Runtime runtime,
                              AtomicInteger variableCounter,
                              MethodInfo currentMethod) {
 
-    public ExpressionVisitor.Result constructorCall(MethodInfo methodInfo,
-                                                    ExpressionVisitor.Result object,
-                                                    List<ExpressionVisitor.Result> params,
-                                                    MethodLinkedVariables mlv) {
+    public Result constructorCall(MethodInfo methodInfo,
+                                  Result object,
+                                  List<Result> params,
+                                  MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
         copyParamsIntoExtra(methodInfo.parameters(), params, extra);
 
         Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
 
-        return new ExpressionVisitor.Result(newObjectLinks, new LinkedVariablesImpl(extra));
+        return new Result(newObjectLinks, new LinkedVariablesImpl(extra));
     }
 
     private static void copyParamsIntoExtra(List<ParameterInfo> formalParameters,
-                                            List<ExpressionVisitor.Result> params,
+                                            List<Result> params,
                                             Map<Variable, Links> extra) {
         int i = 0;
-        for (ExpressionVisitor.Result r : params) {
+        for (Result r : params) {
             ParameterInfo pi = formalParameters.get(Math.min(formalParameters.size() - 1, i));
             if (!pi.parameterizedType().isFunctionalInterface()) {
                 if (r.links() != null && r.links().primary() != null) {
@@ -63,11 +63,11 @@ public record LinkMethodCall(Runtime runtime,
 
     // we're trying for both method calls and normal constructor calls
     // the latter have a newly created temporary local variable as their object primary
-    public ExpressionVisitor.Result methodCall(MethodInfo methodInfo,
-                                               ParameterizedType concreteReturnType,
-                                               ExpressionVisitor.Result object,
-                                               List<ExpressionVisitor.Result> params,
-                                               MethodLinkedVariables mlv) {
+    public Result methodCall(MethodInfo methodInfo,
+                             ParameterizedType concreteReturnType,
+                             Result object,
+                             List<Result> params,
+                             MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
         copyParamsIntoExtra(methodInfo.parameters(), params, extra);
         Variable objectPrimary = object.links().primary();
@@ -95,11 +95,11 @@ public record LinkMethodCall(Runtime runtime,
         } else {
             linksBetweenParameters(methodInfo, params, mlv, extra);
         }
-        return new ExpressionVisitor.Result(concreteReturnValue, new LinkedVariablesImpl(extra));
+        return new Result(concreteReturnValue, new LinkedVariablesImpl(extra));
     }
 
     private void linksBetweenParameters(MethodInfo methodInfo,
-                                        List<ExpressionVisitor.Result> params,
+                                        List<Result> params,
                                         MethodLinkedVariables mlv,
                                         Map<Variable, Links> extra) {
         int i = 0;
@@ -179,7 +179,7 @@ public record LinkMethodCall(Runtime runtime,
 
     private Links objectToReturnValue(MethodInfo methodInfo,
                                       ParameterizedType concreteReturnType,
-                                      List<ExpressionVisitor.Result> params,
+                                      List<Result> params,
                                       MethodLinkedVariables mlv,
                                       Variable objectPrimary) {
         Links ofReturnValue = mlv.ofReturnValue();
@@ -201,7 +201,7 @@ public record LinkMethodCall(Runtime runtime,
         // the return value can also contain references to parameters... we should replace them by
         // actual arguments
         int index = 0;
-        for (ExpressionVisitor.Result pr : params) {
+        for (Result pr : params) {
             Variable to = Objects.requireNonNullElseGet(pr.links().primary(), this::newDummyLocalVariable);
             tmBuilder.put(methodInfo.parameters().get(index), to);
             ++index;
@@ -258,11 +258,11 @@ public record LinkMethodCall(Runtime runtime,
         builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
     }
 
-    private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<ExpressionVisitor.Result> params) {
+    private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<Result> params) {
         return list.stream().map(links -> replaceParametersByEvalInApplied(links, params)).toList();
     }
 
-    private Links replaceParametersByEvalInApplied(Links links, List<ExpressionVisitor.Result> params) {
+    private Links replaceParametersByEvalInApplied(Links links, List<Result> params) {
         Links.Builder builder = new LinksImpl.Builder(links.primary());
         for (Link link : links) {
             if (link.to() instanceof ParameterInfo pi) {
@@ -270,7 +270,7 @@ public record LinkMethodCall(Runtime runtime,
                 Variable primary = Objects.requireNonNullElse(params.get(pi.index()).links().primary(), link.to());
                 builder.add(link.from(), link.linkNature(), primary);
             } else if (link.to() instanceof FieldReference fr && fr.scopeVariable() instanceof ParameterInfo pi) {
-                ExpressionVisitor.Result result = params.get(pi.index());
+                Result result = params.get(pi.index());
                 Variable primary = Objects.requireNonNullElse(result.links().primary(), link.to());
                 if (primary instanceof LocalVariable) {
                     // see TestStaticBiFunction,6: no direct mapping
@@ -293,7 +293,7 @@ public record LinkMethodCall(Runtime runtime,
 
     private Links parametersToReturnValue(MethodInfo methodInfo,
                                           ParameterizedType concreteReturnType,
-                                          List<ExpressionVisitor.Result> params,
+                                          List<Result> params,
                                           MethodLinkedVariables mlv,
                                           Variable objectPrimary) {
         Links ofReturnValue = mlv.ofReturnValue();
@@ -315,8 +315,8 @@ public record LinkMethodCall(Runtime runtime,
     }
 
     private @NotNull Links parametersToObject(MethodInfo methodInfo,
-                                              ExpressionVisitor.Result object,
-                                              List<ExpressionVisitor.Result> params,
+                                              Result object,
+                                              List<Result> params,
                                               MethodLinkedVariables mlv) {
         Variable objectPrimary = object.links().primary();
         int i = 0;
@@ -325,7 +325,7 @@ public record LinkMethodCall(Runtime runtime,
         addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
         for (ParameterInfo pi : methodInfo.parameters()) {
             if (pi.index() < params.size()) {
-                ExpressionVisitor.Result result = params.get(pi.index());
+                Result result = params.get(pi.index());
                 if (result != null && result.links() != null) {
                     Variable primary = result.links().primary();
                     tmBuilder.put(pi, Objects.requireNonNullElseGet(primary, this::newDummyLocalVariable));
@@ -336,7 +336,7 @@ public record LinkMethodCall(Runtime runtime,
         for (Links links : mlv.ofParameters()) {
             assert links != null;
             ParameterInfo pi = methodInfo.parameters().get(i);
-            ExpressionVisitor.Result r = params.get(i);
+            Result r = params.get(i);
             Links piLinks = r.links();
             if (piLinks != null) {
                 Variable paramPrimary = piLinks.primary();
