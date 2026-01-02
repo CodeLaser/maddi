@@ -43,10 +43,10 @@ public record ExpressionVisitor(Runtime runtime,
         if (variableData != null && expression instanceof VariableExpression ve && ve.variable().parameterizedType().isFunctionalInterface()) {
             FunctionalInterfaceVariable fiv = findFunctionalInterfaceVariable(ve.variable(), variableData, stage);
             if (fiv != null) {
-                return fiv.result();
+                return fiv.result().setEvaluated(expression);
             }
         }
-        if (expression instanceof Lambda lambda) return lambda(lambda, false);
+        if (expression instanceof Lambda lambda) return lambda(lambda, false).setEvaluated(lambda);
         return visit(expression, variableData, stage);
     }
 
@@ -60,7 +60,7 @@ public record ExpressionVisitor(Runtime runtime,
     }
 
     public Result visit(Expression expression, VariableData variableData, Stage stage) {
-        return switch (expression) {
+        Result r = switch (expression) {
             case VariableExpression ve -> variableExpression(ve, variableData, stage);
             case Assignment a -> assignment(variableData, stage, a);
             case MethodCall mc -> methodCall(variableData, stage, mc);
@@ -93,12 +93,15 @@ public record ExpressionVisitor(Runtime runtime,
             case TypeExpression _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
+        if (r.getEvaluated() == null) r.setEvaluated(expression);
+        return r;
     }
 
     Result constantExpression(ConstantExpression<?> ce) {
-        LocalVariable lv = runtime.newLocalVariable(LinksImpl.CONSTANT_VARIABLE + variableCounter.getAndIncrement(),
-                ce.parameterizedType(), ce);
-        return new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY).addVariableRepresentingConstant(lv);
+        String name = LinksImpl.CONSTANT_VARIABLE + variableCounter.getAndIncrement();
+        LocalVariable lv = runtime.newLocalVariable(name, ce.parameterizedType(), ce);
+        return new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY)
+                .addVariableRepresentingConstant(lv);
     }
 
     /*
@@ -210,36 +213,53 @@ public record ExpressionVisitor(Runtime runtime,
         Variable v = ve.variable();
         LinkedVariables extra = LinkedVariablesImpl.EMPTY;
         if (v instanceof DependentVariable dv) {
-            Result r = visit(dv.indexExpression(), variableData, stage).copyLinksToExtra();
-            extra = extra.merge(r.extra());
-            v = dv.arrayVariable();
-            if (v != null) {
-                Links vLinks = new LinksImpl.Builder(dv).add(LinkNatureImpl.IS_ELEMENT_OF, v).build();
-                extra = extra.merge(new LinkedVariablesImpl(Map.of(dv, vLinks)));
-            }
+            Result rIndex = visit(dv.indexExpression(), variableData, stage).copyLinksToExtra();
             Result rArray = visit(dv.arrayExpression(), variableData, stage);
+            DependentVariable newDv;
+            if (rIndex.getEvaluated() != dv.indexExpression() || rArray.getEvaluated() != dv.arrayExpression()) {
+                newDv = runtime.newDependentVariable(rArray.getEvaluated(), rIndex.getEvaluated());
+            } else {
+                newDv = dv;
+            }
+            extra = extra.merge(rIndex.extra());
+            v = ((VariableExpression) rArray.getEvaluated()).variable();
+            if (v != null) {
+                Links vLinks = new LinksImpl.Builder(newDv).add(LinkNatureImpl.IS_ELEMENT_OF, v).build();
+                extra = extra.merge(new LinkedVariablesImpl(Map.of(newDv, vLinks)));
+            }
             Links.Builder builder = new LinksImpl.Builder(ve.variable());
-            return new Result(builder.build(), extra.merge(rArray.extra()));
+            Result res = new Result(builder.build(), extra.merge(rArray.extra()));
+            VariableExpression newVe = dv == newDv ? ve : runtime.newVariableExpression(newDv);
+            return res.setEvaluated(newVe);
         }
-
+        VariableExpression newVE;
         if (v instanceof FieldReference fr) {
             Result r = visit(fr.scope(), variableData, stage);
             extra = extra.merge(r.extra());
+            if (r.getEvaluated() != fr.scope()) {
+                newVE = runtime.newVariableExpression(runtime.newFieldReference(fr.fieldInfo(), r.getEvaluated(),
+                        fr.parameterizedType()));
+            } else {
+                newVE = ve;
+            }
+        } else {
+            newVE = ve;
         }
-        Links.Builder builder = new LinksImpl.Builder(ve.variable());
-        if (ve.variable().parameterizedType().isFunctionalInterface()
-            && variableData != null && variableData.isKnown(ve.variable().fullyQualifiedName())) {
-            VariableInfo vi = variableData.variableInfo(ve.variable());
+
+        Links.Builder builder = new LinksImpl.Builder(newVE.variable());
+        if (newVE.variable().parameterizedType().isFunctionalInterface()
+            && variableData != null && variableData.isKnown(newVE.variable().fullyQualifiedName())) {
+            VariableInfo vi = variableData.variableInfo(newVE.variable());
             Links links = Objects.requireNonNullElse(vi.linkedVariables(), LinksImpl.EMPTY);
             links.forEach(l -> builder.add(l.from(), l.linkNature(), l.to()));
         }
-        return new Result(builder.build(), extra);
+        return new Result(builder.build(), extra).setEvaluated(newVE);
     }
 
     private Result assignment(VariableData variableData, Stage stage, Assignment a) {
-        Links.Builder builder = new LinksImpl.Builder(a.variableTarget());
         Result rValue = visit(a.value(), variableData, stage);
         Result rTarget = visit(a.target(), variableData, stage);
+        Links.Builder builder = new LinksImpl.Builder(((VariableExpression) rTarget.getEvaluated()).variable());
         if (rValue.links() != null && rValue.links().primary() != null) {
             builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links().primary());
         }
@@ -250,7 +270,9 @@ public record ExpressionVisitor(Runtime runtime,
         return result
                 .merge(rValue)
                 .merge(rTarget)
-                .addModified(Util.scopeVariables(a.variableTarget()));
+                .addModified(Util.scopeVariables(a.variableTarget()))
+                .setEvaluated(rValue.getEvaluated() != a.value() || rTarget.getEvaluated() != a.target()
+                        ? runtime.newAssignment((VariableExpression) rTarget.getEvaluated(), rValue.getEvaluated()) : a);
     }
 
     private Result constructorCall(VariableData variableData, Stage stage, ConstructorCall cc) {
@@ -349,7 +371,7 @@ public record ExpressionVisitor(Runtime runtime,
 
     private Result methodCall(VariableData variableData, Stage stage, MethodCall mc) {
         // recursion, translation
-        Result object = mc.methodInfo().isStatic() ? EMPTY : visit(mc.object(), variableData, stage);
+        Result object = visit(mc.object(), variableData, stage);
         Variable objectPrimary = object.links().primary();
 
         Value.FieldValue fv = mc.methodInfo().getSetField();
@@ -429,11 +451,21 @@ public record ExpressionVisitor(Runtime runtime,
                 handleParameterModification(mc, pi, params, modified, pc);
             }
         }
+        MethodCall newMc = runtime.newMethodCallBuilder()
+                .setObject(object.getEvaluated())
+                .setConcreteReturnType(mc.concreteReturnType())
+                .setMethodInfo(mc.methodInfo())
+                .setModificationTimes(mc.modificationTimes())
+                .setObjectIsImplicit(mc.objectIsImplicit())
+                .setParameterExpressions(params.stream().map(Result::getEvaluated).toList())
+                .setTypeArguments(mc.typeArguments())
+                .build();
         return r.addModified(modified)
                 .addModifiedFunctionalInterfaceComponents(modifiedFunctionalInterfaceComponents)
                 .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)
-                .addVariablesRepresentingConstant(object);
+                .addVariablesRepresentingConstant(object)
+                .setEvaluated(newMc);
     }
 
     private void handleParameterModification(MethodCall mc,
