@@ -66,7 +66,7 @@ public class TestBiFunction extends CommonTest {
         VariableInfo viEntry0 = vd0.variableInfo("xx");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
         // no need for this.§x, no need for §x
-        assertEquals("xx←this.ix,xx←this.iy", tlvEntry.toString());
+        assertEquals("xx←this.ix,xx←this.jx", tlvEntry.toString());
     }
 
 }

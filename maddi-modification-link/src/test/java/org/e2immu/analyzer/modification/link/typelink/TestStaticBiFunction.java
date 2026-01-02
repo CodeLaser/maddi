@@ -168,12 +168,10 @@ public class TestStaticBiFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("""
-                ix(*[Type param X]:*[Type param X]);\
-                iy(*[Type param Y]:*[Type param Y]);\
-                x(0[Type java.util.Map.Entry<X,Y>]:0[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<X,Y>>]);\
-                y(1[Type java.util.Map.Entry<X,Y>]:1[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<X,Y>>])\
-                """, tlvEntry.toString());
+        assertEquals("entry.§xy.§x←this.ix,entry.§xy.§y←this.iy", tlvEntry.toString());
+
+        MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[] --> method.§xy.§x←this.ix,method.§xy.§y←this.iy", tlvMethod.toString());
     }
 
 
@@ -222,12 +220,10 @@ public class TestStaticBiFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("""
-                ix(*[Type param X]:*[Type param X]);\
-                iy(*[Type param Y]:*[Type param Y]);\
-                x(1[Type java.util.Map.Entry<Y,X>]:0[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<Y,X>>]);\
-                y(0[Type java.util.Map.Entry<Y,X>]:1[Type java.util.function.BiFunction<X,Y,java.util.Map.Entry<Y,X>>])\
-                """, tlvEntry.toString());
+        assertEquals("entry.§yx.§x←this.ix,entry.§yx.§y←this.iy", tlvEntry.toString());
+
+        MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[] --> method.§yx.§x←this.ix,method.§yx.§y←this.iy", tlvMethod.toString());
     }
 
 
@@ -278,12 +274,7 @@ public class TestStaticBiFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("""
-                ix(*[Type param X]:*[Type param X]);\
-                iys(*[Type java.util.List<Y>]:*[Type java.util.List<Y>]);\
-                x(1[Type java.util.Map.Entry<Y,X>]:0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>]);\
-                ys(0[Type java.util.Map.Entry<Y,X>]:[1]0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>])\
-                """, tlvEntry.toString());
+        assertEquals("entry.§yx.§x←this.ix,entry.§yx.§y∈this.iys.§ys", tlvEntry.toString());
     }
 
 
@@ -334,12 +325,7 @@ public class TestStaticBiFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("""
-                ix(*[Type param X]:*[Type param X]);\
-                iy(0[Type java.util.List<Y>]:0[Type java.util.List<Y>]);\
-                x(1[Type java.util.Map.Entry<Y,X>]:0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>]);\
-                ys(0[Type java.util.Map.Entry<Y,X>]:[1]0[Type java.util.function.BiFunction<X,java.util.List<Y>,java.util.Map.Entry<Y,X>>])\
-                """, tlvEntry.toString());
+        assertEquals("entry.§yx.§x←this.ix,entry.§yx.§y←this.iy", tlvEntry.toString());
     }
 
 }
