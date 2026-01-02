@@ -16,6 +16,7 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.cst.impl.translate.TranslationMapImpl;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -466,6 +467,30 @@ public record Expand(Runtime runtime) {
         if (containsNoLocalVariable(primary)) {
             builder.prepend(IS_ASSIGNED_FROM, primary);
         }
+        return builder.build();
+    }
+
+    // indirection in applied functional interface variable
+    // TODO this is shaky code, dedicated to TestStaticBiFunction,6
+    //  it may have relevance later
+    public Links indirect(Variable primary, Link link, Links links2) {
+        Variable v = links2.primary();
+        Variable pi = Util.primary(link.to());
+        TranslationMap tm2 = runtime.newTranslationMapBuilder()
+                .put(v, pi)
+                .build();
+        Links links2Tm = links2.translate(tm2);
+        Map<Variable, Links> linkedVariables = new HashMap<>();
+        Links links = new LinksImpl(primary, List.of(link));
+        linkedVariables.put(links.primary(), links);
+        linkedVariables.put(links2Tm.primary(), links2Tm);
+        GraphData gd = makeGraph(linkedVariables, true);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(gd.graph));
+        }
+        Links.Builder builder = followGraph(gd, links.primary(), new TranslationMapImpl.Builder().build(),
+                true);
+        builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
         return builder.build();
     }
 

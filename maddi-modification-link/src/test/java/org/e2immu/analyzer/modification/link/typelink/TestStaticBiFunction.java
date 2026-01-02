@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.AppliedFunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
@@ -350,6 +351,7 @@ public class TestStaticBiFunction extends CommonTest {
             }
             """;
 
+    // tests "indirect"
     @DisplayName("BiFunction join reversed wrapped 2")
     @Test
     public void test6() {
@@ -370,11 +372,18 @@ public class TestStaticBiFunction extends CommonTest {
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> make←$_fi1", tlvMake.toString());
+        AppliedFunctionalInterfaceVariable fi1 = (AppliedFunctionalInterfaceVariable)
+                tlvMake.ofReturnValue().stream().findFirst().orElseThrow().to();
+        assertEquals("this.ix", fi1.params().getFirst().links().primary().toString());
+
+        // note: here $__rv0 is some arbitrary method's return value; we cannot keep track
+        assertEquals("$__rv0.§ys∋this.iy", fi1.params().getLast().links().toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("entry.§yx.§x←this.ix,entry.§yx.§y←this.iy", tlvEntry.toString());
+        // TODO would be better: entry.§yx.§x←this.ix,entry.§yx.§y←this.iy
+        assertEquals("entry.§yx.§x←this.ix,entry∩this.iy", tlvEntry.toString());
     }
 
 }
