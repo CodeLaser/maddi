@@ -7,7 +7,10 @@ import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -162,13 +165,23 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         TypeParameter targetTp = vfMapTarget.hiddenContent().type().typeParameter();
         int arrays = dimensionsFromMapSource ? vfMapSource.hiddenContent().type().arrays()
                 : vfMapTarget.hiddenContent().type().arrays();
-        if (targetTp != null && sourceTp != null) {
-            FieldInfo newField = virtualFieldComputer.newField(sourceTp.simpleName().toLowerCase() + "s".repeat(arrays),
-                    vfMapSource.hiddenContent().type().copyWithArrays(arrays), currentMethod.typeInfo());
-            // the scope must be the primary of translated, since we're completely re-creating the virtual field
-            Variable primaryOfTranslated = Util.primary(translated);
-            upscaled = runtime.newFieldReference(newField, runtime.newVariableExpression(primaryOfTranslated),
-                    newField.type());
+        if (targetTp != null) {
+            if (sourceTp != null) {
+                FieldInfo newField = virtualFieldComputer.newField(sourceTp.simpleName().toLowerCase()
+                                                                   + "s".repeat(arrays),
+                        vfMapSource.hiddenContent().type().copyWithArrays(arrays), currentMethod.typeInfo());
+                // the scope must be the primary of translated, since we're completely re-creating the virtual field
+                Variable primaryOfTranslated = Util.primary(translated);
+                upscaled = runtime.newFieldReference(newField, runtime.newVariableExpression(primaryOfTranslated),
+                        newField.type());
+            } else {
+                // TestBiFunction,1
+                // vMapSource = §ky,
+                // vMapTarget = §x, targetTp = X (TP#0 in C)
+                // translated = §__rv0
+                assert arrays == 0 : "NYI";
+                upscaled = translated;
+            }
         } else if (translated instanceof FieldReference frK && virtual(frK)) {
             if (frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv) && arrays > 0) {
                 // TestStream,1
@@ -180,29 +193,44 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 FI correspondingField = correspondingField(frKv, frK.fieldInfo());
                 int sliceIndex = -1 - correspondingField.index;
                 TypeInfo enclosing = frKv.fieldInfo().type().typeInfo().compilationUnitOrEnclosingType().getRight();
-                String newTypeName = frKv.fieldInfo().simpleName().toUpperCase().replace("§", "") + "S".repeat(arrays);
+                String newTypeName = frKv.fieldInfo().simpleName().toUpperCase().replace("§", "")
+                                     + "S".repeat(arrays);
                 TypeInfo newContainerType = virtualFieldComputer.makeContainerType(enclosing,
                         newTypeName,
                         frKv.fieldInfo().type().typeInfo().fields());
-                String newFieldName = frKv.fieldInfo().simpleName().replace("§", "") + "s".repeat(arrays);
-                FieldInfo newFieldInfo = virtualFieldComputer.newField(newFieldName, newContainerType.asParameterizedType().copyWithArrays(arrays), frKv.fieldInfo().owner());
+                String newFieldName = frKv.fieldInfo().simpleName().replace("§", "")
+                                      + "s".repeat(arrays);
+                FieldInfo newFieldInfo = virtualFieldComputer.newField(newFieldName,
+                        newContainerType.asParameterizedType().copyWithArrays(arrays),
+                        frKv.fieldInfo().owner());
                 FieldReference scope = runtime.newFieldReference(newFieldInfo, frKv.scope(), newFieldInfo.type());
                 DependentVariable slice = runtime.newDependentVariable(runtime.newVariableExpression(scope),
                         runtime.newInt(sliceIndex));
-                upscaled = runtime.newFieldReference(frK.fieldInfo(), runtime.newVariableExpression(slice), frK.parameterizedType());
-            } else {
+                upscaled = runtime.newFieldReference(frK.fieldInfo(), runtime.newVariableExpression(slice),
+                        frK.parameterizedType());
+            } else if (arrays > 0) {
                 // TestFunction,2
                 // variable = this.§es, translated = optional.§es, arrays = 1
                 // what we want  optional.§es -> optional.§xys
                 FieldInfo newField = vfMapSource.hiddenContent();
                 upscaled = runtime.newFieldReference(newField, frK.scope(), newField.type());
+            } else {
+                //TestStaticBiFunction,3
+                upscaled = translated;
             }
         } else {
-            // TestFunction,2 variable = this, translated = $__rv0,
-            // what we want  $__rv0.§xy
-            // note that this one equals "fromTranslated" from the 'go' method
-            upscaled = runtime.newFieldReference(vfMapTarget.hiddenContent(), runtime.newVariableExpression(translated),
-                    vfMapTarget.hiddenContent().type());
+            // TestFunction,2 variable = this, translated = $__rv0, what we want  $__rv0.§xy
+            // (note that this one equals "fromTranslated" from the 'go' method)
+            // vfMapSource §xys, vfMapTarget §xy (still arrays == 0)
+
+            // TestStaticBiFunction,3: both vfMapSource and vfMapTarget have §xy
+            int arrayDiff = vfMapSource.hiddenContent().type().arrays() - vfMapTarget.hiddenContent().type().arrays();
+            if (arrayDiff == 0) {
+                upscaled = translated;
+            } else {
+                upscaled = runtime.newFieldReference(vfMapTarget.hiddenContent(), runtime.newVariableExpression(translated),
+                        vfMapTarget.hiddenContent().type());
+            }
         }
 
         LOGGER.debug("translated and upscale: {} -> {} -> {}", variable, translated, upscaled);
