@@ -19,7 +19,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
@@ -236,8 +235,6 @@ public class TestStaticValues1 extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
 
-        TypeInfo R = X.findSubType("R");
-        FieldInfo iField = R.getFieldByName("i", true);
         TypeInfo S = X.findSubType("S");
         FieldInfo rInS = S.getFieldByName("r", true);
 
@@ -264,9 +261,10 @@ public class TestStaticValues1 extends CommonTest {
             assertEquals(expected, vi0S.linkedVariables().toString());
         }
         {
-            Statement s1 = method.methodBody().statements().getFirst();
+            Statement s1 = method.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
-            assertEquals("0:s.r.i←$_ce0,?", vd1.variableInfo(s).linkedVariables().toString());
+            assertEquals("0:s.r.i←$_ce0,0:s.r.j→0:s.k",
+                    vd1.variableInfo(s).linkedVariables().toString());
         }
     }
 
@@ -287,7 +285,7 @@ public class TestStaticValues1 extends CommonTest {
             }
             """;
 
-    @DisplayName("two levels deep, b")
+    @DisplayName("two levels deep, accessors")
     @Test
     public void test5b() {
         TypeInfo X = javaInspector.parse(INPUT5b);
@@ -296,8 +294,6 @@ public class TestStaticValues1 extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
 
-        TypeInfo R = X.findSubType("R");
-        FieldInfo iField = R.getFieldByName("i", true);
         TypeInfo S = X.findSubType("S");
         FieldInfo rInS = S.getFieldByName("r", true);
 
@@ -341,7 +337,7 @@ public class TestStaticValues1 extends CommonTest {
                 record T(S s, int l) {}
             
                 void method1(T t) {
-                    t.s.r().i = 3;
+                    t.s.r.i = 3;
                 }
                 void method2(T t) {
                     t.s().r().i = 3;
@@ -364,12 +360,13 @@ public class TestStaticValues1 extends CommonTest {
         FieldInfo sInT = T.getFieldByName("s", true);
 
         MethodInfo method1 = X.findUniqueMethod("method1", 1);
-        test6Method1(method1, sInT, rInS);
+        test6Method(method1, sInT, rInS);
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
-        test6Method2(method2, sInT, rInS);
+        test6Method(method2, sInT, rInS);
     }
 
-    private void test6Method1(MethodInfo method, FieldInfo sInT, FieldInfo rInS) {
+
+    private void test6Method(MethodInfo method, FieldInfo sInT, FieldInfo rInS) {
         ParameterInfo t = method.parameters().getFirst();
 
         Statement s0 = method.methodBody().statements().getFirst();
@@ -386,41 +383,16 @@ public class TestStaticValues1 extends CommonTest {
         FieldReference tsr = runtime.newFieldReference(rInS, scopeTs, rInS.type());
         assertEquals("t.s.r", tsr.toString());
 
-        VariableInfo vi0Tsr = vd0.variableInfo(tsr);
-        assertEquals("this.i=3", vi0Tsr.linkedVariables().toString());
-
-        VariableInfo vi0Ts = vd0.variableInfo(ts);
-        assertEquals("this.r.i=3", vi0Ts.linkedVariables().toString());
-
-        VariableInfo vi0T = vd0.variableInfo(t);
-        assertEquals("this.s.r.i=3", vi0T.linkedVariables().toString());
-    }
-
-    private void test6Method2(MethodInfo method, FieldInfo sInT, FieldInfo rInS) {
-        ParameterInfo t = method.parameters().getFirst();
-
-        Statement s0 = method.methodBody().statements().getFirst();
-        VariableData vd0 = VariableDataImpl.of(s0);
-
-        // at this point, only s.r.i has a static value E=3; s.r and s do not have one ... should they?
-        // s.r should have component i=3
-        // s should have r.i=3
-        VariableExpression scopeT = runtime.newVariableExpressionBuilder().setVariable(t).setSource(t.source()).build();
-        FieldReference ts = runtime.newFieldReference(sInT, scopeT, sInT.type());
-        assertEquals("t.s", ts.toString());
-
-        VariableExpression scopeTs = runtime.newVariableExpressionBuilder().setVariable(ts).setSource(t.source()).build();
-        FieldReference tsr = runtime.newFieldReference(rInS, scopeTs, rInS.type());
-        assertEquals("t.s.r", tsr.toString());
+        String expected = "0:t.s.r.i←$_ce0";
 
         VariableInfo vi0Tsr = vd0.variableInfo(tsr);
-        assertEquals("this.i=3", vi0Tsr.linkedVariables().toString());
+        assertEquals(expected, vi0Tsr.linkedVariables().toString());
 
         VariableInfo vi0Ts = vd0.variableInfo(ts);
-        assertEquals("this.r.i=3", vi0Ts.linkedVariables().toString());
+        assertEquals(expected, vi0Ts.linkedVariables().toString());
 
         VariableInfo vi0T = vd0.variableInfo(t);
-        assertEquals("this.s.r.i=3", vi0T.linkedVariables().toString());
+        assertEquals(expected, vi0T.linkedVariables().toString());
     }
 
 }
