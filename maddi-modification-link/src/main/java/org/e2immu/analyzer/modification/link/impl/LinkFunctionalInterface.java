@@ -120,7 +120,11 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                     .virtualFields();
 
             for (Variable newPrimary : toPrimaries) {
-                TranslationMap tmMapSource = runtime.newTranslationMapBuilder().put(newPrimary, objectPrimary).build(); // FIXME
+                TranslationMap.Builder tmMapSourceBuilder = runtime.newTranslationMapBuilder();
+                if (!Util.isPartOf(objectPrimary, newPrimary)) {
+                    tmMapSourceBuilder.put(newPrimary, objectPrimary);
+                } // else: TestStaticBiFunction,1,2
+                TranslationMap tmMapSource = tmMapSourceBuilder.build();
                 TranslationMap tmMapTarget = runtime.newTranslationMapBuilder().put(links.primary(), returnPrimary).build();
                 for (Link l : links) {
                     Variable from = translateAndRecreateVirtualFields(tmMapTarget, l.from(), vfMapSource, vfMapTarget,
@@ -179,7 +183,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 // vMapSource = §ky,
                 // vMapTarget = §x, targetTp = X (TP#0 in C)
                 // translated = §__rv0
-                assert arrays == 0 : "NYI";
+                // TestStaticBiFunction,2, with arrays == 1
                 upscaled = translated;
             }
         } else if (translated instanceof FieldReference frK && virtual(frK)) {

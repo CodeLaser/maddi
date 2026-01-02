@@ -64,28 +64,28 @@ public class TestStaticBiFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("""
-                ix(*[Type param X]:*[Type param X]);x(*[Type param X]:0[Type java.util.function.BiFunction<X,Y,X>])\
-                """, tlvEntry.toString());
+        assertEquals("xx←this.ix", tlvEntry.toString());
+
+        MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[] --> method←this.ix", tlvMethod.toString());
     }
 
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
             import java.util.List;
-            import java.util.Set;
             import java.util.function.BiFunction;
             public class C<X, Y> {
                 private X ix;
                 private Y iy;
-                public static <X, Y> List<Set<X>> extract(X x, Y y) {
-                    return List.of(Set.of(x));
+                public static <X, Y> List<X> extract(X x, Y y) {
+                    return List.of(x);
                 }
-                List<Set<X>> make(BiFunction<X, Y, List<Set<X>>> biFunction) {
+                List<X> make(BiFunction<X, Y, List<X>> biFunction) {
                     return biFunction.apply(ix, iy);
                 }
-                List<Set<X>> method() {
-                     List<Set<X>> xx = make(C::extract);
+                List<X> method() {
+                     List<X> xx = make(C::extract);
                      return xx;
                 }
             }
@@ -106,8 +106,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo join = C.findUniqueMethod("extract", 2);
         MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        // NOTE the E instead of X... on the LHS, we can have formal values
-        assertEquals("[-, -] --> extract.§$s≥0:x", tlvJoin.toString());
+        assertEquals("[-, -] --> extract.§xs∋0:x", tlvJoin.toString());
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
@@ -117,10 +116,57 @@ public class TestStaticBiFunction extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
         Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
-        assertEquals("""
-                ix(*[Type param X]:*[Type param X]);\
-                x([0]0[Type java.util.List<java.util.Set<X>>]:0[Type java.util.function.BiFunction<X,Y,java.util.List<java.util.Set<X>>>])\
-                """, tlvEntry.toString());
+        assertEquals("xx.§xs∋this.ix", tlvEntry.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT2b = """
+            package a.b;
+            import java.util.List;
+            import java.util.Set;
+            import java.util.function.BiFunction;
+            public class C<X, Y> {
+                private X ix;
+                private Y iy;
+                public static <X, Y> List<Set<X>> extract(X x, Y y) {
+                    return List.of(Set.of(x));
+                }
+                List<Set<X>> make(BiFunction<X, Y, List<Set<X>>> biFunction) {
+                    return biFunction.apply(ix, iy);
+                }
+                List<Set<X>> method() {
+                     List<Set<X>> xx = make(C::extract);
+                     return xx;
+                }
+            }
+            """;
+
+    @DisplayName("BiFunction extract wrapped 2")
+    @Test
+    public void test2b() {
+        TypeInfo C = javaInspector.parse(INPUT2b);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        tlc.doPrimaryType(C);
+
+        MethodInfo method = C.findUniqueMethod("method", 0);
+
+        MethodInfo join = C.findUniqueMethod("extract", 2);
+        MethodLinkedVariables tlvJoin = join.analysis().getOrNull(METHOD_LINKS,
+                MethodLinkedVariablesImpl.class);
+        assertEquals("[-, -] --> extract.§xss∋∋0:x", tlvJoin.toString());
+
+        MethodInfo make = C.findUniqueMethod("make", 1);
+        MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
+                MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
+
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo viEntry0 = vd0.variableInfo("xx");
+        Links tlvEntry = viEntry0.linkedVariablesOrEmpty();
+        assertEquals("xx.§xss∋∋this.ix", tlvEntry.toString());
     }
 
     @Language("java")
