@@ -18,11 +18,9 @@ import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeModIndyAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.Link;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
+import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -41,6 +39,7 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import java.util.*;
 import java.util.function.Predicate;
 
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
@@ -270,19 +269,13 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         private void doFluentIdentityAnalysis(MethodInfo methodInfo, VariableData lastOfMainBlock,
                                               Property property, Predicate<Variable> predicate) {
             if (!methodInfo.analysis().haveAnalyzedValueFor(property)) {
+                MethodLinkedVariables mlv = methodInfo.analysis().getOrNull(METHOD_LINKS,
+                        MethodLinkedVariablesImpl.class);
                 boolean identityFluent;
-                if (lastOfMainBlock == null) {
-                    identityFluent = false;
+                if (mlv != null && mlv.ofReturnValue() != null) {
+                    identityFluent = mlv.ofReturnValue().stream().map(l -> l.to()).anyMatch(predicate);
                 } else {
-                    VariableInfoContainer vicRv = lastOfMainBlock.variableInfoContainerOrNull(methodInfo.fullyQualifiedName());
-                    if (vicRv != null) {
-                        VariableInfo viRv = vicRv.best();
-                        List<Variable> svRv = viRv.linkedVariables() == null ? null
-                                : viRv.linkedVariables().primaryAssigned();
-                        identityFluent = svRv != null && svRv.stream().anyMatch(predicate);
-                    } else {
-                        identityFluent = false;
-                    }
+                    identityFluent = false;
                 }
                 methodInfo.analysis().set(property, ValueImpl.BoolImpl.from(identityFluent));
                 DECIDE.debug("MI: Decide {} of {} = {}", property, methodInfo, identityFluent);
