@@ -132,7 +132,7 @@ public record ExpressionVisitor(Runtime runtime,
     private Result instanceOf(VariableData variableData, Stage stage, InstanceOf instanceOf) {
         if (instanceOf.patternVariable() != null) {
             Result r = visit(instanceOf.expression(), variableData, stage);
-            if (instanceOf.expression() instanceof VariableExpression ve) {
+            if (r.getEvaluated() instanceof VariableExpression ve) {
                 if (instanceOf.testType().typeInfo() != null) {
                     r.addCast(ve.variable(), instanceOf.testType().typeInfo());
                 }
@@ -150,6 +150,7 @@ public record ExpressionVisitor(Runtime runtime,
                     return r.moveLinksToExtra().with(linksBuilder.build());
                 }
             }
+            // no need to set expression, it will be lost
             return r.moveLinksToExtra(); // result is a boolean
         }
         return EMPTY;
@@ -451,21 +452,11 @@ public record ExpressionVisitor(Runtime runtime,
                 handleParameterModification(mc, pi, params, modified, pc);
             }
         }
-        MethodCall newMc = runtime.newMethodCallBuilder()
-                .setObject(object.getEvaluated())
-                .setConcreteReturnType(mc.concreteReturnType())
-                .setMethodInfo(mc.methodInfo())
-                .setModificationTimes(mc.modificationTimes())
-                .setObjectIsImplicit(mc.objectIsImplicit())
-                .setParameterExpressions(params.stream().map(Result::getEvaluated).toList())
-                .setTypeArguments(mc.typeArguments())
-                .build();
         return r.addModified(modified)
                 .addModifiedFunctionalInterfaceComponents(modifiedFunctionalInterfaceComponents)
                 .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)
-                .addVariablesRepresentingConstant(object)
-                .setEvaluated(newMc);
+                .addVariablesRepresentingConstant(object);
     }
 
     private void handleParameterModification(MethodCall mc,
