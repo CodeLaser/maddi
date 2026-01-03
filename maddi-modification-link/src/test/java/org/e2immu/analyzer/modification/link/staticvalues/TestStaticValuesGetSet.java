@@ -80,18 +80,18 @@ public class TestStaticValuesGetSet extends CommonTest {
             assertSame(s, get.getSetField().field());
             MethodLinkedVariables getSv = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             // this sv is synthetically created from the @GetSet annotation
-            assertEquals("[] --> getS←this.§0", getSv.toString());
+            assertEquals("[] --> getS←this.s", getSv.toString());
 
             MethodInfo setS = X.findUniqueMethod("setS", 1);
             assertSame(s, setS.getSetField().field());
             MethodLinkedVariables setSv = setS.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);            // this sv is synthetically created from the @GetSet annotation
-            assertEquals("[this.§1←0:s] --> setS←this,setS.§1←0:s", setSv.toString());
+            assertEquals("[0:s→this.s] --> setS←this,setS.s←0:s", setSv.toString());
 
             MethodInfo set2 = X.findUniqueMethod("setS2", 1);
             assertEquals("a.b.X.w", set2.getSetField().field().fullyQualifiedName());
             MethodLinkedVariables set2Sv = set2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             // this sv is synthetically created from the @GetSet annotation
-            assertEquals("[this.w←0:s] --> -", set2Sv.toString());
+            assertEquals("[0:s→this.w] --> -", set2Sv.toString());
         }
 
         {
@@ -101,23 +101,23 @@ public class TestStaticValuesGetSet extends CommonTest {
             MethodInfo get = X.findUniqueMethod("get", 1);
             assertSame(objects, get.getSetField().field());
             MethodLinkedVariables getSv = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-] --> get∈this.objects.§3s,get←this.objects.§3s[0:i]", getSv.toString());
+            assertEquals("[-] --> get∈this.objects,get←this.objects[0:i]", getSv.toString());
 
             MethodInfo set = X.findUniqueMethod("set", 2);
             assertSame(objects, set.getSetField().field());
             MethodLinkedVariables setSv = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("E=this objects[i]=o", setSv.toString());
+            assertEquals("[-, 1:o→this.objects[0:i],1:o∈this.objects] --> set←this,set.objects[0:i]←1:o",
+                    setSv.toString());
 
             MethodInfo set2 = X.findUniqueMethod("set2", 2);
             assertSame(objects, set2.getSetField().field());
             MethodLinkedVariables set2Sv = set2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            ;
-            assertEquals("objects[i]=o", set2Sv.toString());
+            assertEquals("[-, 1:o→this.objects[0:i],1:o∈this.objects] --> -", set2Sv.toString());
 
             MethodInfo set3 = X.findUniqueMethod("set3", 2);
             assertSame(objects, set3.getSetField().field());
             MethodLinkedVariables set3Sv = set3.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("objects[i]=o", set3Sv.toString());
+            assertEquals("[0:o→this.objects[1:i],0:o∈this.objects, -] --> -", set3Sv.toString());
         }
 
         {
@@ -127,23 +127,24 @@ public class TestStaticValuesGetSet extends CommonTest {
             MethodInfo get = X.findUniqueMethod("getI", 1);
             assertSame(integers, get.getSetField().field());
             MethodLinkedVariables getSv = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("E=this.integers[i]", getSv.toString());
+            assertEquals("[-] --> getI∈this.integers,getI←this.integers[0:i]", getSv.toString());
 
             MethodInfo set = X.findUniqueMethod("setI", 2);
             assertSame(integers, set.getSetField().field());
             MethodLinkedVariables setSv = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("E=this integers[i]=o", setSv.toString());
+            assertEquals("[-, 1:o→this.integers[0:i],1:o∈this.integers] --> setI←this,setI.integers[0:i]←1:o",
+                    setSv.toString());
 
             MethodInfo set2 = X.findUniqueMethod("setI2", 2);
             assertSame(integers, set2.getSetField().field());
             MethodLinkedVariables set2Sv = set2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("integers[i]=o", set2Sv.toString());
+            assertEquals("[-, 1:o→this.integers[0:i],1:o∈this.integers] --> -", set2Sv.toString());
 
             MethodInfo set3 = X.findUniqueMethod("setI3", 2);
             assertSame(integers, set3.getSetField().field());
             MethodLinkedVariables set3Sv = set3.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             // IMPORTANT: convention is that the first parameter is the index
-            assertEquals("integers[o]=i", set3Sv.toString());
+            assertEquals("[-, 1:i→this.integers[0:o],1:i∈this.integers] --> -", set3Sv.toString());
         }
     }
 
@@ -164,11 +165,6 @@ public class TestStaticValuesGetSet extends CommonTest {
             }
             """;
 
-    /*
-            FIXME: the modification area needs to be properly set in the graph algorithm (ComputeLinkCompletion).
-            The ExpressionAnalyzer does not do the transitive closure anymore! w <-> w.r <-> w.r.i,
-            the graph algorithm must ensure w <-> w.r.i has modification area 0.0
-     */
     @DisplayName("getter in field reference")
     @Test
     public void test2() {
@@ -179,9 +175,8 @@ public class TestStaticValuesGetSet extends CommonTest {
         tlc.doPrimaryType(X);
         {
             MethodInfo getter = X.findUniqueMethod("getter", 1);
-            assertEquals("E=w.r", getter.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
-            //  assertEquals("-1-:r, *-4-0:w", getter.analysis().getOrDefault(LINKED_VARIABLES_METHOD, EMPTY)
-            //           .toString());
+            MethodLinkedVariables mlv = getter.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+            assertEquals("[-] --> getter←0:w.r", mlv.toString());
         }
         {
             MethodInfo extract = X.findUniqueMethod("extract", 1);
@@ -197,17 +192,10 @@ public class TestStaticValuesGetSet extends CommonTest {
                     """, vd0.knownVariableNamesToString());
 
             VariableInfo viRw = vd0.variableInfo("a.b.X.Wrapper.r#a.b.X.extract(a.b.X.Wrapper):0:w");
-            assertNull(viRw.linkedVariables().toString());
+            assertEquals("-", viRw.linkedVariables().toString());
 
-            assertEquals("0-4-*:i, *-4-0:w", viRw.linkedVariables().toString());
-            VariableInfo viIrw = vd0.variableInfo("a.b.X.R.i#a.b.X.Wrapper.r#a.b.X.extract(a.b.X.Wrapper):0:w");
-            assertNull(viIrw.linkedVariables().toString());
-
-            //FIXME assertEquals("*-4-0:r, *-4-0|*-0.0:w", viIrw.linkedVariables().toString());
-
-            assertEquals("E=w.r.i", extract.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
-            //FIXME assertEquals("-1-:i, *-4-0:r, *-4-0|*-0.0:w", extract.analysis().getOrDefault(LINKED_VARIABLES_METHOD, EMPTY).toString());
-
+            MethodLinkedVariables mlv = extract.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+            assertEquals("[-] --> extract←0:w.r.i", mlv.toString());
         }
     }
 }

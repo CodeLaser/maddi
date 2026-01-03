@@ -579,7 +579,7 @@ public class TestStaticValuesRecord extends CommonTest {
 
         MethodLinkedVariables mlvVariable = variable.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(variable));
         // interpret the @GetSet(string)!!
-        assertEquals("[-] --> variable∈this.variables.§1s,variable←this.variables.§1s[0:i]", mlvVariable.toString());
+        assertEquals("[-] --> variable∈this.variables,variable←this.variables[0:i]", mlvVariable.toString());
         MethodLinkedVariables mlvMethod2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
         {
             Statement s1 = method2.methodBody().statements().get(1);
@@ -593,7 +593,7 @@ public class TestStaticValuesRecord extends CommonTest {
             Statement s2 = method2.methodBody().statements().get(2);
             VariableData v2 = VariableDataImpl.of(s2);
             VariableInfo vi2Rv = v2.variableInfo("o");
-            assertEquals("o←r.variables.§1s[0],o∈r.variables.§1s", vi2Rv.linkedVariables().toString());
+            assertEquals("o←r.variables[0],o∈r.variables", vi2Rv.linkedVariables().toString());
             // FIXME l7 ~ 0, need to connect to builder
             //assertTrue(method2.isIdentity());
         }
