@@ -59,19 +59,21 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         TypeInfo typeInfo = methodInfo.typeInfo();
         ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
 
-        Value.FieldValue fv = methodInfo.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD, ValueImpl.GetSetValueImpl.EMPTY);
+        Value.FieldValue fv = methodInfo.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD,
+                ValueImpl.GetSetValueImpl.EMPTY);
         boolean abstractGetSet = fv.field() != null && methodInfo.isAbstract()
                                  // TODO better way of checking "non-standard get/set"
                                  && methodInfo.annotations().stream().anyMatch(ae -> "GetSet".equals(ae.typeInfo().simpleName()));
-        if (abstractGetSet && !fv.setter()) {
+        if (abstractGetSet) {
+            if (fv.setter()) {
+                return abstractSetter(methodInfo, fv, rv);
+            }
             return abstractGetter(methodInfo, fv, rv);
         }
+
         // virtual fields of the default source = the object ~ "this"
         VirtualFields vfThis = virtualFieldComputer.compute(typeInfo.asParameterizedType(),
                 false).virtualFields();
-        if (abstractGetSet && fv.setter()) {
-            return abstractSetter(methodInfo, fv, vfThis, rv);
-        }
         FieldInfo hcThis = vfThis.hiddenContent();
         FieldReference hcThisFr = hcThis == null ? null : runtime.newFieldReference(hcThis);
         Set<TypeParameter> hcThisTps = hcThis == null ? null : correspondingTypeParameters(typeInfo, hcThis);
@@ -503,20 +505,15 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
     private MethodLinkedVariables abstractGetter(MethodInfo methodInfo, Value.FieldValue fv, ReturnVariableImpl rv) {
         LinksImpl.Builder builder = new LinksImpl.Builder(rv);
         ParameterizedType baseType = methodInfo.returnType();
-        VirtualFields vf = virtualFieldComputer.compute(baseType, false).virtualFields();
-        String n = vf.hiddenContent() == null ? "§$" : vf.hiddenContent().name();
+        String n = fv.field().name();
 
         if (methodInfo.parameters().isEmpty()) {
             // rv ≡ this.§t  (where §t is a virtual field representing an object of type 'baseType')
-            FieldInfo fieldInfo = virtualFieldComputer.newField(n, baseType, methodInfo.typeInfo());
-            FieldReference t = runtime.newFieldReference(fieldInfo);
+            FieldReference t = runtime.newFieldReference(fv.field());
             builder.add(IS_ASSIGNED_FROM, t);
         } else if (methodInfo.parameters().size() == 1) {
             // rv ∈ this.§ts (where §ts is a virtual field representing an array of 'baseType' elements)
-            ParameterizedType arrayType = baseType.copyWithArrays(baseType.arrays() + 1);
-            FieldInfo fieldInfo = virtualFieldComputer.newField(n + "s", arrayType, methodInfo.typeInfo());
-            VariableExpression virtualField = runtime.newVariableExpression(runtime.newFieldReference(fv.field()));
-            FieldReference ts = runtime.newFieldReference(fieldInfo, virtualField, fieldInfo.type());
+            FieldReference ts = runtime.newFieldReference(fv.field());
             builder.add(IS_ELEMENT_OF, ts);
             DependentVariable dv = runtime.newDependentVariable(runtime.newVariableExpression(ts),
                     runtime.newVariableExpression(methodInfo.parameters().getFirst()));
@@ -527,21 +524,22 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
     private MethodLinkedVariables abstractSetter(MethodInfo methodInfo,
                                                  Value.FieldValue fv,
-                                                 VirtualFields vf,
                                                  ReturnVariable rv) {
-        Variable target;
+        ParameterInfo piValue = methodInfo.parameters().get(fv.parameterIndexOfValue());
+        ParameterInfo piIndex;
+        LinksImpl.Builder builder = new LinksImpl.Builder(piValue);
         if (methodInfo.parameters().size() == 1) {
-            target = runtime.newFieldReference(vf.hiddenContent());
+            builder.add(IS_ASSIGNED_TO, runtime.newFieldReference(fv.field()));
+            piIndex = null;
         } else {
             assert methodInfo.parameters().size() == 2;
             assert fv.hasIndex();
             FieldReference fr = runtime.newFieldReference(fv.field());
-            ParameterInfo pi = methodInfo.parameters().get(fv.parameterIndexOfIndex());
-            target = runtime.newDependentVariable(runtime.newVariableExpression(fr), runtime.newVariableExpression(pi));
+            piIndex = methodInfo.parameters().get(fv.parameterIndexOfIndex());
+            VariableExpression fieldVe = runtime.newVariableExpression(fr);
+            builder.add(IS_ASSIGNED_TO, runtime.newDependentVariable(fieldVe, runtime.newVariableExpression(piIndex)));
+            builder.add(IS_ELEMENT_OF, fr);
         }
-        LinksImpl.Builder builder = new LinksImpl.Builder(target);
-        ParameterInfo piValue = methodInfo.parameters().get(fv.parameterIndexOfValue());
-        builder.add(IS_ASSIGNED_FROM, piValue);
         Links returnLinks;
         if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.FLUENT_METHOD)
             && methodInfo.annotations().stream().anyMatch(ae ->
@@ -549,14 +547,32 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             methodInfo.analysis().set(PropertyImpl.FLUENT_METHOD, ValueImpl.BoolImpl.TRUE);
         }
         if (methodInfo.isFluent()) {
-            returnLinks = new LinksImpl.Builder(rv)
-                    .add(IS_ASSIGNED_FROM, runtime.newThis(methodInfo.typeInfo().asSimpleParameterizedType()))
-                    .add(runtime.newFieldReference(vf.hiddenContent(), runtime.newVariableExpression(rv), vf.hiddenContent().type()),
-                            IS_ASSIGNED_FROM, piValue)
-                    .build();
+            LinksImpl.Builder fluentBuilder = new LinksImpl.Builder(rv)
+                    .add(IS_ASSIGNED_FROM, runtime.newThis(methodInfo.typeInfo().asSimpleParameterizedType()));
+            if (methodInfo.parameters().size() == 1) {
+                returnLinks = fluentBuilder
+                        .add(runtime.newFieldReference(fv.field(), runtime.newVariableExpression(rv),
+                                fv.field().type()), IS_ASSIGNED_FROM, piValue)
+                        .build();
+            } else {
+                VariableExpression fieldVe = runtime.newVariableExpression(runtime.newFieldReference(fv.field(),
+                        runtime.newVariableExpression(rv), fv.field().type()));
+                returnLinks = fluentBuilder
+                        .add(runtime.newDependentVariable(fieldVe, runtime.newVariableExpression(piIndex)),
+                                IS_ASSIGNED_FROM, piValue)
+                        .build();
+            }
         } else {
             returnLinks = LinksImpl.EMPTY;
         }
-        return new MethodLinkedVariablesImpl(returnLinks, List.of(builder.build()));
+        List<Links> paramList;
+        if (methodInfo.parameters().size() == 1) {
+            paramList = List.of(builder.build());
+        } else if (fv.parameterIndexOfIndex() == 0) {
+            paramList = List.of(LinksImpl.EMPTY, builder.build());
+        } else {
+            paramList = List.of(builder.build(), LinksImpl.EMPTY);
+        }
+        return new MethodLinkedVariablesImpl(returnLinks, paramList);
     }
 }
