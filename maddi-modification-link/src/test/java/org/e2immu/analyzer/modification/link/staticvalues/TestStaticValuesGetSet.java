@@ -48,7 +48,7 @@ public class TestStaticValuesGetSet extends CommonTest {
                 // normal field
                 @GetSet String getS();
                 @Fluent @GetSet X setS(String s);
-                @GetSet("s") void setS2(String s);
+                @GetSet("w") void setS2(String s);
             
                 // indexing in a virtual array
                 @GetSet("objects") Object get(int i);
@@ -80,18 +80,18 @@ public class TestStaticValuesGetSet extends CommonTest {
             assertSame(s, get.getSetField().field());
             MethodLinkedVariables getSv = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             // this sv is synthetically created from the @GetSet annotation
-            assertEquals("E=this.s", getSv.toString());
+            assertEquals("[] --> getS←this.§0", getSv.toString());
 
-            MethodInfo set = X.findUniqueMethod("setS", 1);
-            assertSame(s, set.getSetField().field());
-            MethodLinkedVariables setSv = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);            // this sv is synthetically created from the @GetSet annotation
-            assertEquals("E=this this.s=s", setSv.toString());
+            MethodInfo setS = X.findUniqueMethod("setS", 1);
+            assertSame(s, setS.getSetField().field());
+            MethodLinkedVariables setSv = setS.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);            // this sv is synthetically created from the @GetSet annotation
+            assertEquals("[this.§1←0:s] --> setS←this,setS.§1←0:s", setSv.toString());
 
             MethodInfo set2 = X.findUniqueMethod("setS2", 1);
-            assertSame(s, set2.getSetField().field());
+            assertEquals("a.b.X.w", set2.getSetField().field().fullyQualifiedName());
             MethodLinkedVariables set2Sv = set2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             // this sv is synthetically created from the @GetSet annotation
-            assertEquals("this.s=s", set2Sv.toString());
+            assertEquals("[this.w←0:s] --> -", set2Sv.toString());
         }
 
         {
@@ -101,7 +101,7 @@ public class TestStaticValuesGetSet extends CommonTest {
             MethodInfo get = X.findUniqueMethod("get", 1);
             assertSame(objects, get.getSetField().field());
             MethodLinkedVariables getSv = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("E=this.objects[i]", getSv.toString());
+            assertEquals("[-] --> get∈this.objects.§3s,get←this.objects.§3s[0:i]", getSv.toString());
 
             MethodInfo set = X.findUniqueMethod("set", 2);
             assertSame(objects, set.getSetField().field());
@@ -180,8 +180,8 @@ public class TestStaticValuesGetSet extends CommonTest {
         {
             MethodInfo getter = X.findUniqueMethod("getter", 1);
             assertEquals("E=w.r", getter.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
-          //  assertEquals("-1-:r, *-4-0:w", getter.analysis().getOrDefault(LINKED_VARIABLES_METHOD, EMPTY)
-         //           .toString());
+            //  assertEquals("-1-:r, *-4-0:w", getter.analysis().getOrDefault(LINKED_VARIABLES_METHOD, EMPTY)
+            //           .toString());
         }
         {
             MethodInfo extract = X.findUniqueMethod("extract", 1);
