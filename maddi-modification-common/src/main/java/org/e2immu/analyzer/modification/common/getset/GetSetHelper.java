@@ -54,7 +54,9 @@ public class GetSetHelper {
         assert methodBody != null;
         assert !methodInfo.isConstructor();
         if (methodBody.isEmpty()) {
-            methodInfo.analysis().getOrCreate(PropertyImpl.FLUENT_METHOD, () -> ValueImpl.BoolImpl.FALSE);
+            if (!methodInfo.isAbstract()) {
+                methodInfo.analysis().getOrCreate(PropertyImpl.FLUENT_METHOD, () -> ValueImpl.BoolImpl.FALSE);
+            }
             return false;
         }
         return methodInfo.analysis().getOrCreate(PropertyImpl.GET_SET_FIELD, () -> {

@@ -5,8 +5,10 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
+import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -58,14 +60,18 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
 
         Value.FieldValue fv = methodInfo.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD, ValueImpl.GetSetValueImpl.EMPTY);
-        if (fv.field() != null && methodInfo.isAbstract()
-            // TODO better way of checking "non-standard get/set"
-            && methodInfo.annotations().stream().anyMatch(ae -> "GetSet".equals(ae.typeInfo().simpleName()))) {
-            return abstractGetterSetter(methodInfo, fv, rv);
+        boolean abstractGetSet = fv.field() != null && methodInfo.isAbstract()
+                                 // TODO better way of checking "non-standard get/set"
+                                 && methodInfo.annotations().stream().anyMatch(ae -> "GetSet".equals(ae.typeInfo().simpleName()));
+        if (abstractGetSet && !fv.setter()) {
+            return abstractGetter(methodInfo, fv, rv);
         }
         // virtual fields of the default source = the object ~ "this"
         VirtualFields vfThis = virtualFieldComputer.compute(typeInfo.asParameterizedType(),
                 false).virtualFields();
+        if (abstractGetSet && fv.setter()) {
+            return abstractSetter(methodInfo, fv, vfThis, rv);
+        }
         FieldInfo hcThis = vfThis.hiddenContent();
         FieldReference hcThisFr = hcThis == null ? null : runtime.newFieldReference(hcThis);
         Set<TypeParameter> hcThisTps = hcThis == null ? null : correspondingTypeParameters(typeInfo, hcThis);
@@ -494,16 +500,15 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
     // see TestStaticValuesRecord,7: @GetSet("variables") Object variable(int i);
     // we can't really use the virtual field computer, because this is a "fake" getter/setter
 
-    private MethodLinkedVariables abstractGetterSetter(MethodInfo methodInfo, Value.FieldValue fv, ReturnVariableImpl rv) {
-        if (fv.setter()) {
-            throw new UnsupportedOperationException();
-        }
+    private MethodLinkedVariables abstractGetter(MethodInfo methodInfo, Value.FieldValue fv, ReturnVariableImpl rv) {
         LinksImpl.Builder builder = new LinksImpl.Builder(rv);
         ParameterizedType baseType = methodInfo.returnType();
-        String n = baseType.typeParameter() != null ? baseType.typeParameter().simpleName().toLowerCase() : "$";
+        VirtualFields vf = virtualFieldComputer.compute(baseType, false).virtualFields();
+        String n = vf.hiddenContent() == null ? "§$" : vf.hiddenContent().name();
+
         if (methodInfo.parameters().isEmpty()) {
             // rv ≡ this.§t  (where §t is a virtual field representing an object of type 'baseType')
-            FieldInfo fieldInfo = virtualFieldComputer.newField(n + "s", baseType, methodInfo.typeInfo());
+            FieldInfo fieldInfo = virtualFieldComputer.newField(n, baseType, methodInfo.typeInfo());
             FieldReference t = runtime.newFieldReference(fieldInfo);
             builder.add(IS_ASSIGNED_FROM, t);
         } else if (methodInfo.parameters().size() == 1) {
@@ -518,5 +523,40 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             builder.add(IS_ASSIGNED_FROM, dv);
         }
         return new MethodLinkedVariablesImpl(builder.build(), methodInfo.parameters().isEmpty() ? List.of() : List.of(LinksImpl.EMPTY));
+    }
+
+    private MethodLinkedVariables abstractSetter(MethodInfo methodInfo,
+                                                 Value.FieldValue fv,
+                                                 VirtualFields vf,
+                                                 ReturnVariable rv) {
+        Variable target;
+        if (methodInfo.parameters().size() == 1) {
+            target = runtime.newFieldReference(vf.hiddenContent());
+        } else {
+            assert methodInfo.parameters().size() == 2;
+            assert fv.hasIndex();
+            FieldReference fr = runtime.newFieldReference(fv.field());
+            ParameterInfo pi = methodInfo.parameters().get(fv.parameterIndexOfIndex());
+            target = runtime.newDependentVariable(runtime.newVariableExpression(fr), runtime.newVariableExpression(pi));
+        }
+        LinksImpl.Builder builder = new LinksImpl.Builder(target);
+        ParameterInfo piValue = methodInfo.parameters().get(fv.parameterIndexOfValue());
+        builder.add(IS_ASSIGNED_FROM, piValue);
+        Links returnLinks;
+        if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.FLUENT_METHOD)
+            && methodInfo.annotations().stream().anyMatch(ae ->
+                Fluent.class.getCanonicalName().equals(ae.typeInfo().fullyQualifiedName()))) {
+            methodInfo.analysis().set(PropertyImpl.FLUENT_METHOD, ValueImpl.BoolImpl.TRUE);
+        }
+        if (methodInfo.isFluent()) {
+            returnLinks = new LinksImpl.Builder(rv)
+                    .add(IS_ASSIGNED_FROM, runtime.newThis(methodInfo.typeInfo().asSimpleParameterizedType()))
+                    .add(runtime.newFieldReference(vf.hiddenContent(), runtime.newVariableExpression(rv), vf.hiddenContent().type()),
+                            IS_ASSIGNED_FROM, piValue)
+                    .build();
+        } else {
+            returnLinks = LinksImpl.EMPTY;
+        }
+        return new MethodLinkedVariablesImpl(returnLinks, List.of(builder.build()));
     }
 }
