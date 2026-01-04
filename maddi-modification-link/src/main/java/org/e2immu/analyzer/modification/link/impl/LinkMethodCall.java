@@ -206,16 +206,16 @@ public record LinkMethodCall(Runtime runtime,
             tmBuilder.put(methodInfo.parameters().get(index), to);
             ++index;
         }
+        tmBuilder.put(ofReturnValue.primary(), newPrimary);
         TranslationMap tm = tmBuilder.build();
         Function<Variable, List<Links>> samLinks = v ->
                 v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
-        TranslationMap newPrimaryTm = runtime.newTranslationMapBuilder().put(ofReturnValue.primary(), newPrimary).build();
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : ofReturnValue.linkSet()) {
             if (link.from().equals(ofReturnValue.primary())) {
                 translateHandleFunctional(tm, link, newPrimary, link.linkNature(), builder, samLinks, objectPrimary);
             } else {
-                Variable fromTranslated = newPrimaryTm.translateVariableRecursively(link.from());
+                Variable fromTranslated = tm.translateVariableRecursively(link.from());
                 translateHandleFunctional(tm, link, fromTranslated, link.linkNature(), builder, samLinks, objectPrimary);
             }
         }
