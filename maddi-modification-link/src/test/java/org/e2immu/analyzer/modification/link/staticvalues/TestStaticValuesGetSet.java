@@ -192,7 +192,7 @@ public class TestStaticValuesGetSet extends CommonTest {
                     """, vd0.knownVariableNamesToString());
 
             VariableInfo viRw = vd0.variableInfo("a.b.X.Wrapper.r#a.b.X.extract(a.b.X.Wrapper):0:w");
-            assertEquals("-", viRw.linkedVariables().toString());
+            assertEquals("0:w.r.i→extract", viRw.linkedVariables().toString());
 
             MethodLinkedVariables mlv = extract.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             assertEquals("[-] --> extract←0:w.r.i", mlv.toString());

@@ -98,7 +98,7 @@ public class TestStaticValuesRecord extends CommonTest {
             assertEquals(setField, getSet.field());
             VariableData vd = VariableDataImpl.of(accessorSet.methodBody().lastStatement());
             VariableInfo viField = vd.variableInfo(setField.fullyQualifiedName());
-            assertEquals("-", viField.linkedVariables().toString());
+            assertEquals("this.set→set", viField.linkedVariables().toString());
         }
         {
             MethodInfo accessorN = X.findUniqueMethod("n", 0);
