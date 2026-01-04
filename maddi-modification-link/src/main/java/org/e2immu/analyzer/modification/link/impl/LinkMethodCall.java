@@ -235,27 +235,37 @@ public record LinkMethodCall(Runtime runtime,
                                            Function<Variable, List<Links>> paramProvider,
                                            Variable objectPrimary) {
         ParameterizedType parameterizedType = link.to().parameterizedType();
+        boolean extraTest;
         if (parameterizedType.isFunctionalInterface()) {
             List<LinkFunctionalInterface.Triplet> toAdd =
                     new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).go(parameterizedType, fromTranslated,
                             linkNature, builder.primary(), paramProvider.apply(link.to()), objectPrimary);
             toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
-            return;
+            extraTest = true;
+        } else {
+            if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
+                List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
+                // translate params in list with values from applied.params()
+                List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
+                List<LinkFunctionalInterface.Triplet> toAdd =
+                        new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
+                                .go(applied.sourceOfFunctionalInterface().parameterizedType(),
+                                        fromTranslated, linkNature, builder.primary(), translated,
+                                        objectPrimary);
+                toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
+                extraTest = true;
+            } else {
+                extraTest = false;
+            }
+        }
+        if (!extraTest || !isReturnVariable(Util.firstRealVariable(fromTranslated))) {
+            builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
+        }
+    }
 
-        }
-        if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
-            List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
-            // translate params in list with values from applied.params()
-            List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
-            List<LinkFunctionalInterface.Triplet> toAdd =
-                    new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
-                            .go(applied.sourceOfFunctionalInterface().parameterizedType(),
-                                    fromTranslated, linkNature, builder.primary(), translated,
-                                    objectPrimary);
-            toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
-            return;
-        }
-        builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
+    private static boolean isReturnVariable(Variable v) {
+        return v instanceof ReturnVariable
+               || v instanceof LocalVariable lv && lv.simpleName().startsWith(LinksImpl.INTERMEDIATE_RETURN_VARIABLE);
     }
 
     private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<Result> params) {
