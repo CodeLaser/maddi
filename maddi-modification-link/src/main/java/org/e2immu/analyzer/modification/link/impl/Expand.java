@@ -16,13 +16,13 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.impl.translate.TranslationMapImpl;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
@@ -204,14 +204,11 @@ public record Expand(Runtime runtime) {
     }
 
     // sorting is needed to consistently take the same direction for tests
-    private static Links.Builder followGraph(GraphData gd,
-                                             Variable primary,
-                                             TranslationMap translationMap,
-                                             boolean allowLocalVariables) {
-        V tPrimary = new V(translationMap == null ? primary : translationMap.translateVariableRecursively(primary));
+    private static Links.Builder followGraph(GraphData gd, Variable primary, boolean allowLocalVariables) {
+        V tPrimary = new V(primary);
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
         var fromList = gd.graph.keySet().stream()
-                .filter(v -> org.e2immu.analyzer.modification.prepwork.Util.isPartOf(primary, v.v))
+                .filter(v -> Util.isPartOf(primary, v.v))
                 .sorted((v1, v2) -> {
                     if (Util.isPartOf(v1.v, v2.v)) return 1;
                     if (Util.isPartOf(v2.v, v1.v)) return -1;
@@ -224,8 +221,6 @@ public record Expand(Runtime runtime) {
 
         for (V from : fromList) {
             Map<V, LinkNature> all = bestPath(gd.graph, from);
-            V tFrom = new V(translationMap == null ? from.v : translationMap.translateVariableRecursively(from.v));
-            Variable tFromV = tFrom.v;
             List<Map.Entry<V, LinkNature>> entries = all.entrySet().stream()
                     .sorted((e1, e2) -> {
                         int c = e2.getValue().rank() - e1.getValue().rank();
@@ -238,8 +233,8 @@ public record Expand(Runtime runtime) {
                         return e1.getKey().v.fullyQualifiedName().compareTo(e2.getKey().v.fullyQualifiedName());
                     })
                     .toList();
-            Variable primaryFrom = Util.primary(tFromV);
-            Variable firstRealFrom = Util.firstRealVariable(tFromV);
+            Variable primaryFrom = Util.primary(from.v);
+            Variable firstRealFrom = Util.firstRealVariable(from.v);
 
             //LOGGER.debug("Entries of {}: {}", from, entries);
 
@@ -256,12 +251,12 @@ public record Expand(Runtime runtime) {
                         !firstRealFrom.equals(primaryFrom) &&
                         !firstRealTo.equals(primaryTo) &&
                         !firstRealFrom.equals(firstRealTo))
-                    && block.add(new PC(tFromV, linkNature, toV))) {
-                    builder.add(tFromV, linkNature, toV);
+                    && block.add(new PC(from.v, linkNature, toV))) {
+                    builder.add(from.v, linkNature, toV);
                     // don't add if the reverse is already present in this builder
-                    block.add(new PC(toV, linkNature.reverse(), tFromV));
+                    block.add(new PC(toV, linkNature.reverse(), from.v));
                     // when adding p.sub < q.sub, don't add p < q.sub, p.sub < q
-                    Set<Variable> scopeFrom = Util.scopeVariables(tFromV);
+                    Set<Variable> scopeFrom = Util.scopeVariables(from.v);
                     for (LinkNature lnUp : linkNature.redundantFromUp()) {
                         for (Variable sv : scopeFrom) {
                             block.add(new PC(sv, lnUp, toV));
@@ -270,7 +265,7 @@ public record Expand(Runtime runtime) {
                     Set<Variable> scopeTo = Util.scopeVariables(toV);
                     for (LinkNature lnUp : linkNature.redundantToUp()) {
                         for (Variable sv : scopeTo) {
-                            block.add(new PC(tFromV, lnUp, sv));
+                            block.add(new PC(from.v, lnUp, sv));
                         }
                     }
                     for (LinkNature lnBoth : linkNature.redundantUp()) {
@@ -380,7 +375,7 @@ public record Expand(Runtime runtime) {
                 .forEach(vi -> {
                     // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
                     //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
-                    Links.Builder builder = followGraph(gd, vi.variable(), null, true);
+                    Links.Builder builder = followGraph(gd, vi.variable(), true);
                     boolean unmodified = !modifiedVariables.contains(vi.variable())
                                          && notLinkedToModified(builder, modifiedVariables);
                     builder.removeIf(Link::toIsIntermediateVariable);
@@ -426,11 +421,17 @@ public record Expand(Runtime runtime) {
         }
         List<Links> linksPerParameter = new ArrayList<>(methodInfo.parameters().size());
         for (ParameterInfo pi : methodInfo.parameters()) {
-            Links.Builder builder = followGraph(gd, pi, null, false);
+            Links.Builder builder = followGraph(gd, pi, false);
             linksPerParameter.add(builder.build());
         }
 
         return linksPerParameter;
+    }
+
+    // r.function (a.b.X.R, a.b.X.RI), see
+    private Stream<Variable> allSuperFields(Variable v) {
+
+        return Stream.of(v);
     }
 
     /*
@@ -445,19 +446,24 @@ public record Expand(Runtime runtime) {
                              TranslationMap replaceConstants) {
         Variable primary1 = links.primary();
         if (primary1 == null) return LinksImpl.EMPTY;
-        Variable primary = replaceConstants.translateVariableRecursively(primary1);
+        Variable primary2 = replaceConstants.translateVariableRecursively(primary1);
 
-        TranslationMap tm = runtime.newTranslationMapBuilder().put(primary, returnVariable).build();
+        TranslationMap.Builder builder1 = runtime.newTranslationMapBuilder();
+        allSuperFields(primary2).forEach(sf -> builder1.put(sf, returnVariable));
+        TranslationMap tm = builder1.build();
 
+        Variable primary = tm.translateVariableRecursively(primary2);
         Map<Variable, Links> linkedVariables = new HashMap<>();
-        extra.map().forEach((v, ls) -> linkedVariables.put(v, ls.translate(replaceConstants)));
-        linkedVariables.merge(primary, links.translate(tm), Links::merge);
+        extra.map().forEach((v, ls) ->
+                linkedVariables.put(tm.translateVariableRecursively(v), ls.translate(replaceConstants).translateFrom(tm)));
+        linkedVariables.merge(primary, links.translateFrom(tm), Links::merge);
         vd.variableInfoStream()
                 .filter(vi -> !(vi.variable() instanceof This))
                 .forEach(vi -> {
                     Links vLinks = vi.linkedVariables();
                     if (vLinks != null) {
-                        linkedVariables.merge(vLinks.primary(), vLinks.translate(replaceConstants), Links::merge);
+                        linkedVariables.merge(tm.translateVariableRecursively(vLinks.primary()),
+                                vLinks.translate(replaceConstants).translateFrom(tm), Links::merge);
                     }
                 });
 
@@ -465,7 +471,7 @@ public record Expand(Runtime runtime) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Return graph, primary {}:\n{}", primary, printGraph(gd.graph));
         }
-        Links.Builder builder = followGraph(gd, primary, tm, false);
+        Links.Builder builder = followGraph(gd, primary, false);
 
         if (primary instanceof ReturnVariable) return builder.build();
         if (containsNoLocalVariable(primary)) {
@@ -492,8 +498,7 @@ public record Expand(Runtime runtime) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(gd.graph));
         }
-        Links.Builder builder = followGraph(gd, links.primary(), new TranslationMapImpl.Builder().build(),
-                true);
+        Links.Builder builder = followGraph(gd, links.primary(), true);
         builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
         return builder.build();
     }
