@@ -22,7 +22,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
@@ -129,6 +128,7 @@ public record Expand(Runtime runtime) {
             V toPrimary = correctForThis(subToPrimary.getOrDefault(vTo, vTo), vTo);
             mergeEdge(graph, toPrimary, vTo, linkNature.reverse(), vFrom);
         }
+        // add extra: if a ← b, and we know a.§xs exists, then a.§xs ← b.§xs
         if (linkNature == IS_IDENTICAL_TO || linkNature == IS_ASSIGNED_FROM || linkNature == IS_ASSIGNED_TO) {
             Set<V> subsOfFrom = primaryToSub.get(vFrom);
             if (subsOfFrom != null) {
@@ -428,12 +428,6 @@ public record Expand(Runtime runtime) {
         return linksPerParameter;
     }
 
-    // r.function (a.b.X.R, a.b.X.RI), see
-    private Stream<Variable> allSuperFields(Variable v) {
-
-        return Stream.of(v);
-    }
-
     /*
     Prepares the links of the return value for the outside world:
     - find as many links to fields and parameters
@@ -448,9 +442,8 @@ public record Expand(Runtime runtime) {
         if (primary1 == null) return LinksImpl.EMPTY;
         Variable primary2 = replaceConstants.translateVariableRecursively(primary1);
 
-        TranslationMap.Builder builder1 = runtime.newTranslationMapBuilder();
-        allSuperFields(primary2).forEach(sf -> builder1.put(sf, returnVariable));
-        TranslationMap tm = builder1.build();
+        VariableTranslationAllowHierarchy tm = new VariableTranslationAllowHierarchy(runtime);
+        tm.put(primary2, returnVariable);
 
         Variable primary = tm.translateVariableRecursively(primary2);
         Map<Variable, Links> linkedVariables = new HashMap<>();
@@ -473,9 +466,9 @@ public record Expand(Runtime runtime) {
         }
         Links.Builder builder = followGraph(gd, primary, false);
 
-        if (primary instanceof ReturnVariable) return builder.build();
-        if (containsNoLocalVariable(primary)) {
-            builder.prepend(IS_ASSIGNED_FROM, primary);
+        //  if (primary instanceof ReturnVariable) return builder.build();
+        if (containsNoLocalVariable(primary2)) {
+            builder.prepend(IS_ASSIGNED_FROM, primary2);
         }
         return builder.build();
     }
