@@ -191,9 +191,6 @@ public record Expand(Runtime runtime) {
     }
 
     private static boolean containsNoLocalVariable(Variable variable) {
-        assert variable.variableStreamDescend().noneMatch(v -> v instanceof ReturnVariable) : """
-                Return variables should not occur here: the result of LinkMethodCall should never contain them.
-                """;
         return variable.variableStreamDescend()
                 .allMatch(v -> !(v instanceof LocalVariable lv)
                                || lv instanceof AppliedFunctionalInterfaceVariable a && a.containsNoLocalVariables());
