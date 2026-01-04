@@ -275,9 +275,9 @@ public record LinkMethodCall(Runtime runtime,
                 if (primary instanceof LocalVariable) {
                     // see TestStaticBiFunction,6: no direct mapping
 
-                        // this is the old "join" of previous implementations; we should call expand now
-                        Links ls = new Expand(runtime).indirect(links.primary(), link, result.links());
-                        if (ls != null) builder.addAll(ls);
+                    // this is the old "join" of previous implementations; we should call expand now
+                    Links ls = new Expand(runtime).indirect(links.primary(), link, result.links());
+                    if (ls != null) builder.addAll(ls);
 
                 } else {
                     builder.add(link.from(), link.linkNature(), runtime.newFieldReference(fr.fieldInfo(),
@@ -337,21 +337,13 @@ public record LinkMethodCall(Runtime runtime,
             assert links != null;
             ParameterInfo pi = methodInfo.parameters().get(i);
             Result r = params.get(i);
-            Links piLinks = r.links();
-            if (piLinks != null) {
-                Variable paramPrimary = piLinks.primary();
-                if (paramPrimary == null || !paramPrimary.parameterizedType().isFunctionalInterface()) {
-                    if (!links.isEmpty()) {
-                        for (Link link : links) {
-                            Variable translatedFrom = tm.translateVariableRecursively(link.from());
-                            Variable translatedTo = tm.translateVariableRecursively(link.to());
-                            if (Util.isPartOf(objectPrimary, translatedTo)) {
-                                builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
-                            } else if (Util.isPartOf(objectPrimary, translatedTo)) {
-                                builder.add(translatedTo, link.linkNature(), translatedFrom);
-                            }
-                        }
-                    }
+            for (Link link : links) {
+                Variable translatedFrom = tm.translateVariableRecursively(link.from());
+                Variable translatedTo = tm.translateVariableRecursively(link.to());
+                if (Util.isPartOf(objectPrimary, translatedTo)) {
+                    builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                } else if (Util.isPartOf(objectPrimary, translatedTo)) {
+                    builder.add(translatedTo, link.linkNature(), translatedFrom);
                 }
             }
             ParameterizedType parameterizedType = pi.parameterizedType();
