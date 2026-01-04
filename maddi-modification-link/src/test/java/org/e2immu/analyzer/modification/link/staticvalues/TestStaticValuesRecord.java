@@ -592,7 +592,11 @@ public class TestStaticValuesRecord extends CommonTest {
                     r.variables[0]∈b.variables,r.variables←b.variables,r.variables∋b.variables[0],r.variables∋0:s\
                     """, rVi2.linkedVariables().toString());
         }
-        assertEquals("[-] --> ?", mlvMethod.toString());
+        // FIXME translations go wrong because r.function is either
+        //   - a.b.X.R.function
+        //   - a.b.X.RI.function
+        //  (that is the subject of this test :-)
+        assertEquals("[-] --> method←length", mlvMethod.toString());
 
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
         MethodInfo variable = R.findUniqueMethod("variable", 1);

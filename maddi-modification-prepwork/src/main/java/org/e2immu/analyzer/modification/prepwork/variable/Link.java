@@ -28,4 +28,6 @@ public interface Link extends Comparable<Link> {
     boolean toIsIntermediateVariable();
 
     Link translate(TranslationMap translationMap);
+
+    Link translateFrom(TranslationMap translationMap);
 }

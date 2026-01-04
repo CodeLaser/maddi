@@ -240,6 +240,12 @@ public class LinksImpl implements Links {
         }
 
         @Override
+        public Link translateFrom(TranslationMap translationMap) {
+            Variable tFrom = translationMap.translateVariableRecursively(from);
+            return new LinkImpl(tFrom, linkNature, to);
+        }
+
+        @Override
         public Link replaceSubsetSuperset(Variable modified) {
             LinkNature ln2 = linkNature.replaceSubsetSuperset();
             if (ln2 != linkNature && (Util.primary(from).equals(modified) || Util.primary(to).equals(modified))) {
@@ -288,8 +294,34 @@ public class LinksImpl implements Links {
                 linkSet.stream().map(l -> l.translate(translationMap)).toList());
     }
 
+    @Override
+    public Links translateFrom(TranslationMap translationMap) {
+        if (primary == null) return LinksImpl.EMPTY;
+        Variable newPrimary = translationMap.translateVariableRecursively(primary);
+        if (newPrimary == null) return LinksImpl.EMPTY;
+        if (translationMap instanceof VirtualFieldTranslationMap vfTm) {
+            return new LinksImpl(newPrimary,
+                    linkSet.stream().flatMap(l -> translateFromCorrect(vfTm, l)).toList());
+        }
+        return new LinksImpl(newPrimary,
+                linkSet.stream().map(l -> l.translateFrom(translationMap)).toList());
+    }
+
     private Stream<Link> translateCorrect(VirtualFieldTranslationMap translationMap, Link link) {
         Link tLink = link.translate(translationMap);
+        // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
+        // upgrade: 0:key≡this.§kv.§k ==> 0:xs≡this.§xsys.§xs ==> 0:xs.§xs⊆this.§xsys.§xs
+        if (link.linkNature().isIdenticalTo() && Util.isPrimary(tLink.from())
+            && Util.hasVirtualFields(tLink.from())
+            && link.to().parameterizedType().arrays() == 0
+            && tLink.to().parameterizedType().arrays() > 0
+            && tLink.to() instanceof FieldReference fr) {
+            return translationMap.upgrade(link, tLink, fr);
+        }
+        return Stream.of(tLink);
+    }
+    private Stream<Link> translateFromCorrect(VirtualFieldTranslationMap translationMap, Link link) {
+        Link tLink = link.translateFrom(translationMap);
         // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
         // upgrade: 0:key≡this.§kv.§k ==> 0:xs≡this.§xsys.§xs ==> 0:xs.§xs⊆this.§xsys.§xs
         if (link.linkNature().isIdenticalTo() && Util.isPrimary(tLink.from())
