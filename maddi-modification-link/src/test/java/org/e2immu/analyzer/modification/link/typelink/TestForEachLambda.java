@@ -190,7 +190,7 @@ public class TestForEachLambda extends CommonTest {
         assertEquals("§m - II §0", vfc.compute(II).toString());
         MethodInfo method2 = II.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlvMethod2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
-        assertEquals("[] --> -", mlvMethod2.toString());
+        assertEquals("[-] --> -", mlvMethod2.toString());
 
         MethodInfo add = X.findUniqueMethod("add", 1);
         MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add));

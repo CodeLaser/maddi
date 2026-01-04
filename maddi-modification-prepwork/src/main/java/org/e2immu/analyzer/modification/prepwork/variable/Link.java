@@ -1,8 +1,11 @@
 package org.e2immu.analyzer.modification.prepwork.variable;
 
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.stream.Stream;
 
 
 public interface Link extends Comparable<Link> {
@@ -30,4 +33,10 @@ public interface Link extends Comparable<Link> {
     Link translate(TranslationMap translationMap);
 
     Link translateFrom(TranslationMap translationMap);
+
+    default Stream<ParameterInfo> parameterStream() {
+        return Stream.concat(from().variableStreamDescend(), to().variableStreamDescend())
+                .filter(v -> v instanceof ParameterInfo)
+                .map(v -> (ParameterInfo) v);
+    }
 }

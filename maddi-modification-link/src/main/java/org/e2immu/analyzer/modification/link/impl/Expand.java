@@ -6,7 +6,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -82,7 +81,7 @@ public record Expand(Runtime runtime) {
                                   V to) {
         Map<V, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
         edges.merge(to, linkNature, LinkNature::combine);
-        assert graph.size() == graph.keySet().stream().map(v -> v.v.toString()).count();
+        assert graph.size() == graph.keySet().stream().map(v -> v.v.toString()).distinct().count();
     }
 
     private static void mergeEdge(Map<V, Map<V, LinkNature>> graph,
@@ -117,17 +116,17 @@ public record Expand(Runtime runtime) {
     private void addToGraph(Variable lFrom, LinkNature linkNature, Variable lTo,
                             V primaryIn,
                             Map<V, Map<V, LinkNature>> graph,
-                            boolean bidirectional,
                             Map<V, Set<V>> primaryToSub,
                             Map<V, V> subToPrimary) {
         V vFrom = new V(lFrom);
         V vTo = new V(lTo);
         V primary = correctForThis(primaryIn, vFrom);
         mergeEdge(graph, primary, vFrom, linkNature, vTo);
-        if (bidirectional) {
-            V toPrimary = correctForThis(subToPrimary.getOrDefault(vTo, vTo), vTo);
-            mergeEdge(graph, toPrimary, vTo, linkNature.reverse(), vFrom);
-        }
+
+        // other direction
+        V toPrimary = correctForThis(subToPrimary.getOrDefault(vTo, vTo), vTo);
+        mergeEdge(graph, toPrimary, vTo, linkNature.reverse(), vFrom);
+
         // add extra: if a ← b, and we know a.§xs exists, then a.§xs ← b.§xs
         if (linkNature == IS_IDENTICAL_TO || linkNature == IS_ASSIGNED_FROM || linkNature == IS_ASSIGNED_TO) {
             Set<V> subsOfFrom = primaryToSub.get(vFrom);
@@ -158,7 +157,7 @@ public record Expand(Runtime runtime) {
                              Map<V, V> subToPrimary) {
     }
 
-    private GraphData makeGraph(Map<Variable, Links> linkedVariables, boolean bidirectional) {
+    private GraphData makeGraph(Map<Variable, Links> linkedVariables) {
         Map<V, Set<V>> subs = new HashMap<>();
         Map<V, V> subToPrimary = new HashMap<>();
         linkedVariables.values()
@@ -183,17 +182,11 @@ public record Expand(Runtime runtime) {
                 .forEach(links -> links
                         .stream().filter(l -> !(l.to() instanceof This))
                         .forEach(l -> addToGraph(l.from(), l.linkNature(), l.to(), new V(links.primary()),
-                                graph, bidirectional, subs, subToPrimary)));
+                                graph, subs, subToPrimary)));
         List<PC> extra = new ExpandSlice().completeSliceInformation(graph);
         extra.forEach(pc -> addToGraph(pc.from, pc.linkNature, pc.to, new V(Util.primary(pc.from)), graph,
-                bidirectional, subs, subToPrimary));
+                subs, subToPrimary));
         return new GraphData(graph, subs.keySet(), subToPrimary);
-    }
-
-    private static boolean containsNoLocalVariable(Variable variable) {
-        return variable.variableStreamDescend()
-                .allMatch(v -> !(v instanceof LocalVariable lv)
-                               || lv instanceof AppliedFunctionalInterfaceVariable a && a.containsNoLocalVariables());
     }
 
     record PC(Variable from, LinkNature linkNature, Variable to) {
@@ -204,7 +197,7 @@ public record Expand(Runtime runtime) {
     }
 
     // sorting is needed to consistently take the same direction for tests
-    private static Links.Builder followGraph(GraphData gd, Variable primary, boolean allowLocalVariables) {
+    private static Links.Builder followGraph(GraphData gd, Variable primary) {
         V tPrimary = new V(primary);
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
         var fromList = gd.graph.keySet().stream()
@@ -243,10 +236,9 @@ public record Expand(Runtime runtime) {
                 Variable toV = entry.getKey().v;
                 Variable primaryTo = Util.primary(toV);
                 Variable firstRealTo = Util.firstRealVariable(toV);
+                // remove internal references (field inside primary to primary or other field in primary)
+                // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
                 if (linkNature.rank() >= 0
-                    && (allowLocalVariables || containsNoLocalVariable(toV))
-                    // remove internal references (field inside primary to primary or other field in primary)
-                    // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
                     && (!primaryTo.equals(primaryFrom) ||
                         !firstRealFrom.equals(primaryFrom) &&
                         !firstRealTo.equals(primaryTo) &&
@@ -365,7 +357,7 @@ public record Expand(Runtime runtime) {
                 e.getKey() instanceof This || e.getValue().primary() == null || e.getValue().primary() instanceof This)
                 : "Not linking null or 'this'";
 
-        GraphData gd = makeGraph(linkedVariables, true);
+        GraphData gd = makeGraph(linkedVariables);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(gd.graph));
         }
@@ -375,10 +367,13 @@ public record Expand(Runtime runtime) {
                 .forEach(vi -> {
                     // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
                     //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
-                    Links.Builder builder = followGraph(gd, vi.variable(), true);
+                    Links.Builder builder = followGraph(gd, vi.variable());
                     boolean unmodified = !modifiedVariables.contains(vi.variable())
                                          && notLinkedToModified(builder, modifiedVariables);
                     builder.removeIf(Link::toIsIntermediateVariable);
+                    if (vi.variable() instanceof ReturnVariable) {
+                        builder.removeIfFromTo(Expand::isLocalVariable);
+                    }
                     if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
                         Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
                         vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
@@ -395,82 +390,11 @@ public record Expand(Runtime runtime) {
         return newLinkedVariables;
     }
 
-    public List<Links> parameters(MethodInfo methodInfo, VariableData vd, TranslationMap replaceConstants) {
-        if (vd == null) return List.of();
-
-        Map<Variable, Links> linkedVariables = new HashMap<>();
-        vd.variableInfoStream()
-                .filter(vi -> !(vi.variable() instanceof This))
-                .forEach(vi -> {
-                    Links vLinks = vi.linkedVariables();
-                    if (vLinks != null && vLinks.primary() != null) {
-                        assert !(vLinks.primary() instanceof This);
-                        linkedVariables.merge(vLinks.primary(), vLinks.translate(replaceConstants), Links::merge);
-                    }
-                });
-
-        /*
-        why a bidirectional graph for the parameters, and only a directional one for the return value?
-        the flow is obviously linear parm -> rv, so if we want rv in function of parameters, only one
-        direction is relevant. But if we want the parameters in function of the fields, we may have
-        to see the reverse of param -> field. See e.g. TestList,4 (set)
-         */
-        GraphData gd = makeGraph(linkedVariables, true);
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Bi-directional graph for parameters:\n{}", printGraph(gd.graph));
+    static boolean isLocalVariable(Variable v) {
+        if (v instanceof AppliedFunctionalInterfaceVariable a) {
+            return !a.containsNoLocalVariables();
         }
-        List<Links> linksPerParameter = new ArrayList<>(methodInfo.parameters().size());
-        for (ParameterInfo pi : methodInfo.parameters()) {
-            Links.Builder builder = followGraph(gd, pi, false);
-            linksPerParameter.add(builder.build());
-        }
-
-        return linksPerParameter;
-    }
-
-    /*
-    Prepares the links of the return value for the outside world:
-    - find as many links to fields and parameters
-    - remove (intermediate) links to local variables
-    */
-    public Links returnValue(ReturnVariable returnVariable,
-                             Links links,
-                             LinkedVariables extra,
-                             VariableData vd,
-                             TranslationMap replaceConstants) {
-        Variable primary1 = links.primary();
-        if (primary1 == null) return LinksImpl.EMPTY;
-        Variable primary2 = replaceConstants.translateVariableRecursively(primary1);
-
-        VariableTranslationAllowHierarchy tm = new VariableTranslationAllowHierarchy(runtime);
-        tm.put(primary2, returnVariable);
-
-        Variable primary = tm.translateVariableRecursively(primary2);
-        Map<Variable, Links> linkedVariables = new HashMap<>();
-        extra.map().forEach((v, ls) ->
-                linkedVariables.put(tm.translateVariableRecursively(v), ls.translate(replaceConstants).translateFrom(tm)));
-        linkedVariables.merge(primary, links.translateFrom(tm), Links::merge);
-        vd.variableInfoStream()
-                .filter(vi -> !(vi.variable() instanceof This))
-                .forEach(vi -> {
-                    Links vLinks = vi.linkedVariables();
-                    if (vLinks != null) {
-                        linkedVariables.merge(tm.translateVariableRecursively(vLinks.primary()),
-                                vLinks.translate(replaceConstants).translateFrom(tm), Links::merge);
-                    }
-                });
-
-        GraphData gd = makeGraph(linkedVariables, false);
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Return graph, primary {}:\n{}", primary, printGraph(gd.graph));
-        }
-        Links.Builder builder = followGraph(gd, primary, false);
-
-        //  if (primary instanceof ReturnVariable) return builder.build();
-        if (containsNoLocalVariable(primary2)) {
-            builder.prepend(IS_ASSIGNED_FROM, primary2);
-        }
-        return builder.build();
+        return v instanceof LocalVariable;
     }
 
     // indirection in applied functional interface variable
@@ -487,11 +411,11 @@ public record Expand(Runtime runtime) {
         Links links = new LinksImpl(primary, List.of(link));
         linkedVariables.put(links.primary(), links);
         linkedVariables.put(links2Tm.primary(), links2Tm);
-        GraphData gd = makeGraph(linkedVariables, true);
+        GraphData gd = makeGraph(linkedVariables);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(gd.graph));
         }
-        Links.Builder builder = followGraph(gd, links.primary(), true);
+        Links.Builder builder = followGraph(gd, links.primary());
         builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
         return builder.build();
     }

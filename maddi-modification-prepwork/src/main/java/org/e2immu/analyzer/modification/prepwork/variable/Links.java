@@ -27,6 +27,10 @@ public interface Links extends Iterable<Link>, Value {
 
     Iterable<Link> linkSet();
 
+    Links removeIfTo(Predicate<Variable> toPredicate);
+
+    Links removeIfFromTo(Predicate<Variable> predicate);
+
     Stream<Link> stream();
 
     Links merge(Links links);
@@ -53,6 +57,8 @@ public interface Links extends Iterable<Link>, Value {
         Variable primary();
 
         void removeIf(Predicate<Link> link);
+
+        void removeIfFromTo(Predicate<Variable> predicate);
 
         void replaceSubsetSuperset(Variable modified);
     }

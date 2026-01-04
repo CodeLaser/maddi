@@ -148,20 +148,14 @@ public class TestBoundTypeParameter extends CommonTest {
         analyzer.doPrimaryType(X);
         MethodInfo set = X.findUniqueMethod("set", 2);
 
-        Expression assignment = set.methodBody().statements().getFirst().expression();
         LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, false, false);
-        LinkComputerImpl.SourceMethodComputer smc = tlc.new SourceMethodComputer(set);
-        ExpressionVisitor ev = new ExpressionVisitor(runtime, javaInspector, new VirtualFieldComputer(javaInspector), tlc, smc,
-                set, new RecursionPrevention(false), new AtomicInteger());
-        Result r = ev.visit(assignment, null, null);
-        assertEquals("this.ts[1:index]←0:t", r.links().toString());
-        assertEquals("0:t: -; 1:index: -; this.ts[1:index]: this.ts[1:index]∈this.ts", r.extra().toString());
+       MethodLinkedVariables mlv = set.analysis().getOrCreate(METHOD_LINKS, ()->tlc.doMethod(set));
 
         // now the same, but as a statement; then, the data will be saved
-        VariableData vd = smc.doStatement(set.methodBody().statements().getFirst(), null, true);
-        List<Links> list = new Expand(runtime).parameters(set, vd, new TranslateConstants(runtime));
-        // MethodLinkedVariables mlv = tlc.doMethod(set)
-        assertEquals("0:t→this.ts[1:index],0:t∈this.ts", list.getFirst().toString());
+        VariableData vd = VariableDataImpl.of(set.methodBody().statements().getFirst());
+        assertEquals("0:t→this.ts[1:index],0:t∈this.ts",
+                vd.variableInfo(set.parameters().getFirst()).linkedVariables().toString());
+        assertEquals("[0:t→this.ts[1:index],0:t∈this.ts, -] --> -", mlv.toString());
     }
 
     @DisplayName("Analyze 'compareFirst'")

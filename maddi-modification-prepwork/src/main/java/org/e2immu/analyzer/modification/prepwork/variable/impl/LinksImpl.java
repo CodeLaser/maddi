@@ -66,6 +66,21 @@ public class LinksImpl implements Links {
     }
 
     @Override
+    public Links removeIfFromTo(Predicate<Variable> predicate) {
+        return new LinksImpl(primary, linkSet.stream()
+                .filter(l -> Stream.concat(l.from().variableStreamDescend(),
+                        l.to().variableStreamDescend()).noneMatch(predicate))
+                .toList());
+    }
+
+    @Override
+    public Links removeIfTo(Predicate<Variable> toPredicate) {
+        return new LinksImpl(primary, linkSet.stream()
+                .filter(l -> l.to().variableStreamDescend().noneMatch(toPredicate))
+                .toList());
+    }
+
+    @Override
     public Stream<Link> stream() {
         return linkSet.stream();
     }
@@ -167,6 +182,12 @@ public class LinksImpl implements Links {
         @Override
         public void removeIf(Predicate<Link> linkPredicate) {
             links.removeIf(linkPredicate);
+        }
+
+        @Override
+        public void removeIfFromTo(Predicate<Variable> predicate) {
+            links.removeIf(l -> Stream.concat(l.from().variableStreamDescend(),
+                    l.to().variableStreamDescend()).anyMatch(predicate));
         }
 
         @Override
@@ -320,6 +341,7 @@ public class LinksImpl implements Links {
         }
         return Stream.of(tLink);
     }
+
     private Stream<Link> translateFromCorrect(VirtualFieldTranslationMap translationMap, Link link) {
         Link tLink = link.translateFrom(translationMap);
         // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
