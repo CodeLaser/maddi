@@ -250,7 +250,7 @@ public class LinksImpl implements Links {
                 ln = linkNature.toString();
             }
             String lambda = to.parameterizedType().isFunctionalInterface() ? LAMBDA : "";
-            return org.e2immu.analyzer.modification.prepwork.Util.simpleName(from) + ln + lambda + Util.simpleName(to);
+            return Util.simpleName(from) + ln + lambda + Util.simpleName(to);
         }
 
         @Override

@@ -112,7 +112,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
          */
         List<Triplet> result = new ArrayList<>();
         for (Links links : linksList) {
-            Set<Variable> toPrimaries = links.stream().map(l -> org.e2immu.analyzer.modification.prepwork.Util.primary(l.to()))
+            Set<Variable> toPrimaries = links.stream().map(l -> Util.primary(l.to()))
                     .collect(Collectors.toUnmodifiableSet());
 
             VirtualFields vfMapSource = virtualFieldComputer.compute(objectPrimary.parameterizedType(), false)

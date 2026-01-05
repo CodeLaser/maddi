@@ -120,7 +120,7 @@ public record Expand(Runtime runtime) {
 
     private static V correctForThis(V primary, V v) {
         if (primary.v instanceof This) {
-            return new V(org.e2immu.analyzer.modification.prepwork.Util.primary(v.v));
+            return new V(Util.primary(v.v));
         }
         return primary;
     }
@@ -184,7 +184,7 @@ public record Expand(Runtime runtime) {
                         subsOfPrimary.add(vFrom);
                         subToPrimary.put(vFrom, primary);
                     }
-                    V toPrimary = new V(org.e2immu.analyzer.modification.prepwork.Util.primary(l.to()));
+                    V toPrimary = new V(Util.primary(l.to()));
                     Set<V> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
                     V vTo = new V(l.to());
                     if (!vTo.equals(toPrimary)) {
