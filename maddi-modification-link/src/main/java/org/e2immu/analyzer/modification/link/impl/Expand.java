@@ -76,13 +76,24 @@ public record Expand(Runtime runtime) {
         }
     }
 
+    private static void mergeEdgeSingle(Map<V, Map<V, LinkNature>> graph,
+                                        V from,
+                                        LinkNature linkNature,
+                                        V to) {
+        Map<V, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
+        edges.merge(to, linkNature, LinkNature::combine);
+        assert graph.size() == graph.keySet().stream().map(v -> v.v.toString()).distinct().count();
+    }
+
     private static void mergeEdge(Map<V, Map<V, LinkNature>> graph,
                                   V from,
                                   LinkNature linkNature,
                                   V to) {
-        Map<V, LinkNature> edges = graph.computeIfAbsent(from, _ -> new HashMap<>());
-        edges.merge(to, linkNature, LinkNature::combine);
-        assert graph.size() == graph.keySet().stream().map(v -> v.v.toString()).distinct().count();
+        mergeEdgeSingle(graph, from, linkNature, to);
+        LinkNature ln2 = linkNature.reverse();
+        if (ln2 != linkNature) {
+            mergeEdgeSingle(graph, to, ln2, from);
+        }
     }
 
     private static void mergeEdge(Map<V, Map<V, LinkNature>> graph,
