@@ -49,7 +49,7 @@ public class VariableTranslationMap implements TranslationMap {
         the container/Map.Entry ??
      */
 
-    private TypeInfo owner(ParameterizedType pt) {
+    private static TypeInfo owner(Runtime runtime, ParameterizedType pt) {
         if (pt.typeParameter() != null) {
             return pt.typeParameter().typeInfo();
         }
@@ -61,11 +61,15 @@ public class VariableTranslationMap implements TranslationMap {
 
     @Override
     public Variable translateVariableRecursively(Variable variable) {
-        Variable translated = translateVariable(variable);
+        return translateVariableRecursively(runtime, this, variable);
+    }
+
+    public static Variable translateVariableRecursively(Runtime runtime, TranslationMap tm, Variable variable) {
+        Variable translated = tm.translateVariable(variable);
         if (translated != variable) {
             if (variable instanceof LocalVariable from && from.assignmentExpression() != null
                 && translated instanceof LocalVariable to && to.assignmentExpression() == null) {
-                Expression te = from.assignmentExpression().translate(this);
+                Expression te = from.assignmentExpression().translate(tm);
                 if (te.variableStreamDescend().anyMatch(to::equals)) {
                     // this goes in conjunction with the assertion
                     return from.withAssignmentExpression(null);
@@ -75,28 +79,28 @@ public class VariableTranslationMap implements TranslationMap {
             return translated;
         }
         if (variable instanceof FieldReference fr) {
-            Expression tScope = fr.scope().translate(this);
-            FieldInfo newField = translateFieldInfo(fr.fieldInfo());
+            Expression tScope = fr.scope().translate(tm);
+            FieldInfo newField = tm.translateFieldInfo(fr.fieldInfo());
             if (tScope != fr.scope() || newField != fr.fieldInfo()) {
-                TypeInfo newOwner = owner(tScope.parameterizedType());
+                TypeInfo newOwner = owner(runtime, tScope.parameterizedType());
                 FieldInfo changedOwner = newField.withOwner(newOwner);
                 return new FieldReferenceImpl(changedOwner, tScope, null, fr.parameterizedType());
             }
         } else if (variable instanceof DependentVariable dv) {
-            Expression translatedArray = dv.arrayExpression().translate(this);
-            Expression translatedIndex = dv.indexExpression().translate(this);
+            Expression translatedArray = dv.arrayExpression().translate(tm);
+            Expression translatedIndex = dv.indexExpression().translate(tm);
             if (translatedArray != dv.arrayExpression() || translatedIndex != dv.indexExpression()) {
                 return DependentVariableImpl.create(translatedArray, translatedIndex, null);
             }
         } else if (variable instanceof This thisVar) {
             ParameterizedType thisVarPt = thisVar.parameterizedType();
-            ParameterizedType translatedType = translateType(thisVarPt);
+            ParameterizedType translatedType = tm.translateType(thisVarPt);
             TypeInfo tExplicitly;
             if (thisVar.explicitlyWriteType() == null) {
                 tExplicitly = null;
             } else {
                 ParameterizedType explicitlyPt = thisVar.explicitlyWriteType().asSimpleParameterizedType();
-                ParameterizedType tExplicitlyPt = translateType(explicitlyPt);
+                ParameterizedType tExplicitlyPt = tm.translateType(explicitlyPt);
                 tExplicitly = tExplicitlyPt.typeInfo();
             }
             if (translatedType != thisVarPt || !Objects.equals(thisVar.explicitlyWriteType(), tExplicitly)) {
