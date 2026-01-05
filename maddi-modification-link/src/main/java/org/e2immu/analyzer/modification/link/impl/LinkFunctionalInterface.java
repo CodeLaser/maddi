@@ -171,9 +171,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 : vfMapTarget.hiddenContent().type().arrays();
         if (targetTp != null) {
             if (sourceTp != null) {
-                FieldInfo newField = virtualFieldComputer.newField(sourceTp.simpleName().toLowerCase()
-                                                                   + "s".repeat(arrays),
-                        vfMapSource.hiddenContent().type().copyWithArrays(arrays), currentMethod.typeInfo());
+                ParameterizedType type = vfMapSource.hiddenContent().type().copyWithArrays(arrays);
+                String name = sourceTp.simpleName().toLowerCase() + "s".repeat(arrays);
+                FieldInfo newField = virtualFieldComputer.newField(name, type, vfMapSource.hiddenContent().owner());
                 // the scope must be the primary of translated, since we're completely re-creating the virtual field
                 Variable primaryOfTranslated = Util.primary(translated);
                 upscaled = runtime.newFieldReference(newField, runtime.newVariableExpression(primaryOfTranslated),

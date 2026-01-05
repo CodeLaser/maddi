@@ -49,7 +49,7 @@ public class VariableTranslationMap implements TranslationMap {
         the container/Map.Entry ??
      */
 
-    private static TypeInfo owner(Runtime runtime, ParameterizedType pt) {
+    public static TypeInfo owner(Runtime runtime, ParameterizedType pt) {
         if (pt.typeParameter() != null) {
             return pt.typeParameter().typeInfo();
         }
