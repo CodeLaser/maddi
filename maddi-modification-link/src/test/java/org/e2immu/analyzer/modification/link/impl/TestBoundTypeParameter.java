@@ -135,7 +135,7 @@ public class TestBoundTypeParameter extends CommonTest {
         MethodInfo sub = X.findUniqueMethod("sub", 1);
         MethodLinkedVariables mlvSub = sub.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(sub));
 
-        assertEquals("[-] --> sub.§zs⊆0:in.§zs,sub.§m≡0:in.§m", mlvSub.toString());
+        assertEquals("[-] --> sub.§m≡0:in.§m,sub.§zs⊆0:in.§zs", mlvSub.toString());
     }
 
 

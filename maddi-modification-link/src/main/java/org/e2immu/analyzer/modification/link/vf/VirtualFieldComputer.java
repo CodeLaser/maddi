@@ -9,7 +9,6 @@ import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.output.FormattingOptions;
 import org.e2immu.language.cst.api.output.element.Keyword;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
@@ -90,6 +89,12 @@ public class VirtualFieldComputer {
         if (typeInfo.parentClass() != null && hasHiddenContentFields(typeInfo.parentClass().typeInfo())) return true;
         return typeInfo.fields().stream()
                 .anyMatch(fi -> fi.type().typeParameter() != null || fi.type().typeInfo().isExtensible());
+    }
+
+    public static boolean isVirtualModificationField(FieldInfo fieldInfo) {
+        return "§m".equals(fieldInfo.name())
+               && fieldInfo.type().typeInfo() != null
+               && AtomicBoolean.class.getCanonicalName().equals(fieldInfo.type().typeInfo().fullyQualifiedName());
     }
 
     // ----- computation of "temporary" virtual fields

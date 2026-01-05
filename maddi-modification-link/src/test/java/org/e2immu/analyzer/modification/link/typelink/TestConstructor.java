@@ -80,7 +80,7 @@ public class TestConstructor extends CommonTest {
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo removed1 = vd1.variableInfo("removed");
             Links tlvT1 = removed1.linkedVariablesOrEmpty();
-            assertEquals("removed∈0:input.§$s,removed∈iis.§$s", tlvT1.toString());
+            assertEquals("removed∈iis.§$s,removed∈0:input.§$s", tlvT1.toString());
 
             VariableInfo iis1 = vd1.variableInfo("iis");
             Links tlvIIS1 = iis1.linkedVariablesOrEmpty();
@@ -91,7 +91,7 @@ public class TestConstructor extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(callM2);
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
             Links tlvT2 = removed.linkedVariablesOrEmpty();
-            assertEquals("removed∈0:input.§$s,removed∈iis.§$s", tlvT2.toString());
+            assertEquals("removed∈iis.§$s,removed∈0:input.§$s", tlvT2.toString());
         }
         {
             MethodInfo methodA = X.findUniqueMethod("methodA", 1);
