@@ -482,10 +482,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Map<Variable, Links> linkedVariables = new HashMap<>();
                 Expression e = javaInspector.runtime().sortAndSimplify(true, lv.assignmentExpression());
                 r = expressionVisitor.visit(e, previousVd, stageOfPrevious);
-                //r.extra().forEach(e -> linkedVariables.put(e.getKey(), e.getValue()));
-                if (!r.links().isEmpty()) {
-                    linkedVariables.put(lv, r.links().changePrimaryTo(javaInspector.runtime(), lv));
-                }
                 if (r.links().primary() != null) {
                     // make sure that we link the variables with '==', as we do in ExpressionVisitor.assignment
                     Links newLinks = new LinksImpl.Builder(lv)

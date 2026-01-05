@@ -173,9 +173,10 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             if (sourceTp != null) {
                 ParameterizedType type = vfMapSource.hiddenContent().type().copyWithArrays(arrays);
                 String name = sourceTp.simpleName().toLowerCase() + "s".repeat(arrays);
-                FieldInfo newField = virtualFieldComputer.newField(name, type, vfMapSource.hiddenContent().owner());
-                // the scope must be the primary of translated, since we're completely re-creating the virtual field
                 Variable primaryOfTranslated = Util.primary(translated);
+                TypeInfo owner = VariableTranslationMap.owner(runtime, primaryOfTranslated.parameterizedType());
+                FieldInfo newField = virtualFieldComputer.newField(name, type, owner);
+                // the scope must be the primary of translated, since we're completely re-creating the virtual field
                 upscaled = runtime.newFieldReference(newField, runtime.newVariableExpression(primaryOfTranslated),
                         newField.type());
             } else {
@@ -204,9 +205,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         frKv.fieldInfo().type().typeInfo().fields());
                 String newFieldName = frKv.fieldInfo().simpleName().replace("§", "")
                                       + "s".repeat(arrays);
+                TypeInfo owner = VariableTranslationMap.owner(runtime, frKv.scope().parameterizedType());
                 FieldInfo newFieldInfo = virtualFieldComputer.newField(newFieldName,
-                        newContainerType.asParameterizedType().copyWithArrays(arrays),
-                        frKv.fieldInfo().owner());
+                        newContainerType.asParameterizedType().copyWithArrays(arrays), owner);
                 FieldReference scope = runtime.newFieldReference(newFieldInfo, frKv.scope(), newFieldInfo.type());
                 DependentVariable slice = runtime.newDependentVariable(runtime.newVariableExpression(scope),
                         runtime.newInt(sliceIndex));
@@ -216,7 +217,8 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 // TestFunction,2
                 // variable = this.§es, translated = optional.§es, arrays = 1
                 // what we want  optional.§es -> optional.§xys
-                FieldInfo newField = vfMapSource.hiddenContent();
+                TypeInfo owner = VariableTranslationMap.owner(runtime, frK.scope().parameterizedType());
+                FieldInfo newField = vfMapSource.hiddenContent().withOwner(owner);
                 upscaled = runtime.newFieldReference(newField, frK.scope(), newField.type());
             } else {
                 //TestStaticBiFunction,3

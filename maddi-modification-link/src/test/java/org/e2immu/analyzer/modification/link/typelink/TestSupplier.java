@@ -247,12 +247,12 @@ public class TestSupplier extends CommonTest {
         VariableInfo viX0 = vd0.variableInfo("xList");
         Links tlvX = viX0.linkedVariablesOrEmpty();
         assertEquals("""
-                xList.§m←0:optional.§m,xList.§xs←1:main.§xs,xList.§xs⊆0:optional.§xs,xList.§m←1:main.§m\
+                xList.§m←1:main.§m,xList.§m←0:optional.§m,xList.§xs←1:main.§xs,xList.§xs⊆0:optional.§xs\
                 """, tlvX.toString());
 
         assertEquals("""
                 [0:optional.§xs⊇1:main.§xs, 1:main.§xs⊆0:optional.§xs] --> \
-                method.§m←0:optional.§m,method.§xs←1:main.§xs,method.§xs⊆0:optional.§xs,method.§m←1:main.§m\
+                method.§m←1:main.§m,method.§m←0:optional.§m,method.§xs←1:main.§xs,method.§xs⊆0:optional.§xs\
                 """, mlvMethod.toString());
     }
 
@@ -275,7 +275,7 @@ public class TestSupplier extends CommonTest {
 
         assertEquals("""
                 [0:optional.§xs⊇1:main.§xs, 1:main.§xs⊆0:optional.§xs] --> \
-                method2.§m←0:optional.§m,method2.§xs←1:main.§xs,method2.§xs⊆0:optional.§xs,method2.§m←1:main.§m\
+                method2.§m←1:main.§m,method2.§m←0:optional.§m,method2.§xs←1:main.§xs,method2.§xs⊆0:optional.§xs\
                 """, mlvMethod.toString());
     }
 
