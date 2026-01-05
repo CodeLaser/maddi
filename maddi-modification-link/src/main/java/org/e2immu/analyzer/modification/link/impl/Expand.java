@@ -172,12 +172,7 @@ public record Expand(Runtime runtime) {
         return new V(newSub);
     }
 
-    private record GraphData(Map<V, Map<V, LinkNature>> graph,
-                             Set<V> primaries,
-                             Map<V, V> subToPrimary) {
-    }
-
-    private GraphData makeGraph(Map<Variable, Links> linkedVariables) {
+    private Map<V, Map<V, LinkNature>> makeGraph(Map<Variable, Links> linkedVariables) {
         Map<V, Set<V>> subs = new HashMap<>();
         Map<V, V> subToPrimary = new HashMap<>();
         linkedVariables.values()
@@ -205,7 +200,7 @@ public record Expand(Runtime runtime) {
         List<PC> extra = new ExpandSlice().completeSliceInformation(graph);
         extra.forEach(pc -> addToGraph(pc.from, pc.linkNature, pc.to, new V(Util.primary(pc.from)), graph,
                 subs, subToPrimary));
-        return new GraphData(graph, subs.keySet(), subToPrimary);
+        return graph;
     }
 
     record PC(Variable from, LinkNature linkNature, Variable to) {
@@ -216,10 +211,10 @@ public record Expand(Runtime runtime) {
     }
 
     // sorting is needed to consistently take the same direction for tests
-    private static Links.Builder followGraph(GraphData gd, Variable primary) {
+    private static Links.Builder followGraph(Map<V, Map<V, LinkNature>> graph, Variable primary) {
         V tPrimary = new V(primary);
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
-        var fromList = gd.graph.keySet().stream()
+        var fromList = graph.keySet().stream()
                 .filter(v -> Util.isPartOf(primary, v.v))
                 .sorted((v1, v2) -> {
                     if (Util.isPartOf(v1.v, v2.v)) return 1;
@@ -232,7 +227,7 @@ public record Expand(Runtime runtime) {
         Set<PC> block = new HashSet<>();
 
         for (V from : fromList) {
-            Map<V, LinkNature> all = bestPath(gd.graph, from);
+            Map<V, LinkNature> all = bestPath(graph, from);
             List<Map.Entry<V, LinkNature>> entries = all.entrySet().stream()
                     .sorted((e1, e2) -> {
                         int c = e2.getValue().rank() - e1.getValue().rank();
@@ -376,9 +371,9 @@ public record Expand(Runtime runtime) {
                 e.getKey() instanceof This || e.getValue().primary() == null || e.getValue().primary() instanceof This)
                 : "Not linking null or 'this'";
 
-        GraphData gd = makeGraph(linkedVariables);
+        Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables);
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(gd.graph));
+            LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(graph));
         }
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
         vd.variableInfoStream(Stage.EVALUATION)
@@ -386,7 +381,7 @@ public record Expand(Runtime runtime) {
                 .forEach(vi -> {
                     // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
                     //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
-                    Links.Builder builder = followGraph(gd, vi.variable());
+                    Links.Builder builder = followGraph(graph, vi.variable());
                     boolean unmodified = !modifiedVariables.contains(vi.variable())
                                          && notLinkedToModified(builder, modifiedVariables);
                     builder.removeIf(Link::toIsIntermediateVariable);
@@ -428,11 +423,11 @@ public record Expand(Runtime runtime) {
         Links links = new LinksImpl(primary, List.of(link));
         linkedVariables.put(links.primary(), links);
         linkedVariables.put(links2Tm.primary(), links2Tm);
-        GraphData gd = makeGraph(linkedVariables);
+        Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables);
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(gd.graph));
+            LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(graph));
         }
-        Links.Builder builder = followGraph(gd, links.primary());
+        Links.Builder builder = followGraph(graph, links.primary());
         builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
         return builder.build();
     }
