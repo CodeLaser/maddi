@@ -94,7 +94,6 @@ public record Expand(Runtime runtime) {
             LinkNature combined = prev.combine(linkNature);
             if (combined != prev) {
                 edges.put(to, combined);
-                change = true;
             }
         }
         return change;
@@ -161,69 +160,87 @@ public record Expand(Runtime runtime) {
 
     private Map<V, Map<V, LinkNature>> makeGraph(Map<Variable, Links> linkedVariables) {
         Map<V, Map<V, LinkNature>> graph = new HashMap<>();
-        linkedVariables.values()
-                .forEach(links -> links.forEach(
-                        l -> simpleAddToGraph(graph, l.from(), l.linkNature(), l.to())));
-
+        linkedVariables.values().forEach(links -> links.forEach(
+                l -> simpleAddToGraph(graph, l.from(), l.linkNature(), l.to())));
         boolean change = true;
+        int cycleProtection = 0;
         while (change) {
-            change = false;
-
-            Map<V, Set<V>> subs = new HashMap<>();
-            for (Map.Entry<V, Map<V, LinkNature>> entry : graph.entrySet()) {
-                V vFrom = entry.getKey();
-                V primary = new V(Util.primary(vFrom.v));
-                Set<V> subsOfPrimary = subs.computeIfAbsent(primary, _ -> new HashSet<>());
-                if (!vFrom.equals(primary)) {
-                    subsOfPrimary.add(vFrom);
-                }
-                for (Map.Entry<V, LinkNature> entry2 : entry.getValue().entrySet()) {
-                    V vTo = entry2.getKey();
-                    V toPrimary = new V(Util.primary(vTo.v));
-                    Set<V> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
-                    if (!vTo.equals(toPrimary)) {
-                        subsOfToPrimary.add(vTo);
-                    }
-                }
+            ++cycleProtection;
+            if (cycleProtection > 10) {
+                throw new UnsupportedOperationException("cycle protection");
             }
-            List<Add> newLinks = new ArrayList<>();
-            for (Map.Entry<V, Map<V, LinkNature>> entry : graph.entrySet()) {
-                V vFrom = entry.getKey();
-                for (Map.Entry<V, LinkNature> entry2 : entry.getValue().entrySet()) {
-                    V vTo = entry2.getKey();
-                    LinkNature linkNature = entry2.getValue();
-                    if (linkNature.isIdenticalTo()) {
-                        Set<V> subsOfFrom = subs.get(vFrom);
-                        if (subsOfFrom != null) {
-                            for (V s : subsOfFrom) {
-                                newLinks.add(new Add(s, linkNature, makeComparableSub(vFrom, s, vTo)));
-                            }
-                        }
-                        Set<V> subsOfTo = subs.get(vTo);
-                        if (subsOfTo != null) {
-                            for (V s : subsOfTo) {
-                                LinkNature ln;
-                                if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
-                                    ln = IS_IDENTICAL_TO;
-                                } else {
-                                    ln = linkNature;
-                                }
-                                newLinks.add(new Add(makeComparableSub(vTo, s, vFrom), ln, s));
-                            }
-                        }
-                    }
-                }
-            }
-            for (Add add : newLinks) {
-                change |= mergeEdgeBi(graph, add.from, add.ln, add.to);
-            }
-            List<PC> extra = new ExpandSlice().completeSliceInformation(graph);
-            for (PC pc : extra) {
-                change |= simpleAddToGraph(graph, pc.from, pc.linkNature, pc.to);
-            }
+            change = doOneMakeGraphCycle(graph);
         }
         assert graph.size() == graph.keySet().stream().map(v -> v.v.toString()).distinct().count();
         return graph;
+    }
+
+    private boolean doOneMakeGraphCycle(Map<V, Map<V, LinkNature>> graph) {
+        Map<V, Set<V>> subs = computeSubs(graph);
+        List<Add> newLinks = new ArrayList<>();
+        for (Map.Entry<V, Map<V, LinkNature>> entry : graph.entrySet()) {
+            V vFrom = entry.getKey();
+            for (Map.Entry<V, LinkNature> entry2 : entry.getValue().entrySet()) {
+                V vTo = entry2.getKey();
+                LinkNature linkNature = entry2.getValue();
+                if (linkNature.isIdenticalTo()) {
+                    Set<V> subsOfFrom = subs.get(vFrom);
+                    if (subsOfFrom != null) {
+                        for (V s : subsOfFrom) {
+                            LinkNature ln;
+                            if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
+                                ln = IS_IDENTICAL_TO;
+                            } else {
+                                ln = linkNature;
+                            }
+                            newLinks.add(new Add(s, ln, makeComparableSub(vFrom, s, vTo)));
+                        }
+                    }
+                    Set<V> subsOfTo = subs.get(vTo);
+                    if (subsOfTo != null) {
+                        for (V s : subsOfTo) {
+                            LinkNature ln;
+                            if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
+                                ln = IS_IDENTICAL_TO;
+                            } else {
+                                ln = linkNature;
+                            }
+                            newLinks.add(new Add(makeComparableSub(vTo, s, vFrom), ln, s));
+                        }
+                    }
+                }
+            }
+        }
+        boolean change = false;
+        for (Add add : newLinks) {
+            change |= mergeEdgeBi(graph, add.from, add.ln, add.to);
+        }
+        List<PC> extra = new ExpandSlice().completeSliceInformation(graph);
+        for (PC pc : extra) {
+            change |= simpleAddToGraph(graph, pc.from, pc.linkNature, pc.to);
+        }
+        return change;
+    }
+
+    private static @NotNull Map<V, Set<V>> computeSubs(Map<V, Map<V, LinkNature>> graph) {
+        Map<V, Set<V>> subs = new HashMap<>();
+        for (Map.Entry<V, Map<V, LinkNature>> entry : graph.entrySet()) {
+            V vFrom = entry.getKey();
+            V primary = new V(Util.primary(vFrom.v));
+            Set<V> subsOfPrimary = subs.computeIfAbsent(primary, _ -> new HashSet<>());
+            if (!vFrom.equals(primary)) {
+                subsOfPrimary.add(vFrom);
+            }
+            for (Map.Entry<V, LinkNature> entry2 : entry.getValue().entrySet()) {
+                V vTo = entry2.getKey();
+                V toPrimary = new V(Util.primary(vTo.v));
+                Set<V> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
+                if (!vTo.equals(toPrimary)) {
+                    subsOfToPrimary.add(vTo);
+                }
+            }
+        }
+        return subs;
     }
 
     record PC(Variable from, LinkNature linkNature, Variable to) {
