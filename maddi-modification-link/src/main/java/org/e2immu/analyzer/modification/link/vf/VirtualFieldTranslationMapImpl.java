@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.link.impl.VariableTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
@@ -26,6 +27,7 @@ import java.util.stream.Stream;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VF_CHAR;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 
+// uses VariableTranslationMap.translateVariableRecursively()
 public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap {
 
     private final Runtime runtime;
@@ -86,6 +88,7 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
             List<FieldInfo> fields = fr.fieldInfo().type().typeInfo().fields();
             List<FieldInfo> newFields = new ArrayList<>(fields.size());
             boolean change = false;
+            TypeInfo owner = owner(fr.scope().parameterizedType());
             for (FieldInfo fieldInfo : fields) {
                 TypeParameter tp = fieldInfo.type().typeParameter();
                 if (tp != null) {
@@ -94,7 +97,7 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
                         C c = newTypeNewName(out, fieldInfo.type().arrays(), fieldInfo.type().wildcard());
                         change = true;
                         FieldInfo newField = runtime.newFieldInfo(VF_CHAR + c.newName, false,
-                                c.newType, owner(c.newType));
+                                c.newType, owner);
                         newFields.add(newField);
                         sbNew.append(newField.simpleName());
                     } else {
@@ -116,7 +119,7 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
                 ParameterizedType containerPt = runtime.newParameterizedType(container, fr.parameterizedType().arrays());
                 String newName = cleanNew + "s".repeat(fr.parameterizedType().arrays());
                 FieldInfo newField = runtime.newFieldInfo(VF_CHAR + newName, false, containerPt,
-                        fr.fieldInfo().owner());
+                        owner);
                 return runtime.newFieldReference(newField, fr.scope(), newField.type());
             }
         }
@@ -162,8 +165,7 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
     }
 
     private FieldReference handleFieldReference(FieldReference fr, String newName, ParameterizedType newType) {
-        TypeInfo owner = newType.typeParameter() != null ? newType.typeParameter().typeInfo()
-                : newType.typeInfo() != null ? newType.typeInfo() : runtime.objectTypeInfo();
+        TypeInfo owner = owner(fr.scope().parameterizedType());
         String cleanName = newName.replace(VF_CHAR, "");
         FieldInfo newFieldInfo = runtime.newFieldInfo(VF_CHAR + cleanName, false, newType, owner);
         Expression tScope = fr.scope().translate(this);
@@ -172,7 +174,7 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
 
     @Override
     public Variable translateVariableRecursively(Variable variable) {
-        return runtime.translateVariableRecursively(this, variable);
+        return VariableTranslationMap.translateVariableRecursively(runtime, this, variable);
     }
 
     @Override
