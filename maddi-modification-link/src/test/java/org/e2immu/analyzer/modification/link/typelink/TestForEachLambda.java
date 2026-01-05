@@ -276,8 +276,8 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
-                0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                [0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
                 0:map.§$$s~this.map.§$$s] --> -\
                 """, mlv2.toString());
     }
@@ -329,8 +329,8 @@ public class TestForEachLambda extends CommonTest {
         assertEquals(LINKS_PUT, add2Mtl.toString());
 
         final String LINKS_MAP_PUT = """
-                [0:map.§$$s[-1].§$~this.map.§$$s[-2].§$,\
-                0:map.§$$s[-2].§$~this.map.§$$s[-1].§$,\
+                [0:map.§$$s[-2].§$~this.map.§$$s[-1].§$,\
+                0:map.§$$s[-1].§$~this.map.§$$s[-2].§$,\
                 0:map.§$$s~this.map.§$$s] --> -\
                 """;
 
@@ -379,8 +379,8 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("""
-                [0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
-                0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                [0:map.§$$s[-2].§$~this.map.§$$s[-2].§$,\
+                0:map.§$$s[-1].§$~this.map.§$$s[-1].§$,\
                 0:map.§$$s~this.map.§$$s] --> -\
                 """, mlvMethod.toString());
     }
