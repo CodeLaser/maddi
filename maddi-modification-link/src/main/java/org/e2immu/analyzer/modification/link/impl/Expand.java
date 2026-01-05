@@ -199,9 +199,8 @@ public record Expand(Runtime runtime) {
                 }));
         Map<V, Map<V, LinkNature>> graph = new HashMap<>();
         linkedVariables.values()
-                .forEach(links -> links
-                        .stream().filter(l -> !(l.to() instanceof This))
-                        .forEach(l -> addToGraph(l.from(), l.linkNature(), l.to(), new V(links.primary()),
+                .forEach(links -> links.forEach(
+                        l -> addToGraph(l.from(), l.linkNature(), l.to(), new V(links.primary()),
                                 graph, subs, subToPrimary)));
         List<PC> extra = new ExpandSlice().completeSliceInformation(graph);
         extra.forEach(pc -> addToGraph(pc.from, pc.linkNature, pc.to, new V(Util.primary(pc.from)), graph,

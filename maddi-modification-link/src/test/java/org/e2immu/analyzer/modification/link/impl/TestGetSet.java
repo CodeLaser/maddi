@@ -87,7 +87,7 @@ public class TestGetSet extends CommonTest {
             MethodInfo setS = X.findUniqueMethod("setS", 1);
             assertSame(s, setS.getSetField().field());
             MethodLinkedVariables setSv = setS.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);            // this sv is synthetically created from the @GetSet annotation
-            assertEquals("[0:s→this.s] --> setS←this,setS.s←0:s", setSv.toString());
+            assertEquals("[0:s→this.s] --> setS←this", setSv.toString());
         }
         {
             FieldInfo objects = X.getFieldByName("objects", true);
@@ -102,11 +102,7 @@ public class TestGetSet extends CommonTest {
             assertSame(objects, set.getSetField().field());
             MethodLinkedVariables setSv = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             assertEquals("""
-                    [-, 1:o→this.objects[0:i],1:o∈this.objects] --> \
-                    set←this,set.objects[0:i]←1:o,\
-                    set.objects[0:i]∈this.objects,\
-                    set.objects∋this.objects[0:i],\
-                    set.objects∋1:o\
+                    [-, 1:o→this.objects[0:i],1:o∈this.objects] --> set←this\
                     """, setSv.toString());
         }
         {
@@ -122,12 +118,7 @@ public class TestGetSet extends CommonTest {
             assertSame(integers, set.getSetField().field());
             MethodLinkedVariables setSv = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             assertEquals("""
-                    [-, 1:o→this.integers[0:i],1:o∈this.integers] --> \
-                    setI←this,\
-                    setI.integers[0:i]←1:o,\
-                    setI.integers[0:i]∈this.integers,\
-                    setI.integers∋this.integers[0:i],\
-                    setI.integers∋1:o\
+                    [-, 1:o→this.integers[0:i],1:o∈this.integers] --> setI←this\
                     """, setSv.toString());
         }
     }
