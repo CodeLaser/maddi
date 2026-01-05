@@ -178,12 +178,12 @@ public class VirtualFieldComputer {
                     }
                 }
                 ParameterizedType p0 = pt.parameters().getFirst();
-                FieldInfo replaceBy = Objects.requireNonNullElseGet(hiddenContent, () ->
-                        newField("$" + "s".repeat(extraMultiplicity),
-                                p0.copyWithArrays(p0.arrays() + extraMultiplicity), typeInfo));
+                ParameterizedType replaceBy = hiddenContent != null
+                        ? hiddenContent.type()
+                        : p0.copyWithArrays(p0.arrays() + extraMultiplicity);
                 for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                    int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - replaceBy.type().arrays());
-                    fieldTm.put(formalHiddenContent.type().typeParameter(), replaceBy.type().copyWithArrays(arrayDiff));
+                    int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - replaceBy.arrays());
+                    fieldTm.put(formalHiddenContent.type().typeParameter(), replaceBy.copyWithArrays(arrayDiff));
                 }
             } else {
                 List<FieldInfo> hiddenContentComponents = new ArrayList<>(pt.parameters().size());
