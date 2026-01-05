@@ -79,8 +79,7 @@ public record LinkMethodCall(Runtime runtime,
             concreteReturnValue = LinksImpl.EMPTY;
         } else if (Util.methodIsSamOfJavaUtilFunctional(methodInfo)) {
             assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
-            concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, mlv,
-                    objectPrimary);
+            concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, objectPrimary);
         } else {
             concreteReturnValue = objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
         }
@@ -303,13 +302,7 @@ public record LinkMethodCall(Runtime runtime,
     private Links parametersToReturnValue(MethodInfo methodInfo,
                                           ParameterizedType concreteReturnType,
                                           List<Result> params,
-                                          MethodLinkedVariables mlv,
                                           Variable objectPrimary) {
-        Links ofReturnValue = mlv.ofReturnValue();
-        Variable rvPrimary = ofReturnValue.primary();
-
-        assert rvPrimary instanceof ReturnVariable
-                : "the links of the method return value must be in the return variable";
         assert !methodInfo.isVoid() || methodInfo.isConstructor()
                 : "Cannot be a void function if we have a return variable";
 
@@ -318,9 +311,7 @@ public record LinkMethodCall(Runtime runtime,
                 concreteReturnType, runtime.newEmptyExpression(),
                 objectPrimary instanceof ParameterInfo pi ? pi : null,
                 params);
-        Links.Builder builder = new LinksImpl.Builder(rvPrimary);
-        builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, applied);
-        return builder.build();
+        return new LinksImpl.Builder(applied).build();
     }
 
     private @NotNull Links parametersToObject(MethodInfo methodInfo,
