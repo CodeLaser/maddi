@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -332,4 +333,34 @@ public class TestVirtualFieldComputer extends CommonTest {
         Variable translated = vfTmMapTE.formalToConcrete().translateVariableRecursively(fr);
         assertEquals("this.§$es", translated.toString());
     }
+
+
+    @Language("java")
+    private static final String INPUT13 = """
+            package a.b;
+            import java.util.Iterator;
+            public class C<S> {
+                void method(Iterable<S> iterable) {
+                    Iterator<S> it = iterable.iterator();
+                }
+            }
+            """;
+
+    @DisplayName("iterable")
+    @Test
+    public void test13() {
+        TypeInfo C = javaInspector.parse(INPUT13);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        ParameterInfo iterable = method.parameters().getFirst();
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(iterable.parameterizedType(), true);
+        assertEquals("""
+                VfTm[virtualFields=§m - S[] §ss, formalToConcrete=T=TP#0 in Iterable [] --> S=TP#0 in C []]\
+                """, vfTm.toString());
+
+    }
+
 }
