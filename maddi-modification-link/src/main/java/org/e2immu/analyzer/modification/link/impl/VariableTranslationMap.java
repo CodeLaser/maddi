@@ -29,6 +29,11 @@ public class VariableTranslationMap implements TranslationMap {
     }
 
     @Override
+    public boolean isEmpty() {
+        return this.map.isEmpty();
+    }
+
+    @Override
     public Variable translateVariable(Variable variable) {
         return this.map.getOrDefault(variable, variable);
     }

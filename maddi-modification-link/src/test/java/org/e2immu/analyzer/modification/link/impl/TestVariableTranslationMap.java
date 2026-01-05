@@ -11,6 +11,7 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -89,6 +90,38 @@ public class TestVariableTranslationMap extends CommonTest {
             assertEquals("Type java.util.concurrent.atomic.AtomicBoolean",
                     mSetTFr.parameterizedType().toString());
             assertEquals("Type a.b.X", mSetTFr.scopeVariable().parameterizedType().toString());
+        } else fail();
+    }
+
+    @DisplayName("replace this")
+    @Test
+    public void test2b() {
+        TypeInfo X = javaInspector.parse(INPUT2);
+        MethodInfo method = X.findUniqueMethod("method", 2);
+        ParameterInfo x = method.parameters().getLast();
+        FieldInfo set = X.getFieldByName("set", true);
+        FieldReference setFr = runtime.newFieldReference(set);
+        assertEquals("this.set", setFr.toString());
+
+        This thisVar = runtime.newThis(X.asSimpleParameterizedType());
+        VariableTranslationMap vtm = new VariableTranslationMap(runtime).put(thisVar, x);
+
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        VirtualFields vfSet = vfc.compute(set.type().typeInfo());
+        assertEquals("§m - E[] §es", vfSet.toString());
+
+        FieldInfo mutable = vfSet.mutable().withOwner(setFr.parameterizedType().typeInfo());
+        FieldReference mSet = runtime.newFieldReference(mutable, runtime.newVariableExpression(setFr),
+                vfSet.mutable().type());
+        assertEquals("this.set.§m", mSet.toString());
+        Variable mSetTranslated = vtm.translateVariableRecursively(mSet);
+        if (mSetTranslated instanceof FieldReference mSetTFr) {
+            assertEquals("x.set.§m", mSetTFr.toString());
+            assertEquals("Type java.util.concurrent.atomic.AtomicBoolean",
+                    mSetTFr.parameterizedType().toString());
+            assertEquals("Type java.util.Set<a.b.X.II>",
+                    mSetTFr.scopeVariable().parameterizedType().toString());
+            assertEquals("java.util.Set", mSetTFr.fieldInfo().owner().toString());
         } else fail();
     }
 }
