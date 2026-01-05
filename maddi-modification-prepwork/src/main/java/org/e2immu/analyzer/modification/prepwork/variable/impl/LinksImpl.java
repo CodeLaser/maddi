@@ -155,7 +155,7 @@ public class LinksImpl implements Links {
 
         @Override
         public Builder add(Variable from, LinkNature linkNature, Variable to) {
-            assert primary instanceof This || org.e2immu.analyzer.modification.prepwork.Util.isPartOf(primary, from);
+            assert primary instanceof This || Util.isPartOf(primary, from);
             links.add(new LinkImpl(from, linkNature, to));
             return this;
         }

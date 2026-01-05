@@ -74,7 +74,8 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                     i, fromTranslated, link.from()), linkNature, link.to());
                             result.add(t);
                         } else {
-                            TranslationMap tm = runtime.newTranslationMapBuilder().put(Util.primary(link.from()), fromTranslated).build();
+                            TranslationMap tm = new VariableTranslationMap(runtime)
+                                    .put(Util.primary(link.from()), fromTranslated);
                             Variable tFrom = tm.translateVariableRecursively(link.from());
                             Triplet t = new Triplet(tFrom, linkNature, link.to());
                             result.add(t);
@@ -120,12 +121,11 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                     .virtualFields();
 
             for (Variable newPrimary : toPrimaries) {
-                TranslationMap.Builder tmMapSourceBuilder = runtime.newTranslationMapBuilder();
+                VariableTranslationMap tmMapSource = new VariableTranslationMap(runtime);
                 if (!Util.isPartOf(objectPrimary, newPrimary)) {
-                    tmMapSourceBuilder.put(newPrimary, objectPrimary);
+                    tmMapSource.put(newPrimary, objectPrimary);
                 } // else: TestStaticBiFunction,1,2 we don't want this.ix --> this
-                TranslationMap tmMapSource = tmMapSourceBuilder.build();
-                TranslationMap tmMapTarget = runtime.newTranslationMapBuilder().put(links.primary(), returnPrimary).build();
+                TranslationMap tmMapTarget = new VariableTranslationMap(runtime).put(links.primary(), returnPrimary);
                 for (Link l : links) {
                     Variable from = translateAndRecreateVirtualFields(tmMapTarget, l.from(), vfMapSource, vfMapTarget,
                             false);

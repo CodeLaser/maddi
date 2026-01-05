@@ -109,7 +109,7 @@ public record LinkMethodCall(Runtime runtime,
                 for (Link link : links) {
                     ParameterInfo to = Util.parameterPrimary(link.to());
                     Variable toPrimary = params.get(to.index()).links().primary();
-                    TranslationMap toTm = runtime.newTranslationMapBuilder().put(to, toPrimary).build();
+                    TranslationMap toTm = new VariableTranslationMap(runtime).put(to, toPrimary);
                     Variable translatedTo = toTm.translateVariableRecursively(link.to());
 
                     ParameterInfo from = methodInfo.parameters().get(i);
@@ -160,7 +160,7 @@ public record LinkMethodCall(Runtime runtime,
                               LinkNature linkNature,
                               Variable translatedTo) {
         Links.Builder builder = new LinksImpl.Builder(fromPrimary);
-        TranslationMap fromTm = runtime.newTranslationMapBuilder().put(from, fromPrimary).build();
+        TranslationMap fromTm = new VariableTranslationMap(runtime).put(from, fromPrimary);
         Variable translatedFrom = fromTm.translateVariableRecursively(linkFrom);
         builder.add(translatedFrom, linkNature, translatedTo);
         Links links = builder.build();
@@ -194,20 +194,19 @@ public record LinkMethodCall(Runtime runtime,
         String name = LinksImpl.INTERMEDIATE_RETURN_VARIABLE + variableCounter.getAndIncrement();
         Variable newPrimary = runtime.newLocalVariable(name, concreteReturnType);
 
-        TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
+        VariableTranslationMap tm = new VariableTranslationMap(runtime);
         if (objectPrimary != null) {
-            addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
+            addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tm, objectPrimary);
         }
         // the return value can also contain references to parameters... we should replace them by
         // actual arguments
         int index = 0;
         for (Result pr : params) {
             Variable to = Objects.requireNonNullElseGet(pr.links().primary(), this::newDummyLocalVariable);
-            tmBuilder.put(methodInfo.parameters().get(index), to);
+            tm.put(methodInfo.parameters().get(index), to);
             ++index;
         }
-        tmBuilder.put(ofReturnValue.primary(), newPrimary);
-        TranslationMap tm = tmBuilder.build();
+        tm.put(ofReturnValue.primary(), newPrimary);
         Function<Variable, List<Links>> samLinks = v ->
                 v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
@@ -331,18 +330,17 @@ public record LinkMethodCall(Runtime runtime,
         Variable objectPrimary = object.links().primary();
         int i = 0;
         Links.Builder builder = new LinksImpl.Builder(objectPrimary);
-        TranslationMap.Builder tmBuilder = runtime.newTranslationMapBuilder();
-        addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tmBuilder, objectPrimary);
+        VariableTranslationMap tm = new VariableTranslationMap(runtime);
+        addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tm, objectPrimary);
         for (ParameterInfo pi : methodInfo.parameters()) {
             if (pi.index() < params.size()) {
                 Result result = params.get(pi.index());
                 if (result != null && result.links() != null) {
                     Variable primary = result.links().primary();
-                    tmBuilder.put(pi, Objects.requireNonNullElseGet(primary, this::newDummyLocalVariable));
+                    tm.put(pi, Objects.requireNonNullElseGet(primary, this::newDummyLocalVariable));
                 }
             }
         }
-        TranslationMap tm = tmBuilder.build();
         for (Links links : mlv.ofParameters()) {
             assert links != null;
             ParameterInfo pi = methodInfo.parameters().get(i);
@@ -368,6 +366,8 @@ public record LinkMethodCall(Runtime runtime,
                         .filter(e -> e.getKey() instanceof ParameterInfo)
                         .map(Map.Entry::getValue)
                         .toList();
+                VariableTranslationMap vtm = new VariableTranslationMap(runtime)
+                        .put(links.primary(), objectPrimary);
                 for (Link link : links) {
                     List<LinkFunctionalInterface.Triplet> toAdd =
                             new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).
@@ -376,7 +376,8 @@ public record LinkMethodCall(Runtime runtime,
                                             builder.primary(),
                                             linksList,
                                             objectPrimary);
-                    toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
+                    toAdd.forEach(t ->
+                            builder.add(vtm.translateVariableRecursively(t.from()), t.linkNature(), t.to()));
                 }
             }
             ++i;
@@ -385,7 +386,7 @@ public record LinkMethodCall(Runtime runtime,
     }
 
     private void addThisHierarchyToObjectPrimaryToTmBuilder(MethodInfo methodInfo,
-                                                            TranslationMap.Builder tmBuilder,
+                                                            VariableTranslationMap tmBuilder,
                                                             Variable objectPrimary) {
         TypeInfo thisType = methodInfo.typeInfo();
         Stream<TypeInfo> stream = Stream.concat(Stream.of(thisType),

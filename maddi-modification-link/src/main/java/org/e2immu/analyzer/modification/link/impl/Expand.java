@@ -23,6 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
+import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.isVirtualModificationField;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 public record Expand(Runtime runtime) {
@@ -128,6 +129,7 @@ public record Expand(Runtime runtime) {
         mergeEdge(graph, toPrimary, vTo, linkNature.reverse(), vFrom);
 
         // add extra: if a ← b, and we know a.§xs exists, then a.§xs ← b.§xs
+        //            if rv ← b, and we know b.§m exists, then rv.§m ≡ b.§m
         if (linkNature == IS_IDENTICAL_TO || linkNature == IS_ASSIGNED_FROM || linkNature == IS_ASSIGNED_TO) {
             Set<V> subsOfFrom = primaryToSub.get(vFrom);
             if (subsOfFrom != null) {
@@ -136,8 +138,15 @@ public record Expand(Runtime runtime) {
             }
             Set<V> subsOfTo = primaryToSub.get(vTo);
             if (subsOfTo != null) {
-                subsOfTo.forEach(s ->
-                        mergeEdge(graph, makeComparableSub(vTo, s, vFrom), linkNature, s));
+                subsOfTo.forEach(s -> {
+                    LinkNature ln;
+                    if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
+                        ln = IS_IDENTICAL_TO;
+                    } else {
+                        ln = linkNature;
+                    }
+                    mergeEdge(graph, makeComparableSub(vTo, s, vFrom), ln, s);
+                });
             }
         }
     }
@@ -147,7 +156,7 @@ public record Expand(Runtime runtime) {
             VariableExpression tve = runtime.newVariableExpression(target.v);
             return new V(runtime.newFieldReference(fr.fieldInfo(), tve, fr.fieldInfo().type()));
         }
-        TranslationMap tm = runtime.newTranslationMapBuilder().put(base.v, target.v).build();
+        TranslationMap tm = new VariableTranslationMap(runtime).put(base.v, target.v);
         Variable newSub = tm.translateVariableRecursively(sub.v);
         return new V(newSub);
     }
@@ -403,9 +412,7 @@ public record Expand(Runtime runtime) {
     public Links indirect(Variable primary, Link link, Links links2) {
         Variable v = links2.primary();
         Variable pi = Util.primary(link.to());
-        TranslationMap tm2 = runtime.newTranslationMapBuilder()
-                .put(v, pi)
-                .build();
+        TranslationMap tm2 = new VariableTranslationMap(runtime).put(v, pi);
         Links links2Tm = links2.translate(tm2);
         Map<Variable, Links> linkedVariables = new HashMap<>();
         Links links = new LinksImpl(primary, List.of(link));

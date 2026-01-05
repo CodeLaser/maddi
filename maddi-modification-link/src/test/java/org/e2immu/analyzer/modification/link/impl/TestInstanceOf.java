@@ -49,6 +49,7 @@ public class TestInstanceOf extends CommonTest {
         VariableData vd = VariableDataImpl.of(setAdd);
         assertNotNull(vd);
         ParameterInfo object = setAdd.parameters().getFirst();
+        ParameterInfo s = setAdd.parameters().getLast();
         {
             Statement s0 = setAdd.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
@@ -57,10 +58,14 @@ public class TestInstanceOf extends CommonTest {
             assertFalse(viObject0E.isModified());
         }
         {
-            Statement s000 = setAdd.methodBody().statements().getFirst();
+            Statement s000 = setAdd.methodBody().statements().getFirst().block().statements().getFirst();
             VariableData vd000 = VariableDataImpl.of(s000);
+            VariableInfo viS000 = vd000.variableInfo(s);
+            assertEquals("1:s∈0:object.§es,1:s∈set.§es", viS000.linkedVariables().toString());
+            assertFalse(viS000.isModified());
             VariableInfo viObject000 = vd000.variableInfo(object);
-            assertEquals("0:object→set,0:object.§es→set.§es,0:object.§es∋1:s,0:object→set", viObject000.linkedVariables().toString());
+            assertEquals("0:object.§es→set.§es,0:object.§es∋1:s,0:object→set",
+                    viObject000.linkedVariables().toString());
             assertTrue(viObject000.isModified());
         }
         assertTrue(object.isModified());

@@ -100,7 +100,7 @@ public class TestMapManual extends CommonTest {
         EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
 
         TypeInfo set = javaInspector.compiledTypesManager().get(Set.class);
-        FieldInfo setM = runtime.newFieldInfo("M", false, atomicBoolean.asParameterizedType(), set);
+        FieldInfo setM = runtime.newFieldInfo("§m", false, atomicBoolean.asParameterizedType(), set);
         ParameterizedType tsPt = runtime.newParameterizedType(set.typeParameters().getFirst(), 1, null);
         FieldInfo setTArray = runtime.newFieldInfo("tArray", false, tsPt, set);
 
@@ -116,14 +116,14 @@ public class TestMapManual extends CommonTest {
                         .add(mapKeySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
                         .build(),
                 List.of());
-        assertEquals("[] --> keySet.tArray~this.eArray[-1].k,keySet.M≡this.M", mlvGet.toString());
+        assertEquals("[] --> keySet.tArray~this.eArray[-1].k,keySet.§m≡this.M", mlvGet.toString());
         mapKeySet.analysis().set(METHOD_LINKS, mlvGet);
 
         MethodInfo keySet = X.findUniqueMethod("keySet", 0);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(keySet);
         assertEquals("""
-                keySet.M≡this.map.M,keySet.tArray~this.map.eArray[-1].k\
+                keySet.tArray~this.map.eArray[-1].k,keySet.§m≡this.map.M\
                 """, mlv.ofReturnValue().toString());
     }
 
@@ -185,7 +185,7 @@ public class TestMapManual extends CommonTest {
         EInfo eInfo = getThisMapEV(X, map, atomicBoolean);
 
         TypeInfo set = javaInspector.compiledTypesManager().get(Set.class);
-        FieldInfo setM = runtime.newFieldInfo("M", false, atomicBoolean.asParameterizedType(), set);
+        FieldInfo setM = runtime.newFieldInfo("§m", false, atomicBoolean.asParameterizedType(), set);
         ParameterizedType tsPt = runtime.newParameterizedType(set.typeParameters().getFirst(), 1, null);
         FieldInfo setTArray = runtime.newFieldInfo("tArray", false, tsPt, set);
 
@@ -202,7 +202,7 @@ public class TestMapManual extends CommonTest {
                         .add(mapEntrySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
                         .build(),
                 List.of());
-        assertEquals("[] --> entrySet.eArray~this.eArray,entrySet.M≡this.M", mlvGet.toString());
+        assertEquals("[] --> entrySet.eArray~this.eArray,entrySet.§m≡this.M", mlvGet.toString());
         mapEntrySet.analysis().set(METHOD_LINKS, mlvGet);
 
 
@@ -210,7 +210,7 @@ public class TestMapManual extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
         MethodLinkedVariables mlv = tlc.doMethod(entrySet);
         assertEquals("""
-                entrySet.eArray~this.map.eArray,entrySet.M≡this.map.M\
+                entrySet.eArray~this.map.eArray,entrySet.§m≡this.map.M\
                 """, mlv.ofReturnValue().toString());
     }
 

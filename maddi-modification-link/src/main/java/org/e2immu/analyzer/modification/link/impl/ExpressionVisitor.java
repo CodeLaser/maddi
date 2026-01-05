@@ -174,9 +174,7 @@ public record ExpressionVisitor(Runtime runtime,
         MethodLinkedVariables tMlv;
         if (object.links().primary() != null) {
             This thisVar = runtime.newThis(mr.methodInfo().typeInfo().asParameterizedType());
-            TranslationMap tm = runtime.newTranslationMapBuilder()
-                    .put(thisVar, object.links().primary())
-                    .build();
+            TranslationMap tm = new VariableTranslationMap(runtime).put(thisVar, object.links().primary());
             tMlv = mlv.translate(tm);
         } else {
             tMlv = mlv;
@@ -394,9 +392,7 @@ public record ExpressionVisitor(Runtime runtime,
             This thisVar = runtime.newThis(mc.methodInfo().typeInfo().asParameterizedType());
             MethodLinkedVariables mlvTranslated1;
             if (!thisVar.equals(objectPrimary)) {
-                TranslationMap tm = runtime.newTranslationMapBuilder()
-                        .put(thisVar, objectPrimary)
-                        .build();
+                TranslationMap tm = new VariableTranslationMap(runtime).put(thisVar, objectPrimary);
                 mlvTranslated1 = mlv.translate(tm);
             } else {
                 mlvTranslated1 = mlv;
@@ -522,9 +518,7 @@ public record ExpressionVisitor(Runtime runtime,
                         // translate "this" of the method's instance type to the current scope
                         ParameterizedType pt = mc.object().parameterizedType().typeInfo().asParameterizedType();
                         This thisInSv = runtime.newThis(pt);
-                        TranslationMap tm = runtime.newTranslationMapBuilder()
-                                .put(thisInSv, ve.variable())
-                                .build();
+                        TranslationMap tm = new VariableTranslationMap(runtime).put(thisInSv, ve.variable());
                         Variable v = tm.translateVariableRecursively(entry.getKey());
                         modified.add(v);
                     }
@@ -555,9 +549,8 @@ public record ExpressionVisitor(Runtime runtime,
         Value.VariableBooleanMap modComp = mrPi.analysis().getOrDefault(MODIFIED_COMPONENTS_PARAMETER,
                 ValueImpl.VariableBooleanMapImpl.EMPTY);
         if (!modComp.isEmpty()) {
-            TranslationMap tm = runtime.newTranslationMapBuilder()
-                    .put(mrPi, runtime.newThis(pi.parameterizedType()))
-                    .build();
+            TranslationMap tm = new VariableTranslationMap(runtime)
+                    .put(mrPi, runtime.newThis(pi.parameterizedType()));
             for (Map.Entry<Variable, Boolean> entry : modComp.map().entrySet()) {
                 if (entry.getValue()) {
                     // modified component

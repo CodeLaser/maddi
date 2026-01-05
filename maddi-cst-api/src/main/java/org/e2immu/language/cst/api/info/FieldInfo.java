@@ -88,6 +88,8 @@ public interface FieldInfo extends Info {
 
     Expression initializer();
 
+    FieldInfo withOwner(TypeInfo newOwner);
+
     FieldInfo withOwnerVariableBuilder(TypeInfo newOwner);
 
     interface Builder extends Info.Builder<Builder> {
