@@ -375,12 +375,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 VariableInfo viPrimary = vd.variableInfo(primary);
                 Links links = Objects.requireNonNullElse(viPrimary.linkedVariables(), LinksImpl.EMPTY);
                 for (Link link : links) {
-                    for (Variable v : org.e2immu.analyzer.modification.prepwork.Util.goUp(link.from())) {
+                    for (Variable v : Util.goUp(link.from())) {
                         if (vd.isKnown(v.fullyQualifiedName())) {
                             variablesLinkedToObject.put(v, true);
                         }
                     }
-                    for (Variable v : org.e2immu.analyzer.modification.prepwork.Util.goUp(link.to())) {
+                    for (Variable v : Util.goUp(link.to())) {
                         if (vd.isKnown(v.fullyQualifiedName())) {
                             variablesLinkedToObject.put(v, false);
                         }
