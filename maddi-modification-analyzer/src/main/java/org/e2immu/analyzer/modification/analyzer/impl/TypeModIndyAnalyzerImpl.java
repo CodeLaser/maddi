@@ -124,13 +124,14 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             Statement lastStatement = methodInfo.methodBody().lastStatement();
             assert lastStatement != null;
             VariableData variableData = VariableDataImpl.of(lastStatement);
-            doFluentIdentityAnalysis(methodInfo, variableData, PropertyImpl.IDENTITY_METHOD,
-                    v -> v instanceof ParameterInfo pi
-                         && pi.methodInfo() == methodInfo
-                         && pi.index() == 0);
-            doFluentIdentityAnalysis(methodInfo, variableData, PropertyImpl.FLUENT_METHOD,
-                    v -> v instanceof This thisVar
-                         && thisVar.typeInfo() == methodInfo.typeInfo());
+            doFluentIdentityAnalysis(methodInfo, PropertyImpl.IDENTITY_METHOD,
+                    links -> links.stream()
+                            .allMatch(link -> Util.primary(link.to()) instanceof ParameterInfo pi
+                                              && pi.methodInfo() == methodInfo
+                                              && pi.index() == 0));
+            doFluentIdentityAnalysis(methodInfo, PropertyImpl.FLUENT_METHOD,
+                    links -> links.stream().anyMatch(v -> v.to() instanceof This thisVar
+                                                          && thisVar.typeInfo() == methodInfo.typeInfo()));
             doIndependent(methodInfo, variableData);
 
             for (ParameterInfo pi : methodInfo.parameters()) {
@@ -266,14 +267,15 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             }
         }
 
-        private void doFluentIdentityAnalysis(MethodInfo methodInfo, VariableData lastOfMainBlock,
-                                              Property property, Predicate<Variable> predicate) {
+        private void doFluentIdentityAnalysis(MethodInfo methodInfo,
+                                              Property property,
+                                              Predicate<Links> predicate) {
             if (!methodInfo.analysis().haveAnalyzedValueFor(property)) {
                 MethodLinkedVariables mlv = methodInfo.analysis().getOrNull(METHOD_LINKS,
                         MethodLinkedVariablesImpl.class);
                 boolean identityFluent;
                 if (mlv != null && mlv.ofReturnValue() != null) {
-                    identityFluent = mlv.ofReturnValue().stream().map(l -> l.to()).anyMatch(predicate);
+                    identityFluent = predicate.test(mlv.ofReturnValue());
                 } else {
                     identityFluent = false;
                 }
