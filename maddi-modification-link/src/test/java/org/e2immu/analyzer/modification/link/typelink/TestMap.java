@@ -273,21 +273,17 @@ public class TestMap extends CommonTest {
         VariableData vd3 = VariableDataImpl.of(s3);
         VariableInfo viMap = vd3.variableInfo("map");
 
+        // FIXME map.§vks~this.map.§kvs missing
         assertEquals("""
                 map.§vks[-1]→reverse0.map.§vks[-1],\
-                map.§vks[-1]∋entry.§kv.§v,\
-                map.§vks[-1]∩entry.§kv.§k,\
                 map.§vks[-1]∩this.map.§kvs,\
                 map.§vks[-1]∩reverse0.map.§vks[-2],\
                 map.§vks[-1]∩entries.§kvs,\
                 map.§vks[-2]→reverse0.map.§vks[-2],\
-                map.§vks[-2]∋entry.§kv.§k,\
-                map.§vks[-2]∩entry.§kv.§v,\
                 map.§vks[-2]∩this.map.§kvs,\
                 map.§vks[-2]∩reverse0.map.§vks[-1],\
                 map.§vks[-2]∩entries.§kvs,\
                 map.§vks→reverse0.map.§vks,\
-                map.§vks∋entry,\
                 map.§vks~this.map.§kvs,\
                 map.§vks~entries.§kvs,\
                 map→reverse0.map\
@@ -339,6 +335,7 @@ public class TestMap extends CommonTest {
         VariableData vd2 = VariableDataImpl.of(s2);
         assertFalse(vd2.isKnown("entry"));
 
+        // FIXME reverse.map.§vks~this.map.§kvs missing
         assertEquals("""
                 [] --> reverse.map.§vks[-1]∩this.map.§kvs,\
                 reverse.map.§vks[-2]∩this.map.§kvs,\

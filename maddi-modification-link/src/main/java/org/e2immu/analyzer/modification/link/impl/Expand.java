@@ -447,7 +447,9 @@ public record Expand(Runtime runtime) {
     static boolean keepExtraFromPrevious(Variable variable) {
       return  variable.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
                 || variable.simpleName().startsWith(LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE)
-              || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis();
+              || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
+              // see TestStaticValuesRecord,6
+              || variable instanceof ReturnVariable;
     }
 
     static boolean isLocalVariable(Variable v) {

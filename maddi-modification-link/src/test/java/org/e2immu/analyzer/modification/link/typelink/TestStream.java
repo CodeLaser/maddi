@@ -421,7 +421,7 @@ public class TestStream extends CommonTest {
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.linkedVariablesOrEmpty();
         assertEquals("""
-                stream2.§yxs[-2].§x←stream1.§xys[-1].§x,stream2.§yxs[-1].§y←stream1.§xys[-2].§y,\
+                stream2.§yxs[-1]←stream1.§xys[-2],stream2.§yxs[-2]←stream1.§xys[-1],\
                 stream2.§yxs~0:map.§xys,stream2.§yxs~entries.§xys,stream2.§yxs~stream1.§xys\
                 """, tlvStream2.toString());
 
