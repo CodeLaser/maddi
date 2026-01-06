@@ -66,7 +66,7 @@ public class ExpandSlice {
                     if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalTo())
                         && entry2.getKey().v() instanceof DependentVariable dv
                         && (index1 = negative(dv.indexExpression())) >= 0) {
-                        if (dvK.indexExpression().compareTo(dv.indexExpression()) < 0) {
+                        if (index != index1) {
                             // record only in one direction
                             Variable frKv = dvK.arrayVariable();
                             Variable fr2Vks = dv.arrayVariable();
