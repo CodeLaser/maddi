@@ -130,4 +130,51 @@ public class TestInstanceOf extends CommonTest {
         assertEquals("[0:i≥1:s, 1:s≤0:i] --> -", mlv.toString());
     }
 
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            import java.util.List;
+            class X {
+                final static class M {
+                    private int i;
+                    public int getI() { return i; }
+                    public void setI(int i) { this.i = i; }
+                }
+                static M method(Object object) {
+                    if (object instanceof M m) {
+                        return m;
+                    }
+                    return null;
+                }
+            }
+            """;
+
+    @DisplayName("instanceof pattern variable")
+    @Test
+    public void test3() {
+        TypeInfo X = javaInspector.parse(INPUT3);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+
+        Statement s000 = method.methodBody().statements().getFirst().block().statements().getFirst();
+        VariableData vd000 = VariableDataImpl.of(s000);
+        VariableInfo rv000 = vd000.variableInfo(method.fullyQualifiedName());
+        assertEquals("method←0:object", rv000.linkedVariables().toString());
+
+        Statement s0 = method.methodBody().statements().getFirst();
+        VariableData vd0 = VariableDataImpl.of(s0);
+        VariableInfo rv0 = vd0.variableInfo(method.fullyQualifiedName());
+        assertEquals("method←0:object", rv0.linkedVariables().toString());
+
+        VariableData vd = VariableDataImpl.of(method);
+        VariableInfo rv = vd.variableInfo(method.fullyQualifiedName());
+        assertEquals("method←0:object", rv.linkedVariables().toString());
+
+        assertEquals("[-] --> method←0:object", mlv.toString());
+    }
 }
