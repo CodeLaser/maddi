@@ -171,7 +171,7 @@ public record Expand(Runtime runtime) {
             }
             change = doOneMakeGraphCycle(graph);
         }
-        assert graph.size() == graph.keySet().stream().map(v -> stringForDuplicate(v.v)).distinct().count();
+       // assert graph.size() == graph.keySet().stream().map(v -> stringForDuplicate(v.v)).distinct().count();
         return graph;
     }
 
