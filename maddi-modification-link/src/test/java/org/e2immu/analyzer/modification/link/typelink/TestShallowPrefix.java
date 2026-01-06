@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -55,6 +56,9 @@ public class TestShallowPrefix extends CommonTest {
 
         MethodLinkedVariables tlv1Static = oneStatic.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneStatic));
         assertEquals("[-, -] --> oneStatic.§xys[-1]∋0:x,oneStatic.§xys[-2]∋1:y", tlv1Static.toString());
+        Link l1 = tlv1Static.ofReturnValue().stream().findFirst().orElseThrow();
+        assertEquals("return oneStatic.§xys[-1]", l1.from().toString());
+        assertEquals("Type param X[]", l1.from().parameterizedType().toString());
 
         VirtualFields vfThis = vfc.compute(C);
         // see TestVirtualFieldComputer,10

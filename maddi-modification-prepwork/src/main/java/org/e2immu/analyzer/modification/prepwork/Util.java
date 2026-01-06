@@ -15,6 +15,7 @@
 package org.e2immu.analyzer.modification.prepwork;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -238,8 +239,15 @@ public class Util {
         return index + END;
     }
 
-    public static boolean virtual(FieldReference fr) {
-        return fr.fieldInfo().name().startsWith("§");
+    public static boolean virtual(Variable v) {
+        if (v instanceof FieldReference fr) {
+            return fr.fieldInfo().name().startsWith("§");
+        }
+        if (v instanceof DependentVariable dv) {
+            return virtual(dv.arrayVariable()) ||
+                   dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0;
+        }
+        return false;
     }
 
     public static boolean methodIsSamOfJavaUtilFunctional(MethodInfo methodInfo) {

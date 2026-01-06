@@ -64,6 +64,8 @@ public interface ParameterizedType {
 
     ParameterizedType copyWithOneFewerArrays();
 
+    ParameterizedType copyWithOneMoreArray();
+
     ParameterizedType copyWithoutArrays();
 
     // print
