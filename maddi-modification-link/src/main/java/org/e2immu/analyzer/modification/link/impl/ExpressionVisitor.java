@@ -69,6 +69,9 @@ public record ExpressionVisitor(Runtime runtime,
                 if (cc.anonymousClass() != null) {
                     yield anonymousClassAsFunctionalInterface(variableData, stage, cc);
                 }
+                if (cc.arrayInitializer() != null) {
+                    yield arrayInitializer(variableData, stage, cc);
+                }
                 yield constructorCall(variableData, stage, cc);
             }
             case Lambda lambda -> lambda(lambda, true);
@@ -90,11 +93,39 @@ public record ExpressionVisitor(Runtime runtime,
             case GreaterThanZero gt0 -> visit(gt0.expression(), variableData, stage);
             case BinaryOperator bo -> visit(bo.lhs(), variableData, stage)
                     .merge(visit(bo.rhs(), variableData, stage)).with(LinksImpl.EMPTY);
-            case TypeExpression _ -> EMPTY;
+            case TypeExpression _, EmptyExpression _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
         if (r.getEvaluated() == null) r.setEvaluated(expression);
         return r;
+    }
+
+    Result arrayInitializer(VariableData variableData, Stage stage, ConstructorCall cc) {
+        List<Result> rs = cc.arrayInitializer().expressions().stream()
+                .map(e -> visit(e, variableData, stage)).toList();
+        // make new object of the correct array type; this will become the primary
+        // then assignments per index
+        int i = 0;
+        String name = LinksImpl.INTERMEDIATE_CONSTRUCTOR_VARIABLE + variableCounter.getAndIncrement();
+        LocalVariable c = runtime.newLocalVariable(name, cc.parameterizedType());
+        VariableExpression cVe = runtime.newVariableExpression(c);
+        LinksImpl.Builder builder = new LinksImpl.Builder(c);
+        Result combined = null;
+        for (Result r : rs) {
+            if (combined == null) {
+                combined = r;
+            } else {
+                combined = combined.merge(r);
+            }
+            if (r.links().primary() != null) {
+                DependentVariable dv = runtime.newDependentVariable(cVe, runtime.newInt(i));
+                builder.add(dv, LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
+            }
+            ++i;
+        }
+        Links links = builder.build();
+        if (rs.isEmpty()) return new Result(links, LinkedVariablesImpl.EMPTY);
+        return combined.with(links);
     }
 
     Result constantExpression(ConstantExpression<?> ce) {
