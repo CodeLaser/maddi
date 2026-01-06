@@ -20,12 +20,13 @@ public class ExpandSlice {
     }
 
     /*
-    typeLink/TestMap,2
+    (1) typeLink/TestMap,2
     if entry.§kv.§k ∈ map.§vks[-2] and entry.§kv.§v ∈ map.§vks[-1] then entry ∈ map.§vks
 
-    FIXME isIdenticalTo example?
+    (2) TestPrefix,1, typeLink/TestStream,1
+    if $__c0.§xy.§x → entry.§xy.§x, $__c0.§xy.§y → entry.§xy.§y then $__c0.§xy ~ entry.§xy
 
-    TestForEachLambda,7
+    (3) TestForEachLambda,7
     if 0:map.§$$s[-1]~this.map.§$$s[-2] and 0:map.§$$s[-2]~this.map.§$$s[-1]] then 0:map.§$$s ~ this.map.§$$s
      */
     List<Expand.PC> completeSliceInformation(Map<Expand.V, Map<Expand.V, LinkNature>> graph) {
@@ -33,7 +34,9 @@ public class ExpandSlice {
         for (Map.Entry<Expand.V, Map<Expand.V, LinkNature>> entry : graph.entrySet()) {
             if (entry.getKey().v() instanceof FieldReference frK && virtual(frK)
                 && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv)) {
-                for (Map.Entry<Expand.V, LinkNature> entry2 : entry.getValue().entrySet()) {
+                Map<Expand.V, LinkNature> expanded = Expand.bestPath(graph, entry.getKey());
+                for (Map.Entry<Expand.V, LinkNature> entry2 : expanded.entrySet()) {
+                    // (1)
                     if (LinkNatureImpl.IS_ELEMENT_OF.equals(entry2.getValue())
                         && entry2.getKey().v() instanceof DependentVariable dv
                         && negative(dv.indexExpression()) >= 0
@@ -43,6 +46,7 @@ public class ExpandSlice {
                         if (lists.isEmpty()) lists.add(new ArrayList<>());
                         lists.getFirst().add(new F2(frKv.fieldInfo(), frK.fieldInfo()));
                     }
+                    // (2)
                     if (entry2.getValue().isIdenticalTo()
                         && entry2.getKey().v() instanceof FieldReference fr2K && virtual(fr2K)
                         && fr2K.scopeVariable() instanceof FieldReference fr2kv && virtual(fr2kv)) {
@@ -61,8 +65,10 @@ public class ExpandSlice {
             }
             int index;
             if (entry.getKey().v() instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
-                for (Map.Entry<Expand.V, LinkNature> entry2 : entry.getValue().entrySet()) {
+                Map<Expand.V, LinkNature> expanded = Expand.bestPath(graph, entry.getKey());
+                for (Map.Entry<Expand.V, LinkNature> entry2 : expanded.entrySet()) {
                     int index1;
+                    // (3)
                     if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalTo())
                         && entry2.getKey().v() instanceof DependentVariable dv
                         && (index1 = negative(dv.indexExpression())) >= 0) {

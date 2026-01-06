@@ -387,7 +387,7 @@ public class TestStream extends CommonTest {
         assertEquals("[0:key→this.§kv.§k, 1:value→this.§kv.§v] --> -", tlvConstructor1.toString());
 
         MethodLinkedVariables tlvSwap = swap.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> swap.§yx.§x←0:entry.§xy.§x,swap.§yx.§y←0:entry.§xy.§y", tlvSwap.toString());
+        assertEquals("[-] --> swap.§yx.§x←0:entry.§xy.§x,swap.§yx.§y←0:entry.§xy.§y,swap.§yx~0:entry.§xy", tlvSwap.toString());
 
         // start reverse
         MethodInfo reverse = C.findUniqueMethod("reverse", 1);

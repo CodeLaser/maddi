@@ -333,7 +333,7 @@ public record Expand(Runtime runtime) {
         return builder;
     }
 
-    private static Map<V, LinkNature> bestPath(Map<V, Map<V, LinkNature>> graph, V start) {
+    static Map<V, LinkNature> bestPath(Map<V, Map<V, LinkNature>> graph, V start) {
         Map<V, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
                         graph.keySet(), start, LinkNatureImpl.EMPTY, LinkNature::combine);
