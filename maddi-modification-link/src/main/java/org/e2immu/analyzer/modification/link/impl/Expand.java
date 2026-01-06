@@ -199,7 +199,9 @@ public record Expand(Runtime runtime) {
                             } else {
                                 ln = linkNature;
                             }
-                            newLinks.add(new Add(s, ln, makeComparableSub(vFrom, s, vTo)));
+                            V sub = makeComparableSub(vFrom, s, vTo);
+                            assert !sub.equals(s);
+                            newLinks.add(new Add(s, ln, sub));
                         }
                     }
                     Set<V> subsOfTo = subs.get(vTo);
@@ -211,7 +213,9 @@ public record Expand(Runtime runtime) {
                             } else {
                                 ln = linkNature;
                             }
-                            newLinks.add(new Add(makeComparableSub(vTo, s, vFrom), ln, s));
+                            V sub = makeComparableSub(vTo, s, vFrom);
+                            assert !sub.equals(s);
+                            newLinks.add(new Add(sub, ln, s));
                         }
                     }
                 }
@@ -232,17 +236,15 @@ public record Expand(Runtime runtime) {
         Map<V, Set<V>> subs = new HashMap<>();
         for (Map.Entry<V, Map<V, LinkNature>> entry : graph.entrySet()) {
             V vFrom = entry.getKey();
-            V primary = new V(Util.primary(vFrom.v));
-            Set<V> subsOfPrimary = subs.computeIfAbsent(primary, _ -> new HashSet<>());
-            if (!vFrom.equals(primary)) {
-                subsOfPrimary.add(vFrom);
+            Set<Variable> scopeVariablesFrom = Util.scopeVariables(vFrom.v);
+            for (Variable scopeVariableFrom : scopeVariablesFrom) {
+                subs.computeIfAbsent(new V(scopeVariableFrom), _ -> new HashSet<>()).add(vFrom);
             }
             for (Map.Entry<V, LinkNature> entry2 : entry.getValue().entrySet()) {
                 V vTo = entry2.getKey();
-                V toPrimary = new V(Util.primary(vTo.v));
-                Set<V> subsOfToPrimary = subs.computeIfAbsent(toPrimary, _ -> new HashSet<>());
-                if (!vTo.equals(toPrimary)) {
-                    subsOfToPrimary.add(vTo);
+                Set<Variable> scopeVariablesTo = Util.scopeVariables(vTo.v);
+                for (Variable scopeVariableTo : scopeVariablesTo) {
+                    subs.computeIfAbsent(new V(scopeVariableTo), _ -> new HashSet<>()).add(vTo);
                 }
             }
         }
