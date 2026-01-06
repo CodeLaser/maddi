@@ -66,24 +66,22 @@ public class ExpandSlice {
                     if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalTo())
                         && entry2.getKey().v() instanceof DependentVariable dv
                         && (index1 = negative(dv.indexExpression())) >= 0) {
-                        if (index != index1) {
-                            // record only in one direction
-                            Variable frKv = dvK.arrayVariable();
-                            Variable fr2Vks = dv.arrayVariable();
+                        // record only in one direction
+                        Variable frKv = dvK.arrayVariable();
+                        Variable fr2Vks = dv.arrayVariable();
 
-                            Expand.PC pc = new Expand.PC(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2Vks);
-                            List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());
-                            if (lists.isEmpty()) {
-                                lists.add(new ArrayList<>());
-                                lists.add(new ArrayList<>());
-                            }
-                            FieldInfo frKvFieldInfo = frKv.parameterizedType().typeInfo().fields().get(index);
-                            FieldInfo frKFieldInfo = ((FieldReference) dvK.arrayVariable()).fieldInfo();
-                            FieldInfo fr2VksFieldInfo = fr2Vks.parameterizedType().typeInfo().fields().get(index1);
-                            lists.getFirst().add(new F2(frKFieldInfo, frKvFieldInfo));
-                            FieldInfo fr2KFieldInfo = ((FieldReference) dv.arrayVariable()).fieldInfo();
-                            lists.getLast().add(new F2(fr2KFieldInfo, fr2VksFieldInfo));
+                        Expand.PC pc = new Expand.PC(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2Vks);
+                        List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());
+                        if (lists.isEmpty()) {
+                            lists.add(new ArrayList<>());
+                            lists.add(new ArrayList<>());
                         }
+                        FieldInfo frKvFieldInfo = frKv.parameterizedType().typeInfo().fields().get(index);
+                        FieldInfo frKFieldInfo = ((FieldReference) dvK.arrayVariable()).fieldInfo();
+                        FieldInfo fr2VksFieldInfo = fr2Vks.parameterizedType().typeInfo().fields().get(index1);
+                        lists.getFirst().add(new F2(frKFieldInfo, frKvFieldInfo));
+                        FieldInfo fr2KFieldInfo = ((FieldReference) dv.arrayVariable()).fieldInfo();
+                        lists.getLast().add(new F2(fr2KFieldInfo, fr2VksFieldInfo));
                     }
                 }
             }
