@@ -343,7 +343,9 @@ public class TestJavaDoc extends CommonTest {
             assertEquals("java.util.LinkedList", tag.content());
             assertEquals("java.util.LinkedList", tag.resolvedReference().toString());
             assertEquals("""
-                    [TypeReference[typeInfo=void, explicit=true], TypeReference[typeInfo=java.util.LinkedList, explicit=true]]\
+                    [TypeReference[typeInfo=void, explicit=true], \
+                    TypeReference[typeInfo=java.util.LinkedList, explicit=true], \
+                    TypeReference[typeInfo=a.b.X, explicit=false]]\
                     """, methodInfo.typesReferenced().toList().toString());
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);

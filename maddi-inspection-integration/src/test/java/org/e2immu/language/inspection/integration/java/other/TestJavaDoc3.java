@@ -14,22 +14,18 @@
 
 package org.e2immu.language.inspection.integration.java.other;
 
-import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.JavaDoc;
-import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.java.CommonTest2;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJavaDoc3 extends CommonTest2 {
@@ -38,7 +34,7 @@ public class TestJavaDoc3 extends CommonTest2 {
     String MAIN_A = """
             package a;
             public class A {
-
+            
             }
             """;
 
@@ -67,6 +63,56 @@ public class TestJavaDoc3 extends CommonTest2 {
             assertEquals("test-protocol:a.TestA", TestA.compilationUnit().sourceSet().name());
             JavaDoc.Tag tag = TestA.javaDoc().tags().getFirst();
             assertEquals("a.A", tag.resolvedReference().toString());
+        }
+    }
+
+
+    @Language("java")
+    String A = """    
+            package a;
+            import b.B;
+            public class A {
+                /**
+                 * @param test {@link B#OK}
+                 */
+                public void m(Object test) {}
+            }
+            """;
+
+    @Language("java")
+    String A2 = """    
+            package a;
+            import b.B;
+            public class A {
+                /**
+                 * @param test {@link B}
+                 */
+                public void m(Object test) {}
+            }
+            """;
+
+    @Language("java")
+    String B = """
+            package b;
+            public enum B {
+                OK
+            }
+            """;
+
+    @DisplayName("Type reference of tag")
+    @Test
+    public void test1() throws IOException {
+        for (String a : new String[]{A, A2}) {
+            ParseResult pr1 = init(Map.of("a.A", a), Map.of("b.B", B));
+
+            TypeInfo A = pr1.findType("a.A");
+            assertEquals("""
+                            TypeReference[typeInfo=a.A, explicit=false], \
+                            TypeReference[typeInfo=b.B, explicit=true], \
+                            TypeReference[typeInfo=java.lang.Object, explicit=true], \
+                            TypeReference[typeInfo=void, explicit=true]\
+                            """,
+                    A.typesReferenced().map(Object::toString).sorted().collect(Collectors.joining(", ")));
         }
     }
 }
