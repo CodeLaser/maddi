@@ -137,13 +137,13 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.empty();
+        return Stream.concat(selector.typesReferenced(), entries.stream().flatMap(SwitchEntry::typesReferenced));
     }
 
     @Override
     public List<Statement> translate(TranslationMap translationMap) {
         List<Statement> direct = translationMap.translateStatement(this);
-        if (direct.size() != 1 || direct.get(0) != this) {
+        if (direct.size() != 1 || direct.getFirst() != this) {
             return direct;
         }
         Expression tSelector = selector.translate(translationMap);

@@ -25,7 +25,6 @@ import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.statement.SwitchStatementOldStyle;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.output.*;
 
@@ -130,6 +129,14 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
             return new SwitchLabelImpl(literal.rewire(infoMap), startFromPosition,
                     patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
                     whenExpression.rewire(infoMap));
+        }
+
+        @Override
+        public Stream<Element.TypeReference> typesReferenced() {
+            Stream<Element.TypeReference> s = literal == null ? Stream.of() : literal.typesReferenced();
+            if (patternVariable != null) s = Stream.concat(s, patternVariable.typesReferenced());
+            if (whenExpression != null) s = Stream.concat(s, whenExpression.typesReferenced());
+            return s;
         }
     }
 
@@ -277,7 +284,10 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.empty();
+        Stream<Element.TypeReference> s1 = selector.typesReferenced();
+        Stream<Element.TypeReference> s2 = switchLabels.stream().flatMap(SwitchLabel::typesReferenced);
+        Stream<Element.TypeReference> s3 = block.typesReferenced();
+        return Stream.concat(s1, Stream.concat(s2, s3));
     }
 
     @Override
@@ -292,8 +302,8 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
         Statement tBlock = block.translate(translationMap).getFirst();
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (tBlock != block || tSelector != selector || translatedLabels != switchLabels
-                || !analysis().isEmpty() && translationMap.isClearAnalysis()
-                || tAnnotations != annotations()) {
+            || !analysis().isEmpty() && translationMap.isClearAnalysis()
+            || tAnnotations != annotations()) {
             SwitchStatementOldStyleImpl ssos = new SwitchStatementOldStyleImpl(comments(), source(),
                     tAnnotations, label(), tSelector, (Block) tBlock, translatedLabels);
             if (!translationMap.isClearAnalysis()) ssos.analysis().setAll(analysis());
