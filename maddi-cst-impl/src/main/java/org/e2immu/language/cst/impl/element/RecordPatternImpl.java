@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -218,9 +219,18 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        if (localVariable != null) return localVariable.typesReferenced();
-        if (recordType != null) return Stream.concat(recordType.typesReferenced(),
-                patterns.stream().flatMap(Element::typesReferenced));
+        if (localVariable != null) {
+            TypeInfo typeInfo = localVariable.parameterizedType().typeInfo();
+            if (typeInfo != null) {
+                return Stream.of(new ElementImpl.TypeReference(typeInfo, true));
+            }
+        }
+        if (recordType != null) {
+            TypeInfo typeInfo = recordType.typeInfo();
+            Stream<Element.TypeReference> s1 = typeInfo == null ? Stream.of()
+                    : Stream.of(new ElementImpl.TypeReference(typeInfo, true));
+            return Stream.concat(s1, patterns.stream().flatMap(Element::typesReferenced));
+        }
         return Stream.empty();
     }
 }

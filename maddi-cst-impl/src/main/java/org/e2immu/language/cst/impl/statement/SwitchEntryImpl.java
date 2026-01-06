@@ -200,7 +200,8 @@ public class SwitchEntryImpl implements SwitchEntry {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(whenExpression.typesReferenced(), statement.typesReferenced());
+        Stream<Element.TypeReference>s1 = patternVariable == null ? Stream.of(): patternVariable.typesReferenced();
+        return Stream.concat(s1, Stream.concat(whenExpression.typesReferenced(), statement.typesReferenced()));
     }
 
     public static class EntryBuilderImpl extends ElementImpl.Builder<Builder> implements Builder {
