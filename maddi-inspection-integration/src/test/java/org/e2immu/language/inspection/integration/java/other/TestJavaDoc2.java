@@ -19,14 +19,11 @@ import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.e2immu.language.inspection.integration.java.CommonTest2;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -132,7 +129,9 @@ public class TestJavaDoc2 extends CommonTest2 {
         {
             TypeInfo A = pr1.findType("a.A");
             assertEquals("""
-                    [TypeReference[typeInfo=void, explicit=true], TypeReference[typeInfo=b.B, explicit=true]]\
+                    [TypeReference[typeInfo=void, explicit=true], \
+                    TypeReference[typeInfo=b.B, explicit=true], \
+                    TypeReference[typeInfo=a.A, explicit=false]]\
                     """, A.typesReferenced().toList().toString());
 
             MethodInfo m = A.findUniqueMethod("m", 1);
@@ -142,10 +141,14 @@ public class TestJavaDoc2 extends CommonTest2 {
         {
             TypeInfo A4 = pr1.findType("a.A4");
             assertEquals("""
-                    [TypeReference[typeInfo=void, explicit=true], TypeReference[typeInfo=b.B, explicit=true]]\
+                    [TypeReference[typeInfo=void, explicit=true], \
+                    TypeReference[typeInfo=b.B, explicit=true], \
+                    TypeReference[typeInfo=a.A4, explicit=false]]\
                     """, A4.typesReferenced().toList().toString());
             JavaDoc.Tag tag = A4.javaDoc().tags().getFirst();
-            assertTrue(A4.javaDoc().typesReferenced().toList().isEmpty());
+            assertEquals("""
+                    [TypeReference[typeInfo=a.A4, explicit=false]]\
+                    """, A4.javaDoc().typesReferenced().toList().toString());
             assertEquals("a.A4.m(b.B<T>)", tag.resolvedReference().toString());
         }
     }

@@ -216,12 +216,15 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
 
     @Override
     public Stream<TypeReference> typesReferenced() {
-        return tags.stream().map(this::typeReference).filter(Objects::nonNull);
+        return tags.stream().map(JavaDocImpl::typeReference).filter(Objects::nonNull);
     }
 
-    private Element.TypeReference typeReference(Tag tag) {
-        if (tag.resolvedReference() instanceof TypeInfo typeInfo) {
-            return new ElementImpl.TypeReference(typeInfo, !tag.content().startsWith("#"));
+    private static Element.TypeReference typeReference(Tag tag) {
+        if (tag.resolvedReference() instanceof Info info) {
+            TypeInfo typeInfo = info.typeInfo();
+            boolean explicit = tag.source().detailedSources() != null &&
+                               tag.source().detailedSources().detail(typeInfo) != null;
+            return new ElementImpl.TypeReference(typeInfo, explicit);
         }
         return null;
     }
