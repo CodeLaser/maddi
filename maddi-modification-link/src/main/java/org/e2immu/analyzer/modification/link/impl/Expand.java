@@ -171,7 +171,7 @@ public record Expand(Runtime runtime) {
             }
             change = doOneMakeGraphCycle(graph);
         }
-       // assert graph.size() == graph.keySet().stream().map(v -> stringForDuplicate(v.v)).distinct().count();
+        assert graph.size() == graph.keySet().stream().map(v -> stringForDuplicate(v.v)).distinct().count();
         return graph;
     }
 
@@ -456,6 +456,7 @@ public record Expand(Runtime runtime) {
     static boolean keepExtraFromPrevious(Variable variable) {
         return variable.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
                || variable.simpleName().startsWith(LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE)
+               || variable.simpleName().equals(LinksImpl.SOME_VALUE)
                || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
                // see TestStaticValuesRecord,6
                || variable instanceof ReturnVariable;
@@ -465,7 +466,9 @@ public record Expand(Runtime runtime) {
         if (v instanceof AppliedFunctionalInterfaceVariable a) {
             return !a.containsNoLocalVariables();
         }
-        return v instanceof LocalVariable;
+        return v instanceof LocalVariable
+               && !v.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
+               && !v.simpleName().equals(LinksImpl.SOME_VALUE);
     }
 
     // indirection in applied functional interface variable

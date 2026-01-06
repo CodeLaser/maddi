@@ -16,6 +16,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -297,15 +298,25 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 replaceConstants = null;
             }
             VariableData vd = VariableDataImpl.of(statement);
+            Variable destination;
             if (r != null) {
                 r = r.copyLinksToExtra();
-                if (statement instanceof ReturnStatement && r.links().primary() != null) {
-                    Links rvLinks = new LinksImpl.Builder(returnVariable)
-                            .add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary())
-                            .build();
-                    r = r.with(rvLinks);
+            }
+            if (statement instanceof ReturnStatement && methodInfo.hasReturnValue()) {
+                if (r != null && r.links().primary() != null) {
+                    destination = r.links().primary();
+                } else {
+                    destination = someValue(methodInfo.returnType());
                 }
-                r = r.copyLinksToExtra();
+                Links rvLinks = new LinksImpl.Builder(returnVariable)
+                        .add(LinkNatureImpl.IS_ASSIGNED_FROM, destination)
+                        .build();
+                if (r != null) {
+                    r = r.with(rvLinks);
+                    r = r.copyLinksToExtra();
+                } else {
+                    r = new Result(rvLinks, LinkedVariablesImpl.EMPTY);
+                }
             }
             if (r != null) {
                 this.erase.addAll(r.erase());
@@ -496,5 +507,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             return ExpressionVisitor.EMPTY;
         }
+    }
+
+    private Variable someValue(ParameterizedType pt) {
+        return javaInspector.runtime().newLocalVariable(LinksImpl.SOME_VALUE, pt);
     }
 }
