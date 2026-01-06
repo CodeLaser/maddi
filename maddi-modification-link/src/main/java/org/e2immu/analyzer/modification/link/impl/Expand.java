@@ -396,20 +396,21 @@ public record Expand(Runtime runtime) {
         if (previousVd != null) {
             previousVd.variableInfoStream(stageOfPrevious)
                     .filter(vi -> !(vi.variable() instanceof This))
+                    .filter(vi -> vd.isKnown(vi.variable().fullyQualifiedName()))
                     .forEach(vi -> {
                         Links vLinks = vi.linkedVariables();
                         if (vLinks != null && vLinks.primary() != null) {
                             assert !(vLinks.primary() instanceof This);
-                            linkedVariables.merge(vLinks.primary(), vLinks.translate(replaceConstants), Links::merge);
+                            Links translated = vLinks.translate(replaceConstants)
+                                    .removeIfTo(v -> !vd.isKnown(Util.primary(v).fullyQualifiedName())
+                                                     && !keepExtraFromPrevious(v));
+                            linkedVariables.merge(vLinks.primary(), translated, Links::merge);
                         }
                         Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
                         boolean explicitlyModified = unmodified != null && unmodified.isFalse();
                         if (explicitlyModified) modifiedVariables.add(vi.variable());
                     });
         }
-        assert linkedVariables.entrySet().stream().noneMatch(e ->
-                e.getKey() instanceof This || e.getValue().primary() == null || e.getValue().primary() instanceof This)
-                : "Not linking null or 'this'";
 
         Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables);
         if (LOGGER.isDebugEnabled()) {
@@ -442,6 +443,11 @@ public record Expand(Runtime runtime) {
 
                 });
         return newLinkedVariables;
+    }
+    static boolean keepExtraFromPrevious(Variable variable) {
+      return  variable.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
+                || variable.simpleName().startsWith(LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE)
+              || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis();
     }
 
     static boolean isLocalVariable(Variable v) {
