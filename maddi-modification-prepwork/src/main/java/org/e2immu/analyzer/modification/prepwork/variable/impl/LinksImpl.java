@@ -278,8 +278,7 @@ public class LinksImpl implements Links {
 
         @Override
         public boolean containsVirtualFields() {
-            return from instanceof FieldReference fr && Util.virtual(fr)
-                   || to instanceof FieldReference fr2 && Util.virtual(fr2);
+            return Util.virtual(from) || Util.virtual(to);
         }
     }
 
@@ -383,7 +382,7 @@ public class LinksImpl implements Links {
 
     @Override
     public boolean containsVirtualFields() {
-        if (primary instanceof FieldReference fr && Util.virtual(fr)) return true;
+        if (Util.virtual(primary)) return true;
         return linkSet.stream().anyMatch(Link::containsVirtualFields);
     }
 }

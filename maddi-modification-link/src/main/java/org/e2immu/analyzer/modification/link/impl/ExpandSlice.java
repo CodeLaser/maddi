@@ -7,6 +7,7 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,9 +20,13 @@ public class ExpandSlice {
     }
 
     /*
-    if entry.§kv.§k ∈ map.§vks[-2].§k and entry.§kv.§v ∈ map.§vks[-1].§v then entry ∈ map.§vks
+    typeLink/TestMap,2
+    if entry.§kv.§k ∈ map.§vks[-2] and entry.§kv.§v ∈ map.§vks[-1] then entry ∈ map.§vks
 
-    if 0:map.§$$s[-1].§$~this.map.§$$s[-2].§$ and 0:map.§$$s[-2].§$~this.map.§$$s[-1].§$] then 0:map.§$$s ~ this.map.§$$s
+    FIXME isIdenticalTo example?
+
+    TestForEachLambda,7
+    if 0:map.§$$s[-1]~this.map.§$$s[-2] and 0:map.§$$s[-2]~this.map.§$$s[-1]] then 0:map.§$$s ~ this.map.§$$s
      */
     List<Expand.PC> completeSliceInformation(Map<Expand.V, Map<Expand.V, LinkNature>> graph) {
         Map<Expand.PC, List<List<F2>>> map = new HashMap<>();
@@ -30,8 +35,8 @@ public class ExpandSlice {
                 && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv)) {
                 for (Map.Entry<Expand.V, LinkNature> entry2 : entry.getValue().entrySet()) {
                     if (LinkNatureImpl.IS_ELEMENT_OF.equals(entry2.getValue())
-                        && entry2.getKey().v() instanceof FieldReference fr2K && virtual(fr2K)
-                        && fr2K.scopeVariable() instanceof DependentVariable dv && negative(dv.indexExpression())
+                        && entry2.getKey().v() instanceof DependentVariable dv
+                        && negative(dv.indexExpression()) >= 0
                         && dv.arrayVariable() instanceof FieldReference fr2Vks && virtual(fr2Vks)) {
                         Expand.PC pc = new Expand.PC(frKv.scopeVariable(), LinkNatureImpl.IS_ELEMENT_OF, fr2Vks);
                         List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());
@@ -54,24 +59,30 @@ public class ExpandSlice {
                     }
                 }
             }
-            if (entry.getKey().v() instanceof FieldReference frK && virtual(frK)
-                && frK.scopeVariable() instanceof DependentVariable dvK && negative(dvK.indexExpression())
-                && dvK.arrayVariable() instanceof FieldReference frKv && virtual(frKv)) {
+            int index;
+            if (entry.getKey().v() instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
                 for (Map.Entry<Expand.V, LinkNature> entry2 : entry.getValue().entrySet()) {
+                    int index1;
                     if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalTo())
-                        && entry2.getKey().v() instanceof FieldReference fr2K && virtual(fr2K)
-                        && fr2K.scopeVariable() instanceof DependentVariable dv && negative(dv.indexExpression())
-                        && dv.arrayVariable() instanceof FieldReference fr2Vks && virtual(fr2Vks)) {
-                        if (frKv.compareTo(fr2Vks) < 0) {
+                        && entry2.getKey().v() instanceof DependentVariable dv
+                        && (index1 = negative(dv.indexExpression())) >= 0) {
+                        if (dvK.indexExpression().compareTo(dv.indexExpression()) < 0) {
                             // record only in one direction
+                            Variable frKv = dvK.arrayVariable();
+                            Variable fr2Vks = dv.arrayVariable();
+
                             Expand.PC pc = new Expand.PC(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2Vks);
                             List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());
                             if (lists.isEmpty()) {
                                 lists.add(new ArrayList<>());
                                 lists.add(new ArrayList<>());
                             }
-                            lists.getFirst().add(new F2(frKv.fieldInfo(), frK.fieldInfo()));
-                            lists.getLast().add(new F2(fr2Vks.fieldInfo(), fr2K.fieldInfo()));
+                            FieldInfo frKvFieldInfo = frKv.parameterizedType().typeInfo().fields().get(index);
+                            FieldInfo frKFieldInfo = ((FieldReference) dvK.arrayVariable()).fieldInfo();
+                            FieldInfo fr2VksFieldInfo = fr2Vks.parameterizedType().typeInfo().fields().get(index1);
+                            lists.getFirst().add(new F2(frKFieldInfo, frKvFieldInfo));
+                            FieldInfo fr2KFieldInfo = ((FieldReference) dv.arrayVariable()).fieldInfo();
+                            lists.getLast().add(new F2(fr2KFieldInfo, fr2VksFieldInfo));
                         }
                     }
                 }
@@ -97,7 +108,13 @@ public class ExpandSlice {
         throw new UnsupportedOperationException("NYI");
     }
 
-    private static boolean negative(Expression expression) {
-        return expression.isNumeric() && expression.numericValue() < 0;
+    private static int negative(Expression expression) {
+        if (expression.isNumeric()) {
+            Double d = expression.numericValue();
+            if (d != null) {
+                return -(int) (double) d - 1;
+            }
+        }
+        return -1;
     }
 }

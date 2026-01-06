@@ -275,11 +275,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                 runtime.newVariableExpression(subTo), theField.fieldInfo.type());
                         builder.add(IS_ASSIGNED_TO, subSubTo);
                     } else {
-                        DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                                runtime.newInt(theField.negative()));
-                        Expression scope = runtime.newVariableExpression(dv);
-                        FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope,
-                                theField.fieldInfo.type());
+                        DependentVariable slice = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
+                                runtime.newInt(theField.negative()), theField.fieldInfo().type().copyWithOneMoreArray());
                         builder.add(linkNature, slice);
                     }
                 }
@@ -367,20 +364,17 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                     // slice across: TestShallow,4: keySet.ks~this.kvs[-1].k
                                     FF theField = findField(intersection.getFirst(), toType.typeInfo());
                                     assert theField != null;
-                                    DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                                            runtime.newInt(theField.negative()));
-                                    Expression scope = runtime.newVariableExpression(dv);
-                                    FieldReference slice = runtime.newFieldReference(theField.fieldInfo, scope,
-                                            theField.fieldInfo.type());
+                                    DependentVariable slice = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
+                                            runtime.newInt(theField.negative()), theField.fieldInfo.type().copyWithOneMoreArray());
                                     builder.add(subFrom, IS_SUBSET_OF, slice);
                                 }
                             } else if (arraysTo == 0) {
                                 // slice to a single element: TestShallowPrefix,1: oneStatic.xys[-1]>0:x
                                 FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                                 assert theField != null;
-                                DependentVariable dv = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
-                                        runtime.newInt(theField.negative()));
-                                builder.add(dv, CONTAINS_AS_MEMBER, subTo);
+                                DependentVariable slice = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
+                                        runtime.newInt(theField.negative()), theField.fieldInfo.type().copyWithOneMoreArray());
+                                builder.add(slice, CONTAINS_AS_MEMBER, subTo);
                             }
                         } else {
                             // indexing, e.g. TestShallowPrefix,3:  oneStatic.xy.x==0:x (totalFrom 0)

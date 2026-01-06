@@ -80,10 +80,10 @@ public class TestMap extends CommonTest {
             VariableInfo y0 = vd0.variableInfo("y");
             Links tlvY0 = y0.linkedVariablesOrEmpty();
             // NOTE: kvs and not xys because it is a real field, not a virtual one
-            assertEquals("y∈1:c.map.§kvs[-2].§v", tlvY0.toString());
+            assertEquals("y∈1:c.map.§kvs[-2]", tlvY0.toString());
             VariableInfo x0 = vd0.variableInfo(staticGet.parameters().getFirst());
 
-            assertEquals("[-, -] --> staticGet∈1:c.map.§kvs[-2].§v", mlvSGet.toString());
+            assertEquals("[-, -] --> staticGet∈1:c.map.§kvs[-2]", mlvSGet.toString());
 
             Links lX0 = x0.linkedVariablesOrEmpty();
             assertEquals("-", lX0.toString());
@@ -95,15 +95,15 @@ public class TestMap extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(staticPut.methodBody().statements().getFirst());
             VariableInfo yy0 = vd0.variableInfo("yy");
             Links tlvY0 = yy0.linkedVariablesOrEmpty();
-            assertEquals("yy∈2:c.map.§kvs[-2].§v", tlvY0.toString());
+            assertEquals("yy∈2:c.map.§kvs[-2]", tlvY0.toString());
             ParameterInfo x = staticPut.parameters().getFirst();
             VariableInfo x0 = vd0.variableInfo(x);
             Links tlvX0 = x0.linkedVariablesOrEmpty();
-            assertEquals("0:x∈2:c.map.§kvs[-1].§k", tlvX0.toString());
+            assertEquals("0:x∈2:c.map.§kvs[-1]", tlvX0.toString());
 
             assertEquals("""
-                    [0:x∈2:c.map.§kvs[-1].§k, 1:y∈2:c.map.§kvs[-2].§v, 2:c.map.§kvs[-1].§k∋0:x,2:c.map.§kvs[-2].§v∋1:y] \
-                    --> staticPut∈2:c.map.§kvs[-2].§v\
+                    [0:x∈2:c.map.§kvs[-1], 1:y∈2:c.map.§kvs[-2], 2:c.map.§kvs[-1]∋0:x,2:c.map.§kvs[-2]∋1:y] \
+                    --> staticPut∈2:c.map.§kvs[-2]\
                     """, mlvSPut.toString());
         }
 
@@ -114,15 +114,15 @@ public class TestMap extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(staticPut2.methodBody().statements().getFirst());
             VariableInfo yy0 = vd0.variableInfo("yy");
             Links tlvY0 = yy0.linkedVariablesOrEmpty();
-            assertEquals("yy∈0:c.map.§kvs[-2].§v", tlvY0.toString());
+            assertEquals("yy∈0:c.map.§kvs[-2]", tlvY0.toString());
             ParameterInfo x = staticPut2.parameters().get(1);
             VariableInfo x0 = vd0.variableInfo(x);
             Links tlvX0 = x0.linkedVariablesOrEmpty();
-            assertEquals("1:x∈0:c.map.§kvs[-1].§k", tlvX0.toString());
+            assertEquals("1:x∈0:c.map.§kvs[-1]", tlvX0.toString());
 
             assertEquals("""
-                    [0:c.map.§kvs[-1].§k∋1:x,0:c.map.§kvs[-2].§v∋2:y, 1:x∈0:c.map.§kvs[-1].§k, 2:y∈0:c.map.§kvs[-2].§v] \
-                    --> staticPut2∈0:c.map.§kvs[-2].§v\
+                    [0:c.map.§kvs[-1]∋1:x,0:c.map.§kvs[-2]∋2:y, 1:x∈0:c.map.§kvs[-1], 2:y∈0:c.map.§kvs[-2]] \
+                    --> staticPut2∈0:c.map.§kvs[-2]\
                     """, tlvSPut.toString());
         }
     }
@@ -139,26 +139,26 @@ public class TestMap extends CommonTest {
         // NOTE: we need map to have multiplicity 2, so we've added the keyset and values methods
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodLinkedVariables tlvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("[0:k∈this.§kvs[-1].§k] --> get∈this.§kvs[-2].§v", tlvGet.toString());
+        assertEquals("[0:k∈this.§kvs[-1]] --> get∈this.§kvs[-2]", tlvGet.toString());
 
         MethodInfo put = X.findUniqueMethod("put", 2);
         MethodLinkedVariables tlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
-        assertEquals("[0:k∈this.§kvs[-1].§k, 1:v∈this.§kvs[-2].§v] --> put∈this.§kvs[-2].§v", tlvPut.toString());
+        assertEquals("[0:k∈this.§kvs[-1], 1:v∈this.§kvs[-2]] --> put∈this.§kvs[-2]", tlvPut.toString());
 
         // NOTE: links between parameters need to be marked using the @Independent annotation
         // that's why there are no links from x into c
 
         MethodInfo staticGet = X.findUniqueMethod("staticGet", 2);
         MethodLinkedVariables tlvSGet = staticGet.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticGet));
-        assertEquals("[-, -] --> staticGet∈1:c.§xys[-2].§y", tlvSGet.toString());
+        assertEquals("[-, -] --> staticGet∈1:c.§xys[-2]", tlvSGet.toString());
 
         MethodInfo staticPut = X.findUniqueMethod("staticPut", 3);
         MethodLinkedVariables tlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
-        assertEquals("[-, -, -] --> staticPut←1:y,staticPut∈2:c.§xys[-2].§y", tlvSPut.toString());
+        assertEquals("[-, -, -] --> staticPut←1:y,staticPut∈2:c.§xys[-2]", tlvSPut.toString());
 
         MethodInfo staticPut2 = X.findUniqueMethod("staticPut2", 3);
         MethodLinkedVariables tlvS2Put = staticPut2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut2));
-        assertEquals("[-, -, -] --> staticPut2∈0:c.§xys[-2].§y,staticPut2←2:y", tlvS2Put.toString());
+        assertEquals("[-, -, -] --> staticPut2∈0:c.§xys[-2],staticPut2←2:y", tlvS2Put.toString());
     }
 
     @Language("java")
@@ -190,7 +190,7 @@ public class TestMap extends CommonTest {
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = init.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(init));
-        assertEquals("[0:keys.§ks~this.map.§kvs[-1].§k, 1:values.§vs~this.map.§kvs[-2].§v] --> -",
+        assertEquals("[0:keys.§ks~this.map.§kvs[-1], 1:values.§vs~this.map.§kvs[-2]] --> -",
                 mlv.toString());
     }
 
@@ -260,10 +260,10 @@ public class TestMap extends CommonTest {
         VariableInfo viEntry200 = vd200.variableInfo("entry");
         Links entry200Links = viEntry200.linkedVariablesOrEmpty();
         assertEquals("""
-                entry.§kv.§k∈map.§vks[-2].§k,\
+                entry.§kv.§k∈map.§vks[-2],\
                 entry.§kv.§k≤this.map.§kvs,\
                 entry.§kv.§k≤entries.§kvs,\
-                entry.§kv.§v∈map.§vks[-1].§v,\
+                entry.§kv.§v∈map.§vks[-1],\
                 entry.§kv.§v≤this.map.§kvs,\
                 entry.§kv.§v≤entries.§kvs,\
                 entry∈this.map.§kvs,\
@@ -275,21 +275,21 @@ public class TestMap extends CommonTest {
         VariableInfo viMap = vd3.variableInfo("map");
 
         assertEquals("""
-                map.§vks[-2].§k∋entry.§kv.§k,\
-                map.§vks[-2].§k∩entry.§kv.§v,\
-                map.§vks[-2].§k∩this.map.§kvs,\
-                map.§vks[-2].§k∩entries.§kvs,\
-                map.§vks[-1].§v∋entry.§kv.§v,\
-                map.§vks[-1].§v∩entry.§kv.§k,\
-                map.§vks[-1].§v∩this.map.§kvs,\
-                map.§vks[-1].§v∩entries.§kvs,\
+                map.§vks[-2]∋entry.§kv.§k,\
+                map.§vks[-2]∩entry.§kv.§v,\
+                map.§vks[-2]∩this.map.§kvs,\
+                map.§vks[-2]∩entries.§kvs,\
+                map.§vks[-1]∋entry.§kv.§v,\
+                map.§vks[-1]∩entry.§kv.§k,\
+                map.§vks[-1]∩this.map.§kvs,\
+                map.§vks[-1]∩entries.§kvs,\
                 map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs\
                 """, viMap.linkedVariables().toString());
         // NOTE: map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs has been generated by
         // Expand.completeSliceInformation().
         assertEquals("""
-                [] --> reverse0.map.§vks[-2].§k∩this.map.§kvs,\
-                reverse0.map.§vks[-1].§v∩this.map.§kvs,\
+                [] --> reverse0.map.§vks[-2]∩this.map.§kvs,\
+                reverse0.map.§vks[-1]∩this.map.§kvs,\
                 reverse0.map.§vks~this.map.§kvs\
                 """, mlvReverse0.toString());
         // reverse0.map.§vks~this.map.§kvs is there thanks to Expand.completeSliceInformation().
@@ -312,8 +312,8 @@ public class TestMap extends CommonTest {
         Links thisMap1Links = thisMap1.linkedVariablesOrEmpty();
         assertEquals("""
                 this.map.§kvs∋entry,this.map.§kvs≥entry.§kv.§k,this.map.§kvs≥entry.§kv.§v,\
-                this.map.§kvs∩map.§vks[-2].§k,\
-                this.map.§kvs∩map.§vks[-1].§v\
+                this.map.§kvs∩map.§vks[-2],\
+                this.map.§kvs∩map.§vks[-1]\
                 """, thisMap1Links.toString());
 
         assertEquals("""

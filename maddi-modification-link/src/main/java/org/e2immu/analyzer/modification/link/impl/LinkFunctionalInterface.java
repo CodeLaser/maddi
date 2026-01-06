@@ -150,9 +150,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         String name = sourcePt.typeParameter() != null ? sourcePt.typeParameter().simpleName().toLowerCase() : "$";
         String names = name + "s".repeat(sourcePt.arrays());
         FieldInfo newField = virtualFieldComputer.newField(names, sourcePt, sourcePt.typeInfo());
-        DependentVariable slice = runtime.newDependentVariable(runtime.newVariableExpression(base),
-                runtime.newInt(-1 - i));
-        return runtime.newFieldReference(newField, runtime.newVariableExpression(slice), newField.type());
+        // make a slice
+        return runtime.newDependentVariable(runtime.newVariableExpression(base),
+                runtime.newInt(-1 - i), newField.type().copyWithOneMoreArray());
     }
 
     private Variable translateAndRecreateVirtualFields(TranslationMap tm,
@@ -209,10 +209,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 FieldInfo newFieldInfo = virtualFieldComputer.newField(newFieldName,
                         newContainerType.asParameterizedType().copyWithArrays(arrays), owner);
                 FieldReference scope = runtime.newFieldReference(newFieldInfo, frKv.scope(), newFieldInfo.type());
-                DependentVariable slice = runtime.newDependentVariable(runtime.newVariableExpression(scope),
-                        runtime.newInt(sliceIndex));
-                upscaled = runtime.newFieldReference(frK.fieldInfo(), runtime.newVariableExpression(slice),
-                        frK.parameterizedType());
+                // make a slice
+                upscaled = runtime.newDependentVariable(runtime.newVariableExpression(scope),
+                        runtime.newInt(sliceIndex), newFieldInfo.type().copyWithOneMoreArray());
             } else if (arrays > 0) {
                 // TestFunction,2
                 // variable = this.§es, translated = optional.§es, arrays = 1

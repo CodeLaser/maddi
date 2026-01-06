@@ -7,9 +7,11 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
@@ -21,6 +23,7 @@ import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestShallow extends CommonTest {
 
@@ -255,26 +258,48 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
 
+        // ---
+
         MethodInfo entrySet = map.findUniqueMethod("entrySet", 0);
         MethodLinkedVariables mlvEntrySet = linkComputer.doMethod(entrySet);
         assertEquals("[] --> entrySet.§kvs⊆this.§kvs,entrySet.§m≡this.§m", mlvEntrySet.toString());
+        Link l1 = mlvEntrySet.ofReturnValue().stream().findFirst().orElseThrow();
+        assertEquals("Type java.util.Map.Entry.KV[]", l1.from().parameterizedType().toString());
+
+        // ---
 
         MethodInfo getOrDefault = map.findUniqueMethod("getOrDefault", 2);
         MethodLinkedVariables mlvGetOrDefault = linkComputer.doMethod(getOrDefault);
-        assertEquals("[-, -] --> getOrDefault∈this.§kvs[-2].§v,getOrDefault←1:defaultValue",
+        assertEquals("[-, -] --> getOrDefault∈this.§kvs[-2],getOrDefault←1:defaultValue",
                 mlvGetOrDefault.toString());
+
+        Link l2 = mlvGetOrDefault.ofReturnValue().stream().findFirst().orElseThrow();
+        assertEquals("Type param V", l2.from().parameterizedType().toString());
+        assertEquals("this.§kvs[-2]", l2.to().toString());
+        assertEquals("Type param V[]", l2.to().parameterizedType().toString());
+
+        // ---
 
         MethodInfo get = map.findUniqueMethod("get", 1);
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
-        assertEquals("[-] --> get∈this.§kvs[-2].§v", mlvGet.toString());
+        assertEquals("[-] --> get∈this.§kvs[-2]", mlvGet.toString());
+
+        // ---
 
         MethodInfo keySet = map.findUniqueMethod("keySet", 0);
         MethodLinkedVariables mlvKeySet = linkComputer.doMethod(keySet);
-        assertEquals("[] --> keySet.§ks⊆this.§kvs[-1].§k,keySet.§m≡this.§m", mlvKeySet.toString());
+        assertEquals("[] --> keySet.§ks⊆this.§kvs[-1],keySet.§m≡this.§m", mlvKeySet.toString());
+        Link l3 = mlvKeySet.ofReturnValue().stream().findFirst().orElseThrow();
+        assertEquals("this.§kvs[-1]", l3.to().toString());
+        assertEquals("Type param K[]", l3.to().parameterizedType().toString());
+
+        // ---
 
         MethodInfo values = map.findUniqueMethod("values", 0);
         MethodLinkedVariables mlvValues = linkComputer.doMethod(values);
-        assertEquals("[] --> values.§vs⊆this.§kvs[-2].§v,values.§m≡this.§m", mlvValues.toString());
+        assertEquals("[] --> values.§vs⊆this.§kvs[-2],values.§m≡this.§m", mlvValues.toString());
+
+        // ---
 
         MethodInfo forEachBi = map.findUniqueMethod("forEach", 1);
         assertEquals("java.util.Map.forEach(java.util.function.BiConsumer<? super K,? super V>)",
