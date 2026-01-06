@@ -171,8 +171,14 @@ public record Expand(Runtime runtime) {
             }
             change = doOneMakeGraphCycle(graph);
         }
-        assert graph.size() == graph.keySet().stream().map(v -> v.v.toString()).distinct().count();
+        assert graph.size() == graph.keySet().stream().map(v -> stringForDuplicate(v.v)).distinct().count();
         return graph;
+    }
+
+    // see TestModificationParameter, a return variable with the same name as a local variable
+    private static String stringForDuplicate(Variable v) {
+        if (v instanceof ReturnVariable) return "rv " + v;
+        return v.toString();
     }
 
     private boolean doOneMakeGraphCycle(Map<V, Map<V, LinkNature>> graph) {
@@ -444,12 +450,13 @@ public record Expand(Runtime runtime) {
                 });
         return newLinkedVariables;
     }
+
     static boolean keepExtraFromPrevious(Variable variable) {
-      return  variable.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
-                || variable.simpleName().startsWith(LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE)
-              || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
-              // see TestStaticValuesRecord,6
-              || variable instanceof ReturnVariable;
+        return variable.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
+               || variable.simpleName().startsWith(LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE)
+               || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
+               // see TestStaticValuesRecord,6
+               || variable instanceof ReturnVariable;
     }
 
     static boolean isLocalVariable(Variable v) {

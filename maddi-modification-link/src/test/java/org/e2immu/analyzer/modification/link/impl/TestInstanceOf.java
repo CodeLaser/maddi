@@ -122,7 +122,7 @@ public class TestInstanceOf extends CommonTest {
             assertFalse(viI0E.isModified());
 
             VariableInfo viI0M = vd0.variableInfo(i, Stage.MERGE);
-            assertEquals("0:i≻o,0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≈o,0:i≈set", viI0M.linkedVariables().toString());
+            assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es", viI0M.linkedVariables().toString());
             assertTrue(viI0M.isModified());
         }
 

@@ -166,9 +166,11 @@ public class LinksImpl implements Links {
         }
 
         @Override
-        public Links.Builder addAll(Links other) {
+        public Links.Builder addAllDistinct(Links other) {
             assert primary.equals(other.primary());
-            other.linkSet().forEach(links::add);
+            other.stream()
+                    .filter(l -> !links.contains(l))
+                    .forEach(links::add);
             return this;
         }
 

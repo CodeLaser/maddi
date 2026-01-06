@@ -112,7 +112,7 @@ public class TestConstructor extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(s2);
             VariableInfo iis2 = vd2.variableInfo("iis");
             Links tlvIIS2 = iis2.linkedVariablesOrEmpty();
-            assertEquals("iis.§$s∋ii,iis.§$s∩0:input.§$s", tlvIIS2.toString());
+            assertEquals("iis.§$s∋ii,iis.§$s~0:input.§$s", tlvIIS2.toString());
 
             Statement s3 = methodA.methodBody().statements().get(3);
             VariableData vd3 = VariableDataImpl.of(s3);

@@ -206,7 +206,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             VariableInfoContainer vic = vd.variableInfoContainerOrNull(pi.fullyQualifiedName());
             if (vic == null) return LinksImpl.EMPTY;
             VariableInfo vi = vic.best();
-            Links links = vi.linkedVariables().removeIfFromTo(Expand::isLocalVariable);
+            Links viLinks = vi.linkedVariables();
+            if (viLinks == null || viLinks.primary() == null) return LinksImpl.EMPTY;
+            Links links = viLinks.removeIfFromTo(Expand::isLocalVariable);
             if (ignoreReturnValue.contains(pi)) {
                 return links.removeIfTo(v -> v instanceof ReturnVariable);
             }
@@ -313,7 +315,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 }
             }
             if (statement.hasSubBlocks()) {
-                handleSubBlocks(statement, vd, r);
+                handleSubBlocks(statement, vd);
             }
             if (r != null) {
                 writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
@@ -390,7 +392,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
         }
 
-        private void handleSubBlocks(Statement statement, VariableData vd, Result r) {
+        private void handleSubBlocks(Statement statement, VariableData vd) {
             List<VariableData> vds = statement.subBlockStream()
                     .filter(block -> !block.isEmpty())
                     .map(block -> doBlock(block, vd))
@@ -399,14 +401,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             vd.variableInfoContainerStream()
                     .filter(VariableInfoContainer::hasMerge)
                     .forEach(vic -> {
-                        VariableInfo best = vic.best(Stage.EVALUATION);
-                        Variable variable = best.variable();
-                        Links eval = r == null ? null : r.extra().map().get(variable);
+                        VariableInfo viEval = vic.best(Stage.EVALUATION);
+                        Variable variable = viEval.variable();
+                        Links eval = viEval.linkedVariables();
                         String fqn = variable.fullyQualifiedName();
-                        Links.Builder collect = eval == null ? new LinksImpl.Builder(variable)
+                        Links.Builder collect = eval == null || eval.primary() == null
+                                ? new LinksImpl.Builder(variable)
                                 : new LinksImpl.Builder(eval);
                         AtomicBoolean unmodified = new AtomicBoolean(true);
-                        Set<TypeInfo> downcasts = new HashSet<>(best.analysis().getOrDefault(DOWNCAST_VARIABLE,
+                        Set<TypeInfo> downcasts = new HashSet<>(viEval.analysis().getOrDefault(DOWNCAST_VARIABLE,
                                 ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet());
                         vds.forEach(subVd -> {
                             VariableInfoContainer subVic = subVd.variableInfoContainerOrNull(fqn);
@@ -414,7 +417,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 VariableInfo subVi = subVic.best();
                                 Links subTlv = subVi.linkedVariables();
                                 if (subTlv != null && subTlv.primary() != null) {
-                                    collect.addAll(subTlv);
+                                    collect.addAllDistinct(subTlv);
                                 }
                                 Value.Bool subUnmodified = subVi.analysis().getOrNull(UNMODIFIED_VARIABLE,
                                         ValueImpl.BoolImpl.class);
