@@ -27,7 +27,10 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.stream.Collectors;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSwitch extends CommonTest {
 
@@ -163,6 +166,11 @@ public class TestSwitch extends CommonTest {
         assertEquals("R(int i,int j)", s0.patternVariable().toString());
         SwitchEntry s1 = ns.entries().get(1);
         assertEquals("S(String s,R(int i,int j))", s1.patternVariable().toString());
+
+        String collected = methodInfo.typesReferenced(true)
+                .map(Object::toString).sorted().collect(Collectors.joining(", "));
+        assertTrue(collected.contains("TypeReference[typeInfo=a.b.X.R, explicit=true]"));
+        assertTrue(collected.contains("TypeReference[typeInfo=a.b.X.S, explicit=true]"));
     }
 
 
@@ -185,7 +193,13 @@ public class TestSwitch extends CommonTest {
 
     @Test
     public void test7() {
-        javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse(INPUT7);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+
+        String collected = method.typesReferenced(true)
+                .map(Object::toString).sorted().collect(Collectors.joining(", "));
+        assertTrue(collected.contains("TypeReference[typeInfo=a.b.X.R, explicit=true]"));
+        assertTrue(collected.contains("TypeReference[typeInfo=a.b.X.S, explicit=true]"));
     }
 
 
@@ -291,5 +305,36 @@ public class TestSwitch extends CommonTest {
         assertEquals("E.A", se.conditions().getFirst().toString());
         MethodCall mc = (MethodCall) se.statement().expression();
         assertEquals("this.go(X.A)", mc.toString());
+    }
+
+    @Language("java")
+    private static final String INPUT9 = """
+            package a;
+            public class A {
+                public void m(Object o) {
+                    switch(o) {
+                        case String b:
+                            System.out.println("It's a string");
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("Types referenced")
+    @Test
+    public void test9() {
+        TypeInfo X = javaInspector.parse(INPUT9);
+        MethodInfo method = X.findUniqueMethod("m", 1);
+
+        assertEquals("""
+                TypeReference[typeInfo=java.io.PrintStream, explicit=false], \
+                TypeReference[typeInfo=java.lang.Object, explicit=false], \
+                TypeReference[typeInfo=java.lang.Object, explicit=true], \
+                TypeReference[typeInfo=java.lang.String, explicit=true], \
+                TypeReference[typeInfo=java.lang.System, explicit=true], \
+                TypeReference[typeInfo=java.lang.System, explicit=true], \
+                TypeReference[typeInfo=void, explicit=true]\
+                """, method.typesReferenced(true)
+                .map(Object::toString).sorted().collect(Collectors.joining(", ")));
     }
 }
