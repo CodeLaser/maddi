@@ -498,9 +498,6 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
     private MethodLinkedVariables abstractGetter(MethodInfo methodInfo, Value.FieldValue fv, ReturnVariableImpl rv) {
         LinksImpl.Builder builder = new LinksImpl.Builder(rv);
-        ParameterizedType baseType = methodInfo.returnType();
-        String n = fv.field().name();
-
         if (methodInfo.parameters().isEmpty()) {
             // rv ≡ this.§t  (where §t is a virtual field representing an object of type 'baseType')
             FieldReference t = runtime.newFieldReference(fv.field());
@@ -513,7 +510,8 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                     runtime.newVariableExpression(methodInfo.parameters().getFirst()));
             builder.add(IS_ASSIGNED_FROM, dv);
         }
-        return new MethodLinkedVariablesImpl(builder.build(), methodInfo.parameters().isEmpty() ? List.of() : List.of(LinksImpl.EMPTY));
+        return new MethodLinkedVariablesImpl(builder.build(), methodInfo.parameters().isEmpty()
+                ? List.of() : List.of(LinksImpl.EMPTY));
     }
 
     private MethodLinkedVariables abstractSetter(MethodInfo methodInfo,

@@ -216,8 +216,10 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 // TestFunction,2
                 // variable = this.§es, translated = optional.§es, arrays = 1
                 // what we want  optional.§es -> optional.§xys
+                // TestStream,1
                 TypeInfo owner = VariableTranslationMap.owner(runtime, frK.scope().parameterizedType());
-                FieldInfo newField = vfMapSource.hiddenContent().withOwner(owner);
+                VirtualFields vf = dimensionsFromMapSource ? vfMapSource : vfMapTarget;
+                FieldInfo newField = vf.hiddenContent().withOwner(owner);
                 upscaled = runtime.newFieldReference(newField, frK.scope(), newField.type());
             } else {
                 //TestStaticBiFunction,3
