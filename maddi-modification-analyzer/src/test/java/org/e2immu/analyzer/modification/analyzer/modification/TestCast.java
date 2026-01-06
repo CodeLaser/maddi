@@ -59,7 +59,7 @@ public class TestCast extends CommonTest {
 
         assertTrue(r.isModified());
         MethodLinkedVariables mlv = setAdd.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:r.object≥1:s,0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -", mlv.toString());
+        assertEquals("[0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -", mlv.toString());
 
         Value.VariableBooleanMap map = r.analysis().getOrDefault(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER,
                 ValueImpl.VariableBooleanMapImpl.EMPTY);
@@ -138,7 +138,7 @@ public class TestCast extends CommonTest {
             assertTrue(vi1R.isModified());
         }
         assertTrue(r.isModified());
-        assertEquals("[0:r.object≥1:s,0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -", mlv.toString());
+        assertEquals("[0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -", mlv.toString());
         Value.VariableBooleanMap map = r.analysis().getOrDefault(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER,
                 ValueImpl.VariableBooleanMapImpl.EMPTY);
         assertEquals(1, map.map().size());

@@ -44,7 +44,7 @@ public interface Links extends Iterable<Link>, Value {
     interface Builder extends Iterable<Link> {
         Links build();
 
-        Builder addAll(Links other);
+        Builder addAllDistinct(Links other);
 
         Builder add(LinkNature linkNature, Variable to);
 

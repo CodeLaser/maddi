@@ -285,7 +285,7 @@ public record LinkMethodCall(Runtime runtime,
 
                     // this is the old "join" of previous implementations; we should call expand now
                     Links ls = new Expand(runtime).indirect(links.primary(), link, result.links());
-                    if (ls != null) builder.addAll(ls);
+                    if (ls != null) builder.addAllDistinct(ls);
 
                 } else {
                     builder.add(link.from(), link.linkNature(), runtime.newFieldReference(fr.fieldInfo(),
