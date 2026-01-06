@@ -171,6 +171,11 @@ public class TestInstanceOf extends CommonTest {
         VariableInfo rv0 = vd0.variableInfo(method.fullyQualifiedName());
         assertEquals("method←0:object", rv0.linkedVariables().toString());
 
+        Statement s1 = method.methodBody().statements().getFirst();
+        VariableData vd1 = VariableDataImpl.of(s1);
+        VariableInfo rv1 = vd1.variableInfo(method.fullyQualifiedName());
+        assertEquals("method←0:object,method?", rv1.linkedVariables().toString());
+
         VariableData vd = VariableDataImpl.of(method);
         VariableInfo rv = vd.variableInfo(method.fullyQualifiedName());
         assertEquals("method←0:object", rv.linkedVariables().toString());
