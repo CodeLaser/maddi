@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -16,7 +17,6 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -191,7 +191,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             VariableData vd = doBlock(methodInfo.methodBody(), null);
             Links ofReturnValue = vd == null || returnVariable == null || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
-                    : vd.variableInfo(returnVariable).linkedVariables();
+                    : emptyIfOnlySomeValue(vd.variableInfo(returnVariable).linkedVariables());
             Set<ParameterInfo> paramsInOfReturnValue = ofReturnValue.stream()
                     .flatMap(Link::parameterStream)
                     .collect(Collectors.toUnmodifiableSet());
@@ -202,6 +202,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return mlv;
         }
 
+        private static Links emptyIfOnlySomeValue(Links links) {
+            if (links.stream().allMatch(l ->
+                    l.to() instanceof MarkerVariable mv && (mv.isSomeValue() || mv.isConstant()))) {
+                return LinksImpl.EMPTY;
+            }
+            return links;
+        }
+
         private static Links filteredPi(ParameterInfo pi, Set<ParameterInfo> ignoreReturnValue, VariableData vd) {
             if (vd == null) return LinksImpl.EMPTY;
             VariableInfoContainer vic = vd.variableInfoContainerOrNull(pi.fullyQualifiedName());
@@ -209,7 +217,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             VariableInfo vi = vic.best();
             Links viLinks = vi.linkedVariables();
             if (viLinks == null || viLinks.primary() == null) return LinksImpl.EMPTY;
-            Links links = viLinks.removeIfFromTo(Expand::isLocalVariable);
+            Links links = viLinks.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v));
             if (ignoreReturnValue.contains(pi)) {
                 return links.removeIfTo(v -> v instanceof ReturnVariable);
             }
@@ -306,7 +314,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 if (r != null && r.links().primary() != null) {
                     destination = r.links().primary();
                 } else {
-                    destination = someValue(methodInfo.returnType());
+                    destination = MarkerVariable.someValue(javaInspector.runtime(), methodInfo.returnType());
                 }
                 Links rvLinks = new LinksImpl.Builder(returnVariable)
                         .add(LinkNatureImpl.IS_ASSIGNED_FROM, destination)
@@ -507,9 +515,5 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             return ExpressionVisitor.EMPTY;
         }
-    }
-
-    private Variable someValue(ParameterizedType pt) {
-        return javaInspector.runtime().newLocalVariable(LinksImpl.SOME_VALUE, pt);
     }
 }

@@ -3,7 +3,7 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.AppliedFunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
@@ -60,7 +60,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
+        assertEquals("[-] --> make←$_afi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
@@ -112,7 +112,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
+        assertEquals("[-] --> make←$_afi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
@@ -164,7 +164,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
+        assertEquals("[-] --> make←$_afi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("xx");
@@ -213,7 +213,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
+        assertEquals("[-] --> make←$_afi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
@@ -265,7 +265,7 @@ public class TestStaticBiFunction extends CommonTest {
 
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
+        assertEquals("[-] --> make←$_afi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
@@ -319,7 +319,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> make←$_fi0", tlvMake.toString());
+        assertEquals("[-] --> make←$_afi0", tlvMake.toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viEntry0 = vd0.variableInfo("entry");
@@ -371,7 +371,7 @@ public class TestStaticBiFunction extends CommonTest {
         MethodInfo make = C.findUniqueMethod("make", 1);
         MethodLinkedVariables tlvMake = make.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> make←$_fi1", tlvMake.toString());
+        assertEquals("[-] --> make←$_afi1", tlvMake.toString());
         AppliedFunctionalInterfaceVariable fi1 = (AppliedFunctionalInterfaceVariable)
                 tlvMake.ofReturnValue().stream().findFirst().orElseThrow().to();
         assertEquals("this.ix", fi1.params().getFirst().links().primary().toString());

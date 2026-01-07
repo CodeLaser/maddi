@@ -28,8 +28,6 @@ public interface Link extends Comparable<Link> {
         return Long.compare(linkNature().rank(), o.linkNature().rank());
     }
 
-    boolean toIsIntermediateVariable();
-
     Link translate(TranslationMap translationMap);
 
     Link translateFrom(TranslationMap translationMap);

@@ -1,5 +1,8 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -106,8 +109,8 @@ public record ExpressionVisitor(Runtime runtime,
         // make new object of the correct array type; this will become the primary
         // then assignments per index
         int i = 0;
-        String name = LinksImpl.INTERMEDIATE_CONSTRUCTOR_VARIABLE + variableCounter.getAndIncrement();
-        LocalVariable c = runtime.newLocalVariable(name, cc.parameterizedType());
+        LocalVariable c = IntermediateVariable.newObject(runtime, variableCounter.getAndIncrement(),
+                cc.parameterizedType());
         VariableExpression cVe = runtime.newVariableExpression(c);
         LinksImpl.Builder builder = new LinksImpl.Builder(c);
         Result combined = null;
@@ -129,8 +132,7 @@ public record ExpressionVisitor(Runtime runtime,
     }
 
     Result constantExpression(ConstantExpression<?> ce) {
-        String name = LinksImpl.CONSTANT_VARIABLE + variableCounter.getAndIncrement();
-        LocalVariable lv = runtime.newLocalVariable(name, ce.parameterizedType(), ce);
+        LocalVariable lv = MarkerVariable.constant(variableCounter.getAndIncrement(), ce.parameterizedType(), ce);
         return new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY)
                 .addVariableRepresentingConstant(lv);
     }
@@ -228,8 +230,8 @@ public record ExpressionVisitor(Runtime runtime,
         Result rc = visit(ic.condition(), variableData, stage);
         Result rt = visit(ic.ifTrue(), variableData, stage);
         Result rf = visit(ic.ifFalse(), variableData, stage);
-        String name = LinksImpl.INTERMEDIATE_CONDITIONAL_VARIABLE + variableCounter.getAndIncrement();
-        Variable newPrimary = runtime.newLocalVariable(name, ic.parameterizedType());
+        Variable newPrimary = IntermediateVariable.inlineCondition(runtime, variableCounter.getAndIncrement(),
+                ic.parameterizedType());
         // we must link the new primary to both rt and rf links
         AssignLinksToLocal atl = new AssignLinksToLocal(runtime);
         Links rtChanged = atl.go(newPrimary, rt.links());
@@ -308,8 +310,8 @@ public record ExpressionVisitor(Runtime runtime,
     private Result constructorCall(VariableData variableData, Stage stage, ConstructorCall cc) {
         assert cc.object() == null || cc.object().isEmpty() : "NYI";
 
-        String name = LinksImpl.INTERMEDIATE_CONSTRUCTOR_VARIABLE + variableCounter.getAndIncrement();
-        LocalVariable lv = runtime.newLocalVariable(name, cc.parameterizedType());
+        LocalVariable lv = IntermediateVariable.newObject(runtime, variableCounter.getAndIncrement(),
+                cc.parameterizedType());
         Result object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
 
         // only translate wrt concrete type
@@ -351,9 +353,9 @@ public record ExpressionVisitor(Runtime runtime,
         Result wrapped = new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
         if (wrap) {
             FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(
-                    LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE + variableCounter.getAndIncrement(),
+                    runtime,
+                    variableCounter.getAndIncrement(),
                     lambda.concreteFunctionalType(),
-                    runtime.newEmptyExpression(),
                     wrapped);
             Links links = new LinksImpl.Builder(fiv).build();
             return new Result(links, LinkedVariablesImpl.EMPTY);

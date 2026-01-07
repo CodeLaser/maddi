@@ -205,10 +205,10 @@ public class TestStaticValues1 extends CommonTest {
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1Rv = vd1.variableInfo(method.fullyQualifiedName());
-            assertEquals("-", vi1Rv.linkedVariables().toString());
+            assertEquals("method←$_v", vi1Rv.linkedVariables().toString());
         }
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertTrue(mlv.isEmpty());
+        assertEquals("[0:r.i←$_ce0] --> -", mlv.toString());
     }
 
 
