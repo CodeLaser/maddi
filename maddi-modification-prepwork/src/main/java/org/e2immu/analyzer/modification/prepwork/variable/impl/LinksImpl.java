@@ -10,7 +10,6 @@ import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -184,6 +183,12 @@ public class LinksImpl implements Links {
         @Override
         public void replaceSubsetSuperset(Variable modified) {
             links.replaceAll(l -> l.replaceSubsetSuperset(modified));
+        }
+
+        @Override
+        public void replaceAll(List<Link> newLinks) {
+            links.clear();
+            links.addAll(newLinks);
         }
 
         @Override

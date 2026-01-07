@@ -202,10 +202,20 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return mlv;
         }
 
-        private static Links emptyIfOnlySomeValue(Links links) {
+        private Links emptyIfOnlySomeValue(Links links) {
             if (links.stream().allMatch(l ->
                     l.to() instanceof MarkerVariable mv && (mv.isSomeValue() || mv.isConstant()))) {
                 return LinksImpl.EMPTY;
+            }
+            // remove SomeValue unless p0 is present
+            if (!links.isEmpty()) {
+                ParameterInfo p0 = methodInfo.parameters().isEmpty() ? null : methodInfo.parameters().getFirst();
+                if (p0 == null || links.stream().noneMatch(l ->
+                        l.from().equals(links.primary()) &&
+                        l.linkNature().isIdenticalTo() &&
+                        l.to() instanceof ParameterInfo pi && pi.equals(p0))) {
+                    return links.removeIfTo(v -> v instanceof MarkerVariable mv && mv.isSomeValue());
+                }
             }
             return links;
         }

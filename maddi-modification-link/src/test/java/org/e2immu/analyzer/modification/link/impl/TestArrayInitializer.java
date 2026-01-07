@@ -96,7 +96,8 @@ public class TestArrayInitializer extends CommonTest {
         MethodInfo get = B.findUniqueMethod("add", 2);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("[-, -] --> add←0:list,add[0]←1:item,add[0]←this.base,add[1]←1:item", mlv.toString());
+        assertEquals("[-, -] --> add←0:list,add←$_v,add[0]←1:item,add[0]←this.base,add[1]←1:item",
+                mlv.toString());
     }
 
 

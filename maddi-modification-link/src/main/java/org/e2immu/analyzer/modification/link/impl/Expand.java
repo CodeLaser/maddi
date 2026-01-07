@@ -1,7 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -13,7 +13,6 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -429,18 +428,37 @@ public record Expand(Runtime runtime) {
                     // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
                     //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
                     Links.Builder builder = followGraph(graph, vi.variable());
-                    boolean unmodified = !modifiedVariables.contains(vi.variable())
-                                         && notLinkedToModified(builder, modifiedVariables);
-                    builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
-                    if (vi.variable() instanceof ReturnVariable) {
-                        builder.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v));
-                    }
-                    if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
-                        Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
-                        vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
-                    }
-                    if (!unmodified) {
-                        builder.replaceSubsetSuperset(vi.variable());
+
+                    if (vi.variable() instanceof ReturnVariable rv) {
+                        // replace all intermediates by a marker; don't worry about duplicate makers for now
+                        boolean needMarker = false;
+                        List<Link> newLinks = new ArrayList<>();
+                        for (Link link : builder) {
+                            if (link.linkNature().isIdenticalTo()
+                                && link.to() instanceof IntermediateVariable iv && iv.isNewObject()) {
+                                needMarker = true;
+                            } else if (LinkVariable.acceptForLinkedVariables(link.from())
+                                       && LinkVariable.acceptForLinkedVariables(link.to())) {
+                                newLinks.add(link);
+                            }
+                        }
+                        if (needMarker) {
+                            Variable marker = MarkerVariable.someValue(runtime, rv.methodInfo().returnType());
+                            newLinks.addFirst(new LinksImpl.LinkImpl(rv, IS_ASSIGNED_FROM, marker));
+                        }
+                        builder.replaceAll(newLinks);
+                    } else {
+                        boolean unmodified = !modifiedVariables.contains(vi.variable())
+                                             && notLinkedToModified(builder, modifiedVariables);
+                        builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
+
+                        if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
+                            Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
+                            vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
+                        }
+                        if (!unmodified) {
+                            builder.replaceSubsetSuperset(vi.variable());
+                        }
                     }
                     Links newLinks = builder.build();
                     if (newLinkedVariables.put(vi.variable(), newLinks) != null) {

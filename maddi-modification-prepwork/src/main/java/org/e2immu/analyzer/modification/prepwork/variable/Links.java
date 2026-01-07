@@ -42,6 +42,8 @@ public interface Links extends Iterable<Link>, Value {
     Iterable<Links> removeThisAsPrimary();
 
     interface Builder extends Iterable<Link> {
+        void replaceAll(List<Link> newLinks);
+
         Links build();
 
         Builder addAllDistinct(Links other);
