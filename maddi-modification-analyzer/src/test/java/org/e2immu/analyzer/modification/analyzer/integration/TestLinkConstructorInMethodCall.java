@@ -17,12 +17,11 @@ package org.e2immu.analyzer.modification.analyzer.integration;
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
@@ -30,6 +29,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
@@ -90,22 +91,31 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
         TypeInfo exceptionThrown = X.findSubType("ExceptionThrown");
         {
             MethodInfo exceptionAccessor = exceptionThrown.findUniqueMethod("exception", 0);
+            VariableData vd = VariableDataImpl.of(exceptionAccessor.methodBody().statements().getFirst());
+            assertEquals("""
+                    a.b.X.ExceptionThrown.exception, \
+                    a.b.X.ExceptionThrown.exception(), \
+                    a.b.X.ExceptionThrown.this\
+                    """, vd.knownVariableNamesToString());
+            VariableInfo viThis = vd.variableInfo("a.b.X.ExceptionThrown.this");
+            assertFalse(viThis.isModified());
             MethodLinkedVariablesImpl mlvExAcc = exceptionAccessor.analysis().getOrNull(METHOD_LINKS,
                     MethodLinkedVariablesImpl.class);
-            assertEquals("", mlvExAcc.toString());
+            assertEquals("[] --> exception←this.exception", mlvExAcc.toString());
             FieldInfo exception = exceptionThrown.getFieldByName("exception", true);
             assertTrue(exception.isPropertyFinal());
 
             assertTrue(exceptionThrown.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE).isMutable());
             assertSame(FINAL_FIELDS, exceptionThrown.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
+
+            assertTrue(exceptionAccessor.isNonModifying());
+            assertTrue(exception.isUnmodified());
         }
-
         {
-
             {
                 MethodInfo constructor = loopDataImpl.findConstructor(1);
-                assertEquals("E=this.exit", constructor.analysis().getOrNull(METHOD_LINKS,
-                       MethodLinkedVariablesImpl.class).toString());
+                assertEquals("[0:exit→this.exit] --> -", constructor.analysis().getOrNull(METHOD_LINKS,
+                        MethodLinkedVariablesImpl.class).toString());
 
                 ParameterInfo p0 = constructor.parameters().getFirst();
                 assertTrue(p0.analysis().getOrDefault(MODIFIED_COMPONENTS_PARAMETER,
@@ -120,21 +130,39 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
                 Statement s0 = withException.methodBody().statements().getFirst();
                 VariableData vd0 = VariableDataImpl.of(s0);
                 VariableInfo vi0Ee = vd0.variableInfo("ee");
-                assertEquals("Type a.b.X.ExceptionThrown E=new ExceptionThrown(e) this.exception=e", vi0Ee.linkedVariables().toString());
-                // the "M" is there because the hidden content type "Exit" gets a concrete modifiable instance, ExceptionThrown
-                // the -2- is there because the objects are of different types (ExceptionThrown vs Exception)
-                // the "F" and "*" indicate that a field in ET is linked to the whole Exception object
-                assertEquals("0M-2-*M|0-*:e", vi0Ee.linkedVariables().toString());
+                assertEquals("ee.exception←0:e", vi0Ee.linkedVariables().toString());
             }
             {
                 Statement s1 = withException.methodBody().lastStatement();
                 VariableData vd1 = VariableDataImpl.of(s1);
                 VariableInfo vi1Rv = vd1.variableInfo(withException.fullyQualifiedName());
-                assertEquals("Type a.b.X.LoopDataImpl E=new LoopDataImpl(ee) this.exit=ee", vi1Rv.linkedVariables().toString());
-                assertEquals("0M-4-*M:e, 0M-4-*M:ee", vi1Rv.linkedVariables().toString());
-                // modification areas missing because 4-links: "0M-4-*M|0.0-*:e, 0M-4-*M|0-*:ee"
+                Links links = vi1Rv.linkedVariables();
+                assertEquals("""
+                        a.b.X.LoopDataImpl.withException(Exception)
+                        a.b.X.ExceptionThrown.exception#a.b.X.LoopDataImpl.exit#a.b.X.LoopDataImpl.withException(Exception)
+                        a.b.X.Exit.exception#a.b.X.LoopData.exit#a.b.X.LoopDataImpl.withException(Exception)
+                        a.b.X.Exit.exception#a.b.X.LoopDataImpl.exit#a.b.X.LoopDataImpl.withException(Exception)
+                        $_v
+                        a.b.X.LoopDataImpl.withException(Exception):0:e
+                        """, Stream.concat(links.stream().map(Link::from), links.stream().map(Link::to))
+                        .distinct()
+                        .map(Variable::fullyQualifiedName)
+                        .collect(Collectors.joining("\n", "", "\n")));
             }
+            assertEquals("""
+                    [-] --> \
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←0:e,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←0:e,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←0:e\
+                    """, withException.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
         }
+
         testLoopData(X);
     }
 
@@ -170,13 +198,13 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
         List<Info> analysisOrder = prepWork(X);
-        analyzer.go(analysisOrder, 2);
+        analyzer.go(analysisOrder, 1);
         testImmutable(X);
 
         TypeInfo loopDataImpl = X.findSubType("LoopDataImpl");
         MethodInfo ldConstructor = loopDataImpl.findConstructor(1);
         MethodLinkedVariables mlvLdCon = ldConstructor.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("E=this.exit", mlvLdCon.toString());
+        assertEquals("[0:exit→this.exit] --> -", mlvLdCon.toString());
 
         MethodInfo withException = loopDataImpl.findUniqueMethod("withException", 1);
         assertTrue(withException.isNonModifying());
@@ -187,9 +215,17 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
             // formal type of variable:
             assertEquals("Type a.b.X.LoopData", vi0Rv.variable().parameterizedType().toString());
             assertEquals("""
-                    Type a.b.X.LoopDataImpl E=new LoopDataImpl(new ExceptionThrown(e)) this.exit=new ExceptionThrown(e)\
+                    withException←Λ$_v,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←0:e,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←0:e,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←withException.exit.exception,\
+                    withException.exit.exception←0:e\
                     """, vi0Rv.linkedVariables().toString());
-            assertEquals("0M-4-*M:e", vi0Rv.linkedVariables().toString()); // |0.0-*:e is missing, because 4-link
         }
         testLoopData(X);
     }
