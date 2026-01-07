@@ -499,14 +499,16 @@ public record ExpressionVisitor(Runtime runtime,
         // handle all matters 'modification'
 
         Set<Variable> modified = new HashSet<>();
-        Set<Variable> modifiedFunctionalInterfaceComponents = new HashSet<>();
 
-        handleMethodModification(mc, objectPrimary, modifiedFunctionalInterfaceComponents, modified);
+        handleMethodModification(mc, objectPrimary, modified);
         if (!mc.methodInfo().parameters().isEmpty()) {
             PropagateComponents pc = new PropagateComponents(runtime, variableData, stage);
             for (ParameterInfo pi : mc.methodInfo().parameters()) {
                 handleParameterModification(mc, pi, params, modified, pc);
             }
+            PropagateApplied pa = new PropagateApplied(runtime);
+            Set<Variable> modifiedByPropagation = pa.go(variableData, stage, params, mlv.ofParameters());
+            modified.addAll(modifiedByPropagation);
         }
         return r.addModified(modified)
                 .add(new WriteMethodCall(mc, object.links()))
@@ -557,15 +559,10 @@ public record ExpressionVisitor(Runtime runtime,
 
     private void handleMethodModification(MethodCall mc,
                                           Variable objectPrimary,
-                                          Set<Variable> modifiedFunctionalInterfaceComponents,
                                           Set<Variable> modified) {
         if (objectPrimary != null && !mc.methodInfo().isFinalizer()) {
             boolean modifying = mc.methodInfo().isModifying();
-            if (objectPrimary.parameterizedType().isFunctionalInterface()
-                && objectPrimary instanceof FieldReference fr
-                && !fr.isStatic() && !fr.scopeIsRecursivelyThis()) {
-                modifiedFunctionalInterfaceComponents.add(objectPrimary);
-            } else if (modifying) {
+            if (modifying) {
                 modified.add(objectPrimary);
                 Value.VariableBooleanMap modifiedComponents = mc.methodInfo().analysis().getOrNull(MODIFIED_COMPONENTS_METHOD,
                         ValueImpl.VariableBooleanMapImpl.class);

@@ -146,8 +146,8 @@ public class TestModificationFunctional extends CommonTest {
                 int j;
             
                 int go(String in) {
-                    R r = new R(this::parse);
-                    return run(in, r);
+                    R nr = new R(this::parse);
+                    return run(in, nr);
                 }
                 int run(String s, R r) {
                     System.out.println("Applying function on "+s);
@@ -172,7 +172,7 @@ public class TestModificationFunctional extends CommonTest {
 
         MethodInfo run = X.findUniqueMethod("run", 2);
         MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:r.function↗$_afi2] --> run↖Λ1:r.function,run←$_afi2", mlvRun.toString());
+        assertEquals("[-, 1:r.function↗$_afi2] --> run←$_afi2,run↖Λ1:r.function", mlvRun.toString());
         ParameterInfo runS = run.parameters().get(0);
         ParameterInfo runR = run.parameters().get(1);
 
