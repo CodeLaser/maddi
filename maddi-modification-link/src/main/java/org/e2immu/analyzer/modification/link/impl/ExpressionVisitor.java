@@ -92,15 +92,41 @@ public record ExpressionVisitor(Runtime runtime,
                     .reduce(EMPTY, Result::merge);
             case ArrayLength al -> visit(al.scope(), variableData, stage).moveLinksToExtra();
             case EnclosedExpression ee -> visit(ee.inner(), variableData, stage);
-            case UnaryOperator uo -> visit(uo.expression(), variableData, stage).with(LinksImpl.EMPTY);
-            case GreaterThanZero gt0 -> visit(gt0.expression(), variableData, stage);
-            case BinaryOperator bo -> visit(bo.lhs(), variableData, stage)
-                    .merge(visit(bo.rhs(), variableData, stage)).with(LinksImpl.EMPTY);
+            case UnaryOperator uo -> unaryOperator(variableData, stage, uo);
+            case GreaterThanZero gt0 -> greaterThanZero(variableData, stage, gt0);
+            case BinaryOperator bo -> binaryOperator(variableData, stage, bo);
             case TypeExpression _, EmptyExpression _ -> EMPTY;
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
         if (r.getEvaluated() == null) r.setEvaluated(expression);
         return r;
+    }
+
+    private @NotNull Result greaterThanZero(VariableData variableData, Stage stage, GreaterThanZero gt0) {
+        Result r = visit(gt0.expression(), variableData, stage);
+        GreaterThanZero newGt0 = runtime.newGreaterThanZero(r.getEvaluated(), gt0.allowEquals());
+        return r.setEvaluated(newGt0);
+    }
+
+    private @NotNull Result unaryOperator(VariableData variableData, Stage stage, UnaryOperator uo) {
+        Result result = visit(uo.expression(), variableData, stage);
+        UnaryOperator newUnary = runtime.newUnaryOperator(uo.comments(), uo.source(), uo.operator(),
+                result.getEvaluated(), uo.precedence());
+        return result.with(LinksImpl.EMPTY).setEvaluated(newUnary);
+    }
+
+    private Result binaryOperator(VariableData variableData, Stage stage, BinaryOperator bo) {
+        Result rLhs = visit(bo.lhs(), variableData, stage);
+        Result rRhs = visit(bo.rhs(), variableData, stage);
+        BinaryOperator evaluated = runtime.newBinaryOperatorBuilder()
+                .setLhs(rLhs.getEvaluated())
+                .setOperator(bo.operator()).setRhs(rRhs.getEvaluated())
+                .setParameterizedType(bo.parameterizedType()).setPrecedence(bo.precedence())
+                .setSource(bo.source())
+                .build();
+        return rLhs.merge(rRhs)
+                .with(LinksImpl.EMPTY)
+                .setEvaluated(evaluated);
     }
 
     Result arrayInitializer(VariableData variableData, Stage stage, ConstructorCall cc) {
@@ -134,7 +160,7 @@ public record ExpressionVisitor(Runtime runtime,
     Result constantExpression(ConstantExpression<?> ce) {
         LocalVariable lv = MarkerVariable.constant(variableCounter.getAndIncrement(), ce.parameterizedType(), ce);
         return new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY)
-                .addVariableRepresentingConstant(lv);
+                .addVariableRepresentingConstant(lv).setEvaluated(ce);
     }
 
     /*

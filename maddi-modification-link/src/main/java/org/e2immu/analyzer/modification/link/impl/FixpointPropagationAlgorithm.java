@@ -35,7 +35,8 @@ public class FixpointPropagationAlgorithm {
             for (Map.Entry<V, L> e : graph.apply(u).entrySet()) {
                 V w = e.getKey();
 
-                assert !u.equals(w) : "graph has a self-loop, may cause concurrent modification exceptions";
+                // NOTE: concurrent modification exceptions are caused by u equals v
+                // but that should not be possible see Expand.mergeEdgeSingle()
 
                 for (L lbl : labels.get(u)) {
                     L newLabel = combine.apply(lbl, e.getValue());

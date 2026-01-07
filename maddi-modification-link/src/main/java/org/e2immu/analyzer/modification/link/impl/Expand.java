@@ -81,6 +81,7 @@ public record Expand(Runtime runtime) {
                                            V from,
                                            LinkNature linkNature,
                                            V to) {
+        if (from.equals(to)) return false; // safety measure, is technically possible
         Map<V, LinkNature> edges = graph.get(from);
         boolean change = false;
         if (edges == null) {
