@@ -27,7 +27,8 @@ public class TestLinkNature {
                 SHARES_ELEMENTS, SHARES_FIELDS,
                 IS_SUBSET_OF, IS_SUPERSET_OF, IS_ELEMENT_OF, CONTAINS_AS_MEMBER,
                 IS_IDENTICAL_TO, IS_ASSIGNED_FROM, IS_ASSIGNED_TO,
-                IS_FIELD_OF, CONTAINS_AS_FIELD);
+                IS_FIELD_OF, CONTAINS_AS_FIELD,
+                IS_DECORATED_WITH);
     }
 
     @Test

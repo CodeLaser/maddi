@@ -4,6 +4,8 @@ import java.util.List;
 
 public interface LinkNature {
 
+    boolean isDecoration();
+
     boolean isIdenticalTo();
 
     boolean multiplySymbols();

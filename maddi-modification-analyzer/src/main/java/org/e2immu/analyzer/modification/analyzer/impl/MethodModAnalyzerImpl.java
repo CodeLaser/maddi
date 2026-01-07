@@ -166,12 +166,12 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
                 pi.analysis().setAllowControlledOverwrite(MODIFIED_COMPONENTS_PARAMETER, vbm);
             }
 
-            Value.VariableBooleanMap mfi = vi.analysis().getOrNull(MODIFIED_FI_COMPONENTS_VARIABLE,
+            /*Value.VariableBooleanMap mfi = vi.analysis().getOrNull(MODIFIED_FI_COMPONENTS_VARIABLE,
                     ValueImpl.VariableBooleanMapImpl.class);
             if (mfi != null && !mfi.map().isEmpty()) {
                 Value.VariableBooleanMap thisScope = translateVariableBooleanMapToThisScope(pi, mfi.map());
                 pi.analysis().setAllowControlledOverwrite(MODIFIED_FI_COMPONENTS_PARAMETER, thisScope);
-            }
+            }*/
 
             Value.SetOfTypeInfo casts = vi.analysis().getOrDefault(DOWNCAST_VARIABLE, ValueImpl.SetOfTypeInfoImpl.EMPTY);
             if (!casts.typeInfoSet().isEmpty()) {

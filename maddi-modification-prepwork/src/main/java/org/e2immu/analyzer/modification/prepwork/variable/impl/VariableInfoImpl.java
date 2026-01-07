@@ -30,9 +30,6 @@ import org.slf4j.LoggerFactory;
 
 public class VariableInfoImpl implements VariableInfo {
     public static final Property UNMODIFIED_VARIABLE = new PropertyImpl("unmodifiedVariable");
-    public static final Property MODIFIED_FI_COMPONENTS_VARIABLE =
-            new PropertyImpl("modifiedFunctionalInterfaceComponentsVariable",
-                    ValueImpl.VariableBooleanMapImpl.EMPTY);
 
     public static final Property DOWNCAST_VARIABLE = new PropertyImpl("downcastVariable", ValueImpl.SetOfTypeInfoImpl.EMPTY);
 

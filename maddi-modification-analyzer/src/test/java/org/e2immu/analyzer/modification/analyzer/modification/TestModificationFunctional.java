@@ -15,30 +15,26 @@
 package org.e2immu.analyzer.modification.analyzer.modification;
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.MODIFIED_FI_COMPONENTS_VARIABLE;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.MODIFIED_FI_COMPONENTS_PARAMETER;
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.VariableBooleanMapImpl.EMPTY;
 import static org.junit.jupiter.api.Assertions.*;
 
-@Disabled
 public class TestModificationFunctional extends CommonTest {
 
     /*
@@ -175,22 +171,22 @@ public class TestModificationFunctional extends CommonTest {
         assertSame(FALSE, parse.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
 
         MethodInfo run = X.findUniqueMethod("run", 2);
+        MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-, 1:r.function↗$_afi2] --> run↖Λ1:r.function,run←$_afi2", mlvRun.toString());
         ParameterInfo runS = run.parameters().get(0);
         ParameterInfo runR = run.parameters().get(1);
-        {
-            Statement s1 = run.methodBody().lastStatement();
-            VariableData vd1 = VariableDataImpl.of(s1);
-            VariableInfo vi1R = vd1.variableInfo(runR);
-            assertEquals("r.function=true", vi1R.analysis()
-                    .getOrDefault(MODIFIED_FI_COMPONENTS_VARIABLE, EMPTY).toString());
-        }
-        {
-            assertSame(TRUE, runS.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-            assertEquals("this.function=true", runR.analysis().getOrNull(MODIFIED_FI_COMPONENTS_PARAMETER,
-                    ValueImpl.VariableBooleanMapImpl.class).toString());
-            assertSame(TRUE, runR.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-            assertSame(TRUE, run.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
-        }
+
+        Statement s1 = run.methodBody().lastStatement();
+        VariableData vd1 = VariableDataImpl.of(s1);
+        VariableInfo vi1R = vd1.variableInfo(runR);
+        assertEquals("1:r.function↗$_afi2,1:r.function↗run", vi1R.linkedVariables().toString());
+
+
+        assertSame(TRUE, runS.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
+        assertSame(TRUE, runR.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
+        assertSame(TRUE, run.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
+
+        // now test the propagation
         MethodInfo go = X.findUniqueMethod("go", 1);
         assertSame(FALSE, go.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
         ParameterInfo goIn = go.parameters().getFirst();
@@ -239,13 +235,13 @@ public class TestModificationFunctional extends CommonTest {
             Statement s1 = run.methodBody().lastStatement();
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1S = vd1.variableInfo(runS);
-            assertEquals("s.r.function=true", vi1S.analysis()
-                    .getOrDefault(MODIFIED_FI_COMPONENTS_VARIABLE, EMPTY).toString());
+            //    assertEquals("s.r.function=true", vi1S.analysis()
+            //            .getOrDefault(MODIFIED_FI_COMPONENTS_VARIABLE, EMPTY).toString());
         }
 
         assertSame(TRUE, runS.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-        assertEquals("this.r.function=true", runS.analysis().getOrNull(MODIFIED_FI_COMPONENTS_PARAMETER,
-                ValueImpl.VariableBooleanMapImpl.class).toString());
+        //   assertEquals("this.r.function=true", runS.analysis().getOrNull(MODIFIED_FI_COMPONENTS_PARAMETER,
+        //            ValueImpl.VariableBooleanMapImpl.class).toString());
         assertSame(TRUE, run.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
 
         MethodInfo go = X.findUniqueMethod("go", 1);
@@ -355,13 +351,13 @@ public class TestModificationFunctional extends CommonTest {
             Statement s1 = run.methodBody().lastStatement();
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1S = vd1.variableInfo(runS);
-            assertEquals("s.r.function=true", vi1S.analysis()
-                    .getOrDefault(MODIFIED_FI_COMPONENTS_VARIABLE, EMPTY).toString());
+            //    assertEquals("s.r.function=true", vi1S.analysis()
+            //           .getOrDefault(MODIFIED_FI_COMPONENTS_VARIABLE, EMPTY).toString());
         }
 
         assertSame(TRUE, runS.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-        assertEquals("this.r.function=true", runS.analysis().getOrNull(MODIFIED_FI_COMPONENTS_PARAMETER,
-                ValueImpl.VariableBooleanMapImpl.class).toString());
+        //   assertEquals("this.r.function=true", runS.analysis().getOrNull(MODIFIED_FI_COMPONENTS_PARAMETER,
+        //           ValueImpl.VariableBooleanMapImpl.class).toString());
         assertSame(TRUE, run.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
 
 

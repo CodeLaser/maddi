@@ -66,8 +66,6 @@ public class PropertyImpl implements Property {
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
-    public static final Property MODIFIED_FI_COMPONENTS_PARAMETER = new PropertyImpl("modifiedFunctionalInterfaceComponentsParameter",
-            ValueImpl.VariableBooleanMapImpl.EMPTY);
     public static final Property MODIFIED_COMPONENTS_PARAMETER = new PropertyImpl("modifiedComponentsParameter",
             ValueImpl.VariableBooleanMapImpl.EMPTY);
     public static final Property IGNORE_MODIFICATIONS_PARAMETER = new PropertyImpl("ignoreModsParameter");

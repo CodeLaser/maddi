@@ -9,30 +9,33 @@ import java.util.List;
 public class LinkNatureImpl implements LinkNature {
     // rank is from least interesting to most interesting
 
-    public static final LinkNatureImpl NONE = new LinkNatureImpl("X", -2);
-    public static final LinkNatureImpl EMPTY = new LinkNatureImpl("∅", -1);
+    public static final LinkNature NONE = new LinkNatureImpl("X", -2);
+    public static final LinkNature EMPTY = new LinkNatureImpl("∅", -1);
 
-    public static final LinkNatureImpl IS_FIELD_OF = new LinkNatureImpl("≺", 0);
-    public static final LinkNatureImpl CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 1);
-    public static final LinkNatureImpl SHARES_FIELDS = new LinkNatureImpl("≈", 2);
+    public static final LinkNature IS_FIELD_OF = new LinkNatureImpl("≺", 0);
+    public static final LinkNature CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 1);
+    public static final LinkNature SHARES_FIELDS = new LinkNatureImpl("≈", 2);
 
-    public static final LinkNatureImpl OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 3);
-    public static final LinkNatureImpl IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 4);
-    public static final LinkNatureImpl OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 5);
+    public static final LinkNature OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 3);
+    public static final LinkNature IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 4);
+    public static final LinkNature OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 5);
 
-    public static final LinkNatureImpl SHARES_ELEMENTS = new LinkNatureImpl("~", 6);
+    public static final LinkNature SHARES_ELEMENTS = new LinkNatureImpl("~", 6);
 
-    public static final LinkNatureImpl IS_SUBSET_OF = new LinkNatureImpl("⊆", 7);
-    public static final LinkNatureImpl IS_SUPERSET_OF = new LinkNatureImpl("⊇", 8);
+    public static final LinkNature IS_SUBSET_OF = new LinkNatureImpl("⊆", 7);
+    public static final LinkNature IS_SUPERSET_OF = new LinkNatureImpl("⊇", 8);
 
-    public static final LinkNatureImpl IS_ELEMENT_OF = new LinkNatureImpl("∈", 9);
-    public static final LinkNatureImpl CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 10);
+    public static final LinkNature IS_ELEMENT_OF = new LinkNatureImpl("∈", 9);
+    public static final LinkNature CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 10);
+
+    public static final LinkNature IS_DECORATED_WITH = new LinkNatureImpl("↗", 11);
+    public static final LinkNature CONTAINS_DECORATION = new LinkNatureImpl("↖", 12);
 
     // java a=b implies a ← b
-    public static final LinkNatureImpl IS_ASSIGNED_FROM = new LinkNatureImpl("←", 11);
-    public static final LinkNatureImpl IS_ASSIGNED_TO = new LinkNatureImpl("→", 12);
+    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 30);
+    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 31);
 
-    public static final LinkNatureImpl IS_IDENTICAL_TO = new LinkNatureImpl("≡", 13);
+    public static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", 32);
 
     private final String symbol;
     private final int rank;
@@ -50,6 +53,11 @@ public class LinkNatureImpl implements LinkNature {
     @Override
     public boolean isIdenticalTo() {
         return this == IS_IDENTICAL_TO || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO;
+    }
+
+    @Override
+    public boolean isDecoration() {
+        return this == IS_DECORATED_WITH || this == CONTAINS_DECORATION;
     }
 
     @Override
@@ -85,6 +93,8 @@ public class LinkNatureImpl implements LinkNature {
         if (this == IS_IN_OBJECT_GRAPH) return OBJECT_GRAPH_CONTAINS;
         if (this == IS_ASSIGNED_FROM) return IS_ASSIGNED_TO;
         if (this == IS_ASSIGNED_TO) return IS_ASSIGNED_FROM;
+        if (this == IS_DECORATED_WITH) return CONTAINS_DECORATION;
+        if (this == CONTAINS_DECORATION) return IS_DECORATED_WITH;
         return this;
     }
 
@@ -102,6 +112,12 @@ public class LinkNatureImpl implements LinkNature {
         if (this == IS_IDENTICAL_TO) return other;
         if (other == IS_ASSIGNED_TO) return this; // a R b → c implies a R c;
         if (this == IS_ASSIGNED_FROM) return other; // a ← b R c implies a R c
+
+        // no other interactions with IS_DECORATED_WITH
+        if (this == IS_DECORATED_WITH ||
+            other == IS_DECORATED_WITH ||
+            this == CONTAINS_DECORATION ||
+            other == CONTAINS_DECORATION) return NONE;
 
         if (other == IS_ASSIGNED_FROM && this != IS_ASSIGNED_TO
             && this != CONTAINS_AS_FIELD) {
