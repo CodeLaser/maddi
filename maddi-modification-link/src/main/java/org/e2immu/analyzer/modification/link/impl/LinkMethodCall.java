@@ -245,7 +245,8 @@ public record LinkMethodCall(Runtime runtime,
                 // translate params in list with values from applied.params()
                 List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
                 List<LinkFunctionalInterface.Triplet> toAdd =
-                        new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
+                        applied.sourceOfFunctionalInterface() == null ? List.of()
+                                : new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
                                 .go(applied.sourceOfFunctionalInterface().parameterizedType(),
                                         fromTranslated, linkNature, builder.primary(), translated,
                                         objectPrimary);
@@ -273,6 +274,7 @@ public record LinkMethodCall(Runtime runtime,
         for (Link link : links) {
             if (link.to() instanceof ParameterInfo pi) {
                 // replace
+                assert pi.index() < params.size();
                 Variable primary = Objects.requireNonNullElse(params.get(pi.index()).links().primary(), link.to());
                 builder.add(link.from(), link.linkNature(), primary);
             } else if (link.to() instanceof FieldReference fr && fr.scopeVariable() instanceof ParameterInfo pi) {
