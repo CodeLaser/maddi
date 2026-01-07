@@ -73,6 +73,10 @@ public class Result {
         return this;
     }
 
+    public Set<Variable> modifiedFunctionalInterfaceComponents() {
+        return modifiedFunctionalInterfaceComponents;
+    }
+
     public Result addModified(Set<Variable> modified) {
         this.modified.addAll(modified);
         return this;

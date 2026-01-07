@@ -166,9 +166,10 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         Variable translated = tm.translateVariableRecursively(variable);
         Variable upscaled;
         TypeParameter sourceTp = vfMapSource.hiddenContent().type().typeParameter();
-        TypeParameter targetTp = vfMapTarget.hiddenContent().type().typeParameter();
-        int arrays = dimensionsFromMapSource ? vfMapSource.hiddenContent().type().arrays()
-                : vfMapTarget.hiddenContent().type().arrays();
+        TypeParameter targetTp = vfMapTarget.hiddenContent() == null
+                ? null : vfMapTarget.hiddenContent().type().typeParameter();
+        int targetArrays = vfMapTarget.hiddenContent() == null ? 0 : vfMapTarget.hiddenContent().type().arrays();
+        int arrays = dimensionsFromMapSource ? vfMapSource.hiddenContent().type().arrays() : targetArrays;
         if (targetTp != null) {
             if (sourceTp != null) {
                 ParameterizedType type = vfMapSource.hiddenContent().type().copyWithArrays(arrays);
@@ -231,12 +232,14 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             // vfMapSource §xys, vfMapTarget §xy (still arrays == 0)
 
             // TestStaticBiFunction,3: both vfMapSource and vfMapTarget have §xy
-            int arrayDiff = vfMapSource.hiddenContent().type().arrays() - vfMapTarget.hiddenContent().type().arrays();
+            int arrayDiff = vfMapSource.hiddenContent().type().arrays() - targetArrays;
             if (arrayDiff == 0) {
                 upscaled = translated;
             } else {
-                upscaled = runtime.newFieldReference(vfMapTarget.hiddenContent(), runtime.newVariableExpression(translated),
-                        vfMapTarget.hiddenContent().type());
+                FieldInfo targetField = vfMapTarget.hiddenContent();
+                assert targetField != null;
+                upscaled = runtime.newFieldReference(targetField, runtime.newVariableExpression(translated),
+                        targetField.type());
             }
         }
 

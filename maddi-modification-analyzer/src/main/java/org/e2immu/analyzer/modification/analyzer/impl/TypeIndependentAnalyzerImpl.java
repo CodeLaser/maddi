@@ -118,7 +118,8 @@ public class TypeIndependentAnalyzerImpl extends CommonAnalyzerImpl implements T
             }
             assert indyFromHierarchy.isAtLeastIndependentHc();
 
-            return loopOverFieldsAndAbstractMethods(typeInfo);
+            Independent fromFieldsAndAbstractMethods = loopOverFieldsAndAbstractMethods(typeInfo);
+            return indyFromHierarchy.min(fromFieldsAndAbstractMethods);
         }
 
         private Independent independentSuper(TypeInfo superTypeInfo) {

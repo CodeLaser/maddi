@@ -18,6 +18,7 @@ package org.e2immu.analyzer.modification.analyzer.integration;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.Statement;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl.LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.*;
@@ -81,6 +83,9 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
                 """, analysisOrder.toString());
 
         TypeInfo loopDataImpl = X.findSubType("LoopDataImpl");
+        // test initial value
+        assertSame(DEPENDENT, loopDataImpl.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+
         FieldInfo exit = loopDataImpl.getFieldByName("exit", true);
         assertTrue(exit.isPropertyFinal());
 
@@ -236,13 +241,18 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
 
         TypeInfo exit = X.findSubType("Exit");
         assertSame(IMMUTABLE_HC, exit.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
+        assertSame(INDEPENDENT, exit.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
     }
 
     private void testLoopData(TypeInfo X) {
         TypeInfo loopDataImpl = X.findSubType("LoopDataImpl");
+        FieldInfo exit = loopDataImpl.getFieldByName("exit", true);
+        assertTrue(exit.isUnmodified());
+        assertEquals("this.exit←0:exit", exit.analysis().getOrNull(LINKS, LinksImpl.class).toString());
+
         MethodInfo ldImplWithException = loopDataImpl.findUniqueMethod("withException", 1);
         assertTrue(ldImplWithException.isNonModifying());
-        assertSame(INDEPENDENT_HC, loopDataImpl.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+        assertSame(INDEPENDENT, loopDataImpl.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(IMMUTABLE_HC, loopDataImpl.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
 
         // LoopData's properties are computed from LoopDataImpl
