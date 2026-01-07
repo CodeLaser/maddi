@@ -54,7 +54,7 @@ public class TestList extends CommonTest {
         FieldInfo tsField = X.getFieldByName("ts", true);
         FieldReference ts = runtime.newFieldReference(tsField);
         get.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(
-                new LinksImpl.Builder(rv).add(LinkNatureImpl.IS_ELEMENT_OF, ts).build(), List.of()));
+                new LinksImpl.Builder(rv).add(LinkNatureImpl.IS_ELEMENT_OF, ts).build(), List.of(LinksImpl.EMPTY)));
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
