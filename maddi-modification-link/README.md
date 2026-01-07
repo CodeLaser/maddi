@@ -84,6 +84,7 @@ One can say that the first entry `entry ∈ map.§kvs`.
 
 All `k` elements in a map can be expressed with the slice `§kvs[-1].§k`.
 Indexing in `entry`, we can write
+
 ```
 entry.§kv.§v ∈ map.§kvs[-2].§v
 ```
@@ -112,4 +113,23 @@ while a ∈ b ~ c does not imply a ∈ c.
 
 A finalizer method changes the internal state of the object but does not touch its hidden content. After the call, no
 modifying methods are allowed anymore. Other examples of `@Finalizer` methods are builders that cannot be used anymore
-after a `build()` call, or objects that are mode immutable after a `freeze()` call. 
+after a `build()` call, or objects that are mode immutable after a `freeze()` call.
+
+## Special variables
+
+Next to the virtual fields, we use special variables of 2 different classes:
+
+1. intermediate variables (`$__` prefix), for variables that cannot escape local linking
+    1. `$__rv` return value of method call
+    2. `$__c` newly created object
+    3. `$__ic` inline condition
+    4. `$__l` ? created temporarily for argument values
+2. marker variables: (`$_` prefix)
+    1. `$_fi` functional interface variable. Is either of class `FunctionalInterfaceVariable` or of class
+       `AppliedFunctionalInterfaceVariable`. Represents the functional interface or the result of applying the function
+       interface SAM.
+    2. `$_ce` constant expression; useful for array indexing
+    3. `$_v` some value; used to help identify `@Identity`
+
+The marker variables should definitely go into the linkedVariables of VariableInfo; there is a case to be made for
+allowing them in the method links.

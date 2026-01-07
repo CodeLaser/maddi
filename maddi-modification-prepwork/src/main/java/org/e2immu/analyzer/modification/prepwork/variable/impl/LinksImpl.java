@@ -30,18 +30,6 @@ public class LinksImpl implements Links {
     public static final Property LINKS = new PropertyImpl("links", EMPTY);
     public static final String LAMBDA = "Λ";
 
-    // is not intermediate, can survive local linking
-    public static final String FUNCTIONAL_INTERFACE_VARIABLE = "$_fi";
-    public static final String CONSTANT_VARIABLE = "$_ce";
-    public static final String SOME_VALUE = "$_v";
-
-    // see toIsIntermediateVariable()
-    public static final String INTERMEDIATE_VARIABLE = "$__";
-    public static final String INTERMEDIATE_RETURN_VARIABLE = "$__rv";
-    public static final String INTERMEDIATE_LOCAL_VARIABLE = "$__l";
-    public static final String INTERMEDIATE_CONDITIONAL_VARIABLE = "$__ic";
-    public static final String INTERMEDIATE_CONSTRUCTOR_VARIABLE = "$__c";
-
     private final Variable primary;
     private final List<Link> linkSet;
 
@@ -222,12 +210,6 @@ public class LinksImpl implements Links {
         private static boolean doNotStackMOnTopOfVirtualField(Variable v) {
             return !(v instanceof FieldReference fr && "§m".equals(fr.fieldInfo().name())
                      && fr.scopeVariable() instanceof FieldReference fr2 && fr2.fieldInfo().name().startsWith("§"));
-        }
-
-        @Override
-        public boolean toIsIntermediateVariable() {
-            LocalVariable lv = Util.lvPrimaryOrNull(to);
-            return lv != null && lv.simpleName().startsWith(INTERMEDIATE_VARIABLE);
         }
 
         @Override

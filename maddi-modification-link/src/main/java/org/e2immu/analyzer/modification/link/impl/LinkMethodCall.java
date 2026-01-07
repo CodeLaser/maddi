@@ -1,5 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -190,9 +192,8 @@ public record LinkMethodCall(Runtime runtime,
                 : "the links of the method return value must be in the return variable";
         assert !methodInfo.isVoid() || methodInfo.isConstructor()
                 : "Cannot be a void function if we have a return variable";
-        String name = LinksImpl.INTERMEDIATE_RETURN_VARIABLE + variableCounter.getAndIncrement();
-        Variable newPrimary = runtime.newLocalVariable(name, concreteReturnType);
-
+        Variable newPrimary = IntermediateVariable.returnValue(runtime, variableCounter.getAndIncrement(),
+                concreteReturnType);
         VariableTranslationMap tm = new VariableTranslationMap(runtime);
         if (objectPrimary != null) {
             addThisHierarchyToObjectPrimaryToTmBuilder(methodInfo, tm, objectPrimary);
@@ -201,8 +202,11 @@ public record LinkMethodCall(Runtime runtime,
         // actual arguments
         int index = 0;
         for (Result pr : params) {
-            Variable to = Objects.requireNonNullElseGet(pr.links().primary(), this::newDummyLocalVariable);
-            tm.put(methodInfo.parameters().get(index), to);
+            ParameterInfo from = methodInfo.parameters().get(index);
+            Variable to = Objects.requireNonNullElseGet(pr.links().primary(), () ->
+                    IntermediateVariable.parameterValue(variableCounter.getAndIncrement(),
+                            pr.getEvaluated().parameterizedType(), pr.getEvaluated()));
+            tm.put(from, to);
             ++index;
         }
         tm.put(ofReturnValue.primary(), newPrimary);
@@ -218,11 +222,6 @@ public record LinkMethodCall(Runtime runtime,
             }
         }
         return builder.build();
-    }
-
-    private LocalVariable newDummyLocalVariable() {
-        return runtime.newLocalVariable(LinksImpl.INTERMEDIATE_LOCAL_VARIABLE + variableCounter.getAndIncrement(),
-                runtime.objectParameterizedType());
     }
 
     private void translateHandleFunctional(TranslationMap defaultTm,
@@ -262,8 +261,7 @@ public record LinkMethodCall(Runtime runtime,
     }
 
     private static boolean isReturnVariable(Variable v) {
-        return v instanceof ReturnVariable
-               || v instanceof LocalVariable lv && lv.simpleName().startsWith(LinksImpl.INTERMEDIATE_RETURN_VARIABLE);
+        return v instanceof ReturnVariable || v instanceof IntermediateVariable iv && iv.isReturnVariable();
     }
 
     private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<Result> params) {
@@ -306,9 +304,9 @@ public record LinkMethodCall(Runtime runtime,
         assert !methodInfo.isVoid() || methodInfo.isConstructor()
                 : "Cannot be a void function if we have a return variable";
 
-        Variable applied = new AppliedFunctionalInterfaceVariable(
-                LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE + variableCounter.getAndIncrement(),
-                concreteReturnType, runtime.newEmptyExpression(),
+        Variable applied = new AppliedFunctionalInterfaceVariable(runtime,
+                variableCounter.getAndIncrement(),
+                concreteReturnType,
                 objectPrimary instanceof ParameterInfo pi ? pi : null,
                 params);
         return new LinksImpl.Builder(applied).build();
@@ -328,7 +326,9 @@ public record LinkMethodCall(Runtime runtime,
                 Result result = params.get(pi.index());
                 if (result != null && result.links() != null) {
                     Variable primary = result.links().primary();
-                    tm.put(pi, Objects.requireNonNullElseGet(primary, this::newDummyLocalVariable));
+                    tm.put(pi, Objects.requireNonNullElseGet(primary, () ->
+                            IntermediateVariable.parameterValue(variableCounter.getAndIncrement(),
+                                    result.getEvaluated().parameterizedType(), result.getEvaluated())));
                 }
             }
         }

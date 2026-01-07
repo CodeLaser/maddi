@@ -1,5 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -171,14 +173,10 @@ public record Expand(Runtime runtime) {
             }
             change = doOneMakeGraphCycle(graph);
         }
-        assert graph.size() == graph.keySet().stream().map(v -> stringForDuplicate(v.v)).distinct().count();
+        // this is the right place for searching for "duplicate keys" in the graph
+        // however, there are tests that have legitimate duplicates (TestLinkConstructorInMethodCall)
+        // and it is not trivial to accept one and reject the other
         return graph;
-    }
-
-    // see TestModificationParameter, a return variable with the same name as a local variable
-    private static String stringForDuplicate(Variable v) {
-        if (v instanceof ReturnVariable) return "rv " + v;
-        return v.toString();
     }
 
     private boolean doOneMakeGraphCycle(Map<V, Map<V, LinkNature>> graph) {
@@ -411,7 +409,7 @@ public record Expand(Runtime runtime) {
                             assert !(vLinks.primary() instanceof This);
                             Links translated = vLinks.translate(replaceConstants)
                                     .removeIfTo(v -> !vd.isKnown(Util.primary(v).fullyQualifiedName())
-                                                     && !keepExtraFromPrevious(v));
+                                                     && !LinkVariable.acceptForLinkedVariables(v));
                             linkedVariables.merge(vLinks.primary(), translated, Links::merge);
                         }
                         Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
@@ -433,9 +431,9 @@ public record Expand(Runtime runtime) {
                     Links.Builder builder = followGraph(graph, vi.variable());
                     boolean unmodified = !modifiedVariables.contains(vi.variable())
                                          && notLinkedToModified(builder, modifiedVariables);
-                    builder.removeIf(Link::toIsIntermediateVariable);
+                    builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
                     if (vi.variable() instanceof ReturnVariable) {
-                        builder.removeIfFromTo(Expand::isLocalVariable);
+                        builder.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v));
                     }
                     if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
                         Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
@@ -451,24 +449,6 @@ public record Expand(Runtime runtime) {
 
                 });
         return newLinkedVariables;
-    }
-
-    static boolean keepExtraFromPrevious(Variable variable) {
-        return variable.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
-               || variable.simpleName().startsWith(LinksImpl.FUNCTIONAL_INTERFACE_VARIABLE)
-               || variable.simpleName().equals(LinksImpl.SOME_VALUE)
-               || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
-               // see TestStaticValuesRecord,6
-               || variable instanceof ReturnVariable;
-    }
-
-    static boolean isLocalVariable(Variable v) {
-        if (v instanceof AppliedFunctionalInterfaceVariable a) {
-            return !a.containsNoLocalVariables();
-        }
-        return v instanceof LocalVariable
-               && !v.simpleName().startsWith(LinksImpl.CONSTANT_VARIABLE)
-               && !v.simpleName().equals(LinksImpl.SOME_VALUE);
     }
 
     // indirection in applied functional interface variable

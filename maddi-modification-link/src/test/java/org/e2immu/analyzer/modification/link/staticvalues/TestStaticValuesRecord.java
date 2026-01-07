@@ -159,7 +159,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(rLvc);
             VariableInfo rVi0 = vd0.variableInfo(r);
             assertEquals("r.n←$_ce1,r.set←0:in", rVi0.linkedVariables().toString());
-            assertEquals("[-] --> method2.set←0:in", mlv.toString());
+            assertEquals("[-] --> method2.n←$_ce1,method2.set←0:in", mlv.toString());
         }
     }
 
@@ -375,7 +375,8 @@ public class TestStaticValuesRecord extends CommonTest {
         assertEquals("""
                 new Builder().j=3,new Builder().intList=List.of(0,1),new Builder().stringSet=in,new Builder()\
                 """, lvc0.localVariable().assignmentExpression().translate(tm).toString());
-        assertEquals("[-] --> method.set←0:in", mlv.toString());
+        assertEquals("[-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set←0:in",
+                mlv.toString());
 
 
         TypeInfo R = X.findSubType("R");
@@ -401,7 +402,8 @@ public class TestStaticValuesRecord extends CommonTest {
                 //"Type a.b.X.R E=new Builder() this.i=3, this.list=List.of(0,1), this.set=in",
                 rVi1.linkedVariables().toString());
 
-        assertEquals("[-] --> method.set←0:in", mlv.toString());
+        assertEquals("[-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set←0:in",
+                mlv.toString());
     }
 
 

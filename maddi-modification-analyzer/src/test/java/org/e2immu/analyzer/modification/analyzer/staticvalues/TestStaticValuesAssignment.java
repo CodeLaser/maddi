@@ -103,7 +103,7 @@ public class TestStaticValuesAssignment extends CommonTest {
             assertEquals("b.j←0:jp,b.k←$_ce1", vi0B.linkedVariables().toString());
 
             MethodLinkedVariables mlvJJ = justJ4.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-] --> justJ4.j←0:jp", mlvJJ.toString());
+            assertEquals("[-] --> justJ4.j←0:jp,justJ4.k←$_ce1", mlvJJ.toString());
             // NOTE: k == 4 is lost here, not transferring constants a t m
         }
 
