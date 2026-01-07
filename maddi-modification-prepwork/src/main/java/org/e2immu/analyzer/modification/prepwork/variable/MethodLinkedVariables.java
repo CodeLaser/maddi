@@ -14,6 +14,8 @@ public interface MethodLinkedVariables extends Value {
 
     List<Links> ofParameters();
 
+    MethodLinkedVariables removeSomeValue();
+
     MethodLinkedVariables translate(TranslationMap translationMap);
 
     boolean virtual();

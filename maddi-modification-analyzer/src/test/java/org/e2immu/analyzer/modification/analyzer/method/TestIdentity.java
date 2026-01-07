@@ -15,7 +15,10 @@
 package org.e2immu.analyzer.modification.analyzer.method;
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
@@ -23,6 +26,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.TryStatement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -86,16 +90,27 @@ public class TestIdentity extends CommonTest {
     @Test
     public void test2() {
         TypeInfo B = javaInspector.parse(INPUT2);
-        List<Info> ao = prepWork(B);
-        analyzer.go(ao);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(B);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        tlc.doPrimaryType(B);
 
         MethodInfo method = B.findUniqueMethod("method", 1);
         VariableData vd = VariableDataImpl.of(method.methodBody().lastStatement());
         VariableInfo viRv = vd.variableInfo(method.fullyQualifiedName());
         assertEquals("D:-, A:[1.0.0, 1.1.0, 1=M]", viRv.assignments().toString());
-        assertEquals("method←0:jarURL", viRv.linkedVariables().toString());
 
-        assertFalse(method.isIdentity());
+        TryStatement ts = (TryStatement)method.methodBody().statements().get(1);
+        VariableData vdMain = VariableDataImpl.of(ts.block().statements().getFirst());
+        VariableInfo viRvMain = vdMain.variableInfo(method.fullyQualifiedName());
+        assertEquals("method←$_v", viRvMain.linkedVariables().toString());
+
+        VariableData vdCatch = VariableDataImpl.of(ts.catchClauses().getFirst().block().statements().getFirst());
+        VariableInfo viRvCatch  = vdCatch.variableInfo(method.fullyQualifiedName());
+        assertEquals("method←0:jarURL", viRvCatch.linkedVariables().toString());
+
+        assertEquals("method←$_v,method←0:jarURL", viRv.linkedVariables().toString());
+
     }
 
 
@@ -170,10 +185,10 @@ public class TestIdentity extends CommonTest {
         VariableData vd = VariableDataImpl.of(method.methodBody().lastStatement());
         VariableInfo viRv = vd.variableInfo(method.fullyQualifiedName());
         assertEquals("D:-, A:[0.0.0, 0.1.0.0.0, 0.1.0.1.4, 0.1.0=M, 0=M]", viRv.assignments().toString());
-        assertEquals("add←0:list,add[0]←1:item,add∋1:item", viRv.linkedVariables().toString());
+        assertEquals("add←0:list,add←$_v,add[0]←1:item,add∋1:item", viRv.linkedVariables().toString());
 
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -] --> add←0:list,add[0]←1:item,add∋1:item", mlv.toString());
+        assertEquals("[-, -] --> add←0:list,add←$_v,add[0]←1:item,add∋1:item", mlv.toString());
 
         assertFalse(method.isIdentity());
     }

@@ -1,8 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -64,6 +65,15 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     @Override
     public boolean virtual() {
         return ofReturnValue != null && ofReturnValue.containsVirtualFields()
-                || ofParameters.stream().anyMatch(Links::containsVirtualFields);
+               || ofParameters.stream().anyMatch(Links::containsVirtualFields);
+    }
+
+    @Override
+    public MethodLinkedVariables removeSomeValue() {
+        return new MethodLinkedVariablesImpl(
+                ofReturnValue.isEmpty()
+                        ? ofReturnValue
+                        : ofReturnValue.removeIfTo(v -> v instanceof MarkerVariable mv && mv.isSomeValue()),
+                ofParameters);
     }
 }

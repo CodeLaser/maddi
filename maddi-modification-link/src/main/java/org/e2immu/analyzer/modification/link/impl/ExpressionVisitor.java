@@ -315,7 +315,7 @@ public record ExpressionVisitor(Runtime runtime,
         Result object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
 
         // only translate wrt concrete type
-        MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor());
+        MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor()).removeSomeValue();
         MethodLinkedVariables mlvTranslated1;
         if (mlv.virtual()) {
             VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
@@ -416,7 +416,7 @@ public record ExpressionVisitor(Runtime runtime,
             }
         }
 
-        MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo());
+        MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo()).removeSomeValue();
         // translate conditionally wrt concrete type, evaluated object
         MethodLinkedVariables mlvTranslated2;
         if (Util.methodIsSamOfJavaUtilFunctional(mc.methodInfo())) {

@@ -327,10 +327,9 @@ public class TestStaticValuesRecord extends CommonTest {
                 r.§$s←1:rr.§$s,r.§$s~0:in.§$s,r.§m≡1:rr.§m,r.§m→0:in.§m\
                 """, rVi0.linkedVariables().toString());
 
-        // TODO should we have method.§$s⊆1:rr.§$s instead of method.§$s~1:rr.§$s ???
         assertEquals("""
                 [0:in.§$s~1:rr.§$s,0:in.§m←1:rr.§m, 1:rr.§$s~0:in.§$s,1:rr.§m→0:in.§m] --> \
-                method.§$s~1:rr.§$s,method.§$s∩0:in.§$s,method.§m←1:rr.§m,method.§m←0:in.§m\
+                method.§$s⊆1:rr.§$s,method.§$s∩0:in.§$s,method.§m←1:rr.§m,method.§m←0:in.§m\
                 """, mlv.toString());
     }
 

@@ -15,9 +15,14 @@ public class IntermediateVariable extends LocalVariableImpl implements LocalVari
     public static final String LABEL_INLINE_CONDITION = "ic";
 
     private static final String RV_PREFIX = PREFIX + LABEL_RETURN_VALUE;
+    private static final String NEW_PREFIX = PREFIX + LABEL_NEW_OBJECT;
 
     IntermediateVariable(String name, ParameterizedType parameterizedType, Expression assignmentExpression) {
         super(PREFIX + name, parameterizedType, assignmentExpression);
+    }
+
+    public boolean isNewObject() {
+        return simpleName().startsWith(NEW_PREFIX);
     }
 
     public boolean isReturnVariable() {
