@@ -127,6 +127,10 @@ public class Util {
         if (primary(variable) instanceof LocalVariable lv) return lv;
         return null;
     }
+    public static ParameterInfo parameterPrimaryOrNull(Variable variable) {
+        if (primary(variable) instanceof ParameterInfo pi) return pi;
+        return null;
+    }
 
     public static Variable oneBelowThis(Variable v) {
         if (v instanceof FieldReference fr && fr.scopeVariable() != null && !fr.scopeIsThis()) {
