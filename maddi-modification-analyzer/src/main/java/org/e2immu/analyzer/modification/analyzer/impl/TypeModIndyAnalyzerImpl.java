@@ -22,7 +22,6 @@ import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
-import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -37,7 +36,6 @@ import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
 import java.util.*;
-import java.util.function.Predicate;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
@@ -124,18 +122,55 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             Statement lastStatement = methodInfo.methodBody().lastStatement();
             assert lastStatement != null;
             VariableData variableData = VariableDataImpl.of(lastStatement);
-            doFluentIdentityAnalysis(methodInfo, PropertyImpl.IDENTITY_METHOD,
-                    links -> links.stream()
-                            .allMatch(link -> Util.primary(link.to()) instanceof ParameterInfo pi
-                                              && pi.methodInfo() == methodInfo
-                                              && pi.index() == 0));
-            doFluentIdentityAnalysis(methodInfo, PropertyImpl.FLUENT_METHOD,
-                    links -> links.stream().anyMatch(v -> v.to() instanceof This thisVar
-                                                          && thisVar.typeInfo() == methodInfo.typeInfo()));
+            doIdentityAnalysis(methodInfo);
+            doFluentAnalysis(methodInfo);
             doIndependent(methodInfo, variableData);
 
             for (ParameterInfo pi : methodInfo.parameters()) {
                 handleParameter(methodInfo, pi, variableData);
+            }
+        }
+
+        private void doFluentAnalysis(MethodInfo methodInfo) {
+            if (!methodInfo.analysis().haveAnalyzedValueFor(FLUENT_METHOD)) {
+                MethodLinkedVariables mlv = methodInfo.analysis().getOrNull(METHOD_LINKS,
+                        MethodLinkedVariablesImpl.class);
+                boolean identityFluent;
+                if (methodInfo.hasReturnValue() && mlv != null && !mlv.ofReturnValue().isEmpty()) {
+                    identityFluent = mlv.ofReturnValue().stream()
+                            .anyMatch(v -> v.to() instanceof This thisVar
+                                           && (thisVar.typeInfo() == methodInfo.typeInfo()
+                                               || thisVar.typeInfo().typeHierarchyExcludingJLOStream()
+                                                       .anyMatch(h -> h.equals(methodInfo.typeInfo()))));
+                } else {
+                    identityFluent = false;
+                }
+                methodInfo.analysis().set(FLUENT_METHOD, ValueImpl.BoolImpl.from(identityFluent));
+                DECIDE.debug("MI: Decide @Fluent of {} = {}", methodInfo, identityFluent);
+            }
+        }
+
+        private void doIdentityAnalysis(MethodInfo methodInfo) {
+            if (!methodInfo.analysis().haveAnalyzedValueFor(IDENTITY_METHOD)) {
+                MethodLinkedVariables mlv = methodInfo.analysis().getOrNull(METHOD_LINKS,
+                        MethodLinkedVariablesImpl.class);
+                boolean identity;
+                if (methodInfo.hasReturnValue()
+                    && !methodInfo.parameters().isEmpty()
+                    && mlv != null
+                    && !mlv.ofReturnValue().isEmpty()) {
+                    Variable primaryFrom = mlv.ofReturnValue().primary();
+                    Variable p0 = methodInfo.parameters().getFirst();
+                    identity = mlv.ofReturnValue().stream().allMatch(link -> {
+                        if (link.from().equals(primaryFrom)) return link.to().equals(p0);
+                        ParameterInfo pi = Util.parameterPrimaryOrNull(link.to());
+                        return p0.equals(pi);
+                    });
+                } else {
+                    identity = false;
+                }
+                methodInfo.analysis().set(IDENTITY_METHOD, ValueImpl.BoolImpl.from(identity));
+                DECIDE.debug("MI: Decide @Identity of {} = {}", methodInfo, identity);
             }
         }
 
@@ -266,24 +301,6 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
                 }
             }
         }
-
-        private void doFluentIdentityAnalysis(MethodInfo methodInfo,
-                                              Property property,
-                                              Predicate<Links> predicate) {
-            if (!methodInfo.analysis().haveAnalyzedValueFor(property)) {
-                MethodLinkedVariables mlv = methodInfo.analysis().getOrNull(METHOD_LINKS,
-                        MethodLinkedVariablesImpl.class);
-                boolean identityFluent;
-                if (mlv != null && mlv.ofReturnValue() != null) {
-                    identityFluent = predicate.test(mlv.ofReturnValue());
-                } else {
-                    identityFluent = false;
-                }
-                methodInfo.analysis().set(property, ValueImpl.BoolImpl.from(identityFluent));
-                DECIDE.debug("MI: Decide {} of {} = {}", property, methodInfo, identityFluent);
-            }
-        }
-
 
         /*
     constructors: independent

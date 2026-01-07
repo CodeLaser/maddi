@@ -212,7 +212,6 @@ public class TestCast extends CommonTest {
                 }
                 """;
         SourceSet sourceSetOfRequest = javaInspector.mainSources();
-        // FIXME issue is "@Independent"
         assertEquals(expected, javaInspector.print2(B, new DecoratorImpl(runtime, sourceSetOfRequest),
                 javaInspector.importComputer(4, sourceSetOfRequest)));
     }
