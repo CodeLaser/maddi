@@ -423,50 +423,48 @@ public record Expand(Runtime runtime) {
             LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(graph));
         }
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
-        vd.variableInfoStream(Stage.EVALUATION)
-                .filter(vi -> !(vi.variable() instanceof This))
-                .forEach(vi -> {
-                    // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
-                    //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
-                    Links.Builder builder = followGraph(graph, vi.variable());
+        vd.variableInfoStream(Stage.EVALUATION).forEach(vi -> {
+            // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
+            //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
+            Links.Builder builder = followGraph(graph, vi.variable());
 
-                    if (vi.variable() instanceof ReturnVariable rv) {
-                        // replace all intermediates by a marker; don't worry about duplicate makers for now
-                        boolean needMarker = false;
-                        List<Link> newLinks = new ArrayList<>();
-                        for (Link link : builder) {
-                            if (link.linkNature().isIdenticalTo()
-                                && link.to() instanceof IntermediateVariable iv && iv.isNewObject()) {
-                                needMarker = true;
-                            } else if (LinkVariable.acceptForLinkedVariables(link.from())
-                                       && LinkVariable.acceptForLinkedVariables(link.to())) {
-                                newLinks.add(link);
-                            }
-                        }
-                        if (needMarker) {
-                            Variable marker = MarkerVariable.someValue(runtime, rv.methodInfo().returnType());
-                            newLinks.addFirst(new LinksImpl.LinkImpl(rv, IS_ASSIGNED_FROM, marker));
-                        }
-                        builder.replaceAll(newLinks);
-                    } else {
-                        boolean unmodified = !modifiedVariables.contains(vi.variable())
-                                             && notLinkedToModified(builder, modifiedVariables);
-                        builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
-
-                        if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
-                            Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
-                            vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
-                        }
-                        if (!unmodified) {
-                            builder.replaceSubsetSuperset(vi.variable());
-                        }
+            if (vi.variable() instanceof ReturnVariable rv) {
+                // replace all intermediates by a marker; don't worry about duplicate makers for now
+                boolean needMarker = false;
+                List<Link> newLinks = new ArrayList<>();
+                for (Link link : builder) {
+                    if (link.linkNature().isIdenticalTo()
+                        && link.to() instanceof IntermediateVariable iv && iv.isNewObject()) {
+                        needMarker = true;
+                    } else if (LinkVariable.acceptForLinkedVariables(link.from())
+                               && LinkVariable.acceptForLinkedVariables(link.to())) {
+                        newLinks.add(link);
                     }
-                    Links newLinks = builder.build();
-                    if (newLinkedVariables.put(vi.variable(), newLinks) != null) {
-                        throw new UnsupportedOperationException("Each real variable must be a primary");
-                    }
+                }
+                if (needMarker) {
+                    Variable marker = MarkerVariable.someValue(runtime, rv.methodInfo().returnType());
+                    newLinks.addFirst(new LinksImpl.LinkImpl(rv, IS_ASSIGNED_FROM, marker));
+                }
+                builder.replaceAll(newLinks);
+            } else {
+                boolean unmodified = !modifiedVariables.contains(vi.variable())
+                                     && notLinkedToModified(builder, modifiedVariables);
+                builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
-                });
+                if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
+                    Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
+                    vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
+                }
+                if (!unmodified) {
+                    builder.replaceSubsetSuperset(vi.variable());
+                }
+            }
+            Links newLinks = builder.build();
+            if (newLinkedVariables.put(vi.variable(), newLinks) != null) {
+                throw new UnsupportedOperationException("Each real variable must be a primary");
+            }
+
+        });
         return newLinkedVariables;
     }
 
