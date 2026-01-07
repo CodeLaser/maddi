@@ -81,7 +81,8 @@ public record LinkMethodCall(Runtime runtime,
             concreteReturnValue = LinksImpl.EMPTY;
         } else if (Util.methodIsSamOfJavaUtilFunctional(methodInfo)) {
             assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
-            concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, objectPrimary);
+            concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, objectPrimary,
+                    extra);
         } else {
             concreteReturnValue = objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
         }
@@ -214,6 +215,7 @@ public record LinkMethodCall(Runtime runtime,
                 v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : ofReturnValue.linkSet()) {
+            if(!link.linkNature().isDecoration())
             if (link.from().equals(ofReturnValue.primary())) {
                 translateHandleFunctional(tm, link, newPrimary, link.linkNature(), builder, samLinks, objectPrimary);
             } else {
@@ -302,7 +304,8 @@ public record LinkMethodCall(Runtime runtime,
     private Links parametersToReturnValue(MethodInfo methodInfo,
                                           ParameterizedType concreteReturnType,
                                           List<Result> params,
-                                          Variable objectPrimary) {
+                                          Variable objectPrimary,
+                                          Map<Variable, Links> extra) {
         assert !methodInfo.isVoid() || methodInfo.isConstructor()
                 : "Cannot be a void function if we have a return variable";
 
@@ -311,6 +314,8 @@ public record LinkMethodCall(Runtime runtime,
                 concreteReturnType,
                 objectPrimary instanceof ParameterInfo pi ? pi : null,
                 params);
+        Links decoration = new LinksImpl.Builder(objectPrimary).add(LinkNatureImpl.IS_DECORATED_WITH, applied).build();
+        extra.put(objectPrimary, decoration);
         return new LinksImpl.Builder(applied).build();
     }
 

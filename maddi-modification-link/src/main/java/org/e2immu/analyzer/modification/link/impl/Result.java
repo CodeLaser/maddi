@@ -20,7 +20,6 @@ public class Result {
     private final Links links;
     private final LinkedVariables extra;
     private final Set<Variable> modified;
-    private final Set<Variable> modifiedFunctionalInterfaceComponents;
     private final List<ExpressionVisitor.WriteMethodCall> writeMethodCalls;
     private final Map<Variable, Set<TypeInfo>> casts;
     private final Set<Variable> erase;
@@ -31,7 +30,6 @@ public class Result {
     public Result(Links links,
                   LinkedVariables extra,
                   Set<Variable> modified,
-                  Set<Variable> modifiedFunctionalInterfaceComponents,
                   List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
                   Map<Variable, Set<TypeInfo>> casts,
                   Set<Variable> erase,
@@ -39,7 +37,6 @@ public class Result {
         this.links = links;
         this.extra = extra;
         this.modified = modified;
-        this.modifiedFunctionalInterfaceComponents = modifiedFunctionalInterfaceComponents;
         this.writeMethodCalls = writeMethodCalls;
         this.casts = casts;
         this.erase = erase;
@@ -47,8 +44,7 @@ public class Result {
     }
 
     public Result(Links links, LinkedVariables extra) {
-        this(links, extra, new HashSet<>(), new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>(),
-                new HashSet<>());
+        this(links, extra, new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>(), new HashSet<>());
     }
 
     public Expression getEvaluated() {
@@ -67,23 +63,14 @@ public class Result {
     public @NotNull Result addExtra(Map<Variable, Links> linkedVariables) {
         if (!linkedVariables.isEmpty()) {
             return new Result(links, extra.merge(new LinkedVariablesImpl(linkedVariables)),
-                    modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts, erase,
+                    modified, writeMethodCalls, casts, erase,
                     variablesRepresentingConstants);
         }
         return this;
     }
 
-    public Set<Variable> modifiedFunctionalInterfaceComponents() {
-        return modifiedFunctionalInterfaceComponents;
-    }
-
     public Result addModified(Set<Variable> modified) {
         this.modified.addAll(modified);
-        return this;
-    }
-
-    public Result addModifiedFunctionalInterfaceComponents(Set<Variable> set) {
-        this.modifiedFunctionalInterfaceComponents.addAll(set);
         return this;
     }
 
@@ -141,7 +128,7 @@ public class Result {
     }
 
     public Result with(Links links) {
-        return new Result(links, extra, modified, modifiedFunctionalInterfaceComponents, writeMethodCalls, casts,
+        return new Result(links, extra, modified, writeMethodCalls, casts,
                 erase, variablesRepresentingConstants).setEvaluated(evaluated);
     }
 
@@ -154,14 +141,12 @@ public class Result {
         }
         Result r = new Result(this.links, combinedExtra,
                 new HashSet<>(this.modified),
-                new HashSet<>(modifiedFunctionalInterfaceComponents),
                 new ArrayList<>(this.writeMethodCalls),
                 new HashMap<>(this.casts),
                 new HashSet<>(this.erase),
                 new HashSet<>(this.variablesRepresentingConstants));
         r.writeMethodCalls.addAll(other.writeMethodCalls);
         r.modified.addAll(other.modified);
-        r.modifiedFunctionalInterfaceComponents.addAll(other.modifiedFunctionalInterfaceComponents);
         r.variablesRepresentingConstants.addAll(other.variablesRepresentingConstants);
         other.casts.forEach((v, set) ->
                 r.casts.computeIfAbsent(v, _ -> new HashSet<>()).addAll(set));
@@ -172,8 +157,8 @@ public class Result {
     public Result moveLinksToExtra() {
         if (links.primary() != null) {
             LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
-            return new Result(LinksImpl.EMPTY, newExtra, modified, modifiedFunctionalInterfaceComponents,
-                    writeMethodCalls, casts, erase, variablesRepresentingConstants).setEvaluated(evaluated);
+            return new Result(LinksImpl.EMPTY, newExtra, modified, writeMethodCalls, casts, erase,
+                    variablesRepresentingConstants).setEvaluated(evaluated);
         }
         return this;
     }
@@ -181,8 +166,8 @@ public class Result {
     public Result copyLinksToExtra() {
         if (links.primary() != null) {
             LinkedVariables newExtra = this.extra.merge(new LinkedVariablesImpl(Map.of(links.primary(), links)));
-            return new Result(links, newExtra, modified, modifiedFunctionalInterfaceComponents,
-                    writeMethodCalls, casts, erase, variablesRepresentingConstants).setEvaluated(evaluated);
+            return new Result(links, newExtra, modified, writeMethodCalls, casts, erase,
+                    variablesRepresentingConstants).setEvaluated(evaluated);
         }
         return this;
     }

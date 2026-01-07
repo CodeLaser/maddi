@@ -60,7 +60,6 @@ public class PropertyProviderImpl {
                 INDICES_OF_ESCAPE_METHOD);
         Collections.addAll(properties,
                 METHOD_ALLOWS_INTERRUPTS,
-                MODIFIED_FI_COMPONENTS_PARAMETER,
                 MODIFIED_COMPONENTS_METHOD,
                 MODIFIED_COMPONENTS_PARAMETER,
                 NON_MODIFYING_METHOD,

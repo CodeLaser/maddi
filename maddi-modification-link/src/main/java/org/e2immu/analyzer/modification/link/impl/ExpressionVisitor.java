@@ -25,7 +25,8 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.MODIFIED_COMPONENTS_METHOD;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.MODIFIED_COMPONENTS_PARAMETER;
 
 public record ExpressionVisitor(Runtime runtime,
                                 JavaInspector javaInspector,
@@ -39,8 +40,8 @@ public record ExpressionVisitor(Runtime runtime,
     public record WriteMethodCall(Expression methodCall, Links linksFromObject) {
     }
 
-    static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(), Set.of(),
-            List.of(), Map.of(), Set.of(), Set.of());
+    static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(), List.of(), Map.of(),
+            Set.of(), Set.of());
 
     public Result visitExpandFunctionalInterfaceVariables(Expression expression, VariableData variableData, Stage stage) {
         if (variableData != null && expression instanceof VariableExpression ve && ve.variable().parameterizedType().isFunctionalInterface()) {
@@ -508,7 +509,6 @@ public record ExpressionVisitor(Runtime runtime,
             }
         }
         return r.addModified(modified)
-                .addModifiedFunctionalInterfaceComponents(modifiedFunctionalInterfaceComponents)
                 .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
@@ -536,7 +536,7 @@ public record ExpressionVisitor(Runtime runtime,
              If the parameters of this method have modified components, we check if we have a value for these components,
              and propagate their modification too.
              */
-        pc.propagateComponents(MODIFIED_FI_COMPONENTS_PARAMETER, mc, pi,
+        /*pc.propagateComponents(MODIFIED_FI_COMPONENTS_PARAMETER, mc, pi,
                 (e, mapValue, map) -> {
                     if (e instanceof MethodReference mr) {
                         if (mapValue) {
@@ -546,7 +546,7 @@ public record ExpressionVisitor(Runtime runtime,
                             }
                         } //TODO else ensureNotModifying(mr);
                     }
-                });
+                });*/
         pc.propagateComponents(MODIFIED_COMPONENTS_PARAMETER, mc, pi,
                 (e, mapValue, map) -> {
                     if (e instanceof VariableExpression ve2 && mapValue) {
