@@ -56,7 +56,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final JavaInspector javaInspector;
     private final RecursionPrevention recursionPrevention;
     private final ShallowMethodLinkComputer shallowMethodLinkComputer;
-    private final Expand expand;
+    private final LinkGraph linkGraph;
+    private final WriteLinksAndModification writeLinksAndModification;
 
     public LinkComputerImpl(JavaInspector javaInspector) {
         this(javaInspector, true, false);
@@ -68,7 +69,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.forceShallow = forceShallow;
         VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        this.expand = new Expand(javaInspector.runtime());
+        this.linkGraph = new LinkGraph(javaInspector.runtime());
+        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector.runtime());
     }
 
     @Override
@@ -372,10 +374,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             if (r != null) {
                 this.erase.addAll(r.erase());
-                Expand.ExpandResult er = expand.local(statement,
-                        r.extra().map(), r.modified(), previousVd, stageOfPrevious, vd, replaceConstants);
-                copyEvalIntoVariableData(er.newLinks(), vd);
-                modificationsOutsideVariableData.addAll(er.modifiedOutsideVariableData());
+                Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph = linkGraph.compute(r.extra().map(), previousVd,
+                        stageOfPrevious, vd, replaceConstants);
+                Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
+                WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, vd,
+                        previouslyModified, r.modified(), graph);
+                copyEvalIntoVariableData(wr.newLinks(), vd);
+                modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
                 if (!r.casts().isEmpty()) {
                     writeCasts(r.casts(), previousVd, stageOfPrevious, vd);
                 }
@@ -387,6 +392,22 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
             }
             return vd;
+        }
+
+        private Set<Variable> computePreviouslyModified(VariableData vd, VariableData previousVd, Stage stageOfPrevious) {
+            if (previousVd != null) {
+                return previousVd.variableInfoStream(stageOfPrevious)
+                        .filter(vi -> !(vi.variable() instanceof This))
+                        .filter(vi -> vd.isKnown(vi.variable().fullyQualifiedName()))
+                        .map(vi -> {
+                            Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
+                            boolean explicitlyModified = unmodified != null && unmodified.isFalse();
+                            return explicitlyModified ? vi.variable() : null;
+                        })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toUnmodifiableSet());
+            }
+            return Set.of();
         }
 
         private void writeCasts(Map<Variable, Set<TypeInfo>> casts,

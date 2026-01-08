@@ -1,23 +1,17 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +21,9 @@ import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.isVirtualModificationField;
-import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
-public record Expand(Runtime runtime) {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Expand.class);
+public record LinkGraph(Runtime runtime) {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LinkGraph.class);
 
     // different equality from Variable: container virtual fields
     record V(Variable v) {
@@ -259,7 +252,7 @@ public record Expand(Runtime runtime) {
     }
 
     // sorting is needed to consistently take the same direction for tests
-    private static Links.Builder followGraph(Map<V, Map<V, LinkNature>> graph, Variable primary) {
+    static Links.Builder followGraph(Map<V, Map<V, LinkNature>> graph, Variable primary) {
         V tPrimary = new V(primary);
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
         var fromList = graph.keySet().stream()
@@ -347,31 +340,6 @@ public record Expand(Runtime runtime) {
 
     //-------------------------------------------------------------------------------------------------
 
-    private boolean notLinkedToModified(Links.Builder builder, Set<Variable> modifiedVariables) {
-        for (Link link : builder) {
-            Variable toPrimary = Util.primary(link.to());
-            if (modifiedVariables.contains(toPrimary)) {
-                LinkNature ln = link.linkNature();
-                if (ln == IS_IDENTICAL_TO
-                    || ln == IS_ASSIGNED_FROM
-                    || ln == CONTAINS_AS_MEMBER
-                    || ln == CONTAINS_AS_FIELD
-                    || ln == OBJECT_GRAPH_CONTAINS) {
-                    return false;
-                }
-                if (ln == IS_ASSIGNED_TO) {
-                    Value.Immutable immutable = new AnalysisHelper().typeImmutable(link.to().parameterizedType());
-                    return immutable.isAtLeastImmutableHC();
-                }
-                if (ln == SHARES_ELEMENTS || ln == SHARES_FIELDS) {
-                    Value.Independent independent = new AnalysisHelper().typeIndependent(link.to().parameterizedType());
-                    return independent.isAtLeastIndependentHc();
-                }
-            }
-        }
-        return true;
-    }
-
     private static String printGraph(Map<V, Map<V, LinkNature>> graph) {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<V, Map<V, LinkNature>> e : graph.entrySet()) {
@@ -384,8 +352,6 @@ public record Expand(Runtime runtime) {
     }
 
     //-------------------------------------------------------------------------------------------------
-    record ExpandResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData) {
-    }
 
     /*
      Write the links in terms of variables that we have, removing the temporarily created ones.
@@ -393,20 +359,17 @@ public record Expand(Runtime runtime) {
      Ensure that v1 == v2 also means that v1.ts == v2.ts, v1.$m == v2.$m, so that these connections can be made.
      Filtering out ? links is done in followGraph.
      */
-    ExpandResult local(Statement statement,
-                       Map<Variable, Links> lvIn,
-                       Set<Variable> modifiedDuringEvaluation,
-                       VariableData previousVd,
-                       Stage stageOfPrevious,
-                       VariableData vd,
-                       TranslationMap replaceConstants) {
+    Map<V, Map<V, LinkNature>> compute(Map<Variable, Links> lvIn,
+                                       VariableData previousVd,
+                                       Stage stageOfPrevious,
+                                       VariableData vd,
+                                       TranslationMap replaceConstants) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables = new HashMap<>();
         lvIn.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .filter(e -> e.getValue().primary() != null)
                 .forEach(e -> linkedVariables.put(e.getKey(), e.getValue().translate(replaceConstants)));
-        Set<Variable> modifiedVariables = new HashSet<>(modifiedDuringEvaluation);
         if (previousVd != null) {
             previousVd.variableInfoStream(stageOfPrevious)
                     .filter(vi -> !(vi.variable() instanceof This))
@@ -420,9 +383,6 @@ public record Expand(Runtime runtime) {
                                                      && !LinkVariable.acceptForLinkedVariables(v));
                             linkedVariables.merge(vLinks.primary(), translated, Links::merge);
                         }
-                        Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
-                        boolean explicitlyModified = unmodified != null && unmodified.isFalse();
-                        if (explicitlyModified) modifiedVariables.add(vi.variable());
                     });
         }
 
@@ -430,61 +390,7 @@ public record Expand(Runtime runtime) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(graph));
         }
-        Map<Variable, Links> newLinkedVariables = new HashMap<>();
-        Set<Variable> unmarkedModifications = new HashSet<>(modifiedVariables);
-
-        vd.variableInfoStream(Stage.EVALUATION).forEach(vi -> {
-            Variable variable = vi.variable();
-            unmarkedModifications.remove(variable);
-
-            // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
-            //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
-            Links.Builder builder = followGraph(graph, variable);
-
-            if (variable instanceof ReturnVariable rv) {
-                // replace all intermediates by a marker; don't worry about duplicate makers for now
-                boolean needMarker = false;
-                List<Link> newLinks = new ArrayList<>();
-                for (Link link : builder) {
-                    if (link.linkNature().isIdenticalTo()
-                        && link.to() instanceof IntermediateVariable iv && iv.isNewObject()) {
-                        needMarker = true;
-                    } else if (LinkVariable.acceptForLinkedVariables(link.from())
-                               && LinkVariable.acceptForLinkedVariables(link.to())) {
-                        newLinks.add(link);
-                    }
-                }
-                if (needMarker) {
-                    Variable marker = MarkerVariable.someValue(runtime, rv.methodInfo().returnType());
-                    newLinks.addFirst(new LinksImpl.LinkImpl(rv, IS_ASSIGNED_FROM, marker));
-                }
-                builder.replaceAll(newLinks);
-            } else {
-                boolean unmodified = assignedInThisStatement(statement, vi)
-                                     || !modifiedVariables.contains(variable)
-                                        && notLinkedToModified(builder, modifiedVariables);
-                builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
-
-                if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
-                    Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
-                    vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
-                }
-                if (!unmodified) {
-                    builder.replaceSubsetSuperset(variable);
-                }
-            }
-            Links newLinks = builder.build();
-            if (newLinkedVariables.put(variable, newLinks) != null) {
-                throw new UnsupportedOperationException("Each real variable must be a primary");
-            }
-        });
-
-        return new ExpandResult(newLinkedVariables, unmarkedModifications);
-    }
-
-    private static boolean assignedInThisStatement(Statement statement, VariableInfo vi) {
-        String index = statement.source().index();
-        return vi.assignments().hasAValueAt(index) && !vi.reads().indices().contains(index);
+        return graph;
     }
 
     // indirection in applied functional interface variable

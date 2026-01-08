@@ -29,19 +29,19 @@ public class ExpandSlice {
     (3) TestForEachLambda,7
     if 0:map.§$$s[-1]~this.map.§$$s[-2] and 0:map.§$$s[-2]~this.map.§$$s[-1]] then 0:map.§$$s ~ this.map.§$$s
      */
-    List<Expand.PC> completeSliceInformation(Map<Expand.V, Map<Expand.V, LinkNature>> graph) {
-        Map<Expand.PC, List<List<F2>>> map = new HashMap<>();
-        for (Map.Entry<Expand.V, Map<Expand.V, LinkNature>> entry : graph.entrySet()) {
+    List<LinkGraph.PC> completeSliceInformation(Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph) {
+        Map<LinkGraph.PC, List<List<F2>>> map = new HashMap<>();
+        for (Map.Entry<LinkGraph.V, Map<LinkGraph.V, LinkNature>> entry : graph.entrySet()) {
             if (entry.getKey().v() instanceof FieldReference frK && virtual(frK)
                 && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv)) {
-                Map<Expand.V, LinkNature> expanded = Expand.bestPath(graph, entry.getKey());
-                for (Map.Entry<Expand.V, LinkNature> entry2 : expanded.entrySet()) {
+                Map<LinkGraph.V, LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey());
+                for (Map.Entry<LinkGraph.V, LinkNature> entry2 : expanded.entrySet()) {
                     // (1)
                     if (LinkNatureImpl.IS_ELEMENT_OF.equals(entry2.getValue())
                         && entry2.getKey().v() instanceof DependentVariable dv
                         && negative(dv.indexExpression()) >= 0
                         && dv.arrayVariable() instanceof FieldReference fr2Vks && virtual(fr2Vks)) {
-                        Expand.PC pc = new Expand.PC(frKv.scopeVariable(), LinkNatureImpl.IS_ELEMENT_OF, fr2Vks);
+                        LinkGraph.PC pc = new LinkGraph.PC(frKv.scopeVariable(), LinkNatureImpl.IS_ELEMENT_OF, fr2Vks);
                         List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());
                         if (lists.isEmpty()) lists.add(new ArrayList<>());
                         lists.getFirst().add(new F2(frKv.fieldInfo(), frK.fieldInfo()));
@@ -51,7 +51,7 @@ public class ExpandSlice {
                         && entry2.getKey().v() instanceof FieldReference fr2K && virtual(fr2K)
                         && fr2K.scopeVariable() instanceof FieldReference fr2kv && virtual(fr2kv)) {
                         if (frKv.compareTo(fr2kv) < 0) {
-                            Expand.PC pc = new Expand.PC(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2kv);
+                            LinkGraph.PC pc = new LinkGraph.PC(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2kv);
                             List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());
                             if (lists.isEmpty()) {
                                 lists.add(new ArrayList<>());
@@ -65,8 +65,8 @@ public class ExpandSlice {
             }
             int index;
             if (entry.getKey().v() instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
-                Map<Expand.V, LinkNature> expanded = Expand.bestPath(graph, entry.getKey());
-                for (Map.Entry<Expand.V, LinkNature> entry2 : expanded.entrySet()) {
+                Map<LinkGraph.V, LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey());
+                for (Map.Entry<LinkGraph.V, LinkNature> entry2 : expanded.entrySet()) {
                     int index1;
                     // (3)
                     if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalTo())
@@ -76,7 +76,7 @@ public class ExpandSlice {
                         Variable frKv = dvK.arrayVariable();
                         Variable fr2Vks = dv.arrayVariable();
 
-                        Expand.PC pc = new Expand.PC(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2Vks);
+                        LinkGraph.PC pc = new LinkGraph.PC(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2Vks);
                         List<List<F2>> lists = map.computeIfAbsent(pc, _ -> new ArrayList<>());
                         if (lists.isEmpty()) {
                             lists.add(new ArrayList<>());
