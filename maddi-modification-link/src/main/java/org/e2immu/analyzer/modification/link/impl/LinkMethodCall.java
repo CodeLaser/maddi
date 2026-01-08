@@ -299,7 +299,7 @@ public record LinkMethodCall(Runtime runtime,
                     // see TestStaticBiFunction,6: no direct mapping
 
                     // this is the old "join" of previous implementations; we should call expand now
-                    Links ls = new Expand(runtime).indirect(links.primary(), link, result.links());
+                    Links ls = new LinkGraph(runtime).indirect(links.primary(), link, result.links());
                     if (ls != null) builder.addAllDistinct(ls);
 
                 } else {
