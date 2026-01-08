@@ -145,8 +145,8 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
                 methodInfo.analysis().setAllowControlledOverwrite(NON_MODIFYING_METHOD,
                         ValueImpl.BoolImpl.from(allFieldsUnmodified));
             }
-            methodInfo.analysis().setAllowControlledOverwrite(MODIFIED_COMPONENTS_METHOD,
-                    new ValueImpl.VariableBooleanMapImpl(modifiedComponentsMethod));
+           // methodInfo.analysis().setAllowControlledOverwrite(MODIFIED_COMPONENTS_METHOD,
+           //         new ValueImpl.VariableBooleanMapImpl(modifiedComponentsMethod));
         }
 
         private void copyFromVariablesIntoMethodPi(VariableData variableData, VariableInfo vi, ParameterInfo pi) {

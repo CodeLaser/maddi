@@ -2,10 +2,7 @@ package org.e2immu.analyzer.modification.analyzer.modification;
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.io.DecoratorImpl;
-import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -59,12 +56,8 @@ public class TestCast extends CommonTest {
 
         assertTrue(r.isModified());
         MethodLinkedVariables mlv = setAdd.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -", mlv.toString());
-
-        Value.VariableBooleanMap map = r.analysis().getOrDefault(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER,
-                ValueImpl.VariableBooleanMapImpl.EMPTY);
-        assertEquals(1, map.map().size());
-        assertEquals("{this.object=true}", map.map().toString());
+        assertEquals("[0:r.object*.§$s∋1:s, 1:s∈0:r.object*.§$s] --> -", mlv.toString());
+        assertEquals("[r.object, a.b.X.setAdd(a.b.X.R,String):0:r]", mlv.modified().toString());
     }
 
 
@@ -138,11 +131,8 @@ public class TestCast extends CommonTest {
             assertTrue(vi1R.isModified());
         }
         assertTrue(r.isModified());
-        assertEquals("[0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -", mlv.toString());
-        Value.VariableBooleanMap map = r.analysis().getOrDefault(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER,
-                ValueImpl.VariableBooleanMapImpl.EMPTY);
-        assertEquals(1, map.map().size());
-        assertEquals("{this.object=true}", map.map().toString());
+        assertEquals("[0:r.object*.§$s∋1:s, 1:s∈0:r.object*.§$s] --> -", mlv.toString());
+        assertEquals("a.b.X.setAdd(a.b.X.R,String):0:r, r.object", mlv.sortedModifiedString());
     }
 
 

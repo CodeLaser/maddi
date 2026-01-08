@@ -939,7 +939,7 @@ public class MethodAnalyzer {
             }
             if (e instanceof MethodCall mc) {
                 // also, simply ensure that modified component variables exist
-                copyModifiedComponentsMethod(mc.methodInfo(), mc.object());
+                //copyModifiedComponentsMethod(mc.methodInfo(), mc.object());
             }
             if (e instanceof SwitchExpression switchExpression) {
                 switchExpression.selector().visit(this);
@@ -996,7 +996,7 @@ public class MethodAnalyzer {
                     .forEach(mi -> copyReadsFromAnonymousMethod(mi, localFields, typeHierarchy,
                             variableInfoMap));
         }
-
+/*
         // This annotation only exists here through @Modified("...") annotations; not through analysis, which comes later
         private void copyModifiedComponentsMethod(MethodInfo methodInfo, Expression object) {
             Value.VariableBooleanMap modifiedComponents = methodInfo.analysis()
@@ -1007,7 +1007,7 @@ public class MethodAnalyzer {
                     markRead(newFr);
                 }
             });
-        }
+        }*/
 
         private VariableInfoMap ensureLocalVariableNamesOfEnclosingType(TypeInfo anonymousClass) {
             VariableInfoMap stored = anonymousClass.analysis().getOrNull(VARIABLES_OF_ENCLOSING_METHOD,

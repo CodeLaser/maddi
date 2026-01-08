@@ -14,7 +14,7 @@
 
 package org.e2immu.util.internal.util;
 
-public class GetSetHelper {
+public class GetSetNames {
     public static String fieldName(String methodName) {
         String extractedName;
         int length = methodName.length();
