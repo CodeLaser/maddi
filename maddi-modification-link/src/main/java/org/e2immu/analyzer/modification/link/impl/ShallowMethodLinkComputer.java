@@ -17,6 +17,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -99,7 +100,14 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         }
 
         List<Links> ofParameters = new ArrayList<>(methodInfo.parameters().size());
+        Set<Variable> modified = new HashSet<>();
+        if (methodInfo.isModifying() && !methodInfo.isIgnoreModification() && !methodInfo.isFinalizer()) {
+            modified.add(runtime.newThis(typeInfo.asParameterizedType()));
+        }
+
         for (ParameterInfo pi : methodInfo.parameters()) {
+            if (pi.isModified() && !pi.isIgnoreModifications()) modified.add(pi);
+
             Links.Builder piBuilder = new LinksImpl.Builder(pi);
 
             Value.Independent independent = pi.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
@@ -238,7 +246,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             }
             ofParameters.add(piBuilder.build());
         }
-        return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters);
+        return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters, Set.copyOf(modified));
     }
 
     private TypeParameter formalToConcrete(TypeParameter formal, ParameterizedType parameterizedType) {
@@ -511,7 +519,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             builder.add(IS_ASSIGNED_FROM, dv);
         }
         return new MethodLinkedVariablesImpl(builder.build(), methodInfo.parameters().isEmpty()
-                ? List.of() : List.of(LinksImpl.EMPTY));
+                ? List.of() : List.of(LinksImpl.EMPTY), Set.of());
     }
 
     private MethodLinkedVariables abstractSetter(MethodInfo methodInfo,
@@ -565,6 +573,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         } else {
             paramList = List.of(builder.build(), LinksImpl.EMPTY);
         }
-        return new MethodLinkedVariablesImpl(returnLinks, paramList);
+        This thisVar = runtime().newThis(methodInfo.typeInfo().asParameterizedType());
+        return new MethodLinkedVariablesImpl(returnLinks, paramList, Set.of(thisVar));
     }
 }

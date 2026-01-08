@@ -197,7 +197,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .collect(Collectors.toUnmodifiableSet());
             List<Links> ofParameters = methodInfo.parameters().stream()
                     .map(pi -> filteredPi(pi, paramsInOfReturnValue, vd)).toList();
-            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters);
+            // FIXME collect modified efficiently?
+            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, Set.of());
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
             return mlv;
         }

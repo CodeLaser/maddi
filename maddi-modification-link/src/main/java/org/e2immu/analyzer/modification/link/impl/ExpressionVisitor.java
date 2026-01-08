@@ -608,7 +608,7 @@ public record ExpressionVisitor(Runtime runtime,
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
         if (methodInfo.equals(currentMethod)) {
             return new MethodLinkedVariablesImpl(LinksImpl.EMPTY,
-                    methodInfo.parameters().stream().map(_ -> LinksImpl.EMPTY).toList());
+                    methodInfo.parameters().stream().map(_ -> LinksImpl.EMPTY).toList(), Set.of());
         }
         RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
         return switch (how) {

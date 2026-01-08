@@ -8,21 +8,26 @@ import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
-    public final static MethodLinkedVariables EMPTY = new MethodLinkedVariablesImpl(LinksImpl.EMPTY, List.of());
+    public final static MethodLinkedVariables EMPTY = new MethodLinkedVariablesImpl(LinksImpl.EMPTY, List.of(), Set.of());
     public static final Property METHOD_LINKS = new PropertyImpl("methodLinks", EMPTY);
 
 
     private final Links ofReturnValue;
     private final List<Links> ofParameters;
+    private final Set<Variable> modified;
 
-    public MethodLinkedVariablesImpl(Links ofReturnValue, List<Links> ofParameters) {
+    public MethodLinkedVariablesImpl(Links ofReturnValue, List<Links> ofParameters, Set<Variable> modified) {
         this.ofParameters = ofParameters;
         this.ofReturnValue = ofReturnValue;
+        this.modified = modified;
     }
 
     public static Value decode(Codec codec, Codec.Context context, Codec.EncodedValue ev) {
@@ -45,13 +50,20 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     }
 
     @Override
+    public Set<Variable> modified() {
+        return modified;
+    }
+
+    @Override
     public List<Links> ofParameters() {
         return ofParameters;
     }
 
     @Override
     public String toString() {
-        return ofParameters + " --> " + (ofReturnValue == null ? "-" : ofReturnValue.toString());
+        return ofParameters.stream().map(p -> p.toString(modified))
+                       .collect(Collectors.joining(", ", "[", "]"))
+               + " --> " + (ofReturnValue == null ? "-" : ofReturnValue.toString(modified));
     }
 
     @Override
@@ -59,7 +71,9 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         if (translationMap == null || translationMap.isEmpty() || EMPTY.equals(this)) return this;
         return new MethodLinkedVariablesImpl(
                 ofReturnValue == null ? null : ofReturnValue.translate(translationMap),
-                ofParameters.stream().map(l -> l.translate(translationMap)).toList());
+                ofParameters.stream().map(l -> l.translate(translationMap)).toList(),
+                modified.stream().map(translationMap::translateVariableRecursively)
+                        .collect(Collectors.toUnmodifiableSet()));
     }
 
     @Override
@@ -74,6 +88,6 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
                 ofReturnValue.isEmpty()
                         ? ofReturnValue
                         : ofReturnValue.removeIfTo(v -> v instanceof MarkerVariable mv && mv.isSomeValue()),
-                ofParameters);
+                ofParameters, modified);
     }
 }

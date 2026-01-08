@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Set;
@@ -40,6 +41,8 @@ public interface Links extends Iterable<Link>, Value {
     Links translateFrom(TranslationMap translationMap);
 
     Iterable<Links> removeThisAsPrimary();
+
+    @NotNull String toString(Set<Variable> modified);
 
     interface Builder extends Iterable<Link> {
         void replaceAll(List<Link> newLinks);

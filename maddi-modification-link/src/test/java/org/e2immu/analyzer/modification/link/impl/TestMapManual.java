@@ -2,11 +2,10 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -81,7 +80,7 @@ public class TestMapManual extends CommonTest {
                 new LinksImpl.Builder(mapGetRv)
                         .add(mapGetRv, LinkNatureImpl.IS_ELEMENT_OF, eInfo.thisMapEV)
                         .build(),
-                List.of());
+                List.of(), Set.of());
         assertEquals("[] --> get∈this.eArray[-1].v", mlvGet.toString());
         mapGet.analysis().set(METHOD_LINKS, mlvGet);
     }
@@ -115,7 +114,7 @@ public class TestMapManual extends CommonTest {
                         .add(mapKeySetRvTArray, LinkNatureImpl.SHARES_ELEMENTS, eInfo.thisMapEK)
                         .add(mapKeySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
                         .build(),
-                List.of());
+                List.of(), Set.of());
         assertEquals("[] --> keySet.tArray~this.eArray[-1].k,keySet.§m≡this.M", mlvGet.toString());
         mapKeySet.analysis().set(METHOD_LINKS, mlvGet);
 
@@ -201,7 +200,7 @@ public class TestMapManual extends CommonTest {
                         .add(mapEntrySetRvEArray, LinkNatureImpl.SHARES_ELEMENTS, eArray)
                         .add(mapEntrySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
                         .build(),
-                List.of());
+                List.of(), Set.of());
         assertEquals("[] --> entrySet.eArray~this.eArray,entrySet.§m≡this.M", mlvGet.toString());
         mapEntrySet.analysis().set(METHOD_LINKS, mlvGet);
 

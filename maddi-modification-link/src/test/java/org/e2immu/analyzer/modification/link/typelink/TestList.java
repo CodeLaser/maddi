@@ -24,6 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,7 +55,8 @@ public class TestList extends CommonTest {
         FieldInfo tsField = X.getFieldByName("ts", true);
         FieldReference ts = runtime.newFieldReference(tsField);
         get.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(
-                new LinksImpl.Builder(rv).add(LinkNatureImpl.IS_ELEMENT_OF, ts).build(), List.of(LinksImpl.EMPTY)));
+                new LinksImpl.Builder(rv).add(LinkNatureImpl.IS_ELEMENT_OF, ts).build(), List.of(LinksImpl.EMPTY),
+                Set.of()));
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -195,7 +197,8 @@ public class TestList extends CommonTest {
         FieldReference ts = runtime.newFieldReference(tsField);
         FieldReference rvTs = runtime.newFieldReference(tsField, runtime.newVariableExpression(rv), tsField.type());
         copy.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(
-                new LinksImpl.Builder(rv).add(rvTs, LinkNatureImpl.SHARES_ELEMENTS, ts).build(), List.of()));
+                new LinksImpl.Builder(rv).add(rvTs, LinkNatureImpl.SHARES_ELEMENTS, ts).build(), List.of(),
+                Set.of()));
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
