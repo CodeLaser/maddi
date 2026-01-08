@@ -63,7 +63,7 @@ public class TestCast extends CommonTest {
             assertTrue(viObject1.isModified());
         }
         assertTrue(object.isModified());
-        assertEquals("[0:object.§$s∋1:s, 1:s∈0:object.§$s] --> -", mlv.toString());
+        assertEquals("[0:object*.§$s∋1:s, 1:s∈0:object*.§$s] --> -", mlv.toString());
     }
 
     @Language("java")
@@ -111,6 +111,6 @@ public class TestCast extends CommonTest {
         }
         assertTrue(r.isModified());
         // old version of Util.isPartOf():[0:r.object≥1:s,0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -
-        assertEquals("[0:r.object.§$s∋1:s, 1:s∈0:r.object.§$s] --> -", mlv.toString());
+        assertEquals("[0:r.object*.§$s∋1:s, 1:s∈0:r.object*.§$s] --> -", mlv.toString());
     }
 }

@@ -358,9 +358,13 @@ public record Expand(Runtime runtime) {
                     || ln == OBJECT_GRAPH_CONTAINS) {
                     return false;
                 }
-                if (ln == SHARES_ELEMENTS || ln == SHARES_FIELDS) {
+                if (ln == IS_ASSIGNED_TO) {
                     Value.Immutable immutable = new AnalysisHelper().typeImmutable(link.to().parameterizedType());
                     return immutable.isAtLeastImmutableHC();
+                }
+                if (ln == SHARES_ELEMENTS || ln == SHARES_FIELDS) {
+                    Value.Independent independent = new AnalysisHelper().typeIndependent(link.to().parameterizedType());
+                    return independent.isAtLeastIndependentHc();
                 }
             }
         }

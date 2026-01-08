@@ -155,7 +155,7 @@ public class TestBoundTypeParameter extends CommonTest {
         VariableData vd = VariableDataImpl.of(set.methodBody().statements().getFirst());
         assertEquals("0:t→this.ts[1:index],0:t∈this.ts",
                 vd.variableInfo(set.parameters().getFirst()).linkedVariables().toString());
-        assertEquals("[0:t→this.ts[1:index],0:t∈this.ts, -] --> -", mlv.toString());
+        assertEquals("[0:t→this.ts*[1:index],0:t∈this.ts*, -] --> -", mlv.toString());
     }
 
     @DisplayName("Analyze 'compareFirst'")
@@ -202,7 +202,7 @@ public class TestBoundTypeParameter extends CommonTest {
 
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = tlc.doMethod(constructor);
-        assertEquals("[0:in→this.list] --> -", mlvConstructor.toString());
+        assertEquals("[0:in→this*.list] --> -", mlvConstructor.toString());
     }
 
     @Language("java")
@@ -251,7 +251,7 @@ public class TestBoundTypeParameter extends CommonTest {
         VariableInfo viList = vd.variableInfo("a.b.X.list");
         assertEquals("this.list.§ts⊆0:in.§ts", viList.linkedVariables().toString());
 
-        assertEquals("[0:in.§ts⊇this.list.§ts] --> -", mlvConstructor.toString());
+        assertEquals("[0:in.§ts⊇this*.list.§ts] --> -", mlvConstructor.toString());
     }
 
     @DisplayName("Analyze constructor, ensure recursive computation")
@@ -264,7 +264,7 @@ public class TestBoundTypeParameter extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
-        assertEquals("[0:in.§ts⊇this.list.§ts] --> -", mlvConstructor.toString());
+        assertEquals("[0:in.§ts⊇this*.list.§ts] --> -", mlvConstructor.toString());
     }
 
     @Language("java")
@@ -290,7 +290,7 @@ public class TestBoundTypeParameter extends CommonTest {
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 1);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:t∈this.list.§ts] --> -", mlvListAdd.toString());
+        assertEquals("[0:t∈this.list*.§ts] --> -", mlvListAdd.toString());
     }
 
     @Language("java")
@@ -315,7 +315,7 @@ public class TestBoundTypeParameter extends CommonTest {
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.§ts∋1:t, 1:t∈0:list.§ts] --> -", mlvListAdd.toString());
+        assertEquals("[0:list*.§ts∋1:t, 1:t∈0:list*.§ts] --> -", mlvListAdd.toString());
     }
 
     @Language("java")
@@ -350,15 +350,15 @@ public class TestBoundTypeParameter extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.§ts∋1:t, 1:t∈0:list.§ts] --> -", mlvListAdd.toString());
+        assertEquals("[0:list*.§ts∋1:t, 1:t∈0:list*.§ts] --> -", mlvListAdd.toString());
 
         MethodInfo add = X.findUniqueMethod("add", 2);
         MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add));
-        assertEquals("[0:k∈1:in.§ks, 1:in.§ks∋0:k] --> -", mlvAdd.toString());
+        assertEquals("[0:k∈1:in*.§ks, 1:in*.§ks∋0:k] --> -", mlvAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("add2", 2);
         MethodLinkedVariables mlvAdd2 = add2.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add2));
-        assertEquals("[0:l∈1:in.§ls, 1:in.§ls∋0:l] --> -", mlvAdd2.toString());
+        assertEquals("[0:l∈1:in*.§ls, 1:in*.§ls∋0:l] --> -", mlvAdd2.toString());
     }
 
     @Language("java")
@@ -383,7 +383,7 @@ public class TestBoundTypeParameter extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 3);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.§ts∋1:t1,0:list.§ts∋2:t2, 1:t1∈0:list.§ts, 2:t2∈0:list.§ts] --> -",
+        assertEquals("[0:list*.§ts∋1:t1,0:list*.§ts∋2:t2, 1:t1∈0:list*.§ts, 2:t2∈0:list*.§ts] --> -",
                 mlvListAdd.toString());
     }
 

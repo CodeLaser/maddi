@@ -69,7 +69,7 @@ public class TestInstanceOf extends CommonTest {
             assertTrue(viObject000.isModified());
         }
         assertTrue(object.isModified());
-        assertEquals("[0:object.§es∋1:s, 1:s∈0:object.§es] --> -", mlv.toString());
+        assertEquals("[0:object*.§es∋1:s, 1:s∈0:object*.§es] --> -", mlv.toString());
     }
 
     @Language("java")
@@ -127,7 +127,8 @@ public class TestInstanceOf extends CommonTest {
         }
 
         assertTrue(i.isModified());
-        assertEquals("[0:i≥1:s, 1:s≤0:i] --> -", mlv.toString());
+        assertEquals("[0:i*≥1:s, 1:s≤0:i*] --> -", mlv.toString());
+        fail("modified components here?");
     }
 
 

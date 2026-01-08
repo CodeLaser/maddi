@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.LocalVariable;
+import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -205,9 +206,27 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .map(VariableInfo::variable)
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, modified);
+            copyModificationsIntoMethod(modified);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
             return mlv;
         }
+
+        private void copyModificationsIntoMethod(Set<Variable> modified) {
+            boolean methodModified = false;
+            boolean[] paramsModified = new boolean[methodInfo.parameters().size()];
+            for (Variable v : modified) {
+                if (v instanceof This thisVar && thisVar.typeInfo().equals(methodInfo.typeInfo())) {
+                    methodModified = true;
+                } else if (v instanceof ParameterInfo pi && pi.methodInfo().equals(methodInfo)) {
+                    paramsModified[pi.index()] = true;
+                }
+            }
+            methodInfo.analysis().set(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.from(!methodModified));
+            for (ParameterInfo pi : methodInfo.parameters()) {
+                pi.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.from(!paramsModified[pi.index()]));
+            }
+        }
+
 
         private Links emptyIfOnlySomeValue(Links links) {
             if (links.stream().allMatch(l ->

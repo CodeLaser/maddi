@@ -150,29 +150,6 @@ public class MethodModAnalyzerImpl extends CommonAnalyzerImpl implements MethodM
         }
 
         private void copyFromVariablesIntoMethodPi(VariableData variableData, VariableInfo vi, ParameterInfo pi) {
-            if (vi.isUnmodified()
-                && vi.linkedVariables() != null
-                && vi.linkedVariables().toPrimaries().stream()
-                        .noneMatch(tp -> tp instanceof FieldReference fr && fr.scopeIsThis())) {
-                pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, TRUE);
-            } // when linked to a field, we must wait for the field to be declared unmodified...
-
-            // IMPORTANT: we also store this in case of !modified; see TestLinkCast,2
-            // a parameter can be of type Object, not modified, even though, via casting, its hidden content is modified
-
-            Map<Variable, Boolean> modifiedComponents = computeModifiedComponents(variableData, pi);
-            if (!modifiedComponents.isEmpty()) {
-                Value.VariableBooleanMap vbm = translateVariableBooleanMapToThisScope(pi, modifiedComponents);
-                pi.analysis().setAllowControlledOverwrite(MODIFIED_COMPONENTS_PARAMETER, vbm);
-            }
-
-            /*Value.VariableBooleanMap mfi = vi.analysis().getOrNull(MODIFIED_FI_COMPONENTS_VARIABLE,
-                    ValueImpl.VariableBooleanMapImpl.class);
-            if (mfi != null && !mfi.map().isEmpty()) {
-                Value.VariableBooleanMap thisScope = translateVariableBooleanMapToThisScope(pi, mfi.map());
-                pi.analysis().setAllowControlledOverwrite(MODIFIED_FI_COMPONENTS_PARAMETER, thisScope);
-            }*/
-
             Value.SetOfTypeInfo casts = vi.analysis().getOrDefault(DOWNCAST_VARIABLE, ValueImpl.SetOfTypeInfoImpl.EMPTY);
             if (!casts.typeInfoSet().isEmpty()) {
                 pi.analysis().setAllowControlledOverwrite(DOWNCAST_PARAMETER, casts);
