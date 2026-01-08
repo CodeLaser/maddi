@@ -13,7 +13,6 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
@@ -58,15 +57,17 @@ public class TestForEachLambda extends CommonTest {
 
         MethodInfo add = X.findUniqueMethod("add", 1);
         MethodLinkedVariables mtlAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add));
-        assertEquals("[0:ii∈this.set.§$s] --> -", mtlAdd.toString());
+        assertEquals("[0:ii∈this.set*.§$s] --> -", mtlAdd.toString());
 
+        // propagation of modifications of the parameter
         MethodInfo add2 = X.findUniqueMethod("add2", 1);
         MethodLinkedVariables add2Mtl = add2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add2));
-        assertEquals("[0:ii∈this.set.§$s] --> -", add2Mtl.toString());
+        assertEquals("[0:ii∈this.set*.§$s] --> -", add2Mtl.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
+        // propagation must survive a lambda
         Statement forEach = method.methodBody().statements().getFirst();
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
@@ -74,7 +75,7 @@ public class TestForEachLambda extends CommonTest {
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("0:list.§$s~this.set.§$s", tlvT1.toString());
 
-        assertEquals("[0:list.§$s~this.set.§$s] --> -", mlv.toString());
+        assertEquals("[0:list.§$s~this.set*.§$s] --> -", mlv.toString());
     }
 
 

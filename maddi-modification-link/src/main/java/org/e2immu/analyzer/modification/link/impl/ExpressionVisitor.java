@@ -476,8 +476,8 @@ public record ExpressionVisitor(Runtime runtime,
 
         Result r = new LinkMethodCall(runtime, virtualFieldComputer, variableCounter, currentMethod)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
-        Set<Variable> modified = new MethodModification(runtime, variableData, stage)
-                .go(mc, objectPrimary, params, mlvTranslated2);
+        Set<Variable> modified = new MethodModification(runtime, variableData, stage, mc)
+                .go(objectPrimary, params, mlvTranslated2);
         return r.addModified(modified)
                 .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)

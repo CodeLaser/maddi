@@ -383,6 +383,8 @@ public record Expand(Runtime runtime) {
     }
 
     //-------------------------------------------------------------------------------------------------
+    record ExpandResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData) {
+    }
 
     /*
      Write the links in terms of variables that we have, removing the temporarily created ones.
@@ -390,12 +392,12 @@ public record Expand(Runtime runtime) {
      Ensure that v1 == v2 also means that v1.ts == v2.ts, v1.$m == v2.$m, so that these connections can be made.
      Filtering out ? links is done in followGraph.
      */
-    public Map<Variable, Links> local(Map<Variable, Links> lvIn,
-                                      Set<Variable> modifiedDuringEvaluation,
-                                      VariableData previousVd,
-                                      Stage stageOfPrevious,
-                                      VariableData vd,
-                                      TranslationMap replaceConstants) {
+    public ExpandResult local(Map<Variable, Links> lvIn,
+                              Set<Variable> modifiedDuringEvaluation,
+                              VariableData previousVd,
+                              Stage stageOfPrevious,
+                              VariableData vd,
+                              TranslationMap replaceConstants) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables = new HashMap<>();
         lvIn.entrySet().stream()
@@ -427,12 +429,17 @@ public record Expand(Runtime runtime) {
             LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(graph));
         }
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
+        Set<Variable> unmarkedModifications = new HashSet<>(modifiedVariables);
+
         vd.variableInfoStream(Stage.EVALUATION).forEach(vi -> {
+            Variable variable = vi.variable();
+            unmarkedModifications.remove(variable);
+
             // FIXME turning ⊆ into ~ when modified is best done directly in followGraph(),
             //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
-            Links.Builder builder = followGraph(graph, vi.variable());
+            Links.Builder builder = followGraph(graph, variable);
 
-            if (vi.variable() instanceof ReturnVariable rv) {
+            if (variable instanceof ReturnVariable rv) {
                 // replace all intermediates by a marker; don't worry about duplicate makers for now
                 boolean needMarker = false;
                 List<Link> newLinks = new ArrayList<>();
@@ -451,7 +458,7 @@ public record Expand(Runtime runtime) {
                 }
                 builder.replaceAll(newLinks);
             } else {
-                boolean unmodified = !modifiedVariables.contains(vi.variable())
+                boolean unmodified = !modifiedVariables.contains(variable)
                                      && notLinkedToModified(builder, modifiedVariables);
                 builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
@@ -460,16 +467,16 @@ public record Expand(Runtime runtime) {
                     vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
                 }
                 if (!unmodified) {
-                    builder.replaceSubsetSuperset(vi.variable());
+                    builder.replaceSubsetSuperset(variable);
                 }
             }
             Links newLinks = builder.build();
-            if (newLinkedVariables.put(vi.variable(), newLinks) != null) {
+            if (newLinkedVariables.put(variable, newLinks) != null) {
                 throw new UnsupportedOperationException("Each real variable must be a primary");
             }
-
         });
-        return newLinkedVariables;
+
+        return new ExpandResult(newLinkedVariables, unmarkedModifications);
     }
 
     // indirection in applied functional interface variable
