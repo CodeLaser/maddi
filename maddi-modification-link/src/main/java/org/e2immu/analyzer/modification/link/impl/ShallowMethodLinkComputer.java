@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
@@ -106,7 +107,12 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         }
 
         for (ParameterInfo pi : methodInfo.parameters()) {
-            if (pi.isModified() && !pi.isIgnoreModifications()) modified.add(pi);
+            if (pi.isModified() && !pi.isIgnoreModifications()) {
+                Value.Immutable immutable = new AnalysisHelper().typeImmutable(typeInfo, pi.parameterizedType());
+                if (immutable.isMutable()) {
+                    modified.add(pi);
+                }
+            }
 
             Links.Builder piBuilder = new LinksImpl.Builder(pi);
 

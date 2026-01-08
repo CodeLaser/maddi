@@ -84,6 +84,7 @@ public class TestList extends CommonTest {
         // first, do get()
         MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
         assertEquals("get←this.ts[0:index],get∈this.ts", lvGet.ofReturnValue().toString());
+        assertTrue(lvGet.modified().isEmpty());
 
         // then, do method
         MethodLinkedVariables lvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -194,7 +195,7 @@ public class TestList extends CommonTest {
 
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = tlc.doMethod(constructor);
-        assertEquals("[0:in→this.list] --> -", mlvConstructor.toString());
+        assertEquals("[0:in→this*.list] --> -", mlvConstructor.toString());
     }
 
     @Language("java")
@@ -243,7 +244,7 @@ public class TestList extends CommonTest {
         VariableInfo viList = vd.variableInfo("a.b.X.list");
         assertEquals("this.list.§ts⊆0:in.§ts", viList.linkedVariables().toString());
 
-        assertEquals("[0:in.§ts⊇this.list.§ts] --> -", mlvConstructor.toString());
+        assertEquals("[0:in.§ts⊇this*.list.§ts] --> -", mlvConstructor.toString());
     }
 
     @DisplayName("Analyze constructor, ensure recursive computation")
@@ -256,7 +257,7 @@ public class TestList extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
-        assertEquals("[0:in.§ts⊇this.list.§ts] --> -", mlvConstructor.toString());
+        assertEquals("[0:in.§ts⊇this*.list.§ts] --> -", mlvConstructor.toString());
     }
 
     @Language("java")
@@ -342,15 +343,15 @@ public class TestList extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.§ts∋1:t, 1:t∈0:list.§ts] --> -", mlvListAdd.toString());
+        assertEquals("[0:list*.§ts∋1:t, 1:t∈0:list*.§ts] --> -", mlvListAdd.toString());
 
         MethodInfo add = X.findUniqueMethod("add", 2);
         MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add));
-        assertEquals("[0:k∈1:in.§ks, 1:in.§ks∋0:k] --> -", mlvAdd.toString());
+        assertEquals("[0:k∈1:in*.§ks, 1:in*.§ks∋0:k] --> -", mlvAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("add2", 2);
         MethodLinkedVariables mlvAdd2 = add2.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add2));
-        assertEquals("[0:l∈1:in.§ls, 1:in.§ls∋0:l] --> -", mlvAdd2.toString());
+        assertEquals("[0:l∈1:in*.§ls, 1:in*.§ls∋0:l] --> -", mlvAdd2.toString());
     }
 
     @Language("java")
@@ -375,7 +376,7 @@ public class TestList extends CommonTest {
         LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 3);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.§ts∋1:t1,0:list.§ts∋2:t2, 1:t1∈0:list.§ts, 2:t2∈0:list.§ts] --> -",
+        assertEquals("[0:list*.§ts∋1:t1,0:list*.§ts∋2:t2, 1:t1∈0:list*.§ts, 2:t2∈0:list*.§ts] --> -",
                 mlvListAdd.toString());
     }
 

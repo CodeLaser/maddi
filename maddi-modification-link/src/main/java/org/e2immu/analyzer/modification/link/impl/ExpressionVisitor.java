@@ -11,13 +11,11 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.RecordPattern;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.*;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
@@ -25,8 +23,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.MODIFIED_COMPONENTS_METHOD;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.MODIFIED_COMPONENTS_PARAMETER;
 
 public record ExpressionVisitor(Runtime runtime,
                                 JavaInspector javaInspector,
@@ -480,129 +476,12 @@ public record ExpressionVisitor(Runtime runtime,
 
         Result r = new LinkMethodCall(runtime, virtualFieldComputer, variableCounter, currentMethod)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
-
-        // handle all matters 'modification'
-
-        Set<Variable> modified = new HashSet<>();
-
-        handleMethodModification(mc, objectPrimary, modified);
-        if (!mc.methodInfo().parameters().isEmpty()) {
-            PropagateComponents pc = new PropagateComponents(runtime, variableData, stage);
-            for (ParameterInfo pi : mc.methodInfo().parameters()) {
-                handleParameterModification(mc, pi, params, modified, pc);
-            }
-            PropagateApplied pa = new PropagateApplied(runtime);
-            Set<Variable> modifiedByPropagation = pa.go(variableData, stage, params, mlv.ofParameters());
-            modified.addAll(modifiedByPropagation);
-        }
+        Set<Variable> modified = new MethodModification(runtime, variableData, stage)
+                .go(mc, objectPrimary, params, mlvTranslated2);
         return r.addModified(modified)
                 .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
-    }
-
-    private void handleParameterModification(MethodCall mc,
-                                             ParameterInfo pi,
-                                             List<Result> params,
-                                             Set<Variable> modified,
-                                             PropagateComponents pc) {
-        if (pi.isModified()) {
-            if (pi.isVarArgs()) {
-                for (int i = mc.methodInfo().parameters().size() - 1; i < mc.parameterExpressions().size(); i++) {
-                    Result rp = params.get(i);
-                    handleModifiedParameter(mc.parameterExpressions().get(i), rp, modified);
-                }
-            } else {
-                Result rp = params.get(pi.index());
-                handleModifiedParameter(mc.parameterExpressions().get(pi.index()), rp, modified);
-            }
-        }
-            /*
-             when a method reference has been passed on, and that method appears to be modifying, we set the scope
-             of the method reference modified as well. If that scope is 'this', the current method will become modifying.
-             If the parameters of this method have modified components, we check if we have a value for these components,
-             and propagate their modification too.
-             */
-        /*pc.propagateComponents(MODIFIED_FI_COMPONENTS_PARAMETER, mc, pi,
-                (e, mapValue, map) -> {
-                    if (e instanceof MethodReference mr) {
-                        if (mapValue) {
-                            propagateModificationOfObject(modified, mr);
-                            for (ParameterInfo mrPi : mr.methodInfo().parameters()) {
-                                propagateModificationOfParameter(modified, pi, map, mrPi);
-                            }
-                        } //TODO else ensureNotModifying(mr);
-                    }
-                });*/
-        pc.propagateComponents(MODIFIED_COMPONENTS_PARAMETER, mc, pi,
-                (e, mapValue, map) -> {
-                    if (e instanceof VariableExpression ve2 && mapValue) {
-                        modified.add(ve2.variable());
-                    }
-                });
-    }
-
-    private void handleMethodModification(MethodCall mc,
-                                          Variable objectPrimary,
-                                          Set<Variable> modified) {
-        if (objectPrimary != null && !mc.methodInfo().isFinalizer()) {
-            boolean modifying = mc.methodInfo().isModifying();
-            if (modifying) {
-                modified.add(objectPrimary);
-                Value.VariableBooleanMap modifiedComponents = mc.methodInfo().analysis().getOrNull(MODIFIED_COMPONENTS_METHOD,
-                        ValueImpl.VariableBooleanMapImpl.class);
-                if (modifiedComponents != null
-                    && mc.object() instanceof VariableExpression ve
-                    // we must check for 'this', to eliminate simple assignments
-                    && !(ve.variable() instanceof This)) {
-                    for (Map.Entry<Variable, Boolean> entry : modifiedComponents.map().entrySet()) {
-                        // translate "this" of the method's instance type to the current scope
-                        ParameterizedType pt = mc.object().parameterizedType().typeInfo().asParameterizedType();
-                        This thisInSv = runtime.newThis(pt);
-                        TranslationMap tm = new VariableTranslationMap(runtime).put(thisInSv, ve.variable());
-                        Variable v = tm.translateVariableRecursively(entry.getKey());
-                        modified.add(v);
-                    }
-                }
-            }
-        }
-    }
-
-    private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
-        if (rp.links() != null && rp.links().primary() != null) {
-            modified.add(rp.links().primary());
-        }
-        if (argument instanceof MethodReference mr) {
-            propagateModificationOfObject(modified, mr);
-        }
-    }
-
-    private void propagateModificationOfObject(Set<Variable> modified, MethodReference mr) {
-        if (mr.methodInfo().isModifying() && mr.scope() instanceof VariableExpression ve) {
-            modified.add(ve.variable());
-        }
-    }
-
-    private void propagateModificationOfParameter(Set<Variable> modified,
-                                                  ParameterInfo pi,
-                                                  Map<Variable, Expression> map,
-                                                  ParameterInfo mrPi) {
-        Value.VariableBooleanMap modComp = mrPi.analysis().getOrDefault(MODIFIED_COMPONENTS_PARAMETER,
-                ValueImpl.VariableBooleanMapImpl.EMPTY);
-        if (!modComp.isEmpty()) {
-            TranslationMap tm = new VariableTranslationMap(runtime)
-                    .put(mrPi, runtime.newThis(pi.parameterizedType()));
-            for (Map.Entry<Variable, Boolean> entry : modComp.map().entrySet()) {
-                if (entry.getValue()) {
-                    // modified component
-                    Variable translated = tm.translateVariableRecursively(entry.getKey());
-                    Expression value = map.get(translated);
-                    if (value instanceof VariableExpression ve) {
-                        modified.add(ve.variable());
-                    }
-                }
-            }
-        }
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
