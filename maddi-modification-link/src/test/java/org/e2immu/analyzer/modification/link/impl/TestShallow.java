@@ -9,9 +9,9 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
@@ -22,8 +22,8 @@ import java.util.*;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT_HC;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestShallow extends CommonTest {
 
@@ -31,8 +31,10 @@ public class TestShallow extends CommonTest {
     private static final String INPUT1 = """
             package a.b;
             import org.e2immu.annotation.Independent;
+            import org.e2immu.annotation.NotModified;
             public interface X<T> {
                 @Independent(hc = true)
+                @NotModified
                 T get();
                 void set(@Independent(hc = true) T t);
                 String label(int k);
@@ -46,10 +48,7 @@ public class TestShallow extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        // run the shallow analyzer to detect the annotations
-        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, annotatedApiParser,
-                true);
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, true);
         shallowAnalyzer.go(List.of(X));
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
@@ -59,12 +58,14 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodInfo get = X.findUniqueMethod("get", 0);
+        assertTrue(get.isNonModifying());
         MethodLinkedVariables mlvGet = linkComputer.doMethod(get);
         assertEquals("[] --> get←this.§t", mlvGet.toString());
 
         MethodInfo set = X.findUniqueMethod("set", 1);
+        assertTrue(set.isModifying());
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[0:t→this.§t] --> -", mlvSet.toString());
+        assertEquals("[0:t→this*.§t] --> -", mlvSet.toString());
 
         MethodInfo label = X.findUniqueMethod("label", 1);
         MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
@@ -76,8 +77,10 @@ public class TestShallow extends CommonTest {
     private static final String INPUT1b = """
             package a.b;
             import org.e2immu.annotation.Independent;
+            import org.e2immu.annotation.NotModified;
             public interface X<T extends Comparable<? super T>> {
                 @Independent(hc = true)
+                @NotModified
                 T get();
                 void set(@Independent(hc = true) T t);
                 String label(int k);
@@ -93,8 +96,7 @@ public class TestShallow extends CommonTest {
 
         // run the shallow analyzer to detect the annotations
         AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, annotatedApiParser,
-                true);
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, true);
         shallowAnalyzer.go(List.of(X));
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
@@ -109,7 +111,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo set = X.findUniqueMethod("set", 1);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[0:t→this.§t] --> -", mlvSet.toString());
+        assertEquals("[0:t→this*.§t] --> -", mlvSet.toString());
 
         MethodInfo label = X.findUniqueMethod("label", 1);
         MethodLinkedVariables mlvLabel = linkComputer.doMethod(label);
@@ -174,7 +176,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo addAll = list.findUniqueMethod("addAll", 1);
         MethodLinkedVariables mlvAddAll = linkComputer.doMethod(addAll);
-        assertEquals("[0:collection.§es~this.§es] --> -", mlvAddAll.toString());
+        assertEquals("[0:collection.§es~this*.§es] --> -", mlvAddAll.toString());
 
         MethodInfo ofVarargs = list.methodStream().filter(mi ->
                         "of".equals(mi.name()) && mi.parameters().size() == 1 && mi.parameters().getFirst().isVarArgs())
@@ -196,11 +198,11 @@ public class TestShallow extends CommonTest {
 
         MethodInfo add = list.findUniqueMethod("add", 1);
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
-        assertEquals("[0:e∈this.§es] --> -", mlvAdd.toString());
+        assertEquals("[0:e∈this*.§es] --> -", mlvAdd.toString());
 
         MethodInfo set = list.findUniqueMethod("set", 2);
         MethodLinkedVariables mlvSet = linkComputer.doMethod(set);
-        assertEquals("[-, 1:e∈this.§es] --> set∈this.§es", mlvSet.toString());
+        assertEquals("[-, 1:e∈this*.§es] --> set∈this*.§es", mlvSet.toString());
 
         MethodInfo subList = list.findUniqueMethod("subList", 2);
         MethodLinkedVariables mlvSubList = linkComputer.doMethod(subList);
@@ -369,7 +371,7 @@ public class TestShallow extends CommonTest {
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = linkComputer.doMethod(c1);
-        assertEquals("[0:c.§es⊇this.§es] --> -", mlvC1.toString());
+        assertEquals("[0:c.§es⊇this*.§es] --> -", mlvC1.toString());
 
     }
 
@@ -391,14 +393,15 @@ public class TestShallow extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, true);
+        shallowAnalyzer.go(List.of(X));
+
         MethodInfo add = X.findUniqueMethod("add", 2);
-        add.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
-                new ValueImpl.IndependentImpl(1, Map.of(1, 1)));
 
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(add);
-        assertEquals("[-, 1:t∈0:c.§ts] --> -", mlvAdd.toString());
+        assertEquals("[-, 1:t∈0:c*.§ts] --> -", mlvAdd.toString());
     }
 
     @DisplayName("Analyze 'Collections.addAll(...), extra complication: varargs")
@@ -410,7 +413,7 @@ public class TestShallow extends CommonTest {
         assertEquals("java.util.Collections.addAll(java.util.Collection<? super T>,T...)",
                 addAll.fullyQualifiedName());
         MethodLinkedVariables mlvC1 = addAll.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(addAll));
-        assertEquals("[-, 1:elements.§ts⊆0:c.§ts] --> -", mlvC1.toString());
+        assertEquals("[-, 1:elements.§ts⊆0:c*.§ts] --> -", mlvC1.toString());
     }
 
     @Language("java")
@@ -421,7 +424,7 @@ public class TestShallow extends CommonTest {
             public class C<X> {
                 record R<V>(V v) { }
                 @Independent(hc = true)
-                abstract List<R<X>> method(List<X> list);
+                abstract List<R<X>> method(@Independent(hc = true) List<X> list);
             }
             """;
 
@@ -431,10 +434,13 @@ public class TestShallow extends CommonTest {
         TypeInfo C = javaInspector.parse(INPUT9);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
+        shallowAnalyzer.go(List.of(C));
+
         MethodInfo method = C.findUniqueMethod("method", 1);
-        method.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT_HC);
-        method.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
-                ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        assertSame(INDEPENDENT_HC, method.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class));
+        assertSame(INDEPENDENT_HC, method.parameters().getFirst().analysis().getOrNull(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.class));
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("§m - X[] §xs", vfc.compute(C).toString());
@@ -442,19 +448,19 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodLinkedVariables mlv = linkComputer.doMethod(method);
-        assertEquals("[0:list.§xs~this.§xs] --> method.§xs⊆this.§xs", mlv.toString());
+        assertEquals("[0:list*.§xs~this*.§xs] --> method.§xs⊆this*.§xs", mlv.toString());
     }
 
 
     @Language("java")
     private static final String INPUT9b = """
             package a.b;
-            import org.e2immu.annotation.Independent;
+            import org.e2immu.annotation.Independent;import org.e2immu.annotation.NotModified;
             import java.util.List;
             public abstract class C {
                 record R<V>(V v) { }
                 @Independent(hc = true)
-                abstract <X> List<R<X>> method(@Independent(hcReturnValue = true) List<X> list);
+                abstract <X> List<R<X>> method(@Independent(hcReturnValue = true) @NotModified List<X> list);
             }
             """;
 
@@ -464,10 +470,13 @@ public class TestShallow extends CommonTest {
         TypeInfo C = javaInspector.parse(INPUT9b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
+        shallowAnalyzer.go(List.of(C));
+
         MethodInfo method = C.findUniqueMethod("method", 1);
-        method.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT_HC);
-        method.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
-                new ValueImpl.IndependentImpl(1, Map.of(-1, 1)));
+        assertSame(INDEPENDENT_HC, method.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class));
+        //method.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
+         //       new ValueImpl.IndependentImpl(1, Map.of(-1, 1)));
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("§m - C §0", vfc.compute(C).toString());

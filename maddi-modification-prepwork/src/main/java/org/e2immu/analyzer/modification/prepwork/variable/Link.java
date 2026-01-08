@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Set;
 import java.util.stream.Stream;
 
 
@@ -18,6 +19,8 @@ public interface Link extends Comparable<Link> {
     Link replaceSubsetSuperset(Variable modified);
 
     Variable to();
+
+    @NotNull String toString(Set<Variable> modified);
 
     @Override
     default int compareTo(@NotNull Link o) {

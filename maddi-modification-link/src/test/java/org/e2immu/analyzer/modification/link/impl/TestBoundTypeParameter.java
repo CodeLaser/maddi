@@ -238,7 +238,7 @@ public class TestBoundTypeParameter extends CommonTest {
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = c1.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(c1));
-        assertEquals("[0:c.§es⊇this.§es] --> -", mlvC1.toString());
+        assertEquals("[0:c.§es⊇this*.§es] --> -", mlvC1.toString());
 
         MethodInfo get = X.findUniqueMethod("getList", 0);
         MethodLinkedVariables mlv = linkComputer.doMethod(get);

@@ -111,6 +111,12 @@ public class LinksImpl implements Links {
         return linkSet.stream().map(Object::toString).collect(Collectors.joining(","));
     }
 
+    public @NotNull String toString(Set<Variable> modified) {
+        if (isEmpty()) return "-";
+        // don't sort, they have been sorted by Expand.followGraph
+        return linkSet.stream().map(link -> link.toString(modified)).collect(Collectors.joining(","));
+    }
+
     @Override
     public Links merge(Links links) {
         return new LinksImpl(primary, Stream.concat(this.linkSet.stream(), links.stream())
@@ -230,6 +236,10 @@ public class LinksImpl implements Links {
 
         @Override
         public @NotNull String toString() {
+            return toString(Set.of());
+        }
+
+        public @NotNull String toString(Set<Variable> modified) {
             String ln;
             if (linkNature.multiplySymbols()) {
                 int fromArrays = from.parameterizedType().arrays();
@@ -240,7 +250,7 @@ public class LinksImpl implements Links {
                 ln = linkNature.toString();
             }
             String lambda = to.parameterizedType().isFunctionalInterface() ? LAMBDA : "";
-            return Util.simpleName(from) + ln + lambda + Util.simpleName(to);
+            return Util.simpleName(from, modified) + ln + lambda + Util.simpleName(to, modified);
         }
 
         @Override

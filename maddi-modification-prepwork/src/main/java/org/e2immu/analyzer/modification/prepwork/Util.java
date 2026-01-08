@@ -127,6 +127,7 @@ public class Util {
         if (primary(variable) instanceof LocalVariable lv) return lv;
         return null;
     }
+
     public static ParameterInfo parameterPrimaryOrNull(Variable variable) {
         if (primary(variable) instanceof ParameterInfo pi) return pi;
         return null;
@@ -207,21 +208,26 @@ public class Util {
     }
 
     public static String simpleName(Variable variable) {
+        return simpleName(variable, Set.of());
+    }
+
+    public static String simpleName(Variable variable, Set<Variable> modified) {
         if (variable instanceof ParameterInfo pi) {
-            return pi.index() + ":" + pi.name();
+            return pi.index() + ":" + pi.name() + (modified.contains(pi) ? "*" : "");
         }
         if (variable instanceof ReturnVariable rv) {
             return rv.methodInfo().name();
         }
         if (variable instanceof FieldReference fr) {
-            String scope = fr.scopeVariable() != null ? simpleName(fr.scopeVariable()) : fr.scope().toString();
-            return scope + "." + fr.fieldInfo().name();
+            String scope = fr.scopeVariable() != null ? simpleName(fr.scopeVariable(), modified) : fr.scope().toString();
+            return scope + "." + fr.fieldInfo().name() + (modified.contains(fr) ? "*" : "");
         }
         if (variable instanceof DependentVariable dv) {
-            String index = dv.indexVariable() != null ? simpleName(dv.indexVariable()) : dv.indexExpression().toString();
-            return simpleName(dv.arrayVariable()) + "[" + index + "]";
+            String index = dv.indexVariable() != null
+                    ? simpleName(dv.indexVariable(), modified) : dv.indexExpression().toString();
+            return simpleName(dv.arrayVariable(), modified) + "[" + index + "]" + (modified.contains(dv) ? "*" : "");
         }
-        return variable.toString();
+        return variable + (modified.contains(variable) ? "*" : "");
     }
 
 
