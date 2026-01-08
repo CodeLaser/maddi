@@ -12,6 +12,7 @@ import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
@@ -392,12 +393,13 @@ public record Expand(Runtime runtime) {
      Ensure that v1 == v2 also means that v1.ts == v2.ts, v1.$m == v2.$m, so that these connections can be made.
      Filtering out ? links is done in followGraph.
      */
-    public ExpandResult local(Map<Variable, Links> lvIn,
-                              Set<Variable> modifiedDuringEvaluation,
-                              VariableData previousVd,
-                              Stage stageOfPrevious,
-                              VariableData vd,
-                              TranslationMap replaceConstants) {
+    ExpandResult local(Statement statement,
+                       Map<Variable, Links> lvIn,
+                       Set<Variable> modifiedDuringEvaluation,
+                       VariableData previousVd,
+                       Stage stageOfPrevious,
+                       VariableData vd,
+                       TranslationMap replaceConstants) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables = new HashMap<>();
         lvIn.entrySet().stream()
@@ -458,8 +460,9 @@ public record Expand(Runtime runtime) {
                 }
                 builder.replaceAll(newLinks);
             } else {
-                boolean unmodified = !modifiedVariables.contains(variable)
-                                     && notLinkedToModified(builder, modifiedVariables);
+                boolean unmodified = assignedInThisStatement(statement, vi)
+                                     || !modifiedVariables.contains(variable)
+                                        && notLinkedToModified(builder, modifiedVariables);
                 builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
                 if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
@@ -477,6 +480,11 @@ public record Expand(Runtime runtime) {
         });
 
         return new ExpandResult(newLinkedVariables, unmarkedModifications);
+    }
+
+    private static boolean assignedInThisStatement(Statement statement, VariableInfo vi) {
+        String index = statement.source().index();
+        return vi.assignments().hasAValueAt(index) && !vi.reads().indices().contains(index);
     }
 
     // indirection in applied functional interface variable

@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.link.staticvalues;
 
+import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.analyzer.modification.common.getset.ApplyGetSetTranslation;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
@@ -25,6 +26,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -39,6 +41,8 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.*;
@@ -87,7 +91,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableInfo vi1NField = vd1.variableInfo(nFr);
             assertEquals("this.n←1:n", vi1NField.linkedVariables().toString());
         }
-        assertEquals("[0:set→this.set, 1:n→this.n] --> -", mlvConstructor.toString());
+        assertEquals("[0:set→this*.set, 1:n→this*.n] --> -", mlvConstructor.toString());
         {
             MethodInfo accessorSet = X.findUniqueMethod("set", 0);
             MethodLinkedVariables mlvAccessorSet = accessorSet.analysis().getOrCreate(METHOD_LINKS,
@@ -293,9 +297,10 @@ public class TestStaticValuesRecord extends CommonTest {
     @Language("java")
     private static final String INPUT4b = """
             package a.b;
+            import org.e2immu.annotation.NotModified;
             import java.util.Set;
             class X {
-                interface R<T> { T t(); R<T> embed(T t); }
+                interface R<T> { @NotModified T t(); R<T> embed(T t); }
                 Set<String> method(Set<String> in, R<Set<String>> rr) {
                     R<Set<String>> r = rr.embed(in);
                     return r.t();
@@ -309,6 +314,8 @@ public class TestStaticValuesRecord extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT4b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
+        shallowAnalyzer.go(List.of(X));
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
@@ -318,14 +325,22 @@ public class TestStaticValuesRecord extends CommonTest {
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+
         LocalVariableCreation rLvc = (LocalVariableCreation) method.methodBody().statements().getFirst();
         LocalVariable r = rLvc.localVariable();
-
         VariableData vd0 = VariableDataImpl.of(rLvc);
         VariableInfo rVi0 = vd0.variableInfo(r);
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s~0:in.§$s,r.§m≡1:rr.§m,r.§m→0:in.§m\
+                r.§$s←1:rr.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m,r.§m→0:in.§m\
                 """, rVi0.linkedVariables().toString());
+        assertFalse(rVi0.isModified());
+
+        VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().getLast());
+        VariableInfo rVi1 = vd1.variableInfo(r);
+        assertEquals("""
+                r.§$s←1:rr.§$s,r.§$s~method.§$s,r.§$s~0:in.§$s,r.§m≡1:rr.§m,r.§m→method.§m,r.§m→0:in.§m\
+                """, rVi1.linkedVariables().toString());
+        assertFalse(rVi1.isModified());
 
         assertEquals("""
                 [0:in.§$s~1:rr.§$s,0:in.§m←1:rr.§m, 1:rr.§$s~0:in.§$s,1:rr.§m→0:in.§m] --> \
@@ -382,7 +397,7 @@ public class TestStaticValuesRecord extends CommonTest {
         MethodInfo constructorR = R.findConstructor(3);
 
         MethodLinkedVariables mlvConstructorR = constructorR.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(constructorR));
-        assertEquals("[0:set→this.set, 1:list→this.list, 2:i→this.i] --> -", mlvConstructorR.toString());
+        assertEquals("[0:set→this*.set, 1:list→this*.list, 2:i→this*.i] --> -", mlvConstructorR.toString());
 
         LocalVariableCreation rLvc = (LocalVariableCreation) method.methodBody().statements().get(1);
         LocalVariable r = rLvc.localVariable();

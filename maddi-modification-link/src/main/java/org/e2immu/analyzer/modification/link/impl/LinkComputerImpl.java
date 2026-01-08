@@ -372,8 +372,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             if (r != null) {
                 this.erase.addAll(r.erase());
-                Expand.ExpandResult er = expand.local(r.extra().map(), r.modified(), previousVd, stageOfPrevious,
-                        vd, replaceConstants);
+                Expand.ExpandResult er = expand.local(statement,
+                        r.extra().map(), r.modified(), previousVd, stageOfPrevious, vd, replaceConstants);
                 copyEvalIntoVariableData(er.newLinks(), vd);
                 modificationsOutsideVariableData.addAll(er.modifiedOutsideVariableData());
                 if (!r.casts().isEmpty()) {
