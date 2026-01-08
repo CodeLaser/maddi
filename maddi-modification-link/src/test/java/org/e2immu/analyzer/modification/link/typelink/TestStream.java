@@ -384,7 +384,7 @@ public class TestStream extends CommonTest {
         assertEquals("java.util.AbstractMap.SimpleEntry.<init>(K,V)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals("[0:key→this.§kv.§k, 1:value→this.§kv.§v] --> -", tlvConstructor1.toString());
+        assertEquals("[0:key→this*.§kv.§k, 1:value→this*.§kv.§v] --> -", tlvConstructor1.toString());
 
         MethodLinkedVariables tlvSwap = swap.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> swap.§yx.§x←0:entry.§xy.§x,swap.§yx.§y←0:entry.§xy.§y,swap.§yx~0:entry.§xy", tlvSwap.toString());

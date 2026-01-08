@@ -34,6 +34,7 @@ import java.util.stream.Stream;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 
 /*
 rules for ⊆ instead of ≡, ~
@@ -61,8 +62,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         TypeInfo typeInfo = methodInfo.typeInfo();
         ReturnVariableImpl rv = new ReturnVariableImpl(methodInfo);
 
-        Value.FieldValue fv = methodInfo.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD,
-                ValueImpl.GetSetValueImpl.EMPTY);
+        Value.FieldValue fv = methodInfo.analysis().getOrDefault(GET_SET_FIELD, ValueImpl.GetSetValueImpl.EMPTY);
         boolean abstractGetSet = fv.field() != null && methodInfo.isAbstract()
                                  // TODO better way of checking "non-standard get/set"
                                  && methodInfo.annotations().stream().anyMatch(ae -> "GetSet".equals(ae.typeInfo().simpleName()));
@@ -87,7 +87,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
         boolean forceIntoReturn;
         if (methodInfo.hasReturnValue() && !methodInfo.isStatic() && hcThis != null) {
-            Value.Independent independent = methodInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_METHOD,
+            Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.DEPENDENT);
             Map<Integer, Integer> dependencies = independent.linkToParametersReturnValue();
             int linkLevelRv = dependencies.getOrDefault(-1, -1);
@@ -102,18 +102,33 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
         List<Links> ofParameters = new ArrayList<>(methodInfo.parameters().size());
         Set<Variable> modified = new HashSet<>();
+        boolean methodNonModifying;
         if (methodInfo.isModifying() && !methodInfo.isIgnoreModification() && !methodInfo.isFinalizer()) {
             modified.add(runtime.newThis(typeInfo.asParameterizedType()));
+            methodNonModifying = false;
+        } else {
+            methodNonModifying = true;
+        }
+        if (!methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD)) {
+            methodInfo.analysis().set(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.from(methodNonModifying));
         }
 
         for (ParameterInfo pi : methodInfo.parameters()) {
+            boolean parameterUnmodified;
             if (pi.isModified() && !pi.isIgnoreModifications()) {
                 Value.Immutable immutable = new AnalysisHelper().typeImmutable(typeInfo, pi.parameterizedType());
                 if (immutable.isMutable()) {
                     modified.add(pi);
+                    parameterUnmodified = false;
+                } else {
+                    parameterUnmodified = true;
                 }
+            } else {
+                parameterUnmodified = true;
             }
-
+            if (!pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER)) {
+                pi.analysis().set(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.from(parameterUnmodified));
+            }
             Links.Builder piBuilder = new LinksImpl.Builder(pi);
 
             Value.Independent independent = pi.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
