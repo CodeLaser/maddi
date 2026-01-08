@@ -473,8 +473,9 @@ public class TestStaticValuesRecord extends CommonTest {
         TypeInfo R = X.findSubType("R");
         MethodInfo constructorR = R.findConstructor(2);
         MethodLinkedVariables mlvCR = constructorR.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(constructorR));
-        assertEquals("[0:function→Λthis.function, 1:variables→this.variables] --> -",
+        assertEquals("[0:function→Λthis*.function, 1:variables→this*.variables] --> -",
                 mlvCR.toString());
+        assertEquals("this", mlvCR.sortedModifiedString());
 
         TypeInfo builder = X.findSubType("Builder");
 
@@ -488,11 +489,11 @@ public class TestStaticValuesRecord extends CommonTest {
         MethodLinkedVariables mlvSetVariable = setVariable.analysis().getOrCreate(METHOD_LINKS,
                 () -> tlc.doMethod(setVariable));
         assertEquals("""
-                [-, 1:value→this.variables[0:pos],1:value∈this.variables] --> \
-                setVariable.variables[0:pos]←this.variables[0:pos],setVariable.variables[0:pos]←1:value,\
-                setVariable.variables[0:pos]∈this.variables,setVariable.variables←this.variables,\
-                setVariable.variables∋this.variables[0:pos],setVariable.variables∋1:value,\
-                setVariable←this\
+                [-, 1:value→this.variables*[0:pos],1:value∈this.variables*] --> \
+                setVariable.variables[0:pos]←this.variables*[0:pos],\
+                setVariable.variables[0:pos]←1:value,setVariable.variables[0:pos]∈this.variables*,\
+                setVariable.variables←this.variables*,setVariable.variables∋this.variables*[0:pos],\
+                setVariable.variables∋1:value,setVariable←this\
                 """, mlvSetVariable.toString());
 
         Value.FieldValue fv = setVariable.getSetField();
@@ -622,7 +623,7 @@ public class TestStaticValuesRecord extends CommonTest {
         TypeInfo R = X.findSubType("RI");
         MethodInfo RConstructor = R.findConstructor(2);
         MethodLinkedVariables mlvRi = RConstructor.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(RConstructor));
-        assertEquals("[0:function→Λthis.function, 1:variables→this.variables] --> -",
+        assertEquals("[0:function→Λthis*.function, 1:variables→this*.variables] --> -",
                 mlvRi.toString());
 
         TypeInfo B = X.findSubType("Builder");
@@ -742,12 +743,15 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd4 = VariableDataImpl.of(s4);
 
         VariableInfo vi4R = vd4.variableInfo("r");
-        assertEquals("r.l←list,r.s.§ts→set2.§ts,r.s.§ts←set.§ts,r.s.§ts∋0:t,r.s→set2,r.s←set",
-                vi4R.linkedVariables().toString());
+        assertEquals("""
+                r.l←list,r.s.§m≡set.§m,r.s.§m≡set2.§m,r.s.§ts→set2.§ts,\
+                r.s.§ts←set.§ts,r.s.§ts∋0:t,r.s→set2,r.s←set\
+                """, vi4R.linkedVariables().toString());
         VariableInfo vi4Set = vd4.variableInfo("set");
         // should never link to 'list'!!
-        assertEquals("set.§ts→r.s.§ts,set.§ts→set2.§ts,set.§ts∋0:t,set→r.s,set→set2",
-                vi4Set.linkedVariables().toString());
+        assertEquals("""
+                set.§m≡r.s.§m,set.§m≡set2.§m,set.§ts→r.s.§ts,set.§ts→set2.§ts,set.§ts∋0:t,set→r.s,set→set2\
+                """, vi4Set.linkedVariables().toString());
 
         VariableInfo vi4List = vd4.variableInfo("list");
         assertEquals("list→r.l", vi4List.linkedVariables().toString());
@@ -805,18 +809,22 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(s2);
 
             VariableInfo vi4R = vd2.variableInfo("r");
-            assertEquals("r.l←1:list,r.s.§ts→set2.§ts,r.s.§ts←0:set.§ts,r.s.§ts∋2:t,r.s→set2,r.s←0:set",
-                    vi4R.linkedVariables().toString());
+            assertEquals("""
+                    r.l←1:list,r.s.§m≡0:set.§m,r.s.§m≡set2.§m,r.s.§ts→set2.§ts,\
+                    r.s.§ts←0:set.§ts,r.s.§ts∋2:t,r.s→set2,r.s←0:set\
+                    """, vi4R.linkedVariables().toString());
 
             VariableInfo vi4Set = vd2.variableInfo(set);
-            assertEquals("0:set.§ts→r.s.§ts,0:set.§ts→set2.§ts,0:set.§ts∋2:t,0:set→r.s,0:set→set2",
-                    vi4Set.linkedVariables().toString());
+            assertEquals("""
+                    0:set.§m≡r.s.§m,0:set.§m≡set2.§m,0:set.§ts→r.s.§ts,0:set.§ts→set2.§ts,\
+                    0:set.§ts∋2:t,0:set→r.s,0:set→set2\
+                    """, vi4Set.linkedVariables().toString());
             assertTrue(vi4Set.isModified());
 
             VariableInfo vi4List = vd2.variableInfo(list);
             assertEquals("1:list→r.l", vi4List.linkedVariables().toString());
             assertFalse(vi4List.isModified());
         }
-        assertEquals("[0:set.§ts∋2:t, -, 2:t∈0:set.§ts] --> -", mlv.toString());
+        assertEquals("[0:set*.§ts∋2:t, -, 2:t∈0:set*.§ts] --> -", mlv.toString());
     }
 }

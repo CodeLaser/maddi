@@ -21,6 +21,7 @@ import java.util.Iterator;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestForEach extends CommonTest {
 
@@ -64,6 +65,7 @@ public class TestForEach extends CommonTest {
         VariableInfo list1 = vd1.variableInfo(list, Stage.EVALUATION);
         Links lvList1 = list1.linkedVariablesOrEmpty();
         assertEquals("0:list.§ts∋t", lvList1.toString());
+        assertTrue(list1.isUnmodified());
 
         Statement append = forEach.block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(append);

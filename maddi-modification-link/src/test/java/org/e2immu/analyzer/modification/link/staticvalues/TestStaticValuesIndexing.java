@@ -80,7 +80,7 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         MethodInfo setYs = X.findUniqueMethod("setYs", 2);
         MethodLinkedVariables mlvSetYs = setYs.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(setYs));
-        assertEquals("[-, 1:y→this.ys[0:i],1:y∈this.ys] --> -", mlvSetYs.toString());
+        assertEquals("[-, 1:y→this.ys*[0:i],1:y∈this.ys*] --> -", mlvSetYs.toString());
 
         MethodInfo getYs = X.findUniqueMethod("getYs", 1);
         MethodLinkedVariables mlvGetYs = getYs.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getYs));
@@ -96,6 +96,7 @@ public class TestStaticValuesIndexing extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo viY1 = vd1.variableInfo("y");
         assertEquals("y→this.ys[1],y←this.ys[0],y∈this.ys", viY1.linkedVariables().toString());
-        assertEquals("[] --> method←this.ys[0],method←this.ys[1],method∈this.ys", mlv.toString());
+        assertEquals("[] --> method←this.ys*[0],method←this.ys*[1],method∈this.ys*", mlv.toString());
+        assertEquals("this.ys", mlv.sortedModifiedString());
     }
 }
