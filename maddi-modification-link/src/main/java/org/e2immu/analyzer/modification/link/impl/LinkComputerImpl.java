@@ -197,8 +197,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .collect(Collectors.toUnmodifiableSet());
             List<Links> ofParameters = methodInfo.parameters().stream()
                     .map(pi -> filteredPi(pi, paramsInOfReturnValue, vd)).toList();
-            // FIXME collect modified efficiently?
-            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, Set.of());
+            Set<Variable> modified = vd == null ? Set.of()
+                    : vd.variableInfoStream()
+                    .filter(vi -> !vi.variable().equals(returnVariable)
+                                  && LinkVariable.acceptForLinkedVariables(vi.variable()))
+                    .filter(VariableInfo::isModified)
+                    .map(VariableInfo::variable)
+                    .collect(Collectors.toUnmodifiableSet());
+            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, modified);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
             return mlv;
         }
@@ -339,7 +345,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             if (r != null) {
                 this.erase.addAll(r.erase());
-                expandAndCopyEvalIntoVariableData(r, previousVd, stageOfPrevious, vd, replaceConstants);
+                Map<Variable, Links> expanded = expand.local(r.extra().map(), r.modified(), previousVd,
+                        stageOfPrevious, vd, replaceConstants);
+                copyEvalIntoVariableData(expanded, vd);
                 if (!r.casts().isEmpty()) {
                     writeCasts(r.casts(), previousVd, stageOfPrevious, vd);
                 }
@@ -474,15 +482,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     });
         }
 
-        private void expandAndCopyEvalIntoVariableData(Result r,
-                                                       VariableData previousVd,
-                                                       Stage stageOfPrevious,
-                                                       VariableData vd,
-                                                       TranslationMap replaceConstants) {
-            Set<Variable> modifiedDuringEvaluation = r == null ? Set.of() : r.modified();
-            Map<Variable, Links> linkedVariables = r == null ? Map.of() : r.extra().map();
-            Map<Variable, Links> expanded = expand.local(linkedVariables, modifiedDuringEvaluation, previousVd,
-                    stageOfPrevious, vd, replaceConstants);
+        private void copyEvalIntoVariableData(Map<Variable, Links> expanded, VariableData vd) {
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links;

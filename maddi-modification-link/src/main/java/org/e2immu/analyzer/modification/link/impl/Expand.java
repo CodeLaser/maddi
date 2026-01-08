@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -352,15 +353,14 @@ public record Expand(Runtime runtime) {
                 LinkNature ln = link.linkNature();
                 if (ln == IS_IDENTICAL_TO
                     || ln == IS_ASSIGNED_FROM
-                    || ln == IS_ASSIGNED_TO
                     || ln == CONTAINS_AS_MEMBER
                     || ln == CONTAINS_AS_FIELD
                     || ln == OBJECT_GRAPH_CONTAINS) {
                     return false;
                 }
                 if (ln == SHARES_ELEMENTS || ln == SHARES_FIELDS) {
-                    // TODO do we need to look at the immutability of the variable's type?
-                    return false;
+                    Value.Immutable immutable = new AnalysisHelper().typeImmutable(link.to().parameterizedType());
+                    return immutable.isAtLeastImmutableHC();
                 }
             }
         }
