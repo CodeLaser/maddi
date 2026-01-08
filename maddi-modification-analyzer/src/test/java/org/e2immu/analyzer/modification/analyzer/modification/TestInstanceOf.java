@@ -50,9 +50,7 @@ public class TestInstanceOf extends CommonTest {
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[0:i≥1:s, 1:s≤0:i] --> -", mlv.toString());
         // there is no 'i.o', so we cannot have a modified components parameter
-        Value.VariableBooleanMap map = i.analysis().getOrDefault(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER,
-                ValueImpl.VariableBooleanMapImpl.EMPTY);
-        assertTrue(map.isEmpty());
+        assertTrue(mlv.modified().isEmpty());
 
     }
 

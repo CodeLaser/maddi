@@ -6,6 +6,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public interface MethodLinkedVariables extends Value {
     // content
@@ -23,6 +24,10 @@ public interface MethodLinkedVariables extends Value {
     }
 
     MethodLinkedVariables removeSomeValue();
+
+    default String sortedModifiedString() {
+        return modified().stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
+    }
 
     MethodLinkedVariables translate(TranslationMap translationMap);
 

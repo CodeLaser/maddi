@@ -26,9 +26,9 @@
 {"name": "Tjava.util.AbstractList", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Madd(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Pe(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mget(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",false,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
+ {"name": "Mget(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mset(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",true,0],"immutableMethod":2,"independentMethod":1}, "subs":[
+ {"name": "Mset(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pelement(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Madd(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
@@ -136,11 +136,11 @@
  {"name": "MtoArray(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}},
  {"name": "MtoArray(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}, "sub":
   {"name": "Pa(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mget(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",false,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
+ {"name": "Mget(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
  {"name": "MgetFirst(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MgetLast(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
- {"name": "Mset(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",true,0],"immutableMethod":2,"independentMethod":1}, "subs":[
+ {"name": "Mset(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pelement(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Madd(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
@@ -1490,9 +1490,9 @@
   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pc(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Mclear(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
- {"name": "Mget(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",false,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
+ {"name": "Mget(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mset(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",true,0],"immutableMethod":2,"independentMethod":1}, "subs":[
+ {"name": "Mset(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pelement(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Madd(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
@@ -1567,9 +1567,9 @@
  {"name": "Mequals(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Pobject(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MhashCode(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "Mget(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["F_synthetic_list(0)",false,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
+ {"name": "Mget(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mset(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["F_synthetic_list(0)",true,0],"immutableMethod":2,"independentMethod":1}, "subs":[
+ {"name": "Mset(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pe(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Madd(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
@@ -2638,9 +2638,9 @@
  {"name": "MtoArray(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}},
  {"name": "MtoArray(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":1}, "sub":
   {"name": "Pa(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mget(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",false,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
+ {"name": "Mget(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mset(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",true,0],"immutableMethod":2,"independentMethod":1}, "subs":[
+ {"name": "Mset(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pelement(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Madd(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":

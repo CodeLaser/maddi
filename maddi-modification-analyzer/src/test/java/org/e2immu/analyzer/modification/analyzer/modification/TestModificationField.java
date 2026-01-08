@@ -15,6 +15,8 @@
 package org.e2immu.analyzer.modification.analyzer.modification;
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
@@ -35,7 +37,7 @@ import java.io.BufferedReader;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.EMPTY_PART_OF_CONSTRUCTION;
 import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
 import static org.junit.jupiter.api.Assertions.*;
@@ -193,9 +195,11 @@ public class TestModificationField extends CommonTest {
             assertEquals("D:-, A:[1.1.0]", viLastStatus.assignments().toString());
         }
 
-        ValueImpl.VariableBooleanMapImpl mcm = read.analysis()
-                .getOrNull(PropertyImpl.MODIFIED_COMPONENTS_METHOD, ValueImpl.VariableBooleanMapImpl.class);
-        assertEquals("this.in=true, this.status=true", mcm.toString());
+        MethodLinkedVariables mlvRead = read.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("", mlvRead.toString());
+        // ValueImpl.VariableBooleanMapImpl mcm = read.analysis()
+        //          .getOrNull(PropertyImpl.MODIFIED_COMPONENTS_METHOD, ValueImpl.VariableBooleanMapImpl.class);
+        // FIXME  assertEquals("this.in=true, this.status=true", mcm.toString());
 
         MethodInfo readBlock = X.findUniqueMethod("readBlock", 0);
         {

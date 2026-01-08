@@ -8,6 +8,4 @@ module org.e2immu.language.inspection.api {
     exports org.e2immu.language.inspection.api.integration;
     exports org.e2immu.language.inspection.api.parser;
     exports org.e2immu.language.inspection.api.resource;
-    exports org.e2immu.language.inspection.api.util;
-
 }

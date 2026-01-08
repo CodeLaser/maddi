@@ -1244,15 +1244,6 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
-    public void setModificationComponent(MethodInfo methodInfo, FieldInfo component) {
-        if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.MODIFIED_COMPONENTS_METHOD)) {
-            FieldReference fr = newFieldReference(component);
-            ValueImpl.VariableBooleanMapImpl value = new ValueImpl.VariableBooleanMapImpl(Map.of(fr, true));
-            methodInfo.analysis().set(PropertyImpl.MODIFIED_COMPONENTS_METHOD, value);
-        }
-    }
-
-    @Override
     public void setNonNullProperty(FieldInfo fieldInfo) {
         if (!fieldInfo.analysis().haveAnalyzedValueFor(PropertyImpl.NOT_NULL_FIELD)) {
             fieldInfo.analysis().set(PropertyImpl.NOT_NULL_FIELD, ValueImpl.NotNullImpl.NOT_NULL);

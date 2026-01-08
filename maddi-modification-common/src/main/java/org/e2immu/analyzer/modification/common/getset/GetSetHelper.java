@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.common.getset;
 
+import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.expression.MethodCall;
@@ -143,4 +144,30 @@ public class GetSetHelper {
         return true;
     }
 
+    public static boolean isSetter(MethodInfo mi) {
+        // there could be an accessor called "set()", so for that to be a setter, it must have at least one parameter
+        return mi.isVoid() || isComputeFluent(mi) || mi.name().startsWith("set") && !mi.parameters().isEmpty();
+    }
+
+    public static boolean isComputeFluent(MethodInfo mi) {
+        String fluentFqn = Fluent.class.getCanonicalName();
+        if (mi.annotations().stream().anyMatch(ae -> fluentFqn.equals(ae.typeInfo().fullyQualifiedName()))) {
+            return true;
+        }
+        return !mi.methodBody().isEmpty()
+               && mi.methodBody().lastStatement() instanceof ReturnStatement rs
+               && rs.expression() instanceof VariableExpression ve && ve.variable() instanceof This;
+    }
+
+    public static int parameterIndexOfIndex(MethodInfo mi, boolean setter) {
+        if (setter) {
+            if (2 == mi.parameters().size()) {
+                if (mi.parameters().getFirst().parameterizedType().isInt()) return 0;
+                if (mi.parameters().get(1).parameterizedType().isInt()) return 1;
+            }
+            return -1;
+        }
+        // getter
+        return mi.parameters().size() == 1 && mi.parameters().getFirst().parameterizedType().isInt() ? 0 : -1;
+    }
 }
