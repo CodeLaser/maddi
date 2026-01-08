@@ -10,6 +10,7 @@ module org.e2immu.analyzer.modification.link {
 
     requires org.jetbrains.annotations;
     requires org.slf4j;
+    requires org.e2immu.analyzer.modification.common;
 
     exports org.e2immu.analyzer.modification.link;
     exports org.e2immu.analyzer.modification.link.vf;

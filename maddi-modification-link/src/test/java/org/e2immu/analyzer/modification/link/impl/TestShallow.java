@@ -191,6 +191,7 @@ public class TestShallow extends CommonTest {
         assertEquals("java.util.List.of(E)", of1.fullyQualifiedName());
         MethodLinkedVariables mlvOf1 = linkComputer.doMethod(of1);
         assertEquals("[-] --> of.§es∋0:e1", mlvOf1.toString());
+        assertTrue(mlvOf1.modified().isEmpty());
 
         MethodInfo of2 = list.findUniqueMethod("of", 2);
         MethodLinkedVariables mlvOf2 = linkComputer.doMethod(of2);

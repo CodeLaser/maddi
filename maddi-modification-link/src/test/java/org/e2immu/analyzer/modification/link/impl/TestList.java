@@ -21,7 +21,7 @@ import java.util.Collection;
 import java.util.Collections;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestList extends CommonTest {
 
@@ -140,6 +140,7 @@ public class TestList extends CommonTest {
         analyzer.doPrimaryType(X);
         MethodInfo set = X.findUniqueMethod("set", 2);
         ParameterInfo p0 = set.parameters().getFirst();
+        ParameterInfo p1 = set.parameters().getLast();
 
         LinkComputerImpl tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = set.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(set));
@@ -147,13 +148,19 @@ public class TestList extends CommonTest {
         assertEquals("""
                 a.b.X.set(T,int):0:t, a.b.X.set(T,int):1:index, a.b.X.this, a.b.X.ts, a.b.X.ts[a.b.X.set(T,int):1:index]\
                 """, vd0.knownVariableNamesToString());
+
         VariableInfo viP0 = vd0.variableInfo(p0);
         assertEquals("0:t→this.ts[1:index],0:t∈this.ts", viP0.linkedVariables().toString());
+        assertFalse(viP0.isModified());
+
+        VariableInfo viP1 = vd0.variableInfo(p1);
+        assertEquals("-", viP1.linkedVariables().toString());
+        assertFalse(viP1.isModified());
 
         VariableInfo viTsIndex = vd0.variableInfo("a.b.X.ts[a.b.X.set(T,int):1:index]");
         assertEquals("this.ts[1:index]←0:t", viTsIndex.linkedVariables().toString());
 
-        assertEquals("[0:t→this.ts[1:index],0:t∈this.ts, -] --> -", mlv.toString());
+        assertEquals("[0:t→this.ts*[1:index],0:t∈this.ts*, -] --> -", mlv.toString());
     }
 
     @Language("java")
@@ -275,7 +282,7 @@ public class TestList extends CommonTest {
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 1);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:t∈this.list.§ts] --> -", mlvListAdd.toString());
+        assertEquals("[0:t∈this.list*.§ts] --> -", mlvListAdd.toString());
     }
 
     @Language("java")
@@ -300,7 +307,7 @@ public class TestList extends CommonTest {
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
-        assertEquals("[0:list.§ts∋1:t, 1:t∈0:list.§ts] --> -", mlvListAdd.toString());
+        assertEquals("[0:list*.§ts∋1:t, 1:t∈0:list*.§ts] --> -", mlvListAdd.toString());
     }
 
     @Language("java")
@@ -402,6 +409,7 @@ public class TestList extends CommonTest {
         MethodInfo listAdd = X.findUniqueMethod("one", 1);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
         assertEquals("[-] --> one.§ts∋0:t", mlvListAdd.toString());
+        assertEquals("[]", mlvListAdd.modified().toString());
 
         MethodInfo add = X.findUniqueMethod("callOne", 1);
         MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(add));

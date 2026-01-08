@@ -219,13 +219,17 @@ public class Util {
             return rv.methodInfo().name();
         }
         if (variable instanceof FieldReference fr) {
-            String scope = fr.scopeVariable() != null ? simpleName(fr.scopeVariable(), modified) : fr.scope().toString();
-            return scope + "." + fr.fieldInfo().name() + (modified.contains(fr) ? "*" : "");
+            boolean frModified = modified.contains(fr);
+            String scope = fr.scopeVariable() != null
+                    ? simpleName(fr.scopeVariable(), frModified ? Set.of() : modified)
+                    : fr.scope().toString();
+            return scope + "." + fr.fieldInfo().name() + (frModified ? "*" : "");
         }
         if (variable instanceof DependentVariable dv) {
+            boolean dvModified = modified.contains(dv);
             String index = dv.indexVariable() != null
-                    ? simpleName(dv.indexVariable(), modified) : dv.indexExpression().toString();
-            return simpleName(dv.arrayVariable(), modified) + "[" + index + "]" + (modified.contains(dv) ? "*" : "");
+                    ? simpleName(dv.indexVariable(), dvModified ? Set.of() : modified) : dv.indexExpression().toString();
+            return simpleName(dv.arrayVariable(), modified) + "[" + index + "]" + (dvModified ? "*" : "");
         }
         return variable + (modified.contains(variable) ? "*" : "");
     }
