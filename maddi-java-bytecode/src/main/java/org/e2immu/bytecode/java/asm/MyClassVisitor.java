@@ -26,6 +26,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
+import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import org.objectweb.asm.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -421,8 +422,12 @@ public class MyClassVisitor extends ClassVisitor {
         if (currentType != null) {
             try {
                 LOGGER.debug("Visit end of class {}", currentType.fullyQualifiedName());
-                if (currentTypeBuilder == null)
+                if (currentTypeBuilder == null) {
                     throw new UnsupportedOperationException("? was expecting a type inspection builder");
+                }
+                if (currentType.isAbstract()) {
+                    new CreateSyntheticFieldsForGetSet(runtime).createSyntheticFields(currentType);
+                }
 
                 currentTypeBuilder.setSingleAbstractMethod(functionalInterface());
                 currentTypeBuilder.commit();
