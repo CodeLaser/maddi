@@ -42,6 +42,8 @@ public interface VariableData extends Value {
 
     VariableInfo variableInfo(Variable variable, Stage stage);
 
+    VariableInfo variableInfo(String fullyQualifiedName, Stage stage);
+
     VariableInfoContainer variableInfoContainerOrNull(String fullyQualifiedName);
 
     Stream<VariableInfoContainer> variableInfoContainerStream();

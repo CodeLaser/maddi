@@ -93,6 +93,11 @@ public class VariableDataImpl implements VariableData {
         return vicByFqn.get(variable.fullyQualifiedName()).best(stage);
     }
 
+    @Override
+    public VariableInfo variableInfo(String fullyQualifiedName, Stage stage) {
+        return vicByFqn.get(fullyQualifiedName).best(stage);
+    }
+
     public static VariableData of(Element element) {
         return element.analysis().getOrNull(VARIABLE_DATA, VariableDataImpl.class);
     }

@@ -208,7 +208,7 @@ public class TestStaticValues1 extends CommonTest {
             assertEquals("method←$_v", vi1Rv.linkedVariables().toString());
         }
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:r.i←$_ce0] --> -", mlv.toString());
+        assertEquals("[0:r*.i←$_ce0] --> -", mlv.toString());
     }
 
 

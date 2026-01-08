@@ -64,7 +64,7 @@ public class TestInstanceOf extends CommonTest {
             assertEquals("1:s∈0:object.§es,1:s∈set.§es", viS000.linkedVariables().toString());
             assertFalse(viS000.isModified());
             VariableInfo viObject000 = vd000.variableInfo(object);
-            assertEquals("0:object.§es→set.§es,0:object.§es∋1:s,0:object→set",
+            assertEquals("0:object.§es→set.§es,0:object.§es∋1:s,0:object.§m≡set.§m,0:object→set",
                     viObject000.linkedVariables().toString());
             assertTrue(viObject000.isModified());
         }
@@ -101,30 +101,39 @@ public class TestInstanceOf extends CommonTest {
         VariableData vd = VariableDataImpl.of(method);
         assertNotNull(vd);
         ParameterInfo i = method.parameters().getFirst();
-        {
-            Statement s000 = method.methodBody().statements().getFirst().block().statements().getFirst();
-            VariableData vd000 = VariableDataImpl.of(s000);
-            VariableInfo vi000O = vd000.variableInfo("o");
-            assertEquals("o.§es→set.§es,o.§es∋1:s,o→set,o∩0:i", vi000O.linkedVariables().toString());
-            // o ≺ 0:i is not visible
-            assertTrue(vi000O.isModified());
 
-            VariableInfo vi000I = vd000.variableInfo(i);
-            assertEquals("0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≈o,0:i≈set", vi000I.linkedVariables().toString());
-            // o ≺ 0:i is not visible
-            assertTrue(vi000I.isModified());
-        }
-        {
-            Statement s0 = method.methodBody().statements().getFirst();
-            VariableData vd0 = VariableDataImpl.of(s0);
-            VariableInfo viI0E = vd0.variableInfo(i, Stage.EVALUATION);
-            assertEquals("0:i≻o,0:i≻set", viI0E.linkedVariables().toString());
-            assertFalse(viI0E.isModified());
+        Statement s0 = method.methodBody().statements().getFirst();
+        VariableData vd0 = VariableDataImpl.of(s0);
 
-            VariableInfo viI0M = vd0.variableInfo(i, Stage.MERGE);
-            assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es", viI0M.linkedVariables().toString());
-            assertTrue(viI0M.isModified());
-        }
+        VariableInfo viI0E = vd0.variableInfo(i, Stage.EVALUATION);
+        assertEquals("0:i≻o,0:i≻set", viI0E.linkedVariables().toString());
+        assertFalse(viI0E.isModified());
+
+        VariableInfo viSet0 = vd0.variableInfo("set", Stage.EVALUATION);
+        assertEquals("set←o,set≺0:i", viSet0.linkedVariables().toString());
+        assertFalse(viI0E.isModified());
+
+        Statement s000 = method.methodBody().statements().getFirst().block().statements().getFirst();
+        VariableData vd000 = VariableDataImpl.of(s000);
+
+        VariableInfo vi000Set = vd000.variableInfo("set");
+        assertTrue(vi000Set.isModified());
+        assertEquals("set.§es←o.§es,set.§es∋1:s,set.§es≺0:i,set.§m≡o.§m,set←o",
+                vi000Set.linkedVariables().toString());
+
+        VariableInfo vi000O = vd000.variableInfo("o");
+        assertEquals("o.§es→set.§es,o.§es∋1:s,o.§m≡set.§m,o→set,o∩0:i", vi000O.linkedVariables().toString());
+        // o ≺ 0:i is not visible
+        assertTrue(vi000O.isModified());
+
+        VariableInfo vi000I = vd000.variableInfo(i);
+        assertEquals("0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≈o,0:i≈set", vi000I.linkedVariables().toString());
+        // o ≺ 0:i is not visible
+        assertTrue(vi000I.isModified());
+
+        VariableInfo viI0M = vd0.variableInfo(i, Stage.MERGE);
+        assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es", viI0M.linkedVariables().toString());
+        assertTrue(viI0M.isModified());
 
         assertTrue(i.isModified());
         assertEquals("[0:i*≥1:s, 1:s≤0:i*] --> -", mlv.toString());
