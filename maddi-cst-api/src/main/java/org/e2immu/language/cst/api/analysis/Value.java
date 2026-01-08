@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.util.ParSeq;
 import org.e2immu.language.cst.api.variable.Variable;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -100,6 +101,8 @@ public interface Value extends Comparable<Value> {
         boolean isIndependentHc();
 
         Map<Integer, Integer> linkToParametersReturnValue();
+
+        List<MethodInfo> dependentMethods();
     }
 
     interface NotNullProperty extends Value {

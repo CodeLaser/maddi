@@ -1019,7 +1019,7 @@ public class JavaLang {
     @Container
     class Iterable$<T> {
         //override has frequency 2
-        @NotModified @NotNull
+        @NotModified @NotNull @Independent(hc = true, except = "remove")
         Iterator<T> iterator() { return null; }
 
         //frequency 69

@@ -129,13 +129,20 @@ class AnnotationToProperty {
                     int[] hcParameters = ae.extractIntArray("hcParameters");
                     Boolean dependentReturnValue = ae.extractBoolean("dependentReturnValue");
                     Boolean hcReturnValue = ae.extractBoolean("hcReturnValue");
+                    String[] dependentMethods = ae.extractStringArray("except");
                     Map<Integer, Integer> map = ValueImpl.IndependentImpl.makeMap(dependentParameters, hcParameters,
                             dependentReturnValue, hcReturnValue);
+                    List<MethodInfo> dependentExceptions = ValueImpl.IndependentImpl
+                            .makeDependentExceptions(dependentMethods, info);
                     if (map.isEmpty()) {
-                        independent = hc ? ValueImpl.IndependentImpl.INDEPENDENT_HC : ValueImpl.IndependentImpl.INDEPENDENT;
+                        if (dependentExceptions.isEmpty()) {
+                            independent = hc ? ValueImpl.IndependentImpl.INDEPENDENT_HC : ValueImpl.IndependentImpl.INDEPENDENT;
+                        } else {
+                            independent = new ValueImpl.IndependentImpl(hc ? 1 : 2, map, dependentExceptions);
+                        }
                     } else {
                         boolean hcFromMap = map.values().stream().anyMatch(v -> v == 1);
-                        independent = new ValueImpl.IndependentImpl(hcFromMap ? 1 : 0, map);
+                        independent = new ValueImpl.IndependentImpl(hcFromMap ? 1 : 0, map, dependentExceptions);
                     }
                 }
             } else if (NotModified.class.getCanonicalName().equals(fqn)) {
