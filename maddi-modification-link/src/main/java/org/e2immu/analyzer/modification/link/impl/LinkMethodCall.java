@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -68,9 +69,10 @@ public record LinkMethodCall(Runtime runtime,
     public Result methodCall(MethodInfo methodInfo,
                              ParameterizedType concreteReturnType,
                              Result object,
-                             List<Result> params,
+                             List<Result> paramsIn,
                              MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
+        List<Result> params = expandFunctionalInterfaceVariables(paramsIn);
         copyParamsIntoExtra(methodInfo.parameters(), params, extra);
         Variable objectPrimary = object.links().primary();
         if (!object.links().isEmpty()) {
@@ -98,6 +100,17 @@ public record LinkMethodCall(Runtime runtime,
             linksBetweenParameters(methodInfo, params, mlv, extra);
         }
         return new Result(concreteReturnValue, new LinkedVariablesImpl(extra));
+    }
+
+    private List<Result> expandFunctionalInterfaceVariables(List<Result> paramsIn) {
+        return paramsIn.stream().map(this::expandFunctionalInterfaceVariables).toList();
+    }
+
+    private Result expandFunctionalInterfaceVariables(Result r) {
+        if (r.links().primary() instanceof FunctionalInterfaceVariable fiv) {
+            return fiv.result().setEvaluated(r.getEvaluated());
+        }
+        return r;
     }
 
     private void linksBetweenParameters(MethodInfo methodInfo,
@@ -215,13 +228,13 @@ public record LinkMethodCall(Runtime runtime,
                 v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         for (Link link : ofReturnValue.linkSet()) {
-            if(!link.linkNature().isDecoration())
-            if (link.from().equals(ofReturnValue.primary())) {
-                translateHandleFunctional(tm, link, newPrimary, link.linkNature(), builder, samLinks, objectPrimary);
-            } else {
-                Variable fromTranslated = tm.translateVariableRecursively(link.from());
-                translateHandleFunctional(tm, link, fromTranslated, link.linkNature(), builder, samLinks, objectPrimary);
-            }
+            if (!link.linkNature().isDecoration())
+                if (link.from().equals(ofReturnValue.primary())) {
+                    translateHandleFunctional(tm, link, newPrimary, link.linkNature(), builder, samLinks, objectPrimary);
+                } else {
+                    Variable fromTranslated = tm.translateVariableRecursively(link.from());
+                    translateHandleFunctional(tm, link, fromTranslated, link.linkNature(), builder, samLinks, objectPrimary);
+                }
         }
         return builder.build();
     }
