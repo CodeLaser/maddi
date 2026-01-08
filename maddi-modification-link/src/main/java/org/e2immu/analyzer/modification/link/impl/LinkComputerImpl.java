@@ -31,6 +31,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.DOWNCAST_VARIABLE;
@@ -156,6 +157,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         final Set<Variable> erase = new HashSet<>();
         final Set<LocalVariable> variablesRepresentingConstants = new HashSet<>();
         final Variable returnVariable;
+        final Set<Variable> modificationsOutsideVariableData = new HashSet<>();
 
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
@@ -190,7 +192,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         public MethodLinkedVariables go() {
             VariableData vd = doBlock(methodInfo.methodBody(), null);
-            Links ofReturnValue = vd == null || returnVariable == null || !vd.isKnown(returnVariable.fullyQualifiedName())
+            Links ofReturnValue = vd == null || returnVariable == null
+                                  || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
                     : emptyIfOnlySomeValue(vd.variableInfo(returnVariable).linkedVariables());
             Set<ParameterInfo> paramsInOfReturnValue = ofReturnValue.stream()
@@ -205,7 +208,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .filter(VariableInfo::isModified)
                     .map(VariableInfo::variable)
                     .collect(Collectors.toUnmodifiableSet());
-            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, modified);
+            Set<Variable> modifiedOutside = this.modificationsOutsideVariableData.stream()
+                    .filter(LinkVariable::acceptForLinkedVariables)
+                    .collect(Collectors.toUnmodifiableSet());
+            Set<Variable> allModified = Stream.concat(modified.stream(), modifiedOutside.stream())
+                    .collect(Collectors.toUnmodifiableSet());
+            MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
             copyModificationsIntoMethod(modified);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
             return mlv;
@@ -364,9 +372,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             if (r != null) {
                 this.erase.addAll(r.erase());
-                Map<Variable, Links> expanded = expand.local(r.extra().map(), r.modified(), previousVd,
-                        stageOfPrevious, vd, replaceConstants);
-                copyEvalIntoVariableData(expanded, vd);
+                Expand.ExpandResult er = expand.local(r.extra().map(), r.modified(), previousVd, stageOfPrevious,
+                        vd, replaceConstants);
+                copyEvalIntoVariableData(er.newLinks(), vd);
+                modificationsOutsideVariableData.addAll(er.modifiedOutsideVariableData());
                 if (!r.casts().isEmpty()) {
                     writeCasts(r.casts(), previousVd, stageOfPrevious, vd);
                 }

@@ -7,8 +7,10 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.MethodReference;
 import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,21 +19,22 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public record MethodModification(Runtime runtime, VariableData variableData, Stage stage) {
+public record MethodModification(Runtime runtime, VariableData variableData, Stage stage, MethodCall mc) {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodModification.class);
 
-    public Set<Variable> go(MethodCall mc, Variable objectPrimary,
-                            List<Result> params, MethodLinkedVariables methodLinkedVariables) {
+    public Set<Variable> go(Variable objectPrimary, List<Result> params, MethodLinkedVariables methodLinkedVariables) {
         Set<Variable> modified = new HashSet<>();
-        if (objectPrimary != null && !mc.methodInfo().isFinalizer()) {
-            if (mc.methodInfo().isModifying()) {
+        MethodInfo methodInfo = mc.methodInfo();
+        if (objectPrimary != null && !methodInfo.isFinalizer()) {
+            if (methodInfo.isModifying() && !methodInfo.isIgnoreModification()) {
+                LOGGER.debug("Mark object primary {} as modified by {}", objectPrimary, methodInfo);
                 modified.add(objectPrimary);
             }
         }
-        for(ParameterInfo pi: mc.methodInfo().parameters()) {
-            if (pi.isModified()) {
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            if (pi.isModified() && !pi.isIgnoreModifications()) {
                 if (pi.isVarArgs()) {
-                    for (int i = mc.methodInfo().parameters().size() - 1; i < mc.parameterExpressions().size(); i++) {
+                    for (int i = methodInfo.parameters().size() - 1; i < mc.parameterExpressions().size(); i++) {
                         Result rp = params.get(i);
                         handleModifiedParameter(mc.parameterExpressions().get(i), rp, modified);
                     }
@@ -41,11 +44,25 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
                 }
             }
         }
+        if (!methodLinkedVariables.isEmpty() && objectPrimary != null) {
+            Variable methodThis = runtime.newThis(methodInfo.typeInfo().asParameterizedType());
+            TranslationMap tm = new VariableTranslationMap(runtime).put(methodThis, objectPrimary);
+            for (Variable mv : methodLinkedVariables.modified()) {
+                Variable translated = tm.translateVariableRecursively(mv);
+                if (translated.equals(mv)
+                    || variableData != null && variableData.isKnown(translated.fullyQualifiedName())) {
+                    if (modified.add(translated)) {
+                        LOGGER.debug("Propagated modification to {}", translated);
+                    }
+                }
+            }
+        }
         return modified;
     }
 
     private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
         if (rp.links() != null && rp.links().primary() != null) {
+            LOGGER.debug("Mark argument primary {} as modified by {}", rp.links().primary(), mc.methodInfo());
             modified.add(rp.links().primary());
         }
         if (argument instanceof MethodReference mr) {

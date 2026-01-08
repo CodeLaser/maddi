@@ -68,7 +68,7 @@ public class TestConstructor extends CommonTest {
             MethodInfo removeFirst = list.findUniqueMethod("removeFirst", 0);
             MethodLinkedVariables removeFirstMtl = removeFirst.analysis().getOrNull(METHOD_LINKS,
                     MethodLinkedVariablesImpl.class);
-            assertEquals("[] --> removeFirst∈this.§es", removeFirstMtl.toString());
+            assertEquals("[] --> removeFirst∈this*.§es", removeFirstMtl.toString());
 
             Statement s0 = methodB.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
@@ -92,6 +92,9 @@ public class TestConstructor extends CommonTest {
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
             Links tlvT2 = removed.linkedVariablesOrEmpty();
             assertEquals("removed∈iis.§$s,removed∈0:input.§$s", tlvT2.toString());
+
+            assertEquals("[-] --> -", methodB.analysis().getOrNull(METHOD_LINKS,
+                    MethodLinkedVariablesImpl.class).toString());
         }
         {
             MethodInfo methodA = X.findUniqueMethod("methodA", 1);
@@ -127,6 +130,8 @@ public class TestConstructor extends CommonTest {
                     ValueImpl.VariableBooleanMapImpl.EMPTY);
             assertEquals("a.b.X.methodA(java.util.List<a.b.X.II>):0:input=false, ii2=true, iis=false",
                     nice(map.map()));
+            assertEquals("[-] --> -", methodA.analysis().getOrNull(METHOD_LINKS,
+                    MethodLinkedVariablesImpl.class).toString());
         }
     }
 

@@ -88,6 +88,6 @@ public class TestAssignmentIdentityMethod extends CommonTest {
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:t→this.§t] --> method←this.§t", tlvMethod.toString());
+        assertEquals("[0:t→this*.§t] --> method←this*.§t", tlvMethod.toString());
     }
 }
