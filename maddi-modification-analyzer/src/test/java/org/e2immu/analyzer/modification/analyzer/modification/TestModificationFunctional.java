@@ -168,6 +168,8 @@ public class TestModificationFunctional extends CommonTest {
         analyzer.go(analysisOrder);
 
         MethodInfo parse = X.findUniqueMethod("parse", 1);
+        MethodLinkedVariables mlvParse = parse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> parse←this.j", mlvParse.toString());
         assertSame(FALSE, parse.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
 
         MethodInfo run = X.findUniqueMethod("run", 2);
