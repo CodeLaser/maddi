@@ -552,7 +552,7 @@
   {"name": "Plookup(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}}]},
 
 {"name": "Tjava.lang.Iterable", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "Miterator(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Miterator(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{"-12":2}],"nonModifyingMethod":1,"notNullMethod":1}},
  {"name": "MforEach(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Paction(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
  {"name": "Mspliterator(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"notNullMethod":1}}]},

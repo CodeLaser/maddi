@@ -28,6 +28,7 @@ import org.parsers.json.ast.JSONObject;
 import org.parsers.json.ast.KeyValuePair;
 import org.parsers.json.ast.StringLiteral;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,7 +43,7 @@ public class TestValueImpl {
     @Test
     public void test() {
         Codec.Context context = new CodecImpl.ContextImpl();
-        ValueImpl.IndependentImpl i = new ValueImpl.IndependentImpl(1, Map.of(0, 0));
+        ValueImpl.IndependentImpl i = new ValueImpl.IndependentImpl(1, Map.of(0, 0), List.of());
         assertEquals("@Independent(hc=true, dependentParameters={0})", i.toString());
         Codec.EncodedValue ev = i.encode(codec, context);
         assertEquals("[1,{\"0\":0}]", ev.toString());
@@ -73,7 +74,8 @@ public class TestValueImpl {
 
     @Test
     public void test2() {
-        ValueImpl.IndependentImpl i = new ValueImpl.IndependentImpl(1, Map.of(-1, 1, 1, 1));
+        ValueImpl.IndependentImpl i = new ValueImpl.IndependentImpl(1, Map.of(-1, 1, 1, 1),
+                List.of());
         assertEquals("@Independent(hc=true, hcReturnValue=true, hcParameters={1})", i.toString());
         Codec.Context context = new CodecImpl.ContextImpl();
 

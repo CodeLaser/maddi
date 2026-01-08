@@ -105,7 +105,23 @@ public @interface Independent {
     boolean dependentReturnValue() default false;
 
     /**
-     * Any explanation for the presence of this annotion in this particular place.
+     * (Method only)
+     * Added to a method that returns a mutable type, which will normally be independent (HC),
+     * unless one of the specified methods in that type are applied.
+     * <p>
+     * Main use: in java.lang.Iterable, annotate iterator() with @Independent(hc = true, except={"remove"})
+     * This makes the normal loop-behaviour of iterators independent, both Iterator.next() and Iterator.hasNext()
+     * are mutable, but they do not change the iterable.
+     * <p>
+     * In case there are multiple methods with the same name, you must specify all parameter
+     * types by the fully qualified name of their erased type.
+     *
+     * @return an array of names of modifying methods that are cause the dependency.
+     */
+    String[] except() default {};
+
+    /**
+     * Any explanation for the presence of this annotation in this particular place.
      */
     String comment() default "";
 }

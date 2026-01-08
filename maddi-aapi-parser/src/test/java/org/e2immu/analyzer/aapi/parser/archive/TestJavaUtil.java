@@ -127,7 +127,9 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(methodInfo.allowsInterrupts());
 
         assertFalse(methodInfo.isModifying());
-        assertSame(DEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertTrue(independent.isIndependentHc());
+        assertEquals("[java.util.Iterator.remove()]", independent.dependentMethods().toString());
     }
 
     @Test
@@ -140,7 +142,9 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(methodInfo.allowsInterrupts());
 
         assertFalse(methodInfo.isModifying());
-        assertSame(DEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertTrue(independent.isIndependentHc());
+        assertEquals("[java.util.Iterator.remove()]", independent.dependentMethods().toString());
     }
 
 
@@ -152,7 +156,9 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(methodInfo.allowsInterrupts());
 
         assertFalse(methodInfo.isModifying());
-        assertSame(DEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertTrue(independent.isIndependentHc());
+        assertEquals("[java.util.Iterator.remove()]", independent.dependentMethods().toString());
     }
 
 

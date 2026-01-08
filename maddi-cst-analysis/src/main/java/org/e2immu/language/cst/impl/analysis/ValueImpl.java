@@ -335,20 +335,42 @@ public abstract class ValueImpl implements Value {
     }
 
     public static final int INDEX_RETURN_VALUE = -1;
+    public static final int START_INDEX_DEPENDENT = -10;
 
     public static class IndependentImpl implements Independent {
         private final int value;
         private final Map<Integer, Integer> linkToParametersReturnValue;
+        private final List<MethodInfo> dependentExceptions;
 
         private IndependentImpl(int value) {
             this.value = value;
             this.linkToParametersReturnValue = Map.of();
+            this.dependentExceptions = List.of();
         }
 
         // public: testing in cst-io
-        public IndependentImpl(int value, Map<Integer, Integer> linkToParametersReturnValue) {
+        public IndependentImpl(int value,
+                               Map<Integer, Integer> linkToParametersReturnValue,
+                               List<MethodInfo> dependentExceptions) {
             this.value = value;
             this.linkToParametersReturnValue = linkToParametersReturnValue;
+            this.dependentExceptions = dependentExceptions;
+        }
+
+        public static List<MethodInfo> makeDependentExceptions(String[] dependentMethods, Info info) {
+            List<MethodInfo> methods = new ArrayList<>();
+            if (info instanceof MethodInfo methodInfo && dependentMethods != null) {
+                TypeInfo typeInfo = methodInfo.returnType().bestTypeInfo();
+                if (typeInfo != null) {
+                    for (String methodName : dependentMethods) {
+                        typeInfo.methods().stream()
+                                .filter(m -> methodName.equals(m.name()))
+                                .findFirst()
+                                .ifPresent(methods::add);
+                    }
+                }
+            }
+            return List.copyOf(methods);
         }
 
         /*
@@ -368,6 +390,20 @@ public abstract class ValueImpl implements Value {
                 for (int i : hcParameters) map.put(i, 1);
             }
             return Map.copyOf(map);
+        }
+
+        @Override
+        public List<MethodInfo> dependentMethods() {
+            return dependentExceptions;
+        }
+
+        private static int methodIndex(MethodInfo methodInfo) {
+            int i = 0;
+            for (MethodInfo mi : methodInfo.typeInfo().methods()) {
+                if (mi == methodInfo) return i;
+                ++i;
+            }
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -417,13 +453,20 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-            if (linkToParametersReturnValue.isEmpty()) {
+            if (linkToParametersReturnValue.isEmpty() && dependentExceptions.isEmpty()) {
                 if (value == 0) return null;
                 return codec.encodeInt(context, value);
             }
-            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = linkToParametersReturnValue.entrySet().stream()
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap1 = linkToParametersReturnValue.entrySet().stream()
                     .collect(Collectors.toUnmodifiableMap(e -> codec.encodeString(context, "" + e.getKey()),
                             e -> codec.encodeInt(context, e.getValue())));
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap2 = dependentMethods().stream()
+                    .map(IndependentImpl::methodIndex)
+                    .collect(Collectors.toUnmodifiableMap(i -> codec.encodeString(context, "" + (START_INDEX_DEPENDENT - i)),
+                            i -> codec.encodeInt(context, +i)));
+
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = new HashMap<>(encodedMap1);
+            encodedMap.putAll(encodedMap2);
             return codec.encodeList(context, List.of(codec.encodeInt(context, value), codec.encodeMap(context, encodedMap)));
         }
 
@@ -484,6 +527,12 @@ public abstract class ValueImpl implements Value {
             if (!hcList.isEmpty()) {
                 list.add("hcParameters={" + String.join(", ", hcList) + "}");
             }
+            if (!dependentExceptions.isEmpty()) {
+                String dependentMethods = dependentExceptions.stream()
+                        .map(MethodInfo::name)
+                        .collect(Collectors.joining("\", \"", "{\"", "\"}"));
+                list.add("except=" + dependentMethods);
+            }
             return String.join(", ", list);
         }
 
@@ -498,10 +547,17 @@ public abstract class ValueImpl implements Value {
             List<Codec.EncodedValue> encodedList = codec.decodeList(context, encodedValue);
             int value = codec.decodeInt(context, encodedList.getFirst());
             Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = codec.decodeMap(context, encodedList.get(1));
-            Map<Integer, Integer> map = encodedMap.entrySet().stream().collect(Collectors.toUnmodifiableMap(
-                    e -> Integer.parseInt(codec.decodeString(context, e.getKey())),
-                    e -> codec.decodeInt(context, e.getValue())));
-            return new IndependentImpl(value, map);
+            Map<Integer, Integer> map = encodedMap.entrySet().stream()
+                    .filter(e -> Integer.parseInt(codec.decodeString(context, e.getKey())) > START_INDEX_DEPENDENT)
+                    .collect(Collectors.toUnmodifiableMap(
+                            e -> Integer.parseInt(codec.decodeString(context, e.getKey())),
+                            e -> codec.decodeInt(context, e.getValue())));
+            List<MethodInfo> methods = encodedMap.keySet().stream()
+                    .map(ev -> Integer.parseInt(codec.decodeString(context, ev)))
+                    .filter(i -> i <= START_INDEX_DEPENDENT)
+                    .map(i -> context.currentMethod().typeInfo().methods().get(-START_INDEX_DEPENDENT - i))
+                    .toList();
+            return new IndependentImpl(value, map, methods);
         }
         return IndependentImpl.from(codec.decodeInt(context, encodedValue));
     }

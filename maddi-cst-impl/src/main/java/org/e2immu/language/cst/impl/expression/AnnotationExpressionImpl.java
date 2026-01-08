@@ -36,6 +36,7 @@ import org.e2immu.language.cst.impl.type.ParameterizedTypeImpl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -187,8 +188,17 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
     public String[] extractStringArray(String key) {
         return keyValuePairs.stream()
                 .filter(kv -> key.equals(kv.key()))
-                .map(kv -> ((ArrayInitializer) kv.value()).expressions().stream()
-                        .map(e -> ((StringConstant) e).constant()).toArray(String[]::new))
+                .map(kv -> {
+                    if (kv.value() instanceof ArrayInitializer ai) {
+                        return ai.expressions().stream()
+                                .map(e -> ((StringConstant) e).constant()).toArray(String[]::new);
+                    }
+                    if (kv.value() instanceof StringConstant sc) {
+                        return new String[]{sc.constant()};
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull)
                 .findFirst().orElse(null);
     }
 
@@ -199,7 +209,6 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
                 .map(kv -> ((StringConstant) kv.value()).constant())
                 .findFirst().orElse(defaultValue);
     }
-
 
 
     @Override
