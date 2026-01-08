@@ -79,19 +79,20 @@ public class TestStaticValuesGetSet extends CommonTest {
             MethodInfo get = X.findUniqueMethod("getS", 0);
             assertSame(s, get.getSetField().field());
             MethodLinkedVariables getSv = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            // this sv is synthetically created from the @GetSet annotation
+            // this sv is synthetically created from the @GetSet annotation in
+            // org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet
             assertEquals("[] --> getS←this.s", getSv.toString());
 
             MethodInfo setS = X.findUniqueMethod("setS", 1);
             assertSame(s, setS.getSetField().field());
             MethodLinkedVariables setSv = setS.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);            // this sv is synthetically created from the @GetSet annotation
-            assertEquals("[0:s→this.s] --> setS←this,setS.s←0:s", setSv.toString());
+            assertEquals("[0:s→this*.s] --> setS←this*,setS.s←0:s", setSv.toString());
 
             MethodInfo set2 = X.findUniqueMethod("setS2", 1);
             assertEquals("a.b.X.w", set2.getSetField().field().fullyQualifiedName());
             MethodLinkedVariables set2Sv = set2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             // this sv is synthetically created from the @GetSet annotation
-            assertEquals("[0:s→this.w] --> -", set2Sv.toString());
+            assertEquals("[0:s→this*.w] --> -", set2Sv.toString());
         }
 
         {
@@ -106,18 +107,19 @@ public class TestStaticValuesGetSet extends CommonTest {
             MethodInfo set = X.findUniqueMethod("set", 2);
             assertSame(objects, set.getSetField().field());
             MethodLinkedVariables setSv = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-, 1:o→this.objects[0:i],1:o∈this.objects] --> set←this,set.objects[0:i]←1:o",
+            assertEquals("this, this.objects", setSv.sortedModifiedString());
+            assertEquals("[-, 1:o→this.objects*[0:i],1:o∈this.objects*] --> set←this*,set.objects[0:i]←1:o",
                     setSv.toString());
 
             MethodInfo set2 = X.findUniqueMethod("set2", 2);
             assertSame(objects, set2.getSetField().field());
             MethodLinkedVariables set2Sv = set2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-, 1:o→this.objects[0:i],1:o∈this.objects] --> -", set2Sv.toString());
+            assertEquals("[-, 1:o→this.objects*[0:i],1:o∈this.objects*] --> -", set2Sv.toString());
 
             MethodInfo set3 = X.findUniqueMethod("set3", 2);
             assertSame(objects, set3.getSetField().field());
             MethodLinkedVariables set3Sv = set3.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[0:o→this.objects[1:i],0:o∈this.objects, -] --> -", set3Sv.toString());
+            assertEquals("[0:o→this.objects*[1:i],0:o∈this.objects*, -] --> -", set3Sv.toString());
         }
 
         {
@@ -132,19 +134,19 @@ public class TestStaticValuesGetSet extends CommonTest {
             MethodInfo set = X.findUniqueMethod("setI", 2);
             assertSame(integers, set.getSetField().field());
             MethodLinkedVariables setSv = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-, 1:o→this.integers[0:i],1:o∈this.integers] --> setI←this,setI.integers[0:i]←1:o",
+            assertEquals("[-, 1:o→this.integers*[0:i],1:o∈this.integers*] --> setI←this*,setI.integers[0:i]←1:o",
                     setSv.toString());
 
             MethodInfo set2 = X.findUniqueMethod("setI2", 2);
             assertSame(integers, set2.getSetField().field());
             MethodLinkedVariables set2Sv = set2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-, 1:o→this.integers[0:i],1:o∈this.integers] --> -", set2Sv.toString());
+            assertEquals("[-, 1:o→this.integers*[0:i],1:o∈this.integers*] --> -", set2Sv.toString());
 
             MethodInfo set3 = X.findUniqueMethod("setI3", 2);
             assertSame(integers, set3.getSetField().field());
             MethodLinkedVariables set3Sv = set3.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             // IMPORTANT: convention is that the first parameter is the index
-            assertEquals("[-, 1:i→this.integers[0:o],1:i∈this.integers] --> -", set3Sv.toString());
+            assertEquals("[-, 1:i→this.integers*[0:o],1:i∈this.integers*] --> -", set3Sv.toString());
         }
     }
 

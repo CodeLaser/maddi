@@ -101,8 +101,8 @@ public class TestMap extends CommonTest {
             assertEquals("0:x∈2:c.map.§kvs[-1]", tlvX0.toString());
 
             assertEquals("""
-                    [0:x∈2:c.map.§kvs[-1], 1:y∈2:c.map.§kvs[-2], 2:c.map.§kvs[-1]∋0:x,2:c.map.§kvs[-2]∋1:y] \
-                    --> staticPut∈2:c.map.§kvs[-2]\
+                    [0:x∈2:c.map*.§kvs[-1], 1:y∈2:c.map*.§kvs[-2], 2:c.map*.§kvs[-1]∋0:x,2:c.map*.§kvs[-2]∋1:y] \
+                    --> staticPut∈2:c.map*.§kvs[-2]\
                     """, mlvSPut.toString());
         }
 
@@ -120,8 +120,8 @@ public class TestMap extends CommonTest {
             assertEquals("1:x∈0:c.map.§kvs[-1]", tlvX0.toString());
 
             assertEquals("""
-                    [0:c.map.§kvs[-1]∋1:x,0:c.map.§kvs[-2]∋2:y, 1:x∈0:c.map.§kvs[-1], 2:y∈0:c.map.§kvs[-2]] \
-                    --> staticPut2∈0:c.map.§kvs[-2]\
+                    [0:c.map*.§kvs[-1]∋1:x,0:c.map*.§kvs[-2]∋2:y, 1:x∈0:c.map*.§kvs[-1], 2:y∈0:c.map*.§kvs[-2]] \
+                    --> staticPut2∈0:c.map*.§kvs[-2]\
                     """, tlvSPut.toString());
         }
     }
@@ -138,26 +138,26 @@ public class TestMap extends CommonTest {
         // NOTE: we need map to have multiplicity 2, so we've added the keyset and values methods
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodLinkedVariables tlvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("[0:k∈this.§kvs[-1]] --> get∈this.§kvs[-2]", tlvGet.toString());
+        assertEquals("[0:k∈this*.§kvs[-1]] --> get∈this*.§kvs[-2]", tlvGet.toString());
 
         MethodInfo put = X.findUniqueMethod("put", 2);
         MethodLinkedVariables tlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
-        assertEquals("[0:k∈this.§kvs[-1], 1:v∈this.§kvs[-2]] --> put∈this.§kvs[-2]", tlvPut.toString());
+        assertEquals("[0:k∈this*.§kvs[-1], 1:v∈this*.§kvs[-2]] --> put∈this*.§kvs[-2]", tlvPut.toString());
 
         // NOTE: links between parameters need to be marked using the @Independent annotation
         // that's why there are no links from x into c
 
         MethodInfo staticGet = X.findUniqueMethod("staticGet", 2);
         MethodLinkedVariables tlvSGet = staticGet.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticGet));
-        assertEquals("[-, -] --> staticGet∈1:c.§xys[-2]", tlvSGet.toString());
+        assertEquals("[-, -] --> staticGet∈1:c*.§xys[-2]", tlvSGet.toString());
 
         MethodInfo staticPut = X.findUniqueMethod("staticPut", 3);
         MethodLinkedVariables tlvSPut = staticPut.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut));
-        assertEquals("[-, -, -] --> staticPut←1:y,staticPut∈2:c.§xys[-2]", tlvSPut.toString());
+        assertEquals("[-, -, -] --> staticPut←1:y,staticPut∈2:c*.§xys[-2]", tlvSPut.toString());
 
         MethodInfo staticPut2 = X.findUniqueMethod("staticPut2", 3);
         MethodLinkedVariables tlvS2Put = staticPut2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(staticPut2));
-        assertEquals("[-, -, -] --> staticPut2∈0:c.§xys[-2],staticPut2←2:y", tlvS2Put.toString());
+        assertEquals("[-, -, -] --> staticPut2∈0:c*.§xys[-2],staticPut2←2:y", tlvS2Put.toString());
     }
 
     @Language("java")
@@ -189,7 +189,7 @@ public class TestMap extends CommonTest {
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlv = init.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(init));
-        assertEquals("[0:keys.§ks~this.map.§kvs[-1], 1:values.§vs~this.map.§kvs[-2]] --> -",
+        assertEquals("[0:keys.§ks~this.map*.§kvs[-1], 1:values.§vs~this.map*.§kvs[-2]] --> -",
                 mlv.toString());
     }
 

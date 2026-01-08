@@ -549,13 +549,15 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         ParameterInfo piValue = methodInfo.parameters().get(fv.parameterIndexOfValue());
         ParameterInfo piIndex;
         LinksImpl.Builder builder = new LinksImpl.Builder(piValue);
+        FieldReference fr;
         if (methodInfo.parameters().size() == 1) {
             builder.add(IS_ASSIGNED_TO, runtime.newFieldReference(fv.field()));
             piIndex = null;
+            fr = null;
         } else {
             assert methodInfo.parameters().size() == 2;
             assert fv.hasIndex();
-            FieldReference fr = runtime.newFieldReference(fv.field());
+            fr = runtime.newFieldReference(fv.field());
             piIndex = methodInfo.parameters().get(fv.parameterIndexOfIndex());
             VariableExpression fieldVe = runtime.newVariableExpression(fr);
             builder.add(IS_ASSIGNED_TO, runtime.newDependentVariable(fieldVe, runtime.newVariableExpression(piIndex)));
@@ -587,14 +589,20 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             returnLinks = LinksImpl.EMPTY;
         }
         List<Links> paramList;
+        Set<Variable> modified;
+        This thisVar = runtime().newThis(methodInfo.typeInfo().asParameterizedType());
         if (methodInfo.parameters().size() == 1) {
             paramList = List.of(builder.build());
+            modified = Set.of(thisVar);
         } else if (fv.parameterIndexOfIndex() == 0) {
             paramList = List.of(LinksImpl.EMPTY, builder.build());
+            assert fr != null;
+            modified = Set.of(thisVar, fr);
         } else {
             paramList = List.of(builder.build(), LinksImpl.EMPTY);
+            assert fr != null;
+            modified = Set.of(thisVar, fr);
         }
-        This thisVar = runtime().newThis(methodInfo.typeInfo().asParameterizedType());
-        return new MethodLinkedVariablesImpl(returnLinks, paramList, Set.of(thisVar));
+        return new MethodLinkedVariablesImpl(returnLinks, paramList, modified);
     }
 }
