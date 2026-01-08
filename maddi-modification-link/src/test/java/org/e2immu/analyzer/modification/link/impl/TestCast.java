@@ -57,8 +57,7 @@ public class TestCast extends CommonTest {
             Statement s1 = setAdd.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo viObject1 = vd1.variableInfo(object);
-            // FIXME should we have 0:object.§m here linked to set.§m?
-            assertEquals("0:object.§$s→set.§$s,0:object.§$s∋1:s,0:object→set",
+            assertEquals("0:object.§$s→set.§$s,0:object.§$s∋1:s,0:object.§m≡set.§m,0:object→set",
                     viObject1.linkedVariables().toString());
             assertTrue(viObject1.isModified());
         }
@@ -104,7 +103,8 @@ public class TestCast extends CommonTest {
             Statement s1 = setAdd.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1Set = vd1.variableInfo("set");
-            assertEquals("set.§$s←0:r.object.§$s,set.§$s∋1:s,set←0:r.object", vi1Set.linkedVariables().toString());
+            assertEquals("set.§$s←0:r.object.§$s,set.§$s∋1:s,set.§m≡0:r.object.§m,set←0:r.object",
+                    vi1Set.linkedVariables().toString());
             assertTrue(vi1Set.isModified());
             VariableInfo vi1R = vd1.variableInfo(r);
             assertTrue(vi1R.isModified());

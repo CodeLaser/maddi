@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -28,7 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-public record LinkMethodCall(Runtime runtime,
+public record LinkMethodCall(JavaInspector javaInspector,
+                             Runtime runtime,
                              VirtualFieldComputer virtualFieldComputer,
                              AtomicInteger variableCounter,
                              MethodInfo currentMethod) {
@@ -299,7 +301,7 @@ public record LinkMethodCall(Runtime runtime,
                     // see TestStaticBiFunction,6: no direct mapping
 
                     // this is the old "join" of previous implementations; we should call expand now
-                    Links ls = new LinkGraph(runtime).indirect(links.primary(), link, result.links());
+                    Links ls = new LinkGraph(javaInspector, runtime).indirect(links.primary(), link, result.links());
                     if (ls != null) builder.addAllDistinct(ls);
 
                 } else {

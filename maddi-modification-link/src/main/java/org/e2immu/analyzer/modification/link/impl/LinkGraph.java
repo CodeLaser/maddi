@@ -1,10 +1,13 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -12,6 +15,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +26,7 @@ import java.util.stream.Collectors;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.isVirtualModificationField;
 
-public record LinkGraph(Runtime runtime) {
+public record LinkGraph(JavaInspector javaInspector, Runtime runtime) {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkGraph.class);
 
     // different equality from Variable: container virtual fields
@@ -155,7 +159,8 @@ public record LinkGraph(Runtime runtime) {
     private record Add(V from, LinkNature ln, V to) {
     }
 
-    private Map<V, Map<V, LinkNature>> makeGraph(Map<Variable, Links> linkedVariables) {
+    private Map<V, Map<V, LinkNature>> makeGraph(Map<Variable, Links> linkedVariables,
+                                                 Set<Variable> modifiedInThisEvaluation) {
         Map<V, Map<V, LinkNature>> graph = new HashMap<>();
         linkedVariables.values().forEach(links -> links.forEach(
                 l -> simpleAddToGraph(graph, l.from(), l.linkNature(), l.to())));
@@ -166,7 +171,7 @@ public record LinkGraph(Runtime runtime) {
             if (cycleProtection > 10) {
                 throw new UnsupportedOperationException("cycle protection");
             }
-            change = doOneMakeGraphCycle(graph);
+            change = doOneMakeGraphCycle(graph, modifiedInThisEvaluation);
         }
         // this is the right place for searching for "duplicate keys" in the graph
         // however, there are tests that have legitimate duplicates (TestLinkConstructorInMethodCall)
@@ -174,8 +179,8 @@ public record LinkGraph(Runtime runtime) {
         return graph;
     }
 
-    private boolean doOneMakeGraphCycle(Map<V, Map<V, LinkNature>> graph) {
-        Map<V, Set<V>> subs = computeSubs(graph);
+    private boolean doOneMakeGraphCycle(Map<V, Map<V, LinkNature>> graph, Set<Variable> modifiedInThisEvaluation) {
+        Map<V, Set<V>> subs = computeSubs(graph, modifiedInThisEvaluation);
         List<Add> newLinks = new ArrayList<>();
         for (Map.Entry<V, Map<V, LinkNature>> entry : graph.entrySet()) {
             V vFrom = entry.getKey();
@@ -225,7 +230,8 @@ public record LinkGraph(Runtime runtime) {
         return change;
     }
 
-    private static @NotNull Map<V, Set<V>> computeSubs(Map<V, Map<V, LinkNature>> graph) {
+    private @NotNull Map<V, Set<V>> computeSubs(Map<V, Map<V, LinkNature>> graph,
+                                                Set<Variable> modifiedInThisEvaluation) {
         Map<V, Set<V>> subs = new HashMap<>();
         for (Map.Entry<V, Map<V, LinkNature>> entry : graph.entrySet()) {
             V vFrom = entry.getKey();
@@ -238,6 +244,20 @@ public record LinkGraph(Runtime runtime) {
                 Set<Variable> scopeVariablesTo = Util.scopeVariables(vTo.v);
                 for (Variable scopeVariableTo : scopeVariablesTo) {
                     subs.computeIfAbsent(new V(scopeVariableTo), _ -> new HashSet<>()).add(vTo);
+                }
+            }
+            if (modifiedInThisEvaluation.contains(vFrom.v)
+                && Util.firstRealVariable(vFrom.v).equals(vFrom.v)
+                && Util.hasVirtualFields(vFrom.v)) {
+                // FIXME we should add the current type!
+                Value.Immutable immutable = new AnalysisHelper().typeImmutable(vFrom.v.parameterizedType());
+                if (immutable.isMutable()) {
+                    // add the mutation field
+                    FieldInfo vf = new VirtualFieldComputer(javaInspector)
+                            .newMField(vFrom.v.parameterizedType().typeInfo());
+                    FieldReference mutationFr = runtime().newFieldReference(vf, runtime.newVariableExpression(vFrom.v),
+                            vf.type());
+                    subs.computeIfAbsent(vFrom, _ -> new HashSet<>()).add(new V(mutationFr));
                 }
             }
         }
@@ -363,7 +383,8 @@ public record LinkGraph(Runtime runtime) {
                                        VariableData previousVd,
                                        Stage stageOfPrevious,
                                        VariableData vd,
-                                       TranslationMap replaceConstants) {
+                                       TranslationMap replaceConstants,
+                                       Set<Variable> modifiedInThisEvaluation) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables = new HashMap<>();
         lvIn.entrySet().stream()
@@ -386,7 +407,7 @@ public record LinkGraph(Runtime runtime) {
                     });
         }
 
-        Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables);
+        Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables, modifiedInThisEvaluation);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(graph));
         }
@@ -405,7 +426,7 @@ public record LinkGraph(Runtime runtime) {
         Links links = new LinksImpl(primary, List.of(link));
         linkedVariables.put(links.primary(), links);
         linkedVariables.put(links2Tm.primary(), links2Tm);
-        Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables);
+        Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables, Set.of());
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(graph));
         }

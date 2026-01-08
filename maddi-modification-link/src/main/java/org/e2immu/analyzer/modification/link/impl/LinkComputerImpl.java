@@ -69,7 +69,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.forceShallow = forceShallow;
         VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        this.linkGraph = new LinkGraph(javaInspector.runtime());
+        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime());
         this.writeLinksAndModification = new WriteLinksAndModification(javaInspector.runtime());
     }
 
@@ -372,18 +372,22 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     r = new Result(rvLinks, LinkedVariablesImpl.EMPTY);
                 }
             }
+            Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph;
             if (r != null) {
                 this.erase.addAll(r.erase());
-                Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph = linkGraph.compute(r.extra().map(), previousVd,
-                        stageOfPrevious, vd, replaceConstants);
-                Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
-                WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, vd,
-                        previouslyModified, r.modified(), graph);
-                copyEvalIntoVariableData(wr.newLinks(), vd);
-                modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
-                if (!r.casts().isEmpty()) {
-                    writeCasts(r.casts(), previousVd, stageOfPrevious, vd);
-                }
+                graph = linkGraph.compute(r.extra().map(), previousVd, stageOfPrevious, vd, replaceConstants,
+                        r.modified());
+            } else {
+                graph = Map.of();
+            }
+            Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
+            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, vd, previouslyModified,
+                    r == null ? Set.of() : r.modified(), graph);
+            copyEvalIntoVariableData(wr.newLinks(), vd);
+            modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
+
+            if (r != null && !r.casts().isEmpty()) {
+                writeCasts(r.casts(), previousVd, stageOfPrevious, vd);
             }
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd);
