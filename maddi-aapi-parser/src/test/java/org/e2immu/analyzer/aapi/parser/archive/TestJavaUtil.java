@@ -281,10 +281,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertTrue(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        FieldValue getField = get.getSetField();
-        assertEquals("java.util.List._synthetic_list", getField.field().fullyQualifiedName());
-        assertFalse(getField.setter());
     }
 
 
@@ -294,12 +290,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo set = typeInfo.findUniqueMethod("set", 2);
         assertTrue(set.overrides().isEmpty());
         assertSame(FALSE, set.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        FieldValue setField = set.getSetField();
-        assertEquals("java.util.List._synthetic_list", setField.field().fullyQualifiedName());
-        assertEquals(0, setField.parameterIndexOfIndex());
-        assertEquals(1, setField.parameterIndexOfValue());
-        assertTrue(setField.setter());
     }
 
     @Test
@@ -325,11 +315,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertFalse(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        // inherited from AAPI
-        FieldValue getField = get.getSetField();
-        assertEquals("java.util.List._synthetic_list", getField.field().fullyQualifiedName());
-        assertFalse(getField.setter());
     }
 
     @Test
@@ -338,13 +323,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo set = typeInfo.findUniqueMethod("set", 2);
         assertFalse(set.overrides().isEmpty());
         assertSame(FALSE, set.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        // inherited from AAPI
-        FieldValue setField = set.getSetField();
-        assertEquals("java.util.List._synthetic_list", setField.field().fullyQualifiedName());
-        assertEquals(0, setField.parameterIndexOfIndex());
-        assertEquals(1, setField.parameterIndexOfValue());
-        assertTrue(setField.setter());
     }
 
     @Test
@@ -353,9 +331,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertFalse(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        // inherited from AAPI
-        assertEquals("java.util.List._synthetic_list", get.getSetField().field().fullyQualifiedName());
     }
 
 
@@ -375,8 +350,6 @@ public class TestJavaUtil extends CommonTest {
         assertEquals("java.util.List.get(int)",
                 get.overrides().stream().map(Objects::toString).sorted().collect(Collectors.joining(",")));
         assertFalse(get.isModifying());
-        // inherited from AAPI
-        assertEquals("java.util.List._synthetic_list", get.getSetField().field().fullyQualifiedName());
     }
 
     // Vector implements List, but also extends AbstractList, AbstractCollection

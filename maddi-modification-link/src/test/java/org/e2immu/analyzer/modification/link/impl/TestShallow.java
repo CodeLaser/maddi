@@ -9,6 +9,7 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -22,6 +23,8 @@ import java.util.*;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
+import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT_HC;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -253,6 +256,14 @@ public class TestShallow extends CommonTest {
         MethodInfo forEach = iterable.findUniqueMethod("forEach", 1);
         MethodLinkedVariables mlvForEach = linkComputer.doMethod(forEach);
         assertEquals("[this.§ts⊇Λ0:action] --> -", mlvForEach.toString());
+
+        MethodInfo methodInfo = iterable.findUniqueMethod("iterator", 0);
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertEquals("@Independent(hc=true, except={\"remove\"})", independent.toString());
+
+        MethodInfo iterator = iterable.findUniqueMethod("iterator", 0);
+        MethodLinkedVariables mlvIterator = linkComputer.doMethod(iterator);
+        assertEquals("[] --> iterator.§ts⊆this.§ts,iterator.§m☷this.§m", mlvIterator.toString());
     }
 
     @DisplayName("Analyze 'Map', multiplicity 2, 2 type parameters")

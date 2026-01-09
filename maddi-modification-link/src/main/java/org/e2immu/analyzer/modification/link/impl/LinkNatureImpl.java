@@ -56,9 +56,9 @@ public class LinkNatureImpl implements LinkNature {
         this.pass = pass;
     }
 
-    public static LinkNature makeIdenticalTo(Set<MethodInfo> block) {
-        if (block.isEmpty()) return IS_IDENTICAL_TO;
-        return new LinkNatureImpl(IDENTICAL_TO_PASS_SYMBOL, IDENTICAL_TO_RANK, block);
+    public static LinkNature makeIdenticalTo(List<MethodInfo> exceptionsToPass) {
+        if (exceptionsToPass.isEmpty()) return IS_IDENTICAL_TO;
+        return new LinkNatureImpl(IDENTICAL_TO_PASS_SYMBOL, IDENTICAL_TO_RANK, Set.copyOf(exceptionsToPass));
     }
 
     @Override
