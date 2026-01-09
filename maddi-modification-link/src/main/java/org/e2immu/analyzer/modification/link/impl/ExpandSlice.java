@@ -34,7 +34,8 @@ public class ExpandSlice {
         for (Map.Entry<LinkGraph.V, Map<LinkGraph.V, LinkNature>> entry : graph.entrySet()) {
             if (entry.getKey().v() instanceof FieldReference frK && virtual(frK)
                 && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv)) {
-                Map<LinkGraph.V, LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey());
+                Map<LinkGraph.V, LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey(), Set.of());
+                // FIXME cause of mod
                 for (Map.Entry<LinkGraph.V, LinkNature> entry2 : expanded.entrySet()) {
                     // (1)
                     if (LinkNatureImpl.IS_ELEMENT_OF.equals(entry2.getValue())
@@ -47,7 +48,7 @@ public class ExpandSlice {
                         lists.getFirst().add(new F2(frKv.fieldInfo(), frK.fieldInfo()));
                     }
                     // (2)
-                    if (entry2.getValue().isIdenticalTo()
+                    if (entry2.getValue().isIdenticalToOrAssignedFromTo()
                         && entry2.getKey().v() instanceof FieldReference fr2K && virtual(fr2K)
                         && fr2K.scopeVariable() instanceof FieldReference fr2kv && virtual(fr2kv)) {
                         if (frKv.compareTo(fr2kv) < 0) {
@@ -65,11 +66,11 @@ public class ExpandSlice {
             }
             int index;
             if (entry.getKey().v() instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
-                Map<LinkGraph.V, LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey());
+                Map<LinkGraph.V, LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey(), Set.of()); // FIXME
                 for (Map.Entry<LinkGraph.V, LinkNature> entry2 : expanded.entrySet()) {
                     int index1;
                     // (3)
-                    if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalTo())
+                    if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalToOrAssignedFromTo())
                         && entry2.getKey().v() instanceof DependentVariable dv
                         && (index1 = negative(dv.indexExpression())) >= 0) {
                         // record only in one direction

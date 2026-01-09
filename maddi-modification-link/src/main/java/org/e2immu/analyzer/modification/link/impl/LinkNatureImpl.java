@@ -1,8 +1,10 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.language.cst.api.info.MethodInfo;
 
 import java.util.List;
+import java.util.Set;
 
 //https://unicodemap.com/range/47/Mathematical_Operators/
 
@@ -35,14 +37,33 @@ public class LinkNatureImpl implements LinkNature {
     public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 30);
     public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 31);
 
-    public static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", 32);
+    private static final String IDENTICAL_TO_PASS_SYMBOL = "☷"; // tri-gram for earth, 0x2637
+    private static final int IDENTICAL_TO_RANK = 32;
+
+    public static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", IDENTICAL_TO_RANK);
 
     private final String symbol;
     private final int rank;
+    private final Set<MethodInfo> pass;
 
     private LinkNatureImpl(String symbol, int rank) {
+        this(symbol, rank, Set.of());
+    }
+
+    private LinkNatureImpl(String symbol, int rank, Set<MethodInfo> pass) {
         this.symbol = symbol;
         this.rank = rank;
+        this.pass = pass;
+    }
+
+    public static LinkNature makeIdenticalTo(Set<MethodInfo> block) {
+        if (block.isEmpty()) return IS_IDENTICAL_TO;
+        return new LinkNatureImpl(IDENTICAL_TO_PASS_SYMBOL, IDENTICAL_TO_RANK, block);
+    }
+
+    @Override
+    public Set<MethodInfo> pass() {
+        return pass;
     }
 
     @Override
@@ -51,8 +72,13 @@ public class LinkNatureImpl implements LinkNature {
     }
 
     @Override
+    public boolean isIdenticalToOrAssignedFromTo() {
+        return isIdenticalTo() || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO;
+    }
+
+    @Override
     public boolean isIdenticalTo() {
-        return this == IS_IDENTICAL_TO || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO;
+        return IDENTICAL_TO_RANK == rank;
     }
 
     @Override
@@ -103,7 +129,7 @@ public class LinkNatureImpl implements LinkNature {
         return symbol;
     }
 
-    public LinkNature combine(LinkNature other) {
+    public LinkNature combine(LinkNature other, Set<MethodInfo> current) {
         if (this == other) return this;
         if (this == EMPTY) return other;
         if (other == EMPTY) return this;

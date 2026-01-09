@@ -60,7 +60,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                     .collect(Collectors.toUnmodifiableSet());
             LOGGER.debug("Variables to recompute: {}", recompute);
             for(Variable variable: recompute) {
-                Links.Builder builder = followGraph(graph2, variable);
+                Links.Builder builder = followGraph(graph2, variable, Set.of()); // FIXME
                 builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
                 newLinkedVariables.put(variable, builder.build());
             }
@@ -77,7 +77,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph(graph, variable);
+        Links.Builder builder = followGraph(graph, variable, Set.of()); // FIXME
 
         Set<Variable> recompute = new HashSet<>();
         if (variable instanceof ReturnVariable rv) {
@@ -109,7 +109,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
         boolean needMarker = false;
         List<Link> newLinks = new ArrayList<>();
         for (Link link : builder) {
-            if (link.linkNature().isIdenticalTo()
+            if (link.linkNature().isIdenticalToOrAssignedFromTo()
                 && link.to() instanceof IntermediateVariable iv && iv.isNewObject()) {
                 needMarker = true;
             } else if (LinkVariable.acceptForLinkedVariables(link.from())

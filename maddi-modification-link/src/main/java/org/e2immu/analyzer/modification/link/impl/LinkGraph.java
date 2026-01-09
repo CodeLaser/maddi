@@ -8,6 +8,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -92,7 +93,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         if (prev == null) {
             change = true;
         } else {
-            LinkNature combined = prev.combine(linkNature);
+            LinkNature combined = prev.combine(linkNature, null);
             if (combined != prev) {
                 edges.put(to, combined);
             }
@@ -193,7 +194,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             for (Map.Entry<V, LinkNature> entry2 : entry.getValue().entrySet()) {
                 V vTo = entry2.getKey();
                 LinkNature linkNature = entry2.getValue();
-                if (linkNature.isIdenticalTo()) {
+                if (linkNature.isIdenticalToOrAssignedFromTo()) {
                     Set<V> subsOfFrom = subs.get(vFrom);
                     if (subsOfFrom != null) {
                         for (V s : subsOfFrom) {
@@ -278,7 +279,8 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     }
 
     // sorting is needed to consistently take the same direction for tests
-    static Links.Builder followGraph(Map<V, Map<V, LinkNature>> graph, Variable primary) {
+    static Links.Builder followGraph(Map<V, Map<V, LinkNature>> graph, Variable primary,
+                                     Set<MethodInfo> causesOfModification) {
         V tPrimary = new V(primary);
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
         var fromList = graph.keySet().stream()
@@ -294,7 +296,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         Set<PC> block = new HashSet<>();
 
         for (V from : fromList) {
-            Map<V, LinkNature> all = bestPath(graph, from);
+            Map<V, LinkNature> all = bestPath(graph, from, causesOfModification);
             List<Map.Entry<V, LinkNature>> entries = all.entrySet().stream()
                     .sorted((e1, e2) -> {
                         int c = e2.getValue().rank() - e1.getValue().rank();
@@ -354,10 +356,11 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         return builder;
     }
 
-    static Map<V, LinkNature> bestPath(Map<V, Map<V, LinkNature>> graph, V start) {
+    static Map<V, LinkNature> bestPath(Map<V, Map<V, LinkNature>> graph, V start, Set<MethodInfo> causesOfModification) {
         Map<V, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
-                        graph.keySet(), start, LinkNatureImpl.EMPTY, LinkNature::combine);
+                        graph.keySet(), start, LinkNatureImpl.EMPTY,
+                        (ln1, ln2) -> ln1.combine(ln2, causesOfModification));
         return res.entrySet().stream()
                 .filter(e -> !start.equals(e.getKey()))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
@@ -436,7 +439,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(graph));
         }
-        Links.Builder builder = followGraph(graph, links.primary());
+        Links.Builder builder = followGraph(graph, links.primary(), Set.of());
         builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
         return builder.build();
     }

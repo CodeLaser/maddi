@@ -181,7 +181,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     if (vi.linkedVariables() != null) {
                         vi.linkedVariables().stream()
                                 .filter(l -> l.from().equals(vi.variable())
-                                             && l.linkNature().isIdenticalTo()
+                                             && l.linkNature().isIdenticalToOrAssignedFromTo()
                                              && l.to() instanceof LocalVariable)
                                 .map(l -> tc.get(l.to()))
                                 .filter(Objects::nonNull)
@@ -249,7 +249,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 ParameterInfo p0 = methodInfo.parameters().isEmpty() ? null : methodInfo.parameters().getFirst();
                 if (p0 == null || links.stream().noneMatch(l ->
                         l.from().equals(links.primary()) &&
-                        l.linkNature().isIdenticalTo() &&
+                        l.linkNature().isIdenticalToOrAssignedFromTo() &&
                         l.to() instanceof ParameterInfo pi && pi.equals(p0))) {
                     return links.removeIfTo(v -> v instanceof MarkerVariable mv && mv.isSomeValue());
                 }

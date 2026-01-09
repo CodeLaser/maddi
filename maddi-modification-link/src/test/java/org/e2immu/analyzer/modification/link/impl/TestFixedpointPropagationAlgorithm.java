@@ -86,10 +86,12 @@ public class TestFixedpointPropagationAlgorithm {
     private String compute(Map<String, Map<String, LinkNature>> graph) {
         Map<String, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
-                        graph.keySet(), START, LinkNatureImpl.EMPTY, LinkNature::combine);
+                        graph.keySet(), START, LinkNatureImpl.EMPTY,
+                        (ln1, ln2) -> ln1.combine(ln2, null));
         Map<String, LinkNature> eventual = res.entrySet().stream().collect(Collectors.toUnmodifiableMap(
                 Map.Entry::getKey,
-                e -> e.getValue().stream().reduce(LinkNatureImpl.EMPTY, LinkNature::combine)));
+                e -> e.getValue().stream().reduce(LinkNatureImpl.EMPTY,
+                        (ln1, ln2) -> ln1.combine(ln2, null))));
         return eventual.entrySet().stream()
                 .filter(e -> !START.equals(e.getKey()))
                 .map(e -> e.getKey() + ": " + e.getValue()).sorted()

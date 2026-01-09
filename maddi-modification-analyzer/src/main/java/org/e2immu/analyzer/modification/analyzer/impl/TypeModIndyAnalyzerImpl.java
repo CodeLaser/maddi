@@ -374,7 +374,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             for (Link link : viRv.linkedVariables()) {
                 Variable primaryTo = Util.primary(link.to());
                 if (primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
-                    if (primaryTo == link.to() && link.linkNature().isIdenticalTo()) {
+                    if (primaryTo == link.to() && link.linkNature().isIdenticalToOrAssignedFromTo()) {
                         Immutable fieldImmutable = analysisHelper.typeImmutable(primaryTo.parameterizedType());
                         if (fieldImmutable.isMutable()) return DEPENDENT;
                         if (fieldImmutable.isImmutableHC()) immutableHc = true;
