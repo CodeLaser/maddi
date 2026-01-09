@@ -14,4 +14,8 @@ public interface LinkComputer {
 
     MethodLinkedVariables doMethod(MethodInfo methodInfo);
 
+    record Options(boolean recurse, boolean forceShallow, boolean checkDuplicateNames) {
+        public static final Options TEST = new Options(true, false, true);
+        public static final Options PRODUCTION = new Options(true, false, false);
+    }
 }

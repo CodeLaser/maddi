@@ -52,24 +52,25 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     public static final PropertyImpl VARIABLES_LINKED_TO_OBJECT = new PropertyImpl("variablesLinkedToObject",
             ValueImpl.VariableBooleanMapImpl.EMPTY);
 
-    private final boolean forceShallow;
+    private final Options options;
     private final JavaInspector javaInspector;
     private final RecursionPrevention recursionPrevention;
     private final ShallowMethodLinkComputer shallowMethodLinkComputer;
     private final LinkGraph linkGraph;
     private final WriteLinksAndModification writeLinksAndModification;
 
+    // for testing :-) especially duplicate name checking
     public LinkComputerImpl(JavaInspector javaInspector) {
-        this(javaInspector, true, false);
+        this(javaInspector, Options.TEST);
     }
 
-    public LinkComputerImpl(JavaInspector javaInspector, boolean recurse, boolean forceShallow) {
-        this.recursionPrevention = new RecursionPrevention(recurse);
+    public LinkComputerImpl(JavaInspector javaInspector, Options options) {
+        this.recursionPrevention = new RecursionPrevention(options.recurse());
         this.javaInspector = javaInspector;
-        this.forceShallow = forceShallow;
+        this.options = options;
         VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime());
+        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames());
         this.writeLinksAndModification = new WriteLinksAndModification(javaInspector.runtime());
     }
 
@@ -100,7 +101,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         try {
             TypeInfo typeInfo = method.typeInfo();
-            boolean shallow = forceShallow || method.isAbstract() || typeInfo.compilationUnit().externalLibrary();
+            boolean shallow = options.forceShallow() || method.isAbstract() || typeInfo.compilationUnit().externalLibrary();
             return doMethod(method, shallow, false);
         } catch (RuntimeException | AssertionError e) {
             LOGGER.error("Caught exception computing {}", method, e);
@@ -114,7 +115,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         if (alreadyDone != null) return alreadyDone;
         try {
             TypeInfo typeInfo = method.typeInfo();
-            boolean shallow = forceShallow || typeInfo.compilationUnit().externalLibrary();
+            boolean shallow = options.forceShallow() || typeInfo.compilationUnit().externalLibrary();
             return doMethod(method, shallow, true);
         } catch (RuntimeException | AssertionError e) {
             LOGGER.error("Caught exception recursively computing {}", method, e);
@@ -164,7 +165,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
             this.expressionVisitor = new ExpressionVisitor(javaInspector.runtime(),
-                    javaInspector, new VirtualFieldComputer(javaInspector),
+                    javaInspector, options, new VirtualFieldComputer(javaInspector),
                     LinkComputerImpl.this, this, methodInfo, recursionPrevention,
                     new AtomicInteger());
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;

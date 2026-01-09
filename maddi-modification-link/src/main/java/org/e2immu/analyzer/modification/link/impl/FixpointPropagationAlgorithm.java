@@ -38,13 +38,14 @@ public class FixpointPropagationAlgorithm {
                 // NOTE: concurrent modification exceptions are caused by u equals v
                 // but that should not be possible see Expand.mergeEdgeSingle()
 
-                for (L lbl : labels.get(u)) {
+                Set<L> uLabels = labels.get(u);
+                for (L lbl : uLabels) {
                     L newLabel = combine.apply(lbl, e.getValue());
 
                     // If this label is new for w, add & propagate
                     if (labels.computeIfAbsent(w, _ -> new HashSet<>()).add(newLabel)) {
                         worklist.add(w);
-                        //LOGGER.debug("Start {}: {} -> {} add {}", start, u, w, newLabel);
+                        LOGGER.debug("Start {}: {} -> {} add {}", start, u, w, newLabel);
                     }
                 }
             }

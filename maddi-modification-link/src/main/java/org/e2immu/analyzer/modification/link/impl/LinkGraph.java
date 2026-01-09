@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.isVirtualModificationField;
 
-public record LinkGraph(JavaInspector javaInspector, Runtime runtime) {
+public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean checkDuplicateNames) {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkGraph.class);
 
     // different equality from Variable: container virtual fields
@@ -173,10 +173,15 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime) {
             }
             change = doOneMakeGraphCycle(graph, modifiedInThisEvaluation);
         }
-        // this is the right place for searching for "duplicate keys" in the graph
-        // however, there are tests that have legitimate duplicates (TestLinkConstructorInMethodCall)
-        // and it is not trivial to accept one and reject the other
+        assert !checkDuplicateNames ||
+               graph.size() == graph.keySet().stream().map(v -> stringForDuplicate(v.v)).distinct().count();
         return graph;
+    }
+
+    // see TestModificationParameter, a return variable with the same name as a local variable
+    private static String stringForDuplicate(Variable v) {
+        if (v instanceof ReturnVariable) return "rv " + v;
+        return v.toString();
     }
 
     private boolean doOneMakeGraphCycle(Map<V, Map<V, LinkNature>> graph, Set<Variable> modifiedInThisEvaluation) {

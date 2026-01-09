@@ -54,6 +54,8 @@ public class TestMapManual extends CommonTest {
             }
             """;
 
+    LinkComputer.Options doNotRecurse = new LinkComputer.Options(false, false, true);
+
     @DisplayName("Analyze 'get', map access, manually inserting links for Map.get(K)")
     @Test
     public void test1() {
@@ -68,7 +70,7 @@ public class TestMapManual extends CommonTest {
         setMethodLinkedVariablesOfMapGet(map, eInfo);
 
         MethodInfo get = X.findUniqueMethod("get", 1);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         MethodLinkedVariables mlv = tlc.doMethod(get);
         assertEquals("get∈this.map.eArray[-1].v", mlv.ofReturnValue().toString());
     }
@@ -119,7 +121,7 @@ public class TestMapManual extends CommonTest {
         mapKeySet.analysis().set(METHOD_LINKS, mlvGet);
 
         MethodInfo keySet = X.findUniqueMethod("keySet", 0);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         MethodLinkedVariables mlv = tlc.doMethod(keySet);
         assertEquals("""
                 keySet.tArray~this.map.eArray[-1].k,keySet.§m≡this.map.M\
@@ -164,7 +166,7 @@ public class TestMapManual extends CommonTest {
         setMethodLinkedVariablesOfMapGet(map, eInfo);
 
         MethodInfo getOrDefault = X.findUniqueMethod("getOrDefault", 2);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         MethodLinkedVariables mlv = tlc.doMethod(getOrDefault);
         assertEquals("""
                 getOrDefault←1:defaultValue,getOrDefault∈this.map.eArray[-1].v\
@@ -206,7 +208,7 @@ public class TestMapManual extends CommonTest {
 
 
         MethodInfo entrySet = X.findUniqueMethod("entrySet", 0);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         MethodLinkedVariables mlv = tlc.doMethod(entrySet);
         assertEquals("""
                 entrySet.eArray~this.map.eArray,entrySet.§m≡this.map.M\

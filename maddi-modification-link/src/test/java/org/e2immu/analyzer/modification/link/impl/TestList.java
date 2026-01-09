@@ -57,6 +57,8 @@ public class TestList extends CommonTest {
             }
             """;
 
+    LinkComputer.Options doNotRecurse = new LinkComputer.Options(false, false, true);
+
     @DisplayName("Analyze 'get', array access")
     @Test
     public void test1a() {
@@ -65,7 +67,7 @@ public class TestList extends CommonTest {
         analyzer.doPrimaryType(X);
 
         MethodInfo get = X.findUniqueMethod("get", 1);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         MethodLinkedVariables mlv = tlc.doMethod(get);
         assertEquals("get←this.ts[0:index],get∈this.ts", mlv.ofReturnValue().toString());
     }
@@ -80,7 +82,7 @@ public class TestList extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodInfo method = X.findUniqueMethod("method", 2);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         // first, do get()
         MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
         assertEquals("get←this.ts[0:index],get∈this.ts", lvGet.ofReturnValue().toString());
@@ -106,7 +108,7 @@ public class TestList extends CommonTest {
         analyzer.doPrimaryType(X);
 
         MethodInfo asShortList = X.findUniqueMethod("asShortList", 0);
-        LinkComputerImpl tlc = new LinkComputerImpl(javaInspector, true, false);
+        LinkComputerImpl tlc = new LinkComputerImpl(javaInspector);
 
         // rv0.tArray>t + t=this.ts[0] + this.ts[0]<this.ts  = asShortList.tArray~this.ts
         MethodLinkedVariables lvAsShortList = asShortList.analysis().getOrCreate(METHOD_LINKS,
@@ -189,7 +191,7 @@ public class TestList extends CommonTest {
         analyzer.doPrimaryType(X);
 
         MethodInfo get = X.findUniqueMethod("getList", 0);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         MethodLinkedVariables mlv = tlc.doMethod(get);
         assertEquals("getList←this.list", mlv.ofReturnValue().toString());
 
@@ -227,7 +229,7 @@ public class TestList extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("§m - E[] §es", vfc.compute(arrayList).toString());
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, doNotRecurse);
 
         MethodInfo c1 = arrayList.findConstructor(collection);
         MethodLinkedVariables mlvC1 = c1.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(c1));
@@ -254,7 +256,7 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector);
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = linkComputer.doMethod(constructor);
         assertEquals("[0:in.§ts⊇this*.list.§ts] --> -", mlvConstructor.toString());
@@ -279,7 +281,7 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 1);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
@@ -304,7 +306,7 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector);
 
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
@@ -340,7 +342,7 @@ public class TestList extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("/ - /", vfc.compute(collections).toString());
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 2);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
         assertEquals("[0:list*.§ts∋1:t, 1:t∈0:list*.§ts] --> -", mlvListAdd.toString());
@@ -373,7 +375,7 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector);
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 3);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
         assertEquals("[0:list*.§ts∋1:t1,0:list*.§ts∋2:t2, 1:t1∈0:list*.§ts, 2:t2∈0:list*.§ts] --> -",
@@ -406,7 +408,7 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, true, false);
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector);
         MethodInfo listAdd = X.findUniqueMethod("one", 1);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
         assertEquals("[-] --> one.§ts∋0:t", mlvListAdd.toString());

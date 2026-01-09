@@ -2,8 +2,8 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -21,7 +21,7 @@ public class TestImmutable extends CommonTest {
             import java.util.List;
             public interface X {
                 record R(String s, int i) { }
-
+            
                 R get(int index);
                 void set(int i, R r);
             }
@@ -40,7 +40,8 @@ public class TestImmutable extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         get.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT);
 
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options(false, false, true));
         MethodLinkedVariables mlvGet = tlc.doMethod(get);
         assertEquals("[-] --> -", mlvGet.toString());
 

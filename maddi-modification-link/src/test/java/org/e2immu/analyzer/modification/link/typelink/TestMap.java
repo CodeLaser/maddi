@@ -127,12 +127,14 @@ public class TestMap extends CommonTest {
     }
 
 
+    LinkComputer.Options forceShallow = new LinkComputer.Options(true, true, true);
+
     @Test
     public void testShallow1() {
         TypeInfo X = javaInspector.parse(INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, true, true);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
         tlc.doPrimaryType(X);
 
         // NOTE: we need map to have multiplicity 2, so we've added the keyset and values methods
@@ -360,7 +362,7 @@ public class TestMap extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, true);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
 
         MethodInfo reverse = X.findUniqueMethod("reverse", 0);
         MethodLinkedVariables tlvReverse = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
