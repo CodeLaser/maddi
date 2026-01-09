@@ -12,17 +12,22 @@ import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkGraph.followGraph;
+import static org.e2immu.analyzer.modification.link.impl.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
-record WriteLinksAndModification(Runtime runtime) {
+record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
+    private static final Logger LOGGER = LoggerFactory.getLogger(WriteLinksAndModification.class);
 
     record WriteResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData) {
     }
@@ -37,24 +42,44 @@ record WriteLinksAndModification(Runtime runtime) {
                 modifiedDuringEvaluation.stream()).collect(Collectors.toUnmodifiableSet());
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedVariables);
 
-        vd.variableInfoStream(Stage.EVALUATION).forEach(vi -> {
-            doVariable(statement, graph, vi, unmarkedModifications, modifiedVariables, newLinkedVariables);
-        });
-
+        Set<Variable> redo = new HashSet<>();
+        vd.variableInfoStream(Stage.EVALUATION).forEach(vi ->
+                redo.addAll(doVariableReturnRecompute(statement, graph, vi, unmarkedModifications,
+                        modifiedVariables, newLinkedVariables)));
+        if (!redo.isEmpty()) {
+            LinkGraph linkGraph = new LinkGraph(javaInspector, runtime, false);
+            Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph2 = linkGraph.makeGraph(newLinkedVariables, Set.of());
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Recomputed bi-directional graph for local:\n{}", printGraph(graph2));
+            }
+            String index = statement.source().index();
+            Set<Variable> recompute = vd.variableInfoStream(Stage.EVALUATION)
+                    .filter(vi -> vi.assignments().indexOfDefinition().compareTo(index) < 0
+                                  && !vi.assignments().contains(index))
+                    .map(VariableInfo::variable)
+                    .collect(Collectors.toUnmodifiableSet());
+            LOGGER.debug("Variables to recompute: {}", recompute);
+            for(Variable variable: recompute) {
+                Links.Builder builder = followGraph(graph2, variable);
+                builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
+                newLinkedVariables.put(variable, builder.build());
+            }
+        }
         return new WriteResult(newLinkedVariables, unmarkedModifications);
     }
 
-    private void doVariable(Statement statement,
-                            Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph,
-                            VariableInfo vi,
-                            Set<Variable> unmarkedModifications,
-                            Set<Variable> modifiedVariables,
-                            Map<Variable, Links> newLinkedVariables) {
+    private Set<Variable> doVariableReturnRecompute(Statement statement,
+                                                    Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph,
+                                                    VariableInfo vi,
+                                                    Set<Variable> unmarkedModifications,
+                                                    Set<Variable> modifiedVariables,
+                                                    Map<Variable, Links> newLinkedVariables) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
         Links.Builder builder = followGraph(graph, variable);
 
+        Set<Variable> recompute = new HashSet<>();
         if (variable instanceof ReturnVariable rv) {
             handleReturnVariable(rv, builder);
         } else {
@@ -67,16 +92,15 @@ record WriteLinksAndModification(Runtime runtime) {
                 Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
                 vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
             }
-            if (!unmodified) {
-                // TODO turning ⊆ into ~ when modified is best done directly in followGraph(),
-                //  otherwise we cannot change ≤ into ∩ easily for derivative relations (if we must have them)
-                builder.replaceSubsetSuperset(variable);
+            if (!unmodified && builder.replaceSubsetSuperset(variable)) {
+                recompute.add(variable);
             }
         }
         Links newLinks = builder.build();
         if (newLinkedVariables.put(variable, newLinks) != null) {
             throw new UnsupportedOperationException("Each real variable must be a primary");
         }
+        return recompute;
     }
 
     private void handleReturnVariable(ReturnVariable rv, Links.Builder builder) {

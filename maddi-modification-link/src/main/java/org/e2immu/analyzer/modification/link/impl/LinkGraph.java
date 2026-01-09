@@ -123,7 +123,8 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     private V makeComparableSub(V base, V sub, V target) {
         if (sub.v instanceof FieldReference fr && base.v.equals(fr.scopeVariable())) {
             VariableExpression tve = runtime.newVariableExpression(target.v);
-            return new V(runtime.newFieldReference(fr.fieldInfo(), tve, fr.fieldInfo().type()));
+            FieldInfo newField = fr.fieldInfo().withOwner(Util.owner(target.v));
+            return new V(runtime.newFieldReference(newField, tve, newField.type()));
         }
         TranslationMap tm = new VariableTranslationMap(runtime).put(base.v, target.v);
         Variable newSub = tm.translateVariableRecursively(sub.v);
@@ -159,8 +160,8 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     private record Add(V from, LinkNature ln, V to) {
     }
 
-    private Map<V, Map<V, LinkNature>> makeGraph(Map<Variable, Links> linkedVariables,
-                                                 Set<Variable> modifiedInThisEvaluation) {
+    Map<V, Map<V, LinkNature>> makeGraph(Map<Variable, Links> linkedVariables,
+                                         Set<Variable> modifiedInThisEvaluation) {
         Map<V, Map<V, LinkNature>> graph = new HashMap<>();
         linkedVariables.values().forEach(links -> links.forEach(
                 l -> simpleAddToGraph(graph, l.from(), l.linkNature(), l.to())));
@@ -365,7 +366,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
 
     //-------------------------------------------------------------------------------------------------
 
-    private static String printGraph(Map<V, Map<V, LinkNature>> graph) {
+    static String printGraph(Map<V, Map<V, LinkNature>> graph) {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<V, Map<V, LinkNature>> e : graph.entrySet()) {
             for (Map.Entry<V, LinkNature> e2 : e.getValue().entrySet()) {

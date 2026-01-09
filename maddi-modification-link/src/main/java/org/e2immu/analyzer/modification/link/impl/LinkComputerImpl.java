@@ -71,7 +71,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
         this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames());
-        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector.runtime());
+        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, javaInspector.runtime());
     }
 
     @Override
