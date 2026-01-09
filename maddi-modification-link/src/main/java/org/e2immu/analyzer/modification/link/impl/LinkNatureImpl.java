@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.info.MethodInfo;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -40,7 +41,7 @@ public class LinkNatureImpl implements LinkNature {
     private static final String IDENTICAL_TO_PASS_SYMBOL = "☷"; // tri-gram for earth, 0x2637
     private static final int IDENTICAL_TO_RANK = 32;
 
-    public static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", IDENTICAL_TO_RANK);
+    private static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", IDENTICAL_TO_RANK);
 
     private final String symbol;
     private final int rank;
@@ -57,7 +58,7 @@ public class LinkNatureImpl implements LinkNature {
     }
 
     public static LinkNature makeIdenticalTo(List<MethodInfo> exceptionsToPass) {
-        if (exceptionsToPass.isEmpty()) return IS_IDENTICAL_TO;
+        if (exceptionsToPass == null || exceptionsToPass.isEmpty()) return IS_IDENTICAL_TO;
         return new LinkNatureImpl(IDENTICAL_TO_PASS_SYMBOL, IDENTICAL_TO_RANK, Set.copyOf(exceptionsToPass));
     }
 
@@ -129,13 +130,21 @@ public class LinkNatureImpl implements LinkNature {
         return symbol;
     }
 
-    public LinkNature combine(LinkNature other, Set<MethodInfo> current) {
+    public LinkNature combine(LinkNature other, Set<MethodInfo> causesOfModification) {
         if (this == other) return this;
         if (this == EMPTY) return other;
         if (other == EMPTY) return this;
         if (this == NONE || other == NONE) return NONE;
         if (other == IS_IDENTICAL_TO) return this;
         if (this == IS_IDENTICAL_TO) return other;
+        if (other.isIdenticalTo()) {
+            assert !other.pass().isEmpty();
+            return causesOfModification != null && Collections.disjoint(pass, causesOfModification) ? NONE : this;
+        }
+        if (this.isIdenticalTo()) {
+            assert !pass.isEmpty();
+            return causesOfModification != null && Collections.disjoint(pass, causesOfModification) ? NONE : other;
+        }
         if (other == IS_ASSIGNED_TO) return this; // a R b → c implies a R c;
         if (this == IS_ASSIGNED_FROM) return other; // a ← b R c implies a R c
 
@@ -281,7 +290,7 @@ public class LinkNatureImpl implements LinkNature {
             // a.b ∋⊇≥ c => a ≥ c
             return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
         }
-        if (this == IS_IDENTICAL_TO
+        if (isIdenticalTo()
             || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO
             || this == SHARES_ELEMENTS || this == SHARES_FIELDS) {
             return List.of(OBJECT_GRAPH_OVERLAPS, IS_FIELD_OF, CONTAINS_AS_FIELD);
@@ -299,7 +308,7 @@ public class LinkNatureImpl implements LinkNature {
             // a ∋⊇≥ b.c => a ≥ c
             return List.of(OBJECT_GRAPH_CONTAINS, OBJECT_GRAPH_OVERLAPS);
         }
-        if (this == IS_IDENTICAL_TO || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO
+        if (isIdenticalTo() || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO
             || this == SHARES_ELEMENTS || this == SHARES_FIELDS) {
             return List.of(OBJECT_GRAPH_OVERLAPS, CONTAINS_AS_FIELD, IS_FIELD_OF);
         }
@@ -309,7 +318,7 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public List<LinkNature> redundantUp() {
-        if (this == IS_IDENTICAL_TO || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO) {
+        if (isIdenticalTo() || this == IS_ASSIGNED_FROM || this == IS_ASSIGNED_TO) {
             return List.of(SHARES_FIELDS, OBJECT_GRAPH_OVERLAPS);
         }
         return List.of(OBJECT_GRAPH_OVERLAPS);

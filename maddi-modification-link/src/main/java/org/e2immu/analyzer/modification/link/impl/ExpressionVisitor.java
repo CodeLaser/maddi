@@ -38,7 +38,7 @@ public record ExpressionVisitor(Runtime runtime,
     public record WriteMethodCall(Expression methodCall, Links linksFromObject) {
     }
 
-    static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Set.of(), List.of(), Map.of(),
+    static final Result EMPTY = new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY, Map.of(), List.of(), Map.of(),
             Set.of(), Set.of());
 
     public Result visit(Expression expression, VariableData variableData, Stage stage) {
@@ -314,7 +314,7 @@ public record ExpressionVisitor(Runtime runtime,
         return result
                 .merge(rValue)
                 .merge(rTarget)
-                .addModified(Util.scopeVariables(a.variableTarget()))
+                .addModified(Util.scopeVariables(a.variableTarget()), null)
                 .setEvaluated(rValue.getEvaluated() != a.value() || rTarget.getEvaluated() != a.target()
                         ? runtime.newAssignment((VariableExpression) rTarget.getEvaluated(), rValue.getEvaluated()) : a);
     }
@@ -481,7 +481,7 @@ public record ExpressionVisitor(Runtime runtime,
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
         Set<Variable> modified = new MethodModification(runtime, variableData, stage, mc)
                 .go(objectPrimary, params, mlvTranslated2);
-        return r.addModified(modified)
+        return r.addModified(modified, mc.methodInfo())
                 .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);

@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.LinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -19,7 +20,7 @@ extra = link information about unrelated variables
 public class Result {
     private final Links links;
     private final LinkedVariables extra;
-    private final Set<Variable> modified;
+    private final Map<Variable, Set<MethodInfo>> modified;
     private final List<ExpressionVisitor.WriteMethodCall> writeMethodCalls;
     private final Map<Variable, Set<TypeInfo>> casts;
     private final Set<Variable> erase;
@@ -29,7 +30,7 @@ public class Result {
 
     public Result(Links links,
                   LinkedVariables extra,
-                  Set<Variable> modified,
+                  Map<Variable, Set<MethodInfo>> modified,
                   List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
                   Map<Variable, Set<TypeInfo>> casts,
                   Set<Variable> erase,
@@ -44,7 +45,7 @@ public class Result {
     }
 
     public Result(Links links, LinkedVariables extra) {
-        this(links, extra, new HashSet<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>(), new HashSet<>());
+        this(links, extra, new HashMap<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>(), new HashSet<>());
     }
 
     public Expression getEvaluated() {
@@ -69,8 +70,11 @@ public class Result {
         return this;
     }
 
-    public Result addModified(Set<Variable> modified) {
-        this.modified.addAll(modified);
+    public Result addModified(Set<Variable> variables, MethodInfo methodThatCausesModification) {
+        for (Variable variable : variables) {
+            Set<MethodInfo> methodInfos = this.modified.computeIfAbsent(variable, _ -> new HashSet<>());
+            if (methodThatCausesModification != null) methodInfos.add(methodThatCausesModification);
+        }
         return this;
     }
 
@@ -119,7 +123,7 @@ public class Result {
         return writeMethodCalls;
     }
 
-    public Set<Variable> modified() {
+    public Map<Variable, Set<MethodInfo>> modified() {
         return modified;
     }
 
@@ -140,13 +144,14 @@ public class Result {
             combinedExtra = combinedExtra.merge(new LinkedVariablesImpl(Map.of(other.links.primary(), other.links)));
         }
         Result r = new Result(this.links, combinedExtra,
-                new HashSet<>(this.modified),
+                new HashMap<>(this.modified),
                 new ArrayList<>(this.writeMethodCalls),
                 new HashMap<>(this.casts),
                 new HashSet<>(this.erase),
                 new HashSet<>(this.variablesRepresentingConstants));
         r.writeMethodCalls.addAll(other.writeMethodCalls);
-        r.modified.addAll(other.modified);
+        other.modified.forEach((v, set) ->
+                r.modified.computeIfAbsent(v, _ -> new HashSet<>()).addAll(set));
         r.variablesRepresentingConstants.addAll(other.variablesRepresentingConstants);
         other.casts.forEach((v, set) ->
                 r.casts.computeIfAbsent(v, _ -> new HashSet<>()).addAll(set));

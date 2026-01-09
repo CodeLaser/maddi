@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class TestLinkNature {
 
     List<LinkNature> all = new ArrayList<>();
+    LinkNature IS_IDENTICAL_TO = LinkNatureImpl.makeIdenticalTo(null);
 
     @BeforeEach
     public void beforeEach() {

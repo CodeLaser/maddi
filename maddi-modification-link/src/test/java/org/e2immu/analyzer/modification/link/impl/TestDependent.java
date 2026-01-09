@@ -4,14 +4,11 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -122,5 +119,41 @@ public class TestDependent extends CommonTest {
         assertEquals("iterator.§m☷0:list.§m,iterator.§ts⊆0:list.§ts", viIterator0.linkedVariables().toString());
         // make sure that list is not modified!
         assertEquals("[-] --> method∈0:list.§ts", mlvAdd.toString());
+    }
+
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            import java.util.Iterator;
+            import java.util.List;
+            import java.util.Set;
+            class X<T> {
+                T method(List<T> list) {
+                    Iterator<T> iterator = list.iterator();
+                    T next = iterator.next();
+                    iterator.remove();
+                    return next;
+                }
+            }
+            """;
+
+    @DisplayName("iterator() in Iterable is independent with an exception, 2")
+    @Test
+    public void test3() {
+        TypeInfo X = javaInspector.parse(INPUT3);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo add = X.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add));
+
+        VariableData add0 = VariableDataImpl.of(add.methodBody().statements().getFirst());
+        VariableInfo viIterator0 = add0.variableInfo("iterator");
+        assertEquals("iterator.§m☷0:list.§m,iterator.§ts⊆0:list.§ts", viIterator0.linkedVariables().toString());
+        // make sure that list is modified! we must pass the .remove() method
+        assertEquals("[-] --> method∈0:list*.§ts", mlvAdd.toString());
     }
 }

@@ -114,7 +114,8 @@ public class TestMapManual extends CommonTest {
         MethodLinkedVariablesImpl mlvGet = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(mapKeySetRv)
                         .add(mapKeySetRvTArray, LinkNatureImpl.SHARES_ELEMENTS, eInfo.thisMapEK)
-                        .add(mapKeySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
+                        .add(mapKeySetRvM, LinkNatureImpl.makeIdenticalTo(null),
+                                runtime.newFieldReference(eInfo.M))
                         .build(),
                 List.of(), Set.of());
         assertEquals("[] --> keySet.tArray~this.eArray[-1].k,keySet.§m≡this.M", mlvGet.toString());
@@ -200,7 +201,7 @@ public class TestMapManual extends CommonTest {
         MethodLinkedVariablesImpl mlvGet = new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(mapEntrySetRv)
                         .add(mapEntrySetRvEArray, LinkNatureImpl.SHARES_ELEMENTS, eArray)
-                        .add(mapEntrySetRvM, LinkNatureImpl.IS_IDENTICAL_TO, runtime.newFieldReference(eInfo.M))
+                        .add(mapEntrySetRvM, LinkNatureImpl.makeIdenticalTo(null), runtime.newFieldReference(eInfo.M))
                         .build(),
                 List.of(), Set.of());
         assertEquals("[] --> entrySet.eArray~this.eArray,entrySet.§m≡this.M", mlvGet.toString());
