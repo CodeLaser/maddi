@@ -44,7 +44,8 @@ public class TestAssignmentIdentityMethod extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, false);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options(false, false, true));
         MethodInfo notNull = X.findUniqueMethod("notNull", 1);
         MethodLinkedVariables mlvNotNull =notNull.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(notNull));
         assertEquals("[-] --> notNull←0:t", mlvNotNull.toString());
@@ -79,7 +80,8 @@ public class TestAssignmentIdentityMethod extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, false, true);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options(false, true, true));
         tlc.doPrimaryType(X);
 
         MethodInfo notNull = X.findUniqueMethod("notNull", 1);

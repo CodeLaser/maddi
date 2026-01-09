@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
@@ -26,6 +27,7 @@ import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesIm
 
 public record ExpressionVisitor(Runtime runtime,
                                 JavaInspector javaInspector,
+                                LinkComputer.Options linkComputerOptions,
                                 VirtualFieldComputer virtualFieldComputer,
                                 LinkComputerRecursion linkComputer,
                                 LinkComputerImpl.SourceMethodComputer sourceMethodComputer,
@@ -337,7 +339,7 @@ public record ExpressionVisitor(Runtime runtime,
         List<Result> params = cc.parameterExpressions().stream()
                 .map(e -> visit(e, variableData, stage))
                 .toList();
-        return new LinkMethodCall(javaInspector, runtime, virtualFieldComputer, variableCounter, currentMethod)
+        return new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter, currentMethod)
                 .constructorCall(cc.constructor(), object, params, mlvTranslated1)
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
@@ -474,7 +476,8 @@ public record ExpressionVisitor(Runtime runtime,
 
         // handle all matters 'linking'
 
-        Result r = new LinkMethodCall(javaInspector, runtime, virtualFieldComputer, variableCounter, currentMethod)
+        Result r = new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter,
+                currentMethod)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
         Set<Variable> modified = new MethodModification(runtime, variableData, stage, mc)
                 .go(objectPrimary, params, mlvTranslated2);
