@@ -386,9 +386,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
-            if (r != null && !r.casts().isEmpty()) {
-                writeCasts(r.casts(), previousVd, stageOfPrevious, vd);
-            }
+
+            writeCasts(r == null ? new HashMap<>() : r.casts(), previousVd, stageOfPrevious, vd);
+
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd);
             }

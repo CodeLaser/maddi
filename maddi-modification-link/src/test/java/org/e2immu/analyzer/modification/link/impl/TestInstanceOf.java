@@ -108,10 +108,14 @@ public class TestInstanceOf extends CommonTest {
         VariableInfo viI0E = vd0.variableInfo(i, Stage.EVALUATION);
         assertEquals("0:i≻o,0:i≻set", viI0E.linkedVariables().toString());
         assertFalse(viI0E.isModified());
+        assertEquals("[a.b.X.R]", viI0E.downcast().toString());
 
-        VariableInfo viSet0 = vd0.variableInfo("set", Stage.EVALUATION);
-        assertEquals("set←o,set≺0:i", viSet0.linkedVariables().toString());
+        VariableInfo viSet0E = vd0.variableInfo("set", Stage.EVALUATION);
+        assertEquals("set←o,set≺0:i", viSet0E.linkedVariables().toString());
         assertFalse(viI0E.isModified());
+
+        VariableInfo viO0E = vd0.variableInfo("o", Stage.EVALUATION);
+        assertEquals("[java.util.Set]", viO0E.downcast().toString());
 
         Statement s000 = method.methodBody().statements().getFirst().block().statements().getFirst();
         VariableData vd000 = VariableDataImpl.of(s000);
@@ -130,14 +134,16 @@ public class TestInstanceOf extends CommonTest {
         assertEquals("0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≈o,0:i≈set", vi000I.linkedVariables().toString());
         // o ≺ 0:i is not visible
         assertTrue(vi000I.isModified());
+        assertEquals("[a.b.X.R]", vi000I.downcast().toString());
 
         VariableInfo viI0M = vd0.variableInfo(i, Stage.MERGE);
         assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es", viI0M.linkedVariables().toString());
         assertTrue(viI0M.isModified());
+        assertEquals("[a.b.X.R]", viI0M.downcast().toString());
 
         assertTrue(i.isModified());
         assertEquals("[0:i*≥1:s, 1:s≤0:i*] --> -", mlv.toString());
-        fail("modified components here?");
+        // NOTE: there are no modified components, they are hidden by the downcast
     }
 
 
