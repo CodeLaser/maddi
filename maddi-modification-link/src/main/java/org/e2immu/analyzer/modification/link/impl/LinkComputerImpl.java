@@ -383,7 +383,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
             WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, vd, previouslyModified,
-                    r == null ? Set.of() : r.modified(), graph);
+                    r == null ? Map.of() : r.modified(), graph);
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 

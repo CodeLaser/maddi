@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class TestFixedpointPropagationAlgorithm {
 
     public static final String START = "a";
+    LinkNature IS_IDENTICAL_TO = LinkNatureImpl.makeIdenticalTo(null);
 
     @Test
     public void test() {

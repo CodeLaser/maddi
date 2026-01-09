@@ -200,7 +200,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                         for (V s : subsOfFrom) {
                             LinkNature ln;
                             if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
-                                ln = IS_IDENTICAL_TO;
+                                ln = LinkNatureImpl.makeIdenticalTo(null);
                             } else {
                                 ln = linkNature;
                             }
@@ -214,7 +214,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                         for (V s : subsOfTo) {
                             LinkNature ln;
                             if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
-                                ln = IS_IDENTICAL_TO;
+                                ln = LinkNatureImpl.makeIdenticalTo(null);
                             } else {
                                 ln = linkNature;
                             }
@@ -393,7 +393,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                                        Stage stageOfPrevious,
                                        VariableData vd,
                                        TranslationMap replaceConstants,
-                                       Set<Variable> modifiedInThisEvaluation) {
+                                       Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables = new HashMap<>();
         lvIn.entrySet().stream()
@@ -416,7 +416,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                     });
         }
 
-        Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables, modifiedInThisEvaluation);
+        Map<V, Map<V, LinkNature>> graph = makeGraph(linkedVariables, modifiedInThisEvaluation.keySet());
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Bi-directional graph for local:\n{}", printGraph(graph));
         }

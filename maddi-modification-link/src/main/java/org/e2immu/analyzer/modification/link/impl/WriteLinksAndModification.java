@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -35,17 +36,20 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
     @NotNull WriteResult go(Statement statement,
                             VariableData vd,
                             Set<Variable> previouslyModified,
-                            Set<Variable> modifiedDuringEvaluation,
+                            Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation,
                             Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph) {
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
-        Set<Variable> modifiedVariables = Stream.concat(previouslyModified.stream(),
-                modifiedDuringEvaluation.stream()).collect(Collectors.toUnmodifiableSet());
-        Set<Variable> unmarkedModifications = new HashSet<>(modifiedVariables);
+        Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause = new HashMap<>(modifiedDuringEvaluation);
+        previouslyModified.forEach(v ->
+                modifiedVariablesAndTheirCause.merge(v, Set.of(),
+                        (s1, s2)
+                                -> Stream.concat(s1.stream(), s2.stream()).collect(Collectors.toUnmodifiableSet())));
+        Set<Variable> unmarkedModifications = new HashSet<>(modifiedVariablesAndTheirCause.keySet());
 
         Set<Variable> redo = new HashSet<>();
         vd.variableInfoStream(Stage.EVALUATION).forEach(vi ->
                 redo.addAll(doVariableReturnRecompute(statement, graph, vi, unmarkedModifications,
-                        modifiedVariables, newLinkedVariables)));
+                        modifiedVariablesAndTheirCause, newLinkedVariables)));
         if (!redo.isEmpty()) {
             LinkGraph linkGraph = new LinkGraph(javaInspector, runtime, false);
             Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph2 = linkGraph.makeGraph(newLinkedVariables, Set.of());
@@ -59,8 +63,8 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                     .map(VariableInfo::variable)
                     .collect(Collectors.toUnmodifiableSet());
             LOGGER.debug("Variables to recompute: {}", recompute);
-            for(Variable variable: recompute) {
-                Links.Builder builder = followGraph(graph2, variable, Set.of()); // FIXME
+            for (Variable variable : recompute) {
+                Links.Builder builder = followGraph(graph2, variable, modifiedVariablesAndTheirCause.get(variable));
                 builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
                 newLinkedVariables.put(variable, builder.build());
             }
@@ -72,20 +76,20 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                                                     Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph,
                                                     VariableInfo vi,
                                                     Set<Variable> unmarkedModifications,
-                                                    Set<Variable> modifiedVariables,
+                                                    Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause,
                                                     Map<Variable, Links> newLinkedVariables) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph(graph, variable, Set.of()); // FIXME
+        Links.Builder builder = followGraph(graph, variable, modifiedVariablesAndTheirCause.get(variable));
 
         Set<Variable> recompute = new HashSet<>();
         if (variable instanceof ReturnVariable rv) {
             handleReturnVariable(rv, builder);
         } else {
             boolean unmodified = assignedInThisStatement(statement, vi)
-                                 || !modifiedVariables.contains(variable)
-                                    && notLinkedToModified(builder, modifiedVariables);
+                                 || !modifiedVariablesAndTheirCause.containsKey(variable)
+                                    && notLinkedToModified(builder, modifiedVariablesAndTheirCause.keySet());
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
             if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
@@ -134,7 +138,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
             Variable toPrimary = Util.primary(link.to());
             if (modifiedVariables.contains(toPrimary)) {
                 LinkNature ln = link.linkNature();
-                if (ln == IS_IDENTICAL_TO
+                if (ln.isIdenticalTo() // FIXME check pass
                     && link.to() instanceof FieldReference fr
                     && VirtualFieldComputer.isVirtualModificationField(fr.fieldInfo())) {
                     return false;
