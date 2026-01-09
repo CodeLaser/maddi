@@ -20,6 +20,8 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -27,6 +29,8 @@ import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Set;
 
 public class VariableInfoImpl implements VariableInfo {
     public static final Property UNMODIFIED_VARIABLE = new PropertyImpl("unmodifiedVariable");
@@ -106,6 +110,11 @@ public class VariableInfoImpl implements VariableInfo {
     @Override
     public boolean isUnmodified() {
         return analysis.getOrDefault(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    @Override
+    public Set<TypeInfo> downcast() {
+        return analysis.getOrDefault(DOWNCAST_VARIABLE, ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet();
     }
 
     @Override
