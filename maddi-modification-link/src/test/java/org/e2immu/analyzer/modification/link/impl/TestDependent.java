@@ -19,8 +19,6 @@ import org.junit.jupiter.api.Test;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.*;
 
-// FIXME independent vs dependent in normal method linking
-
 public class TestDependent extends CommonTest {
 
     @Language("java")
@@ -72,12 +70,10 @@ public class TestDependent extends CommonTest {
         assertEquals("copy.§ts⊆0:list.§ts", vi03copy.linkedVariables().toString());
         VariableData vd13 = VariableDataImpl.of(extract3.methodBody().statements().get(1));
         VariableInfo vi13copy = vd13.variableInfo("copy");
-        assertEquals("copy.§ts~0:list.§ts,copy.§ts∋extract3", vi13copy.linkedVariables().toString());
+        assertEquals("copy.§ts∋extract3,copy.§ts~0:list.§ts", vi13copy.linkedVariables().toString());
         VariableInfo vi13list = vd13.variableInfo(extract3.parameters().getFirst());
-        // FIXME 1
-        //assertEquals("0:list.§t~copy.§ts", vi13list.linkedVariables().toString());
-        // FIXME 2
-        assertEquals("[-] --> extract3∈0:list*.§ts", mlv3.toString());
+        assertEquals("0:list.§ts∋extract3,0:list.§ts~copy.§ts", vi13list.linkedVariables().toString());
+        assertEquals("[-] --> extract3∈0:list.§ts", mlv3.toString());
 
         MethodInfo extract4 = X.findUniqueMethod("extract4", 1);
         MethodLinkedVariables mlv4 = extract4.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(extract4));

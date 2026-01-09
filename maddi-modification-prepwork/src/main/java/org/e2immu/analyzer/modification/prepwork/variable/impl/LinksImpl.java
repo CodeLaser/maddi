@@ -187,8 +187,18 @@ public class LinksImpl implements Links {
         }
 
         @Override
-        public void replaceSubsetSuperset(Variable modified) {
-            links.replaceAll(l -> l.replaceSubsetSuperset(modified));
+        public boolean replaceSubsetSuperset(Variable modified) {
+            boolean change = false;
+            final ListIterator<Link> li = links.listIterator();
+            while (li.hasNext()) {
+                Link link = li.next();
+                Link newLink = link.replaceSubsetSuperset(modified);
+                if (link != newLink) {
+                    li.set(newLink);
+                    change = true;
+                }
+            }
+            return change;
         }
 
         @Override
