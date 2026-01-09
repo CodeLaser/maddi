@@ -3,9 +3,12 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.info.MethodInfo;
 
-import java.util.Collections;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 //https://unicodemap.com/range/47/Mathematical_Operators/
 
@@ -57,7 +60,7 @@ public class LinkNatureImpl implements LinkNature {
         this.pass = pass;
     }
 
-    public static LinkNature makeIdenticalTo(List<MethodInfo> exceptionsToPass) {
+    public static LinkNature makeIdenticalTo(Collection<MethodInfo> exceptionsToPass) {
         if (exceptionsToPass == null || exceptionsToPass.isEmpty()) return IS_IDENTICAL_TO;
         return new LinkNatureImpl(IDENTICAL_TO_PASS_SYMBOL, IDENTICAL_TO_RANK, Set.copyOf(exceptionsToPass));
     }
@@ -130,6 +133,12 @@ public class LinkNatureImpl implements LinkNature {
         return symbol;
     }
 
+    private LinkNature intersection(LinkNature other) {
+        Set<MethodInfo> intersection = new HashSet<>(pass);
+        pass.retainAll(other.pass());
+        return makeIdenticalTo(Set.copyOf(intersection));
+    }
+
     public LinkNature combine(LinkNature other, Set<MethodInfo> causesOfModification) {
         if (this == other) return this;
         if (this == EMPTY) return other;
@@ -138,12 +147,16 @@ public class LinkNatureImpl implements LinkNature {
         if (other == IS_IDENTICAL_TO) return this;
         if (this == IS_IDENTICAL_TO) return other;
         if (other.isIdenticalTo()) {
-            assert !other.pass().isEmpty();
-            return causesOfModification != null && Collections.disjoint(pass, causesOfModification) ? NONE : this;
+            if (this.isIdenticalTo()) {
+                return intersection(other);
+            }
+            return this;
         }
         if (this.isIdenticalTo()) {
-            assert !pass.isEmpty();
-            return causesOfModification != null && Collections.disjoint(pass, causesOfModification) ? NONE : other;
+            if (other.isIdenticalTo()) {
+                return intersection(other);
+            }
+            return other;
         }
         if (other == IS_ASSIGNED_TO) return this; // a R b → c implies a R c;
         if (this == IS_ASSIGNED_FROM) return other; // a ← b R c implies a R c

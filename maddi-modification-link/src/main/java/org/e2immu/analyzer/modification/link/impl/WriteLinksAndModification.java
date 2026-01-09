@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkGraph.followGraph;
 import static org.e2immu.analyzer.modification.link.impl.LinkGraph.printGraph;
@@ -41,9 +40,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
         Map<Variable, Links> newLinkedVariables = new HashMap<>();
         Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause = new HashMap<>(modifiedDuringEvaluation);
         previouslyModified.forEach(v ->
-                modifiedVariablesAndTheirCause.merge(v, Set.of(),
-                        (s1, s2)
-                                -> Stream.concat(s1.stream(), s2.stream()).collect(Collectors.toUnmodifiableSet())));
+                modifiedVariablesAndTheirCause.computeIfAbsent(v, _ -> new HashSet<>()));
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedVariablesAndTheirCause.keySet());
 
         Set<Variable> redo = new HashSet<>();
@@ -89,7 +86,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
         } else {
             boolean unmodified = assignedInThisStatement(statement, vi)
                                  || !modifiedVariablesAndTheirCause.containsKey(variable)
-                                    && notLinkedToModified(builder, modifiedVariablesAndTheirCause.keySet());
+                                    && notLinkedToModified(builder, modifiedVariablesAndTheirCause);
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
             if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
@@ -133,14 +130,17 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
         return vi.assignments().contains(index) && !vi.reads().indices().contains(index);
     }
 
-    private boolean notLinkedToModified(Links.Builder builder, Set<Variable> modifiedVariables) {
+    private boolean notLinkedToModified(Links.Builder builder,
+                                        Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
         for (Link link : builder) {
             Variable toPrimary = Util.primary(link.to());
-            if (modifiedVariables.contains(toPrimary)) {
+            Set<MethodInfo> causesOfModification = modifiedVariablesAndTheirCause.get(toPrimary);
+            if (causesOfModification != null) {
                 LinkNature ln = link.linkNature();
                 if (ln.isIdenticalTo() // FIXME check pass
                     && link.to() instanceof FieldReference fr
-                    && VirtualFieldComputer.isVirtualModificationField(fr.fieldInfo())) {
+                    && VirtualFieldComputer.isVirtualModificationField(fr.fieldInfo())
+                    && (ln.pass().isEmpty() || !Collections.disjoint(ln.pass(), causesOfModification))) {
                     return false;
                 }
                 if (ln == CONTAINS_AS_FIELD
