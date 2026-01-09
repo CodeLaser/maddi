@@ -341,7 +341,7 @@ public class LinksImpl implements Links {
         Link tLink = link.translate(translationMap);
         // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
         // upgrade: 0:key≡this.§kv.§k ==> 0:xs≡this.§xsys.§xs ==> 0:xs.§xs⊆this.§xsys.§xs
-        if (link.linkNature().isIdenticalTo() && Util.isPrimary(tLink.from())
+        if (link.linkNature().isIdenticalToOrAssignedFromTo() && Util.isPrimary(tLink.from())
             && Util.hasVirtualFields(tLink.from())
             && link.to().parameterizedType().arrays() == 0
             && tLink.to().parameterizedType().arrays() > 0
@@ -355,7 +355,7 @@ public class LinksImpl implements Links {
         Link tLink = link.translateFrom(translationMap);
         // upgrade: orElseGet≡this.§t ==> orElseGet≡this.§xs ==> orElseGet.§xs⊆this.§xs
         // upgrade: 0:key≡this.§kv.§k ==> 0:xs≡this.§xsys.§xs ==> 0:xs.§xs⊆this.§xsys.§xs
-        if (link.linkNature().isIdenticalTo() && Util.isPrimary(tLink.from())
+        if (link.linkNature().isIdenticalToOrAssignedFromTo() && Util.isPrimary(tLink.from())
             && Util.hasVirtualFields(tLink.from())
             && link.to().parameterizedType().arrays() == 0
             && tLink.to().parameterizedType().arrays() > 0
@@ -368,7 +368,7 @@ public class LinksImpl implements Links {
     @Override
     public List<Variable> primaryAssigned() {
         return linkSet.stream()
-                .filter(l -> l.linkNature().isIdenticalTo())
+                .filter(l -> l.linkNature().isIdenticalToOrAssignedFromTo())
                 .map(Link::to)
                 .filter(Util::isPrimary)
                 .toList();
