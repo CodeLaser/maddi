@@ -555,7 +555,8 @@ public abstract class ValueImpl implements Value {
             List<MethodInfo> methods = encodedMap.keySet().stream()
                     .map(ev -> Integer.parseInt(codec.decodeString(context, ev)))
                     .filter(i -> i <= START_INDEX_DEPENDENT)
-                    .map(i -> context.currentMethod().typeInfo().methods().get(-START_INDEX_DEPENDENT - i))
+                    .map(i -> context.currentMethod().returnType()
+                            .typeInfo().methods().get(START_INDEX_DEPENDENT - i))
                     .toList();
             return new IndependentImpl(value, map, methods);
         }

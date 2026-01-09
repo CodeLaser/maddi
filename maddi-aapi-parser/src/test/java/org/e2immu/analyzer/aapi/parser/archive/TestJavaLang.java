@@ -233,7 +233,7 @@ public class TestJavaLang extends CommonTest {
         assertTrue(methodInfo.overrides().isEmpty());
         assertTrue(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
-        ParameterInfo p0 = methodInfo.parameters().get(0);
+        ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertSame(INDEPENDENT, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
     }
 
@@ -243,6 +243,16 @@ public class TestJavaLang extends CommonTest {
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+
+    @Test
+    public void testIterableIterator() {
+        TypeInfo typeInfo = compiledTypesManager().get(Iterable.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("iterator", 0);
+        assertTrue(methodInfo.overrides().isEmpty());
+        Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertEquals("@Independent(hc=true, except={\"remove\"})", independent.toString());
     }
 
     @Test
@@ -263,7 +273,7 @@ public class TestJavaLang extends CommonTest {
         assertSame(NO_VALUE, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
-        ParameterInfo p0 = methodInfo.parameters().get(0);
+        ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
     }
