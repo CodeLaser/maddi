@@ -97,6 +97,6 @@ public class TestStaticValuesIndexing extends CommonTest {
         VariableInfo viY1 = vd1.variableInfo("y");
         assertEquals("y→this.ys[1],y←this.ys[0],y∈this.ys", viY1.linkedVariables().toString());
         assertEquals("[] --> method←this.ys*[0],method←this.ys*[1],method∈this.ys*", mlv.toString());
-        assertEquals("this.ys", mlv.sortedModifiedString());
+        assertEquals("this, this.ys", mlv.sortedModifiedString());
     }
 }

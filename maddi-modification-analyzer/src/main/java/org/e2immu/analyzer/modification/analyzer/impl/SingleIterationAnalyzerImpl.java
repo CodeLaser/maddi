@@ -17,6 +17,8 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 import org.e2immu.analyzer.modification.analyzer.*;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.common.defaults.ShallowTypeAnalyzer;
+import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
@@ -29,9 +31,11 @@ import org.e2immu.util.internal.graph.ImmutableGraph;
 
 import java.util.*;
 
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+
 public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, ModAnalyzerForTesting {
     private final IteratingAnalyzer.Configuration configuration;
-    private final MethodModAnalyzer methodModAnalyzer;
+    private final LinkComputer linkComputer;
     private final FieldAnalyzer fieldAnalyzer;
     private final TypeModIndyAnalyzer typeModIndyAnalyzer;
     private final TypeImmutableAnalyzer typeImmutableAnalyzer;
@@ -46,7 +50,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     public SingleIterationAnalyzerImpl(JavaInspector javaInspector, IteratingAnalyzer.Configuration configuration) {
         this.configuration = configuration;
-        methodModAnalyzer = new MethodModAnalyzerImpl(javaInspector, configuration);
+        linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions());
         Runtime runtime = javaInspector.runtime();
         fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration);
         typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(runtime, configuration);
@@ -76,12 +80,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 if (methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
                     shallowTypeAnalyzer.analyze(info.typeInfo());
                 }
-                MethodModAnalyzer.Output output = methodModAnalyzer.go(methodInfo, activateCycleBreaking);
-                methodsWaitFor.put(methodInfo, output.waitForMethods());
-                if (!output.waitForMethods().isEmpty()) builder.add(methodInfo, output.waitForMethods());
-                if (!output.waitForIndependenceOfTypes().isEmpty())
-                    builder.add(methodInfo, output.waitForIndependenceOfTypes());
-                analyzerExceptions.addAll(output.analyzerExceptions());
+                methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
             } else if (info instanceof FieldInfo fieldInfo) {
                 if (fieldInfo.owner().isAbstract()) {
                     shallowTypeAnalyzer.analyzeField(fieldInfo);

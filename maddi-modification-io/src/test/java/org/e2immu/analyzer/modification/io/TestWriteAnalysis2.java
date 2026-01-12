@@ -14,9 +14,12 @@
 
 package org.e2immu.analyzer.modification.io;
 
+import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.io.LinkCodec;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.util.internal.util.Trie;
 import org.intellij.lang.annotations.Language;
@@ -30,6 +33,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestWriteAnalysis2 extends CommonTest {
@@ -155,7 +159,10 @@ public class TestWriteAnalysis2 extends CommonTest {
     private void test(String input, String output, String json) throws IOException {
         TypeInfo X = javaInspector.parse(input);
         List<Info> analysisOrder = prepWork(X);
-        modAnalyzer.go(analysisOrder);
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        analysisOrder.stream()
+                .filter(i -> i instanceof MethodInfo)
+                .forEach(i -> i.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod((MethodInfo) i)));
 
         String s = javaInspector.print2(X, new DecoratorImpl(runtime, javaInspector.mainSources()),
                 javaInspector.importComputer(4, javaInspector.mainSources()));

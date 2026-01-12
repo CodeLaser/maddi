@@ -15,18 +15,13 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 
-import org.e2immu.analyzer.modification.common.getset.ApplyGetSetTranslation;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -87,7 +82,7 @@ public class TestGetSet extends CommonTest {
             MethodInfo setS = X.findUniqueMethod("setS", 1);
             assertSame(s, setS.getSetField().field());
             MethodLinkedVariables setSv = setS.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);            // this sv is synthetically created from the @GetSet annotation
-            assertEquals("[0:s→this.s] --> setS.s←this.s,setS.s←0:s,setS←this", setSv.toString());
+            assertEquals("[0:s→this*.s] --> setS.s←this*.s,setS.s←0:s,setS←this*", setSv.toString());
         }
         {
             FieldInfo objects = X.getFieldByName("objects", true);
@@ -104,7 +99,7 @@ public class TestGetSet extends CommonTest {
             assertEquals("""
                     [-, 1:o→this.objects*[0:i],1:o∈this.objects*] --> set.objects[0:i]←this.objects*[0:i],\
                     set.objects[0:i]←1:o,set.objects[0:i]∈this.objects*,set.objects←this.objects*,\
-                    set.objects∋this.objects*[0:i],set.objects∋1:o,set←this\
+                    set.objects∋this.objects*[0:i],set.objects∋1:o,set←this*\
                     """, setSv.toString());
         }
         {
@@ -122,10 +117,42 @@ public class TestGetSet extends CommonTest {
             assertEquals("""
                     [-, 1:o→this.integers*[0:i],1:o∈this.integers*] --> setI.integers[0:i]←this.integers*[0:i],\
                     setI.integers[0:i]←1:o,setI.integers[0:i]∈this.integers*,setI.integers←this.integers*,\
-                    setI.integers∋this.integers*[0:i],setI.integers∋1:o,setI←this\
+                    setI.integers∋this.integers*[0:i],setI.integers∋1:o,setI←this*\
                     """, setSv.toString());
         }
     }
 
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.Set;
+            class B {
+                private int i;
+                B setI(int i) { this.i = i; return this; }
+                B setI2(int i, boolean condition) {
+                    if (condition) {
+                        System.out.println("true, i = "+i);
+                        return this;
+                    } else {
+                        System.out.println("false, i = "+i);
+                        B b = this;
+                        return b;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("modification in @Fluent setter")
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(INPUT2);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo setI = X.findUniqueMethod("setI", 1);
+        MethodLinkedVariables mlvSetI = setI.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(setI));
+        assertEquals("[0:i→this*.i] --> setI.i←this*.i,setI.i←0:i,setI←this*", mlvSetI.toString());
+    }
 
 }

@@ -316,10 +316,11 @@ public record ExpressionVisitor(Runtime runtime,
         if (a.assignmentOperator() != null || rValue.links() == null || rValue.links().primary() == null) {
             result.addErase(a.variableTarget());
         }
+        Set<Variable> scopeVariables = Util.scopeVariables(a.variableTarget());
         return result
                 .merge(rValue)
                 .merge(rTarget)
-                .addModified(Util.scopeVariables(a.variableTarget()), null)
+                .addModified(scopeVariables, null)
                 .setEvaluated(rValue.getEvaluated() != a.value() || rTarget.getEvaluated() != a.target()
                         ? runtime.newAssignment((VariableExpression) rTarget.getEvaluated(), rValue.getEvaluated()) : a);
     }
