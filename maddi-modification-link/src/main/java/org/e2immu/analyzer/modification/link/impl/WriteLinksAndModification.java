@@ -115,10 +115,9 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                                     && notLinkedToModified(builder, modifiedVariablesAndTheirCause);
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
-            if (!vi.analysis().haveAnalyzedValueFor(UNMODIFIED_VARIABLE)) {
-                Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
-                vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
-            }
+            Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
+            vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
+
             if (!unmodified) {
                 toRemove.addAll(builder.replaceSubsetSuperset(variable));
             }

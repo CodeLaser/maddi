@@ -9,6 +9,8 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.expression.Lambda;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestForEachLambda extends CommonTest {
 
@@ -68,8 +71,17 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
-        // propagation must survive a lambda
+        // modification must survive a lambda
         Statement forEach = method.methodBody().statements().getFirst();
+        Lambda lambda = (Lambda) ((MethodCall) forEach.expression()).parameterExpressions().getFirst();
+        MethodInfo lambdaMethod = lambda.methodInfo();
+        Statement lambdaAdd = lambda.methodBody().statements().getFirst();
+        VariableData vdLambda = VariableDataImpl.of(lambdaAdd);
+        // so while we refer to this.set.§$s, we don't have it in the known variables
+        assertEquals("a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.this", vdLambda.knownVariableNamesToString());
+        VariableInfo viJ = vdLambda.variableInfo(lambdaMethod.parameters().getFirst());
+        assertEquals("0:j∈this.set.§$s", viJ.linkedVariables().toString());
+
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
@@ -107,12 +119,25 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         Statement forEach = method.methodBody().statements().getFirst();
+
+        Lambda lambda = (Lambda) ((MethodCall) forEach.expression()).parameterExpressions().getFirst();
+        MethodInfo lambdaMethod = lambda.methodInfo();
+        Statement lambdaAdd = lambda.methodBody().statements().getFirst();
+        VariableData vdLambda = VariableDataImpl.of(lambdaAdd);
+        assertEquals("""
+                a.b.X.$0.accept(a.b.X.II), a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.set, a.b.X.this\
+                """, vdLambda.knownVariableNamesToString());
+        VariableInfo viJ = vdLambda.variableInfo(lambdaMethod.parameters().getFirst());
+        assertEquals("0:j∈this.set.§$s", viJ.linkedVariables().toString());
+        VariableInfo viSet = vdLambda.variableInfo("a.b.X.set");
+        assertTrue(viSet.isModified()); // this now needs to travel to the enclosing method
+
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("0:list.§$s~this.set.§$s", tlvT1.toString());
-        assertEquals("[0:list.§$s~this.set.§$s] --> -", mlv.toString());
+        assertEquals("[0:list.§$s~this.set*.§$s] --> -", mlv.toString());
     }
 
 
@@ -145,15 +170,34 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo add = X.findUniqueMethod("add", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
+        MethodLinkedVariablesImpl mlvAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[0:ii∈this.set*.§$s] --> -", mlvAdd.toString());
+        assertTrue(add.isModifying());
 
         MethodInfo method = X.findUniqueMethod("method", 2);
 
         Statement forEach = method.methodBody().statements().getFirst();
+
+        Lambda lambda = (Lambda) ((MethodCall) forEach.expression()).parameterExpressions().getFirst();
+        MethodInfo lambdaMethod = lambda.methodInfo();
+        Statement lambdaAdd = lambda.methodBody().statements().getFirst();
+        VariableData vdLambda = VariableDataImpl.of(lambdaAdd);
+        assertEquals("""
+                a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.method(java.util.List<a.b.X.II>,a.b.X):1:x\
+                """, vdLambda.knownVariableNamesToString());
+        VariableInfo viJ = vdLambda.variableInfo(lambdaMethod.parameters().getFirst());
+        assertEquals("0:j∈1:x.set.§$s", viJ.linkedVariables().toString());
+        VariableInfo viX = vdLambda.variableInfo(method.parameters().getLast());
+        assertTrue(viX.isModified()); // this now needs to travel to the enclosing method
+
         ParameterInfo list = method.parameters().getFirst();
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
         assertEquals("0:list.§$s~1:x.set.§$s", tlvT1.toString());
+        assertEquals("""
+                [0:list.§$s~1:x.set*.§$s, 1:x.set*.§$s~0:list.§$s] --> -\
+                """, method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
     }
 
 
@@ -248,11 +292,11 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo put = X.findUniqueMethod("put", 2);
 
         MethodLinkedVariables mlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
-        assertEquals("[0:i∈this.map.§$$s[-1], 1:ii∈this.map.§$$s[-2]] --> -", mlvPut.toString());
+        assertEquals("[0:i∈this.map*.§$$s[-1], 1:ii∈this.map*.§$$s[-2]] --> -", mlvPut.toString());
 
         MethodInfo put2 = X.findUniqueMethod("put2", 2);
         MethodLinkedVariables mlvPut2 = put2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put2));
-        assertEquals("[0:i∈this.map.§$$s[-1], 1:ii∈this.map.§$$s[-2]] --> -", mlvPut2.toString());
+        assertEquals("[0:i∈this.map*.§$$s[-1], 1:ii∈this.map*.§$$s[-2]] --> -", mlvPut2.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -273,15 +317,15 @@ public class TestForEachLambda extends CommonTest {
                 0:map.§$$s~this.map.§$$s\
                 """, tlvT1.toString());
         assertEquals("""
-                [0:map.§$$s[-1]~this.map.§$$s[-2],0:map.§$$s[-2]~this.map.§$$s[-1],0:map.§$$s~this.map.§$$s] --> -\
+                [0:map.§$$s[-1]~this.map*.§$$s[-2],0:map.§$$s[-2]~this.map*.§$$s[-1],0:map.§$$s~this.map*.§$$s] --> -\
                 """, mlv.toString());
 
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
         assertEquals("""
-                [0:map.§$$s[-1]~this.map.§$$s[-1],\
-                0:map.§$$s[-2]~this.map.§$$s[-2],\
-                0:map.§$$s~this.map.§$$s] --> -\
+                [0:map.§$$s[-1]~this.map*.§$$s[-1],\
+                0:map.§$$s[-2]~this.map*.§$$s[-2],\
+                0:map.§$$s~this.map*.§$$s] --> -\
                 """, mlv2.toString());
     }
 
@@ -316,7 +360,7 @@ public class TestForEachLambda extends CommonTest {
     public void test8() {
         TypeInfo X = javaInspector.parse(INPUT8);
 
-        final String LINKS_PUT = "[0:h∈this.map.§$$s[-1], 1:ii∈this.map.§$$s[-2]] --> -";
+        final String LINKS_PUT = "[0:h∈this.map*.§$$s[-1], 1:ii∈this.map*.§$$s[-2]] --> -";
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -332,9 +376,9 @@ public class TestForEachLambda extends CommonTest {
         assertEquals(LINKS_PUT, add2Mtl.toString());
 
         final String LINKS_MAP_PUT = """
-                [0:map.§$$s[-1]~this.map.§$$s[-2],\
-                0:map.§$$s[-2]~this.map.§$$s[-1],\
-                0:map.§$$s~this.map.§$$s] --> -\
+                [0:map.§$$s[-1]~this.map*.§$$s[-2],\
+                0:map.§$$s[-2]~this.map*.§$$s[-1],\
+                0:map.§$$s~this.map*.§$$s] --> -\
                 """;
 
         MethodInfo method = X.findUniqueMethod("method", 1);
@@ -377,14 +421,14 @@ public class TestForEachLambda extends CommonTest {
 
         MethodInfo put = X.findUniqueMethod("put", 2);
         MethodLinkedVariables mlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
-        assertEquals("[0:ii∈this.map.§$$s[-1], 1:h∈this.map.§$$s[-2]] --> -", mlvPut.toString());
+        assertEquals("[0:ii∈this.map*.§$$s[-1], 1:h∈this.map*.§$$s[-2]] --> -", mlvPut.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("""
-                [0:map.§$$s[-1]~this.map.§$$s[-1],\
-                0:map.§$$s[-2]~this.map.§$$s[-2],\
-                0:map.§$$s~this.map.§$$s] --> -\
+                [0:map.§$$s[-1]~this.map*.§$$s[-1],\
+                0:map.§$$s[-2]~this.map*.§$$s[-2],\
+                0:map.§$$s~this.map*.§$$s] --> -\
                 """, mlvMethod.toString());
     }
 

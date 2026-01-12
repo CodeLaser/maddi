@@ -12,6 +12,7 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.RecordPattern;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -22,6 +23,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -56,7 +58,7 @@ public record ExpressionVisitor(Runtime runtime,
                 }
                 yield constructorCall(variableData, stage, cc);
             }
-            case Lambda lambda -> lambda(lambda);
+            case Lambda lambda -> lambda(variableData, lambda);
             case Cast cast -> cast(variableData, stage, cast);
             case InstanceOf instanceOf -> instanceOf(variableData, stage, instanceOf);
             case ConstantExpression<?> ce -> constantExpression(ce);
@@ -345,9 +347,11 @@ public record ExpressionVisitor(Runtime runtime,
                 .addVariablesRepresentingConstant(object);
     }
 
-    private @NotNull Result lambda(Lambda lambda) {
+    private @NotNull Result lambda(VariableData vd, Lambda lambda) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
-
+        Set<Variable> modifiedInLambda = mlv.modified().stream()
+                .filter(v -> v.variableStreamDescend().anyMatch(s -> fromLambdaToEnclosing(s, vd)))
+                .collect(Collectors.toUnmodifiableSet());
         ParameterizedType concreteObjectType = lambda.concreteReturnType();
         MethodLinkedVariables mlvTranslated;
         if (mlv.virtual()) {
@@ -370,7 +374,13 @@ public record ExpressionVisitor(Runtime runtime,
                 lambda.concreteFunctionalType(),
                 wrapped);
         Links links = new LinksImpl.Builder(fiv).build();
-        return new Result(links, LinkedVariablesImpl.EMPTY);
+        return new Result(links, LinkedVariablesImpl.EMPTY).addModified(modifiedInLambda, null);
+    }
+
+    private boolean fromLambdaToEnclosing(Variable variable, VariableData vd) {
+        return vd != null && vd.isKnown(variable.fullyQualifiedName())
+               || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
+               || variable instanceof ParameterInfo pi && pi.methodInfo() == currentMethod;
     }
 
     private Result anonymousClassAsFunctionalInterface(VariableData variableData, Stage stage, ConstructorCall cc) {
@@ -481,7 +491,10 @@ public record ExpressionVisitor(Runtime runtime,
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
         Set<Variable> modified = new MethodModification(runtime, variableData, stage, mc)
                 .go(objectPrimary, params, mlvTranslated2);
+        Set<Variable> extraModified = params.stream().flatMap(p ->
+                p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
         return r.addModified(modified, mc.methodInfo())
+                .addModified(extraModified, null)
                 .add(new WriteMethodCall(mc, object.links()))
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);

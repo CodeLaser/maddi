@@ -60,6 +60,8 @@ public class TestForEach extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(forEach);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
+        // IMPORTANT: list should not be modified, thanks to keeping track of the cause of the modification
+        // The iterator is independent unless remove() is used.
         assertEquals("t∈0:list.§ts", tlvT1.toString());
 
         VariableInfo list1 = vd1.variableInfo(list, Stage.EVALUATION);

@@ -191,4 +191,32 @@ public class TestMethodCall13 extends CommonTest {
         assertEquals("Type java.util.stream.Stream<X>", map.concreteReturnType().toString());
         assertEquals("Type java.util.List<X>", toList.concreteReturnType().toString());
     }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.Arrays;public class X<T> {
+                T[] ts;
+                private T get(int index) {
+                    return ts[index];
+                }
+                public static <K> K method(int i, X<K> x) {
+                    K k = x.get(i);
+                    return k;
+                }
+                public void print() { System.out.println(ts); }
+            }
+            """;
+
+    @DisplayName("which of the println methods?")
+    @Test
+    public void test4() {
+        TypeInfo C = javaInspector.parse(INPUT4);
+
+        MethodInfo print = C.findUniqueMethod("print", 0);
+        MethodCall println = (MethodCall) print.methodBody().statements().getFirst().expression();
+        // definitely not 'println(double)'
+        assertEquals("java.io.PrintStream.println(Object)", println.methodInfo().fullyQualifiedName());
+    }
 }
