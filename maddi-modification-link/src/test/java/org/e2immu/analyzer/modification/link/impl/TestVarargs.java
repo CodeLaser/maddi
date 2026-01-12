@@ -19,6 +19,7 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
@@ -97,13 +98,14 @@ public class TestVarargs extends CommonTest {
     }
 
 
+
     @Language("java")
-    private static final String INPUT3 = """
+    private static final String INPUT3a = """
             import java.util.Collection;
             
             public class B {
             
-                public static <T extends Collection<I>, I> T combine(T target, Collection<I>... collections) {
+                public static <I> Collection<I> combine(Collection<I> target, Collection<Collection<I>> collections) {
                     for (Collection<I> collection : collections) {
                         target.addAll(collection);
                     }
@@ -112,10 +114,10 @@ public class TestVarargs extends CommonTest {
             }
             """;
 
-    @DisplayName("varargs 3, catch null in LinkHelper.continueLinkedVariables")
+    @DisplayName("collection instead of varargs")
     @Test
-    public void test3() {
-        TypeInfo B = javaInspector.parse(INPUT3);
+    public void test3a() {
+        TypeInfo B = javaInspector.parse(INPUT3a);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -123,14 +125,175 @@ public class TestVarargs extends CommonTest {
         ParameterInfo target = method.parameters().getFirst();
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo viCollection0E = vd0.variableInfo("collection", Stage.EVALUATION);
+        assertEquals("collection∈∈1:collections.§iss", viCollection0E.linkedVariables().toString());
+
         VariableData vd000 = VariableDataImpl.of(method.methodBody().statements().getFirst().block().statements().getFirst());
         VariableInfo viTarget000 = vd000.variableInfo(target);
-        assertEquals("0:target.§is~collection.§is", viTarget000.linkedVariables().toString());
+        assertEquals("0:target.§is~collection.§is,0:target.§is∩1:collections.§iss",
+                viTarget000.linkedVariables().toString());
+
+        VariableInfo viTargetM = vd0.variableInfo(target);
+        assertEquals("0:target.§is~collection.§is,0:target.§is∩1:collections.§iss",
+                viTargetM.linkedVariables().toString());
+
+        assertEquals("""
+                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> \
+                combine.§is←0:target*.§is,combine.§is∩1:collections.§iss,combine←0:target*\
+                """, mlv.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT3b = """
+            import java.util.Collection;
+            
+            public class B {
+            
+                public static <I> Collection<I> combine(Collection<I> target, Collection<I>[] collections) {
+                    for (Collection<I> collection : collections) {
+                        target.addAll(collection);
+                    }
+                    return target;
+                }
+            }
+            """;
+
+    @DisplayName("array instead of varargs")
+    @Test
+    public void test3b() {
+        TypeInfo B = javaInspector.parse(INPUT3b);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(B);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo method = B.findUniqueMethod("combine", 2);
+        ParameterInfo target = method.parameters().getFirst();
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
-        VariableInfo viTargetM = vd0.variableInfo(target);
-        assertEquals("0:target.§is~collections??.§is", viTargetM.linkedVariables().toString());
+        VariableInfo viCollection0E = vd0.variableInfo("collection", Stage.EVALUATION);
+        assertEquals("collection∈∈1:collections.§iss", viCollection0E.linkedVariables().toString());
 
-        assertEquals("[-, -] --> combine←0:target,??", mlv.toString());
+        VariableData vd000 = VariableDataImpl.of(method.methodBody().statements().getFirst().block().statements().getFirst());
+        VariableInfo viTarget000 = vd000.variableInfo(target);
+        assertEquals("0:target.§is~collection.§is,0:target.§is∩1:collections.§iss",
+                viTarget000.linkedVariables().toString());
+
+        VariableInfo viTargetM = vd0.variableInfo(target);
+        assertEquals("0:target.§is~collection.§is,0:target.§is∩1:collections.§iss",
+                viTargetM.linkedVariables().toString());
+
+        assertEquals("""
+                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> \
+                combine.§is←0:target*.§is,combine.§is∩1:collections.§iss,combine←0:target*\
+                """, mlv.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT3c = """
+            import java.util.Collection;
+            
+            public class B {
+            
+                public static <I> Collection<I> combine(Collection<I> target, Collection<I>... collections) {
+                    for (Collection<I> collection : collections) {
+                        target.addAll(collection);
+                    }
+                    return target;
+                }
+            }
+            """;
+
+    @DisplayName("varargs of a collection")
+    @Test
+    public void test3c() {
+        TypeInfo B = javaInspector.parse(INPUT3c);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(B);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo method = B.findUniqueMethod("combine", 2);
+        ParameterInfo target = method.parameters().getFirst();
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo viCollection0E = vd0.variableInfo("collection", Stage.EVALUATION);
+        assertEquals("collection∈∈1:collections.§iss", viCollection0E.linkedVariables().toString());
+
+        VariableData vd000 = VariableDataImpl.of(method.methodBody().statements().getFirst().block().statements().getFirst());
+        VariableInfo viTarget000 = vd000.variableInfo(target);
+        assertEquals("0:target.§is~collection.§is,0:target.§is∩1:collections.§iss",
+                viTarget000.linkedVariables().toString());
+
+        VariableInfo viTargetM = vd0.variableInfo(target);
+        assertEquals("""
+                0:target.§is~collection.§is,0:target.§is∩1:collections.§iss\
+                """, viTargetM.linkedVariables().toString());
+
+        assertEquals("""
+                [0:target*.§is∩1:collections.§iss, 1:collections.§iss∩0:target*.§is] --> \
+                combine.§is←0:target*.§is,combine.§is∩1:collections.§iss,combine←0:target*\
+                """, mlv.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            import java.util.Collection;
+            
+            public class B {
+            
+                public static <D extends Collection<I>, I> D combine(D target, Collection<I>... collections) {
+                    for (Collection<I> collection : collections) {
+                        target.addAll(collection);
+                    }
+                    return target;
+                }
+            }
+            """;
+
+    @DisplayName("varargs and type parameters, shallow")
+    @Test
+    public void test4a() {
+        TypeInfo B = javaInspector.parse(INPUT4);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(B);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, new LinkComputer.Options(true,
+                true, true));
+        MethodInfo method = B.findUniqueMethod("combine", 2);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        assertEquals("[-, -] --> combine←0:target", mlv.toString());
+        // not looking at cross-parameters!
+    }
+
+    @DisplayName("varargs and type parameters")
+    @Test
+    public void test4() {
+        TypeInfo B = javaInspector.parse(INPUT4);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(B);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo method = B.findUniqueMethod("combine", 2);
+        ParameterInfo target = method.parameters().getFirst();
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo viCollection0E = vd0.variableInfo("collection", Stage.EVALUATION);
+        assertEquals("collection∈∈1:collections.§iss", viCollection0E.linkedVariables().toString());
+
+        VariableData vd000 = VariableDataImpl.of(method.methodBody().statements().getFirst().block().statements().getFirst());
+        VariableInfo viTarget000 = vd000.variableInfo(target);
+        assertEquals("0:target.§es~collection.§es,0:target.§es∩1:collections.§iss",
+                viTarget000.linkedVariables().toString());
+
+        VariableInfo viTargetM = vd0.variableInfo(target);
+        assertEquals("0:target.§es~collection.§es,0:target.§es∩1:collections.§iss",
+                viTargetM.linkedVariables().toString());
+
+        assertEquals("""
+                [0:target*.§es∩1:collections.§iss, 1:collections.§iss∩0:target*.§es] --> \
+                combine.§es←0:target*.§es,combine.§es∩1:collections.§iss,combine←0:target*\
+                """, mlv.toString());
     }
 }
