@@ -187,18 +187,19 @@ public class LinksImpl implements Links {
         }
 
         @Override
-        public boolean replaceSubsetSuperset(Variable modified) {
-            boolean change = false;
+        public List<Link> replaceSubsetSuperset(Variable modified) {
+            if (links.isEmpty()) return List.of(); // shortcut
+            List<Link> reverseReplaced = new ArrayList<>();
             final ListIterator<Link> li = links.listIterator();
             while (li.hasNext()) {
                 Link link = li.next();
                 Link newLink = link.replaceSubsetSuperset(modified);
                 if (link != newLink) {
                     li.set(newLink);
-                    change = true;
+                    reverseReplaced.add(new LinkImpl(link.to(), link.linkNature().reverse(), link.from()));
                 }
             }
-            return change;
+            return reverseReplaced;
         }
 
         @Override

@@ -63,7 +63,7 @@ public class TestArrayInitializer extends CommonTest {
         analyzer.doPrimaryType(B);
 
         MethodInfo get = B.findUniqueMethod("NthLowestSkill", 1);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.PRODUCTION);
         MethodLinkedVariables mlv = tlc.doMethod(get);
         assertEquals("[-] --> -", mlv.toString());
     }

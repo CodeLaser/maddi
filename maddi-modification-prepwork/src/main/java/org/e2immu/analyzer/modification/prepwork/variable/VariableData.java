@@ -30,14 +30,14 @@ public interface VariableData extends Value {
     @org.e2immu.annotation.NotNull
     VariableInfo variableInfo(String fullyQualifiedName);
 
-    default VariableInfo variableInfo(Variable variable) {
-        return variableInfo(variable, Stage.MERGE);
-    }
-
     default String indexOfDefinitionOrNull(Variable variable) {
         VariableInfoContainer vic = variableInfoContainerOrNull(variable.fullyQualifiedName());
-        if(vic == null) return null;
+        if (vic == null) return null;
         return vic.indexOfDefinition();
+    }
+
+    default VariableInfo variableInfo(Variable variable) {
+        return variableInfo(variable, Stage.MERGE);
     }
 
     VariableInfo variableInfo(Variable variable, Stage stage);
@@ -48,7 +48,11 @@ public interface VariableData extends Value {
 
     Stream<VariableInfoContainer> variableInfoContainerStream();
 
-    Iterable<VariableInfo> variableInfoIterable();
+    default Iterable<VariableInfo> variableInfoIterable() {
+        return variableInfoIterable(Stage.MERGE);
+    }
+
+    Iterable<VariableInfo> variableInfoIterable(Stage stage);
 
     default Stream<VariableInfo> variableInfoStream() {
         return variableInfoStream(Stage.MERGE);

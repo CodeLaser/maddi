@@ -78,8 +78,8 @@ public class VariableDataImpl implements VariableData {
     }
 
     @Override
-    public Iterable<VariableInfo> variableInfoIterable() {
-        Stream<VariableInfo> stream = vicByFqn.valueStream().map(vic -> vic.best(Stage.MERGE));
+    public Iterable<VariableInfo> variableInfoIterable(Stage stage) {
+        Stream<VariableInfo> stream = vicByFqn.valueStream().map(vic -> vic.best(stage));
         return stream::iterator;
     }
 
