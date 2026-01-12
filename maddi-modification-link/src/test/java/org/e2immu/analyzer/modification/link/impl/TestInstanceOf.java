@@ -190,12 +190,13 @@ public class TestInstanceOf extends CommonTest {
         Statement s1 = method.methodBody().statements().getFirst();
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo rv1 = vd1.variableInfo(method.fullyQualifiedName());
-        assertEquals("method←0:object,method?", rv1.linkedVariables().toString());
+        assertEquals("method←0:object", rv1.linkedVariables().toString());
 
         VariableData vd = VariableDataImpl.of(method);
         VariableInfo rv = vd.variableInfo(method.fullyQualifiedName());
-        assertEquals("method←0:object", rv.linkedVariables().toString());
+        assertEquals("method←$_ce0,method←0:object", rv.linkedVariables().toString());
 
-        assertEquals("[-] --> method←0:object", mlv.toString());
+        assertEquals("[-] --> method←$_ce0,method←0:object", mlv.toString());
+        //the $_ce0 informs us that this in not an @Identity method!
     }
 }
