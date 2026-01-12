@@ -125,7 +125,8 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     private V makeComparableSub(V base, V sub, V target) {
         if (sub.v instanceof FieldReference fr && base.v.equals(fr.scopeVariable())) {
             VariableExpression tve = runtime.newVariableExpression(target.v);
-            FieldInfo newField = fr.fieldInfo().withOwner(VariableTranslationMap.owner(runtime, target.v));
+            FieldInfo newField = fr.fieldInfo().withOwner(VariableTranslationMap.owner(runtime,
+                    target.v.parameterizedType()));
             return new V(runtime.newFieldReference(newField, tve, newField.type()));
         }
         TranslationMap tm = new VariableTranslationMap(runtime).put(base.v, target.v);

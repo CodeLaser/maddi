@@ -48,9 +48,12 @@ public class TestInstanceOf extends CommonTest {
         ParameterInfo i = method.parameters().getFirst();
         assertTrue(i.isModified());
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:i≥1:s, 1:s≤0:i] --> -", mlv.toString());
+        assertEquals("[0:i*≥1:s, 1:s≤0:i*] --> -", mlv.toString());
         // there is no 'i.o', so we cannot have a modified components parameter
-        assertTrue(mlv.modified().isEmpty());
+        assertEquals("a.b.X.method(a.b.X.I,String):0:i", mlv.sortedModifiedString());
+        ValueImpl.SetOfTypeInfoImpl dc = i.analysis().getOrNull(PropertyImpl.DOWNCAST_PARAMETER,
+                ValueImpl.SetOfTypeInfoImpl.class);
+        assertEquals("[a.b.X.R]", dc.typeInfoSet().toString());
 
     }
 

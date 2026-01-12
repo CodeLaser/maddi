@@ -125,7 +125,8 @@ public class TestCast extends CommonTest {
             Statement s1 = setAdd.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1Set = vd1.variableInfo("set");
-            assertEquals("set.§$s←0:r.object.§$s,set.§$s∋1:s,set←0:r.object", vi1Set.linkedVariables().toString());
+            assertEquals("set.§$s←0:r.object.§$s,set.§$s∋1:s,set.§m≡0:r.object.§m,set←0:r.object",
+                    vi1Set.linkedVariables().toString());
             assertTrue(vi1Set.isModified());
             VariableInfo vi1R = vd1.variableInfo(r);
             assertTrue(vi1R.isModified());
