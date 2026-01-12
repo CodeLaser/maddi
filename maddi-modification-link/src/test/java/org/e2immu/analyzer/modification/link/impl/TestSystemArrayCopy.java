@@ -19,19 +19,21 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSystemArrayCopy extends CommonTest {
     @Language("java")
@@ -81,12 +83,16 @@ public class TestSystemArrayCopy extends CommonTest {
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
-            public class X {
+            public class X<T> {
                 public static Object[] copy(Object[] in) {
                     int size = in.length;
                     Object[] out = new Object[size];
                     System.arraycopy(in, 0, out, 0, size);
                     return out;
+                }
+                T[] ts;
+                public void go(T[] input) {
+                    ts = copy(input);
                 }
             }
             """;
@@ -98,15 +104,28 @@ public class TestSystemArrayCopy extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        MethodInfo copy = X.findUniqueMethod("copy", 1);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        MethodLinkedVariables mlv = tlc.doMethod(copy);
+        TypeInfo system = javaInspector.compiledTypesManager().getOrLoad(System.class);
+        MethodInfo arrayCopy = system.findUniqueMethod("arraycopy", 5);
+        ParameterInfo in = arrayCopy.parameters().getFirst();
+        Value.Independent independentIn = in.analysis().getOrNull(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class);
+        assertEquals("@Independent(hc=true, hcParameters={2})", independentIn.toString());
 
-        assertEquals("-4-:in", mlv.toString());
-        Value.Independent independentMethod = copy.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
-        assertTrue(independentMethod.isIndependent()); // no link to fields
-        ParameterInfo in = copy.parameters().getFirst();
-        Value.Independent independentParameter = in.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
-        assertTrue(independentParameter.isIndependent()); // no link to fields
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodLinkedVariables mlvArrayCopy = arrayCopy.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(arrayCopy));
+        assertEquals("[-, -, 2:object1.§2←0:object.§1, -, -] --> -", mlvArrayCopy.toString());
+
+        MethodInfo copy = X.findUniqueMethod("copy", 1);
+        MethodLinkedVariables mlvCopy = copy.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(copy));
+
+        VariableData vd2 = VariableDataImpl.of(copy.methodBody().statements().get(2));
+        VariableInfo out2 = vd2.variableInfo("out");
+        assertEquals("out.§2←0:in.§1", out2.linkedVariables().toString());
+
+        assertEquals("[-] --> copy.§2←0:in.§1", mlvCopy.toString());
+
+        MethodInfo go = X.findUniqueMethod("go", 1);
+        MethodLinkedVariables mlvGo = go.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(go));
+        // this is not quite what we want, but it is what it is. Blame JDK 1.0
+        assertEquals("[0:input.§1→this*.ts.§2] --> -", mlvGo.toString());
     }
 }
