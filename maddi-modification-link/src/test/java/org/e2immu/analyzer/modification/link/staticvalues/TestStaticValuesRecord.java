@@ -333,6 +333,8 @@ public class TestStaticValuesRecord extends CommonTest {
         assertTrue(embed.isModifying());
         assertSame(ValueImpl.IndependentImpl.DEPENDENT, embed.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
                 ValueImpl.IndependentImpl.DEPENDENT));
+        MethodLinkedVariables mlvEmbed = embed.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(embed));
+        assertEquals("[0:t→this*.§t] --> embed.§t←this*.§t,embed.§m≡this*.§m", mlvEmbed.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         ParameterInfo rr = method.parameters().getLast();
@@ -368,10 +370,10 @@ public class TestStaticValuesRecord extends CommonTest {
     @Language("java")
     private static final String INPUT4c = """
             package a.b;
-            import org.e2immu.annotation.NotModified;
+            import org.e2immu.annotation.Independent;import org.e2immu.annotation.NotModified;
             import java.util.Set;
             class X {
-                interface R<T> { @NotModified T t(); @NotModified R<T> embed(T t); }
+                interface R<T> { @NotModified T t(); @NotModified R<T> embed(@Independent(hcReturnValue = true) T t); }
                 Set<String> method(Set<String> in, R<Set<String>> rr) {
                     R<Set<String>> r = rr.embed(in);
                     return r.t();
@@ -400,6 +402,9 @@ public class TestStaticValuesRecord extends CommonTest {
         assertFalse(embed.isModifying());
         assertSame(ValueImpl.IndependentImpl.DEPENDENT, embed.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
                 ValueImpl.IndependentImpl.DEPENDENT));
+        MethodLinkedVariables mlvEmbed = embed.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(embed));
+
+        assertEquals("[-] --> embed.§t←this.§t,embed.§m≡this.§m,embed.§t←0:t", mlvEmbed.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -408,22 +413,20 @@ public class TestStaticValuesRecord extends CommonTest {
         LocalVariable r = rLvc.localVariable();
         VariableData vd0 = VariableDataImpl.of(rLvc);
         VariableInfo rVi0 = vd0.variableInfo(r);
-        // FIXME link to "in" has gone
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m,r.§m→0:in.§m\
+                r.§$s←1:rr.§$s,r.§$s←0:in,r.§m≡1:rr.§m\
                 """, rVi0.linkedVariables().toString());
         assertFalse(rVi0.isModified());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().getLast());
         VariableInfo rVi1 = vd1.variableInfo(r);
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s~method.§$s,r.§$s~0:in.§$s,r.§m≡1:rr.§m,r.§m→method.§m,r.§m→0:in.§m\
+                r.§$s←1:rr.§$s,r.§$s←0:in,r.§$s⊇method.§$s,r.§m≡1:rr.§m,r.§m→method.§m\
                 """, rVi1.linkedVariables().toString());
         assertFalse(rVi1.isModified());
 
         assertEquals("""
-                [0:in.§$s~1:rr.§$s,0:in.§m←1:rr.§m, 1:rr.§$s~0:in.§$s,1:rr.§m→0:in.§m] --> \
-                method.§$s⊆1:rr.§$s,method.§$s∩0:in.§$s,method.§m←1:rr.§m,method.§m←0:in.§m\
+                [0:in~1:rr.§$s, 1:rr.§$s~0:in] --> method.§$s⊆1:rr.§$s,method.§$s⊆0:in,method.§m←1:rr.§m\
                 """, mlv.toString());
     }
 
