@@ -148,7 +148,7 @@ public class TestForEachMethodReference extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
-        assertEquals("0:list.§$s~1:x.set*.§$s", tlvT1.toString());
+        assertEquals("0:list.§$s~1:x.set.§$s", tlvT1.toString());
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[0:list.§$s~1:x.set*.§$s, 1:x.set*.§$s~0:list.§$s] --> -", mlv.toString());
     }

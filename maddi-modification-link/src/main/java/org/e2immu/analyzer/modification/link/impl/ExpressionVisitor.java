@@ -209,7 +209,6 @@ public record ExpressionVisitor(Runtime runtime,
 
     private Result methodReference(VariableData variableData, Stage stage, MethodReference mr) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(mr.methodInfo());
-
         Result object = visit(mr.scope(), variableData, stage);
         MethodLinkedVariables tMlv;
         if (object.links().primary() != null) {
@@ -219,6 +218,10 @@ public record ExpressionVisitor(Runtime runtime,
         } else {
             tMlv = mlv;
         }
+        Set<Variable> modifiedInReference = tMlv.modified().stream()
+                .filter(v -> v.variableStreamDescend()
+                        .anyMatch(s -> fromLambdaToEnclosing(s, variableData)))
+                .collect(Collectors.toUnmodifiableSet());
         Links newRv = tMlv.ofReturnValue();
         int i = 0;
         Map<Variable, Links> map = new HashMap<>();
@@ -237,7 +240,7 @@ public record ExpressionVisitor(Runtime runtime,
                 mr.parameterizedType(),
                 wrapped);
         Links links = new LinksImpl.Builder(fiv).build();
-        return new Result(links, LinkedVariablesImpl.EMPTY);
+        return new Result(links, LinkedVariablesImpl.EMPTY).addModified(modifiedInReference, null);
     }
 
     private @NotNull Result inlineConditional(InlineConditional ic, VariableData variableData, Stage stage) {
@@ -341,17 +344,17 @@ public record ExpressionVisitor(Runtime runtime,
         List<Result> params = cc.parameterExpressions().stream()
                 .map(e -> visit(e, variableData, stage))
                 .toList();
+        Set<Variable> extraModified = params.stream().flatMap(p ->
+                p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
         return new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter, currentMethod)
                 .constructorCall(cc.constructor(), object, params, mlvTranslated1)
+                .addModified(extraModified, null)
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
     }
 
     private @NotNull Result lambda(VariableData vd, Lambda lambda) {
         MethodLinkedVariables mlv = linkComputer.recurseMethod(lambda.methodInfo());
-        Set<Variable> modifiedInLambda = mlv.modified().stream()
-                .filter(v -> v.variableStreamDescend().anyMatch(s -> fromLambdaToEnclosing(s, vd)))
-                .collect(Collectors.toUnmodifiableSet());
         ParameterizedType concreteObjectType = lambda.concreteReturnType();
         MethodLinkedVariables mlvTranslated;
         if (mlv.virtual()) {
@@ -360,6 +363,10 @@ public record ExpressionVisitor(Runtime runtime,
         } else {
             mlvTranslated = mlv;
         }
+        Set<Variable> modifiedInLambda = mlv.modified().stream()
+                .filter(v -> v.variableStreamDescend().anyMatch(s -> fromLambdaToEnclosing(s, vd)))
+                .collect(Collectors.toUnmodifiableSet());
+
         int i = 0;
         Map<Variable, Links> map = new HashMap<>();
         for (Links paramLinks : mlvTranslated.ofParameters()) {
