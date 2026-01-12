@@ -58,7 +58,7 @@ public class TestForEachMethodReference extends CommonTest {
         Links tlvSet0 = set0.linkedVariablesOrEmpty();
         assertEquals("this.set.§$s∋0:ii", tlvSet0.toString());
         MethodLinkedVariables mtlNext = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:ii∈this.set.§$s] --> -", mtlNext.toString());
+        assertEquals("[0:ii∈this.set*.§$s] --> -", mtlNext.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
 
@@ -69,6 +69,8 @@ public class TestForEachMethodReference extends CommonTest {
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
 
         assertEquals("0:list.§$s~this.set.§$s", tlvT1.toString());
+        assertEquals("[0:list.§$s~this.set*.§$s] --> -",
+                method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
     }
 
 
@@ -138,7 +140,7 @@ public class TestForEachMethodReference extends CommonTest {
         tlc.doPrimaryType(X);
         MethodInfo add = X.findUniqueMethod("add", 1);
         MethodLinkedVariablesImpl mlvAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:ii∈this.set.§$s] --> -", mlvAdd.toString());
+        assertEquals("[0:ii∈this.set*.§$s] --> -", mlvAdd.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         Statement forEach = method.methodBody().statements().getFirst();
@@ -146,9 +148,9 @@ public class TestForEachMethodReference extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
-        assertEquals("0:list.§$s~1:x.set.§$s", tlvT1.toString());
+        assertEquals("0:list.§$s~1:x.set*.§$s", tlvT1.toString());
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:list.§$s~1:x.set.§$s, 1:x.set.§$s~0:list.§$s] --> -", mlv.toString());
+        assertEquals("[0:list.§$s~1:x.set*.§$s, 1:x.set*.§$s~0:list.§$s] --> -", mlv.toString());
     }
 
 

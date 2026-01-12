@@ -17,6 +17,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -217,7 +218,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Set<Variable> allModified = Stream.concat(modified.stream(), modifiedOutside.stream())
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
-            copyModificationsIntoMethod(modified);
+            copyModificationsIntoMethod(allModified);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
             return mlv;
         }
@@ -226,7 +227,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             boolean methodModified = false;
             boolean[] paramsModified = new boolean[methodInfo.parameters().size()];
             for (Variable v : modified) {
-                if (v instanceof This thisVar && thisVar.typeInfo().equals(methodInfo.typeInfo())) {
+                if (v instanceof This thisVar && thisVar.typeInfo().equals(methodInfo.typeInfo())
+                    || v instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
                     methodModified = true;
                 } else if (v instanceof ParameterInfo pi && pi.methodInfo().equals(methodInfo)) {
                     paramsModified[pi.index()] = true;

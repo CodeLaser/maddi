@@ -28,13 +28,14 @@ import java.util.Set;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestList extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            public class X<T> {
+            import java.util.Arrays;public class X<T> {
                 T[] ts;
                 private T get(int index) {
                     return ts[index];
@@ -43,6 +44,7 @@ public class TestList extends CommonTest {
                     K k = x.get(i);
                     return k;
                 }
+                public void print() { System.out.println(ts); }
             }
             """;
 
@@ -64,15 +66,19 @@ public class TestList extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         MethodInfo method = X.findUniqueMethod("method", 2);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links tlvK0 = k0.linkedVariablesOrEmpty();
         assertEquals("k∈1:x.ts", tlvK0.toString());
+        VariableInfo x0 = vd0.variableInfo(method.parameters().getLast());
+        assertEquals("1:x.ts∋k", x0.linkedVariables().toString());
+        assertTrue(x0.isModified());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+    //    assertEquals("a.b.X.method(int,a.b.X<K>):1:x", tlvMethod.sortedModifiedString());
         assertEquals("[-, -] --> method∈1:x.ts", tlvMethod.toString());
     }
 
@@ -88,11 +94,11 @@ public class TestList extends CommonTest {
 
         MethodInfo get = X.findUniqueMethod("get", 1);
         MethodLinkedVariables tlvGet = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> get←this.§t", tlvGet.toString());
+        assertEquals("[-] --> get←this*.§t", tlvGet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -] --> method←1:x.§k", tlvMethod.toString());
+        assertEquals("[-, -] --> method←1:x*.§k", tlvMethod.toString());
     }
 
     @Language("java")
