@@ -7,6 +7,8 @@ import java.util.Set;
 
 public interface LinkNature {
 
+    boolean isAssignedFrom();
+
     boolean isDecoration();
 
     boolean isIdenticalToOrAssignedFromTo();

@@ -48,6 +48,20 @@ public class Result {
         this(links, extra, new HashMap<>(), new ArrayList<>(), new HashMap<>(), new HashSet<>(), new HashSet<>());
     }
 
+    @Override
+    public String toString() {
+        return "Result{" +
+               "links=" + links +
+               (extra.isEmpty() ? "" : ", extra=" + extra) +
+               (modified.isEmpty() ? "" : ", modified=" + modified) +
+               (writeMethodCalls.isEmpty() ? "" : ", writeMethodCalls=" + writeMethodCalls) +
+               (casts.isEmpty() ? "" : ", casts=" + casts) +
+               (erase.isEmpty() ? "" : ", erase=" + erase) +
+               (variablesRepresentingConstants.isEmpty() ? "" : ", variablesRepresentingConstants=" + variablesRepresentingConstants) +
+               ", evaluated=" + evaluated +
+               '}';
+    }
+
     public Expression getEvaluated() {
         return evaluated;
     }

@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
@@ -75,11 +76,16 @@ public class TestSupplier extends CommonTest {
         analyzer.doPrimaryType(C);
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
-        MethodInfo method = C.findUniqueMethod("method2", 2);
+        MethodInfo method2 = C.findUniqueMethod("method2", 2);
+        MethodLinkedVariables mlvMethod = method2.analysis().getOrCreate(METHOD_LINKS, () ->
+                tlc.doMethod(method2));
 
-        MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () ->
-                tlc.doMethod(method));
-
+        VariableData vd0 = VariableDataImpl.of(method2.methodBody().statements().getFirst());
+        VariableInfo viLambda0 = vd0.variableInfo("lambda");
+        assertEquals("lambda←Λ$_fi0", viLambda0.linkedVariables().toString());
+        FunctionalInterfaceVariable fi0 = (FunctionalInterfaceVariable) viLambda0.linkedVariables()
+                .stream().findFirst().orElseThrow().to();
+        assertEquals("Result{links=get←1:alternative, evaluated=lambda}", fi0.result().toString());
         assertEquals("[-, -] --> method2←0:optional.§x,method2←1:alternative", mlvMethod.toString());
     }
 

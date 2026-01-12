@@ -112,6 +112,11 @@ public class LinkNatureImpl implements LinkNature {
     }
 
     @Override
+    public boolean isAssignedFrom() {
+        return this == IS_ASSIGNED_FROM;
+    }
+
+    @Override
     public LinkNature reverse() {
         if (this == IS_ELEMENT_OF) return CONTAINS_AS_MEMBER;
         if (this == CONTAINS_AS_MEMBER) return IS_ELEMENT_OF;
