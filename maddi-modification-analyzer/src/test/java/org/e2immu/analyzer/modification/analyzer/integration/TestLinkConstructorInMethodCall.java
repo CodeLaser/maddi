@@ -24,7 +24,6 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -119,13 +118,10 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
         {
             {
                 MethodInfo constructor = loopDataImpl.findConstructor(1);
-                assertEquals("[0:exit→this.exit] --> -", constructor.analysis().getOrNull(METHOD_LINKS,
+                assertEquals("[0:exit→this*.exit] --> -", constructor.analysis().getOrNull(METHOD_LINKS,
                         MethodLinkedVariablesImpl.class).toString());
 
                 ParameterInfo p0 = constructor.parameters().getFirst();
-              //  assertTrue(p0.analysis().getOrDefault(MODIFIED_COMPONENTS_PARAMETER,
-               //         ValueImpl.VariableBooleanMapImpl.EMPTY).isEmpty());
-                // FIXME
                 assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
             }
             MethodInfo withException = loopDataImpl.findUniqueMethod("withException", 1);
@@ -145,27 +141,18 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
                 Links links = vi1Rv.linkedVariables();
                 assertEquals("""
                         a.b.X.LoopDataImpl.withException(Exception)
-                        a.b.X.ExceptionThrown.exception#a.b.X.LoopDataImpl.exit#a.b.X.LoopDataImpl.withException(Exception)
                         a.b.X.Exit.exception#a.b.X.LoopData.exit#a.b.X.LoopDataImpl.withException(Exception)
-                        a.b.X.Exit.exception#a.b.X.LoopDataImpl.exit#a.b.X.LoopDataImpl.withException(Exception)
                         $_v
                         a.b.X.LoopDataImpl.withException(Exception):0:e
+                        a.b.X.LoopData.exit#a.b.X.LoopDataImpl.withException(Exception)
                         """, Stream.concat(links.stream().map(Link::from), links.stream().map(Link::to))
                         .distinct()
                         .map(Variable::fullyQualifiedName)
                         .collect(Collectors.joining("\n", "", "\n")));
             }
             assertEquals("""
-                    [-] --> \
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←0:e,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←0:e,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←0:e\
+                    [-] --> withException.exit.exception←0:e,\
+                    withException.exit.exception≺withException.exit\
                     """, withException.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
         }
 
@@ -210,7 +197,7 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
         TypeInfo loopDataImpl = X.findSubType("LoopDataImpl");
         MethodInfo ldConstructor = loopDataImpl.findConstructor(1);
         MethodLinkedVariables mlvLdCon = ldConstructor.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:exit→this.exit] --> -", mlvLdCon.toString());
+        assertEquals("[0:exit→this*.exit] --> -", mlvLdCon.toString());
 
         MethodInfo withException = loopDataImpl.findUniqueMethod("withException", 1);
         assertTrue(withException.isNonModifying());
@@ -222,15 +209,8 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
             assertEquals("Type a.b.X.LoopData", vi0Rv.variable().parameterizedType().toString());
             assertEquals("""
                     withException←Λ$_v,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←withException.exit.exception,\
                     withException.exit.exception←0:e,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←0:e,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←withException.exit.exception,\
-                    withException.exit.exception←0:e\
+                    withException.exit.exception≺withException.exit\
                     """, vi0Rv.linkedVariables().toString());
         }
         testLoopData(X);
