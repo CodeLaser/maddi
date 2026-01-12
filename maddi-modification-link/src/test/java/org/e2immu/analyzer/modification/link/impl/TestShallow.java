@@ -12,6 +12,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -24,6 +25,7 @@ import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT_HC;
 import static org.junit.jupiter.api.Assertions.*;
@@ -497,5 +499,40 @@ public class TestShallow extends CommonTest {
 
         MethodLinkedVariables mlv = linkComputer.doMethod(method);
         assertEquals("[-] --> method.§xs⊆0:list.§xs", mlv.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT10 = """
+            package a.b;
+            import org.e2immu.annotation.Independent;
+            public class X {
+                static void arrayCopy(@Independent(hc = true, hcParameters = {2}) Object[] in,
+                    int from,
+                    Object[] out,
+                    int to, int len) {
+                    System.out.println("from = "+from); // so that we're not explicitly empty
+                }
+            }
+            """;
+
+    @DisplayName("Analyze simpler version of System.arraycopy")
+    @Test
+    public void test10() {
+        TypeInfo X = javaInspector.parse(INPUT10);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
+        shallowAnalyzer.go(List.of(X));
+
+        MethodInfo arrayCopy = X.findUniqueMethod("arrayCopy", 5);
+        ParameterInfo in = arrayCopy.parameters().getFirst();
+        Value.Independent independentIn = in.analysis().getOrNull(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class);
+        assertEquals("@Independent(hc=true, hcParameters={2})", independentIn.toString());
+
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options(true, true, true));
+        MethodLinkedVariables mlvAdd = linkComputer.doMethod(arrayCopy);
+        assertEquals("[-, -, 2:out*.§$s⊆0:in*.§$s, -, -] --> -", mlvAdd.toString());
     }
 }

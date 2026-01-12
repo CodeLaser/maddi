@@ -1437,9 +1437,9 @@
  {"name": "McurrentTimeMillis(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
  {"name": "MnanoTime(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
  {"name": "Marraycopy(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
-  {"name": "Pobject(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pobject(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":[1,{"2":1}],"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pi(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
-  {"name": "Pobject1(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":[1,{"0":1}],"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pobject1(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pi1(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pi2(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MidentityHashCode(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
