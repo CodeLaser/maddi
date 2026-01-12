@@ -112,7 +112,15 @@ public record LinkMethodCall(JavaInspector javaInspector,
 
     private Result expandFunctionalInterfaceVariables(Result r) {
         if (r.links().primary() instanceof FunctionalInterfaceVariable fiv) {
+            // TestSupplier, 1
             return fiv.result().setEvaluated(r.getEvaluated());
+        }
+        for (Link link : r.links()) {
+            if (link.from().equals(r.links().primary())
+                && link.to() instanceof FunctionalInterfaceVariable fiv && link.linkNature().isAssignedFrom()) {
+                // 3 cases in TestSupplier (1b, 5method2, 7)
+                return fiv.result().setEvaluated(r.getEvaluated());
+            }
         }
         return r;
     }
