@@ -106,7 +106,7 @@ public class TestStaticValues1 extends CommonTest {
             VariableInfo vi0J = vd0.variableInfo(runtime.newFieldReference(fieldJ));
             assertEquals("this.j←0:jp", vi0J.linkedVariables().toString());
         }
-        assertEquals("[0:jp→this.j] --> setJ.j←this.j,setJ.j←0:jp,setJ←this", mlvSetJ.toString());
+        assertEquals("[0:jp→this*.j] --> setJ.j←this*.j,setJ.j←0:jp,setJ←this*", mlvSetJ.toString());
 
         MethodInfo setJK = X.findUniqueMethod("setJK", 2);
         MethodLinkedVariables mlvSetJK = setJK.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(setJK));
@@ -118,7 +118,7 @@ public class TestStaticValues1 extends CommonTest {
             assertEquals("this.j←0:jp", vi0J.linkedVariables().toString());
         }
         assertEquals("""
-                [0:jp→this.j, 1:kp→this.k] --> setJK.j←this.j,setJK.j←0:jp,setJK.k←this.k,setJK.k←1:kp,setJK←this\
+                [0:jp→this*.j, 1:kp→this*.k] --> setJK.j←this*.j,setJK.j←0:jp,setJK.k←this*.k,setJK.k←1:kp,setJK←this*\
                 """, mlvSetJK.toString());
 
 

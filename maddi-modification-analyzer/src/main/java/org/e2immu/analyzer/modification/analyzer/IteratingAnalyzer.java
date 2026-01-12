@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.analyzer;
 
+import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.op.Cycles;
@@ -24,6 +25,10 @@ import java.util.Map;
 public interface IteratingAnalyzer extends Analyzer {
 
     interface Configuration {
+        default LinkComputer.Options linkComputerOptions() {
+            return new LinkComputer.Options(true, false, false);
+        }
+
         int maxIterations();
 
         // the alternative is: set all to non-modifying

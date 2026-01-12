@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -10,6 +11,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImp
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -59,6 +61,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final ShallowMethodLinkComputer shallowMethodLinkComputer;
     private final LinkGraph linkGraph;
     private final WriteLinksAndModification writeLinksAndModification;
+    private final ShallowMethodAnalyzer shallowMethodAnalyzer;
 
     // for testing :-) especially duplicate name checking
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -73,6 +76,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
         this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames());
         this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, javaInspector.runtime());
+        this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
     }
 
     @Override
@@ -131,6 +135,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write) {
         if (shallow) {
+            if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEFAULTS_ANALYZER)) {
+                shallowMethodAnalyzer.analyze(methodInfo);
+            }
             MethodLinkedVariables mlv = shallowMethodLinkComputer.go(methodInfo);
             if (write) {
                 methodInfo.analysis().set(METHOD_LINKS, mlv);
@@ -404,7 +411,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private Set<Variable> computePreviouslyModified(VariableData vd, VariableData previousVd, Stage stageOfPrevious) {
             if (previousVd != null) {
                 return previousVd.variableInfoStream(stageOfPrevious)
-                        .filter(vi -> !(vi.variable() instanceof This))
+               //         .filter(vi -> !(vi.variable() instanceof This))
                         .filter(vi -> vd.isKnown(vi.variable().fullyQualifiedName()))
                         .map(vi -> {
                             Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);

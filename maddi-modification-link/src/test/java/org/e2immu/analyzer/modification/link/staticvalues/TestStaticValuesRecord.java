@@ -575,7 +575,7 @@ public class TestStaticValuesRecord extends CommonTest {
                 setVariable.variables[0:pos]←this.variables*[0:pos],\
                 setVariable.variables[0:pos]←1:value,setVariable.variables[0:pos]∈this.variables*,\
                 setVariable.variables←this.variables*,setVariable.variables∋this.variables*[0:pos],\
-                setVariable.variables∋1:value,setVariable←this\
+                setVariable.variables∋1:value,setVariable←this*\
                 """, mlvSetVariable.toString());
 
         Value.FieldValue fv = setVariable.getSetField();
