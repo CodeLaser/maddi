@@ -50,12 +50,12 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
         Variable ttFrom = runtime.newFieldReference(fr.fieldInfo(),
                 runtime.newVariableExpression(tLink.from()),
                 fr.fieldInfo().type());
-        FieldInfo mFieldFrom = virtualFieldComputer.newMField(Util.owner(ttFrom));
+        FieldInfo mFieldFrom = virtualFieldComputer.newMField(VariableTranslationMap.owner(runtime, ttFrom));
         assert !(tLink.from() instanceof FieldReference fr2 && Util.virtual(fr2))
                 : "Ensure that §m is never appended to a virtual field itself";
         Variable mFrom = runtime.newFieldReference(mFieldFrom, runtime.newVariableExpression(tLink.from()),
                 mFieldFrom.type());
-        FieldInfo mFieldTo = virtualFieldComputer.newMField(Util.owner(ttFrom));
+        FieldInfo mFieldTo = virtualFieldComputer.newMField(VariableTranslationMap.owner(runtime, ttFrom));
         Variable toPrimary = Util.primary(tLink.to());
         assert !(toPrimary instanceof FieldReference fr2 && Util.virtual(fr2))
                 : "Ensure that §m is never appended to a virtual field itself";

@@ -24,7 +24,8 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
+import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_FIELD;
+import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.IS_FIELD_OF;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.isVirtualModificationField;
 
 public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean checkDuplicateNames) {
@@ -124,7 +125,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     private V makeComparableSub(V base, V sub, V target) {
         if (sub.v instanceof FieldReference fr && base.v.equals(fr.scopeVariable())) {
             VariableExpression tve = runtime.newVariableExpression(target.v);
-            FieldInfo newField = fr.fieldInfo().withOwner(Util.owner(target.v));
+            FieldInfo newField = fr.fieldInfo().withOwner(VariableTranslationMap.owner(runtime, target.v));
             return new V(runtime.newFieldReference(newField, tve, newField.type()));
         }
         TranslationMap tm = new VariableTranslationMap(runtime).put(base.v, target.v);
@@ -261,7 +262,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                 if (immutable.isMutable()) {
                     // add the mutation field
                     FieldInfo vf = new VirtualFieldComputer(javaInspector)
-                            .newMField(vFrom.v.parameterizedType().typeInfo());
+                            .newMField(VariableTranslationMap.owner(runtime, vFrom.v.parameterizedType()));
                     FieldReference mutationFr = runtime().newFieldReference(vf, runtime.newVariableExpression(vFrom.v),
                             vf.type());
                     subs.computeIfAbsent(vFrom, _ -> new HashSet<>()).add(new V(mutationFr));

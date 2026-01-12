@@ -59,6 +59,12 @@ public class VariableTranslationMap implements TranslationMap {
         return runtime.objectTypeInfo();
     }
 
+    public static TypeInfo owner(Runtime runtime, Variable v) {
+        if (v instanceof FieldReference fr) return fr.fieldInfo().owner();
+        if (v instanceof DependentVariable dv) return owner(runtime, dv.arrayVariable());
+        return owner(runtime, v.parameterizedType());
+    }
+
     @Override
     public Variable translateVariableRecursively(Variable variable) {
         return translateVariableRecursively(runtime, this, variable);

@@ -143,14 +143,6 @@ public class Util {
         return v;
     }
 
-    public static TypeInfo owner(Variable v) {
-        if (v instanceof FieldReference fr) return fr.fieldInfo().owner();
-        if (v instanceof DependentVariable dv) return owner(dv.arrayVariable());
-        return v.parameterizedType().typeParameter() != null
-                ? v.parameterizedType().typeParameter().typeInfo()
-                : v.parameterizedType().typeInfo();
-    }
-
     public static @NotNull ParameterInfo parameterPrimary(Variable variable) {
         return (ParameterInfo) primary(variable);
     }
