@@ -60,9 +60,9 @@ public class TestConstructor extends CommonTest {
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        tlc.doPrimaryType(X);
         {
             MethodInfo methodB = X.findUniqueMethod("methodB", 1);
+            MethodLinkedVariables mlvB = methodB.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(methodB));
 
             TypeInfo list = javaInspector.compiledTypesManager().get(List.class);
             MethodInfo removeFirst = list.findUniqueMethod("removeFirst", 0);
@@ -80,7 +80,7 @@ public class TestConstructor extends CommonTest {
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo removed1 = vd1.variableInfo("removed");
             Links tlvT1 = removed1.linkedVariablesOrEmpty();
-            assertEquals("removed∈iis.§$s,removed∈0:input.§$s", tlvT1.toString());
+            assertEquals("removed∈0:input.§$s,removed∈iis.§$s", tlvT1.toString());
 
             VariableInfo iis1 = vd1.variableInfo("iis");
             Links tlvIIS1 = iis1.linkedVariablesOrEmpty();
@@ -91,13 +91,13 @@ public class TestConstructor extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(callM2);
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
             Links tlvT2 = removed.linkedVariablesOrEmpty();
-            assertEquals("removed∈iis.§$s,removed∈0:input.§$s", tlvT2.toString());
+            assertEquals("removed∈0:input.§$s,removed∈iis.§$s", tlvT2.toString());
 
-            assertEquals("[-] --> -", methodB.analysis().getOrNull(METHOD_LINKS,
-                    MethodLinkedVariablesImpl.class).toString());
+            assertEquals("[-] --> -", mlvB.toString());
         }
         {
             MethodInfo methodA = X.findUniqueMethod("methodA", 1);
+            MethodLinkedVariables mlvA = methodA.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(methodA));
 
             Statement s0 = methodA.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
@@ -121,7 +121,7 @@ public class TestConstructor extends CommonTest {
             VariableData vd3 = VariableDataImpl.of(s3);
             VariableInfo iis3 = vd3.variableInfo("iis");
             Links tlvIIS3 = iis3.linkedVariablesOrEmpty();
-            assertEquals("iis.§$s∋ii2,iis.§$s∩0:input.§$s", tlvIIS3.toString());
+            assertEquals("iis.§$s∋ii2,iis.§$s~0:input.§$s", tlvIIS3.toString());
 
             Statement callM2 = methodA.methodBody().statements().get(4);
             MethodCall methodCall = (MethodCall) callM2.expression();
@@ -130,8 +130,7 @@ public class TestConstructor extends CommonTest {
                     ValueImpl.VariableBooleanMapImpl.EMPTY);
             assertEquals("a.b.X.methodA(java.util.List<a.b.X.II>):0:input=false, ii2=true, iis=false",
                     nice(map.map()));
-            assertEquals("[-] --> -", methodA.analysis().getOrNull(METHOD_LINKS,
-                    MethodLinkedVariablesImpl.class).toString());
+            assertEquals("[-] --> -", mlvA.toString());
         }
     }
 
