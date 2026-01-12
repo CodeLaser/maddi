@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -27,8 +28,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestList extends CommonTest {
 
@@ -62,6 +62,7 @@ public class TestList extends CommonTest {
         get.analysis().set(METHOD_LINKS, new MethodLinkedVariablesImpl(
                 new LinksImpl.Builder(rv).add(LinkNatureImpl.IS_ELEMENT_OF, ts).build(), List.of(LinksImpl.EMPTY),
                 Set.of()));
+        get.analysis().set(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.TRUE);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -69,16 +70,17 @@ public class TestList extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
 
+        MethodLinkedVariables mlvGet = get.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links tlvK0 = k0.linkedVariablesOrEmpty();
         assertEquals("k∈1:x.ts", tlvK0.toString());
         VariableInfo x0 = vd0.variableInfo(method.parameters().getLast());
         assertEquals("1:x.ts∋k", x0.linkedVariables().toString());
-        assertTrue(x0.isModified());
+        assertFalse(x0.isModified());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-    //    assertEquals("a.b.X.method(int,a.b.X<K>):1:x", tlvMethod.sortedModifiedString());
         assertEquals("[-, -] --> method∈1:x.ts", tlvMethod.toString());
     }
 
