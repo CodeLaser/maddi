@@ -175,6 +175,14 @@ public class IsAssignableFrom {
             if (otherTypeBounds.isEmpty()) {
                 int pathToJLO = pathToJLO(target);
                 if (mode == Mode.COVARIANT_ERASURE) {
+                    if (from.arrays() > target.arrays() && !target.typeInfo().isJavaLangObject()) {
+                        // See MethodCall13,4: double <- T[]
+                        return NOT_ASSIGNABLE;
+                    }
+                    if (from.arrays() > 0 && from.arrays() == target.arrays() && target.typeInfo().isPrimitiveExcludingVoid()) {
+                        // See MethodCall13,4: char[] <- T[]
+                        return NOT_ASSIGNABLE;
+                    }
                     return UNBOUND_WILDCARD + pathToJLO; // see e.g. Lambda_7, MethodCall_30,_31,_59
                 }
                 if (!target.typeInfo().isJavaLangObject()) {
