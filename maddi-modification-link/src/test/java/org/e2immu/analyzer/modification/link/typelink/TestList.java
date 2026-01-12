@@ -156,8 +156,8 @@ public class TestList extends CommonTest {
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, 1:x.ts[0:i]←2:k,1:x.ts∋2:k, 2:k→1:x.ts[0:i],2:k∈1:x.ts] --> \
-                method←1:x.ts[0:i],method←2:k,method∈1:x.ts\
+                [-, 1:x.ts*[0:i]←2:k,1:x.ts*∋2:k, 2:k→1:x.ts*[0:i],2:k∈1:x.ts*] --> \
+                method←1:x.ts*[0:i],method←2:k,method∈1:x.ts*\
                 """, tlvMethod.toString());
     }
 
@@ -172,11 +172,11 @@ public class TestList extends CommonTest {
 
         MethodInfo set = X.findUniqueMethod("set", 2);
         MethodLinkedVariables tlvSet = set.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:t∈this.§ts] --> -", tlvSet.toString());
+        assertEquals("[-, 1:t∈this*.§ts] --> -", tlvSet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 3);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, -, -] --> method∈1:x.§ks,method←2:k", tlvMethod.toString());
+        assertEquals("[-, -, -] --> method∈1:x*.§ks,method←2:k", tlvMethod.toString());
     }
 
     @Language("java")
@@ -220,8 +220,9 @@ public class TestList extends CommonTest {
         Links tlvY0 = y0.linkedVariablesOrEmpty();
         assertEquals("y.ts~0:x.ts", tlvY0.toString());
 
+        // * because of doNotRecurse, shallow analysis
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> method.ts~0:x.ts", tlvMethod.toString());
+        assertEquals("[-] --> method.ts~0:x*.ts", tlvMethod.toString());
     }
 
 
@@ -235,11 +236,11 @@ public class TestList extends CommonTest {
 
         MethodInfo copy = X.findUniqueMethod("copy", 0);
         MethodLinkedVariables tlvSet = copy.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[] --> copy.§t←this.§t,copy.§m≡this.§m", tlvSet.toString());
+        assertEquals("[] --> copy.§t←this*.§t,copy.§m≡this*.§m", tlvSet.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> method.§k←0:x.§k", tlvMethod.toString());
+        assertEquals("[-] --> method.§k←0:x*.§k", tlvMethod.toString());
     }
 
 

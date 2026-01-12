@@ -296,16 +296,20 @@ public class TestStaticValuesRecord extends CommonTest {
 
     @Language("java")
     private static final String INPUT4b = """
-            package a.b;
-            import org.e2immu.annotation.NotModified;
+                        package a.b;
+                        import org.e2immu.annotation.NotModified;
+            
             import java.util.Set;
-            class X {
-                interface R<T> { @NotModified T t(); R<T> embed(T t); }
-                Set<String> method(Set<String> in, R<Set<String>> rr) {
-                    R<Set<String>> r = rr.embed(in);
-                    return r.t();
-                }
-            }
+                        class X {
+                            interface R<T> {
+                                @NotModified T t();
+                                R<T> embed(T t); // modifying, dependent
+                            }
+                            Set<String> method(Set<String> in, R<Set<String>> rr) {
+                                R<Set<String>> r = rr.embed(in);
+                                return r.t();
+                            }
+                        }
             """;
 
     @DisplayName("values in record, embed in abstract type")
@@ -322,6 +326,80 @@ public class TestStaticValuesRecord extends CommonTest {
 
         TypeInfo R = X.findSubType("R");
         assertEquals("§m - T §t", vfc.compute(R).toString());
+        MethodInfo Rt = R.findUniqueMethod("t", 0);
+        assertFalse(Rt.isModifying());
+
+        MethodInfo embed = R.findUniqueMethod("embed", 1);
+        assertTrue(embed.isModifying());
+        assertSame(ValueImpl.IndependentImpl.DEPENDENT, embed.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.DEPENDENT));
+
+        MethodInfo method = X.findUniqueMethod("method", 2);
+        ParameterInfo rr = method.parameters().getLast();
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+
+        LocalVariableCreation rLvc = (LocalVariableCreation) method.methodBody().statements().getFirst();
+        LocalVariable r = rLvc.localVariable();
+        VariableData vd0 = VariableDataImpl.of(rLvc);
+        VariableInfo rVi0 = vd0.variableInfo(r);
+        assertEquals("""
+                r.§$s←1:rr.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m,r.§m→0:in.§m\
+                """, rVi0.linkedVariables().toString());
+        assertFalse(rVi0.isModified());
+        VariableInfo rrVi0 = vd0.variableInfo(rr);
+        assertTrue(rrVi0.isModified());
+
+        VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().getLast());
+        VariableInfo rVi1 = vd1.variableInfo(r);
+        assertEquals("""
+                r.§$s←1:rr.§$s,r.§$s⊇method.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m,r.§m→method.§m,r.§m→0:in.§m\
+                """, rVi1.linkedVariables().toString());
+        assertFalse(rVi1.isModified()); // cannot be modified, because it is newly created
+        VariableInfo rrVi1 = vd1.variableInfo(rr);
+        assertTrue(rrVi1.isModified());
+
+        assertEquals("""
+                [0:in.§$s⊆1:rr*.§$s,0:in.§m←1:rr*.§m, 1:rr*.§$s⊇0:in.§$s,1:rr*.§m→0:in.§m] --> \
+                method.§m←1:rr*.§m,method.§m←0:in.§m,method∩0:in.§$s\
+                """, mlv.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4c = """
+            package a.b;
+            import org.e2immu.annotation.NotModified;
+            import java.util.Set;
+            class X {
+                interface R<T> { @NotModified T t(); @NotModified R<T> embed(T t); }
+                Set<String> method(Set<String> in, R<Set<String>> rr) {
+                    R<Set<String>> r = rr.embed(in);
+                    return r.t();
+                }
+            }
+            """;
+
+    @DisplayName("values in record, embed in abstract type, now embed() @NotModified")
+    @Test
+    public void test4c() {
+        TypeInfo X = javaInspector.parse(INPUT4c);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
+        shallowAnalyzer.go(List.of(X));
+
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo R = X.findSubType("R");
+        assertEquals("§m - T §t", vfc.compute(R).toString());
+        MethodInfo Rt = R.findUniqueMethod("t", 0);
+        assertFalse(Rt.isModifying());
+
+        MethodInfo embed = R.findUniqueMethod("embed", 1);
+        assertFalse(embed.isModifying());
+        assertSame(ValueImpl.IndependentImpl.DEPENDENT, embed.analysis().getOrDefault(PropertyImpl.INDEPENDENT_PARAMETER,
+                ValueImpl.IndependentImpl.DEPENDENT));
 
         MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));

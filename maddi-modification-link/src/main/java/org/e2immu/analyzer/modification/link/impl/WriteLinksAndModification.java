@@ -37,12 +37,9 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                             Set<Variable> previouslyModified,
                             Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation,
                             Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph) {
-        Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause = new HashMap<>(modifiedDuringEvaluation);
-        previouslyModified.forEach(v ->
-                modifiedVariablesAndTheirCause.computeIfAbsent(v, _ -> new HashSet<>()));
 
         // do the first iteration
-        LoopResult lr = loopOverVd(vd, statement, graph, modifiedVariablesAndTheirCause);
+        LoopResult lr = loopOverVd(vd, statement, graph, previouslyModified, modifiedDuringEvaluation);
         if (!lr.redo) {
             return new WriteResult(lr.newLinkedVariables, lr.unmarkedModifications);
         }
@@ -64,7 +61,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
         LOGGER.debug("Variables to recompute: {}", recompute);
         Map<Variable, Links> newLinkedVariables = new HashMap<>(lr.newLinkedVariables);
         for (Variable variable : recompute) {
-            Links.Builder builder = followGraph(graph2, variable, modifiedVariablesAndTheirCause.get(variable));
+            Links.Builder builder = followGraph(graph2, variable, modifiedDuringEvaluation.get(variable));
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
             newLinkedVariables.put(variable, builder.build());
         }
@@ -79,13 +76,14 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
     private LoopResult loopOverVd(VariableData vd,
                                   Statement statement,
                                   Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph,
-                                  Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
-        Set<Variable> unmarkedModifications = new HashSet<>(modifiedVariablesAndTheirCause.keySet());
+                                  Set<Variable> previouslyModified,
+                                  Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
+        Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
         Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
         List<Link> toRemove = new ArrayList<>();
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
             toRemove.addAll(doVariableReturnRecompute(statement, graph, vi, unmarkedModifications,
-                    modifiedVariablesAndTheirCause, newLinkedVariables));
+                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables));
         }
         for (Link link : toRemove) {
             newLinkedVariables.get(Util.primary(link.from())).removeIf(l -> l.equals(link));
@@ -100,19 +98,21 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                                                  Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph,
                                                  VariableInfo vi,
                                                  Set<Variable> unmarkedModifications,
-                                                 Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause,
+                                                 Set<Variable> previouslyModified,
+                                                 Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
                                                  Map<Variable, Links.Builder> newLinkedVariables) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph(graph, variable, modifiedVariablesAndTheirCause.get(variable));
+        Links.Builder builder = followGraph(graph, variable, modifiedInThisEvaluation.get(variable));
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
             handleReturnVariable(rv, builder);
         } else {
-            boolean unmodified = assignedInThisStatement(statement, vi)
-                                 || !modifiedVariablesAndTheirCause.containsKey(variable)
-                                    && notLinkedToModified(builder, modifiedVariablesAndTheirCause);
+            boolean unmodified = !previouslyModified.contains(variable)
+                                 && (assignedInThisStatement(statement, vi)
+                                     || !modifiedInThisEvaluation.containsKey(variable)
+                                        && notLinkedToModified(builder, modifiedInThisEvaluation));
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
             Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
