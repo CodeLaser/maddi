@@ -132,9 +132,11 @@ public interface Factory {
 
     MethodInfo.MethodType methodTypeDefaultMethod();
 
+    MethodInfo.MethodType methodTypeInstanceInitializer();
+
     MethodInfo.MethodType methodTypeMethod();
 
-    MethodInfo.MethodType methodTypeStaticBlock();
+    MethodInfo.MethodType methodTypeStaticInitializer();
 
     MethodInfo.MethodType methodTypeStaticMethod();
 

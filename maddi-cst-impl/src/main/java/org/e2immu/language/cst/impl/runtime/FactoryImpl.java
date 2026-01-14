@@ -345,8 +345,13 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
-    public MethodInfo.MethodType methodTypeStaticBlock() {
-        return MethodInfoImpl.MethodTypeEnum.STATIC_BLOCK;
+    public MethodInfo.MethodType methodTypeStaticInitializer() {
+        return MethodInfoImpl.MethodTypeEnum.STATIC_INITIALIZER;
+    }
+
+    @Override
+    public MethodInfo.MethodType methodTypeInstanceInitializer() {
+        return MethodInfoImpl.MethodTypeEnum.INSTANCE_INITIALIZER;
     }
 
     @Override

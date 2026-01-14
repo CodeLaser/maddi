@@ -43,7 +43,7 @@ public record MethodPrinterImpl(TypeInfo typeInfo, MethodInfo methodInfo, boolea
 
     @Override
     public OutputBuilder print(Qualification qualification) {
-        if (methodInfo.isStaticBlock()) {
+        if (methodInfo.isStaticInitializer()) {
             OutputBuilder result = new OutputBuilderImpl().add(KeywordImpl.STATIC);
             Qualification bodyQualification = makeBodyQualification(qualification);
             result.add(methodInfo.methodBody().print(bodyQualification));
