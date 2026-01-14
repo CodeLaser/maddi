@@ -20,6 +20,7 @@ import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
@@ -29,13 +30,14 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 
 import java.util.*;
 
@@ -62,11 +64,9 @@ parameter modification is computed as the combination of links to fields and loc
  */
 public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeModIndyAnalyzer {
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
-    private final Runtime runtime;
 
-    public TypeModIndyAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration) {
+    public TypeModIndyAnalyzerImpl(IteratingAnalyzer.Configuration configuration) {
         super(configuration);
-        this.runtime = runtime;
     }
 
     private record OutputImpl(List<AnalyzerException> analyzerExceptions, boolean resolvedInternalCycles,
@@ -358,23 +358,28 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         }
 
         private Independent worstLinkToFields(Links links, String variableFqn) {
-            if (links.isEmpty()) return INDEPENDENT; // variable does not occur.
-
             boolean immutableHc = false;
             for (Link link : links) {
                 Variable primaryTo = Util.primary(link.to());
                 if (primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                    ParameterizedType type;
                     if (primaryTo == link.to() && link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_TO)) {
                         // this.set ← 0:set, TestFieldAnalyzer,1,2
-                        Immutable fieldImmutable = analysisHelper.typeImmutable(primaryTo.parameterizedType());
-                        if (fieldImmutable.isMutable()) return DEPENDENT;
-                        if (fieldImmutable.isImmutableHC()) immutableHc = true;
+                        type = primaryTo.parameterizedType();
                     } else if (link.linkNature().equals(LinkNatureImpl.SHARES_ELEMENTS)
-                               || link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)
                                || link.linkNature().equals(LinkNatureImpl.IS_SUPERSET_OF)) {
                         // 0:set.§cs⊇this.set.§cs, TestFieldAnalyzer,3
-                        Immutable fieldImmutable = analysisHelper.typeImmutable(primaryTo.parameterizedType());
-                        if (!fieldImmutable.isImmutable()) immutableHc = true;
+                        type = link.to().parameterizedType().copyWithoutArrays();
+                    } else if (link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)) {
+                        // 0:element ∋ this.set.§cs
+                        type = link.to().parameterizedType();
+                    } else {
+                        type = null;
+                    }
+                    if (type != null) {
+                        Immutable fieldImmutable = analysisHelper.typeImmutable(type);
+                        if (fieldImmutable.isMutable()) return DEPENDENT;
+                        if (fieldImmutable.isImmutableHC()) immutableHc = true;
                     }
                 }
             }

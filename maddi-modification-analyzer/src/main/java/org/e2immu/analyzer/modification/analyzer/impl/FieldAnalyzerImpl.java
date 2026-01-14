@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.analyzer.FieldAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
+import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
@@ -13,7 +14,6 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
@@ -142,11 +142,11 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             for (MethodInfo methodInfo : methodsReferringToField) {
                 Value.FieldValue fieldValue = methodInfo.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD,
                         ValueImpl.GetSetValueImpl.EMPTY);
-                if (fieldInfo == fieldValue.field()) {
-                    assert !methodInfo.isConstructor();
+          //      if (fieldInfo == fieldValue.field()) {
+          //          assert !methodInfo.isConstructor();
                     //builder.add(runtime.newFieldReference(fieldInfo), LVImpl.LINK_DEPENDENT);
                     // FIXME not linking to myself?
-                } else {
+         //       } else {
                     assert !methodInfo.methodBody().isEmpty();
                     VariableData vd = VariableDataImpl.of(methodInfo.methodBody().lastStatement());
                     for (VariableInfo vi : vd.variableInfoIterable()) {
@@ -159,7 +159,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                             } else if (!lv.isEmpty()) {
                                 // we're only interested in parameters, other fields, return values
                                 for (Link l : lv) {
-                                    if (!(l.to() instanceof LocalVariable)) {
+                                    if (LinkVariable.acceptForLinkedVariables(l.to())) {
                                         builder.add(l.linkNature(), l.to());
                                     }
                                 }
@@ -167,7 +167,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                         }
                     }
                 }
-            }
+         //   }
             return undecided ? null : builder.build();
         }
 

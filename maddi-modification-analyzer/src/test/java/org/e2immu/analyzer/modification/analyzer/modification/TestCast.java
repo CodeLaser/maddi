@@ -57,7 +57,7 @@ public class TestCast extends CommonTest {
         assertTrue(r.isModified());
         MethodLinkedVariables mlv = setAdd.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[0:r.object*.§$s∋1:s, 1:s∈0:r.object*.§$s] --> -", mlv.toString());
-        assertEquals("[r.object, a.b.X.setAdd(a.b.X.R,String):0:r]", mlv.modified().toString());
+        assertEquals("a.b.X.setAdd(a.b.X.R,String):0:r, r.object", mlv.sortedModifiedString());
     }
 
 

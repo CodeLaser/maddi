@@ -196,10 +196,8 @@ public class TestModificationField extends CommonTest {
         }
 
         MethodLinkedVariables mlvRead = read.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("", mlvRead.toString());
-        // ValueImpl.VariableBooleanMapImpl mcm = read.analysis()
-        //          .getOrNull(PropertyImpl.MODIFIED_COMPONENTS_METHOD, ValueImpl.VariableBooleanMapImpl.class);
-        // FIXME  assertEquals("this.in=true, this.status=true", mcm.toString());
+        assertEquals("[] --> -", mlvRead.toString());
+        assertEquals("this, this.in", mlvRead.sortedModifiedString());
 
         MethodInfo readBlock = X.findUniqueMethod("readBlock", 0);
         {

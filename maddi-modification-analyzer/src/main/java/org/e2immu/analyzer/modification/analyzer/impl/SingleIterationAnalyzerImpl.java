@@ -53,7 +53,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions());
         Runtime runtime = javaInspector.runtime();
         fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration);
-        typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(runtime, configuration);
+        typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration);
         typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(configuration);
         typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
