@@ -238,7 +238,8 @@ public record ExpressionVisitor(Runtime runtime,
                 runtime,
                 variableCounter.getAndIncrement(),
                 mr.parameterizedType(),
-                wrapped);
+                wrapped,
+                tMlv.modified());
         Links links = new LinksImpl.Builder(fiv).build();
         return new Result(links, LinkedVariablesImpl.EMPTY).addModified(modifiedInReference, null);
     }
@@ -347,7 +348,8 @@ public record ExpressionVisitor(Runtime runtime,
                 .toList();
         Set<Variable> extraModified = params.stream().flatMap(p ->
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
-        return new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter, currentMethod)
+        return new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter,
+                currentMethod, variableData, stage)
                 .constructorCall(cc.constructor(), object, params, mlvTranslated1)
                 .addModified(extraModified, null)
                 .addVariablesRepresentingConstant(params)
@@ -380,7 +382,8 @@ public record ExpressionVisitor(Runtime runtime,
                 runtime,
                 variableCounter.getAndIncrement(),
                 lambda.concreteFunctionalType(),
-                wrapped);
+                wrapped,
+                mlvTranslated.modified());
         Links links = new LinksImpl.Builder(fiv).build();
         return new Result(links, LinkedVariablesImpl.EMPTY).addModified(modifiedInLambda, null);
     }
@@ -495,7 +498,7 @@ public record ExpressionVisitor(Runtime runtime,
         // handle all matters 'linking'
 
         Result r = new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter,
-                currentMethod)
+                currentMethod, variableData, stage)
                 .methodCall(mc.methodInfo(), mc.concreteReturnType(), object, params, mlvTranslated2);
         Set<Variable> modified = new MethodModification(runtime, variableData, stage, mc)
                 .go(objectPrimary, params, mlvTranslated2);

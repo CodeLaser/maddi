@@ -21,11 +21,10 @@ import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -35,7 +34,10 @@ public record LinkMethodCall(JavaInspector javaInspector,
                              LinkComputer.Options linkComputerOptions,
                              VirtualFieldComputer virtualFieldComputer,
                              AtomicInteger variableCounter,
-                             MethodInfo currentMethod) {
+                             MethodInfo currentMethod,
+                             VariableData variableData,
+                             Stage stage) {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LinkMethodCall.class);
 
     public Result constructorCall(MethodInfo methodInfo,
                                   Result object,
@@ -68,6 +70,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
     }
 
+    private record LM(Links links, Set<Variable> extraModified) {
+    }
+
+    private static final LM EMPTY_LM = new LM(LinksImpl.EMPTY, Set.of());
+
     // we're trying for both method calls and normal constructor calls
     // the latter have a newly created temporary local variable as their object primary
     public Result methodCall(MethodInfo methodInfo,
@@ -83,14 +90,19 @@ public record LinkMethodCall(JavaInspector javaInspector,
             extra.put(objectPrimary, object.links());
         }
         Links concreteReturnValue;
+        Set<Variable> extraModified;
         if (mlv.ofReturnValue() == null) {
             concreteReturnValue = LinksImpl.EMPTY;
+            extraModified = Set.of();
         } else if (Util.methodIsSamOfJavaUtilFunctional(methodInfo)) {
             assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
             concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, objectPrimary,
                     extra);
+            extraModified = Set.of();
         } else {
-            concreteReturnValue = objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
+            LM lm = objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
+            concreteReturnValue = lm.links;
+            extraModified = lm.extraModified;
         }
         if (objectPrimary != null) {
             Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
@@ -103,7 +115,8 @@ public record LinkMethodCall(JavaInspector javaInspector,
         } else {
             linksBetweenParameters(methodInfo, params, mlv, extra);
         }
-        return new Result(concreteReturnValue, new LinkedVariablesImpl(extra));
+        return new Result(concreteReturnValue, new LinkedVariablesImpl(extra))
+                .addModified(extraModified, null);
     }
 
     private List<Result> expandFunctionalInterfaceVariables(List<Result> paramsIn) {
@@ -204,15 +217,15 @@ public record LinkMethodCall(JavaInspector javaInspector,
         return linkNature;
     }
 
-    private Links objectToReturnValue(MethodInfo methodInfo,
-                                      ParameterizedType concreteReturnType,
-                                      List<Result> params,
-                                      MethodLinkedVariables mlv,
-                                      Variable objectPrimary) {
+    private LM objectToReturnValue(MethodInfo methodInfo,
+                                   ParameterizedType concreteReturnType,
+                                   List<Result> params,
+                                   MethodLinkedVariables mlv,
+                                   Variable objectPrimary) {
         Links ofReturnValue = mlv.ofReturnValue();
         Variable rvPrimary = ofReturnValue.primary();
         if (rvPrimary == null || ofReturnValue.isEmpty()) {
-            return LinksImpl.EMPTY;
+            return EMPTY_LM;
         }
         assert rvPrimary instanceof ReturnVariable
                 : "the links of the method return value must be in the return variable";
@@ -239,16 +252,19 @@ public record LinkMethodCall(JavaInspector javaInspector,
         Function<Variable, List<Links>> samLinks = v ->
                 v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
+        Set<Variable> extraModified = new HashSet<>();
         for (Link link : ofReturnValue.linkSet()) {
             if (!link.linkNature().isDecoration())
                 if (link.from().equals(ofReturnValue.primary())) {
-                    translateHandleFunctional(tm, link, newPrimary, link.linkNature(), builder, samLinks, objectPrimary);
+                    translateHandleFunctional(tm, link, newPrimary, link.linkNature(), builder, samLinks,
+                            objectPrimary, extraModified);
                 } else {
                     Variable fromTranslated = tm.translateVariableRecursively(link.from());
-                    translateHandleFunctional(tm, link, fromTranslated, link.linkNature(), builder, samLinks, objectPrimary);
+                    translateHandleFunctional(tm, link, fromTranslated, link.linkNature(), builder, samLinks,
+                            objectPrimary, extraModified);
                 }
         }
-        return builder.build();
+        return new LM(builder.build(), extraModified);
     }
 
     private void translateHandleFunctional(TranslationMap defaultTm,
@@ -257,7 +273,8 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                            LinkNature linkNature,
                                            Links.Builder builder,
                                            Function<Variable, List<Links>> paramProvider,
-                                           Variable objectPrimary) {
+                                           Variable objectPrimary,
+                                           Set<Variable> extraModified) {
         ParameterizedType parameterizedType = link.to().parameterizedType();
         boolean extraTest;
         if (parameterizedType.isFunctionalInterface()) {
@@ -269,6 +286,24 @@ public record LinkMethodCall(JavaInspector javaInspector,
         } else {
             if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
                 List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
+                if (list.size() == 1 && variableData != null) {
+                    Links first = list.getFirst();
+                    if (first.isEmpty()) {
+                        Variable list0Primary = first.primary();
+                        VariableInfoContainer vic = variableData.variableInfoContainerOrNull(list0Primary.fullyQualifiedName());
+                        if (vic != null) {
+                            VariableInfo vi = vic.best(stage);
+                            List<FunctionalInterfaceVariable> fis = vi.linkedVariables().stream()
+                                    .filter(l -> l.to() instanceof FunctionalInterfaceVariable)
+                                    .map(l -> (FunctionalInterfaceVariable) l.to())
+                                    .toList();
+                            for (FunctionalInterfaceVariable fi : fis) {
+                                LOGGER.debug("Applying FI {} in AFI {}", fi, link);
+                                extraModified.addAll(fi.modified());
+                            }
+                        }
+                    }
+                }
                 // translate params in list with values from applied.params()
                 List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
                 List<LinkFunctionalInterface.Triplet> toAdd =
@@ -334,11 +369,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                           Map<Variable, Links> extra) {
         assert !methodInfo.isVoid() || methodInfo.isConstructor()
                 : "Cannot be a void function if we have a return variable";
-
+        ParameterInfo piPrimary = Util.parameterPrimaryOrNull(objectPrimary);
         Variable applied = new AppliedFunctionalInterfaceVariable(runtime,
                 variableCounter.getAndIncrement(),
                 concreteReturnType,
-                objectPrimary instanceof ParameterInfo pi ? pi : null,
+                piPrimary,
                 params);
         Links decoration = new LinksImpl.Builder(objectPrimary).add(LinkNatureImpl.IS_DECORATED_WITH, applied).build();
         extra.put(objectPrimary, decoration);

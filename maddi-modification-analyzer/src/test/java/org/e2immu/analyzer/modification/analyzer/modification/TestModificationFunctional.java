@@ -37,12 +37,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class TestModificationFunctional extends CommonTest {
 
-    /*
-    the convention is that modification on a functional interface type indicates that the SAM (single abstract method)
-    has been called.
-
-    note: the methods are placed out of order, for AnalysisOrder to kick in.
-     */
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
@@ -160,7 +154,7 @@ public class TestModificationFunctional extends CommonTest {
             }
             """;
 
-    @DisplayName("propagate modification via functional interface component")
+    @DisplayName("propagate modification via applied functional interface link")
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
@@ -170,7 +164,8 @@ public class TestModificationFunctional extends CommonTest {
         MethodInfo parse = X.findUniqueMethod("parse", 1);
         MethodLinkedVariables mlvParse = parse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> parse←this*.j", mlvParse.toString());
-        assertSame(FALSE, parse.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
+        assertEquals("this", mlvParse.sortedModifiedString());
+        assertTrue(parse.isModifying());
 
         MethodInfo run = X.findUniqueMethod("run", 2);
         MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
@@ -183,13 +178,16 @@ public class TestModificationFunctional extends CommonTest {
         VariableInfo vi1R = vd1.variableInfo(runR);
         assertEquals("1:r.function↗$_afi2,1:r.function↗run", vi1R.linkedVariables().toString());
 
-
-        assertSame(TRUE, runS.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-        assertSame(TRUE, runR.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-        assertSame(TRUE, run.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
+        assertTrue(runS.isUnmodified());
+        assertTrue(runR.isUnmodified());
+        assertTrue(run.isNonModifying());
 
         // now test the propagation
         MethodInfo go = X.findUniqueMethod("go", 1);
+        VariableData vd0 = VariableDataImpl.of(go.methodBody().statements().getFirst());
+        VariableInfo nr0 = vd0.variableInfo("nr");
+        assertEquals("nr.function←Λ$_fi1", nr0.linkedVariables().toString());
+
         assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
         assertTrue(goIn.isUnmodified());
