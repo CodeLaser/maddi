@@ -471,9 +471,9 @@ public class TestStaticValuesRecord extends CommonTest {
         assertEquals("""
                 new Builder().j=3,new Builder().intList=List.of(0,1),new Builder().stringSet=in,new Builder()\
                 """, lvc0.localVariable().assignmentExpression().translate(tm).toString());
-        assertEquals("[-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set←0:in",
+        assertEquals("[-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set←0:in*",
                 mlv.toString());
-
+        // NOTE: in* because of delay, in is linked to field
 
         TypeInfo R = X.findSubType("R");
         MethodInfo constructorR = R.findConstructor(3);
@@ -498,7 +498,7 @@ public class TestStaticValuesRecord extends CommonTest {
                 //"Type a.b.X.R E=new Builder() this.i=3, this.list=List.of(0,1), this.set=in",
                 rVi1.linkedVariables().toString());
 
-        assertEquals("[-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set←0:in",
+        assertEquals("[-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set←0:in*",
                 mlv.toString());
     }
 
@@ -606,7 +606,7 @@ public class TestStaticValuesRecord extends CommonTest {
                     r.variables∋b.variables[0],r.variables∋0:in\
                     """, rVi1.linkedVariables().toString());
         }
-        assertEquals("[-] --> method3[0]←0:in,method3∋0:in", mlvMethod3.toString());
+        assertEquals("[-] --> method3[0]←0:in*,method3∋0:in*", mlvMethod3.toString());
 
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlvMethod2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
@@ -643,7 +643,7 @@ public class TestStaticValuesRecord extends CommonTest {
                     r.variables∋b.variables[1],r.variables∋0:t\
                     """, vi1r.linkedVariables().toString());
         }
-        assertEquals("[-] --> method4←0:t", mlvMethod4.toString());
+        assertEquals("[-] --> method4←0:t*", mlvMethod4.toString());
 
         MethodInfo method5 = X.findUniqueMethod("method5", 1);
         MethodLinkedVariables mlvMethod5 = method5.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method5));
@@ -776,7 +776,7 @@ public class TestStaticValuesRecord extends CommonTest {
                     o←b.variables[0],o←r.variables[0],o←0:s,o∈b.variables,o∈r.variables\
                     """, vi2Rv.linkedVariables().toString());
         }
-        assertEquals("[-] --> method2←0:s", mlvMethod2.toString());
+        assertEquals("[-] --> method2←0:s*", mlvMethod2.toString());
     }
 
     @Language("java")

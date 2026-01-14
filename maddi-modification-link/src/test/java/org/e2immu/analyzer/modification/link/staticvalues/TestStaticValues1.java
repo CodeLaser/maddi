@@ -130,7 +130,7 @@ public class TestStaticValues1 extends CommonTest {
             VariableInfo viX = vd0.variableInfo("x");
             assertEquals("x.j←0:i", viX.linkedVariables().toString());
 
-            assertEquals("[-] --> method.j←0:i", mlv.toString());
+            assertEquals("[-] --> method.j←0:i*", mlv.toString());
         }
         MethodInfo methodC = X.findUniqueMethod("methodC", 0);
         MethodLinkedVariables mlvC = methodC.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(methodC));
@@ -152,7 +152,7 @@ public class TestStaticValues1 extends CommonTest {
             assertEquals("x.j←0:a,x.k←1:b", viX.linkedVariables().toString());
             assertEquals("a, b", viX.linkedVariables().primaryAssigned().stream().map(Variable::simpleName)
                     .sorted().collect(Collectors.joining(", ")));
-            assertEquals("[-, -] --> method2.j←0:a,method2.k←1:b", mlv2.toString());
+            assertEquals("[-, -] --> method2.j←0:a*,method2.k←1:b*", mlv2.toString());
         }
 
     }
