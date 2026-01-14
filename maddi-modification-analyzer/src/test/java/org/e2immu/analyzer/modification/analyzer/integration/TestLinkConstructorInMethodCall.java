@@ -39,6 +39,9 @@ import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+// only difference between test1 and test2 is in the 'withException' method,
+// one 1 line, or on 2 lines
+
 public class TestLinkConstructorInMethodCall extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """

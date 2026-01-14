@@ -21,7 +21,6 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,16 +66,20 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             for (MethodInfo methodInfo : abstractMethodsWithoutImplementation) {
                 if (!methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD)) {
                     methodInfo.analysis().set(INDEPENDENT_METHOD, DEPENDENT);
+                    DECIDE.debug("AMA: Decide dependent method {}", methodInfo);
                 }
                 if (!methodInfo.analysis().haveAnalyzedValueFor(IMMUTABLE_METHOD)) {
                     methodInfo.analysis().set(IMMUTABLE_METHOD, ValueImpl.ImmutableImpl.MUTABLE);
+                    DECIDE.debug("AMA: Decide mutable method {}", methodInfo);
                 }
                 for (ParameterInfo pi : methodInfo.parameters()) {
                     if (!pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)) {
                         pi.analysis().set(INDEPENDENT_PARAMETER, DEPENDENT);
+                        DECIDE.debug("AMA: Decide dependent parameter {}", pi);
                     }
                     if (!pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER)) {
                         pi.analysis().set(UNMODIFIED_PARAMETER, FALSE);
+                        DECIDE.debug("AMA: Decide modified parameter {}", pi);
                     }
                 }
             }
@@ -88,11 +91,12 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             Map.Entry<MethodInfo, Set<MethodInfo>> entry = iterator.next();
             MethodInfo methodInfo = entry.getKey();
             try {
-                if (!methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD)
-                    || !methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD)
-                    || methodInfo.parameters().stream().anyMatch(pi ->
+                boolean haveIndependentMethod = methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD);
+                boolean haveNonModifyingMethod = methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD);
+                boolean undecidedInParameters = methodInfo.parameters().stream().anyMatch(pi ->
                         !pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)
-                        || !pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER))) {
+                        || !pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER));
+                if (!haveIndependentMethod || !haveNonModifyingMethod || undecidedInParameters) {
                     Set<MethodInfo> waitForOfMethod = resolve(methodInfo, entry.getValue());
                     if (waitForOfMethod.isEmpty()) {
                         iterator.remove();
@@ -147,7 +151,9 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             if (!waitFor.isEmpty()) {
                 return waitFor;
             }
-            pi.analysis().set(DOWNCAST_PARAMETER, new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)));
+            ValueImpl.SetOfTypeInfoImpl value = new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts));
+            pi.analysis().set(DOWNCAST_PARAMETER, value);
+            DECIDE.debug("AMA: Decide downcast parameter {}: {}", pi, value.nice());
         }
         return Set.of();
     }
@@ -171,9 +177,9 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             }
             if (fromImplementations != null) {
                 pi.analysis().set(INDEPENDENT_PARAMETER, fromImplementations);
-                DECIDE.debug("AM: Decide independent of param {} = {}", pi, fromImplementations);
+                DECIDE.debug("AMA: Decide independent of param {} = {}", pi, fromImplementations);
             } else {
-                UNDECIDED.debug("AM: Independent of param {} undecided, wait for {}", pi, waitFor);
+                UNDECIDED.debug("AMA: Independent of param {} undecided, wait for {}", pi, waitFor);
             }
             return waitFor;
         }
@@ -229,9 +235,9 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             }
             if (fromImplementations != null) {
                 methodInfo.analysis().set(INDEPENDENT_METHOD, fromImplementations);
-                DECIDE.debug("AM: Decide independent of method {} = {}", methodInfo, fromImplementations);
+                DECIDE.debug("AMA: Decide independent of method {} = {}", methodInfo, fromImplementations);
             } else {
-                UNDECIDED.debug("AM: Independent of method {} undecided, wait for {}", methodInfo, waitFor);
+                UNDECIDED.debug("AMA: Independent of method {} undecided, wait for {}", methodInfo, waitFor);
             }
             return waitFor;
         }
