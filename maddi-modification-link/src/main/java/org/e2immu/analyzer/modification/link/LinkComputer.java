@@ -10,8 +10,6 @@ public interface LinkComputer {
     // tests only!
     void doPrimaryType(TypeInfo primaryType);
 
-    Links doField(FieldInfo fieldInfo);
-
     MethodLinkedVariables doMethod(MethodInfo methodInfo);
 
     record Options(boolean recurse, boolean forceShallow, boolean checkDuplicateNames) {
