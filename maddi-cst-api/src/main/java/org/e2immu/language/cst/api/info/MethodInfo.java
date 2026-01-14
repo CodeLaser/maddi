@@ -147,7 +147,9 @@ public interface MethodInfo extends Info {
 
     boolean isSyntheticConstructor();
 
-    boolean isStaticBlock();
+    boolean isStaticInitializer();
+
+    boolean isInstanceInitializer();
 
     // from analysis
 

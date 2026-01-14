@@ -41,7 +41,8 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     public enum MethodTypeEnum implements MethodType {
         CONSTRUCTOR(true), COMPACT_CONSTRUCTOR(true), SYNTHETIC_CONSTRUCTOR(true),
         SYNTHETIC_ARRAY_CONSTRUCTOR(true),
-        STATIC_BLOCK(false), DEFAULT_METHOD(false), STATIC_METHOD(false),
+        STATIC_INITIALIZER(false), INSTANCE_INITIALIZER(false),
+        DEFAULT_METHOD(false), STATIC_METHOD(false),
         ABSTRACT_METHOD(false), METHOD(false);
         final boolean constructor;
 
@@ -56,7 +57,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
         @Override
         public boolean isStatic() {
-            return this == STATIC_BLOCK || this == STATIC_METHOD;
+            return this == STATIC_INITIALIZER || this == STATIC_METHOD;
         }
 
         @Override
@@ -76,7 +77,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
         @Override
         public boolean isStaticInitializer() {
-            return this == STATIC_BLOCK;
+            return this == STATIC_INITIALIZER;
         }
     }
 
@@ -312,8 +313,14 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
         return methodType == MethodTypeEnum.SYNTHETIC_CONSTRUCTOR || methodType == MethodTypeEnum.SYNTHETIC_ARRAY_CONSTRUCTOR;
     }
 
-    public boolean isStaticBlock() {
-        return methodType == MethodTypeEnum.STATIC_BLOCK;
+    @Override
+    public boolean isStaticInitializer() {
+        return methodType == MethodTypeEnum.STATIC_INITIALIZER;
+    }
+
+    @Override
+    public boolean isInstanceInitializer() {
+        return methodType == MethodTypeEnum.INSTANCE_INITIALIZER;
     }
 
     @Override

@@ -606,7 +606,7 @@ public class ParseTypeDeclaration extends CommonParse {
         List<TypeDeclaration> typeDeclarations = new ArrayList<>();
         List<FieldDeclaration> fieldDeclarations = new ArrayList<>();
         int countNormalConstructors = 0;
-        int countStaticInializers = 0;
+        int countInitializers = 0;
 
         for (Node child : body.children()) {
             if (!(child instanceof EmptyDeclaration)) {
@@ -642,38 +642,35 @@ public class ParseTypeDeclaration extends CommonParse {
                         builder.addConstructor(constructor);
                     } // else error
                 } else if (child instanceof Initializer i) {
+                    int j = 0;
                     boolean staticInitializer = Token.TokenType.STATIC.equals(i.getFirst().getType());
+                    String base;
+                    MethodInfo.MethodType methodType;
                     if (staticInitializer) {
-                        if (i.get(1) instanceof CodeBlock cb) {
-                            Source cbSource = source(cb);
-                            String name = "<static_" + (countStaticInializers++) + ">";
-                            MethodInfo staticMethod = runtime.newMethod(typeInfo, name,
-                                    runtime.methodTypeStaticBlock());
-                            staticMethod.builder()
-                                    .setSource(cbSource)
-                                    .setReturnType(runtime.voidParameterizedType())
-                                    .setAccess(runtime.accessPrivate())
-                                    .commitParameters();
-                            newContext.resolver().add(staticMethod, staticMethod.builder(),
-                                    newContext.emptyForwardType(), null, cb, newContext,
-                                    null);
-                            builder.addMethod(staticMethod);
-                        } else {
-                            throw new Summary.ParseException(newContext, "Unknown node in static initializer");
-                        }
-                    } else if (i.getFirst() instanceof CodeBlock cb) {
-                        Context initializerContext = newContext.newSubType(typeInfo);
-                        MethodInfo constructor = runtime.newConstructor(typeInfo);
-                        constructor.builder()
-                                .setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
-                                .setAccess(runtime.accessPublic())
+                        ++j;
+                        base = "<static_";
+                        methodType = runtime.methodTypeStaticInitializer();
+                    } else {
+                        base = "<init_";
+                        methodType = runtime.methodTypeInstanceInitializer();
+                    }
+                    if (i.get(j) instanceof CodeBlock cb) {
+                        Source cbSource = source(cb);
+                        String name = base + (countInitializers++) + ">";
+                        MethodInfo method = runtime.newMethod(typeInfo, name, methodType);
+                        method.builder()
+                                .setSource(cbSource)
+                                .setReturnType(runtime.voidParameterizedType())
+                                .setAccess(runtime.accessPrivate())
                                 .commitParameters();
-                        builder.addConstructor(constructor);
-                        initializerContext.resolver().add(constructor, constructor.builder(),
-                                initializerContext.emptyForwardType(), null, cb, initializerContext,
+                        newContext.resolver().add(method, method.builder(),
+                                newContext.emptyForwardType(), null, cb, newContext,
                                 null);
-                        countNormalConstructors++;
-                    } else throw new Summary.ParseException(newContext, "Unknown initializer");
+                        builder.addMethod(method);
+                    } else {
+                        throw new Summary.ParseException(newContext, "Unknown node in static initializer");
+                    }
+
                 }
             }
         }
