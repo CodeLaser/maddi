@@ -226,8 +226,20 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
             copyModificationsIntoMethod(allModified, mlv);
+            if (vd != null) copyDowncastIntoParameters(vd);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
             return mlv;
+        }
+
+        private void copyDowncastIntoParameters(VariableData vd) {
+            for (ParameterInfo pi : methodInfo.parameters()) {
+                VariableInfoContainer vic = vd.variableInfoContainerOrNull(pi.fullyQualifiedName());
+                if (vic != null) {
+                    VariableInfo vi = vic.best();
+                    pi.analysis().setAllowControlledOverwrite(PropertyImpl.DOWNCAST_PARAMETER,
+                            vi.analysis().getOrDefault(DOWNCAST_VARIABLE, ValueImpl.SetOfTypeInfoImpl.EMPTY));
+                }
+            }
         }
 
         private void copyModificationsIntoMethod(Set<Variable> modified, MethodLinkedVariables mlv) {
