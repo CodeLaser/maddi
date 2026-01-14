@@ -169,12 +169,12 @@ public class TestModificationFunctional extends CommonTest {
 
         MethodInfo parse = X.findUniqueMethod("parse", 1);
         MethodLinkedVariables mlvParse = parse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> parse←this.j", mlvParse.toString());
+        assertEquals("[-] --> parse←this*.j", mlvParse.toString());
         assertSame(FALSE, parse.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
 
         MethodInfo run = X.findUniqueMethod("run", 2);
         MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:r.function↗$_afi2] --> run←$_afi2,run↖Λ1:r.function", mlvRun.toString());
+        assertEquals("[-, 1:r.function*↗$_afi2] --> run←$_afi2,run↖Λ1:r.function*", mlvRun.toString());
         ParameterInfo runS = run.parameters().get(0);
         ParameterInfo runR = run.parameters().get(1);
 
@@ -190,9 +190,9 @@ public class TestModificationFunctional extends CommonTest {
 
         // now test the propagation
         MethodInfo go = X.findUniqueMethod("go", 1);
-        assertSame(FALSE, go.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
+        assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
-        assertSame(TRUE, goIn.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
+        assertTrue(goIn.isUnmodified());
     }
 
     @Language("java")

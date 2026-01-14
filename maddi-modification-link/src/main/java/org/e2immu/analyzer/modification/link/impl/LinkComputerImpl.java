@@ -13,7 +13,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -87,11 +86,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private void doType(TypeInfo typeInfo) {
         typeInfo.subTypes().forEach(this::doType);
         typeInfo.constructorAndMethodStream().forEach(mi -> mi.analysis().getOrCreate(METHOD_LINKS, () -> doMethod(mi)));
-    }
-
-    @Override
-    public Links doField(FieldInfo fieldInfo) {
-        throw new UnsupportedOperationException("NYI");
     }
 
     @Override
@@ -201,6 +195,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return tc;
         }
 
+        // TODO: copy linked variables of a variable in closure to others in the closure, to that closure
         public MethodLinkedVariables go() {
             VariableData vd = doBlock(methodInfo.methodBody(), null);
             Links ofReturnValue = vd == null || returnVariable == null
@@ -212,20 +207,23 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .collect(Collectors.toUnmodifiableSet());
             List<Links> ofParameters = methodInfo.parameters().stream()
                     .map(pi -> filteredPi(pi, paramsInOfReturnValue, vd)).toList();
+            Set<Variable> inClosure = vd == null ? Set.of()
+                    : vd.variableInfoStream().filter(vi -> vi.variableInfoInClosure() != null)
+                    .map(VariableInfo::variable).collect(Collectors.toUnmodifiableSet());
             Set<Variable> modified = vd == null ? Set.of()
                     : vd.variableInfoStream()
                     .filter(vi -> !vi.variable().equals(returnVariable)
-                                  && LinkVariable.acceptForLinkedVariables(vi.variable()))
+                                  && (vi.variableInfoInClosure() != null || LinkVariable.acceptForLinkedVariables(vi.variable())))
                     .filter(VariableInfo::isModified)
                     .map(VariableInfo::variable)
                     .collect(Collectors.toUnmodifiableSet());
             Set<Variable> modifiedOutside = this.modificationsOutsideVariableData.stream()
-                    .filter(LinkVariable::acceptForLinkedVariables)
+                    .filter(v -> inClosure.contains(v) || LinkVariable.acceptForLinkedVariables(v))
                     .collect(Collectors.toUnmodifiableSet());
             Set<Variable> allModified = Stream.concat(modified.stream(), modifiedOutside.stream())
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
-            copyModificationsIntoMethod(allModified, mlv);
+            copyModificationsIntoMethod(allModified, inClosure, mlv);
             if (vd != null) copyDowncastIntoParameters(vd);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
             return mlv;
@@ -242,12 +240,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
         }
 
-        private void copyModificationsIntoMethod(Set<Variable> modified, MethodLinkedVariables mlv) {
+        private void copyModificationsIntoMethod(Set<Variable> modified, Set<Variable> inClosure, MethodLinkedVariables mlv) {
             boolean methodModified = false;
             boolean[] paramsModified = new boolean[methodInfo.parameters().size()];
             for (Variable v : modified) {
                 if (v instanceof This thisVar && thisVar.typeInfo().equals(methodInfo.typeInfo())
-                    || v instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                    || v instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
+                    || inClosure.contains(v)) {
                     methodModified = true;
                 } else if (v instanceof ParameterInfo pi && pi.methodInfo().equals(methodInfo)) {
                     paramsModified[pi.index()] = true;
