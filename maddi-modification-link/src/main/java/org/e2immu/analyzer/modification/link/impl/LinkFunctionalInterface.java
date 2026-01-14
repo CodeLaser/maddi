@@ -45,7 +45,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         // FUNCTIONAL INTERFACE
 
         MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
-        if (linksList.isEmpty()) return List.of();
+        if (sam == null || linksList.isEmpty()) return List.of();
 
         if (sam.parameters().isEmpty() || sam.noReturnValue()) {
             if (sam.noReturnValue() && linksList.stream().allMatch(Links::isEmpty)) {
