@@ -243,7 +243,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             methodInfo.analysis().set(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.from(!methodModified));
             for (ParameterInfo pi : methodInfo.parameters()) {
-                pi.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.from(!paramsModified[pi.index()]));
+                Value.Bool unmodified = ValueImpl.BoolImpl.from(!paramsModified[pi.index()]);
+                pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodified);
             }
         }
 
@@ -411,7 +412,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private Set<Variable> computePreviouslyModified(VariableData vd, VariableData previousVd, Stage stageOfPrevious) {
             if (previousVd != null) {
                 return previousVd.variableInfoStream(stageOfPrevious)
-               //         .filter(vi -> !(vi.variable() instanceof This))
+                        //         .filter(vi -> !(vi.variable() instanceof This))
                         .filter(vi -> vd.isKnown(vi.variable().fullyQualifiedName()))
                         .map(vi -> {
                             Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);

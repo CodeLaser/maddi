@@ -1018,6 +1018,10 @@ public abstract class ValueImpl implements Value {
             return new SetOfTypeInfoImpl(set);
         }
 
+        public String nice() {
+            return typeInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
+        }
+
         @Override
         public Value rewire(InfoMap infoMap) {
             throw new UnsupportedOperationException("NYI");

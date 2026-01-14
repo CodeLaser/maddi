@@ -38,6 +38,8 @@ public abstract class CommonTest {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
         ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.modification.link"))
                 .setLevel(Level.DEBUG);
+        ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.modification.analyzer"))
+                .setLevel(Level.DEBUG);
     }
 
     @BeforeEach
