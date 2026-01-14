@@ -66,7 +66,7 @@ public class TestForEachLambda extends CommonTest {
         // propagation of modifications of the parameter
         MethodInfo add2 = X.findUniqueMethod("add2", 1);
         MethodLinkedVariables add2Mtl = add2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add2));
-        assertEquals("[0:ii∈this.set*.§$s] --> -", add2Mtl.toString());
+        assertEquals("[0:ii*∈this.set*.§$s] --> -", add2Mtl.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -296,7 +296,7 @@ public class TestForEachLambda extends CommonTest {
 
         MethodInfo put2 = X.findUniqueMethod("put2", 2);
         MethodLinkedVariables mlvPut2 = put2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put2));
-        assertEquals("[0:i∈this.map*.§$$s[-1], 1:ii∈this.map*.§$$s[-2]] --> -", mlvPut2.toString());
+        assertEquals("[0:i*∈this.map*.§$$s[-1], 1:ii*∈this.map*.§$$s[-2]] --> -", mlvPut2.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -360,20 +360,18 @@ public class TestForEachLambda extends CommonTest {
     public void test8() {
         TypeInfo X = javaInspector.parse(INPUT8);
 
-        final String LINKS_PUT = "[0:h∈this.map*.§$$s[-1], 1:ii∈this.map*.§$$s[-2]] --> -";
-
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
         MethodInfo add = X.findUniqueMethod("put", 2);
         MethodLinkedVariables mtlAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals(LINKS_PUT, mtlAdd.toString());
+        assertEquals("[0:h∈this.map*.§$$s[-1], 1:ii∈this.map*.§$$s[-2]] --> -", mtlAdd.toString());
 
         MethodInfo add2 = X.findUniqueMethod("put2", 2);
         MethodLinkedVariables add2Mtl = add2.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
-        assertEquals(LINKS_PUT, add2Mtl.toString());
+        assertEquals("[0:h*∈this.map*.§$$s[-1], 1:ii*∈this.map*.§$$s[-2]] --> -", add2Mtl.toString());
 
         final String LINKS_MAP_PUT = """
                 [0:map.§$$s[-1]~this.map*.§$$s[-2],\

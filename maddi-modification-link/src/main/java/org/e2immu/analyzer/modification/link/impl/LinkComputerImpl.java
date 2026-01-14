@@ -225,12 +225,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Set<Variable> allModified = Stream.concat(modified.stream(), modifiedOutside.stream())
                     .collect(Collectors.toUnmodifiableSet());
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
-            copyModificationsIntoMethod(allModified);
+            copyModificationsIntoMethod(allModified, mlv);
             LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
             return mlv;
         }
 
-        private void copyModificationsIntoMethod(Set<Variable> modified) {
+        private void copyModificationsIntoMethod(Set<Variable> modified, MethodLinkedVariables mlv) {
             boolean methodModified = false;
             boolean[] paramsModified = new boolean[methodInfo.parameters().size()];
             for (Variable v : modified) {
@@ -243,11 +243,19 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             methodInfo.analysis().set(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.from(!methodModified));
             for (ParameterInfo pi : methodInfo.parameters()) {
-                Value.Bool unmodified = ValueImpl.BoolImpl.from(!paramsModified[pi.index()]);
-                pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodified);
+                Links links = mlv.ofParameters().get(pi.index());
+                if (links.stream().noneMatch(l -> l.to().variableStreamDescend()
+                        .anyMatch(v -> v instanceof FieldReference fr && inCurrentHierarchy(fr.fieldInfo().owner())))) {
+                    Value.Bool unmodified = ValueImpl.BoolImpl.from(!paramsModified[pi.index()]);
+                    pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodified);
+                } // else: we'll need to wait until we know about all the links of the field; see TestFieldAnalyzer
             }
         }
 
+        private boolean inCurrentHierarchy(TypeInfo typeInfo) {
+            return typeInfo.equals(methodInfo.typeInfo())
+                   || methodInfo.typeInfo().superTypesExcludingJavaLangObject().contains(typeInfo);
+        }
 
         private Links emptyIfOnlySomeValue(Links links) {
             if (links.stream().allMatch(l ->

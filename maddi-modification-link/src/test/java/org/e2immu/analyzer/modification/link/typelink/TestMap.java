@@ -101,8 +101,8 @@ public class TestMap extends CommonTest {
             assertEquals("0:x∈2:c.map.§kvs[-1]", tlvX0.toString());
 
             assertEquals("""
-                    [0:x∈2:c.map*.§kvs[-1], 1:y∈2:c.map*.§kvs[-2], 2:c.map*.§kvs[-1]∋0:x,2:c.map*.§kvs[-2]∋1:y] \
-                    --> staticPut∈2:c.map*.§kvs[-2]\
+                    [0:x*∈2:c.map*.§kvs[-1], 1:y*∈2:c.map*.§kvs[-2], 2:c.map*.§kvs[-1]∋0:x*,2:c.map*.§kvs[-2]∋1:y*] --> \
+                    staticPut∈2:c.map*.§kvs[-2]\
                     """, mlvSPut.toString());
         }
 
@@ -120,8 +120,8 @@ public class TestMap extends CommonTest {
             assertEquals("1:x∈0:c.map.§kvs[-1]", tlvX0.toString());
 
             assertEquals("""
-                    [0:c.map*.§kvs[-1]∋1:x,0:c.map*.§kvs[-2]∋2:y, 1:x∈0:c.map*.§kvs[-1], 2:y∈0:c.map*.§kvs[-2]] \
-                    --> staticPut2∈0:c.map*.§kvs[-2]\
+                    [0:c.map*.§kvs[-1]∋1:x*,0:c.map*.§kvs[-2]∋2:y*, 1:x*∈0:c.map*.§kvs[-1], 2:y*∈0:c.map*.§kvs[-2]] --> \
+                    staticPut2∈0:c.map*.§kvs[-2]\
                     """, tlvSPut.toString());
         }
     }

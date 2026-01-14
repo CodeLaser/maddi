@@ -158,8 +158,8 @@ public class TestList extends CommonTest {
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, 1:x.ts*[0:i]←2:k,1:x.ts*∋2:k, 2:k→1:x.ts*[0:i],2:k∈1:x.ts*] --> \
-                method←1:x.ts*[0:i],method←2:k,method∈1:x.ts*\
+                [-, 1:x.ts*[0:i]←2:k*,1:x.ts*∋2:k*, 2:k*→1:x.ts*[0:i],2:k*∈1:x.ts*] --> \
+                method←1:x.ts*[0:i],method←2:k*,method∈1:x.ts*\
                 """, tlvMethod.toString());
     }
 
