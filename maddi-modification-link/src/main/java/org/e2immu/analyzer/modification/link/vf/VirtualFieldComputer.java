@@ -196,8 +196,10 @@ public class VirtualFieldComputer {
                             ? hiddenContent.type()
                             : p0.copyWithArrays(p0.arrays() + extraMultiplicity);
                     for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                        int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - replaceBy.arrays());
-                        fieldTm.put(formalHiddenContent.type().typeParameter(), replaceBy.copyWithArrays(arrayDiff));
+                        if (formalHiddenContent != null) {
+                            int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - replaceBy.arrays());
+                            fieldTm.put(formalHiddenContent.type().typeParameter(), replaceBy.copyWithArrays(arrayDiff));
+                        }
                     }
                 } else {
                     List<FieldInfo> hiddenContentComponents = new ArrayList<>(pt.parameters().size());

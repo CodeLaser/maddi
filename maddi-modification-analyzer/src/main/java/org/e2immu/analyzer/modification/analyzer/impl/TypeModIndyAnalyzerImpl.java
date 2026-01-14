@@ -18,10 +18,12 @@ import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeModIndyAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.*;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -38,7 +40,6 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import java.util.*;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
@@ -121,13 +122,13 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         private void handleNormalMethod(MethodInfo methodInfo) {
             Statement lastStatement = methodInfo.methodBody().lastStatement();
             assert lastStatement != null;
-            VariableData variableData = VariableDataImpl.of(lastStatement);
             doIdentityAnalysis(methodInfo);
             doFluentAnalysis(methodInfo);
-            doIndependent(methodInfo, variableData);
+            MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS, MethodLinkedVariablesImpl.EMPTY);
+            doIndependent(methodInfo, mlv);
 
             for (ParameterInfo pi : methodInfo.parameters()) {
-                handleParameter(methodInfo, pi, variableData);
+                handleParameter(methodInfo, pi, mlv);
             }
         }
 
@@ -174,38 +175,35 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             }
         }
 
-        private void handleParameter(MethodInfo methodInfo, ParameterInfo pi, VariableData variableData) {
-            VariableInfoContainer vic = variableData.variableInfoContainerOrNull(pi.fullyQualifiedName());
-            if (vic == null) return;
-            VariableInfo vi = vic.best();
+        private void handleParameter(MethodInfo methodInfo, ParameterInfo pi, MethodLinkedVariables mlv) {
             Value.Immutable imm = analysisHelper.typeImmutable(pi.parameterizedType());
-            Bool unmodified;
+            Bool unmodifiedInMethod;
             if (imm.isImmutable()) {
-                unmodified = TRUE;
+                unmodifiedInMethod = TRUE;
             } else {
-                unmodified = vi.analysis().getOrDefault(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.FALSE);
-
-                if (vi.linkedVariables() != null && (unmodified == null || unmodified.isTrue())) {
+                unmodifiedInMethod = ValueImpl.BoolImpl.from(!mlv.modified().contains(pi));
+                Links links = mlv.ofParameters().get(pi.index());
+                if (!links.isEmpty() && (unmodifiedInMethod == null || unmodifiedInMethod.isTrue())) {
                     // FIXME if mutable, check for §m; if HC, check for a HC link such as ~
-                    for (Link link : vi.linkedVariables()) {
+                    for (Link link : links) {
                         if (link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
                             Bool unmodifiedField = fr.fieldInfo().analysis().getOrNull(UNMODIFIED_FIELD,
                                     ValueImpl.BoolImpl.class);
                             if (unmodifiedField == null) {
-                                unmodified = null;
+                                unmodifiedInMethod = null;
                                 waitForField.computeIfAbsent(methodInfo, m -> new HashSet<>()).add(fr.fieldInfo());
                                 break;
                             } else if (unmodifiedField.isFalse()) {
-                                unmodified = FALSE;
+                                unmodifiedInMethod = FALSE;
                                 break;
                             }
                         }
                     }
                 }
             }
-            if (unmodified != null) {
-                if (pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, unmodified)) {
-                    DECIDE.debug("MI: unmodified of parameter {} = {}", pi, unmodified);
+            if (unmodifiedInMethod != null) {
+                if (pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, unmodifiedInMethod)) {
+                    DECIDE.debug("MI: unmodified of parameter {} = {}", pi, unmodifiedInMethod);
                 }
             } else if (cycleBreakingActive) {
                 UNDECIDED.info("MI: Unmodified of parameter {} undecided, waitForField {}", pi, waitForField);
@@ -311,9 +309,9 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
     normal methods: does a modification to the return value imply any modification in the method's object?
         independent directly related to the immutability of the fields to which the return value links.
      */
-        private void doIndependent(MethodInfo methodInfo, VariableData lastOfMainBlock) {
+        private void doIndependent(MethodInfo methodInfo, MethodLinkedVariables mlv) {
 
-            Independent independentMethod = doIndependentMethod(methodInfo, lastOfMainBlock);
+            Independent independentMethod = doIndependentMethod(methodInfo, mlv);
             if (independentMethod != null) {
                 if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_METHOD, independentMethod)) {
                     DECIDE.debug("MI: Decide independent of method {} = {}", methodInfo, independentMethod);
@@ -326,7 +324,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
                 UNDECIDED.debug("MI: Independent of method undecided: {}", methodInfo);
             }
             for (ParameterInfo pi : methodInfo.parameters()) {
-                Independent independent = doIndependentParameter(pi, lastOfMainBlock);
+                Independent independent = doIndependentParameter(pi, mlv);
                 if (independent != null) {
                     if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_PARAMETER, independent)) {
                         DECIDE.debug("MI: Decide independent of parameter {} = {}", pi, independent);
@@ -341,45 +339,44 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             }
         }
 
-        private Independent doIndependentParameter(ParameterInfo pi, VariableData lastOfMainBlock) {
+        private Independent doIndependentParameter(ParameterInfo pi, MethodLinkedVariables mlv) {
             boolean typeIsImmutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
             if (typeIsImmutable) return INDEPENDENT;
             if (pi.methodInfo().isAbstract() || pi.methodInfo().methodBody().isEmpty()) return DEPENDENT;
-            return worstLinkToFields(lastOfMainBlock, pi.fullyQualifiedName());
+            Links links = mlv.ofParameters().get(pi.index());
+            return worstLinkToFields(links, pi.fullyQualifiedName());
         }
 
-        private Independent doIndependentMethod(MethodInfo methodInfo, VariableData lastOfMainBlock) {
+        private Independent doIndependentMethod(MethodInfo methodInfo, MethodLinkedVariables mlv) {
             if (methodInfo.isConstructor() || methodInfo.noReturnValue()) return INDEPENDENT;
             assert !methodInfo.isAbstract() : "Code only called when there is a method body";
             boolean fluent = methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE).isTrue();
             if (fluent) return INDEPENDENT;
             boolean typeIsImmutable = analysisHelper.typeImmutable(methodInfo.returnType()).isImmutable();
             if (typeIsImmutable) return INDEPENDENT;
-            // TODO this is a temporary fail-safe, to avoid problems
-            //  in case of a synthetic method without variables, INDEPENDENT would be correct.
-            //  in case of a synthetic method without code, DEPENDENT may be the best choice
-            if (lastOfMainBlock == null) return DEPENDENT; // happens in some synthetic cases
-            return worstLinkToFields(lastOfMainBlock, methodInfo.fullyQualifiedName());
+            return worstLinkToFields(mlv.ofReturnValue(), methodInfo.fullyQualifiedName());
         }
 
-        private Independent worstLinkToFields(VariableData lastOfMainBlock, String variableFqn) {
-            assert lastOfMainBlock != null;
-            VariableInfoContainer vic = lastOfMainBlock.variableInfoContainerOrNull(variableFqn);
-            if (vic == null) return INDEPENDENT; // variable does not occur.
-            VariableInfo viRv = vic.best();
-            if (viRv.linkedVariables() == null) {
-                return null; // not yet
-            }
+        private Independent worstLinkToFields(Links links, String variableFqn) {
+            if (links.isEmpty()) return INDEPENDENT; // variable does not occur.
+
             boolean immutableHc = false;
-            for (Link link : viRv.linkedVariables()) {
+            for (Link link : links) {
                 Variable primaryTo = Util.primary(link.to());
                 if (primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
-                    if (primaryTo == link.to() && link.linkNature().isIdenticalToOrAssignedFromTo()) {
+                    if (primaryTo == link.to() && link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_TO)) {
+                        // this.set ← 0:set, TestFieldAnalyzer,1,2
                         Immutable fieldImmutable = analysisHelper.typeImmutable(primaryTo.parameterizedType());
                         if (fieldImmutable.isMutable()) return DEPENDENT;
                         if (fieldImmutable.isImmutableHC()) immutableHc = true;
+                    } else if (link.linkNature().equals(LinkNatureImpl.SHARES_ELEMENTS)
+                               || link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)
+                               || link.linkNature().equals(LinkNatureImpl.IS_SUPERSET_OF)) {
+                        // 0:set.§cs⊇this.set.§cs, TestFieldAnalyzer,3
+                        Immutable fieldImmutable = analysisHelper.typeImmutable(primaryTo.parameterizedType());
+                        if (!fieldImmutable.isImmutable()) immutableHc = true;
                     }
-                } // else FIXME other links!!
+                }
             }
             return immutableHc ? INDEPENDENT_HC : INDEPENDENT;
         }
