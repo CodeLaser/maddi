@@ -2,13 +2,15 @@ package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
+import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,8 +18,8 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestVirtualFieldComputer2 extends CommonTest {
 
@@ -54,4 +56,36 @@ public class TestVirtualFieldComputer2 extends CommonTest {
 
     }
 
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.HashSet;
+            import java.util.Set;
+            class B<C> {
+                private final Set<C> set;
+                B(Set<C> set) {
+                    this.set = new HashSet<>(set);
+                }
+            }
+            """;
+
+    @DisplayName("new HashSet<>(set)")
+    @Test
+    public void test3() {
+        TypeInfo B = javaInspector.parse(INPUT2);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(B);
+        MethodInfo method = B.findConstructor(1);
+        Assignment assignment = (Assignment) method.methodBody().statements().getFirst().expression();
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("Type java.util.HashSet<C>", assignment.value().parameterizedType().toString());
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(assignment.value().parameterizedType(), true);
+        assertEquals("""
+                VfTm[virtualFields=§m - C[] §cs, formalToConcrete=E=TP#0 in AbstractCollection [] --> C=TP#0 in B []
+                E=TP#0 in Collection [] --> C=TP#0 in B []
+                E=TP#0 in HashSet [] --> C=TP#0 in B []
+                E=TP#0 in Set [] --> C=TP#0 in B []
+                T=TP#0 in Iterable [] --> C=TP#0 in B []]\
+                """, vfTm.toString());
+    }
 }
