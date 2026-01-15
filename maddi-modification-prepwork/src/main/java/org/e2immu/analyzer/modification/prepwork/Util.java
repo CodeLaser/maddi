@@ -16,7 +16,6 @@ package org.e2immu.analyzer.modification.prepwork;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.expression.IntConstant;
-import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.variable.*;
@@ -197,6 +196,16 @@ public class Util {
                     .collect(Collectors.toUnmodifiableSet());
         }
         return Set.of();
+    }
+
+    public static Stream<Variable> variableAndScopes(Variable variable) {
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return Stream.concat(variableAndScopes(fr.scopeVariable()), Stream.of(variable));
+        }
+        if (variable instanceof DependentVariable dv) {
+            return Stream.concat(variableAndScopes(dv.arrayVariable()), Stream.of(variable));
+        }
+        return Stream.of(variable);
     }
 
     public static String simpleName(Variable variable) {

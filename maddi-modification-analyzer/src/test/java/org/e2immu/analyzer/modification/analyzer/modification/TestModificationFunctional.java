@@ -133,7 +133,7 @@ public class TestModificationFunctional extends CommonTest {
         assertEquals("1:r.function↗$_afi2,1:r.function↗run", vi1R.linkedVariables().toString());
 
         assertTrue(runS.isUnmodified());
-        assertTrue(runR.isUnmodified());
+        assertTrue(runR.isModified());
         assertTrue(run.isNonModifying());
 
         // now test the propagation
@@ -194,7 +194,7 @@ public class TestModificationFunctional extends CommonTest {
             VariableInfo vi1S = vd1.variableInfo(runS);
             assertEquals("1:s.r.function↗$_afi2,1:s.r.function↗run", vi1S.linkedVariables().toString());
         }
-        assertTrue(runS.isUnmodified());
+        assertTrue(runS.isModified());
         assertEquals("""
                 [-, 1:s.r.function*↗$_afi2] --> run←$_afi2,run↖Λ1:s.r.function*\
                 """, run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
@@ -309,7 +309,7 @@ public class TestModificationFunctional extends CommonTest {
             VariableInfo vi1S = vd1.variableInfo(runS);
             assertEquals("1:s.r.function↗$_afi2,1:s.r.function↗run", vi1S.linkedVariables().toString());
         }
-        assertTrue(runS.isUnmodified());
+        assertTrue(runS.isModified());
         assertTrue(run.isNonModifying());
         assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
