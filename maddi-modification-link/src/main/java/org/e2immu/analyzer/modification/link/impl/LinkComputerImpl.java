@@ -213,7 +213,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             Set<Variable> modified = vd == null ? Set.of()
                     : vd.variableInfoStream()
                     .filter(vi -> !vi.variable().equals(returnVariable)
-                                  && (vi.variableInfoInClosure() != null || LinkVariable.acceptForLinkedVariables(vi.variable())))
+                                  && (vi.variableInfoInClosure() != null
+                                      || LinkVariable.acceptForLinkedVariables(vi.variable())))
                     .filter(VariableInfo::isModified)
                     .map(VariableInfo::variable)
                     .collect(Collectors.toUnmodifiableSet());

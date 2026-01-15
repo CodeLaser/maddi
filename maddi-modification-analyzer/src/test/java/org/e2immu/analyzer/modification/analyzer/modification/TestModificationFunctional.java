@@ -359,12 +359,22 @@ public class TestModificationFunctional extends CommonTest {
         MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-, 1:function*↗$_afi2] --> run←$_afi2,run↖Λ1:function*", mlvRun.toString());
 
+        MethodInfo indirection = X.findUniqueMethod("indirection", 2);
+        assertTrue(run.isNonModifying());
+        MethodLinkedVariables mlvIndirection = indirection.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-, -] --> indirection←$_afi2", mlvIndirection.toString());
+        assertEquals("""
+                System.out, a.b.X.indirection(String,java.util.function.Function<String,Integer>):1:function, \
+                a.b.X.run(String,java.util.function.Function<String,Integer>):1:function\
+                """, mlvIndirection.sortedModifiedString());
+
         MethodInfo go = X.findUniqueMethod("go", 1);
         assertTrue(go.isModifying());
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> go←$_afi2", mlvGo.toString());
+        assertEquals("[-] --> go←this*.j", mlvGo.toString());
         assertEquals("""
-                $_fi0, System.out, a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, this\
+                $_fi0, System.out, a.b.X.indirection(String,java.util.function.Function<String,Integer>):1:function, \
+                a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, this\
                 """, mlvGo.sortedModifiedString());
     }
 
