@@ -22,8 +22,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-
 /*
 Part of the LinkMethodCall code, objectToReturnValue.
 
@@ -62,7 +60,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
             Variable objectPrimary) {
         List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
         ParameterizedType functionalType;
-        if (!applied.sourceOfFunctionalInterface().parameterizedType().isFunctionalInterface()) {
+        if (!applied.sourceOfFunctionalInterface().parameterizedType().isStandardFunctionalInterface()) {
             // we must search for links to FIVs, and expand them
             SearchResult sr = searchAndExpand(list, extraModified);
             if (sr == null) return;
@@ -72,9 +70,9 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
             functionalType = applied.sourceOfFunctionalInterface().parameterizedType();
         }
         List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
-        List<LinkFunctionalInterface.Triplet> toAdd = new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
-                .go(functionalType, fromTranslated, linkNature, builder.primary(), translated,
-                        objectPrimary);
+        List<LinkFunctionalInterface.Triplet> toAdd = new LinkFunctionalInterface(runtime, virtualFieldComputer,
+                currentMethod).go(functionalType, fromTranslated, linkNature, builder.primary(), translated,
+                objectPrimary);
         toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
     }
 

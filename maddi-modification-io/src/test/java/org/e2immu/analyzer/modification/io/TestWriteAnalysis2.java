@@ -17,8 +17,8 @@ package org.e2immu.analyzer.modification.io;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.io.LinkCodec;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.util.internal.util.Trie;
@@ -31,10 +31,10 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestWriteAnalysis2 extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestWriteAnalysis2.class);
@@ -82,7 +82,23 @@ public class TestWriteAnalysis2 extends CommonTest {
     @DisplayName("basics")
     @Test
     public void test1() throws IOException {
-        test(INPUT1, OUTPUT1, JSON1);
+        TypeInfo X = javaInspector.parse(INPUT1);
+        prepWork(X);
+        LinkComputer lc = new LinkComputerImpl(javaInspector);
+        lc.doPrimaryType(X);
+
+        String s = javaInspector.print2(X, new DecoratorImpl(runtime, javaInspector.mainSources()),
+                javaInspector.importComputer(4, javaInspector.mainSources()));
+        assertEquals(OUTPUT1, s);
+        Trie<TypeInfo> typeTrie = new Trie<>();
+        typeTrie.add(X.fullyQualifiedName().split("\\."), X);
+        WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
+        File dest = new File("build/json");
+        if (dest.mkdirs()) LOGGER.info("Created {}", dest);
+        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
+        writeAnalysis.write(dest, typeTrie, codec);
+        String written = Files.readString(new File(dest, "ABX.json").toPath());
+        assertEquals(JSON1, written);
     }
 
 
@@ -118,6 +134,7 @@ public class TestWriteAnalysis2 extends CommonTest {
             class X {
                 record R(Set<Integer> set, int i, List<String> list) { }
                 @NotModified void setAdd(X.R r) { r.set.add(r.i); }
+                @NotModified
                 void method() {
                     List<String> l = new ArrayList<> ();
                     Set<Integer> s = new HashSet<> ();
@@ -153,20 +170,22 @@ public class TestWriteAnalysis2 extends CommonTest {
     @DisplayName("analyzer info")
     @Test
     public void test2() throws IOException {
-        test(INPUT2, OUTPUT2, JSON2);
-    }
-
-    private void test(String input, String output, String json) throws IOException {
-        TypeInfo X = javaInspector.parse(input);
-        List<Info> analysisOrder = prepWork(X);
+        TypeInfo X = javaInspector.parse(INPUT2);
+        prepWork(X);
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
-        analysisOrder.stream()
-                .filter(i -> i instanceof MethodInfo)
-                .forEach(i -> i.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod((MethodInfo) i)));
+        MethodInfo setAdd = X.findUniqueMethod("setAdd", 1);
+        MethodLinkedVariables mlvSetAdd = setAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(setAdd));
+        assertEquals("[0:r.i∈0:r.set*.§$s] --> -", mlvSetAdd.toString());
+        assertEquals("r.set, r", mlvSetAdd.sortedModifiedString());
+
+        MethodInfo method = X.findUniqueMethod("method", 0);
+        MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(method));
+        assertEquals("r.set", mlvMethod.sortedModifiedString());
+        assertTrue(method.isNonModifying());
 
         String s = javaInspector.print2(X, new DecoratorImpl(runtime, javaInspector.mainSources()),
                 javaInspector.importComputer(4, javaInspector.mainSources()));
-        assertEquals(output, s);
+        assertEquals(OUTPUT2, s);
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(X.fullyQualifiedName().split("\\."), X);
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
@@ -175,6 +194,6 @@ public class TestWriteAnalysis2 extends CommonTest {
         Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());
-        assertEquals(json, written);
+        assertEquals(JSON2, written);
     }
 }

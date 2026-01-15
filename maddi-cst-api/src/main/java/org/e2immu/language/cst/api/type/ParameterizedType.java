@@ -137,6 +137,17 @@ public interface ParameterizedType {
 
     boolean isFunctionalInterface();
 
+    default boolean isStandardFunctionalInterface() {
+        return isFunctionalInterface() &&
+               typeInfo() != null &&
+               ("java.util.function".equals(typeInfo().packageName())
+                ||
+                "java.lang.Runnable".equals(fullyQualifiedName())
+                ||
+                // auto-created, see Runtime.syntheticFunctionalType()
+                typeInfo().isSynthetic());
+    }
+
     boolean isInt();
 
     boolean isJavaLangObject();

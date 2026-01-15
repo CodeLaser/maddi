@@ -93,7 +93,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         if (mlv.ofReturnValue() == null) {
             concreteReturnValue = LinksImpl.EMPTY;
             extraModified = Set.of();
-        } else if (Util.methodIsSamOfJavaUtilFunctional(methodInfo)) {
+        } else if (methodInfo.isSAMOfStandardFunctionalInterface()) {
             assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
             concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, objectPrimary,
                     extra);

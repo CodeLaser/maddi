@@ -18,15 +18,15 @@ import org.e2immu.analyzer.modification.prepwork.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -137,7 +137,7 @@ public class TestGetSet extends CommonTest {
 
         {
             MethodInfo test1 = X.findUniqueMethod("callGetO", 0);
-            Statement s0 = test1.methodBody().statements().get(0);
+            Statement s0 = test1.methodBody().statements().getFirst();
             MethodCall mc0 = (MethodCall) s0.expression();
             Variable v = runtime.getterVariable(mc0);
             assertEquals("a.b.X.objects[3]", v.fullyQualifiedName());
@@ -148,19 +148,15 @@ public class TestGetSet extends CommonTest {
         }
         {
             MethodInfo test1 = X.findUniqueMethod("callGetS", 0);
-            Statement s0 = test1.methodBody().statements().get(0);
+            Statement s0 = test1.methodBody().statements().getFirst();
             MethodCall mc0 = (MethodCall) s0.expression();
-            Variable v = runtime.getterVariable(mc0);
-            assertEquals("java.util.List._synthetic_list#a.b.X.list[3]", v.fullyQualifiedName());
-            assertEquals(runtime.stringParameterizedType(), v.parameterizedType());
+            assertThrows(NullPointerException.class, () -> runtime.getterVariable(mc0));
         }
         {
             MethodInfo test1 = X.findUniqueMethod("callSetS2", 1);
-            Statement s0 = test1.methodBody().statements().get(0);
+            Statement s0 = test1.methodBody().statements().getFirst();
             MethodCall mc0 = (MethodCall) s0.expression();
-            Variable v = runtime.setterVariable(mc0);
-            assertEquals("java.util.List._synthetic_list#a.b.X.list[3]", v.fullyQualifiedName());
-            assertEquals(runtime.stringParameterizedType(), v.parameterizedType());
+            runtime.getterVariable(mc0);
         }
     }
 
@@ -374,9 +370,7 @@ public class TestGetSet extends CommonTest {
         {
             VariableData vdLast = VariableDataImpl.of(getInt.methodBody().lastStatement());
             assertEquals("""
-                    a.b.X.getInt(int), a.b.X.getInt(int):0:index, a.b.X.intList, a.b.X.this, \
-                    java.util.List._synthetic_list#a.b.X.intList, \
-                    java.util.List._synthetic_list#a.b.X.intList[a.b.X.getInt(int):0:index]\
+                    a.b.X.getInt(int), a.b.X.getInt(int):0:index, a.b.X.intList, a.b.X.this\
                     """, vdLast.knownVariableNamesToString());
         }
     }
@@ -443,8 +437,7 @@ public class TestGetSet extends CommonTest {
         VariableData vdLast = VariableDataImpl.of(get.methodBody().lastStatement());
         assertEquals("""
                 a.b.X.get(java.util.List<T>,int), a.b.X.get(java.util.List<T>,int):0:list, \
-                a.b.X.get(java.util.List<T>,int):1:i, java.util.List._synthetic_list#scope10-16:10-34, \
-                java.util.List._synthetic_list#scope10-16:10-34[a.b.X.get(java.util.List<T>,int):1:i]\
+                a.b.X.get(java.util.List<T>,int):1:i\
                 """, vdLast.knownVariableNamesToString());
     }
 
@@ -489,22 +482,15 @@ public class TestGetSet extends CommonTest {
         assertEquals("""
                 a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listIn, \
                 a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
-                java.util.List._synthetic_list#list, java.util.List._synthetic_list#list[0], \
                 list, resultMap, s, t\
                 """, vd10101.knownVariableNamesToString());
         VariableInfo vi101010list = vd10101.variableInfo("list");
         assertEquals("D:1.0.0, A:[1.0.0]", vi101010list.assignments().toString());
 
-        VariableInfo vi101010syntheticList = vd10101.variableInfo("java.util.List._synthetic_list#list");
-        assertEquals("D:-, A:[]", vi101010syntheticList.assignments().toString());
-        VariableInfo vi101010syntheticList0 = vd10101.variableInfo("java.util.List._synthetic_list#list[0]");
-        assertEquals("D:-, A:[]", vi101010syntheticList0.assignments().toString());
-
         VariableData vd101 = VariableDataImpl.of(s101);
         assertEquals("""
                 a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listIn, \
                 a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
-                java.util.List._synthetic_list#list, java.util.List._synthetic_list#list[0], \
                 list, resultMap, t\
                 """, vd101.knownVariableNamesToString());
 
@@ -566,7 +552,6 @@ public class TestGetSet extends CommonTest {
         assertEquals("""
                 a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listA, \
                 a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
-                java.util.List._synthetic_list#listC, java.util.List._synthetic_list#listC[0], \
                 listB, listC, resultMap, s, t\
                 """, vd10101.knownVariableNamesToString());
 
@@ -574,7 +559,6 @@ public class TestGetSet extends CommonTest {
         assertEquals("""
                 a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listA, \
                 a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
-                java.util.List._synthetic_list#listC, java.util.List._synthetic_list#listC[0], \
                 listB, listC, resultMap, t\
                 """, vd101.knownVariableNamesToString());
 

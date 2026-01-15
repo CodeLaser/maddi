@@ -7,7 +7,7 @@
  {"name": "Mparallel(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
  {"name": "Munordered(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
  {"name": "MonClose(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "Mclose(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}]},
 
 {"name": "Tjava.util.stream.Collector", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[

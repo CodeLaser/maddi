@@ -77,7 +77,7 @@ public class TestGetSet2 extends CommonTest {
 
         Expression getE = get.methodBody().lastStatement().expression();
         if(getE instanceof MethodCall mc) {
-            assertEquals("GetSetValueImpl[field=java.util.List._synthetic_list, setter=false, parameterIndexOfIndex=0]",
+            assertEquals("GetSetValueImpl[field=null, setter=false, parameterIndexOfIndex=-1]",
                     mc.methodInfo().getSetField().toString());
         } else fail();
 

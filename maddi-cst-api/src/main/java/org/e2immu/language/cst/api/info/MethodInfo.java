@@ -119,6 +119,13 @@ public interface MethodInfo extends Info {
 
     Set<MethodInfo> topOfOverloadingHierarchy();
 
+    // SAM = single abstract method
+    default boolean isSAMOfStandardFunctionalInterface() {
+        return this == typeInfo().singleAbstractMethod()
+               && ("java.util.function".equals(typeInfo().packageName())
+                   || Runnable.class.getCanonicalName().equals(typeInfo().fullyQualifiedName())
+                   || typeInfo().isSynthetic());
+    }
     // from inspection
 
     List<ParameterInfo> parameters();
@@ -153,7 +160,9 @@ public interface MethodInfo extends Info {
 
     // from analysis
 
-    default boolean isModifying() { return !isNonModifying(); }
+    default boolean isModifying() {
+        return !isNonModifying();
+    }
 
     boolean isNonModifying();
 

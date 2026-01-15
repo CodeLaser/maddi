@@ -8,9 +8,9 @@
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
   {"name": "Pexecutor(1)", "data":{"annotatedApi":1}}]},
  {"name": "MrunAsync(56)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "MrunAsync(57)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pexecutor(1)", "data":{"annotatedApi":1}}]},
  {"name": "McompletedFuture(58)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
@@ -43,11 +43,11 @@
   {"name": "Paction(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}},
   {"name": "Pexecutor(1)", "data":{"annotatedApi":1}}]},
  {"name": "MthenRun(74)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Paction(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Paction(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "MthenRunAsync(75)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Paction(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Paction(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "MthenRunAsync(76)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Paction(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Paction(0)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pexecutor(1)", "data":{"annotatedApi":1}}]},
  {"name": "MthenCombine(77)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1}},
@@ -71,13 +71,13 @@
   {"name": "Pexecutor(2)", "data":{"annotatedApi":1}}]},
  {"name": "MrunAfterBoth(83)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "MrunAfterBothAsync(84)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "MrunAfterBothAsync(85)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pexecutor(2)", "data":{"annotatedApi":1}}]},
  {"name": "MapplyToEither(86)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1}},
@@ -101,13 +101,13 @@
   {"name": "Pexecutor(2)", "data":{"annotatedApi":1}}]},
  {"name": "MrunAfterEither(92)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "MrunAfterEitherAsync(93)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "MrunAfterEitherAsync(94)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Pother(0)", "data":{"annotatedApi":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pexecutor(2)", "data":{"annotatedApi":1}}]},
  {"name": "MthenCompose(95)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Pfn(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
@@ -206,11 +206,11 @@
   {"name": "Pconsumer(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}},
   {"name": "Pexecutor(1)", "data":{"annotatedApi":1}}]},
  {"name": "MthenRun(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "MthenRunAsync(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "MthenRunAsync(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pexecutor(1)", "data":{"annotatedApi":1}}]},
  {"name": "MthenCombine(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "PcompletionStage(0)", "data":{"annotatedApi":1}},
@@ -234,13 +234,13 @@
   {"name": "Pexecutor(2)", "data":{"annotatedApi":1}}]},
  {"name": "MrunAfterBoth(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "PcompletionStage(0)", "data":{"annotatedApi":1}},
-  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "MrunAfterBothAsync(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "PcompletionStage(0)", "data":{"annotatedApi":1}},
-  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "MrunAfterBothAsync(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "PcompletionStage(0)", "data":{"annotatedApi":1}},
-  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pexecutor(2)", "data":{"annotatedApi":1}}]},
  {"name": "MapplyToEither(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "PcompletionStage(0)", "data":{"annotatedApi":1}},
@@ -264,13 +264,13 @@
   {"name": "Pexecutor(2)", "data":{"annotatedApi":1}}]},
  {"name": "MrunAfterEither(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "PcompletionStage(0)", "data":{"annotatedApi":1}},
-  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "MrunAfterEitherAsync(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "PcompletionStage(0)", "data":{"annotatedApi":1}},
-  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "MrunAfterEitherAsync(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "PcompletionStage(0)", "data":{"annotatedApi":1}},
-  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Prunnable(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pexecutor(2)", "data":{"annotatedApi":1}}]},
  {"name": "MthenCompose(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Pfunction(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
@@ -568,7 +568,7 @@
 
 {"name": "Tjava.util.concurrent.Executor", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
  {"name": "Mexecute(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}}},
 
 {"name": "Tjava.util.concurrent.ExecutorService", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mshutdown(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
@@ -581,10 +581,10 @@
  {"name": "Msubmit(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Pcallable(0)", "data":{"annotatedApi":1}}},
  {"name": "Msubmit(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pt(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Msubmit(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "MinvokeAll(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Pcollection(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "MinvokeAll(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
@@ -622,7 +622,7 @@
 
 {"name": "Tjava.util.concurrent.ThreadFactory", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
  {"name": "MnewThread(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}}},
+  {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}}},
 
 {"name": "Tjava.util.concurrent.ThreadLocalRandom", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mcurrent(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},

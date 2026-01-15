@@ -1518,9 +1518,9 @@
   {"name": "MuncaughtExceptionHandler(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
    {"name": "PuncaughtExceptionHandler(0)", "data":{"annotatedApi":1}}},
   {"name": "Munstarted(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-   {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+   {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
   {"name": "Mstart(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-   {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+   {"name": "Prunnable(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
   {"name": "Mfactory(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}}]},
  {"name": "SState(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "FNEW(0)", "data":{"annotatedApi":1,"finalField":1,"notNullField":1}},
@@ -1541,30 +1541,30 @@
  {"name": "FMAX_PRIORITY(16)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"notNullField":1,"unmodifiedField":1}},
  {"name": "C<init>(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
  {"name": "C<init>(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Ptask(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Ptask(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "C<init>(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Pgroup(0)", "data":{"annotatedApi":1}},
-  {"name": "Ptask(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "Ptask(1)", "data":{"annotatedApi":1,"containerParameter":1}}]},
  {"name": "C<init>(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Pname(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "C<init>(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Pgroup(0)", "data":{"annotatedApi":1}},
   {"name": "Pname(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "C<init>(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
-  {"name": "Ptask(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Ptask(0)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pname(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "C<init>(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Pgroup(0)", "data":{"annotatedApi":1}},
-  {"name": "Ptask(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Ptask(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pname(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "C<init>(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Pgroup(0)", "data":{"annotatedApi":1}},
-  {"name": "Ptask(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Ptask(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pname(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PstackSize(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
  {"name": "C<init>(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
   {"name": "Pgroup(0)", "data":{"annotatedApi":1}},
-  {"name": "Ptask(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Ptask(1)", "data":{"annotatedApi":1,"containerParameter":1}},
   {"name": "Pname(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PstackSize(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
   {"name": "Pb(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
@@ -1581,7 +1581,7 @@
  {"name": "MofPlatform(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
  {"name": "MofVirtual(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
  {"name": "MstartVirtualThread(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Ptask(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "Ptask(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
  {"name": "MisVirtual(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mstart(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
  {"name": "Mrun(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},

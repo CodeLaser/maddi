@@ -255,9 +255,4 @@ public class Util {
         }
         return false;
     }
-
-    public static boolean methodIsSamOfJavaUtilFunctional(MethodInfo methodInfo) {
-        return "java.util.function".equals(methodInfo.typeInfo().packageName())
-               && methodInfo.isAbstract();
-    }
 }

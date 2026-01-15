@@ -416,10 +416,7 @@ public class ShallowMethodAnalyzer extends AnnotationToProperty {
 
     private ValueOrigin computeParameterIgnoreModifications(ParameterInfo parameterInfo) {
         ParameterizedType pt = parameterInfo.parameterizedType();
-        boolean ignoreByDefault = pt.isFunctionalInterface()
-                                  && ("java.util.function".equals(pt.typeInfo().packageName())
-                                      || "java.lang.Runnable".equals(pt.typeInfo().fullyQualifiedName()));
-        return ignoreByDefault ? FROM_TYPE_TRUE : DEFAULT_FALSE;
+        return pt.isStandardFunctionalInterface() ? FROM_TYPE_TRUE : DEFAULT_FALSE;
     }
 
     private ValueOrigin computeParameterNotNull(ParameterInfo parameterInfo) {
