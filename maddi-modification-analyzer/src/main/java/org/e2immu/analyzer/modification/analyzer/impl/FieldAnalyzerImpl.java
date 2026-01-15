@@ -140,14 +140,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             Links.Builder builder = new LinksImpl.Builder(runtime.newFieldReference(fieldInfo));
             boolean undecided = false;
             for (MethodInfo methodInfo : methodsReferringToField) {
-                Value.FieldValue fieldValue = methodInfo.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD,
-                        ValueImpl.GetSetValueImpl.EMPTY);
-          //      if (fieldInfo == fieldValue.field()) {
-          //          assert !methodInfo.isConstructor();
-                    //builder.add(runtime.newFieldReference(fieldInfo), LVImpl.LINK_DEPENDENT);
-                    // FIXME not linking to myself?
-         //       } else {
-                    assert !methodInfo.methodBody().isEmpty();
+                if (!methodInfo.methodBody().isEmpty()) {
                     VariableData vd = VariableDataImpl.of(methodInfo.methodBody().lastStatement());
                     for (VariableInfo vi : vd.variableInfoIterable()) {
                         if (vi.variable() instanceof FieldReference fr && fr.fieldInfo() == fieldInfo) {
@@ -167,7 +160,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                         }
                     }
                 }
-         //   }
+            }
             return undecided ? null : builder.build();
         }
 
