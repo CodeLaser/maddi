@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
@@ -28,7 +29,7 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
         if (objectPrimary != null && !methodInfo.isFinalizer()) {
             if (methodInfo.isModifying() && !methodInfo.isIgnoreModification()) {
                 LOGGER.debug("Mark object primary {} as modified by {}", objectPrimary, methodInfo);
-                modified.add(objectPrimary);
+                Util.variableAndScopes(objectPrimary).forEach(modified::add);
             }
         }
         for (ParameterInfo pi : methodInfo.parameters()) {
@@ -51,9 +52,8 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
                 Variable translated = tm.translateVariableRecursively(mv);
                 if (translated.equals(mv)
                     || variableData != null && variableData.isKnown(translated.fullyQualifiedName())) {
-                    if (modified.add(translated)) {
-                        LOGGER.debug("Propagated modification to {}", translated);
-                    }
+                    LOGGER.debug("Propagated modification to {}", translated);
+                    Util.variableAndScopes(translated).forEach(modified::add);
                 }
             }
         }
@@ -63,7 +63,7 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
     private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
         if (rp.links() != null && rp.links().primary() != null) {
             LOGGER.debug("Mark argument primary {} as modified by {}", rp.links().primary(), mc.methodInfo());
-            modified.add(rp.links().primary());
+            Util.variableAndScopes(rp.links().primary()).forEach(modified::add);
         }
         if (argument instanceof MethodReference mr) {
             propagateModificationOfObject(modified, mr);
@@ -72,31 +72,7 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
 
     private void propagateModificationOfObject(Set<Variable> modified, MethodReference mr) {
         if (mr.methodInfo().isModifying() && mr.scope() instanceof VariableExpression ve) {
-            modified.add(ve.variable());
+            Util.variableAndScopes(ve.variable()).forEach(modified::add);
         }
     }
-
-
-    /*
-    code for propagation of applied functional
-    if (variableData != null) {
-            int i = 0;
-            for (Result result : params) {
-                Links links = linksList.get(Math.min(i, linksList.size() - 1));
-                for (Link link : links) {
-                    if (link.linkNature().isDecoration() && link.to() instanceof AppliedFunctionalInterfaceVariable afi) {
-                        Variable nr = result.links().primary();
-                        VariableInfo nrVi = variableData.variableInfo(nr, stage);
-                        FunctionalInterfaceVariable concreteFunctional = nrVi.linkedVariables().stream()
-                                .filter(l -> l.linkNature().isIdenticalTo()
-                                             && l.to() instanceof FunctionalInterfaceVariable)
-                                .map(l -> (FunctionalInterfaceVariable) l.to())
-                                .findFirst().orElseThrow();
-                        LOGGER.debug("Propagate applied functional interface? {}", link);
-                    }
-                }
-                ++i;
-            }
-        }
-        return Set.of();*/
 }

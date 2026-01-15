@@ -61,7 +61,7 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo add = X.findUniqueMethod("add", 1);
         MethodLinkedVariables mtlAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add));
         assertEquals("[0:ii∈this.set*.§$s] --> -", mtlAdd.toString());
-        assertEquals("[this.set]", mtlAdd.modified().toString());
+        assertEquals("this, this.set", mtlAdd.sortedModifiedString());
 
         // propagation of modifications of the parameter
         MethodInfo add2 = X.findUniqueMethod("add2", 1);
