@@ -2,7 +2,6 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -83,7 +82,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
                              List<Result> paramsIn,
                              MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
-        List<Result> params = expandFunctionalInterfaceVariables(paramsIn);
+        List<Result> params = paramsIn.stream().map(Result::expandFunctionalInterfaceVariables).toList();
         copyParamsIntoExtra(methodInfo.parameters(), params, extra);
         Variable objectPrimary = object.links().primary();
         if (!object.links().isEmpty()) {
@@ -117,25 +116,6 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
         return new Result(concreteReturnValue, new LinkedVariablesImpl(extra))
                 .addModified(extraModified, null);
-    }
-
-    private List<Result> expandFunctionalInterfaceVariables(List<Result> paramsIn) {
-        return paramsIn.stream().map(this::expandFunctionalInterfaceVariables).toList();
-    }
-
-    private Result expandFunctionalInterfaceVariables(Result r) {
-        if (r.links().primary() instanceof FunctionalInterfaceVariable fiv) {
-            // TestSupplier, 1
-            return fiv.result().setEvaluated(r.getEvaluated());
-        }
-        for (Link link : r.links()) {
-            if (link.from().equals(r.links().primary())
-                && link.to() instanceof FunctionalInterfaceVariable fiv && link.linkNature().isAssignedFrom()) {
-                // 3 cases in TestSupplier (1b, 5method2, 7)
-                return fiv.result().setEvaluated(r.getEvaluated());
-            }
-        }
-        return r;
     }
 
     private void linksBetweenParameters(MethodInfo methodInfo,
@@ -287,7 +267,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         } else if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
             LinkAppliedFunctionalInterface handler = new LinkAppliedFunctionalInterface(javaInspector, runtime,
                     linkComputerOptions, virtualFieldComputer, currentMethod, variableData, stage);
-            handler.go(builder, paramProvider, link, applied, extraModified, fromTranslated, linkNature, objectPrimary);
+            handler.go(builder, paramProvider, applied, extraModified, fromTranslated, linkNature, objectPrimary);
             extraTest = true;
         } else {
             extraTest = false;

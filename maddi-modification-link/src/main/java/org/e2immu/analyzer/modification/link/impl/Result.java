@@ -1,5 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
@@ -190,4 +192,20 @@ public class Result {
         }
         return this;
     }
+
+    public Result expandFunctionalInterfaceVariables() {
+        if (links.primary() instanceof FunctionalInterfaceVariable fiv) {
+            // TestSupplier, 1
+            return fiv.result().setEvaluated(evaluated);
+        }
+        for (Link link : links) {
+            if (link.from().equals(links.primary())
+                && link.to() instanceof FunctionalInterfaceVariable fiv && link.linkNature().isAssignedFrom()) {
+                // 3 cases in TestSupplier (1b, 5method2, 7)
+                return fiv.result().setEvaluated(evaluated);
+            }
+        }
+        return this;
+    }
+
 }
