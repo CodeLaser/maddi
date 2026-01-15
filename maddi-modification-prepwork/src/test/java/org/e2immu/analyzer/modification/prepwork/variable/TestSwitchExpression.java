@@ -56,8 +56,7 @@ public class TestSwitchExpression extends CommonTest {
         Statement s0 = switchExpression.entries().getFirst().statement();
         assertEquals("5-23:5-42", s0.source().compact2());
         VariableData vd0 = VariableDataImpl.of(s0);
-        assertEquals("X.list, X.this, java.util.List._synthetic_list#X.list, java.util.List._synthetic_list#X.list[0]",
-                vd0.knownVariableNamesToString());
+        assertEquals("X.list, X.this", vd0.knownVariableNamesToString());
         Block b1 = (Block) switchExpression.entries().get(1).statement();
         Statement s1 = b1.statements().get(1);
         assertEquals("8-17:8-26", s1.source().compact2());

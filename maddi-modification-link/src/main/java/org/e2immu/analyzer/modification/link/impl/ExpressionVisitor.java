@@ -450,7 +450,7 @@ public record ExpressionVisitor(Runtime runtime,
         MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo()).removeSomeValue();
         // translate conditionally wrt concrete type, evaluated object
         MethodLinkedVariables mlvTranslated2;
-        if (Util.methodIsSamOfJavaUtilFunctional(mc.methodInfo())) {
+        if (mc.methodInfo().isSAMOfStandardFunctionalInterface()) {
             mlvTranslated2 = mlv; // no point doing anything
         } else if (objectPrimary != null) {
             This thisVar = runtime.newThis(mc.methodInfo().typeInfo().asParameterizedType());

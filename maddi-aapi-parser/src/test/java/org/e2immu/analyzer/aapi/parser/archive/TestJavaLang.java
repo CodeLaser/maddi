@@ -306,7 +306,8 @@ public class TestJavaLang extends CommonTest {
         ParameterInfo p0 = methodInfo.parameters().getFirst();
         // name generated from Object
         assertEquals("object", p0.name());
-        assertSame(INDEPENDENT, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
+        Independent independentP0 = p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
+        assertEquals("@Independent(hc=true, hcParameters={2})", independentP0.toString());
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
 
@@ -314,8 +315,7 @@ public class TestJavaLang extends CommonTest {
         // name generated from Object
         assertEquals("object1", p2.name());
         Value.Independent independentP2 = p2.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
-        // NOTE: the decorator will not print the hc=true
-        assertEquals("@Independent(hc=true, hcParameters={0})", independentP2.toString());
+        assertTrue(independentP2.isIndependent());
         assertSame(NOT_NULL, p2.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(TRUE, p2.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
     }

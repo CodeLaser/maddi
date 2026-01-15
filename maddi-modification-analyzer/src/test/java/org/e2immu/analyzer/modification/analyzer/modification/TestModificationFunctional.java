@@ -32,7 +32,6 @@ import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestModificationFunctional extends CommonTest {
@@ -44,8 +43,8 @@ public class TestModificationFunctional extends CommonTest {
             import java.util.function.Function;
             class X {
                 int j;
-                int goWithIndirection(String in) {
-                    return indirection(in, this::parse);
+                int go(String in) {
+                    return run(in, this::parse);
                 }
                 int run(String s, Function<String, Integer> function) {
                     System.out.println("Applying function on "+s);
@@ -55,96 +54,13 @@ public class TestModificationFunctional extends CommonTest {
                     j = Integer.parseInt(t);
                     return j;
                 }
-                int go(String in) {
-                    return run(in, this::parse);
-                }
-                int indirection(String s, Function<String, Integer> function) {
-                    Function<String, Integer> f = function;
-                    return run(s, f);
-                }
             }
             """;
 
-    @DisplayName("propagate modification via functional interface parameter")
+    @DisplayName("MR as direct parameter")
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
-        List<Info> analysisOrder = prepWork(X);
-        analyzer.go(analysisOrder);
-
-        MethodInfo parse = X.findUniqueMethod("parse", 1);
-        assertFalse(parse.isNonModifying());
-
-        MethodInfo run = X.findUniqueMethod("run", 2);
-        assertTrue(run.isNonModifying());
-        ParameterInfo s = run.parameters().get(0);
-        assertTrue(s.isUnmodified());
-        ParameterInfo function = run.parameters().get(1);
-        assertFalse(function.isUnmodified());
-        assertFalse(function.isIgnoreModifications());
-        {
-            Statement s0 = run.methodBody().statements().getFirst();
-            VariableData vd0 = VariableDataImpl.of(s0);
-            VariableInfo vi0S = vd0.variableInfo(s);
-            assertTrue(vi0S.isUnmodified());
-        }
-        {
-            Statement s1 = run.methodBody().statements().get(1);
-            VariableData vd1 = VariableDataImpl.of(s1);
-            VariableInfo vi1S = vd1.variableInfo(s);
-            assertTrue(vi1S.isUnmodified());
-            VariableInfo vi1Function = vd1.variableInfo(function);
-            assertFalse(vi1Function.isUnmodified());
-        }
-
-        // finally, we copy the modification status of 'parse' onto 'this'
-        MethodInfo go = X.findUniqueMethod("go", 1);
-        {
-            Statement s0 = go.methodBody().statements().getFirst();
-            VariableData vd0 = VariableDataImpl.of(s0);
-            VariableInfo vi0This = vd0.variableInfo(runtime.newThis(X.asParameterizedType()));
-            assertFalse(vi0This.isUnmodified());
-            // as a consequence, 'go' becomes modified
-            // FIXME do we still consider the modification status of 'this'?
-            assertSame(FALSE, go.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
-        }
-        {
-            MethodInfo indirection = X.findUniqueMethod("indirection", 2);
-            ParameterInfo iP1 = indirection.parameters().get(1);
-            assertSame(FALSE, iP1.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-        }
-        {
-            MethodInfo goIndirection = X.findUniqueMethod("goWithIndirection", 1);
-            assertSame(FALSE, goIndirection.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
-        }
-    }
-
-
-    @Language("java")
-    private static final String INPUT1b = """
-            package a.b;
-            import java.util.Set;
-            import java.util.function.Function;
-            class X {
-                int j;
-                int go(String in) {
-                    return run(in, this::parse);
-                }
-                int run(String s, Function<String, Integer> function) {
-                    System.out.println("Applying function on "+s);
-                    return function.apply(s);
-                }
-                int parse(String t) {
-                    j = Integer.parseInt(t);
-                    return j;
-                }
-            }
-            """;
-
-    @DisplayName("propagate modification via functional interface parameter, simplest")
-    @Test
-    public void test1b() {
-        TypeInfo X = javaInspector.parse(INPUT1b);
         List<Info> analysisOrder = prepWork(X);
         analyzer.go(analysisOrder);
 
@@ -167,57 +83,6 @@ public class TestModificationFunctional extends CommonTest {
                 """, mlvGo.sortedModifiedString());
     }
 
-
-    @Language("java")
-    private static final String INPUT1c = """
-            package a.b;
-            import java.util.Set;
-            import java.util.function.Function;
-            class X {
-                int j;
-                int go(String in) {
-                    return indirection(in, this::parse);
-                }
-                int indirection(String s, Function<String, Integer> function) {
-                    Function<String, Integer> f = function;
-                    return run(s, f);
-                }
-                int run(String s, Function<String, Integer> function) {
-                    System.out.println("Applying function on "+s);
-                    return function.apply(s);
-                }
-                int parse(String t) {
-                    j = Integer.parseInt(t);
-                    return j;
-                }
-            }
-            """;
-
-    @DisplayName("propagate modification via functional interface parameter, indirection")
-    @Test
-    public void test1c() {
-        TypeInfo X = javaInspector.parse(INPUT1c);
-        List<Info> analysisOrder = prepWork(X);
-        analyzer.go(analysisOrder);
-
-        MethodInfo parse = X.findUniqueMethod("parse", 1);
-        assertTrue(parse.isModifying());
-        MethodLinkedVariables mlvParse = parse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> parse←this*.j", mlvParse.toString());
-
-        MethodInfo run = X.findUniqueMethod("run", 2);
-        assertTrue(run.isNonModifying());
-        MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-, 1:function*↗$_afi2] --> run←$_afi2,run↖Λ1:function*", mlvRun.toString());
-
-        MethodInfo go = X.findUniqueMethod("go", 1);
-        assertTrue(go.isModifying());
-        MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> go←$_afi2", mlvGo.toString());
-        assertEquals("""
-                $_fi0, System.out, a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, this\
-                """, mlvGo.sortedModifiedString());
-    }
 
     @Language("java")
     private static final String INPUT2 = """
@@ -243,7 +108,7 @@ public class TestModificationFunctional extends CommonTest {
             }
             """;
 
-    @DisplayName("propagate modification via applied functional interface link")
+    @DisplayName("MR encapsulated in record")
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
@@ -311,7 +176,7 @@ public class TestModificationFunctional extends CommonTest {
             }
             """;
 
-    @DisplayName("propagate modification via functional interface component, accessor")
+    @DisplayName("MR encapsulated in 2 records")
     @Test
     public void test2b() {
         TypeInfo X = javaInspector.parse(INPUT2b);
@@ -396,7 +261,7 @@ public class TestModificationFunctional extends CommonTest {
             }
             """;
 
-    @DisplayName("propagate modification via functional interface component, abstract")
+    @DisplayName("MR encapsulated by interfaces")
     @Test
     public void test3() {
         TypeInfo X = javaInspector.parse(INPUT3);
@@ -414,27 +279,26 @@ public class TestModificationFunctional extends CommonTest {
         assertTrue(rInSImpl.overrides().contains(rInS));
 
         MethodInfo parse = X.findUniqueMethod("parse", 1);
-        assertSame(FALSE, parse.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
+        assertTrue(parse.isModifying());
 
         MethodInfo go = X.findUniqueMethod("go", 1);
         {
             Statement s0 = go.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo vi0R = vd0.variableInfo("r");
-            assertEquals(//"Type a.b.X.RImpl E=new RImpl(this::parse) this.function=this::parse",
-                    "r.function≡parse",
-                    vi0R.linkedVariables().toString());
+            assertEquals("r.function←Λ$_fi1", vi0R.linkedVariables().toString());
         }
         {
             Statement s1 = go.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1R = vd1.variableInfo("r");
-            assertEquals(//"Type a.b.X.RImpl E=new RImpl(this::parse) this.function=this::parse",
-                    "r.function≡parse",
+            assertEquals("r.function→Λs.r.function,r.function←Λ$_fi1,r→Λs.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
-            assertEquals("Type a.b.X.SImpl E=new SImpl(r) this.r=r", vi1S.linkedVariables().toString());
+            assertEquals("""
+                    s.r.function←Λr.function,s.r.function←Λ$_fi1,s.r.function≺Λs.r,s.r←Λr\
+                    """, vi1S.linkedVariables().toString());
         }
 
         MethodInfo run = X.findUniqueMethod("run", 2);
@@ -443,18 +307,65 @@ public class TestModificationFunctional extends CommonTest {
             Statement s1 = run.methodBody().lastStatement();
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1S = vd1.variableInfo(runS);
-            //    assertEquals("s.r.function=true", vi1S.analysis()
-            //           .getOrDefault(MODIFIED_FI_COMPONENTS_VARIABLE, EMPTY).toString());
+            assertEquals("1:s.r.function↗$_afi2,1:s.r.function↗run", vi1S.linkedVariables().toString());
         }
-
-        assertSame(TRUE, runS.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-        //   assertEquals("this.r.function=true", runS.analysis().getOrNull(MODIFIED_FI_COMPONENTS_PARAMETER,
-        //           ValueImpl.VariableBooleanMapImpl.class).toString());
-        assertSame(TRUE, run.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
-
-
-        assertSame(FALSE, go.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
+        assertTrue(runS.isUnmodified());
+        assertTrue(run.isNonModifying());
+        assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
-        assertSame(TRUE, goIn.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
+        assertTrue(goIn.isUnmodified());
     }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.Set;
+            import java.util.function.Function;
+            class X {
+                int j;
+                int go(String in) {
+                    return indirection(in, this::parse);
+                }
+                int indirection(String s, Function<String, Integer> function) {
+                    Function<String, Integer> f = function;
+                    return run(s, f);
+                }
+                int run(String s, Function<String, Integer> function) {
+                    System.out.println("Applying function on "+s);
+                    return function.apply(s);
+                }
+                int parse(String t) {
+                    j = Integer.parseInt(t);
+                    return j;
+                }
+            }
+            """;
+
+    @DisplayName("Method indirection")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse(INPUT4);
+        List<Info> analysisOrder = prepWork(X);
+        analyzer.go(analysisOrder);
+
+        MethodInfo parse = X.findUniqueMethod("parse", 1);
+        assertTrue(parse.isModifying());
+        MethodLinkedVariables mlvParse = parse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> parse←this*.j", mlvParse.toString());
+
+        MethodInfo run = X.findUniqueMethod("run", 2);
+        assertTrue(run.isNonModifying());
+        MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-, 1:function*↗$_afi2] --> run←$_afi2,run↖Λ1:function*", mlvRun.toString());
+
+        MethodInfo go = X.findUniqueMethod("go", 1);
+        assertTrue(go.isModifying());
+        MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> go←$_afi2", mlvGo.toString());
+        assertEquals("""
+                $_fi0, System.out, a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, this\
+                """, mlvGo.sortedModifiedString());
+    }
+
 }
