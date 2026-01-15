@@ -14,8 +14,6 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
@@ -48,8 +46,6 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                                              MethodInfo currentMethod,
                                              VariableData variableData,
                                              Stage stage) {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LinkAppliedFunctionalInterface.class);
-
     public void go(
             Links.Builder builder,
             Function<Variable, List<Links>> paramProvider,
@@ -66,6 +62,10 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
             if (sr == null) return;
             functionalType = sr.functionalType;
             list = List.of(sr.links);
+        } else if (isLinkedToParameter(list)) {
+            // TestModificationFunctional,4; indirection method
+            builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, applied);
+            return;
         } else {
             functionalType = applied.sourceOfFunctionalInterface().parameterizedType();
         }
@@ -74,6 +74,13 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                 currentMethod).go(functionalType, fromTranslated, linkNature, builder.primary(), translated,
                 objectPrimary);
         toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
+    }
+
+    private boolean isLinkedToParameter(List<Links> list) {
+        return list.stream().anyMatch(links ->
+                links.stream().anyMatch(l -> l.to() instanceof ParameterInfo pi
+                                             && pi.methodInfo().equals(currentMethod)
+                                             && l.linkNature().isAssignedFrom()));
     }
 
     private record SearchResult(ParameterizedType functionalType, Links links) {
@@ -90,7 +97,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                         .map(l -> (FunctionalInterfaceVariable) l.to())
                         .toList();
                 for (FunctionalInterfaceVariable fi : fis) {
-                    extraModified.addAll(fi.modified());
+                    fi.modified().stream().filter(this::acceptForExtra).forEach(extraModified::add);
                     Result expanded = fi.result().expandFunctionalInterfaceVariables();
                     return new SearchResult(fi.parameterizedType(), expanded.links());
                 }
@@ -98,6 +105,9 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
             }
         }
         return null;
+    }
+    private boolean acceptForExtra(Variable v) {
+        return !(v instanceof ParameterInfo pi) || pi.methodInfo().equals(currentMethod);
     }
 
     private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<Result> params) {
