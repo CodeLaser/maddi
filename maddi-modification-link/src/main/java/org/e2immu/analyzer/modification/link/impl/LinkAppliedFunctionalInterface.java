@@ -9,6 +9,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -23,6 +24,25 @@ import java.util.function.Function;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
+/*
+Part of the LinkMethodCall code, objectToReturnValue.
+
+Call a method with a method reference argument, knowing that the method reference will be used/called.
+The "$_afi0" applied function interface variable is the marker for the result of calling the method reference.
+
+TestBiFunction
+    link = make ← $_afi0
+    translated = extract ← this.ix, extract ← this.jx
+    toAdd = $__rv1 ← this.ix, $__rv1 ← this.jx
+TestStaticBiFunction
+
+TestModificationFunctional,1b: the MR is a direct argument
+
+TMF,2: the MR is a field inside the argument. What we can do is open up the record variable,
+and find out that it links to a functional interface variable, nr.function ← Λ$_fi1.
+In TestBiFunction, this fiv has already been expanded at the beginning of LinkMethodCall.
+
+ */
 public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                                              Runtime runtime,
                                              LinkComputer.Options linkComputerOptions,
@@ -35,76 +55,69 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
     public void go(
             Links.Builder builder,
             Function<Variable, List<Links>> paramProvider,
-            Link link,
             AppliedFunctionalInterfaceVariable applied,
             Set<Variable> extraModified,
             Variable fromTranslated,
             LinkNature linkNature,
             Variable objectPrimary) {
         List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
-       // boolean match = matchAppliedFunctionalInterfaceToFunctionalInterfaceVariable(link, builder,
-       //         extraModified, list);
-      //  if (match) {
-       //     return;
-       // }
+        ParameterizedType functionalType;
+        if (!applied.sourceOfFunctionalInterface().parameterizedType().isFunctionalInterface()) {
+            // we must search for links to FIVs, and expand them
+            SearchResult sr = searchAndExpand(list, extraModified);
+            if (sr == null) return;
+            functionalType = sr.functionalType;
+            list = List.of(sr.links);
+        } else {
+            functionalType = applied.sourceOfFunctionalInterface().parameterizedType();
+        }
         List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
-        List<LinkFunctionalInterface.Triplet> toAdd =
-                applied.sourceOfFunctionalInterface() == null ? List.of()
-                        : new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
-                        .go(applied.sourceOfFunctionalInterface().parameterizedType(),
-                                fromTranslated, linkNature, builder.primary(), translated,
-                                objectPrimary);
+        List<LinkFunctionalInterface.Triplet> toAdd = new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
+                .go(functionalType, fromTranslated, linkNature, builder.primary(), translated,
+                        objectPrimary);
         toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
     }
 
-
-    private boolean matchAppliedFunctionalInterfaceToFunctionalInterfaceVariable(Link link,
-                                                                                 Links.Builder builder,
-                                                                                 Set<Variable> extraModified,
-                                                                                 List<Links> list) {
-        boolean match = false;
-        for (Links links : list) {
-            if (links.primary() instanceof ReturnVariable rv) {
-                // TestModificationFunctional,1b; direct lambda
-                MethodLinkedVariables mlv = rv.methodInfo().analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-                if (mlv != null) {
-                    extraModified.addAll(mlv.modified());
-                }
-                links.stream().filter(l -> l.from().equals(links.primary()))
-                        .forEach(l -> builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, l.to()));
-                match = true;
-            } else if (links.isEmpty() && variableData != null) {
-                Variable list0Primary = links.primary();
-                VariableInfoContainer vic = variableData.variableInfoContainerOrNull(list0Primary.fullyQualifiedName());
-                if (vic != null) {
-                    VariableInfo vi = vic.best(stage);
-                    List<FunctionalInterfaceVariable> fis = vi.linkedVariables().stream()
-                            .filter(l -> l.to() instanceof FunctionalInterfaceVariable)
-                            .map(l -> (FunctionalInterfaceVariable) l.to())
-                            .toList();
-                    for (FunctionalInterfaceVariable fi : fis) {
-                        LOGGER.debug("Applying FI {} in AFI {}", fi, link);
-                        extraModified.addAll(fi.modified());
-                        fi.result().links().stream().filter(l -> l.from().equals(fi.result().links().primary()))
-                                .forEach(l -> builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, l.to()));
-                    }
-                    match = true;
-                }
-            }
-        }
-        return match;
+    private record SearchResult(ParameterizedType functionalType, Links links) {
     }
 
+    private SearchResult searchAndExpand(List<Links> list, Set<Variable> extraModified) {
+        for (Links links : list) {
+            Variable list0Primary = links.primary();
+            VariableInfoContainer vic = variableData.variableInfoContainerOrNull(list0Primary.fullyQualifiedName());
+            if (vic != null) {
+                VariableInfo vi = vic.best(stage);
+                List<FunctionalInterfaceVariable> fis = vi.linkedVariables().stream()
+                        .filter(l -> l.to() instanceof FunctionalInterfaceVariable)
+                        .map(l -> (FunctionalInterfaceVariable) l.to())
+                        .toList();
+                for (FunctionalInterfaceVariable fi : fis) {
+                    extraModified.addAll(fi.modified());
+                    Result expanded = fi.result().expandFunctionalInterfaceVariables();
+                    return new SearchResult(fi.parameterizedType(), expanded.links());
+                }
+
+            }
+        }
+        return null;
+    }
 
     private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<Result> params) {
         return list.stream().map(links -> replaceParametersByEvalInApplied(links, params)).toList();
     }
 
+    /*
+    the default is to add the link directly, as for TestBiFunction, link to the field this.jx
+    but when the link points to a parameter, we must replace this parameter by the argument to the SAM
+    In the case of TestBiFunction, this is the field ix.
+
+
+     */
     private Links replaceParametersByEvalInApplied(Links links, List<Result> params) {
         Links.Builder builder = new LinksImpl.Builder(links.primary());
         for (Link link : links) {
             if (link.to() instanceof ParameterInfo pi) {
-                // replace
+                // replace (TestBiFunction, link to extract:0:x)
                 assert pi.index() < params.size();
                 Variable primary = Objects.requireNonNullElse(params.get(pi.index()).links().primary(), link.to());
                 builder.add(link.from(), link.linkNature(), primary);
@@ -124,7 +137,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                             runtime.newVariableExpression(primary), fr.fieldInfo().type()));
                 }
             } else {
-                // copy
+                // copy (TestBiFunction, link to this.jx)
                 builder.add(link.from(), link.linkNature(), link.to());
             }
         }
