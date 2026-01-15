@@ -279,44 +279,18 @@ public record LinkMethodCall(JavaInspector javaInspector,
         boolean extraTest;
         if (parameterizedType.isFunctionalInterface()) {
             List<LinkFunctionalInterface.Triplet> toAdd =
-                    new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod).go(parameterizedType, fromTranslated,
-                            linkNature, builder.primary(), paramProvider.apply(link.to()), objectPrimary);
+                    new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
+                            .go(parameterizedType, fromTranslated, linkNature, builder.primary(),
+                                    paramProvider.apply(link.to()), objectPrimary);
             toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
             extraTest = true;
+        } else if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
+            LinkAppliedFunctionalInterface handler = new LinkAppliedFunctionalInterface(javaInspector, runtime,
+                    linkComputerOptions, virtualFieldComputer, currentMethod, variableData, stage);
+            handler.go(builder, paramProvider, link, applied, extraModified, fromTranslated, linkNature, objectPrimary);
+            extraTest = true;
         } else {
-            if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
-                List<Links> list = paramProvider.apply(applied.sourceOfFunctionalInterface());
-                if (list.size() == 1 && variableData != null) {
-                    Links first = list.getFirst();
-                    if (first.isEmpty()) {
-                        Variable list0Primary = first.primary();
-                        VariableInfoContainer vic = variableData.variableInfoContainerOrNull(list0Primary.fullyQualifiedName());
-                        if (vic != null) {
-                            VariableInfo vi = vic.best(stage);
-                            List<FunctionalInterfaceVariable> fis = vi.linkedVariables().stream()
-                                    .filter(l -> l.to() instanceof FunctionalInterfaceVariable)
-                                    .map(l -> (FunctionalInterfaceVariable) l.to())
-                                    .toList();
-                            for (FunctionalInterfaceVariable fi : fis) {
-                                LOGGER.debug("Applying FI {} in AFI {}", fi, link);
-                                extraModified.addAll(fi.modified());
-                            }
-                        }
-                    }
-                }
-                // translate params in list with values from applied.params()
-                List<Links> translated = replaceParametersByEvalInApplied(list, applied.params());
-                List<LinkFunctionalInterface.Triplet> toAdd =
-                        applied.sourceOfFunctionalInterface() == null ? List.of()
-                                : new LinkFunctionalInterface(runtime, virtualFieldComputer, currentMethod)
-                                .go(applied.sourceOfFunctionalInterface().parameterizedType(),
-                                        fromTranslated, linkNature, builder.primary(), translated,
-                                        objectPrimary);
-                toAdd.forEach(t -> builder.add(t.from(), t.linkNature(), t.to()));
-                extraTest = true;
-            } else {
-                extraTest = false;
-            }
+            extraTest = false;
         }
         if (!extraTest || !isReturnVariable(Util.firstRealVariable(fromTranslated))) {
             builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
@@ -325,41 +299,6 @@ public record LinkMethodCall(JavaInspector javaInspector,
 
     private static boolean isReturnVariable(Variable v) {
         return v instanceof ReturnVariable || v instanceof IntermediateVariable iv && iv.isReturnVariable();
-    }
-
-    private List<Links> replaceParametersByEvalInApplied(List<Links> list, List<Result> params) {
-        return list.stream().map(links -> replaceParametersByEvalInApplied(links, params)).toList();
-    }
-
-    private Links replaceParametersByEvalInApplied(Links links, List<Result> params) {
-        Links.Builder builder = new LinksImpl.Builder(links.primary());
-        for (Link link : links) {
-            if (link.to() instanceof ParameterInfo pi) {
-                // replace
-                assert pi.index() < params.size();
-                Variable primary = Objects.requireNonNullElse(params.get(pi.index()).links().primary(), link.to());
-                builder.add(link.from(), link.linkNature(), primary);
-            } else if (link.to() instanceof FieldReference fr && fr.scopeVariable() instanceof ParameterInfo pi) {
-                Result result = params.get(pi.index());
-                Variable primary = Objects.requireNonNullElse(result.links().primary(), link.to());
-                if (primary instanceof LocalVariable) {
-                    // see TestStaticBiFunction,6: no direct mapping
-
-                    // this is the old "join" of previous implementations; we should call expand now
-                    Links ls = new LinkGraph(javaInspector, runtime, linkComputerOptions.checkDuplicateNames())
-                            .indirect(links.primary(), link, result.links());
-                    if (ls != null) builder.addAllDistinct(ls);
-
-                } else {
-                    builder.add(link.from(), link.linkNature(), runtime.newFieldReference(fr.fieldInfo(),
-                            runtime.newVariableExpression(primary), fr.fieldInfo().type()));
-                }
-            } else {
-                // copy
-                builder.add(link.from(), link.linkNature(), link.to());
-            }
-        }
-        return builder.build();
     }
 
     private Links parametersToReturnValue(MethodInfo methodInfo,

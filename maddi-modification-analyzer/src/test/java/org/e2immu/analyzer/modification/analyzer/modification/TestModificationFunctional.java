@@ -119,17 +119,106 @@ public class TestModificationFunctional extends CommonTest {
         }
     }
 
-    /*
-    what happens?
 
-    In run:
-    instead of making first 'r.function', then 'r' modified,
-    we'll add a MODIFIED_FI_COMPONENTS_VARIABLE map to r, marking function as "propagate".
-    this travels to the parameter r, as MFI_COMPONENTS_PARAMETER.
+    @Language("java")
+    private static final String INPUT1b = """
+            package a.b;
+            import java.util.Set;
+            import java.util.function.Function;
+            class X {
+                int j;
+                int go(String in) {
+                    return run(in, this::parse);
+                }
+                int run(String s, Function<String, Integer> function) {
+                    System.out.println("Applying function on "+s);
+                    return function.apply(s);
+                }
+                int parse(String t) {
+                    j = Integer.parseInt(t);
+                    return j;
+                }
+            }
+            """;
 
-    In go: the "propagate" is executed from parse to this, in the run(in, r) call.
-    the static values act as an intermediary.
-     */
+    @DisplayName("propagate modification via functional interface parameter, simplest")
+    @Test
+    public void test1b() {
+        TypeInfo X = javaInspector.parse(INPUT1b);
+        List<Info> analysisOrder = prepWork(X);
+        analyzer.go(analysisOrder);
+
+        MethodInfo parse = X.findUniqueMethod("parse", 1);
+        assertTrue(parse.isModifying());
+        MethodLinkedVariables mlvParse = parse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> parse←this*.j", mlvParse.toString());
+
+        MethodInfo run = X.findUniqueMethod("run", 2);
+        assertTrue(run.isNonModifying());
+        MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-, 1:function*↗$_afi2] --> run←$_afi2,run↖Λ1:function*", mlvRun.toString());
+
+        MethodInfo go = X.findUniqueMethod("go", 1);
+        assertTrue(go.isModifying());
+        MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> go←this*.j", mlvGo.toString());
+        assertEquals("""
+                $_fi0, System.out, a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, this\
+                """, mlvGo.sortedModifiedString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT1c = """
+            package a.b;
+            import java.util.Set;
+            import java.util.function.Function;
+            class X {
+                int j;
+                int go(String in) {
+                    return indirection(in, this::parse);
+                }
+                int indirection(String s, Function<String, Integer> function) {
+                    Function<String, Integer> f = function;
+                    return run(s, f);
+                }
+                int run(String s, Function<String, Integer> function) {
+                    System.out.println("Applying function on "+s);
+                    return function.apply(s);
+                }
+                int parse(String t) {
+                    j = Integer.parseInt(t);
+                    return j;
+                }
+            }
+            """;
+
+    @DisplayName("propagate modification via functional interface parameter, indirection")
+    @Test
+    public void test1c() {
+        TypeInfo X = javaInspector.parse(INPUT1c);
+        List<Info> analysisOrder = prepWork(X);
+        analyzer.go(analysisOrder);
+
+        MethodInfo parse = X.findUniqueMethod("parse", 1);
+        assertTrue(parse.isModifying());
+        MethodLinkedVariables mlvParse = parse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> parse←this*.j", mlvParse.toString());
+
+        MethodInfo run = X.findUniqueMethod("run", 2);
+        assertTrue(run.isNonModifying());
+        MethodLinkedVariables mlvRun = run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-, 1:function*↗$_afi2] --> run←$_afi2,run↖Λ1:function*", mlvRun.toString());
+
+        MethodInfo go = X.findUniqueMethod("go", 1);
+        assertTrue(go.isModifying());
+        MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> go←$_afi2", mlvGo.toString());
+        assertEquals("""
+                $_fi0, System.out, a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, this\
+                """, mlvGo.sortedModifiedString());
+    }
+
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
@@ -191,6 +280,9 @@ public class TestModificationFunctional extends CommonTest {
         assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
         assertTrue(goIn.isUnmodified());
+
+        MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> go←this*.j", mlvGo.toString());
     }
 
     @Language("java")
@@ -235,37 +327,37 @@ public class TestModificationFunctional extends CommonTest {
             Statement s1 = run.methodBody().lastStatement();
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo vi1S = vd1.variableInfo(runS);
-            //    assertEquals("s.r.function=true", vi1S.analysis()
-            //            .getOrDefault(MODIFIED_FI_COMPONENTS_VARIABLE, EMPTY).toString());
+            assertEquals("1:s.r.function↗$_afi2,1:s.r.function↗run", vi1S.linkedVariables().toString());
         }
-
-        assertSame(TRUE, runS.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
-        //   assertEquals("this.r.function=true", runS.analysis().getOrNull(MODIFIED_FI_COMPONENTS_PARAMETER,
-        //            ValueImpl.VariableBooleanMapImpl.class).toString());
-        assertSame(TRUE, run.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
-
+        assertTrue(runS.isUnmodified());
+        assertEquals("""
+                [-, 1:s.r.function*↗$_afi2] --> run←$_afi2,run↖Λ1:s.r.function*\
+                """, run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
+        assertTrue(run.isNonModifying());
         MethodInfo go = X.findUniqueMethod("go", 1);
         {
             Statement s0 = go.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo vi0R = vd0.variableInfo("r");
-            assertEquals("Type a.b.X.R E=new R(this::parse) this.function=this::parse",
-                    vi0R.linkedVariables().toString());
+            assertEquals("r.function←Λ$_fi1", vi0R.linkedVariables().toString());
         }
         {
             Statement s1 = go.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1R = vd1.variableInfo("r");
-            assertEquals("Type a.b.X.R E=new R(this::parse) this.function=this::parse",
+            assertEquals("r.function→Λs.r.function,r.function←Λ$_fi1,r→s.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
-            assertEquals("Type a.b.X.S E=new S(r) this.r=r", vi1S.linkedVariables().toString());
+            assertEquals("s.r.function←Λr.function,s.r.function←Λ$_fi1,s.r.function≺s.r,s.r←r",
+                    vi1S.linkedVariables().toString());
         }
-
-        assertSame(FALSE, go.analysis().getOrDefault(PropertyImpl.NON_MODIFYING_METHOD, FALSE));
+        assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
-        assertSame(TRUE, goIn.analysis().getOrDefault(PropertyImpl.UNMODIFIED_PARAMETER, FALSE));
+        assertTrue(goIn.isUnmodified());
+
+        MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> go←this*.j", mlvGo.toString());
     }
 
 
