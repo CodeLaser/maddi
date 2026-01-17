@@ -90,4 +90,11 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
                         : ofReturnValue.removeIfTo(v -> v instanceof MarkerVariable mv && mv.isSomeValue()),
                 ofParameters, modified);
     }
+
+    @Override
+    public boolean overwriteAllowed(Value newValue) {
+        MethodLinkedVariables nv = (MethodLinkedVariables) newValue;
+        // TODO currently not implementing restrictions on linking; pretty complicated
+        return modified.containsAll(nv.modified()); // can only shrink
+    }
 }

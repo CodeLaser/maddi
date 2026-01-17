@@ -31,6 +31,7 @@ The current set-up is such that the link computer runs
 
 - single pass
 - on-demand
+- overwrites on multi-pass, in a safe way
 
 That means that it is vulnerable to
 
@@ -54,7 +55,6 @@ Phase 6 will copy from implementation to abstract, using property overwrite (val
 NOTE that the shallow link analyzer does not set any properties; it only computes `METHOD_LINKS` for the link computer
 to set. `NON_MODIFYING_METHOD` and `UNMODIFIED_PARAMETER` must either come from annotations, or from the copying of
 values from implementations.
-
 
 ### Phase 2, fields
 

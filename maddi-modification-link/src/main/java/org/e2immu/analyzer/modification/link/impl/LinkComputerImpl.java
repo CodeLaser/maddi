@@ -80,6 +80,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     }
 
     @Override
+    public int propertiesChanged() {
+        return propertiesChanged.get();
+    }
+
+    @Override
     public void doPrimaryType(TypeInfo primaryType) {
         doType(primaryType);
     }
@@ -136,7 +141,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             MethodLinkedVariables mlv = shallowMethodLinkComputer.go(methodInfo);
             if (write) {
-                methodInfo.analysis().set(METHOD_LINKS, mlv);
+                if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
+                    propertiesChanged.incrementAndGet();
+                }
             }
             return mlv;
         }
@@ -145,7 +152,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             try {
                 tlv = new SourceMethodComputer(methodInfo).go();
                 if (write) {
-                    methodInfo.analysis().set(METHOD_LINKS, tlv);
+                    if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, tlv)) {
+                        propertiesChanged.incrementAndGet();
+                    }
                 }
             } finally {
                 recursionPrevention.doneSource(methodInfo);
@@ -237,8 +246,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 VariableInfoContainer vic = vd.variableInfoContainerOrNull(pi.fullyQualifiedName());
                 if (vic != null) {
                     VariableInfo vi = vic.best();
-                    pi.analysis().setAllowControlledOverwrite(PropertyImpl.DOWNCAST_PARAMETER,
-                            vi.analysis().getOrDefault(DOWNCAST_VARIABLE, ValueImpl.SetOfTypeInfoImpl.EMPTY));
+                    Value.SetOfTypeInfo fromVariable = vi.analysis().getOrDefault(DOWNCAST_VARIABLE,
+                            ValueImpl.SetOfTypeInfoImpl.EMPTY);
+                    if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.DOWNCAST_PARAMETER, fromVariable)) {
+                        propertiesChanged.incrementAndGet();
+                    }
                 }
             }
         }
@@ -255,13 +267,18 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     paramsModified[pi.index()] = true;
                 }
             }
-            methodInfo.analysis().set(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.from(!methodModified));
+            Value.Bool nonModifying = ValueImpl.BoolImpl.from(!methodModified);
+            if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.NON_MODIFYING_METHOD, nonModifying)) {
+                propertiesChanged.incrementAndGet();
+            }
             for (ParameterInfo pi : methodInfo.parameters()) {
                 Links links = mlv.ofParameters().get(pi.index());
                 if (links.stream().noneMatch(l -> l.to().variableStreamDescend()
                         .anyMatch(v -> v instanceof FieldReference fr && inCurrentHierarchy(fr.fieldInfo().owner())))) {
                     Value.Bool unmodified = ValueImpl.BoolImpl.from(!paramsModified[pi.index()]);
-                    pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodified);
+                    if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodified)) {
+                        propertiesChanged.incrementAndGet();
+                    }
                 } // else: we'll need to wait until we know about all the links of the field; see TestFieldAnalyzer
             }
         }
@@ -434,14 +451,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private Set<Variable> computePreviouslyModified(VariableData vd, VariableData previousVd, Stage stageOfPrevious) {
             if (previousVd != null) {
                 return previousVd.variableInfoStream(stageOfPrevious)
-                        //         .filter(vi -> !(vi.variable() instanceof This))
                         .filter(vi -> vd.isKnown(vi.variable().fullyQualifiedName()))
-                        .map(vi -> {
-                            Value.Bool unmodified = vi.analysis().getOrNull(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.class);
-                            boolean explicitlyModified = unmodified != null && unmodified.isFalse();
-                            return explicitlyModified ? vi.variable() : null;
-                        })
-                        .filter(Objects::nonNull)
+                        .filter(VariableInfo::isModified)
+                        .map(VariableInfo::variable)
                         .collect(Collectors.toUnmodifiableSet());
             }
             return Set.of();
@@ -465,8 +477,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             casts.forEach((v, set) -> {
                 VariableInfoContainer vic = variableData.variableInfoContainerOrNull(v.fullyQualifiedName());
                 VariableInfoImpl vii = (VariableInfoImpl) vic.best(Stage.EVALUATION);
-                vii.analysis().setAllowControlledOverwrite(VariableInfoImpl.DOWNCAST_VARIABLE,
-                        new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(set)));
+                if (vii.analysis().setAllowControlledOverwrite(VariableInfoImpl.DOWNCAST_VARIABLE,
+                        new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(set)))) {
+                    propertiesChanged.incrementAndGet();
+                }
             });
         }
 
@@ -480,10 +494,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject);
                 }
                 addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
-                if (!variablesLinkedToObject.isEmpty()) {
+                if (!variablesLinkedToObject.isEmpty()
+                    // only write once, no point because actual variables in links will not change
+                    && !wmc.methodCall().analysis().haveAnalyzedValueFor(VARIABLES_LINKED_TO_OBJECT)) {
                     try {
                         wmc.methodCall().analysis().set(VARIABLES_LINKED_TO_OBJECT,
                                 new ValueImpl.VariableBooleanMapImpl(Map.copyOf(variablesLinkedToObject)));
+                        propertiesChanged.incrementAndGet();
                     } catch (IllegalArgumentException iae) {
                         LinkComputerImpl.this.recursionPrevention.report(methodInfo);
                         throw iae;
@@ -543,10 +560,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 if (subTlv != null && subTlv.primary() != null) {
                                     collect.addAllDistinct(subTlv);
                                 }
-                                Value.Bool subUnmodified = subVi.analysis().getOrNull(UNMODIFIED_VARIABLE,
-                                        ValueImpl.BoolImpl.class);
-                                boolean explicitlyModified = subUnmodified != null && subUnmodified.isFalse();
-                                if (explicitlyModified) unmodified.set(false);
+                                if (subVi.isModified()) unmodified.set(false);
 
                                 Value.SetOfTypeInfo subDowncasts = subVi.analysis().getOrDefault(DOWNCAST_VARIABLE,
                                         ValueImpl.SetOfTypeInfoImpl.EMPTY);
@@ -559,11 +573,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         if (!collected.isEmpty()) {
                             merge.setLinkedVariables(collected);
                         }
-                        merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
-                                ValueImpl.BoolImpl.from(unmodified.get()));
+                        if (merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
+                                ValueImpl.BoolImpl.from(unmodified.get()))) {
+                            propertiesChanged.incrementAndGet();
+                        }
                         if (!downcasts.isEmpty()) {
-                            merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
-                                    new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)));
+                            if (merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
+                                    new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)))) {
+                                propertiesChanged.incrementAndGet();
+                            }
                         }
                     });
         }
