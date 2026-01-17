@@ -79,7 +79,10 @@ public class TestModificationFunctional extends CommonTest {
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> go←this*.j", mlvGo.toString());
         assertEquals("""
-                $_fi0, System.out, a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, this\
+                $_fi0, System.out, a.b.X.go(String):0:in, \
+                a.b.X.run(String,java.util.function.Function<String,Integer>):0:s, \
+                a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, \
+                this\
                 """, mlvGo.sortedModifiedString());
     }
 
@@ -364,7 +367,9 @@ public class TestModificationFunctional extends CommonTest {
         MethodLinkedVariables mlvIndirection = indirection.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-, -] --> indirection←$_afi2", mlvIndirection.toString());
         assertEquals("""
-                System.out, a.b.X.indirection(String,java.util.function.Function<String,Integer>):1:function, \
+                System.out, a.b.X.indirection(String,java.util.function.Function<String,Integer>):0:s, \
+                a.b.X.indirection(String,java.util.function.Function<String,Integer>):1:function, \
+                a.b.X.run(String,java.util.function.Function<String,Integer>):0:s, \
                 a.b.X.run(String,java.util.function.Function<String,Integer>):1:function\
                 """, mlvIndirection.sortedModifiedString());
 
@@ -373,7 +378,10 @@ public class TestModificationFunctional extends CommonTest {
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> go←this*.j", mlvGo.toString());
         assertEquals("""
-                $_fi0, System.out, a.b.X.indirection(String,java.util.function.Function<String,Integer>):1:function, \
+                $_fi0, System.out, a.b.X.go(String):0:in, \
+                a.b.X.indirection(String,java.util.function.Function<String,Integer>):0:s, \
+                a.b.X.indirection(String,java.util.function.Function<String,Integer>):1:function, \
+                a.b.X.run(String,java.util.function.Function<String,Integer>):0:s, \
                 a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, this\
                 """, mlvGo.sortedModifiedString());
     }

@@ -51,6 +51,11 @@ Solutions to the problem are
 
 Phase 6 will copy from implementation to abstract, using property overwrite (values can get better, but never worse).
 
+NOTE that the shallow link analyzer does not set any properties; it only computes `METHOD_LINKS` for the link computer
+to set. `NON_MODIFYING_METHOD` and `UNMODIFIED_PARAMETER` must either come from annotations, or from the copying of
+values from implementations.
+
+
 ### Phase 2, fields
 
 Writes
@@ -86,7 +91,6 @@ Reads
 - `UNMODIFIED_PARAMETER`, to see if phase 1 handled it
 - `IMMUTABLE_TYPE` __from later phases__
 
-
 Primary type, modification and independence of all its components.
 WaitFor: nothing. Either the values are there, or they are not. If they're not, they should be covered by the
 waitFor of phases 1 or 2.
@@ -102,7 +106,6 @@ Immutable, independence of types is done in Phase 4.1.
 Strategy:
 method independence, parameter independence can directly be read from linked variables computed in field analyzer.
 parameter modification is computed as the combination of links to fields and local modifications.
-
 
 ### Phase 4
 

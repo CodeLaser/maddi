@@ -61,6 +61,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final LinkGraph linkGraph;
     private final WriteLinksAndModification writeLinksAndModification;
     private final ShallowMethodAnalyzer shallowMethodAnalyzer;
+    private final AtomicInteger propertiesChanged = new AtomicInteger();
 
     // for testing :-) especially duplicate name checking
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -95,9 +96,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     @Override
     public MethodLinkedVariables doMethod(MethodInfo method) {
-        MethodLinkedVariables alreadyDone = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assert alreadyDone == null : "We should come from analysis(), we have just checked.";
-
         try {
             TypeInfo typeInfo = method.typeInfo();
             boolean shallow = options.forceShallow() || method.isAbstract() || typeInfo.compilationUnit().externalLibrary();
@@ -108,6 +106,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
     }
 
+    /*
+    NOTE: While it is possible (and part of the overall analyzer's strategy) to re-run the LinkComputer on
+    certain methods, recurseMethod() never forces a re-run. You should explicitly call doMethod().
+     */
     @Override
     public MethodLinkedVariables recurseMethod(MethodInfo method) {
         MethodLinkedVariables alreadyDone = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
