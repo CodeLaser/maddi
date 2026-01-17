@@ -20,7 +20,6 @@ import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
@@ -37,7 +36,6 @@ import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
 
 import java.util.*;
 
@@ -133,44 +131,41 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         }
 
         private void doFluentAnalysis(MethodInfo methodInfo) {
-            if (!methodInfo.analysis().haveAnalyzedValueFor(FLUENT_METHOD)) {
-                MethodLinkedVariables mlv = methodInfo.analysis().getOrNull(METHOD_LINKS,
-                        MethodLinkedVariablesImpl.class);
-                boolean identityFluent;
-                if (methodInfo.hasReturnValue() && mlv != null && !mlv.ofReturnValue().isEmpty()) {
-                    identityFluent = mlv.ofReturnValue().stream()
-                            .anyMatch(v -> v.to() instanceof This thisVar
-                                           && (thisVar.typeInfo() == methodInfo.typeInfo()
-                                               || thisVar.typeInfo().typeHierarchyExcludingJLOStream()
-                                                       .anyMatch(h -> h.equals(methodInfo.typeInfo()))));
-                } else {
-                    identityFluent = false;
-                }
-                methodInfo.analysis().set(FLUENT_METHOD, ValueImpl.BoolImpl.from(identityFluent));
+            MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS,
+                    MethodLinkedVariablesImpl.EMPTY);
+            boolean identityFluent;
+            if (methodInfo.hasReturnValue() && !mlv.ofReturnValue().isEmpty()) {
+                identityFluent = mlv.ofReturnValue().stream()
+                        .anyMatch(v -> v.to() instanceof This thisVar
+                                       && (thisVar.typeInfo() == methodInfo.typeInfo()
+                                           || thisVar.typeInfo().typeHierarchyExcludingJLOStream()
+                                                   .anyMatch(h -> h.equals(methodInfo.typeInfo()))));
+            } else {
+                identityFluent = false;
+            }
+            if (methodInfo.analysis().setAllowControlledOverwrite(FLUENT_METHOD, ValueImpl.BoolImpl.from(identityFluent))) {
                 DECIDE.debug("MI: Decide @Fluent of {} = {}", methodInfo, identityFluent);
             }
         }
 
         private void doIdentityAnalysis(MethodInfo methodInfo) {
-            if (!methodInfo.analysis().haveAnalyzedValueFor(IDENTITY_METHOD)) {
-                MethodLinkedVariables mlv = methodInfo.analysis().getOrNull(METHOD_LINKS,
-                        MethodLinkedVariablesImpl.class);
-                boolean identity;
-                if (methodInfo.hasReturnValue()
-                    && !methodInfo.parameters().isEmpty()
-                    && mlv != null
-                    && !mlv.ofReturnValue().isEmpty()) {
-                    Variable primaryFrom = mlv.ofReturnValue().primary();
-                    Variable p0 = methodInfo.parameters().getFirst();
-                    identity = mlv.ofReturnValue().stream().allMatch(link -> {
-                        if (link.from().equals(primaryFrom)) return link.to().equals(p0);
-                        ParameterInfo pi = Util.parameterPrimaryOrNull(link.to());
-                        return p0.equals(pi);
-                    });
-                } else {
-                    identity = false;
-                }
-                methodInfo.analysis().set(IDENTITY_METHOD, ValueImpl.BoolImpl.from(identity));
+            MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS,
+                    MethodLinkedVariablesImpl.EMPTY);
+            boolean identity;
+            if (methodInfo.hasReturnValue()
+                && !methodInfo.parameters().isEmpty()
+                && !mlv.ofReturnValue().isEmpty()) {
+                Variable primaryFrom = mlv.ofReturnValue().primary();
+                Variable p0 = methodInfo.parameters().getFirst();
+                identity = mlv.ofReturnValue().stream().allMatch(link -> {
+                    if (link.from().equals(primaryFrom)) return link.to().equals(p0);
+                    ParameterInfo pi = Util.parameterPrimaryOrNull(link.to());
+                    return p0.equals(pi);
+                });
+            } else {
+                identity = false;
+            }
+            if (methodInfo.analysis().setAllowControlledOverwrite(IDENTITY_METHOD, ValueImpl.BoolImpl.from(identity))) {
                 DECIDE.debug("MI: Decide @Identity of {} = {}", methodInfo, identity);
             }
         }
@@ -183,7 +178,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             } else {
                 unmodifiedInMethod = ValueImpl.BoolImpl.from(!mlv.modified().contains(pi));
                 Links links = mlv.ofParameters().get(pi.index());
-                if (!links.isEmpty() && (unmodifiedInMethod == null || unmodifiedInMethod.isTrue())) {
+                if (!links.isEmpty() && unmodifiedInMethod.isTrue()) {
                     // FIXME if mutable, check for §m; if HC, check for a HC link such as ~
                     for (Link link : links) {
                         if (link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {

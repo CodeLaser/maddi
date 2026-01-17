@@ -9,7 +9,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
-import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -568,11 +567,6 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             builder.add(IS_ELEMENT_OF, fr);
         }
         Links returnLinks;
-        if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.FLUENT_METHOD)
-            && methodInfo.annotations().stream().anyMatch(ae ->
-                Fluent.class.getCanonicalName().equals(ae.typeInfo().fullyQualifiedName()))) {
-            methodInfo.analysis().set(PropertyImpl.FLUENT_METHOD, ValueImpl.BoolImpl.TRUE);
-        }
         if (methodInfo.isFluent()) {
             LinksImpl.Builder fluentBuilder = new LinksImpl.Builder(rv)
                     .add(IS_ASSIGNED_FROM, runtime.newThis(methodInfo.typeInfo().asSimpleParameterizedType()));
