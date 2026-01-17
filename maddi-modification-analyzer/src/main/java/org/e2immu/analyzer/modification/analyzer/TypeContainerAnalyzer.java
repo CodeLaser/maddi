@@ -26,14 +26,8 @@ Level 4.2.
 Given the modification state of the parameters of a type, compute the @Container property
 
  */
-public interface TypeContainerAnalyzer extends Analyzer {
+public interface TypeContainerAnalyzer  {
 
-    interface Output extends Analyzer.Output {
-
-        Set<MethodInfo> externalWaitForCannotCauseCycles();
-
-    }
-
-    Output go(@Modified TypeInfo typeInfo);
+    void go(@Modified TypeInfo typeInfo);
 
 }

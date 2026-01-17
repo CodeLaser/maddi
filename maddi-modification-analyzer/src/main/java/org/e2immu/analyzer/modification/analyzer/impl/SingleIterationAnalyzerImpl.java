@@ -15,10 +15,10 @@
 package org.e2immu.analyzer.modification.analyzer.impl;
 
 import org.e2immu.analyzer.modification.analyzer.*;
-import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.common.defaults.ShallowTypeAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
@@ -26,10 +26,12 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.util.internal.graph.G;
-import org.e2immu.util.internal.graph.ImmutableGraph;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -42,90 +44,74 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final TypeIndependentAnalyzer typeIndependentAnalyzer;
     private final ShallowTypeAnalyzer shallowTypeAnalyzer;
     private final TypeContainerAnalyzer typeContainerAnalyzer;
-
-    private record OutputImpl(List<AnalyzerException> analyzerExceptions, G<Info> waitFor,
-                              Map<String, Integer> infoHistogram)
-            implements Output {
-    }
+    private final AtomicInteger propertiesChanged;
 
     public SingleIterationAnalyzerImpl(JavaInspector javaInspector, IteratingAnalyzer.Configuration configuration) {
         this.configuration = configuration;
-        linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions());
+        this.propertiesChanged = new AtomicInteger();
+        linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions(), propertiesChanged);
         Runtime runtime = javaInspector.runtime();
-        fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration);
-        typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration);
-        typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(configuration);
-        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration);
+        fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration, propertiesChanged);
+        typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration, propertiesChanged);
+        typeImmutableAnalyzer = new TypeImmutableAnalyzerImpl(configuration, propertiesChanged);
+        typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration, propertiesChanged);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
-        typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration);
+        typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged);
     }
 
     @Override
-    public List<AnalyzerException> go(List<Info> analysisOrder) {
-        return go(analysisOrder, false, true).analyzerExceptions();
+    public int propertiesChanged() {
+        return propertiesChanged.get();
     }
 
     @Override
-    public Output go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration) {
-        List<AnalyzerException> analyzerExceptions = new ArrayList<>();
-        Map<MethodInfo, Set<MethodInfo>> methodsWaitFor = new HashMap<>();
+    public void go(List<Info> analysisOrder) {
+        go(analysisOrder, false, true);
+    }
+
+    @Override
+    public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration) {
         Set<TypeInfo> primaryTypes = new HashSet<>();
         Set<TypeInfo> abstractTypes = new HashSet<>();
         List<TypeInfo> typesInOrder = new ArrayList<>(analysisOrder.size());
-        G.Builder<Info> builder = new ImmutableGraph.Builder<>(Long::sum);
-        Map<String, Integer> infoHistogram = new HashMap<>();
 
         for (Info info : analysisOrder) {
             if (info instanceof MethodInfo methodInfo) {
                 if (methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
                     shallowTypeAnalyzer.analyze(info.typeInfo());
                 }
-                methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
+                MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
+                if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
+                    propertiesChanged.incrementAndGet();
+                }
             } else if (info instanceof FieldInfo fieldInfo) {
                 if (fieldInfo.owner().isAbstract()) {
                     shallowTypeAnalyzer.analyzeField(fieldInfo);
                 }
-                FieldAnalyzer.Output output = fieldAnalyzer.go(fieldInfo, activateCycleBreaking);
-                if (!output.waitFor().isEmpty()) builder.add(fieldInfo, output.waitFor());
-                analyzerExceptions.addAll(output.analyzerExceptions());
+                fieldAnalyzer.go(fieldInfo, activateCycleBreaking);
             } else if (info instanceof TypeInfo typeInfo) {
-                runTypeAnalyzers(activateCycleBreaking, typeInfo, methodsWaitFor, analyzerExceptions, builder);
+                runTypeAnalyzers(activateCycleBreaking, typeInfo);
                 if (typeInfo.isPrimaryType()) primaryTypes.add(typeInfo);
                 typesInOrder.add(typeInfo);
             }
-            infoHistogram.merge(info.info(), 1, Integer::sum);
         }
-        AbstractMethodAnalyzer abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, primaryTypes);
-        analyzerExceptions.addAll(abstractMethodAnalyzer.go(firstIteration).analyzerExceptions());
+        AbstractMethodAnalyzer abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration,
+                propertiesChanged, primaryTypes);
+        abstractMethodAnalyzer.go(firstIteration);
 
         /*
         run once more, because the abstract method analyzer may have resolved independence and modification values
         for abstract methods.
          */
         for (TypeInfo typeInfo : typesInOrder) {
-            runTypeAnalyzers(activateCycleBreaking, typeInfo, methodsWaitFor, analyzerExceptions, builder);
+            runTypeAnalyzers(activateCycleBreaking, typeInfo);
         }
-        return new OutputImpl(analyzerExceptions, builder.build(), infoHistogram);
     }
 
-    private void runTypeAnalyzers(boolean activateCycleBreaking,
-                                  TypeInfo typeInfo,
-                                  Map<MethodInfo, Set<MethodInfo>> methodsWaitFor,
-                                  List<AnalyzerException> analyzerExceptions,
-                                  G.Builder<Info> builder) {
-        Analyzer.Output output1 = typeModIndyAnalyzer.go(typeInfo, methodsWaitFor, activateCycleBreaking);
-        analyzerExceptions.addAll(output1.analyzerExceptions());
+    private void runTypeAnalyzers(boolean activateCycleBreaking, TypeInfo typeInfo) {
+        typeModIndyAnalyzer.go(typeInfo, activateCycleBreaking);
+        typeIndependentAnalyzer.go(typeInfo, activateCycleBreaking);
+        typeImmutableAnalyzer.go(typeInfo, activateCycleBreaking);
 
-        TypeIndependentAnalyzer.Output output2 = typeIndependentAnalyzer.go(typeInfo,
-                activateCycleBreaking);
-        analyzerExceptions.addAll(output2.analyzerExceptions());
-        if (!output2.internalWaitFor().isEmpty()) builder.add(typeInfo, output2.internalWaitFor());
-        if (!output2.externalWaitFor().isEmpty()) builder.add(typeInfo, output2.externalWaitFor());
-
-        TypeImmutableAnalyzer.Output output3 = typeImmutableAnalyzer.go(typeInfo,
-                activateCycleBreaking);
-        analyzerExceptions.addAll(output3.analyzerExceptions());
-        if (!output3.internalWaitFor().isEmpty()) builder.add(typeInfo, output3.internalWaitFor());
-        if (!output3.externalWaitFor().isEmpty()) builder.add(typeInfo, output3.externalWaitFor());
     }
 }

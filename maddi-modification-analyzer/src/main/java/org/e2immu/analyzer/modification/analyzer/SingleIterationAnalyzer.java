@@ -15,24 +15,16 @@
 package org.e2immu.analyzer.modification.analyzer;
 
 import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.util.internal.graph.G;
 
 import java.util.List;
-import java.util.Map;
 
-public interface SingleIterationAnalyzer extends Analyzer {
+public interface SingleIterationAnalyzer {
 
-    interface Output extends Analyzer.Output {
-
-        G<Info> waitFor();
-
-        Map<String, Integer> infoHistogram();
+    default void go(List<Info> analysisOrder, boolean activateCycleBreaking) {
+        go(analysisOrder, activateCycleBreaking, true);
     }
 
-    default Output go(List<Info> analysisOrder, boolean activateCycleBreaking) {
-        return go(analysisOrder, activateCycleBreaking, true);
-    }
+    void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration);
 
-    Output go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration);
-
+    int propertiesChanged();
 }

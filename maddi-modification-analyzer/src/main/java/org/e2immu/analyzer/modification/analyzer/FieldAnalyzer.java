@@ -38,11 +38,7 @@ but the actual computation for parameters is done in the next phase.
 This analyzer does not concern itself with solving internal cycles.
 It writes out results, if any, in the field's analysis() object.
  */
-public interface FieldAnalyzer extends Analyzer {
+public interface FieldAnalyzer {
 
-    interface Output extends Analyzer.Output {
-        Set<Info> waitFor();
-    }
-
-    Output go(@Modified FieldInfo fieldInfo, boolean cycleBreakingActive);
+    void go(@Modified FieldInfo fieldInfo, boolean cycleBreakingActive);
 }

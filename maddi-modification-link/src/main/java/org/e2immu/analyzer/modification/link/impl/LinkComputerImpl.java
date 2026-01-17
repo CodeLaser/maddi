@@ -61,14 +61,19 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final LinkGraph linkGraph;
     private final WriteLinksAndModification writeLinksAndModification;
     private final ShallowMethodAnalyzer shallowMethodAnalyzer;
-    private final AtomicInteger propertiesChanged = new AtomicInteger();
+    private final AtomicInteger propertiesChanged;
 
-    // for testing :-) especially duplicate name checking
+    // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
-        this(javaInspector, Options.TEST);
+        this(javaInspector, Options.TEST, new AtomicInteger());
     }
 
+    // for testing
     public LinkComputerImpl(JavaInspector javaInspector, Options options) {
+        this(javaInspector, options, new AtomicInteger());
+    }
+
+    public LinkComputerImpl(JavaInspector javaInspector, Options options, AtomicInteger propertiesChanged) {
         this.recursionPrevention = new RecursionPrevention(options.recurse());
         this.javaInspector = javaInspector;
         this.options = options;
@@ -77,6 +82,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames());
         this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, javaInspector.runtime());
         this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
+        this.propertiesChanged = propertiesChanged;
     }
 
     @Override

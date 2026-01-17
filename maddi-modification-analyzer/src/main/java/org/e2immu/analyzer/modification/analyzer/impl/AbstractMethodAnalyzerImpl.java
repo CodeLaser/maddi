@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
@@ -39,8 +40,10 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
     final Map<MethodInfo, Set<MethodInfo>> concreteImplementationsOfAbstractMethods = new HashMap<>();
     final List<MethodInfo> abstractMethodsWithoutImplementation;
 
-    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, Set<TypeInfo> primaryTypes) {
-        super(configuration);
+    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration,
+                                      AtomicInteger propertiesChanged,
+                                      Set<TypeInfo> primaryTypes) {
+        super(configuration, propertiesChanged);
         primaryTypes.stream().flatMap(TypeInfo::recursiveSubTypeStream).forEach(typeInfo ->
                 typeInfo.methodStream().filter(mi -> !mi.isAbstract()).forEach(mi ->
                         mi.overrides().stream()
@@ -56,69 +59,61 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                 .toList();
     }
 
-    private record OutputImpl(List<AnalyzerException> analyzerExceptions,
-                              Set<MethodInfo> waitForMethods) implements Output {
-    }
-
     @Override
-    public Output go(boolean firstIteration) {
+    public void go(boolean firstIteration) {
         if (firstIteration) {
             for (MethodInfo methodInfo : abstractMethodsWithoutImplementation) {
                 if (!methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD)) {
                     methodInfo.analysis().set(INDEPENDENT_METHOD, DEPENDENT);
                     DECIDE.debug("AMA: Decide dependent method {}", methodInfo);
+                    propertyChanges.incrementAndGet();
                 }
                 if (!methodInfo.analysis().haveAnalyzedValueFor(IMMUTABLE_METHOD)) {
                     methodInfo.analysis().set(IMMUTABLE_METHOD, ValueImpl.ImmutableImpl.MUTABLE);
                     DECIDE.debug("AMA: Decide mutable method {}", methodInfo);
+                    propertyChanges.incrementAndGet();
                 }
                 for (ParameterInfo pi : methodInfo.parameters()) {
                     if (!pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)) {
                         pi.analysis().set(INDEPENDENT_PARAMETER, DEPENDENT);
                         DECIDE.debug("AMA: Decide dependent parameter {}", pi);
+                        propertyChanges.incrementAndGet();
                     }
                     if (!pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER)) {
                         pi.analysis().set(UNMODIFIED_PARAMETER, FALSE);
                         DECIDE.debug("AMA: Decide modified parameter {}", pi);
+                        propertyChanges.incrementAndGet();
                     }
                 }
             }
         }
-        Set<MethodInfo> waitForMethods = new HashSet<>();
-        Iterator<Map.Entry<MethodInfo, Set<MethodInfo>>> iterator = concreteImplementationsOfAbstractMethods.entrySet().iterator();
+        Iterator<Map.Entry<MethodInfo, Set<MethodInfo>>> iterator = concreteImplementationsOfAbstractMethods
+                .entrySet().iterator();
         List<AnalyzerException> analyzerExceptions = new LinkedList<>();
         while (iterator.hasNext()) {
             Map.Entry<MethodInfo, Set<MethodInfo>> entry = iterator.next();
             MethodInfo methodInfo = entry.getKey();
-            try {
-                boolean haveIndependentMethod = methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD);
-                boolean haveNonModifyingMethod = methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD);
-                boolean undecidedInParameters = methodInfo.parameters().stream().anyMatch(pi ->
-                        !pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)
-                        || !pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER));
-                if (!haveIndependentMethod || !haveNonModifyingMethod || undecidedInParameters) {
-                    Set<MethodInfo> waitForOfMethod = resolve(methodInfo, entry.getValue());
-                    if (waitForOfMethod.isEmpty()) {
-                        iterator.remove();
-                        LOGGER.debug("Removing {} from waitFor, have left: {}", methodInfo,
-                                concreteImplementationsOfAbstractMethods.keySet());
-                    } else {
-                        LOGGER.debug("Adding {} to waitFor, have left: {}", waitForOfMethod,
-                                concreteImplementationsOfAbstractMethods.keySet());
-                        waitForMethods.addAll(waitForOfMethod);
-                    }
-                } else {
+
+            boolean haveIndependentMethod = methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD);
+            boolean haveNonModifyingMethod = methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD);
+            boolean undecidedInParameters = methodInfo.parameters().stream().anyMatch(pi ->
+                    !pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)
+                    || !pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER));
+            if (!haveIndependentMethod || !haveNonModifyingMethod || undecidedInParameters) {
+                Set<MethodInfo> waitForOfMethod = resolve(methodInfo, entry.getValue());
+                if (waitForOfMethod.isEmpty()) {
                     iterator.remove();
+                    LOGGER.debug("Removing {} from waitFor, have left: {}", methodInfo,
+                            concreteImplementationsOfAbstractMethods.keySet());
+                } else {
+                    LOGGER.debug("Adding {} to waitFor, have left: {}", waitForOfMethod,
+                            concreteImplementationsOfAbstractMethods.keySet());
                 }
-            } catch (RuntimeException re) {
-                if (configuration.storeErrors()) {
-                    if (!(re instanceof AnalyzerException)) {
-                        analyzerExceptions.add(new AnalyzerException(methodInfo, re));
-                    }
-                } else throw re;
+            } else {
+                iterator.remove();
             }
+
         }
-        return new OutputImpl(analyzerExceptions, waitForMethods);
     }
 
     private Set<MethodInfo> resolve(MethodInfo methodInfo, Set<MethodInfo> concreteImplementations) {

@@ -3,14 +3,16 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 import org.e2immu.analyzer.modification.analyzer.FieldAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -19,10 +21,8 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.EMPTY_PART_OF_CONSTRUCTION;
 import static org.e2immu.analyzer.modification.prepwork.callgraph.ComputePartOfConstructionFinalField.PART_OF_CONSTRUCTION;
@@ -37,41 +37,25 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
     private final Runtime runtime;
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
 
-    public FieldAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration) {
-        super(configuration);
+    public FieldAnalyzerImpl(Runtime runtime, IteratingAnalyzer.Configuration configuration,
+                             AtomicInteger propertyChanges) {
+        super(configuration, propertyChanges);
         this.runtime = runtime;
     }
 
-    private record OutputImpl(List<AnalyzerException> analyzerExceptions, Set<Info> waitFor) implements Output {
-    }
-
-
     @Override
-    public Output go(FieldInfo fieldInfo, boolean cycleBreakingActive) {
-        List<AnalyzerException> analyzerExceptions = new LinkedList<>();
+    public void go(FieldInfo fieldInfo, boolean cycleBreakingActive) {
         InternalFieldAnalyzer analyzer = new InternalFieldAnalyzer();
-        try {
-            analyzer.go(fieldInfo, cycleBreakingActive);
-        } catch (RuntimeException re) {
-            if (configuration.storeErrors()) {
-                if (!(re instanceof AnalyzerException)) {
-                    analyzerExceptions.add(new AnalyzerException(fieldInfo, re));
-                }
-            } else throw re;
-        }
-        return new OutputImpl(analyzerExceptions, analyzer.waitFor);
+        analyzer.go(fieldInfo, cycleBreakingActive);
     }
 
     private class InternalFieldAnalyzer {
-        private final Set<Info> waitFor = new HashSet<>();
-
         private void go(FieldInfo fieldInfo, boolean cycleBreakingActive) {
             LOGGER.debug("Do field {}", fieldInfo);
-            Links linkedVariablesDone = fieldInfo.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-            Value.Bool unmodifiedDone = fieldInfo.analysis().getOrNull(PropertyImpl.UNMODIFIED_FIELD,
-                    ValueImpl.BoolImpl.class);
-            Value.Independent independentDone = fieldInfo.analysis().getOrNull(PropertyImpl.INDEPENDENT_FIELD,
-                    Value.Independent.class);
+            Links linkedVariablesDone = fieldInfo.analysis().getOrDefault(LinksImpl.LINKS, LinksImpl.EMPTY);
+            Value.Bool unmodifiedDone = fieldInfo.analysis().getOrDefault(PropertyImpl.UNMODIFIED_FIELD, FALSE);
+            Value.Independent currentIndependent = fieldInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD,
+                    ValueImpl.IndependentImpl.DEPENDENT);
 
             List<MethodInfo> methodsReferringToField = fieldInfo.owner().primaryType()
                     .recursiveSubTypeStream()
@@ -79,48 +63,53 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                     .filter(mi -> notEmptyOrSyntheticAccessorAndReferringTo(mi, fieldInfo))
                     .toList();
 
-            if (unmodifiedDone == null || unmodifiedDone.isFalse()) {
+            if (unmodifiedDone.isFalse()) {
                 Value.Bool unmodified = computeUnmodified(fieldInfo, methodsReferringToField);
                 if (unmodified != null) {
                     if (fieldInfo.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_FIELD, unmodified)) {
                         DECIDE.debug("FI: Decide unmodified of field {} = {}", fieldInfo, unmodified);
+                        propertyChanges.incrementAndGet();
                     }
                 } else if (cycleBreakingActive) {
                     boolean write = fieldInfo.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_FIELD, TRUE);
                     assert write;
                     DECIDE.info("FI: Decide unmodified of field {} = true by {}", fieldInfo, highlight("cycleBreaking"));
+                    propertyChanges.incrementAndGet();
                 } else {
-                    UNDECIDED.debug("FI: Unmodified of field {} undecided, wait for {}", fieldInfo, waitFor);
+                    UNDECIDED.debug("FI: Unmodified of field {} undecided", fieldInfo);
                 }
             }
 
-            Links linkedVariables = linkedVariablesDone != null ? linkedVariablesDone
-                    : computeLinkedVariables(fieldInfo, methodsReferringToField);
+            Links linkedVariables = computeLinkedVariables(fieldInfo, methodsReferringToField);
             if (linkedVariables == null) {
                 if (cycleBreakingActive) {
                     boolean write = fieldInfo.analysis().setAllowControlledOverwrite(LinksImpl.LINKS, LinksImpl.EMPTY);
                     assert write;
                     DECIDE.info("FI: Decide linked variables of field {} = empty by {}", fieldInfo, CYCLE_BREAKING);
+                    propertyChanges.incrementAndGet();
                 } else {
-                    UNDECIDED.debug("FI: Linked variables of field {} undecided, wait for {}", fieldInfo, waitFor);
+                    UNDECIDED.debug("FI: Linked variables of field {} undecided", fieldInfo);
                     return;
                 }
             }
             if (fieldInfo.analysis().setAllowControlledOverwrite(LinksImpl.LINKS, linkedVariables)) {
                 DECIDE.debug("FI: Decide linked variables of field {} = {}", fieldInfo, linkedVariables);
+                propertyChanges.incrementAndGet();
             }
-            if (independentDone == null) {
+            if (!currentIndependent.isIndependent()) {
                 Value.Independent independent = computeIndependent(fieldInfo, linkedVariables);
                 if (independent != null) {
                     if (fieldInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_FIELD, independent)) {
                         DECIDE.debug("FI: Decide independent of field {} = {}", fieldInfo, independent);
+                        propertyChanges.incrementAndGet();
                     }
                 } else if (cycleBreakingActive) {
                     boolean write = fieldInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_FIELD, INDEPENDENT);
                     assert write;
                     DECIDE.info("FI: Decide independent of field {} = INDEPENDENT by {}", fieldInfo, CYCLE_BREAKING);
+                    propertyChanges.incrementAndGet();
                 } else {
-                    UNDECIDED.debug("FI: Independent of field {} undecided, wait for {}", fieldInfo, waitFor);
+                    UNDECIDED.debug("FI: Independent of field {} undecided", fieldInfo);
                 }
             }
         }
@@ -147,7 +136,6 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                             Links lv = vi.linkedVariables();
                             if (lv == null) {
                                 // no linked variables yet
-                                waitFor.add(methodInfo);
                                 undecided = true;
                             } else if (!lv.isEmpty()) {
                                 // we're only interested in parameters, other fields, return values
@@ -183,7 +171,6 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                             Value.Bool v = vi.analysis().getOrNull(VariableInfoImpl.UNMODIFIED_VARIABLE,
                                     ValueImpl.BoolImpl.class);
                             if (v == null) {
-                                waitFor.add(methodInfo);
                                 undecided = true;
                             } else if (v.isFalse()) {
                                 return FALSE;
@@ -199,9 +186,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             Value.Independent independentOfType = analysisHelper.typeIndependentFromImmutableOrNull(fieldInfo.owner(),
                     fieldInfo.type());
             if (independentOfType == null) {
-                TypeInfo bestType = fieldInfo.type().bestTypeInfo();
-                assert bestType != null;
-                waitFor.add(bestType);
+                // wait
                 return null;
             }
             if (independentOfType.isIndependent()) return INDEPENDENT;

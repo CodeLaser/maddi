@@ -19,12 +19,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 
 import java.util.Set;
 
-public interface AbstractMethodAnalyzer extends Analyzer {
+public interface AbstractMethodAnalyzer  {
 
-    interface Output extends Analyzer.Output {
-
-        Set<MethodInfo> waitForMethods();
-    }
-
-    Output go(boolean firstIteration);
+    void go(boolean firstIteration);
 }
