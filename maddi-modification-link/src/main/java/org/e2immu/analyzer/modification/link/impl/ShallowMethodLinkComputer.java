@@ -33,7 +33,8 @@ import java.util.stream.Stream;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
-import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.GET_SET_FIELD;
+import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
 
 /*
 rules for ⊆ instead of ≡, ~
@@ -101,32 +102,16 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
 
         List<Links> ofParameters = new ArrayList<>(methodInfo.parameters().size());
         Set<Variable> modified = new HashSet<>();
-        boolean methodNonModifying;
         if (methodInfo.isModifying() && !methodInfo.isIgnoreModification() && !methodInfo.isFinalizer()) {
             modified.add(runtime.newThis(typeInfo.asParameterizedType()));
-            methodNonModifying = false;
-        } else {
-            methodNonModifying = true;
-        }
-        if (!methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD)) {
-            methodInfo.analysis().set(NON_MODIFYING_METHOD, ValueImpl.BoolImpl.from(methodNonModifying));
         }
 
         for (ParameterInfo pi : methodInfo.parameters()) {
-            boolean parameterUnmodified;
             if (pi.isModified() && !pi.isIgnoreModifications()) {
                 Value.Immutable immutable = new AnalysisHelper().typeImmutable(typeInfo, pi.parameterizedType());
                 if (immutable.isMutable()) {
                     modified.add(pi);
-                    parameterUnmodified = false;
-                } else {
-                    parameterUnmodified = true;
                 }
-            } else {
-                parameterUnmodified = true;
-            }
-            if (!pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER)) {
-                pi.analysis().set(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.from(parameterUnmodified));
             }
             Links.Builder piBuilder = new LinksImpl.Builder(pi);
 
