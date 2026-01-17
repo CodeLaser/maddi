@@ -27,16 +27,7 @@ Given the modification and linking of methods and fields,
 compute independence of methods, fields, parameters, and primary type,
 and forward the modification of fields to the parameters linked to it.
  */
-public interface TypeModIndyAnalyzer extends Analyzer {
+public interface TypeModIndyAnalyzer  {
 
-    interface Output extends Analyzer.Output {
-        boolean resolvedInternalCycles();
-
-        Map<MethodInfo, Set<MethodInfo>> waitForMethodModifications();
-
-        Map<MethodInfo, Set<TypeInfo>> waitForTypeIndependence();
-
-    }
-
-    Output go(TypeInfo primaryType, Map<MethodInfo, Set<MethodInfo>> methodsWaitFor, boolean cycleBreakingActive);
+    void go(TypeInfo primaryType, boolean cycleBreakingActive);
 }

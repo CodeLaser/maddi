@@ -28,14 +28,7 @@ hence their modification and independence status is shared.
 
 It is possible to have to wait for other type's @Immutable status, because of extensions and non-private fields.
  */
-public interface TypeImmutableAnalyzer extends Analyzer {
+public interface TypeImmutableAnalyzer {
 
-    interface Output extends Analyzer.Output {
-
-        // both fields and abstract methods
-        Set<Info> internalWaitFor();
-        Set<TypeInfo> externalWaitFor();
-    }
-
-    Output go(TypeInfo primaryType, boolean activateCycleBreaking);
+    void go(TypeInfo primaryType, boolean activateCycleBreaking);
 }

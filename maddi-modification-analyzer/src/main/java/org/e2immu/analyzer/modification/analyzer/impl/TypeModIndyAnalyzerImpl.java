@@ -17,15 +17,12 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeModIndyAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -37,8 +34,11 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.EMPTY;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
@@ -63,326 +63,294 @@ parameter modification is computed as the combination of links to fields and loc
 public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeModIndyAnalyzer {
     private final AnalysisHelper analysisHelper = new AnalysisHelper();
 
-    public TypeModIndyAnalyzerImpl(IteratingAnalyzer.Configuration configuration) {
-        super(configuration);
-    }
-
-    private record OutputImpl(List<AnalyzerException> analyzerExceptions, boolean resolvedInternalCycles,
-                              Map<MethodInfo, Set<MethodInfo>> waitForMethodModifications,
-                              Map<MethodInfo, Set<TypeInfo>> waitForTypeIndependence) implements Output {
+    public TypeModIndyAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged) {
+        super(configuration, propertiesChanged);
     }
 
     @Override
-    public Output go(TypeInfo typeInfo, Map<MethodInfo, Set<MethodInfo>> methodsWaitFor, boolean cycleBreakingActive) {
-        InternalAnalyzer ia = new InternalAnalyzer(cycleBreakingActive);
-        try {
-            ia.go(typeInfo);
-        } catch (RuntimeException re) {
-            if (configuration.storeErrors()) {
-                if (!(re instanceof AnalyzerException)) {
-                    ia.analyzerExceptions.add(new AnalyzerException(typeInfo, re));
-                }
-            } else throw re;
-        }
-        return new OutputImpl(ia.analyzerExceptions, false, ia.waitForMethodModifications,
-                ia.waitForTypeIndependence);
+    public void go(TypeInfo typeInfo, boolean cycleBreakingActive) {
+        typeInfo.constructorAndMethodStream().filter(mi -> !mi.isAbstract())
+                .forEach(mi -> go(cycleBreakingActive, mi));
+        fromNonFinalFieldToParameter(typeInfo);
     }
 
-    class InternalAnalyzer {
-        List<AnalyzerException> analyzerExceptions = new LinkedList<>();
-        Map<MethodInfo, Set<MethodInfo>> waitForMethodModifications = new HashMap<>();
-        Map<MethodInfo, Set<TypeInfo>> waitForTypeIndependence = new HashMap<>();
-        Map<MethodInfo, Set<FieldInfo>> waitForField = new HashMap<>();
-        final boolean cycleBreakingActive;
-
-        InternalAnalyzer(boolean cycleBreakingActive) {
-            this.cycleBreakingActive = cycleBreakingActive;
+    private void go(boolean cycleBreakingActive, MethodInfo methodInfo) {
+        FieldValue fieldValue = methodInfo.analysis().getOrDefault(GET_SET_FIELD, ValueImpl.GetSetValueImpl.EMPTY);
+        if (fieldValue.field() != null) {
+            handleGetterSetter(methodInfo, fieldValue);
+        } else if (methodInfo.explicitlyEmptyMethod()) {
+            handleExplicitlyEmptyMethod(methodInfo);
+        } else if (!methodInfo.methodBody().isEmpty()) {
+            handleNormalMethod(cycleBreakingActive, methodInfo);
         }
+    }
 
-        private void go(TypeInfo typeInfo) {
-            typeInfo.constructorAndMethodStream()
-                    .filter(mi -> !mi.isAbstract())
-                    .forEach(this::go);
-            fromNonFinalFieldToParameter(typeInfo);
+    private void handleNormalMethod(boolean cycleBreakingActive, MethodInfo methodInfo) {
+        Statement lastStatement = methodInfo.methodBody().lastStatement();
+        assert lastStatement != null;
+        doIdentityAnalysis(methodInfo);
+        doFluentAnalysis(methodInfo);
+        MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS, EMPTY);
+        doIndependent(cycleBreakingActive, methodInfo, mlv);
+
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            handleParameter(cycleBreakingActive, pi, mlv);
         }
+    }
 
-        private void go(MethodInfo methodInfo) {
-            FieldValue fieldValue = methodInfo.analysis().getOrDefault(GET_SET_FIELD, ValueImpl.GetSetValueImpl.EMPTY);
-            if (fieldValue.field() != null) {
-                handleGetterSetter(methodInfo, fieldValue);
-            } else if (methodInfo.explicitlyEmptyMethod()) {
-                handleExplicitlyEmptyMethod(methodInfo);
-            } else if (!methodInfo.methodBody().isEmpty()) {
-                handleNormalMethod(methodInfo);
-            }
+    private void doFluentAnalysis(MethodInfo methodInfo) {
+        MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS, EMPTY);
+        boolean identityFluent;
+        if (methodInfo.hasReturnValue() && !mlv.ofReturnValue().isEmpty()) {
+            identityFluent = mlv.ofReturnValue().stream()
+                    .anyMatch(v -> v.to() instanceof This thisVar
+                                   && (thisVar.typeInfo() == methodInfo.typeInfo()
+                                       || thisVar.typeInfo().typeHierarchyExcludingJLOStream()
+                                               .anyMatch(h -> h.equals(methodInfo.typeInfo()))));
+        } else {
+            identityFluent = false;
         }
-
-        private void handleNormalMethod(MethodInfo methodInfo) {
-            Statement lastStatement = methodInfo.methodBody().lastStatement();
-            assert lastStatement != null;
-            doIdentityAnalysis(methodInfo);
-            doFluentAnalysis(methodInfo);
-            MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS, MethodLinkedVariablesImpl.EMPTY);
-            doIndependent(methodInfo, mlv);
-
-            for (ParameterInfo pi : methodInfo.parameters()) {
-                handleParameter(methodInfo, pi, mlv);
-            }
+        if (methodInfo.analysis().setAllowControlledOverwrite(FLUENT_METHOD, ValueImpl.BoolImpl.from(identityFluent))) {
+            DECIDE.debug("MI: Decide @Fluent of {} = {}", methodInfo, identityFluent);
+            propertyChanges.incrementAndGet();
         }
+    }
 
-        private void doFluentAnalysis(MethodInfo methodInfo) {
-            MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS,
-                    MethodLinkedVariablesImpl.EMPTY);
-            boolean identityFluent;
-            if (methodInfo.hasReturnValue() && !mlv.ofReturnValue().isEmpty()) {
-                identityFluent = mlv.ofReturnValue().stream()
-                        .anyMatch(v -> v.to() instanceof This thisVar
-                                       && (thisVar.typeInfo() == methodInfo.typeInfo()
-                                           || thisVar.typeInfo().typeHierarchyExcludingJLOStream()
-                                                   .anyMatch(h -> h.equals(methodInfo.typeInfo()))));
-            } else {
-                identityFluent = false;
-            }
-            if (methodInfo.analysis().setAllowControlledOverwrite(FLUENT_METHOD, ValueImpl.BoolImpl.from(identityFluent))) {
-                DECIDE.debug("MI: Decide @Fluent of {} = {}", methodInfo, identityFluent);
-            }
+    private void doIdentityAnalysis(MethodInfo methodInfo) {
+        MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS, EMPTY);
+        boolean identity;
+        if (methodInfo.hasReturnValue()
+            && !methodInfo.parameters().isEmpty()
+            && !mlv.ofReturnValue().isEmpty()) {
+            Variable primaryFrom = mlv.ofReturnValue().primary();
+            Variable p0 = methodInfo.parameters().getFirst();
+            identity = mlv.ofReturnValue().stream().allMatch(link -> {
+                if (link.from().equals(primaryFrom)) return link.to().equals(p0);
+                ParameterInfo pi = Util.parameterPrimaryOrNull(link.to());
+                return p0.equals(pi);
+            });
+        } else {
+            identity = false;
         }
-
-        private void doIdentityAnalysis(MethodInfo methodInfo) {
-            MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS,
-                    MethodLinkedVariablesImpl.EMPTY);
-            boolean identity;
-            if (methodInfo.hasReturnValue()
-                && !methodInfo.parameters().isEmpty()
-                && !mlv.ofReturnValue().isEmpty()) {
-                Variable primaryFrom = mlv.ofReturnValue().primary();
-                Variable p0 = methodInfo.parameters().getFirst();
-                identity = mlv.ofReturnValue().stream().allMatch(link -> {
-                    if (link.from().equals(primaryFrom)) return link.to().equals(p0);
-                    ParameterInfo pi = Util.parameterPrimaryOrNull(link.to());
-                    return p0.equals(pi);
-                });
-            } else {
-                identity = false;
-            }
-            if (methodInfo.analysis().setAllowControlledOverwrite(IDENTITY_METHOD, ValueImpl.BoolImpl.from(identity))) {
-                DECIDE.debug("MI: Decide @Identity of {} = {}", methodInfo, identity);
-            }
+        if (methodInfo.analysis().setAllowControlledOverwrite(IDENTITY_METHOD, ValueImpl.BoolImpl.from(identity))) {
+            DECIDE.debug("MI: Decide @Identity of {} = {}", methodInfo, identity);
+            propertyChanges.incrementAndGet();
         }
+    }
 
-        private void handleParameter(MethodInfo methodInfo, ParameterInfo pi, MethodLinkedVariables mlv) {
-            Value.Immutable imm = analysisHelper.typeImmutable(pi.parameterizedType());
-            Bool unmodifiedInMethod;
-            if (imm.isImmutable()) {
-                unmodifiedInMethod = TRUE;
-            } else {
-                unmodifiedInMethod = ValueImpl.BoolImpl.from(!mlv.modified().contains(pi));
-                Links links = mlv.ofParameters().get(pi.index());
-                if (!links.isEmpty() && unmodifiedInMethod.isTrue()) {
-                    // FIXME if mutable, check for §m; if HC, check for a HC link such as ~
-                    for (Link link : links) {
-                        if (link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
-                            Bool unmodifiedField = fr.fieldInfo().analysis().getOrNull(UNMODIFIED_FIELD,
-                                    ValueImpl.BoolImpl.class);
-                            if (unmodifiedField == null) {
-                                unmodifiedInMethod = null;
-                                waitForField.computeIfAbsent(methodInfo, m -> new HashSet<>()).add(fr.fieldInfo());
-                                break;
-                            } else if (unmodifiedField.isFalse()) {
-                                unmodifiedInMethod = FALSE;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            if (unmodifiedInMethod != null) {
-                if (pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, unmodifiedInMethod)) {
-                    DECIDE.debug("MI: unmodified of parameter {} = {}", pi, unmodifiedInMethod);
-                }
-            } else if (cycleBreakingActive) {
-                UNDECIDED.info("MI: Unmodified of parameter {} undecided, waitForField {}", pi, waitForField);
-            } else {
-                UNDECIDED.debug("MI: Unmodified of parameter {} undecided, waitForField {}", pi, waitForField);
-            }
-        }
-
-        private void handleExplicitlyEmptyMethod(MethodInfo methodInfo) {
-            if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.NON_MODIFYING_METHOD, TRUE)) {
-                DECIDE.debug("MI: Decide non-modifying of method {} = true", methodInfo);
-            }
-            if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT)) {
-                DECIDE.debug("MI: Decide independent of method {} = independent", methodInfo);
-            }
-            for (ParameterInfo pi : methodInfo.parameters()) {
-                if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
-                    DECIDE.debug("MI: Decide unmodified of parameter {} = true", pi);
-                }
-                if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT)) {
-                    DECIDE.debug("MI: Decide independent of parameter {} = independent", pi);
-                }
-            }
-        }
-
-        private void handleGetterSetter(MethodInfo methodInfo, FieldValue fieldValue) {
-            assert !methodInfo.isConstructor();
-            // getter, setter
-            Bool nonModifying = ValueImpl.BoolImpl.from(!fieldValue.setter());
-            methodInfo.analysis().setAllowControlledOverwrite(NON_MODIFYING_METHOD, nonModifying);
-            Independent independentFromType = analysisHelper.typeIndependentFromImmutableOrNull(fieldValue.field().type());
-            if (independentFromType == null) {
-                waitForTypeIndependence.computeIfAbsent(methodInfo, m -> new HashSet<>())
-                        .add(fieldValue.field().type().bestTypeInfo());
-                if (cycleBreakingActive) {
-                    UNDECIDED.info("MI: Independent of method {} undecided, wait for type independence {}", methodInfo,
-                            waitForTypeIndependence);
-                } else {
-                    UNDECIDED.debug("MI: Independent of method {} undecided, wait for type independence {}", methodInfo,
-                            waitForTypeIndependence);
-                }
-            } else if (fieldValue.setter()) {
-                handleSetter(methodInfo, fieldValue, independentFromType);
-            } else {
-                handleGetter(methodInfo, independentFromType);
-            }
-        }
-
-        private void handleGetter(MethodInfo methodInfo, Independent independentFromType) {
-            if (methodInfo.analysis().setAllowControlledOverwrite(INDEPENDENT_METHOD, independentFromType)) {
-                DECIDE.debug("MI: Decide independent of method {} = {}}", methodInfo, independentFromType);
-            }
-            for (ParameterInfo pi : methodInfo.parameters()) {
-                if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
-                    DECIDE.debug("MI: Decide unmodified of getter parameter: {} = true", pi);
-                }
-            }
-        }
-
-        private void handleSetter(MethodInfo methodInfo, FieldValue fieldValue, Independent independentFromType) {
-            if (independentFromType.isIndependent()) {
-                // must be unmodified, otherwise, we'll have to wait for a value to come from the field
-                for (ParameterInfo pi : methodInfo.parameters()) {
-                    if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
-                        DECIDE.debug("MI: Decide unmodified of parameter because independent: {} = true", pi);
-                    }
-                }
-            } else {
-                Bool unmodifiedField = fieldValue.field().analysis().getOrNull(UNMODIFIED_FIELD,
-                        ValueImpl.BoolImpl.class);
-                if (unmodifiedField == null) {
-                    waitForField.computeIfAbsent(methodInfo, m -> new HashSet<>())
-                            .add(fieldValue.field());
-                    if (cycleBreakingActive) {
-                        UNDECIDED.info("MI: Unmodified of setter parameter of {} undecided: wait for field {}",
-                                methodInfo, waitForField);
-                    } else {
-                        UNDECIDED.debug("MI: Unmodified of setter parameter of {} undecided: wait for field {}",
-                                methodInfo, waitForField);
-                    }
-                } else {
-                    for (ParameterInfo pi : methodInfo.parameters()) {
-                        if (pi.index() == fieldValue.parameterIndexOfIndex()) {
-                            if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
-                                DECIDE.debug("MI: Decide unmodified of setter index parameter: {} = true", pi);
-                            }
-                        } else {
-                            if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodifiedField)) {
-                                DECIDE.debug("MI: Decide unmodified of setter parameter: {} = {}", pi, unmodifiedField);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        /*
-    constructors: independent
-    void methods: independent
-    fluent methods: because we return the same object that the caller already has, no more opportunity to make
-        changes is leaked than what as already there. Independent!
-    accessors: independent directly related to the immutability of the field being returned
-    normal methods: does a modification to the return value imply any modification in the method's object?
-        independent directly related to the immutability of the fields to which the return value links.
-     */
-        private void doIndependent(MethodInfo methodInfo, MethodLinkedVariables mlv) {
-
-            Independent independentMethod = doIndependentMethod(methodInfo, mlv);
-            if (independentMethod != null) {
-                if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_METHOD, independentMethod)) {
-                    DECIDE.debug("MI: Decide independent of method {} = {}", methodInfo, independentMethod);
-                }
-            } else if (cycleBreakingActive) {
-                boolean write = methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT);
-                assert write;
-                DECIDE.info("MI: Decide independent of method {} = INDEPENDENT by {}", methodInfo, CYCLE_BREAKING);
-            } else {
-                UNDECIDED.debug("MI: Independent of method undecided: {}", methodInfo);
-            }
-            for (ParameterInfo pi : methodInfo.parameters()) {
-                Independent independent = doIndependentParameter(pi, mlv);
-                if (independent != null) {
-                    if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_PARAMETER, independent)) {
-                        DECIDE.debug("MI: Decide independent of parameter {} = {}", pi, independent);
-                    }
-                } else if (cycleBreakingActive) {
-                    boolean write = pi.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT);
-                    assert write;
-                    DECIDE.info("MI: Decide independent of parameter {} = INDEPENDENT by {}", pi, CYCLE_BREAKING);
-                } else {
-                    UNDECIDED.debug("MI: Independent of parameter {} undecided", pi);
-                }
-            }
-        }
-
-        private Independent doIndependentParameter(ParameterInfo pi, MethodLinkedVariables mlv) {
-            boolean typeIsImmutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
-            if (typeIsImmutable) return INDEPENDENT;
-            if (pi.methodInfo().isAbstract() || pi.methodInfo().methodBody().isEmpty()) return DEPENDENT;
+    private void handleParameter(boolean cycleBreakingActive, ParameterInfo pi, MethodLinkedVariables mlv) {
+        Value.Immutable imm = analysisHelper.typeImmutable(pi.parameterizedType());
+        Bool unmodifiedInMethod;
+        if (imm.isImmutable()) {
+            unmodifiedInMethod = TRUE;
+        } else {
+            unmodifiedInMethod = ValueImpl.BoolImpl.from(!mlv.modified().contains(pi));
             Links links = mlv.ofParameters().get(pi.index());
-            return worstLinkToFields(links, pi.fullyQualifiedName());
-        }
-
-        private Independent doIndependentMethod(MethodInfo methodInfo, MethodLinkedVariables mlv) {
-            if (methodInfo.isConstructor() || methodInfo.noReturnValue()) return INDEPENDENT;
-            assert !methodInfo.isAbstract() : "Code only called when there is a method body";
-            boolean fluent = methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE).isTrue();
-            if (fluent) return INDEPENDENT;
-            boolean typeIsImmutable = analysisHelper.typeImmutable(methodInfo.returnType()).isImmutable();
-            if (typeIsImmutable) return INDEPENDENT;
-            return worstLinkToFields(mlv.ofReturnValue(), methodInfo.fullyQualifiedName());
-        }
-
-        private Independent worstLinkToFields(Links links, String variableFqn) {
-            boolean immutableHc = false;
-            for (Link link : links) {
-                Variable primaryTo = Util.primary(link.to());
-                if (primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
-                    ParameterizedType type;
-                    if (primaryTo == link.to() && link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_TO)) {
-                        // this.set ← 0:set, TestFieldAnalyzer,1,2
-                        type = primaryTo.parameterizedType();
-                    } else if (link.linkNature().equals(LinkNatureImpl.SHARES_ELEMENTS)
-                               || link.linkNature().equals(LinkNatureImpl.IS_SUPERSET_OF)) {
-                        // 0:set.§cs⊇this.set.§cs, TestFieldAnalyzer,3
-                        type = link.to().parameterizedType().copyWithoutArrays();
-                    } else if (link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)) {
-                        // 0:element ∋ this.set.§cs
-                        type = link.to().parameterizedType();
-                    } else {
-                        type = null;
-                    }
-                    if (type != null) {
-                        Immutable fieldImmutable = analysisHelper.typeImmutable(type);
-                        if (fieldImmutable.isMutable()) return DEPENDENT;
-                        if (fieldImmutable.isImmutableHC()) immutableHc = true;
+            if (!links.isEmpty() && unmodifiedInMethod.isTrue()) {
+                // FIXME if mutable, check for §m; if HC, check for a HC link such as ~
+                for (Link link : links) {
+                    if (link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                        Bool unmodifiedField = fr.fieldInfo().analysis().getOrNull(UNMODIFIED_FIELD,
+                                ValueImpl.BoolImpl.class);
+                        if (unmodifiedField == null) {
+                            unmodifiedInMethod = null;
+                            break;
+                        } else if (unmodifiedField.isFalse()) {
+                            unmodifiedInMethod = FALSE;
+                            break;
+                        }
                     }
                 }
             }
-            return immutableHc ? INDEPENDENT_HC : INDEPENDENT;
         }
+        if (unmodifiedInMethod != null) {
+            if (pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, unmodifiedInMethod)) {
+                DECIDE.debug("MI: unmodified of parameter {} = {}", pi, unmodifiedInMethod);
+                propertyChanges.incrementAndGet();
+            }
+        } else if (cycleBreakingActive) {
+            UNDECIDED.info("MI: Unmodified of parameter {} undecided", pi);
+        } else {
+            UNDECIDED.debug("MI: Unmodified of parameter {} undecided", pi);
+        }
+    }
+
+    private void handleExplicitlyEmptyMethod(MethodInfo methodInfo) {
+        if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.NON_MODIFYING_METHOD, TRUE)) {
+            DECIDE.debug("MI: Decide non-modifying of method {} = true", methodInfo);
+            propertyChanges.incrementAndGet();
+        }
+        if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT)) {
+            DECIDE.debug("MI: Decide independent of method {} = independent", methodInfo);
+            propertyChanges.incrementAndGet();
+        }
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
+                DECIDE.debug("MI: Decide unmodified of parameter {} = true", pi);
+                propertyChanges.incrementAndGet();
+            }
+            if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT)) {
+                DECIDE.debug("MI: Decide independent of parameter {} = independent", pi);
+                propertyChanges.incrementAndGet();
+            }
+        }
+    }
+
+    private void handleGetterSetter(MethodInfo methodInfo, FieldValue fieldValue) {
+        assert !methodInfo.isConstructor();
+        // getter, setter
+        Bool nonModifying = ValueImpl.BoolImpl.from(!fieldValue.setter());
+        if (methodInfo.analysis().setAllowControlledOverwrite(NON_MODIFYING_METHOD, nonModifying)) {
+            propertyChanges.incrementAndGet();
+        }
+        Independent independentFromType = analysisHelper.typeIndependentFromImmutableOrNull(fieldValue.field().type());
+        if (independentFromType == null) {
+            UNDECIDED.debug("MI: Independent of method {} undecided", methodInfo);
+        } else if (fieldValue.setter()) {
+            handleSetter(methodInfo, fieldValue, independentFromType);
+        } else {
+            handleGetter(methodInfo, independentFromType);
+        }
+    }
+
+    private void handleGetter(MethodInfo methodInfo, Independent independentFromType) {
+        if (methodInfo.analysis().setAllowControlledOverwrite(INDEPENDENT_METHOD, independentFromType)) {
+            DECIDE.debug("MI: Decide independent of method {} = {}}", methodInfo, independentFromType);
+            propertyChanges.incrementAndGet();
+        }
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
+                DECIDE.debug("MI: Decide unmodified of getter parameter: {} = true", pi);
+                propertyChanges.incrementAndGet();
+            }
+        }
+    }
+
+    private void handleSetter(MethodInfo methodInfo, FieldValue fieldValue, Independent independentFromType) {
+        if (independentFromType.isIndependent()) {
+            // must be unmodified, otherwise, we'll have to wait for a value to come from the field
+            for (ParameterInfo pi : methodInfo.parameters()) {
+                if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
+                    DECIDE.debug("MI: Decide unmodified of parameter because independent: {} = true", pi);
+                    propertyChanges.incrementAndGet();
+                }
+            }
+        } else {
+            Bool unmodifiedField = fieldValue.field().analysis().getOrNull(UNMODIFIED_FIELD,
+                    ValueImpl.BoolImpl.class);
+            if (unmodifiedField == null) {
+                UNDECIDED.debug("MI: Unmodified of setter parameter of {}", methodInfo);
+
+            } else {
+                for (ParameterInfo pi : methodInfo.parameters()) {
+                    if (pi.index() == fieldValue.parameterIndexOfIndex()) {
+                        if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
+                            DECIDE.debug("MI: Decide unmodified of setter index parameter: {} = true", pi);
+                            propertyChanges.incrementAndGet();
+                        }
+                    } else {
+                        if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, unmodifiedField)) {
+                            DECIDE.debug("MI: Decide unmodified of setter parameter: {} = {}", pi, unmodifiedField);
+                            propertyChanges.incrementAndGet();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+constructors: independent
+void methods: independent
+fluent methods: because we return the same object that the caller already has, no more opportunity to make
+    changes is leaked than what as already there. Independent!
+accessors: independent directly related to the immutability of the field being returned
+normal methods: does a modification to the return value imply any modification in the method's object?
+    independent directly related to the immutability of the fields to which the return value links.
+ */
+    private void doIndependent(boolean cycleBreakingActive, MethodInfo methodInfo, MethodLinkedVariables mlv) {
+
+        Independent independentMethod = doIndependentMethod(methodInfo, mlv);
+        if (independentMethod != null) {
+            if (methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_METHOD, independentMethod)) {
+                DECIDE.debug("MI: Decide independent of method {} = {}", methodInfo, independentMethod);
+                propertyChanges.incrementAndGet();
+            }
+        } else if (cycleBreakingActive) {
+            boolean write = methodInfo.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_METHOD, INDEPENDENT);
+            assert write;
+            propertyChanges.incrementAndGet();
+            DECIDE.info("MI: Decide independent of method {} = INDEPENDENT by {}", methodInfo, CYCLE_BREAKING);
+        } else {
+            UNDECIDED.debug("MI: Independent of method undecided: {}", methodInfo);
+        }
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            Independent independent = doIndependentParameter(pi, mlv);
+            if (independent != null) {
+                if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_PARAMETER, independent)) {
+                    DECIDE.debug("MI: Decide independent of parameter {} = {}", pi, independent);
+                    propertyChanges.incrementAndGet();
+                }
+            } else if (cycleBreakingActive) {
+                boolean write = pi.analysis().setAllowControlledOverwrite(PropertyImpl.INDEPENDENT_PARAMETER, INDEPENDENT);
+                assert write;
+                DECIDE.info("MI: Decide independent of parameter {} = INDEPENDENT by {}", pi, CYCLE_BREAKING);
+                propertyChanges.incrementAndGet();
+            } else {
+                UNDECIDED.debug("MI: Independent of parameter {} undecided", pi);
+            }
+        }
+    }
+
+    private Independent doIndependentParameter(ParameterInfo pi, MethodLinkedVariables mlv) {
+        boolean typeIsImmutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
+        if (typeIsImmutable) return INDEPENDENT;
+        if (pi.methodInfo().isAbstract() || pi.methodInfo().methodBody().isEmpty()) return DEPENDENT;
+        Links links = mlv.ofParameters().get(pi.index());
+        return worstLinkToFields(links);
+    }
+
+    private Independent doIndependentMethod(MethodInfo methodInfo, MethodLinkedVariables mlv) {
+        if (methodInfo.isConstructor() || methodInfo.noReturnValue()) return INDEPENDENT;
+        assert !methodInfo.isAbstract() : "Code only called when there is a method body";
+        boolean fluent = methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE).isTrue();
+        if (fluent) return INDEPENDENT;
+        boolean typeIsImmutable = analysisHelper.typeImmutable(methodInfo.returnType()).isImmutable();
+        if (typeIsImmutable) return INDEPENDENT;
+        return worstLinkToFields(mlv.ofReturnValue());
+    }
+
+    private Independent worstLinkToFields(Links links) {
+        boolean immutableHc = false;
+        for (Link link : links) {
+            Variable primaryTo = Util.primary(link.to());
+            if (primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                ParameterizedType type;
+                if (primaryTo == link.to() && link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_TO)) {
+                    // this.set ← 0:set, TestFieldAnalyzer,1,2
+                    type = primaryTo.parameterizedType();
+                } else if (link.linkNature().equals(LinkNatureImpl.SHARES_ELEMENTS)
+                           || link.linkNature().equals(LinkNatureImpl.IS_SUPERSET_OF)) {
+                    // 0:set.§cs⊇this.set.§cs, TestFieldAnalyzer,3
+                    type = link.to().parameterizedType().copyWithoutArrays();
+                } else if (link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)) {
+                    // 0:element ∋ this.set.§cs
+                    type = link.to().parameterizedType();
+                } else {
+                    type = null;
+                }
+                if (type != null) {
+                    Immutable fieldImmutable = analysisHelper.typeImmutable(type);
+                    if (fieldImmutable.isMutable()) return DEPENDENT;
+                    if (fieldImmutable.isImmutableHC()) immutableHc = true;
+                }
+            }
+        }
+        return immutableHc ? INDEPENDENT_HC : INDEPENDENT;
+    }
 
 
-        private void fromNonFinalFieldToParameter(TypeInfo typeInfo) {
+    private void fromNonFinalFieldToParameter(TypeInfo typeInfo) {
        /*   FIXME   Map<ParameterInfo, StaticValues> svMapParameters = collectReverseFromNonFinalFieldsToParameters(typeInfo);
             svMapParameters.forEach((pi, sv) -> {
                 if (!pi.analysis().haveAnalyzedValueFor(STATIC_VALUES_PARAMETER)) {
@@ -418,6 +386,6 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
                         }
                     });
             return svMapParameters;*/
-        }
     }
 }
+
