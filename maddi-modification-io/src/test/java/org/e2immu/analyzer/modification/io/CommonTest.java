@@ -82,8 +82,6 @@ public class CommonTest {
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);
         runtime = javaInspector.runtime();
         prepAnalyzer = new PrepAnalyzer(runtime);
-        IteratingAnalyzer.Configuration configuration = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                .setStoreErrors(storeErrorsInPVMap).build();
     }
 
     protected List<Info> prepWork(TypeInfo typeInfo) {
