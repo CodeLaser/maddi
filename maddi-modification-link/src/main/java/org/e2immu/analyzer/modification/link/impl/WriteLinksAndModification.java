@@ -9,8 +9,10 @@ import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
@@ -175,10 +177,16 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                     || ln == CONTAINS_AS_MEMBER) {
                     return false;
                 }
-                // for now, we ONLY propagate through §m
+                // the following rule is only valid for variables of non-abstract types (those that have no §m)
+                // in particular, it is NOT valid for arrays and unbound type parameters
                 if (ln == IS_ASSIGNED_TO) {
-                    Value.Immutable immutable = new AnalysisHelper().typeImmutable(toReal.parameterizedType());
-                    if (!immutable.isAtLeastImmutableHC()) return false;
+                    ParameterizedType pt = toReal.parameterizedType();
+                    TypeInfo typeInfo = pt.bestTypeInfo();
+                    if (pt.arrays() == 0 && typeInfo != null
+                        && !typeInfo.isAbstract() && !typeInfo.compilationUnit().externalLibrary()) {
+                        Value.Immutable immutable = new AnalysisHelper().typeImmutable(pt);
+                        if (!immutable.isAtLeastImmutableHC()) return false;
+                    }
                 }
             }
         }
