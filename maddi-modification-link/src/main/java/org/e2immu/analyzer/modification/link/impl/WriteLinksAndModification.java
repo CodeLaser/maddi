@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -157,14 +158,16 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
     private boolean notLinkedToModified(Links.Builder builder,
                                         Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
         for (Link link : builder) {
-            Variable toPrimary = Util.primary(link.to());
-            Set<MethodInfo> causesOfModification = modifiedVariablesAndTheirCause.get(toPrimary);
+            Variable toReal = Util.firstRealVariable(link.to());
+            Set<MethodInfo> causesOfModification = modifiedVariablesAndTheirCause.get(toReal);
             if (causesOfModification != null) {
                 LinkNature ln = link.linkNature();
-                if (ln.isIdenticalTo() // FIXME check pass
+                if (ln.isIdenticalTo()
                     && link.to() instanceof FieldReference fr
                     && VirtualFieldComputer.isVirtualModificationField(fr.fieldInfo())
                     && (ln.pass().isEmpty() || !Collections.disjoint(ln.pass(), causesOfModification))) {
+                    // x.§m ≡ y.§m
+                    // pass = see Iterable, whose iterator() method is @Independent(hc = true, except = "remove")
                     return false;
                 }
                 if (ln == CONTAINS_AS_FIELD
@@ -173,10 +176,10 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                     return false;
                 }
                 // for now, we ONLY propagate through §m
-               /* if (ln == IS_ASSIGNED_TO) {
-                    Value.Immutable immutable = new AnalysisHelper().typeImmutable(link.to().parameterizedType());
-                    return immutable.isAtLeastImmutableHC();
-                }*/
+                if (ln == IS_ASSIGNED_TO) {
+                    Value.Immutable immutable = new AnalysisHelper().typeImmutable(toReal.parameterizedType());
+                    if (!immutable.isAtLeastImmutableHC()) return false;
+                }
             }
         }
         return true;

@@ -162,12 +162,15 @@ public class Util {
     }
 
     public static Variable firstRealVariable(Variable variable) {
-        if (variable instanceof FieldReference fr) {
-            if (fr.scopeVariable() != null && fr.fieldInfo().name().startsWith("§")) {
-                return firstRealVariable(fr.scopeVariable());
-            }
+        if (variable instanceof FieldReference fr
+            && fr.scopeVariable() != null
+            && fr.fieldInfo().name().startsWith("§")) {
+            return firstRealVariable(fr.scopeVariable());
         }
-        if (variable instanceof DependentVariable dv) {
+        if (variable instanceof DependentVariable dv
+            && dv.indexExpression() instanceof IntConstant ic
+            && ic.constant() < 0) {
+            // slices
             return firstRealVariable(dv.arrayVariable());
         }
         return variable;

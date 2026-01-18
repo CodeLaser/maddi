@@ -280,14 +280,25 @@ public class TestLinkModificationArea extends CommonTest {
         {
             Statement s2 = modifyA.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(s2);
+            assertEquals("""
+                    a.b.X.M.i#aa, a.b.X.R.a#a.b.X.modifyA(a.b.X.R):0:r, a.b.X.R.b#a.b.X.modifyA(a.b.X.R):0:r, \
+                    a.b.X.modifyA(a.b.X.R):0:r, aa, bb\
+                    """, vd2.knownVariableNamesToString());
+
             VariableInfo viA = vd2.variableInfo("aa");
             assertTrue(viA.isModified());
 
-            VariableInfo viR = vd2.variableInfo(r);
-            assertTrue(viR.isModified());
-
+            // bb has nothing to do with aa
             VariableInfo viB = vd2.variableInfo("bb");
             assertFalse(viB.isModified());
+
+            // if aa is modified, then r.a should be modified too
+            VariableInfo viRa = vd2.variableInfo("a.b.X.R.a#a.b.X.modifyA(a.b.X.R):0:r");
+            assertTrue(viRa.isModified());
+
+            // and by extension r as well, since it contains r.a
+            VariableInfo viR = vd2.variableInfo(r);
+            assertTrue(viR.isModified());
         }
     }
 
@@ -506,6 +517,8 @@ public class TestLinkModificationArea extends CommonTest {
             assertEquals("array[2:i]←0:m1,array∋0:m1", vi1Array.linkedVariables().toString());
             //assertEquals("0M-2-*M|?-*:array[i], 0M-2-*M|?-*:m1", vi1Array.linkedVariables().toString());
             assertTrue(vi1Array.isModified());
+            VariableInfo vi1M1 = vd1.variableInfo(m1);
+            assertFalse(vi1M1.isModified());
         }
         {
             VariableData vd2 = VariableDataImpl.of(method.methodBody().statements().get(2));
