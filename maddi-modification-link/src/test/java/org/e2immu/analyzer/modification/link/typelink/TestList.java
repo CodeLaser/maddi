@@ -154,11 +154,12 @@ public class TestList extends CommonTest {
         ParameterInfo x = method.parameters().get(1);
         VariableInfo x1 = vd1.variableInfo(x);
         Links tlvX1 = x1.linkedVariablesOrEmpty();
-        assertEquals("1:x.ts[0:i]→prev,1:x.ts[0:i]←2:k,1:x.ts∋2:k,1:x.ts∋prev", tlvX1.toString());
+        assertEquals("1:x.ts[0:i]→prev,1:x.ts[0:i]←2:k,1:x.ts[0:i]∈1:x.ts,1:x.ts∋2:k,1:x.ts∋prev",
+                tlvX1.toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
-                [-, 1:x.ts*[0:i]←2:k*,1:x.ts*∋2:k*, 2:k*→1:x.ts*[0:i],2:k*∈1:x.ts*] --> \
+                [-, 1:x.ts*[0:i]←2:k*,1:x.ts*[0:i]∈1:x.ts*,1:x.ts*∋2:k*, 2:k*→1:x.ts*[0:i],2:k*∈1:x.ts*] --> \
                 method←1:x.ts*[0:i],method←2:k*,method∈1:x.ts*\
                 """, tlvMethod.toString());
     }
