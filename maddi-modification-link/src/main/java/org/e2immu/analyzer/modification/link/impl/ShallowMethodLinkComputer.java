@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
@@ -336,19 +337,21 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         // result  oneInstance.xsys.xs>this.xy.x,oneInstance.xsys.ys>this.xy.y
                         // TODO this is very dedicated to this situation, others exist
                         for (FieldInfo fieldFrom : subFrom.parameterizedType().typeInfo().fields()) {
-                            FieldInfo fieldTo;
-                            if (fieldFrom.type().typeParameter() != null) {
-                                FF ff = findField(fieldFrom.type().typeParameter(), subTo.parameterizedType().typeInfo());
-                                fieldTo = ff == null ? null : ff.fieldInfo;
-                            } else {
-                                fieldTo = findField(fieldFrom.type(), subTo.parameterizedType().typeInfo());
-                            }
-                            if (fieldTo != null) {
-                                FieldReference subSubFrom = runtime.newFieldReference(fieldFrom,
-                                        runtime.newVariableExpression(subFrom), fieldFrom.type());
-                                FieldReference subSubTo = runtime.newFieldReference(fieldTo,
-                                        runtime.newVariableExpression(subTo), fieldTo.type());
-                                builder.add(subSubFrom, CONTAINS_AS_MEMBER, subSubTo);
+                            if (Util.virtual(fieldFrom)) {
+                                FieldInfo fieldTo;
+                                if (fieldFrom.type().typeParameter() != null) {
+                                    FF ff = findField(fieldFrom.type().typeParameter(), subTo.parameterizedType().typeInfo());
+                                    fieldTo = ff == null ? null : ff.fieldInfo;
+                                } else {
+                                    fieldTo = findField(fieldFrom.type(), subTo.parameterizedType().typeInfo());
+                                }
+                                if (fieldTo != null) {
+                                    FieldReference subSubFrom = runtime.newFieldReference(fieldFrom,
+                                            runtime.newVariableExpression(subFrom), fieldFrom.type());
+                                    FieldReference subSubTo = runtime.newFieldReference(fieldTo,
+                                            runtime.newVariableExpression(subTo), fieldTo.type());
+                                    builder.add(subSubFrom, CONTAINS_AS_MEMBER, subSubTo);
+                                }
                             }
                         }
                     } else {

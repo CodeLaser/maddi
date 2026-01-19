@@ -106,6 +106,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
         }
         return null;
     }
+
     private boolean acceptForExtra(Variable v) {
         return !(v instanceof ParameterInfo pi) || pi.methodInfo().equals(currentMethod);
     }
@@ -122,6 +123,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
 
      */
     private Links replaceParametersByEvalInApplied(Links links, List<Result> params) {
+        if (links.primary() == null) return LinksImpl.EMPTY;
         Links.Builder builder = new LinksImpl.Builder(links.primary());
         for (Link link : links) {
             if (link.to() instanceof ParameterInfo pi) {

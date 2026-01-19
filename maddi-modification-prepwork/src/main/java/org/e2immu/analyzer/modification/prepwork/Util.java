@@ -16,6 +16,7 @@ package org.e2immu.analyzer.modification.prepwork;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.expression.IntConstant;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.variable.*;
@@ -121,6 +122,10 @@ public class Util {
         return variable == primary(variable);
     }
 
+    public static boolean isVirtualMutationField(FieldInfo fieldInfo) {
+        return "§m".equals(fieldInfo.name());
+    }
+
     public static LocalVariable lvPrimaryOrNull(Variable variable) {
         if (variable instanceof LocalVariable lv) return lv;
         if (primary(variable) instanceof LocalVariable lv) return lv;
@@ -151,7 +156,7 @@ public class Util {
             if (fr.scopeVariable() != null
                 // accept this.§xs, but not this.v.§xs
                 // see e.g. TestPrefix,3 for the this.§xs situation
-                && (!(fr.scopeVariable() instanceof This) || fr.fieldInfo().name().startsWith("§"))) {
+                && (!(fr.scopeVariable() instanceof This) || Util.virtual(fr.fieldInfo()))) {
                 return primary(fr.scopeVariable());
             }
         }
@@ -164,7 +169,7 @@ public class Util {
     public static Variable firstRealVariable(Variable variable) {
         if (variable instanceof FieldReference fr
             && fr.scopeVariable() != null
-            && fr.fieldInfo().name().startsWith("§")) {
+            && Util.virtual(fr.fieldInfo())) {
             return firstRealVariable(fr.scopeVariable());
         }
         if (variable instanceof DependentVariable dv
@@ -257,9 +262,13 @@ public class Util {
         return index + END;
     }
 
+    public static boolean virtual(FieldInfo fieldInfo) {
+        return fieldInfo.name().startsWith("§");
+    }
+
     public static boolean virtual(Variable v) {
         if (v instanceof FieldReference fr) {
-            return fr.fieldInfo().name().startsWith("§");
+            return virtual(fr.fieldInfo());
         }
         if (v instanceof DependentVariable dv) {
             return virtual(dv.arrayVariable()) ||
