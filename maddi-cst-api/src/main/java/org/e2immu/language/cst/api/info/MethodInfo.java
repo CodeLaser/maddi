@@ -272,7 +272,7 @@ public interface MethodInfo extends Info {
 
     default boolean isVarargs() {
         if (parameters().isEmpty()) return false;
-        return parameters().get(parameters().size() - 1).isVarArgs();
+        return parameters().getLast().isVarArgs();
     }
 }
 

@@ -1031,4 +1031,42 @@ public abstract class ValueImpl implements Value {
     static {
         decoderMap.put(SetOfTypeInfoImpl.class, (di, ev) -> SetOfTypeInfoImpl.from(di.codec(), di.context(), ev));
     }
+
+
+    public record SetOfMethodInfoImpl(Set<MethodInfo> methodInfoSet) implements SetOfMethodInfo {
+        public static final SetOfMethodInfo EMPTY = new SetOfMethodInfoImpl(Set.of());
+
+        @Override
+        public boolean isDefault() {
+            return methodInfoSet.isEmpty();
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            List<Codec.EncodedValue> encodedValues = methodInfoSet.stream()
+                    .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName))
+                    .map(info -> codec.encodeInfoInContext(context, info, "")).toList();
+            return codec.encodeList(context, encodedValues);
+        }
+
+        public static SetOfMethodInfo from(Codec codec, Codec.Context context, Codec.EncodedValue encodedList) {
+            List<Codec.EncodedValue> encodedValues = codec.decodeList(context, encodedList);
+            Set<MethodInfo> set = encodedValues.stream().map(e -> (MethodInfo) codec.decodeInfoInContext(context, e))
+                    .collect(Collectors.toUnmodifiableSet());
+            return new SetOfMethodInfoImpl(set);
+        }
+
+        public String nice() {
+            return methodInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
+        }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            throw new UnsupportedOperationException("NYI");
+        }
+    }
+
+    static {
+        decoderMap.put(SetOfMethodInfoImpl.class, (di, ev) -> SetOfMethodInfoImpl.from(di.codec(), di.context(), ev));
+    }
 }

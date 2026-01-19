@@ -61,6 +61,8 @@ public class PropertyImpl implements Property {
             ValueImpl.GetSetValueImpl.EMPTY);
     public static final Property GET_SET_EQUIVALENT = new PropertyImpl("getSetEquivalent",
             ValueImpl.GetSetEquivalentImpl.EMPTY);
+    public static final Property IMPLEMENTATIONS = new PropertyImpl("implementations",
+            ValueImpl.SetOfMethodInfoImpl.EMPTY);
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
