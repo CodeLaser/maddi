@@ -14,9 +14,11 @@
 
 package org.e2immu.language.inspection.integration.java.type;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -45,10 +47,13 @@ public class TestLocalType extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(INPUT2, JavaInspectorImpl.DETAILED_SOURCES);
         MethodInfo make = X.findUniqueMethod("make", 1);
         LocalTypeDeclaration ltd = (LocalTypeDeclaration) make.methodBody().statements().getFirst();
         assertEquals("a.b.X.0$make$C", ltd.typeInfo().fullyQualifiedName());
+
+        assertEquals("@5:23-5:32", ltd.typeInfo().source().detailedSources()
+                .detail(DetailedSources.IMPLEMENTS).toString());
         MethodInfo method = ltd.typeInfo().findUniqueMethod("method", 1);
         assertEquals("a.b.X.0$make$C.method(String)", method.fullyQualifiedName());
         assertNotNull(method.methodBody());

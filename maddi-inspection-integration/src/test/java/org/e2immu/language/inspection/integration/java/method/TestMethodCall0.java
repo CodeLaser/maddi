@@ -14,6 +14,7 @@
 
 package org.e2immu.language.inspection.integration.java.method;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -22,6 +23,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -156,7 +158,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT3);
+        TypeInfo typeInfo = javaInspector.parse(INPUT3, JavaInspectorImpl.DETAILED_SOURCES);
         MethodInfo test = typeInfo.findUniqueMethod("test", 0);
         if (test.methodBody().statements().getFirst() instanceof ExpressionAsStatement eas
             && eas.expression() instanceof MethodCall mc1
@@ -164,6 +166,9 @@ public class TestMethodCall0 extends CommonTest {
             assertEquals("Type java.util.List<org.e2immu.analyser.resolver.testexample.MethodCall_1.GetOnly>",
                     mc2.concreteReturnType().toString());
         } else fail();
+        TypeInfo GetOnly = typeInfo.findSubType("GetOnly");
+        assertEquals("@11:30-11:39",
+                GetOnly.source().detailedSources().detail(DetailedSources.IMPLEMENTS).toString());
     }
 
 
