@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,7 +33,13 @@ public abstract class CommonTest {
     protected PrepAnalyzer prepAnalyzer;
     protected Runtime runtime;
     protected ModAnalyzerForTesting analyzer;
-
+    protected final String[] jmods;
+    protected CommonTest() {
+        this.jmods = new String[0];
+    }
+    protected CommonTest(String... jmods) {
+        this.jmods = jmods;
+    }
     @BeforeAll
     public static void beforeAll() {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
@@ -51,7 +58,7 @@ public abstract class CommonTest {
                 .addClassPath(ToolChain.CLASSPATH_JUNIT)
                 .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
                 .addSources("none");
-
+        Arrays.stream(jmods).forEach(builder::addClassPath);
         InputConfiguration inputConfiguration = builder.build();
         javaInspector.initialize(inputConfiguration);
 

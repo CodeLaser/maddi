@@ -295,6 +295,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private Links emptyIfOnlySomeValue(Links links) {
+            if (links == null) return LinksImpl.EMPTY;
             if (links.stream().allMatch(l ->
                     l.to() instanceof MarkerVariable mv && (mv.isSomeValue() || mv.isConstant()))) {
                 return LinksImpl.EMPTY;
