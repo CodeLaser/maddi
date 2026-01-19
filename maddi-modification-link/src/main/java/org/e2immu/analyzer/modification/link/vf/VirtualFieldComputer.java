@@ -17,6 +17,8 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.GenericsHelper;
 import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -114,25 +116,9 @@ public class VirtualFieldComputer {
 
     public VfTm compute(ParameterizedType pt, boolean addTranslation) {
         int arrays = pt.arrays();
-
         if (pt.isTypeParameter()) {
-            VirtualFields vf;
-            NamedType namedType = pt.typeParameter();
-            TypeInfo typeInfo = pt.typeParameter().typeInfo();
-            String baseName = namedType.simpleName().toLowerCase();
-
-            if (arrays > 0) {
-                // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
-                FieldInfo mutable = newField("m" + namedType.simpleName(), atomicBooleanPt, typeInfo);
-                String hcName = baseName + "s".repeat(arrays);
-                vf = new VirtualFields(mutable, newField(hcName, pt, typeInfo));
-            } else {
-                // this one is always temporary; it is there as the basis of the recursion
-                vf = new VirtualFields(null, newField(baseName, pt, typeInfo));
-            }
-            return new VfTm(vf, null);
+            return typeParameter(pt, arrays);
         }
-
         TypeInfo typeInfo = pt.typeInfo();
         if (arrays == 0 && (typeInfo == null
                             || typeInfo.isPrimitiveExcludingVoid()
@@ -142,16 +128,7 @@ public class VirtualFieldComputer {
             return NONE_NONE;
         }
         if (pt.parameters().isEmpty() && arrays == 0) {
-            if (utilityClass(typeInfo)) {
-                return NONE_NONE;
-            }
-            // normal class without type parameters
-            Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
-                    ValueImpl.ImmutableImpl.MUTABLE);
-            FieldInfo mutable = immutable.isMutable() ? newMField(typeInfo) : null;
-            FieldInfo hiddenContent = newField("" + typeCounter.getAndIncrement(), pt, typeInfo);
-            VirtualFields vf = new VirtualFields(mutable, hiddenContent);
-            return new VfTm(vf, null);
+            return typeInfoWithoutTypeParametersAndArrays(pt, typeInfo);
         }
 
         int extraMultiplicity = arrays + maxMultiplicityFromMethods(typeInfo) - 1;
@@ -161,14 +138,6 @@ public class VirtualFieldComputer {
         List<VfTm> parameterVfs = pt.parameters().stream()
                 .map(param -> compute(param, addTranslation))
                 .toList();
-        FieldInfo mutable;
-        if (arrays > 0 || parameterVfs.stream().anyMatch(vf -> vf != null && vf.virtualFields.mutable() != null)) {
-            mutable = newMField(typeInfo);
-        } else {
-            Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
-                    ValueImpl.ImmutableImpl.MUTABLE);
-            mutable = immutable.isMutable() ? newMField(typeInfo) : null;
-        }
         FieldInfo hiddenContent;
         VirtualFieldTranslationMap fieldTm = addTranslation
                 ? new VirtualFieldTranslationMapImpl(this, runtime) : null;
@@ -180,94 +149,165 @@ public class VirtualFieldComputer {
             if (addTranslation) {
                 assert !pt.parameters().isEmpty();
                 if (pt.parameters().size() == 1) {
-                    if (first == null) {
-                        hiddenContent = null;
-                    } else {
-                        FieldInfo hc = first.virtualFields.hiddenContent();
-                        if (hc != null) {
-                            hiddenContent = newField(hc.name() + "s".repeat(extraMultiplicity),
-                                    hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), typeInfo);
-                        } else {
-                            hiddenContent = null;
-                        }
-                    }
-                    ParameterizedType p0 = pt.parameters().getFirst();
-                    ParameterizedType replaceBy = hiddenContent != null
-                            ? hiddenContent.type()
-                            : p0.copyWithArrays(p0.arrays() + extraMultiplicity);
-                    for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                        if (formalHiddenContent != null) {
-                            int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - replaceBy.arrays());
-                            fieldTm.put(formalHiddenContent.type().typeParameter(), replaceBy.copyWithArrays(arrayDiff));
-                        }
-                    }
+                    hiddenContent = singleTypeParameterTranslation(pt, first, extraMultiplicity, typeInfo, fieldTm);
                 } else {
-                    List<FieldInfo> hiddenContentComponents = new ArrayList<>(pt.parameters().size());
-                    StringBuilder baseName = new StringBuilder();
-                    StringBuilder typeName = new StringBuilder();
-                    int j = 0;
-                    for (ParameterizedType param : pt.parameters()) {
-                        VfTm vfTm = parameterVfs.get(j);
-                        FieldInfo hc = vfTm == null ? null : vfTm.virtualFields.hiddenContent();
-                        if (hc != null && hc.type().typeParameter() != null) {
-                            hiddenContentComponents.add(hc);
-                            baseName.append(hc.simpleName());
-                            typeName.append(hc.type().typeParameter().simpleName())
-                                    .append("S".repeat(hc.type().arrays()));
-                        } else {
-                            FieldInfo fi = newField("$" + "s".repeat(param.arrays()), param, typeInfo);
-                            hiddenContentComponents.add(fi);
-                            baseName.append(fi.simpleName());
-                            typeName.append("$").append("S".repeat(param.arrays()));
-                        }
-                        ++j;
-                    }
-                    TypeInfo containerType = makeContainerType(typeInfo, typeName.toString(), hiddenContentComponents);
-                    ParameterizedType baseType = containerType.asParameterizedType();
-                    hiddenContent = newField(baseName + "s".repeat(extraMultiplicity),
-                            baseType.copyWithArrays(extraMultiplicity), typeInfo);
-
-
-                    for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
-                        TypeInfo formalContainerType = formalHiddenContent.type().typeInfo();
-                        int i = 0;
-                        for (FieldInfo field : formalContainerType.fields()) {
-                            ParameterizedType outType = containerType.fields().get(i).type();
-                            int arrayDiff = outType.arrays() - field.type().arrays();
-                            fieldTm.put(field.type().typeParameter(), outType.copyWithArrays(arrayDiff));
-                            ++i;
-                        }
-                    }
+                    hiddenContent = multipleTypeParametersTranslation(pt, parameterVfs, typeInfo, extraMultiplicity,
+                            fieldTm);
                 }
             } else {
                 if (parameterVfs.size() == 1) {
                     // single type parameter
-                    assert first != null;
-                    FieldInfo hc = first.virtualFields.hiddenContent();
-                    if (hc != null) {
-                        hiddenContent = newField(hc.name() + "s".repeat(extraMultiplicity),
-                                hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), typeInfo);
-                    } else {
-                        hiddenContent = null;
-                    }
+                    hiddenContent = singleTypeParameter(first, extraMultiplicity, typeInfo);
                 } else {
-                    assert parameterVfs.stream().allMatch(vf -> vf.virtualFields.hiddenContent() != null
-                                                                && vf.virtualFields.hiddenContent().type().isTypeParameter());
-                    String typeName = parameterVfs.stream()
-                            .map(vfTm -> vfTm.virtualFields.hiddenContent().type().typeParameter().simpleName()
-                                         + "S".repeat(vfTm.virtualFields.hiddenContent().type().arrays()))
-                            .collect(Collectors.joining());
-                    TypeInfo containerType = makeContainerType(typeInfo, typeName, parameterVfs.stream()
-                            .map(vf -> vf.virtualFields.hiddenContent()).toList());
-                    ParameterizedType baseType = containerType.asParameterizedType();
-                    String baseName = parameterVfs.stream()
-                            .map(vf -> vf.virtualFields.hiddenContent().name()).collect(Collectors.joining());
-                    hiddenContent = newField(baseName + "s".repeat(extraMultiplicity),
-                            baseType.copyWithArrays(extraMultiplicity), typeInfo);
+                    hiddenContent = multipleTypeParameters(parameterVfs, typeInfo, extraMultiplicity);
                 }
             }
         }
+
+        FieldInfo mutable = makeMutable(arrays, parameterVfs, typeInfo);
         return new VfTm(new VirtualFields(mutable, hiddenContent), addTranslation ? fieldTm : null);
+    }
+
+    private FieldInfo multipleTypeParameters(List<VfTm> parameterVfs, TypeInfo typeInfo, int extraMultiplicity) {
+        assert parameterVfs.stream().allMatch(vf -> vf.virtualFields.hiddenContent() != null
+                                                    && vf.virtualFields.hiddenContent().type().isTypeParameter());
+        String typeName = parameterVfs.stream()
+                .map(vfTm -> vfTm.virtualFields.hiddenContent().type().typeParameter().simpleName()
+                             + "S".repeat(vfTm.virtualFields.hiddenContent().type().arrays()))
+                .collect(Collectors.joining());
+        TypeInfo containerType = makeContainerType(typeInfo, typeName, parameterVfs.stream()
+                .map(vf -> vf.virtualFields.hiddenContent()).toList());
+        ParameterizedType baseType = containerType.asParameterizedType();
+        String baseName = parameterVfs.stream()
+                .map(vf -> vf.virtualFields.hiddenContent().name()).collect(Collectors.joining());
+        return newField(baseName + "s".repeat(extraMultiplicity),
+                baseType.copyWithArrays(extraMultiplicity), typeInfo);
+    }
+
+    private FieldInfo multipleTypeParametersTranslation(ParameterizedType pt,
+                                                        List<VfTm> parameterVfs,
+                                                        TypeInfo typeInfo,
+                                                        int extraMultiplicity,
+                                                        VirtualFieldTranslationMap fieldTm) {
+        FieldInfo hiddenContent;
+        List<FieldInfo> hiddenContentComponents = new ArrayList<>(pt.parameters().size());
+        StringBuilder baseName = new StringBuilder();
+        StringBuilder typeName = new StringBuilder();
+        int j = 0;
+        for (ParameterizedType param : pt.parameters()) {
+            VfTm vfTm = parameterVfs.get(j);
+            FieldInfo hc = vfTm == null ? null : vfTm.virtualFields.hiddenContent();
+            if (hc != null && hc.type().typeParameter() != null) {
+                hiddenContentComponents.add(hc);
+                baseName.append(hc.simpleName());
+                typeName.append(hc.type().typeParameter().simpleName())
+                        .append("S".repeat(hc.type().arrays()));
+            } else {
+                FieldInfo fi = newField("$" + "s".repeat(param.arrays()), param, typeInfo);
+                hiddenContentComponents.add(fi);
+                baseName.append(fi.simpleName());
+                typeName.append("$").append("S".repeat(param.arrays()));
+            }
+            ++j;
+        }
+        TypeInfo containerType = makeContainerType(typeInfo, typeName.toString(), hiddenContentComponents);
+        ParameterizedType baseType = containerType.asParameterizedType();
+        hiddenContent = newField(baseName + "s".repeat(extraMultiplicity),
+                baseType.copyWithArrays(extraMultiplicity), typeInfo);
+
+
+        for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
+            TypeInfo formalContainerType = formalHiddenContent.type().typeInfo();
+            int i = 0;
+            for (FieldInfo field : formalContainerType.fields()) {
+                ParameterizedType outType = containerType.fields().get(i).type();
+                int arrayDiff = outType.arrays() - field.type().arrays();
+                fieldTm.put(field.type().typeParameter(), outType.copyWithArrays(arrayDiff));
+                ++i;
+            }
+        }
+        return hiddenContent;
+    }
+
+
+    private @Nullable FieldInfo singleTypeParameter(VfTm first, int extraMultiplicity, TypeInfo typeInfo) {
+        assert first != null;
+        FieldInfo hc = first.virtualFields.hiddenContent();
+        if (hc != null) {
+            return newField(hc.name() + "s".repeat(extraMultiplicity),
+                    hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), typeInfo);
+        }
+        return null;
+    }
+
+    private @Nullable FieldInfo singleTypeParameterTranslation(ParameterizedType pt,
+                                                               VfTm first,
+                                                               int extraMultiplicity,
+                                                               TypeInfo typeInfo,
+                                                               VirtualFieldTranslationMap fieldTm) {
+        FieldInfo hiddenContent;
+        if (first == null) {
+            hiddenContent = null;
+        } else {
+            FieldInfo hc = first.virtualFields.hiddenContent();
+            if (hc != null) {
+                hiddenContent = newField(hc.name() + "s".repeat(extraMultiplicity),
+                        hc.type().copyWithArrays(hc.type().arrays() + extraMultiplicity), typeInfo);
+            } else {
+                hiddenContent = null;
+            }
+        }
+        ParameterizedType p0 = pt.parameters().getFirst();
+        ParameterizedType replaceBy = hiddenContent != null
+                ? hiddenContent.type()
+                : p0.copyWithArrays(p0.arrays() + extraMultiplicity);
+        for (FieldInfo formalHiddenContent : hiddenContentHierarchy(typeInfo)) {
+            if (formalHiddenContent != null) {
+                int arrayDiff = Math.abs(formalHiddenContent.type().arrays() - replaceBy.arrays());
+                fieldTm.put(formalHiddenContent.type().typeParameter(), replaceBy.copyWithArrays(arrayDiff));
+            }
+        }
+        return hiddenContent;
+    }
+
+    private @Nullable FieldInfo makeMutable(int arrays, List<VfTm> parameterVfs, TypeInfo typeInfo) {
+        if (arrays > 0 || parameterVfs.stream().anyMatch(vf -> vf != null && vf.virtualFields.mutable() != null)) {
+            return newMField(typeInfo);
+        }
+        Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
+                ValueImpl.ImmutableImpl.MUTABLE);
+        return immutable.isMutable() ? newMField(typeInfo) : null;
+    }
+
+    private @NotNull VfTm typeInfoWithoutTypeParametersAndArrays(ParameterizedType pt, TypeInfo typeInfo) {
+        if (utilityClass(typeInfo)) {
+            return NONE_NONE;
+        }
+        // normal class without type parameters
+        Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
+                ValueImpl.ImmutableImpl.MUTABLE);
+        FieldInfo mutable = immutable.isMutable() ? newMField(typeInfo) : null;
+        FieldInfo hiddenContent = newField("" + typeCounter.getAndIncrement(), pt, typeInfo);
+        VirtualFields vf = new VirtualFields(mutable, hiddenContent);
+        return new VfTm(vf, null);
+    }
+
+    private @NotNull VfTm typeParameter(ParameterizedType pt, int arrays) {
+        VirtualFields vf;
+        NamedType namedType = pt.typeParameter();
+        TypeInfo typeInfo = pt.typeParameter().typeInfo();
+        String baseName = namedType.simpleName().toLowerCase();
+
+        if (arrays > 0) {
+            // there'll be multiple "mutable" fields on "typeInfo", so we append the type parameter name
+            FieldInfo mutable = newField("m" + namedType.simpleName(), atomicBooleanPt, typeInfo);
+            String hcName = baseName + "s".repeat(arrays);
+            vf = new VirtualFields(mutable, newField(hcName, pt, typeInfo));
+        } else {
+            // this one is always temporary; it is there as the basis of the recursion
+            vf = new VirtualFields(null, newField(baseName, pt, typeInfo));
+        }
+        return new VfTm(vf, null);
     }
 
     private boolean utilityClass(TypeInfo typeInfo) {

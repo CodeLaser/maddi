@@ -129,21 +129,23 @@ public record LinkMethodCall(JavaInspector javaInspector,
                 for (Link link : links) {
                     ParameterInfo to = Util.parameterPrimary(link.to());
                     Variable toPrimary = params.get(to.index()).links().primary();
-                    TranslationMap toTm = new VariableTranslationMap(runtime).put(to, toPrimary);
-                    Variable translatedTo = toTm.translateVariableRecursively(link.to());
+                    if (toPrimary != null) {
+                        TranslationMap toTm = new VariableTranslationMap(runtime).put(to, toPrimary);
+                        Variable translatedTo = toTm.translateVariableRecursively(link.to());
 
-                    ParameterInfo from = methodInfo.parameters().get(i);
-                    if (from.isVarArgs()) {
-                        LinkNature linkNature = varargsLinkNature(link.linkNature());
-                        for (int j = i; j < params.size(); ++j) {
-                            Variable fromPrimary = params.get(j).links().primary();
-                            Variable linkFrom = downgrade(link.from(), fromPrimary);
-                            // loop over all the elements in the varargs
-                            addCrosslink(fromPrimary, extra, from, linkFrom, linkNature, translatedTo);
+                        ParameterInfo from = methodInfo.parameters().get(i);
+                        if (from.isVarArgs()) {
+                            LinkNature linkNature = varargsLinkNature(link.linkNature());
+                            for (int j = i; j < params.size(); ++j) {
+                                Variable fromPrimary = params.get(j).links().primary();
+                                Variable linkFrom = downgrade(link.from(), fromPrimary);
+                                // loop over all the elements in the varargs
+                                addCrosslink(fromPrimary, extra, from, linkFrom, linkNature, translatedTo);
+                            }
+                        } else {
+                            Variable fromPrimary = params.get(i).links().primary();
+                            addCrosslink(fromPrimary, extra, from, link.from(), link.linkNature(), translatedTo);
                         }
-                    } else {
-                        Variable fromPrimary = params.get(i).links().primary();
-                        addCrosslink(fromPrimary, extra, from, link.from(), link.linkNature(), translatedTo);
                     }
                 }
             }
