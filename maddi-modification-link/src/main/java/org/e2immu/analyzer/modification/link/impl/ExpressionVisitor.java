@@ -266,20 +266,23 @@ public record ExpressionVisitor(Runtime runtime,
             Result rIndex = visit(dv.indexExpression(), variableData, stage).copyLinksToExtra();
             Result rArray = visit(dv.arrayExpression(), variableData, stage);
             DependentVariable newDv;
-            if (rIndex.getEvaluated() != dv.indexExpression() || rArray.getEvaluated() != dv.arrayExpression()) {
+            if (rIndex.getEvaluated() != dv.indexExpression()
+                || rArray.getEvaluated() != dv.arrayExpression()
+                   // but do not use the evaluated version if it is not of array type (see TestArrayVariable)
+                   && rArray.getEvaluated().parameterizedType().arrays() > 0) {
                 newDv = runtime.newDependentVariable(rArray.getEvaluated(), rIndex.getEvaluated());
             } else {
                 newDv = dv;
             }
             extra = extra.merge(rIndex.extra());
-            if(rArray.getEvaluated() instanceof VariableExpression ve2) {
+            if (rArray.getEvaluated() instanceof VariableExpression ve2) {
                 v = ve2.variable();
-          
+
                 Links vLinks = new LinksImpl.Builder(newDv).add(LinkNatureImpl.IS_ELEMENT_OF, v).build();
                 extra = extra.merge(new LinkedVariablesImpl(Map.of(newDv, vLinks)));
             }
             Links.Builder builder = new LinksImpl.Builder(ve.variable());
-            Result res = new Result(builder.build(), extra.merge(rArray.extra()));
+            Result res = new Result(builder.build(), extra).merge(rArray).merge(rIndex);
             VariableExpression newVe = dv == newDv ? ve : runtime.newVariableExpression(newDv);
             return res.setEvaluated(newVe);
         }
