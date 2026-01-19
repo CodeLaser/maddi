@@ -40,7 +40,7 @@ public class TypeContainerAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             return; // no point
         }
         boolean isContainer = typeInfo.constructorAndMethodStream()
-                .filter(MethodInfo::isPubliclyAccessible)
+                .filter(mi -> !mi.access().isPrivate())
                 .flatMap(mi -> mi.parameters().stream())
                 .allMatch(ParameterInfo::isUnmodified);
         if (typeInfo.analysis().setAllowControlledOverwrite(PropertyImpl.CONTAINER_TYPE,

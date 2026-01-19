@@ -183,7 +183,7 @@ public class TestCast extends CommonTest {
 
         Value.SetOfTypeInfo downcastsPi = pi0.analysis().getOrDefault(DOWNCAST_PARAMETER, EMPTY);
         assertEquals("[java.util.Set]", downcastsPi.typeInfoSet().toString());
-
+        assertTrue(pi0.isModified());
 
         @Language("java")
         String expected = """
