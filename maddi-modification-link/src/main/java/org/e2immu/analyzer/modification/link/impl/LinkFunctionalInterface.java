@@ -111,28 +111,30 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         translate + upscale = find the right virtual field that matches the dimensions
          */
         List<Triplet> result = new ArrayList<>();
-        for (Links links : linksList) {
-            Set<Variable> toPrimaries = links.stream().map(l -> Util.primary(l.to()))
-                    .collect(Collectors.toUnmodifiableSet());
+        if (objectPrimary != null && returnPrimary != null) {
+            for (Links links : linksList) {
+                Set<Variable> toPrimaries = links.stream().map(l -> Util.primary(l.to()))
+                        .collect(Collectors.toUnmodifiableSet());
 
-            VirtualFields vfMapSource = virtualFieldComputer.compute(objectPrimary.parameterizedType(), false)
-                    .virtualFields();
-            VirtualFields vfMapTarget = virtualFieldComputer.compute(returnPrimary.parameterizedType(), false)
-                    .virtualFields();
+                VirtualFields vfMapSource = virtualFieldComputer.compute(objectPrimary.parameterizedType(),
+                        false).virtualFields();
+                VirtualFields vfMapTarget = virtualFieldComputer.compute(returnPrimary.parameterizedType(),
+                        false).virtualFields();
 
-            for (Variable newPrimary : toPrimaries) {
-                VariableTranslationMap tmMapSource = new VariableTranslationMap(runtime);
-                if (!Util.isPartOf(objectPrimary, newPrimary)) {
-                    tmMapSource.put(newPrimary, objectPrimary);
-                } // else: TestStaticBiFunction,1,2 we don't want this.ix --> this
-                TranslationMap tmMapTarget = new VariableTranslationMap(runtime).put(links.primary(), returnPrimary);
-                for (Link l : links) {
-                    Variable from = translateAndRecreateVirtualFields(tmMapTarget, l.from(), vfMapSource, vfMapTarget,
-                            false);
-                    Variable to = translateAndRecreateVirtualFields(tmMapSource, l.to(), vfMapSource, vfMapTarget,
-                            true);
-                    if (from != null && to != null) {
-                        result.add(new Triplet(from, l.linkNature(), to));
+                for (Variable newPrimary : toPrimaries) {
+                    VariableTranslationMap tmMapSource = new VariableTranslationMap(runtime);
+                    if (!Util.isPartOf(objectPrimary, newPrimary)) {
+                        tmMapSource.put(newPrimary, objectPrimary);
+                    } // else: TestStaticBiFunction,1,2 we don't want this.ix --> this
+                    TranslationMap tmMapTarget = new VariableTranslationMap(runtime).put(links.primary(), returnPrimary);
+                    for (Link l : links) {
+                        Variable from = translateAndRecreateVirtualFields(tmMapTarget, l.from(), vfMapSource, vfMapTarget,
+                                false);
+                        Variable to = translateAndRecreateVirtualFields(tmMapSource, l.to(), vfMapSource, vfMapTarget,
+                                true);
+                        if (from != null && to != null) {
+                            result.add(new Triplet(from, l.linkNature(), to));
+                        }
                     }
                 }
             }
