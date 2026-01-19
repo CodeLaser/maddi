@@ -272,8 +272,9 @@ public record ExpressionVisitor(Runtime runtime,
                 newDv = dv;
             }
             extra = extra.merge(rIndex.extra());
-            v = ((VariableExpression) rArray.getEvaluated()).variable();
-            if (v != null) {
+            if(rArray.getEvaluated() instanceof VariableExpression ve2) {
+                v = ve2.variable();
+          
                 Links vLinks = new LinksImpl.Builder(newDv).add(LinkNatureImpl.IS_ELEMENT_OF, v).build();
                 extra = extra.merge(new LinkedVariablesImpl(Map.of(newDv, vLinks)));
             }

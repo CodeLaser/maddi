@@ -127,7 +127,8 @@ public record LinkMethodCall(JavaInspector javaInspector,
         for (Links links : mlv.ofParameters()) {
             if (links != null && !links.isEmpty()) {
                 for (Link link : links) {
-                    ParameterInfo to = Util.parameterPrimary(link.to());
+                    ParameterInfo to = Util.parameterPrimaryOrNull(link.to());
+                    if (to == null) continue;
                     Variable toPrimary = params.get(to.index()).links().primary();
                     if (toPrimary != null) {
                         TranslationMap toTm = new VariableTranslationMap(runtime).put(to, toPrimary);

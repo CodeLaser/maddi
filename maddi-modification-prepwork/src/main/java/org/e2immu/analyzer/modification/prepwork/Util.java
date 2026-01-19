@@ -194,7 +194,7 @@ public class Util {
             return Stream.concat(scopeVariables(fr.scopeVariable()).stream(), Stream.of(fr.scopeVariable()))
                     .collect(Collectors.toUnmodifiableSet());
         }
-        if (variable instanceof DependentVariable dv) {
+        if (variable instanceof DependentVariable dv && dv.arrayVariable() != null) {
             return Stream.concat(scopeVariables(dv.arrayVariable()).stream(), Stream.of(dv.arrayVariable()))
                     .collect(Collectors.toUnmodifiableSet());
         }
