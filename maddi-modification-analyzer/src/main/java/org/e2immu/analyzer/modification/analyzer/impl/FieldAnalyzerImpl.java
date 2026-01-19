@@ -161,7 +161,7 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                 Value.FieldValue fieldValue = methodInfo.analysis().getOrDefault(PropertyImpl.GET_SET_FIELD,
                         ValueImpl.GetSetValueImpl.EMPTY);
                 if (fieldInfo == fieldValue.field()) {
-                    LOGGER.debug("Getters/setters are never modifying");
+                    LOGGER.debug("Getters/setters cannot modify the field {}", fieldInfo);
                 } else if (!methodInfo.isConstructor() && !poc.infoSet().contains(methodInfo)) {
                     Statement lastStatement = methodInfo.methodBody().lastStatement();
                     assert lastStatement != null;
@@ -194,7 +194,14 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             for (Link link : links) {
                 if (link.to() instanceof ParameterInfo pi && !pi.methodInfo().access().isPrivate()
                     || link.to() instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()) {
-                    Value.Independent toIndependent = analysisHelper.typeIndependent(link.to().parameterizedType());
+                    Value.Independent toIndependent;
+                    if (link.from().equals(links.primary())) {
+                        // direct link
+                        toIndependent = independentOfType;//already computed
+                    } else {
+                        // a part of the field is linked to a parameter or return value...
+                        toIndependent = analysisHelper.typeIndependentFromImmutableOrNull(link.to().parameterizedType());
+                    }
                     independent = independent.min(toIndependent);
                 }
             }
