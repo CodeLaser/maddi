@@ -28,7 +28,7 @@ public class TestIntegration1 extends CommonTest {
     private static final String INPUT1 = """
             import java.util.List;
             import java.util.Optional;
-            public class X {
+            public class B {
                 interface DTO2 { }
                 interface DTO {
                     List<DTO2> capabilities();
@@ -58,7 +58,7 @@ public class TestIntegration1 extends CommonTest {
             }
             """;
 
-    @DisplayName("what is null")
+    @DisplayName("use GenericsHelper in VirtualFieldTranslationMapForMethodParameters")
     @Test
     public void test1() {
         TypeInfo B = javaInspector.parse(INPUT1);
