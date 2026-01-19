@@ -47,14 +47,14 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
             if (implementations.methodInfoSet().isEmpty()) {
                 if (firstIteration) doMethodWithoutImplementation(methodInfo);
             } else {
-                boolean haveIndependentMethod = methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD);
-                boolean haveNonModifyingMethod = methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD);
-                boolean undecidedInParameters = methodInfo.parameters().stream().anyMatch(pi ->
-                        !pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)
-                        || !pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER));
-                if (!haveIndependentMethod || !haveNonModifyingMethod || undecidedInParameters) {
-                    resolve(methodInfo, implementations.methodInfoSet());
+                Set<MethodInfo> concreteImplementations = implementations.methodInfoSet();
+                for (ParameterInfo pi : methodInfo.parameters()) {
+                    unmodified(concreteImplementations, pi);
+                    independent(concreteImplementations, pi);
+                    collectDowncast(concreteImplementations, pi);
                 }
+                methodNonModifying(concreteImplementations, methodInfo);
+                methodIndependent(concreteImplementations, methodInfo);
             }
         }
     }
@@ -83,16 +83,6 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
                 propertyChanges.incrementAndGet();
             }
         }
-    }
-
-    private void resolve(MethodInfo methodInfo, Set<MethodInfo> concreteImplementations) {
-        for (ParameterInfo pi : methodInfo.parameters()) {
-            unmodified(concreteImplementations, pi);
-            independent(concreteImplementations, pi);
-            collectDowncast(concreteImplementations, pi);
-        }
-        methodNonModifying(concreteImplementations, methodInfo);
-        methodIndependent(concreteImplementations, methodInfo);
     }
 
     private void collectDowncast(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {

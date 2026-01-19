@@ -137,7 +137,7 @@ public class RunAnalyzer implements Runnable {
         boolean prep = modification || rewireTests || analysisSteps.contains(Main.AS_PREP);
         if (prep) {
             ParseResult parseResult = summary.parseResult();
-            Predicate<TypeInfo> externalsToAccept = t -> false;
+            Predicate<TypeInfo> externalsToAccept = _ -> false;
             LOGGER.info("Running prep analyzer on {} types", summary.types().size());
             PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime());
             prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
@@ -166,9 +166,7 @@ public class RunAnalyzer implements Runnable {
             LOGGER.info("Call graph analysis order has size {}; start modification analysis", order.size());
 
             // do actual modification analysis
-            IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                    .setStoreErrors(false)
-                    .build();
+            IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder().build();
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
             analyzer.analyze(order);
 
@@ -224,13 +222,13 @@ public class RunAnalyzer implements Runnable {
         String destinationPackage = ac.annotatedApiTargetPackage() == null ? "" : ac.annotatedApiTargetPackage();
         Predicate<Info> filter;
         if (ac.annotatedApiPackages().isEmpty()) {
-            filter = w -> true;
+            filter = _ -> true;
             LOGGER.info("No filter.");
         } else {
             filter = new PackageFilter(ac.annotatedApiPackages());
             LOGGER.info("Created package filter based on {}", ac.annotatedApiPackages());
         }
-        Composer composer = new Composer(javaInspector, set -> destinationPackage, filter);
+        Composer composer = new Composer(javaInspector, _ -> destinationPackage, filter);
         List<TypeInfo> compiledPrimaryTypes = javaInspector.compiledTypesManager()
                 .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
         LOGGER.info("Loaded {} compiled primary types", compiledPrimaryTypes.size());

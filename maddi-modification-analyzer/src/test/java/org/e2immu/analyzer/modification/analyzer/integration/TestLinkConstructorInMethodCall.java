@@ -236,7 +236,9 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
 
         MethodInfo ldImplWithException = loopDataImpl.findUniqueMethod("withException", 1);
         assertTrue(ldImplWithException.isNonModifying());
-        assertSame(INDEPENDENT, loopDataImpl.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
+
+        // is independentHC because the exit field is independent HC
+        assertSame(INDEPENDENT_HC, loopDataImpl.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(IMMUTABLE_HC, loopDataImpl.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
 
         // LoopData's properties are computed from LoopDataImpl
