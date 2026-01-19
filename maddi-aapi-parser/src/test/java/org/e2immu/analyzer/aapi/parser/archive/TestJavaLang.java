@@ -161,6 +161,12 @@ public class TestJavaLang extends CommonTest {
     }
 
     @Test
+    public void testEnum() {
+        TypeInfo typeInfo = compiledTypesManager().get(Enum.class);
+        testImmutableContainer(typeInfo, true, false);
+    }
+
+    @Test
     public void testComparable() {
         TypeInfo typeInfo = compiledTypesManager().get(Comparable.class);
         testImmutableContainer(typeInfo, true, false);

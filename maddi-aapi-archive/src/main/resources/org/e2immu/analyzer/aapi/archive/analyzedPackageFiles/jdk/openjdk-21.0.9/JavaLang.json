@@ -274,7 +274,7 @@
  {"name": "MresolveConstantDesc(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Plookup(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}}]},
 
-{"name": "Tjava.lang.Enum", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
+{"name": "Tjava.lang.Enum", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
  {"name": "SEnumDesc(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Mof(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
    {"name": "PenumClass(0)", "data":{"annotatedApi":1}},

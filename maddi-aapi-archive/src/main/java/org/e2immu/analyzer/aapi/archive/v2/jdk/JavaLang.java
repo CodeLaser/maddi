@@ -592,6 +592,7 @@ public class JavaLang {
 
     //public abstract class Enum implements Constable, Comparable<E>, Serializable
     @ImmutableContainer(hc = true)
+    @Independent
     class Enum$<E extends Enum<E>> {
         //public static final class EnumDesc extends DynamicConstantDesc<E>
         class EnumDesc<E extends Enum<E>> {

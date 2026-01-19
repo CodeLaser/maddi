@@ -15,6 +15,7 @@
 package org.e2immu.analyzer.modification.analyzer.integration;
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.Info;
@@ -68,6 +69,8 @@ public class TestImmutable extends CommonTest {
                 a.b.X.RM.<init>(a.b.X.M,int), a.b.X.RM.m(), a.b.X.MF.m, a.b.X.RM.i, a.b.X.RM.m, a.b.X.MF, a.b.X.RM, a.b.X]\
                 """, ao.toString());
         analyzer.go(ao);
+
+        assertTrue(immutable(runtime.stringTypeInfo()).isImmutable());
 
         TypeInfo R = X.findSubType("R");
         assertTrue(immutable(R).isImmutable());
