@@ -84,7 +84,7 @@ public class TestIntegration3 extends CommonTest {
         MethodInfo find = B.findUniqueMethod("find", 2);
         assertEquals("Type java.util.Map<Long,java.util.List<T extends X.DTO>>", find.returnType().toString());
         VirtualFields vf = virtualFieldComputer.compute(find.returnType(), false).virtualFields();
-        assertEquals("", vf.toString());
+        assertEquals("§m - $TS[] §$tss", vf.toString());
 
         // and ... go
         analyzer.go(ao);

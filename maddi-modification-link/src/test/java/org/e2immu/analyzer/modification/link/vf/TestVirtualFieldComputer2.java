@@ -88,4 +88,42 @@ public class TestVirtualFieldComputer2 extends CommonTest {
                 T=TP#0 in Iterable [] --> C=TP#0 in B []]\
                 """, vfTm.toString());
     }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            class B {
+                private final Map<Long, Integer[]> map;
+                B() {
+                    this.map = new HashMap<>();
+                }
+            }
+            """;
+
+    @DisplayName("new HashMap<Long, Integer[]>()")
+    @Test
+    public void test4() {
+        TypeInfo B = javaInspector.parse(INPUT4);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(B);
+        MethodInfo method = B.findConstructor(0);
+        Assignment assignment = (Assignment) method.methodBody().statements().getFirst().expression();
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+        assertEquals("Type java.util.HashMap<Long,Integer[]>", assignment.value().parameterizedType().toString());
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(assignment.value().parameterizedType(), true);
+        assertEquals("""
+                VfTm[virtualFields=§m - $$S[] §$$ss, formalToConcrete=K=TP#0 in AbstractMap [] --> Long
+                K=TP#0 in HashMap [] --> Long
+                K=TP#0 in Map [] --> Long
+                V=TP#1 in AbstractMap [] --> Integer[]
+                V=TP#1 in HashMap [] --> Integer[]
+                V=TP#1 in Map [] --> Integer[]]\
+                """, vfTm.toString());
+
+        VirtualFieldComputer.VfTm vfTm2 = vfc.compute(assignment.value().parameterizedType(), false);
+        assertEquals("VfTm[virtualFields=§m - $$S[] §$$ss, formalToConcrete=null]", vfTm2.toString());
+    }
 }
