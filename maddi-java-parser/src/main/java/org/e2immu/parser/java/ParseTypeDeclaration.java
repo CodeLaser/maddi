@@ -264,6 +264,9 @@ public class ParseTypeDeclaration extends CommonParse {
         }
 
         if (td.get(i) instanceof ImplementsList implementsList) {
+            if (detailedSourcesBuilder != null) {
+                detailedSourcesBuilder.put(DetailedSources.IMPLEMENTS, source(implementsList.getFirst()));
+            }
             List<Node> commas = detailedSourcesBuilder == null ? null : new ArrayList<>();
 
             for (int j = 1; j < implementsList.size(); j += 2) {
@@ -356,6 +359,9 @@ public class ParseTypeDeclaration extends CommonParse {
         int i = iStart;
         List<Node> permitsCommas = detailedSourcesBuilder == null ? null : new ArrayList<>();
         if (td.get(i) instanceof PermitsList permitsList) {
+            if (detailedSourcesBuilder != null) {
+                detailedSourcesBuilder.put(DetailedSources.PERMITS, source(permitsList.getFirst()));
+            }
             for (int j = 1; j < permitsList.size(); j += 2) {
                 if (detailedSourcesBuilder != null && j + 1 < permitsList.size()
                     && permitsList.get(j + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
