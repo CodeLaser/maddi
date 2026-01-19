@@ -15,7 +15,10 @@
 package org.e2immu.analyzer.modification.analyzer.integration;
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +27,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestIntegration3 extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestIntegration3.class);
@@ -69,12 +74,19 @@ public class TestIntegration3 extends CommonTest {
             }
             """;
 
-    @DisplayName("variable logs: overwrite modification true to false")
+
+    @DisplayName("virtual field computation")
     @Test
-    public void test1() {
+    public void test1a() {
         TypeInfo B = javaInspector.parse(INPUT1);
         List<Info> ao = prepWork(B);
-        LOGGER.info("Order: {}", ao);
+        VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
+        MethodInfo find = B.findUniqueMethod("find", 2);
+        assertEquals("Type java.util.Map<Long,java.util.List<T extends X.DTO>>", find.returnType().toString());
+        VirtualFields vf = virtualFieldComputer.compute(find.returnType(), false).virtualFields();
+        assertEquals("", vf.toString());
+
+        // and ... go
         analyzer.go(ao);
     }
 }
