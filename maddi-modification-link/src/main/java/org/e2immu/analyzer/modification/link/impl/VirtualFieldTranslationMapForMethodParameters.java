@@ -8,10 +8,25 @@ import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.inspection.api.parser.GenericsHelper;
+import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
 
-public record VirtualFieldTranslationMapForMethodParameters(VirtualFieldComputer virtualFieldComputer,
-                                                            Runtime runtime) {
+import java.util.Map;
+
+public class VirtualFieldTranslationMapForMethodParameters {
+    private final VirtualFieldComputer virtualFieldComputer;
+    private final Runtime runtime;
+    private final GenericsHelper genericsHelper;
+
+    public VirtualFieldTranslationMapForMethodParameters(VirtualFieldComputer virtualFieldComputer,
+                                                         Runtime runtime) {
+        this.virtualFieldComputer = virtualFieldComputer;
+        this.runtime = runtime;
+        this.genericsHelper = new GenericsHelperImpl(runtime);
+
+    }
 
     // instance call, but with method type parameters that are linked to other type parameters
     // e.g. TestStreamBasics,5 .toArray(String[]::new)
@@ -52,31 +67,17 @@ public record VirtualFieldTranslationMapForMethodParameters(VirtualFieldComputer
             }
         }
         // try the return type
-        throw new UnsupportedOperationException("NYI");
+        ParameterizedType rt = extractValueForTp(mc.methodInfo().returnType(), mc.concreteReturnType(), tp);
+        if (rt != null) return rt;
+        throw new UnsupportedOperationException("Unable to find concrete value");
     }
 
-    private ParameterizedType extractValueForTp(ParameterizedType formal, ParameterizedType concrete, TypeParameter tp) {
-        // X, concrete T[];  X[], formal T[]; ...
-        if (tp.equals(formal.typeParameter())) {
-            /* TODO E, concrete Set<X> -> we want to drill down; see TestStaticBiFunction,2b
-              if ("Type java.util.Set<X>".equals(concrete.toString())) {
-                  return concrete.parameters().getFirst().copyWithArrays(1);
-              }
-            */
-            return concrete.copyWithArrays(concrete.arrays() - formal.arrays());
-        }
-        // List<T>, concrete  List<K>
-        if (formal.typeInfo() != null && formal.typeInfo().equals(concrete.typeInfo())
-            && formal.parameters().size() == concrete.parameters().size()) {
-            int i = 0;
-            for (ParameterizedType fp : formal.parameters()) {
-                ParameterizedType res = extractValueForTp(fp, concrete.parameters().get(i), tp);
-                if (res != null) return res;
-                ++i;
-            }
-        }
-        // FIXME isAssignable... use generics helper
-        return null;
+    private ParameterizedType extractValueForTp(ParameterizedType formal,
+                                                ParameterizedType concrete,
+                                                TypeParameter tp) {
+        Map<NamedType, ParameterizedType> tm = genericsHelper.translateMap(formal, concrete,
+                true);
+        return tm.get(tp);
     }
 
 }
