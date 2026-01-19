@@ -14,7 +14,9 @@
 
 package org.e2immu.language.inspection.integration.java.type;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -45,12 +47,13 @@ public class TestSealed extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(INPUT1, JavaInspectorImpl.DETAILED_SOURCES);
 
         TypeInfo P = X.findSubType("P", true);
         assertTrue(P.isSealed());
         assertFalse(P.isFinal());
         assertFalse(P.isNonSealed());
+        assertEquals("@3:27-3:33", P.source().detailedSources().detail(DetailedSources.PERMITS).toString());
         assertEquals(3, P.permittedWhenSealed().size());
         assertEquals("""
                 [TypeReference[typeInfo=a.b.X.A, explicit=true], \
@@ -59,6 +62,7 @@ public class TestSealed extends CommonTest {
                 """, P.typesReferenced().toList().toString());
 
         TypeInfo A = X.findSubType("A", true);
+        assertEquals("@6:26-6:32", A.source().detailedSources().detail(DetailedSources.EXTENDS).toString());
         assertFalse(A.isSealed());
         assertTrue(A.isFinal());
         assertFalse(A.typeModifiers().contains(javaInspector.runtime().typeModifierNonSealed()));
