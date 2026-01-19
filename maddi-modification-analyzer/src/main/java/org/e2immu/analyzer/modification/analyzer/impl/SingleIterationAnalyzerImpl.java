@@ -71,7 +71,6 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     @Override
     public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration) {
-        Set<TypeInfo> primaryTypes = new HashSet<>();
         Set<TypeInfo> abstractTypes = new HashSet<>();
         List<TypeInfo> typesInOrder = new ArrayList<>(analysisOrder.size());
 
@@ -85,7 +84,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
                     propertiesChanged.incrementAndGet();
                 }
-                if(methodInfo.isAbstract()) abstractMethods.add(methodInfo);
+                if (methodInfo.isAbstract()) abstractMethods.add(methodInfo);
             } else if (info instanceof FieldInfo fieldInfo) {
                 if (fieldInfo.owner().isAbstract()) {
                     shallowTypeAnalyzer.analyzeField(fieldInfo);
@@ -93,7 +92,6 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 fieldAnalyzer.go(fieldInfo, activateCycleBreaking);
             } else if (info instanceof TypeInfo typeInfo) {
                 runTypeAnalyzers(activateCycleBreaking, typeInfo);
-                if (typeInfo.isPrimaryType()) primaryTypes.add(typeInfo);
                 typesInOrder.add(typeInfo);
             }
         }
