@@ -323,7 +323,7 @@ normal methods: does a modification to the return value imply any modification i
     private Independent worstLinkToFields(Links links) {
         boolean immutableHc = false;
         for (Link link : links) {
-            Variable primaryTo = Util.primary(link.to());
+            Variable primaryTo = Util.firstRealVariable(link.to());
             if (primaryTo instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
                 ParameterizedType type;
                 if (primaryTo == link.to() && link.linkNature().equals(LinkNatureImpl.IS_ASSIGNED_TO)) {
@@ -336,6 +336,9 @@ normal methods: does a modification to the return value imply any modification i
                 } else if (link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)) {
                     // 0:element ∋ this.set.§cs
                     type = link.to().parameterizedType();
+                } else if(link.linkNature().equals(LinkNatureImpl.IS_ELEMENT_OF)) {
+                    //getFile∈this._mruFileList.§es
+                    type = link.from().parameterizedType();
                 } else {
                     type = null;
                 }

@@ -33,7 +33,8 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 
 public class TestNeedMethodReturnTypeInHCT extends CommonTest {
@@ -91,13 +92,9 @@ public class TestNeedMethodReturnTypeInHCT extends CommonTest {
 
         assertSame(INDEPENDENT, runtime.objectTypeInfo().analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(IMMUTABLE_HC, runtime.objectTypeInfo().analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
-        TypeInfo linkedList = javaInspector.compiledTypesManager().get(LinkedList.class);
-        MethodInfo get = linkedList.findUniqueMethod("get", runtime.intTypeInfo());
-        assertNotNull(get.getSetField().field());
 
         // because objects are independent, this should not be "*-2-0:_mruFileList"
-        assertEquals("*M-4-0M:_mruFileList, *-4-0:_synthetic_list, -1-:_synthetic_list[index]",
-                vi.linkedVariables().toString());
+        assertEquals("getFile←$_ce2,getFile∈this._mruFileList.§es", vi.linkedVariables().toString());
         assertSame(INDEPENDENT_HC, getFile.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
     }
 }

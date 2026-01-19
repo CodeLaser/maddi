@@ -93,7 +93,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         if (mlv.ofReturnValue() == null) {
             concreteReturnValue = LinksImpl.EMPTY;
             extraModified = Set.of();
-        } else if (methodInfo.isSAMOfStandardFunctionalInterface()) {
+        } else if (methodInfo.isSAMOfStandardFunctionalInterface() && methodInfo.hasReturnValue()) {
             assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
             concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, objectPrimary,
                     extra);
@@ -224,7 +224,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         // actual arguments
         int index = 0;
         for (Result pr : params) {
-            ParameterInfo from = methodInfo.parameters().get(index);
+            ParameterInfo from = methodInfo.parameters().get(Math.min(index, methodInfo.parameters().size() - 1));
             Variable to = Objects.requireNonNullElseGet(pr.links().primary(), () ->
                     IntermediateVariable.parameterValue(variableCounter.getAndIncrement(),
                             pr.getEvaluated().parameterizedType(), pr.getEvaluated()));
@@ -325,6 +325,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         for (Links links : mlv.ofParameters()) {
             assert links != null;
             ParameterInfo pi = methodInfo.parameters().get(i);
+            if (i >= params.size()) continue; // varargs
             Result r = params.get(i);
             for (Link link : links) {
                 Variable translatedFrom = tm.translateVariableRecursively(link.from());
