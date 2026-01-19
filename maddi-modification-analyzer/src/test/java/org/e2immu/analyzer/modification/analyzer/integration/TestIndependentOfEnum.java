@@ -28,6 +28,7 @@ import java.util.List;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.IMMUTABLE_TYPE;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_TYPE;
+import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestIndependentOfEnum extends CommonTest {
@@ -47,6 +48,10 @@ public class TestIndependentOfEnum extends CommonTest {
         assertFalse(E.isExtensible());
         FieldInfo A = E.getFieldByName("A", true);
         assertFalse(A.type().typeInfo().isExtensible());
+
+        TypeInfo enumType = javaInspector.compiledTypesManager().getOrLoad(Enum.class);
+        assertTrue(enumType.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT).isIndependent());
+
         List<Info> ao = prepWork(E);
         analyzer.go(ao);
 

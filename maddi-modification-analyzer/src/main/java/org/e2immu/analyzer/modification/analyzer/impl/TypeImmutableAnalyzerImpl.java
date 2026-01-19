@@ -18,16 +18,12 @@ import org.e2immu.analyzer.modification.analyzer.CycleBreakingStrategy;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeImmutableAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
@@ -84,7 +80,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
             if (immutableSuper == null) {
                 if (activateCycleBreaking) {
                     if (configuration.cycleBreakingStrategy() == CycleBreakingStrategy.NO_INFORMATION_IS_NON_MODIFYING) {
-                        immutableSuperBroken = VirtualFieldComputer.hasHiddenContent(superType.typeInfo()) ? IMMUTABLE_HC : IMMUTABLE;
+                        immutableSuperBroken = IMMUTABLE_HC; // cannot be IMMUTABLE, because we're deriving from it
                     } else {
                         return FINAL_FIELDS;
                     }
@@ -109,7 +105,8 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         Boolean immFromField = loopOverFieldsAndMethods(typeInfo, true);
         if (immFromField == null) return null;
         if (!immFromField) return FINAL_FIELDS;
-        return VirtualFieldComputer.hasHiddenContent(typeInfo) ? IMMUTABLE_HC : IMMUTABLE;
+        if (independent.isIndependentHc()) return IMMUTABLE_HC;
+        return typeInfo.isExtensible() ? IMMUTABLE_HC : IMMUTABLE;
     }
 
     private Immutable immutableSuper(TypeInfo typeInfo) {
@@ -118,7 +115,7 @@ public class TypeImmutableAnalyzerImpl extends CommonAnalyzerImpl implements Typ
         Boolean immFromFieldNonAbstract = loopOverFieldsAndMethods(typeInfo, false);
         if (immFromFieldNonAbstract == null) return null;
         if (!immFromFieldNonAbstract) return FINAL_FIELDS;
-        return VirtualFieldComputer.hasHiddenContent(typeInfo) ? IMMUTABLE_HC : IMMUTABLE;
+        return IMMUTABLE_HC; // abstract type is extensible
     }
 
     private static boolean isNotSelf(FieldInfo fieldInfo) {

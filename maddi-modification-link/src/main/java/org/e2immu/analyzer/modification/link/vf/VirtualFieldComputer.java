@@ -77,22 +77,6 @@ public class VirtualFieldComputer {
         multi2 = Set.of(iterable.typeInfo(), iterator.typeInfo());
     }
 
-    // used by TypeImmutableAnalyzerImpl
-    public static boolean hasHiddenContent(TypeInfo typeInfo) {
-        if (typeInfo.isExtensible()) return true;
-        return hasHiddenContentFields(typeInfo);
-    }
-
-    private static boolean hasHiddenContentFields(TypeInfo typeInfo) {
-        if (typeInfo.compilationUnitOrEnclosingType().isRight() && !typeInfo.isStatic()) {
-            TypeInfo enclosing = typeInfo.compilationUnitOrEnclosingType().getRight();
-            if (hasHiddenContentFields(enclosing)) return true;
-        }
-        if (typeInfo.parentClass() != null && hasHiddenContentFields(typeInfo.parentClass().typeInfo())) return true;
-        return typeInfo.fields().stream()
-                .anyMatch(fi -> fi.type().typeParameter() != null || fi.type().typeInfo().isExtensible());
-    }
-
     public static boolean isVirtualModificationField(FieldInfo fieldInfo) {
         return "§m".equals(fieldInfo.name())
                && fieldInfo.type().typeInfo() != null
