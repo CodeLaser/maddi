@@ -17,10 +17,7 @@ package org.e2immu.support;
 import org.e2immu.annotation.*;
 import org.e2immu.annotation.eventual.Only;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -38,7 +35,7 @@ import java.util.stream.Stream;
  * @param <V> The type of elements held by the set.
  */
 @ImmutableContainer(after = "frozen", hc = true)
-public class AddOnceSet<V> extends Freezable {
+public class AddOnceSet<V> extends Freezable implements Set<V> {
 
     private final Map<V, V> set = new HashMap<>();
 
@@ -46,15 +43,48 @@ public class AddOnceSet<V> extends Freezable {
      * Add an element to the set.
      *
      * @param v The element to be added.
+     * @return true
      * @throws IllegalStateException when the element had been added before, or when the set was already frozen.
      * @throws NullPointerException  when the parameter is null.
      */
     @Only(before = "frozen")
-    public void add(@NotNull V v) {
+    public boolean add(@NotNull V v) {
         Objects.requireNonNull(v);
         ensureNotFrozen();
         if (contains(v)) throw new IllegalStateException("Already decided on " + v);
         set.put(v, v);
+        return true;
+    }
+
+    @Override
+    public boolean remove(Object o) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean containsAll(@NotNull Collection<?> c) {
+        return c.stream().allMatch(this::contains);
+    }
+
+    @Override
+    public boolean addAll(@NotNull Collection<? extends V> c) {
+        c.forEach(this::add);
+        return true;
+    }
+
+    @Override
+    public boolean retainAll(@NotNull Collection<?> c) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean removeAll(@NotNull Collection<?> c) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void clear() {
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -78,7 +108,7 @@ public class AddOnceSet<V> extends Freezable {
      * @return <code>true</code> when the element is present in the set.
      */
     @NotModified
-    public boolean contains(@NotNull V v) {
+    public boolean contains(@NotNull Object v) {
         return set.containsKey(v);
     }
 
@@ -90,6 +120,22 @@ public class AddOnceSet<V> extends Freezable {
     @NotModified
     public boolean isEmpty() {
         return set.isEmpty();
+    }
+
+
+    @Override
+    public @NotNull Iterator<V> iterator() {
+        return toImmutableSet().iterator();
+    }
+
+    @Override
+    public @NotNull Object[] toArray() {
+        return set.keySet().toArray();
+    }
+
+    @Override
+    public @NotNull <T> T[] toArray(@NotNull T[] a) {
+        return set.keySet().toArray(a);
     }
 
     /**
@@ -110,7 +156,7 @@ public class AddOnceSet<V> extends Freezable {
      * @throws NullPointerException when the consumer is null
      */
     @NotModified
-    public void forEach(@NotNull(content = true) @Independent(hc = true) Consumer<V> consumer) {
+    public void forEach(@NotNull(content = true) @Independent(hc = true) Consumer<? super V> consumer) {
         set.keySet().forEach(consumer);
     }
 

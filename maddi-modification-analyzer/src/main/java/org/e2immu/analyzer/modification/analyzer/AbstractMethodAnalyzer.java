@@ -15,11 +15,10 @@
 package org.e2immu.analyzer.modification.analyzer;
 
 import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
 
-import java.util.Set;
+import java.util.List;
 
 public interface AbstractMethodAnalyzer  {
 
-    void go(boolean firstIteration);
+    void go(boolean firstIteration, List<MethodInfo> abstractMethods);
 }

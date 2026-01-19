@@ -16,254 +16,177 @@ package org.e2immu.analyzer.modification.analyzer.impl;
 
 import org.e2immu.analyzer.modification.analyzer.AbstractMethodAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.common.AnalyzerException;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
+import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
 
 public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements AbstractMethodAnalyzer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractMethodAnalyzerImpl.class);
 
-    // given an abstract method, which are its concrete implementations?
-    final Map<MethodInfo, Set<MethodInfo>> concreteImplementationsOfAbstractMethods = new HashMap<>();
-    final List<MethodInfo> abstractMethodsWithoutImplementation;
-
-    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration,
-                                      AtomicInteger propertiesChanged,
-                                      Set<TypeInfo> primaryTypes) {
+    public AbstractMethodAnalyzerImpl(IteratingAnalyzer.Configuration configuration, AtomicInteger propertiesChanged) {
         super(configuration, propertiesChanged);
-        primaryTypes.stream().flatMap(TypeInfo::recursiveSubTypeStream).forEach(typeInfo ->
-                typeInfo.methodStream().filter(mi -> !mi.isAbstract()).forEach(mi ->
-                        mi.overrides().stream()
-                                // override of the non-abstract method must be in our source code, and must be abstract itself
-                                .filter(MethodInfo::isAbstract)
-                                .filter(ov -> primaryTypes.contains(ov.typeInfo().primaryType()))
-                                .forEach(ov ->
-                                        concreteImplementationsOfAbstractMethods
-                                                .computeIfAbsent(ov, m -> new HashSet<>()).add(mi))));
-        abstractMethodsWithoutImplementation = primaryTypes.stream().flatMap(TypeInfo::recursiveSubTypeStream)
-                .flatMap(ti -> ti.methods().stream())
-                .filter(mi -> mi.isAbstract() && !concreteImplementationsOfAbstractMethods.containsKey(mi))
-                .toList();
     }
 
     @Override
-    public void go(boolean firstIteration) {
-        if (firstIteration) {
-            for (MethodInfo methodInfo : abstractMethodsWithoutImplementation) {
-                if (!methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD)) {
-                    methodInfo.analysis().set(INDEPENDENT_METHOD, DEPENDENT);
-                    DECIDE.debug("AMA: Decide dependent method {}", methodInfo);
-                    propertyChanges.incrementAndGet();
-                }
-                if (!methodInfo.analysis().haveAnalyzedValueFor(IMMUTABLE_METHOD)) {
-                    methodInfo.analysis().set(IMMUTABLE_METHOD, ValueImpl.ImmutableImpl.MUTABLE);
-                    DECIDE.debug("AMA: Decide mutable method {}", methodInfo);
-                    propertyChanges.incrementAndGet();
-                }
-                for (ParameterInfo pi : methodInfo.parameters()) {
-                    if (!pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)) {
-                        pi.analysis().set(INDEPENDENT_PARAMETER, DEPENDENT);
-                        DECIDE.debug("AMA: Decide dependent parameter {}", pi);
-                        propertyChanges.incrementAndGet();
-                    }
-                    if (!pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER)) {
-                        pi.analysis().set(UNMODIFIED_PARAMETER, FALSE);
-                        DECIDE.debug("AMA: Decide modified parameter {}", pi);
-                        propertyChanges.incrementAndGet();
-                    }
-                }
-            }
-        }
-        Iterator<Map.Entry<MethodInfo, Set<MethodInfo>>> iterator = concreteImplementationsOfAbstractMethods
-                .entrySet().iterator();
-        List<AnalyzerException> analyzerExceptions = new LinkedList<>();
-        while (iterator.hasNext()) {
-            Map.Entry<MethodInfo, Set<MethodInfo>> entry = iterator.next();
-            MethodInfo methodInfo = entry.getKey();
-
-            boolean haveIndependentMethod = methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD);
-            boolean haveNonModifyingMethod = methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD);
-            boolean undecidedInParameters = methodInfo.parameters().stream().anyMatch(pi ->
-                    !pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)
-                    || !pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER));
-            if (!haveIndependentMethod || !haveNonModifyingMethod || undecidedInParameters) {
-                Set<MethodInfo> waitForOfMethod = resolve(methodInfo, entry.getValue());
-                if (waitForOfMethod.isEmpty()) {
-                    iterator.remove();
-                    LOGGER.debug("Removing {} from waitFor, have left: {}", methodInfo,
-                            concreteImplementationsOfAbstractMethods.keySet());
-                } else {
-                    LOGGER.debug("Adding {} to waitFor, have left: {}", waitForOfMethod,
-                            concreteImplementationsOfAbstractMethods.keySet());
-                }
+    public void go(boolean firstIteration, List<MethodInfo> abstractMethods) {
+        for (MethodInfo methodInfo : abstractMethods) {
+            Value.SetOfMethodInfo implementations = methodInfo.analysis().getOrDefault(IMPLEMENTATIONS,
+                    ValueImpl.SetOfMethodInfoImpl.EMPTY);
+            if (implementations.methodInfoSet().isEmpty()) {
+                if (firstIteration) doMethodWithoutImplementation(methodInfo);
             } else {
-                iterator.remove();
+                boolean haveIndependentMethod = methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD);
+                boolean haveNonModifyingMethod = methodInfo.analysis().haveAnalyzedValueFor(NON_MODIFYING_METHOD);
+                boolean undecidedInParameters = methodInfo.parameters().stream().anyMatch(pi ->
+                        !pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)
+                        || !pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER));
+                if (!haveIndependentMethod || !haveNonModifyingMethod || undecidedInParameters) {
+                    resolve(methodInfo, implementations.methodInfoSet());
+                }
             }
-
         }
     }
 
-    private Set<MethodInfo> resolve(MethodInfo methodInfo, Set<MethodInfo> concreteImplementations) {
-        Set<MethodInfo> waitFor = new HashSet<>();
+    // no implementation means we can completely ignore it
+    private void doMethodWithoutImplementation(MethodInfo methodInfo) {
+        if (!methodInfo.analysis().haveAnalyzedValueFor(INDEPENDENT_METHOD)) {
+            methodInfo.analysis().set(INDEPENDENT_METHOD, INDEPENDENT);
+            DECIDE.debug("AMA: Decide independent method without implementations {}", methodInfo);
+            propertyChanges.incrementAndGet();
+        }
+        if (!methodInfo.analysis().haveAnalyzedValueFor(IMMUTABLE_METHOD)) {
+            methodInfo.analysis().set(IMMUTABLE_METHOD, ValueImpl.ImmutableImpl.IMMUTABLE);
+            DECIDE.debug("AMA: Decide immutable method without implementations {}", methodInfo);
+            propertyChanges.incrementAndGet();
+        }
         for (ParameterInfo pi : methodInfo.parameters()) {
-            waitFor.addAll(unmodified(concreteImplementations, pi));
-            waitFor.addAll(independent(concreteImplementations, pi));
-            waitFor.addAll(collectDowncast(concreteImplementations, pi));
+            if (!pi.analysis().haveAnalyzedValueFor(INDEPENDENT_PARAMETER)) {
+                pi.analysis().set(INDEPENDENT_PARAMETER, INDEPENDENT);
+                DECIDE.debug("AMA: Decide independent parameter of method without implementations {}", pi);
+                propertyChanges.incrementAndGet();
+            }
+            if (!pi.analysis().haveAnalyzedValueFor(UNMODIFIED_PARAMETER)) {
+                pi.analysis().set(UNMODIFIED_PARAMETER, TRUE);
+                DECIDE.debug("AMA: Decide unmodified parameter of method without implementations {}", pi);
+                propertyChanges.incrementAndGet();
+            }
         }
-        waitFor.addAll(methodNonModifying(concreteImplementations, methodInfo));
-        waitFor.addAll(methodIndependent(concreteImplementations, methodInfo));
-        return waitFor;
     }
 
-    private static Set<MethodInfo> collectDowncast(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
+    private void resolve(MethodInfo methodInfo, Set<MethodInfo> concreteImplementations) {
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            unmodified(concreteImplementations, pi);
+            independent(concreteImplementations, pi);
+            collectDowncast(concreteImplementations, pi);
+        }
+        methodNonModifying(concreteImplementations, methodInfo);
+        methodIndependent(concreteImplementations, methodInfo);
+    }
+
+    private void collectDowncast(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
         Value.SetOfTypeInfo downcastsValue = pi.analysis().getOrNull(DOWNCAST_PARAMETER, Value.SetOfTypeInfo.class);
         if (downcastsValue == null) {
-            Set<MethodInfo> waitFor = new HashSet<>();
             Set<TypeInfo> downcasts = new HashSet<>();
             for (MethodInfo implementation : concreteImplementations) {
                 ParameterInfo pii = implementation.parameters().get(pi.index());
                 Value.SetOfTypeInfo downcastsImplValue = pii.analysis().getOrNull(DOWNCAST_PARAMETER,
                         Value.SetOfTypeInfo.class);
                 if (downcastsImplValue == null) {
-                    waitFor.add(implementation);
-                } else {
-                    downcasts.addAll(downcastsImplValue.typeInfoSet());
+                    UNDECIDED.debug("AMA: Undecided downcast parameter {}", pi);
+                    return;
                 }
-            }
-            if (!waitFor.isEmpty()) {
-                return waitFor;
+                downcasts.addAll(downcastsImplValue.typeInfoSet());
             }
             ValueImpl.SetOfTypeInfoImpl value = new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts));
-            pi.analysis().set(DOWNCAST_PARAMETER, value);
-            DECIDE.debug("AMA: Decide downcast parameter {}: {}", pi, value.nice());
+            if (pi.analysis().setAllowControlledOverwrite(DOWNCAST_PARAMETER, value)) {
+                DECIDE.debug("AMA: Decide downcast parameter {}: {}", pi, value.nice());
+                propertyChanges.incrementAndGet();
+            }
         }
-        return Set.of();
     }
 
-    private static Set<MethodInfo> independent(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
-        Value.Independent independent = pi.analysis().getOrNull(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class);
-        if (independent == null) {
-            Set<MethodInfo> waitFor = new HashSet<>();
-            Value.Independent fromImplementations = INDEPENDENT;
-            for (MethodInfo implementation : concreteImplementations) {
-                ParameterInfo pii = implementation.parameters().get(pi.index());
-                Value.Independent independentImpl = pii.analysis().getOrNull(INDEPENDENT_PARAMETER,
-                        ValueImpl.IndependentImpl.class);
-                if (independentImpl == null) {
-                    waitFor.add(implementation);
-                    fromImplementations = null;
-                } else if (fromImplementations != null) {
-                    fromImplementations = fromImplementations.min(independentImpl);
-                    if (fromImplementations.isDependent()) break;
-                }
-            }
-            if (fromImplementations != null) {
-                pi.analysis().set(INDEPENDENT_PARAMETER, fromImplementations);
-                DECIDE.debug("AMA: Decide independent of param {} = {}", pi, fromImplementations);
-            } else {
-                UNDECIDED.debug("AMA: Independent of param {} undecided, wait for {}", pi, waitFor);
-            }
-            return waitFor;
+    private void independent(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
+        Value.Independent independent = pi.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
+        if (independent.isIndependent()) {
+            return;
         }
-        return Set.of();
+        Value.Independent fromImplementations = INDEPENDENT;
+        for (MethodInfo implementation : concreteImplementations) {
+            ParameterInfo pii = implementation.parameters().get(pi.index());
+            Value.Independent independentImpl = pii.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
+            fromImplementations = fromImplementations.min(independentImpl);
+            if (fromImplementations.isDependent()) break; // no need to try others
+        }
+        if (pi.analysis().setAllowControlledOverwrite(INDEPENDENT_PARAMETER, fromImplementations)) {
+            DECIDE.debug("AMA: Decide independent of param {} = {}", pi, fromImplementations);
+        }
     }
 
-
-    private Set<MethodInfo> methodNonModifying(Set<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
-        Value.Bool nonModifying = methodInfo.analysis().getOrNull(NON_MODIFYING_METHOD,
-                ValueImpl.BoolImpl.class);
-        if (nonModifying == null) {
-            Set<MethodInfo> waitFor = new HashSet<>();
-            Value.Bool fromImplementations = ValueImpl.BoolImpl.TRUE;
-            for (MethodInfo implementation : concreteImplementations) {
-                Value.Bool nonModImpl = implementation.analysis().getOrNull(NON_MODIFYING_METHOD,
-                        ValueImpl.BoolImpl.class);
-                if (nonModImpl == null) {
-                    waitFor.add(implementation);
-                    fromImplementations = null;
-                } else if (nonModImpl.isFalse() && fromImplementations != null) {
-                    fromImplementations = FALSE;
-                    break;
-                }
-            }
-            if (fromImplementations != null) {
-                methodInfo.analysis().set(NON_MODIFYING_METHOD, fromImplementations);
-                DECIDE.debug("AM: Decide non-modifying of method {} = {}", methodInfo, fromImplementations);
-            } else {
-                UNDECIDED.debug("AM: Non-modifying method {} undecided, wait for {}", methodInfo, waitFor);
-            }
-            return waitFor;
+    private void methodNonModifying(Set<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        Value.Bool nonModifying = methodInfo.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE);
+        if (nonModifying.isTrue()) {
+            return;
         }
-        return Set.of();
+        Value.Bool fromImplementations = TRUE;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.Bool nonModImpl = implementation.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE);
+            if (nonModImpl.isFalse()) {
+                fromImplementations = FALSE;
+                break;
+            }
+        }
+        if (methodInfo.analysis().setAllowControlledOverwrite(NON_MODIFYING_METHOD, fromImplementations)) {
+            DECIDE.debug("AM: Decide non-modifying of method {} = {}", methodInfo, fromImplementations);
+        }
     }
 
-
-    private Set<MethodInfo> methodIndependent(Set<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
-        Value.Independent independent = methodInfo.analysis().getOrNull(INDEPENDENT_METHOD,
-                ValueImpl.IndependentImpl.class);
-        if (independent == null) {
-            Set<MethodInfo> waitFor = new HashSet<>();
-            Value.Independent fromImplementations = INDEPENDENT;
-            for (MethodInfo implementation : concreteImplementations) {
-                Value.Independent independentImpl = implementation.analysis().getOrNull(INDEPENDENT_METHOD,
-                        ValueImpl.IndependentImpl.class);
-                if (independentImpl == null) {
-                    waitFor.add(implementation);
-                    fromImplementations = null;
-                } else if (fromImplementations != null) {
-                    fromImplementations = fromImplementations.min(independentImpl);
-                    if (fromImplementations.isDependent()) break;
-                }
-            }
-            if (fromImplementations != null) {
-                methodInfo.analysis().set(INDEPENDENT_METHOD, fromImplementations);
-                DECIDE.debug("AMA: Decide independent of method {} = {}", methodInfo, fromImplementations);
-            } else {
-                UNDECIDED.debug("AMA: Independent of method {} undecided, wait for {}", methodInfo, waitFor);
-            }
-            return waitFor;
+    private void methodIndependent(Set<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        if (independent.isIndependent()) {
+            return;
         }
-        return Set.of();
+        Value.Independent fromImplementations = INDEPENDENT;
+        for (MethodInfo implementation : concreteImplementations) {
+            Value.Independent independentImpl = implementation.analysis().getOrDefault(INDEPENDENT_METHOD,
+                    DEPENDENT);
+            fromImplementations = fromImplementations.min(independentImpl);
+            if (fromImplementations.isDependent()) break;
+        }
+        if (methodInfo.analysis().setAllowControlledOverwrite(INDEPENDENT_METHOD, fromImplementations)) {
+            DECIDE.debug("AMA: Decide independent of method {} = {}", methodInfo, fromImplementations);
+        }
     }
 
-    private static Set<MethodInfo> unmodified(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
-        Value.Bool unmodified = pi.analysis().getOrNull(UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.class);
-        if (unmodified == null) {
-            Set<MethodInfo> waitFor = new HashSet<>();
-            Value.Bool fromImplementations = ValueImpl.BoolImpl.TRUE;
-            for (MethodInfo implementation : concreteImplementations) {
-                ParameterInfo pii = implementation.parameters().get(pi.index());
-                Value.Bool unmodifiedImpl = pii.analysis().getOrNull(UNMODIFIED_PARAMETER,
-                        ValueImpl.BoolImpl.class);
-                if (unmodifiedImpl == null) {
-                    waitFor.add(implementation);
-                    fromImplementations = null;
-                } else if (unmodifiedImpl.isFalse() && fromImplementations != null) {
-                    fromImplementations = FALSE;
-                    break;
-                }
-            }
-            if (fromImplementations != null) {
-                pi.analysis().set(UNMODIFIED_PARAMETER, fromImplementations);
-                DECIDE.debug("Decide unmodified of param {} = {}", pi, fromImplementations);
-            } else {
-                UNDECIDED.debug("Non-modifying of param {} undecided, wait for {}", pi, waitFor);
-            }
-            return waitFor;
+    private void unmodified(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
+        Value.Bool unmodified = pi.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE);
+        if (unmodified.isTrue()) {
+            return;
         }
-        return Set.of();
+        Set<MethodInfo> waitFor = new HashSet<>();
+        Value.Bool fromImplementations = TRUE;
+        for (MethodInfo implementation : concreteImplementations) {
+            ParameterInfo pii = implementation.parameters().get(pi.index());
+            Value.Bool unmodifiedImpl = pii.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE);
+            if (unmodifiedImpl.isFalse()) {
+                fromImplementations = FALSE;
+                break;
+            }
+        }
+        if (pi.analysis().setAllowControlledOverwrite(UNMODIFIED_PARAMETER, fromImplementations)) {
+            DECIDE.debug("Decide unmodified of param {} = {}", pi, fromImplementations);
+        }
     }
 }
+

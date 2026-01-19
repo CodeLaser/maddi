@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, ModAnalyzerForTesting {
-    private final IteratingAnalyzer.Configuration configuration;
     private final LinkComputer linkComputer;
     private final FieldAnalyzer fieldAnalyzer;
     private final TypeModIndyAnalyzer typeModIndyAnalyzer;
@@ -44,10 +43,10 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
     private final TypeIndependentAnalyzer typeIndependentAnalyzer;
     private final ShallowTypeAnalyzer shallowTypeAnalyzer;
     private final TypeContainerAnalyzer typeContainerAnalyzer;
+    private final AbstractMethodAnalyzer abstractMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
 
     public SingleIterationAnalyzerImpl(JavaInspector javaInspector, IteratingAnalyzer.Configuration configuration) {
-        this.configuration = configuration;
         this.propertiesChanged = new AtomicInteger();
         linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions(), propertiesChanged);
         Runtime runtime = javaInspector.runtime();
@@ -57,6 +56,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         typeIndependentAnalyzer = new TypeIndependentAnalyzerImpl(configuration, propertiesChanged);
         shallowTypeAnalyzer = new ShallowTypeAnalyzer(runtime, Element::annotations, false);
         typeContainerAnalyzer = new TypeContainerAnalyzerImpl(configuration, propertiesChanged);
+        abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration, propertiesChanged);
     }
 
     @Override
@@ -75,6 +75,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         Set<TypeInfo> abstractTypes = new HashSet<>();
         List<TypeInfo> typesInOrder = new ArrayList<>(analysisOrder.size());
 
+        List<MethodInfo> abstractMethods = new ArrayList<>();
         for (Info info : analysisOrder) {
             if (info instanceof MethodInfo methodInfo) {
                 if (methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
@@ -84,6 +85,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
                     propertiesChanged.incrementAndGet();
                 }
+                if(methodInfo.isAbstract()) abstractMethods.add(methodInfo);
             } else if (info instanceof FieldInfo fieldInfo) {
                 if (fieldInfo.owner().isAbstract()) {
                     shallowTypeAnalyzer.analyzeField(fieldInfo);
@@ -95,9 +97,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 typesInOrder.add(typeInfo);
             }
         }
-        AbstractMethodAnalyzer abstractMethodAnalyzer = new AbstractMethodAnalyzerImpl(configuration,
-                propertiesChanged, primaryTypes);
-        abstractMethodAnalyzer.go(firstIteration);
+
+        abstractMethodAnalyzer.go(firstIteration, abstractMethods);
 
         /*
         run once more, because the abstract method analyzer may have resolved independence and modification values
