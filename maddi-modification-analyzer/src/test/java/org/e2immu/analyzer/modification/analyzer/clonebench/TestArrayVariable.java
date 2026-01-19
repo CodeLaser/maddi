@@ -18,7 +18,6 @@ package org.e2immu.analyzer.modification.analyzer.clonebench;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.info.Info;
@@ -28,6 +27,8 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,18 +61,17 @@ public class TestArrayVariable extends CommonTest {
         List<Info> ao = prepWork(C);
         analyzer.go(ao);
         MethodInfo put = C.findUniqueMethod("put", 3);
-        ParameterInfo put0 = put.parameters().get(0);
+        ParameterInfo put0 = put.parameters().getFirst();
 
-        Statement s000 = put.methodBody().statements().get(0).block().statements().get(0);
+        Statement s000 = put.methodBody().statements().getFirst().block().statements().getFirst();
         VariableData vd000 = VariableDataImpl.of(s000);
 
         Variable av = ((DependentVariable) ((Assignment) s000.expression()).variableTarget()).arrayVariable();
         assertSame(put0, av);
 
         VariableInfo viPut0 = vd000.variableInfo(put0);
-        assertEquals("0-4-*:array[index], 0-4-*:element", viPut0.linkedVariables().toString());
-        assertEquals("0-4-*:array[index], 0-4-*:element", put0.analysis()
-                .getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
+        assertEquals("0:array[2:index]←1:element,0:array∋1:element", viPut0.linkedVariables().toString());
+
         /*
         20241229
         part of an as yet not fully resolved issue: should "array" be @Modified or not?
@@ -81,6 +81,9 @@ public class TestArrayVariable extends CommonTest {
         that of DV.arrayVariable() to allow for -2- links which would propagate the modification.
          */
         assertTrue(put0.isModified());
+        ValueImpl.SetOfTypeInfoImpl downcast = (ValueImpl.SetOfTypeInfoImpl) put0.analysis().
+                getOrDefault(PropertyImpl.DOWNCAST_PARAMETER, ValueImpl.SetOfTypeInfoImpl.EMPTY);
+        assertEquals("java.lang.Object", downcast.nice());
     }
 
     @Language("java")
