@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.expression.NullConstant;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -15,6 +16,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -208,9 +210,11 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                             } else {
                                 ln = linkNature;
                             }
-                            V sub = makeComparableSub(vFrom, s, vTo);
-                            assert !sub.equals(s);
-                            newLinks.add(new Add(s, ln, sub));
+                            if (ensureArraysWhenSubIsIndex(vFrom.v, s.v, vTo.v)) {
+                                V sub = makeComparableSub(vFrom, s, vTo);
+                                assert !sub.equals(s);
+                                newLinks.add(new Add(s, ln, sub));
+                            }
                         }
                     }
                     Set<V> subsOfTo = subs.get(vTo);
@@ -222,9 +226,11 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                             } else {
                                 ln = linkNature;
                             }
-                            V sub = makeComparableSub(vTo, s, vFrom);
-                            assert !sub.equals(s);
-                            newLinks.add(new Add(sub, ln, s));
+                            if (ensureArraysWhenSubIsIndex(vTo.v, s.v, vFrom.v)) {
+                                V sub = makeComparableSub(vTo, s, vFrom);
+                                assert !sub.equals(s);
+                                newLinks.add(new Add(sub, ln, s));
+                            }
                         }
                     }
                 }
@@ -239,6 +245,16 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             change |= simpleAddToGraph(graph, pc.from, pc.linkNature, pc.to);
         }
         return change;
+    }
+
+    // see TestVarious,9
+    private static boolean ensureArraysWhenSubIsIndex(Variable from, Variable sub, Variable target) {
+        if (sub.equals(target)) return false;
+        if (sub instanceof DependentVariable dv && from.equals(dv.arrayVariable())
+            && (!(dv.indexExpression() instanceof IntConstant ic) || ic.constant() >= 0)) {
+            return target.parameterizedType().arrays() == from.parameterizedType().arrays();
+        }
+        return true;
     }
 
     private static boolean isNotNullConstant(Variable v) {
@@ -318,6 +334,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                     })
                     .toList();
             Variable primaryFrom = Util.primary(from.v);
+            if (primaryFrom == null) continue; //array expression not a variable
             Variable firstRealFrom = Util.firstRealVariable(from.v);
 
             //LOGGER.debug("Entries of {}: {}", from, entries);
@@ -326,6 +343,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                 LinkNature linkNature = entry.getValue();
                 Variable toV = entry.getKey().v;
                 Variable primaryTo = Util.primary(toV);
+                if (primaryTo == null) continue;//array expression not a variable
                 Variable firstRealTo = Util.firstRealVariable(toV);
                 // remove internal references (field inside primary to primary or other field in primary)
                 // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
@@ -417,8 +435,12 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                         if (vLinks != null && vLinks.primary() != null) {
                             assert !(vLinks.primary() instanceof This);
                             Links translated = vLinks.translate(replaceConstants)
-                                    .removeIfTo(v -> !vd.isKnown(Util.primary(v).fullyQualifiedName())
-                                                     && !LinkVariable.acceptForLinkedVariables(v));
+                                    .removeIfTo(v -> {
+                                        Variable primary = Util.primary(v);
+                                        // primary == null check: TestVarious,10
+                                        return primary == null || !vd.isKnown(primary.fullyQualifiedName())
+                                                   && !LinkVariable.acceptForLinkedVariables(v);
+                                    });
                             linkedVariables.merge(vLinks.primary(), translated, Links::merge);
                         }
                     });

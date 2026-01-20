@@ -298,4 +298,211 @@ public class TestVarious extends CommonTest {
         analyzer.go(ao);
     }
 
+
+    @Language("java")
+    private static final String INPUT7 = """
+            import java.util.Random;
+            public class X {
+            public static boolean[][] randomGraph(int n, double p, Random random) {
+                if (n <= 0) return null;
+                boolean[][] g = new boolean[n][n];
+                if (p > 1.0) p = 1.0;
+                if (p < 0.0) p = 0.0;
+                for (int i = 0; i < n; i++) {
+                  g[i][i] = false;
+                  for (int j = i + 1; j < n; j++) {
+                    g[i][j] = (random.nextDouble() <= p);
+                    g[j][i] = g[i][j];
+                  }
+                }
+                return g;
+              }
+            }
+            """;
+
+    @DisplayName("don't make subs of the null constant")
+    @Test
+    public void test7() {
+        TypeInfo B = javaInspector.parse(INPUT7);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
+    @Language("java")
+    private static final String INPUT8 = """
+            import java.lang.reflect.Field;
+            import java.lang.reflect.Method;
+            import java.util.HashMap;
+            import java.util.Map;
+            
+            public class X {
+            
+                public static Map<String, Class> toNameClassMap(Map<String, Object> items) {
+                    Map<String, Class> res = new HashMap<String, Class>();
+                    if (items == null || items.size() == 0) {
+                        return res;
+                    }
+                    for (String key : items.keySet()) {
+                        Object o = items.get(key);
+                        if (o instanceof Method) {
+                            Method m = (Method) o;
+                            if (m.getName().startsWith("get") || m.getName().startsWith("is")) {
+                                res.put(key, m.getReturnType());
+                            } else if (m.getName().startsWith("set")) {
+                                res.put(key, m.getParameterTypes()[0]);
+                            } else {
+                                res.put(key, o.getClass());
+                            }
+                        } else if (o instanceof Field) {
+                            res.put(key, ((Field) o).getType());
+                        } else {
+                            res.put(key, o.getClass());
+                        }
+                    }
+                    return res;
+                }
+            }
+            """;
+
+    @DisplayName("array access with method array expression")
+    @Test
+    public void test8() {
+        TypeInfo B = javaInspector.parse(INPUT8);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
+
+    @Language("java")
+    private static final String INPUT9 = """
+            import java.util.Map;
+            import java.util.TreeMap;
+            
+            public class X {
+            
+                public Map<String, String> arrayToMap(Object[] envArray) {
+                    Map<String, String> env = new TreeMap<>();
+                    for (Object x : envArray) {
+                        Object[] o = (Object[]) x;
+                        if (o.length != 2) throw new RuntimeException();
+                        env.put((String) o[0], (String) o[1]);
+                    }
+                    return env;
+                }
+            }
+            """;
+
+    @DisplayName("subs of index type cannot be made unless the arrays are available")
+    @Test
+    public void test9() {
+        TypeInfo B = javaInspector.parse(INPUT9);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
+    @Language("java")
+    private static final String INPUT10 = """
+            import java.util.HashMap;
+            import java.util.Map;
+            
+            public class X {
+            
+                public Map getInput() {
+                    Map m = new HashMap();
+                    for (String k : input.keySet()) {
+                        Object value = input.get(k);
+                        if (value != null) {
+                            if (((Object[]) value).length == 1) {
+                                value = ((Object[]) value)[0];
+                            } else if (((Object[]) value).length == 0) {
+                                value = null;
+                            }
+                        }
+                        m.put(k, value);
+                    }
+                    return m;
+                }
+            
+                public Map<String, Object> input = new HashMap<String, Object>();
+            }
+            """;
+
+    @DisplayName("more restrictions on subs of index type")
+    @Test
+    public void test10() {
+        TypeInfo B = javaInspector.parse(INPUT10);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
+
+    @Language("java")
+    private static final String INPUT11 = """
+            public class X {
+            
+                public static void logNormalize(double[] x) {
+                    double alpha = 0.0;
+                    for (double v : x) alpha += Math.exp(v);
+                    addAll(x, -Math.log(alpha));
+                }
+            
+                public static void addAll(double[] x, double val) {
+                    for (int i = 0; i < x.length; i++) x[i] += val;
+                }
+            }
+            """;
+
+    @DisplayName("more restrictions on subs of index type")
+    @Test
+    public void test11() {
+        TypeInfo B = javaInspector.parse(INPUT11);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
+
+    @Language("java")
+    private static final String INPUT12 = """
+            //onlyjava
+            import java.io.IOException;
+            import java.lang.reflect.InvocationTargetException;
+            import java.lang.reflect.Method;
+            import java.net.URL;
+            
+            class X {
+                public static void openURL(URL url) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, IOException, InterruptedException {
+                    String osName = System.getProperty("os.name");
+                    if (osName.startsWith("Mac OS")) {
+                        Class fileMgr = Class.forName("com.apple.eio.FileManager");
+                        Method openURL = fileMgr.getDeclaredMethod("openURL", new Class[] { String.class });
+                        openURL.invoke(null, new Object[] { url.toString() });
+                    } else if (osName.startsWith("Windows")) {
+                        String cmdLine = "rundll32 url.dll,FileProtocolHandler " + url.toString();
+                        Process exec = Runtime.getRuntime().exec(cmdLine);
+                        exec.waitFor();
+                    } else {
+                        String[] browsers = { "firefox" };
+                        String browser = null;
+                        for (int count = 0; count < browsers.length && browser == null; count++) {
+                            if (Runtime.getRuntime().exec(new String[] { "which", browsers[count] }).waitFor() == 0) {
+                                browser = browsers[count];
+                            }
+                        }
+                        if (browser == null) {
+                            throw new IllegalStateException("Could not find web browser");
+                        } else {
+                            Runtime.getRuntime().exec(new String[] { browser, url.toString() });
+                        }
+                    }
+                }
+            }""";
+
+    @DisplayName("?")
+    @Test
+    public void test12() {
+        TypeInfo B = javaInspector.parse(INPUT12);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
 }
