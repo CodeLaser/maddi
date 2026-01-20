@@ -281,16 +281,16 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 builder.add(linkNature, subTo);
             } else if (toType.typeParameter() == null) {
                 // 'to' is a container (array); we'll need a slice
-                FF theField = findField(fromType.typeParameter(), toType.typeInfo());
+                SliceFactory.FF theField = SliceFactory.findField(fromType.typeParameter(), toType.typeInfo());
                 if (theField != null) {
                     if (subTo.parameterizedType().arrays() == 0) {
                         // indexing: TestShallowPrefix,1:
-                        FieldReference subSubTo = runtime.newFieldReference(theField.fieldInfo,
-                                runtime.newVariableExpression(subTo), theField.fieldInfo.type());
+                        FieldReference subSubTo = runtime.newFieldReference(theField.fieldInfo(),
+                                runtime.newVariableExpression(subTo), theField.fieldInfo().type());
                         builder.add(IS_ASSIGNED_TO, subSubTo);
                     } else {
-                        DependentVariable slice = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                                runtime.newInt(theField.negative()), theField.fieldInfo().type().copyWithOneMoreArray());
+                        DependentVariable slice = SliceFactory.create(runtime, subTo, theField.negative(),
+                                theField.fieldInfo());
                         builder.add(linkNature, slice);
                     }
                 }
@@ -340,8 +340,9 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                             if (Util.virtual(fieldFrom)) {
                                 FieldInfo fieldTo;
                                 if (fieldFrom.type().typeParameter() != null) {
-                                    FF ff = findField(fieldFrom.type().typeParameter(), subTo.parameterizedType().typeInfo());
-                                    fieldTo = ff == null ? null : ff.fieldInfo;
+                                    SliceFactory.FF ff = SliceFactory.findField(fieldFrom.type().typeParameter(),
+                                            subTo.parameterizedType().typeInfo());
+                                    fieldTo = ff == null ? null : ff.fieldInfo();
                                 } else {
                                     fieldTo = findField(fieldFrom.type(), subTo.parameterizedType().typeInfo());
                                 }
@@ -370,37 +371,36 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         if (arraysFrom > 0) {
                             if (arraysTo == arraysFrom) {
                                 if (toType.typeParameter() != null) {
-                                    FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
+                                    SliceFactory.FF theField = SliceFactory.findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                                     assert theField != null;
-                                    DependentVariable dv = runtime.newDependentVariable(
-                                            runtime().newVariableExpression(subFrom),
-                                            runtime.newInt(theField.negative()));
+                                    DependentVariable dv = SliceFactory.create(runtime, subFrom, theField.negative(),
+                                            theField.fieldInfo());
                                     builder.add(dv, IS_SUBSET_OF, subTo);
                                 } else {
                                     // slice across: TestShallow,4: keySet.ks~this.kvs[-1].k
-                                    FF theField = findField(intersection.getFirst(), toType.typeInfo());
+                                    SliceFactory.FF theField = SliceFactory.findField(intersection.getFirst(), toType.typeInfo());
                                     assert theField != null;
-                                    DependentVariable slice = runtime.newDependentVariable(runtime().newVariableExpression(subTo),
-                                            runtime.newInt(theField.negative()), theField.fieldInfo.type().copyWithOneMoreArray());
+                                    DependentVariable slice = SliceFactory.create(runtime, subTo, theField.negative(),
+                                            theField.fieldInfo());
                                     builder.add(subFrom, IS_SUBSET_OF, slice);
                                 }
                             } else if (arraysTo == 0) {
                                 // slice to a single element: TestShallowPrefix,1: oneStatic.xys[-1]>0:x
-                                FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
+                                SliceFactory.FF theField = SliceFactory.findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                                 assert theField != null;
-                                DependentVariable slice = runtime.newDependentVariable(runtime().newVariableExpression(subFrom),
-                                        runtime.newInt(theField.negative()), theField.fieldInfo.type().copyWithOneMoreArray());
+                                DependentVariable slice = SliceFactory.create(runtime, subFrom, theField.negative(),
+                                        theField.fieldInfo());
                                 builder.add(slice, CONTAINS_AS_MEMBER, subTo);
                             }
                         } else {
                             // indexing, e.g. TestShallowPrefix,3:  oneStatic.xy.x==0:x (totalFrom 0)
                             // e.g. TestShallowPrefix,2: oneStatic.xsys.xs>0:x (totalFrom 1)
-                            FF theField = findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
+                            SliceFactory.FF theField = SliceFactory.findField(intersection.getFirst(), subFrom.parameterizedType().typeInfo());
                             assert theField != null;
-                            int totalFrom = arraysFrom + theField.fieldInfo.type().arrays();
+                            int totalFrom = arraysFrom + theField.fieldInfo().type().arrays();
                             LinkNature linkNature = deriveLinkNature(totalFrom, arraysTo, subShareSuper, reverseIsAssignedFrom);
-                            FieldReference subSubFrom = runtime.newFieldReference(theField.fieldInfo,
-                                    runtime.newVariableExpression(subFrom), theField.fieldInfo.type());
+                            FieldReference subSubFrom = runtime.newFieldReference(theField.fieldInfo(),
+                                    runtime.newVariableExpression(subFrom), theField.fieldInfo().type());
                             builder.add(subSubFrom, linkNature, subTo);
                         }
                     }
@@ -444,22 +444,6 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
         return CONTAINS_AS_MEMBER;
     }
 
-    private record FF(FieldInfo fieldInfo, int index) {
-        public int negative() {
-            return -1 - index;
-        }
-    }
-
-    private static FF findField(TypeParameter typeParameter, TypeInfo container) {
-        int i = 0;
-        for (FieldInfo fieldInfo : container.fields()) {
-            if (typeParameter.equals(fieldInfo.type().typeParameter())) {
-                return new FF(fieldInfo, i);
-            }
-            ++i;
-        }
-        return null;
-    }
 
     private static FieldInfo findField(ParameterizedType fieldType, TypeInfo container) {
         for (FieldInfo fieldInfo : container.fields()) {

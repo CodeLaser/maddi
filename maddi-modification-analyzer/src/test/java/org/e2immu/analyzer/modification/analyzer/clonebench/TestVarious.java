@@ -263,4 +263,39 @@ public class TestVarious extends CommonTest {
         analyzer.go(ao);
     }
 
+
+    @Language("java")
+    private static final String INPUT6 = """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            public class X {
+            public String alternativeComputeIfPresent2(Map<String, String> map,
+                        String key,
+                        BiFunction<? super String, ? super String, ? extends String> mappingFunction) {
+                    return map.entrySet().stream()
+                            .filter(entry -> entry.getKey().equals(key))
+                            .map(entry -> {
+                                String newValue = mappingFunction.apply(entry.getKey(), entry.getValue());
+                                if (newValue != null) {
+                                    entry.setValue(newValue);
+                                    return newValue;
+                                } else {
+                                    map.remove(entry.getKey());
+                                    return null;
+                                }
+                            })
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
+            """;
+
+    @DisplayName("makeSub")
+    @Test
+    public void test6() {
+        TypeInfo B = javaInspector.parse(INPUT6);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
 }

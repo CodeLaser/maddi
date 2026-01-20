@@ -153,8 +153,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         String names = name + "s".repeat(sourcePt.arrays());
         FieldInfo newField = virtualFieldComputer.newField(names, sourcePt, sourcePt.typeInfo());
         // make a slice
-        return runtime.newDependentVariable(runtime.newVariableExpression(base),
-                runtime.newInt(-1 - i), newField.type().copyWithOneMoreArray());
+        return SliceFactory.create(runtime, base, -1 - i, newField);
     }
 
     private Variable translateAndRecreateVirtualFields(TranslationMap tm,
@@ -213,8 +212,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         newContainerType.asParameterizedType().copyWithArrays(arrays), owner);
                 FieldReference scope = runtime.newFieldReference(newFieldInfo, frKv.scope(), newFieldInfo.type());
                 // make a slice
-                upscaled = runtime.newDependentVariable(runtime.newVariableExpression(scope),
-                        runtime.newInt(sliceIndex), newFieldInfo.type().copyWithOneMoreArray());
+                upscaled = SliceFactory.create(runtime, scope, sliceIndex, newFieldInfo);
             } else if (arrays > 0) {
                 // TestFunction,2
                 // variable = this.§es, translated = optional.§es, arrays = 1
