@@ -63,6 +63,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final WriteLinksAndModification writeLinksAndModification;
     private final ShallowMethodAnalyzer shallowMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
+    private final AtomicInteger variableCounter = new AtomicInteger();
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -187,7 +188,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             this.expressionVisitor = new ExpressionVisitor(javaInspector.runtime(),
                     javaInspector, options, new VirtualFieldComputer(javaInspector),
                     LinkComputerImpl.this, this, methodInfo, recursionPrevention,
-                    new AtomicInteger());
+                    variableCounter);
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;
         }
 
@@ -195,22 +196,26 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             TranslateConstants tc = new TranslateConstants(javaInspector.runtime());
             for (LocalVariable lv : variablesRepresentingConstants) {
                 if (!(lv.assignmentExpression() instanceof NullConstant)) {
+                    assert lv.parameterizedType().arrays() == 0;
                     tc.put(lv, lv.assignmentExpression());
                 }
             }
             if (vd != null) {
-                vd.variableInfoStream(stage).forEach(vi -> {
+                for (VariableInfo vi : vd.variableInfoIterable(stage)) {
                     if (vi.linkedVariables() != null) {
-                        vi.linkedVariables().stream()
-                                .filter(l -> l.from().equals(vi.variable())
-                                             && l.linkNature().isIdenticalToOrAssignedFromTo()
-                                             && l.to() instanceof LocalVariable)
-                                .map(l -> tc.get(l.to()))
-                                .filter(Objects::nonNull)
-                                .findFirst()
-                                .ifPresent(constant -> tc.put(vi.variable(), constant));
+                        for (Link l : vi.linkedVariables()) {
+                            if (l.from().equals(vi.variable())
+                                && l.linkNature().isIdenticalToOrAssignedFromTo()
+                                && l.to() instanceof LocalVariable) {
+                                Expression constant = tc.get(l.to());
+                                if (constant != null && !(constant instanceof NullConstant)) {
+                                    assert vi.variable().parameterizedType().arrays() == 0;
+                                    tc.put(vi.variable(), constant);
+                                }
+                            }
+                        }
                     }
-                });
+                }
             }
             return tc;
         }

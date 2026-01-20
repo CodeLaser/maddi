@@ -162,8 +162,8 @@ public class TestStaticValuesRecord extends CommonTest {
             LocalVariable r = rLvc.localVariable();
             VariableData vd0 = VariableDataImpl.of(rLvc);
             VariableInfo rVi0 = vd0.variableInfo(r);
-            assertEquals("r.n←$_ce1,r.set←0:in", rVi0.linkedVariables().toString());
-            assertEquals("[-] --> method2.n←$_ce1,method2.set←0:in", mlv.toString());
+            assertEquals("r.n←$_ce3,r.set←0:in", rVi0.linkedVariables().toString());
+            assertEquals("[-] --> method2.n←$_ce3,method2.set←0:in", mlv.toString());
         }
     }
 

@@ -277,7 +277,7 @@ public class TestSupplier extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viLambda0 = vd0.variableInfo("lambda");
-        assertEquals("lambda←Λ$_fi0", viLambda0.linkedVariables().toString());
+        assertEquals("lambda←Λ$_fi3", viLambda0.linkedVariables().toString());
 
         assertEquals("""
                 [0:optional.§xs⊇1:main.§xs, 1:main.§xs⊆0:optional.§xs] --> \
@@ -319,7 +319,7 @@ public class TestSupplier extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(method2.methodBody().statements().getFirst());
             VariableInfo viLambda = vd0.variableInfo("lambda");
             Links lvLambda = viLambda.linkedVariablesOrEmpty();
-            assertEquals("lambda←Λ$_fi0", lvLambda.toString());
+            assertEquals("lambda←Λ$_fi1", lvLambda.toString());
 
             VariableData vd1 = VariableDataImpl.of(method2.methodBody().statements().get(1));
             VariableInfo viEntry = vd1.variableInfo("entry");

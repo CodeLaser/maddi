@@ -15,13 +15,23 @@
 package org.e2immu.analyzer.modification.analyzer.clonebench;
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.expression.NullConstant;
 import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class TestVarious extends CommonTest {
@@ -529,12 +539,208 @@ public class TestVarious extends CommonTest {
             }
             """;
 
-    @DisplayName("?")
+    @DisplayName("omit null constant from constants to be replaced")
     @Test
     public void test13() {
         TypeInfo B = javaInspector.parse(INPUT13);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
+    }
+
+    @Language("java")
+    private static final String INPUT14 = """
+            public class X {
+              public void invDctNxN(double[][] dcts, int[][] pixels) {
+                int u = 0;
+                int v = 0;
+                double two_over_sqrtncolsnrows = 2.0 / Math.sqrt((double) N * M);
+                double[][] tmp = null;
+                tmp = new double[N][N];
+                for (u = 0; u < N; u++) {
+                  for (v = 0; v < M; v++) {
+                    tmp[u][v] = dcts[u][v];
+                  }
+                }
+                for (u = 0; u <= M - 1; u++) {
+                  invFctNoScale(tmp[u]);
+                }
+                for (v = 0; v <= N - 1; v++) {
+                  for (u = 0; u <= M - 1; u++) {
+                    nxnTmp[u] = tmp[u][v];
+                  }
+                  invFctNoScale(nxnTmp);
+                  for (u = 0; u <= M - 1; u++) {
+                    tmp[u][v] = nxnTmp[u] * two_over_sqrtncolsnrows;
+                  }
+                }
+                for (u = 0; u < N; u++) {
+                  for (v = 0; v < M; v++) {
+                    pixels[u][v] = pixelRange((int) (tmp[u][v] + 128.5));
+                  }
+                }
+                tmp = null;
+              }
+            
+              /** Constant for Inverse of Square Root of 2 */
+              private static final double INVROOT2 = 0.7071067814;
+            
+              private double[] nxnTmp = null;
+              private double[] nxnCosTable = null;
+              private int nxnLog2N = 0;
+              private int N = 0;
+              private int M = 0;
+            
+              private int pixelRange(int p) {
+                return ((p > 255) ? 255 : (p < 0) ? 0 : p);
+              }
+            
+              private void bitrev(double[] f, int len, int startIdx) {
+                int i;
+                int j;
+                int m;
+                double tmp;
+                if (len <= 2) return;
+                j = 1;
+                for (i = 1; i <= len; i++) {
+                  if (i < j) {
+                    tmp = f[startIdx + j - 1];
+                    f[startIdx + j - 1] = f[startIdx + i - 1];
+                    f[startIdx + i - 1] = tmp;
+                  }
+                  m = len >> 1;
+                  while (j > m) {
+                    j = j - m;
+                    m = (m + 1) >> 1;
+                  }
+                  j = j + m;
+                }
+              }
+            
+              private void invSums(double[] f) {
+                int stepsize;
+                int stage;
+                int curptr;
+                int nthreads;
+                int thread;
+                int step;
+                int nsteps;
+                for (stage = 1; stage <= nxnLog2N - 1; stage++) {
+                  nthreads = 1 << (stage - 1);
+                  stepsize = nthreads << 1;
+                  nsteps = (1 << (nxnLog2N - stage)) - 1;
+                  for (thread = 1; thread <= nthreads; thread++) {
+                    curptr = N - thread;
+                    for (step = 1; step <= nsteps; step++) {
+                      f[curptr] += f[curptr - stepsize];
+                      curptr -= stepsize;
+                    }
+                  }
+                }
+              }
+            
+              private void unscramble(double[] f, int len) {
+                int i;
+                int ii1;
+                int ii2;
+                double tmp;
+                ii1 = len - 1;
+                ii2 = len >> 1;
+                for (i = 0; i < (len >> 2); i++) {
+                  tmp = f[ii1];
+                  f[ii1] = f[ii2];
+                  f[ii2] = tmp;
+                  ii1--;
+                  ii2++;
+                }
+                bitrev(f, len >> 1, 0);
+                bitrev(f, len >> 1, len >> 1);
+                bitrev(f, len, 0);
+              }
+            
+              private void invButterflies(double[] f) {
+                int stage;
+                int ii1;
+                int ii2;
+                int butterfly;
+                int ngroups;
+                int group;
+                int wingspan;
+                int increment;
+                int baseptr;
+                double Cfac;
+                double T;
+                for (stage = 1; stage <= nxnLog2N; stage++) {
+                  ngroups = 1 << (nxnLog2N - stage);
+                  wingspan = 1 << (stage - 1);
+                  increment = wingspan << 1;
+                  for (butterfly = 1; butterfly <= wingspan; butterfly++) {
+                    Cfac = nxnCosTable[wingspan + butterfly - 1];
+                    baseptr = 0;
+                    for (group = 1; group <= ngroups; group++) {
+                      ii1 = baseptr + butterfly - 1;
+                      ii2 = ii1 + wingspan;
+                      T = Cfac * f[ii2];
+                      f[ii2] = f[ii1] - T;
+                      f[ii1] = f[ii1] + T;
+                      baseptr += increment;
+                    }
+                  }
+                }
+              }
+            
+              private void invFctNoScale(double[] f) {
+                f[0] *= INVROOT2;
+                invSums(f);
+                bitrev(f, N, 0);
+                invButterflies(f);
+                unscramble(f, N);
+              }
+            }
+            """;
+
+    @DisplayName("illegal links to constants")
+    @Test
+    public void test14() {
+        TypeInfo B = javaInspector.parse(INPUT14);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+
+        MethodInfo methodInfo = B.findUniqueMethod("invDctNxN", 2);
+
+        VariableData vd5 = VariableDataImpl.of(methodInfo.methodBody().statements().get(5));
+        VariableInfo tmp5 = vd5.variableInfo("tmp");
+        assertEquals("""
+                tmp←$_ce57,tmp[u][v]←0:dcts[u][v],tmp[u][v]∈0:dcts[u],tmp[u][v]∈tmp[u],tmp[u][v]∈$_ce57,\
+                tmp[u][v]∈∈0:dcts,tmp[u]∋0:dcts[u][v],tmp[u]∈$_ce57,tmp[u]~0:dcts[u],tmp∋∋0:dcts[u][v],tmp~0:dcts[u]\
+                """, tmp5.linkedVariables().toString());
+        Link l0 = tmp5.linkedVariables().link(0);
+        assertEquals("tmp←$_ce57", l0.toString());
+        if (l0.to() instanceof MarkerVariable mv) {
+            assertInstanceOf(NullConstant.class, mv.assignmentExpression());
+        } else fail();
+
+        VariableData vd7 = VariableDataImpl.of(methodInfo.methodBody().statements().get(7));
+        VariableInfo tmp7 = vd7.variableInfo("tmp");
+        assertEquals("""
+                tmp[u][0]←0:dcts[u][0],tmp[u][0]∈0:dcts[u],tmp[u][0]∈tmp[u],tmp[u][0]∈$_ce57,tmp[u][0]∈∈0:dcts,\
+                tmp[u]∋0:dcts[u][0],tmp[u]∈$_ce57,tmp[u]~0:dcts[u],tmp[u]~0:dcts,tmp←$_ce57,tmp∋∋0:dcts[u][0],\
+                tmp~0:dcts[u],tmp~0:dcts,tmp[u][0]∩this.nxnTmp[u],tmp[u][0]∩tmp[u][v],tmp[u][v]→this.nxnTmp[u],\
+                tmp[u][v]∈tmp[u],tmp[u][v]∈$_ce57,tmp[u][v]∈this.nxnTmp,tmp[u][v]∩0:dcts[u],tmp[u][v]∩0:dcts[u][0],\
+                tmp[u]∋this.nxnTmp[u],tmp[u]~this.nxnTmp,tmp∋∋this.nxnTmp[u],tmp~this.nxnTmp\
+                """, tmp7.linkedVariables().toString());
+
+        Statement s8 = methodInfo.methodBody().statements().get(8);
+        VariableData vd8 = VariableDataImpl.of(s8);
+        VariableInfo tmp8 = vd8.variableInfo("tmp");
+        assertEquals("Type double[][]", tmp8.variable().parameterizedType().toString());
+        assertEquals("""
+                tmp[u][0]←0:dcts[u][0],tmp[u][0]∈0:dcts[u],tmp[u][0]∈tmp[u],tmp[u][0]∈$_ce57,tmp[u][0]∈∈0:dcts,\
+                tmp[u][0]∩this.nxnTmp[u],tmp[u][0]∩tmp[u][v],tmp[u][v]→this.nxnTmp[u],tmp[u][v]∈tmp[u],\
+                tmp[u][v]∈$_ce57,tmp[u][v]∈this.nxnTmp,tmp[u][v]∩0:dcts[u],tmp[u][v]∩0:dcts[u][0],\
+                tmp[u]∋0:dcts[u][0],tmp[u]∋this.nxnTmp[u],tmp[u]∈$_ce57,tmp[u]~0:dcts[u],tmp[u]~0:dcts,\
+                tmp[u]~this.nxnTmp,tmp←$_ce57,tmp∋∋0:dcts[u][0],tmp∋∋this.nxnTmp[u],tmp~0:dcts[u],tmp~0:dcts,\
+                tmp~this.nxnTmp\
+                """, tmp8.linkedVariables().toString());
     }
 
 }
