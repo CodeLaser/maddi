@@ -221,6 +221,8 @@ public class Util {
     }
 
     public static String simpleName(Variable variable, Set<Variable> modified) {
+        assert modified != null;
+        assert variable != null;
         if (variable instanceof ParameterInfo pi) {
             return pi.index() + ":" + pi.name() + (modified.contains(pi) ? "*" : "");
         }
@@ -238,7 +240,10 @@ public class Util {
             boolean dvModified = modified.contains(dv);
             String index = dv.indexVariable() != null
                     ? simpleName(dv.indexVariable(), dvModified ? Set.of() : modified) : dv.indexExpression().toString();
-            return simpleName(dv.arrayVariable(), modified) + "[" + index + "]" + (dvModified ? "*" : "");
+            String simpleArrayVar;
+            if (dv.arrayVariable() != null) simpleArrayVar = simpleName(dv.arrayVariable(), modified);
+            else simpleArrayVar = dv.arrayExpression().toString();
+            return simpleArrayVar + "[" + index + "]" + (dvModified ? "*" : "");
         }
         return variable + (modified.contains(variable) ? "*" : "");
     }

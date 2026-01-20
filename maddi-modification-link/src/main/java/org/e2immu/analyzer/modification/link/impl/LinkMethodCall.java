@@ -185,9 +185,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
         Links.Builder builder = new LinksImpl.Builder(fromPrimary);
         TranslationMap fromTm = new VariableTranslationMap(runtime).put(from, fromPrimary);
         Variable translatedFrom = fromTm.translateVariableRecursively(linkFrom);
-        builder.add(translatedFrom, linkNature, translatedTo);
-        Links links = builder.build();
-        extra.merge(fromPrimary, links, Links::merge);
+        if (translatedFrom != null) {
+            builder.add(translatedFrom, linkNature, translatedTo);
+            Links links = builder.build();
+            extra.merge(fromPrimary, links, Links::merge);
+        } // else: TestVarious,11
     }
 
     private LinkNature varargsLinkNature(LinkNature linkNature) {
