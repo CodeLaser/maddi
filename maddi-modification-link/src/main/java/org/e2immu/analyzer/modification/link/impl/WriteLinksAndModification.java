@@ -89,7 +89,9 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                     previouslyModified, modifiedDuringEvaluation, newLinkedVariables));
         }
         for (Link link : toRemove) {
-            newLinkedVariables.get(Util.primary(link.from())).removeIf(l -> l.equals(link));
+            Variable primary = Util.primary(link.from());
+            Links.Builder builder = newLinkedVariables.get(primary);
+            if(builder != null) builder.removeIf(l -> l.equals(link));
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
         newLinkedVariables.forEach((v, b) -> builtNewLinkedVariables.put(v, b.build()));
