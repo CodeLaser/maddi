@@ -430,6 +430,18 @@ public class TestShallow extends CommonTest {
         assertEquals("[-, 1:elements.§ts⊆0:c*.§ts] --> -", mlvC1.toString());
     }
 
+    @DisplayName("Analyze 'Collections.sort(List<T>,Comparator<? superT>)")
+    @Test
+    public void test8b() {
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
+        MethodInfo sort = collections.findUniqueMethod("sort", 2);
+        assertEquals("java.util.Collections.sort(java.util.List<T>,java.util.Comparator<? super T>)",
+                sort.fullyQualifiedName());
+        MethodLinkedVariables mlvC1 = sort.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(sort));
+        assertEquals("[-, -] --> -", mlvC1.toString());
+    }
+
     @Language("java")
     private static final String INPUT9 = """
             package a.b;

@@ -312,7 +312,8 @@ public class VirtualFieldComputer {
             return parameterizedType.typeParameter().isMethodTypeParameter() && ignoreMethodParameters ? 0 : 1;
         }
         ParameterizedType wrapped = wrapped(parameterizedType);
-        if (wrapped != null) {
+        // extra check '!wrapped.equals(parameterizedType)' to avoid infinite recursion
+        if (wrapped != null && !wrapped.equals(parameterizedType)) {
             int m = computeMultiplicity(wrapped, ignoreMethodParameters);
             return m == 0 ? 0 : m + 1;
         }
