@@ -13,6 +13,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.expression.NullConstant;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -193,7 +194,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private TranslationMap replaceConstants(VariableData vd, Stage stage) {
             TranslateConstants tc = new TranslateConstants(javaInspector.runtime());
             for (LocalVariable lv : variablesRepresentingConstants) {
-                tc.put(lv, lv.assignmentExpression());
+                if (!(lv.assignmentExpression() instanceof NullConstant)) {
+                    tc.put(lv, lv.assignmentExpression());
+                }
             }
             if (vd != null) {
                 vd.variableInfoStream(stage).forEach(vi -> {
