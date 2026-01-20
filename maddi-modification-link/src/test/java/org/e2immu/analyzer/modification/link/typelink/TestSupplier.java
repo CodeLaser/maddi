@@ -325,23 +325,25 @@ public class TestSupplier extends CommonTest {
             VariableInfo viEntry = vd1.variableInfo("entry");
             Links lvEntry = viEntry.linkedVariablesOrEmpty();
             assertEquals("""
-                    entry.§xy.§x←0:optional.§xy.§xy.§x,entry.§xy.§x←1:altX,entry.§xy.§y←0:optional.§xy.§xy.§y,\
-                    entry.§xy.§y←2:altY,entry.§xy~0:optional.§xy.§xy,entry←0:optional.§xy\
+                    entry.§xy.§x←1:altX,entry.§xy.§x≺0:optional.§xy,entry.§xy.§x≺0:optional,entry.§xy.§y←2:altY,\
+                    entry.§xy.§y≺0:optional.§xy,entry.§xy.§y≺0:optional,entry.§xy≺0:optional,entry←0:optional.§xy\
                     """, lvEntry.toString());
 
             assertEquals("""
-                    [-, -, -] --> method2.§xy.§x←0:optional.§xy.§xy.§x,method2.§xy.§x←1:altX,\
-                    method2.§xy.§y←0:optional.§xy.§xy.§y,method2.§xy.§y←2:altY,\
-                    method2.§xy~0:optional.§xy.§xy,method2←0:optional.§xy\
+                    [-, -, -] --> method2.§xy.§x←1:altX,method2.§xy.§x≺0:optional.§xy,method2.§xy.§x≺0:optional,\
+                    method2.§xy.§y←2:altY,method2.§xy.§y≺0:optional.§xy,method2.§xy.§y≺0:optional,method2←0:optional.§xy\
                     """, mlv2.toString());
         }
         {
             MethodInfo method = C.findUniqueMethod("method", 3);
             MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
             assertEquals("""
-                    [-, -, -] --> method.§xy.§x←0:optional.§xy.§xy.§x,method.§xy.§x←1:altX,\
-                    method.§xy.§y←0:optional.§xy.§xy.§y,method.§xy.§y←2:altY,\
-                    method.§xy~0:optional.§xy.§xy,method←0:optional.§xy\
+                    [-, -, -] --> method.§xy.§x←1:altX,method.§xy.§x≺0:optional.§xy,\
+                    method.§xy.§x≺0:optional,\
+                    method.§xy.§y←2:altY,\
+                    method.§xy.§y≺0:optional.§xy,\
+                    method.§xy.§y≺0:optional,\
+                    method←0:optional.§xy\
                     """, mlv.toString());
         }
     }

@@ -195,8 +195,8 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 // vfMapSource = XY[] §xys, vfMapTarget = YX[] §yxs
                 // variable = return swap.§yx.§x, translated $__rv2.§yx.§x, dim = false
                 // variable = entry.§xy.§x, translated stream1.§xy.§x, dim = true
-                // what we want: $__rv2.§yxs[-2].§y  -> replace §yx by §yxs[-2]
-                //               stream1.§xys[-1].§x -> replace §xy by §xys[-1]
+                // what we want: $__rv2.§yxs[-2]  -> replace §yx by §yxs[-2]
+                //               stream1.§xys[-1] -> replace §xy by §xys[-1]
                 FI correspondingField = correspondingField(frKv, frK.fieldInfo());
                 int sliceIndex = -1 - correspondingField.index;
                 TypeInfo enclosing = frKv.fieldInfo().type().typeInfo().compilationUnitOrEnclosingType().getRight();
@@ -212,7 +212,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         newContainerType.asParameterizedType().copyWithArrays(arrays), owner);
                 FieldReference scope = runtime.newFieldReference(newFieldInfo, frKv.scope(), newFieldInfo.type());
                 // make a slice
-                upscaled = SliceFactory.create(runtime, scope, sliceIndex, newFieldInfo);
+                SliceFactory.FF ff = SliceFactory.findField(frK.parameterizedType(), newContainerType);
+                assert ff != null && ff.fieldInfo() != null;
+                upscaled = SliceFactory.create(runtime, scope, sliceIndex, ff.fieldInfo());
             } else if (arrays > 0) {
                 // TestFunction,2
                 // variable = this.§es, translated = optional.§es, arrays = 1

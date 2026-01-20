@@ -433,6 +433,11 @@ public class TestStream extends CommonTest {
                 stream2.§yxs~0:map.§xys,stream2.§yxs~entries.§xys,stream2.§yxs~stream1.§xys\
                 """, tlvStream2.toString());
 
+        assertEquals("Type param Y[]", tlvStream2.link(0).from().parameterizedType().toString());
+        assertEquals("Type param Y[]", tlvStream2.link(0).to().parameterizedType().toString());
+        assertEquals("Type param X[]", tlvStream2.link(1).from().parameterizedType().toString());
+        assertEquals("Type param X[]", tlvStream2.link(1).to().parameterizedType().toString());
+
         MethodCall mcReverse2 = (MethodCall) ((LocalVariableCreation) reverse2).localVariable().assignmentExpression();
         Value.VariableBooleanMap tlvMcReverse2 = mcReverse2.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
                 ValueImpl.VariableBooleanMapImpl.EMPTY);

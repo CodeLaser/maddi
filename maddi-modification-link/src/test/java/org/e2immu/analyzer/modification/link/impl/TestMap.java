@@ -48,7 +48,7 @@ public class TestMap extends CommonTest {
         MethodLinkedVariables mlv = getOrDefault.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getOrDefault));
         assertEquals("getWithDefault←1:defaultValue,getWithDefault∈this.map.§kvs[-2]",
                 mlv.ofReturnValue().toString());
-        Variable slice2 = mlv.ofReturnValue().stream().toList().getLast().to();
+        Variable slice2 = mlv.ofReturnValue().link(1).to();
         assertEquals("this.map.§kvs[-2]", slice2.toString());
         assertEquals("Type param V[]", slice2.parameterizedType().toString());
 
