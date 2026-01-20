@@ -3,10 +3,7 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.info.MethodInfo;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -58,6 +55,17 @@ public class LinkNatureImpl implements LinkNature {
         this.symbol = symbol;
         this.rank = rank;
         this.pass = pass;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof LinkNatureImpl that)) return false;
+        return rank == that.rank && Objects.equals(symbol, that.symbol) && Objects.equals(pass, that.pass);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(symbol, rank, pass);
     }
 
     public static LinkNature makeIdenticalTo(Collection<MethodInfo> exceptionsToPass) {
@@ -140,7 +148,7 @@ public class LinkNatureImpl implements LinkNature {
 
     private LinkNature intersection(LinkNature other) {
         Set<MethodInfo> intersection = new HashSet<>(pass);
-        pass.retainAll(other.pass());
+        intersection.retainAll(other.pass());
         return makeIdenticalTo(Set.copyOf(intersection));
     }
 

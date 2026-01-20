@@ -743,4 +743,46 @@ public class TestVarious extends CommonTest {
                 """, tmp8.linkedVariables().toString());
     }
 
+
+    @Language("java")
+    private static final String INPUT15 = """
+            //onlyjava
+            import java.lang.reflect.Array;
+            import java.util.ArrayList;
+            import java.util.Collection;
+            import java.util.Collections;
+            import java.util.Iterator;
+            
+            class X {
+                public static Iterator iterate(Object collection) {
+                    if (collection == null) {
+                        return Collections.EMPTY_LIST.iterator();
+                    }
+                    if (collection.getClass().isArray()) {
+                        int length = Array.getLength(collection);
+                        if (length == 0) {
+                            return Collections.EMPTY_LIST.iterator();
+                        }
+                        ArrayList list = new ArrayList();
+                        for (int i = 0; i < length; i++) {
+                            list.add(Array.get(collection, i));
+                        }
+                        return list.iterator();
+                    }
+                    if (collection instanceof Collection) {
+                        return ((Collection) collection).iterator();
+                    }
+                    return Collections.singletonList(collection).iterator();
+                }
+            }
+            """;
+
+    @DisplayName("equals() and hashCode() for LinkNatureImpl")
+    @Test
+    public void test15() {
+        TypeInfo B = javaInspector.parse(INPUT15);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
 }
