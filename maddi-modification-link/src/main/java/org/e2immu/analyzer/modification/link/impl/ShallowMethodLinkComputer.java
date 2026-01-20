@@ -145,7 +145,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                                 sourceVariableTps, false, IS_SUBSET_OF, false);
                     }
                     ofParameters.add(piBuilder.build());
-                    break;
+                    continue;
                 } else if (inputHasTypeParameters && !outputHasTypeParameters && !forceIntoReturn) {
                     // Consumer<T>
                     Set<TypeParameter> sourceVariableTps = pi.parameterizedType().parameters().stream()
@@ -158,8 +158,10 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         transfer(thisBuilder, hcThis.type(), vfThis, pi.parameterizedType(), pi, independent,
                                 vfThis.mutable(), hcThisTps, false, IS_SUPERSET_OF, true);
                         ofParameters.add(thisBuilder.build());
+                    } else {
+                        ofParameters.add(piBuilder.build());
                     }
-                    break;
+                    continue;
                 } //else TODO
             }
             if (linkLevelRv == 1) {

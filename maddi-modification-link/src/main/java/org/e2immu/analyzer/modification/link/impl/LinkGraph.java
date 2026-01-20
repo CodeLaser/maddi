@@ -1,11 +1,13 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.expression.NullConstant;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -198,7 +200,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                 LinkNature linkNature = entry2.getValue();
                 if (linkNature.isIdenticalToOrAssignedFromTo()) {
                     Set<V> subsOfFrom = subs.get(vFrom);
-                    if (subsOfFrom != null && vTo.v.equals(Util.firstRealVariable(vTo.v))) {
+                    if (subsOfFrom != null && vTo.v.equals(Util.firstRealVariable(vTo.v)) && isNotNullConstant(vTo.v)) {
                         for (V s : subsOfFrom) {
                             LinkNature ln;
                             if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
@@ -212,7 +214,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                         }
                     }
                     Set<V> subsOfTo = subs.get(vTo);
-                    if (subsOfTo != null && vFrom.v.equals(Util.firstRealVariable(vFrom.v))) {
+                    if (subsOfTo != null && vFrom.v.equals(Util.firstRealVariable(vFrom.v)) && isNotNullConstant(vFrom.v)) {
                         for (V s : subsOfTo) {
                             LinkNature ln;
                             if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
@@ -237,6 +239,10 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             change |= simpleAddToGraph(graph, pc.from, pc.linkNature, pc.to);
         }
         return change;
+    }
+
+    private static boolean isNotNullConstant(Variable v) {
+        return !(v instanceof MarkerVariable mv) || !mv.isConstant() || !(mv.assignmentExpression() instanceof NullConstant);
     }
 
     private @NotNull Map<V, Set<V>> computeSubs(Map<V, Map<V, LinkNature>> graph,

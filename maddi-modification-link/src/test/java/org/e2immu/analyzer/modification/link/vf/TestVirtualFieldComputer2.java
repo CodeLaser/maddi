@@ -2,24 +2,19 @@ package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.expression.Assignment;
-import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.*;
-import java.util.stream.Stream;
+import java.io.File;
+import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestVirtualFieldComputer2 extends CommonTest {
 
@@ -125,5 +120,20 @@ public class TestVirtualFieldComputer2 extends CommonTest {
 
         VirtualFieldComputer.VfTm vfTm2 = vfc.compute(assignment.value().parameterizedType(), false);
         assertEquals("VfTm[virtualFields=§m - $$S[] §$$ss, formalToConcrete=null]", vfTm2.toString());
+    }
+
+    @DisplayName("stack overflow when computing VF of File[]")
+    @Test
+    public void test5() {
+        VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
+
+        TypeInfo path = javaInspector.compiledTypesManager().getOrLoad(Path.class);
+        VirtualFieldComputer.VfTm vfTm = vfc.compute(path.asParameterizedType(), true);
+        assertEquals("VfTm[virtualFields=/ - Path §0, formalToConcrete=null]", vfTm.toString());
+
+        TypeInfo file = javaInspector.compiledTypesManager().getOrLoad(File.class);
+        ParameterizedType fileArray = file.asParameterizedType().copyWithOneMoreArray();
+        VirtualFieldComputer.VfTm vfTmFileArray = vfc.compute(fileArray, true);
+        assertEquals("VfTm[virtualFields=§m - File[] §$s, formalToConcrete=]", vfTmFileArray.toString());
     }
 }
