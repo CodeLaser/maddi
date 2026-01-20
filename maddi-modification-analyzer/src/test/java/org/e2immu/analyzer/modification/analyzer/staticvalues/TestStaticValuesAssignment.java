@@ -100,10 +100,10 @@ public class TestStaticValuesAssignment extends CommonTest {
             MethodInfo justJ4 = X.findUniqueMethod("justJ4", 1);
             VariableData vd0 = VariableDataImpl.of(justJ4.methodBody().statements().getFirst());
             VariableInfo vi0B = vd0.variableInfo("b");
-            assertEquals("b.j←0:jp,b.k←$_ce1", vi0B.linkedVariables().toString());
+            assertEquals("b.j←0:jp,b.k←$_ce5", vi0B.linkedVariables().toString());
 
             MethodLinkedVariables mlvJJ = justJ4.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            assertEquals("[-] --> justJ4.j←0:jp,justJ4.k←$_ce1", mlvJJ.toString());
+            assertEquals("[-] --> justJ4.j←0:jp,justJ4.k←$_ce5", mlvJJ.toString());
             // NOTE: k == 4 is lost here, not transferring constants a t m
         }
 

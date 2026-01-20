@@ -79,7 +79,7 @@ public class TestModificationFunctional extends CommonTest {
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> go←this*.j", mlvGo.toString());
         assertEquals("""
-                $_fi0, System.out, a.b.X.go(String):0:in, \
+                $_fi3, System.out, a.b.X.go(String):0:in, \
                 a.b.X.run(String,java.util.function.Function<String,Integer>):0:s, \
                 a.b.X.run(String,java.util.function.Function<String,Integer>):1:function, \
                 this\
@@ -143,7 +143,7 @@ public class TestModificationFunctional extends CommonTest {
         MethodInfo go = X.findUniqueMethod("go", 1);
         VariableData vd0 = VariableDataImpl.of(go.methodBody().statements().getFirst());
         VariableInfo nr0 = vd0.variableInfo("nr");
-        assertEquals("nr.function←Λ$_fi1", nr0.linkedVariables().toString());
+        assertEquals("nr.function←Λ$_fi4", nr0.linkedVariables().toString());
 
         assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
@@ -207,17 +207,17 @@ public class TestModificationFunctional extends CommonTest {
             Statement s0 = go.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo vi0R = vd0.variableInfo("r");
-            assertEquals("r.function←Λ$_fi1", vi0R.linkedVariables().toString());
+            assertEquals("r.function←Λ$_fi4", vi0R.linkedVariables().toString());
         }
         {
             Statement s1 = go.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1R = vd1.variableInfo("r");
-            assertEquals("r.function→Λs.r.function,r.function←Λ$_fi1,r→s.r",
+            assertEquals("r.function→Λs.r.function,r.function←Λ$_fi4,r→s.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
-            assertEquals("s.r.function←Λr.function,s.r.function←Λ$_fi1,s.r.function≺s.r,s.r←r",
+            assertEquals("s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r.function≺s.r,s.r←r",
                     vi1S.linkedVariables().toString());
         }
         assertTrue(go.isModifying());
@@ -289,18 +289,18 @@ public class TestModificationFunctional extends CommonTest {
             Statement s0 = go.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo vi0R = vd0.variableInfo("r");
-            assertEquals("r.function←Λ$_fi1", vi0R.linkedVariables().toString());
+            assertEquals("r.function←Λ$_fi4", vi0R.linkedVariables().toString());
         }
         {
             Statement s1 = go.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
 
             VariableInfo vi1R = vd1.variableInfo("r");
-            assertEquals("r.function→Λs.r.function,r.function←Λ$_fi1,r→Λs.r",
+            assertEquals("r.function→Λs.r.function,r.function←Λ$_fi4,r→Λs.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
             assertEquals("""
-                    s.r.function←Λr.function,s.r.function←Λ$_fi1,s.r.function≺Λs.r,s.r←Λr\
+                    s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r.function≺Λs.r,s.r←Λr\
                     """, vi1S.linkedVariables().toString());
         }
 
@@ -378,7 +378,7 @@ public class TestModificationFunctional extends CommonTest {
         MethodLinkedVariables mlvGo = go.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> go←this*.j", mlvGo.toString());
         assertEquals("""
-                $_fi0, System.out, a.b.X.go(String):0:in, \
+                $_fi4, System.out, a.b.X.go(String):0:in, \
                 a.b.X.indirection(String,java.util.function.Function<String,Integer>):0:s, \
                 a.b.X.indirection(String,java.util.function.Function<String,Integer>):1:function, \
                 a.b.X.run(String,java.util.function.Function<String,Integer>):0:s, \

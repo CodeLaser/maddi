@@ -10,7 +10,10 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
@@ -22,7 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestStaticValues1 extends CommonTest {
@@ -138,7 +141,7 @@ public class TestStaticValues1 extends CommonTest {
             VariableData vd0 = VariableDataImpl.of(methodC.methodBody().statements().getFirst());
             assertEquals("a.b.X.j#scope20-15:20-21, x", vd0.knownVariableNamesToString());
             VariableInfo viX = vd0.variableInfo("x");
-            assertEquals("x.j←$_ce1", viX.linkedVariables().toString());
+            assertEquals("x.j←$_ce3", viX.linkedVariables().toString());
 
             // TODO should we have kept $_ce1?
             assertEquals("[] --> -", mlvC.toString());
@@ -363,13 +366,13 @@ public class TestStaticValues1 extends CommonTest {
         FieldInfo sInT = T.getFieldByName("s", true);
 
         MethodInfo method1 = X.findUniqueMethod("method1", 1);
-        test6Method(method1, sInT, rInS);
+        test6Method(method1, sInT, rInS, "0");
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
-        test6Method(method2, sInT, rInS);
+        test6Method(method2, sInT, rInS, "1");
     }
 
 
-    private void test6Method(MethodInfo method, FieldInfo sInT, FieldInfo rInS) {
+    private void test6Method(MethodInfo method, FieldInfo sInT, FieldInfo rInS, String suffix) {
         ParameterInfo t = method.parameters().getFirst();
 
         Statement s0 = method.methodBody().statements().getFirst();
@@ -386,7 +389,7 @@ public class TestStaticValues1 extends CommonTest {
         FieldReference tsr = runtime.newFieldReference(rInS, scopeTs, rInS.type());
         assertEquals("t.s.r", tsr.toString());
 
-        String expected = "0:t.s.r.i←$_ce0";
+        String expected = "0:t.s.r.i←$_ce" + suffix;
 
         VariableInfo vi0Tsr = vd0.variableInfo(tsr);
         assertEquals(expected, vi0Tsr.linkedVariables().toString());
