@@ -474,11 +474,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return Set.of();
         }
 
-        private void writeCasts(Map<Variable, Set<TypeInfo>> casts,
+        private void writeCasts(Map<Variable, Set<TypeInfo>> castsIn,
                                 VariableData previous,
                                 Stage stageOfPrevious,
                                 VariableData variableData) {
+            Map<Variable, Set<TypeInfo>> casts;
+            // we may otherwise be running computeIfAbsent on Map.of() in EMPTY
             if (previous != null) {
+                casts = new HashMap<>(castsIn);
                 previous.variableInfoStream(stageOfPrevious).forEach(vi -> {
                     if (variableData.isKnown(vi.variable().fullyQualifiedName())) {
                         Value.SetOfTypeInfo set = vi.analysis().getOrDefault(VariableInfoImpl.DOWNCAST_VARIABLE,
@@ -488,6 +491,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         }
                     }
                 });
+            } else {
+                casts = castsIn;
             }
             casts.forEach((v, set) -> {
                 VariableInfoContainer vic = variableData.variableInfoContainerOrNull(v.fullyQualifiedName());

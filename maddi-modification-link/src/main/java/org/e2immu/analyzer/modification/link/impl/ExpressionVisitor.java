@@ -341,7 +341,7 @@ public record ExpressionVisitor(Runtime runtime,
         MethodLinkedVariables mlvTranslated1;
         if (mlv.virtual()) {
             VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
-            mlvTranslated1 = mlv.translate(vfTm.formalToConcrete());
+            mlvTranslated1 = vfTm.formalToConcrete() == null ? mlv : mlv.translate(vfTm.formalToConcrete());
         } else {
             mlvTranslated1 = mlv;
         }
@@ -365,7 +365,7 @@ public record ExpressionVisitor(Runtime runtime,
         MethodLinkedVariables mlvTranslated;
         if (mlv.virtual()) {
             VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
-            mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+            mlvTranslated = vfTm.formalToConcrete() == null ? mlv : mlv.translate(vfTm.formalToConcrete());
         } else {
             mlvTranslated = mlv;
         }
@@ -469,7 +469,7 @@ public record ExpressionVisitor(Runtime runtime,
                 if (mlvTranslated1.virtual()) {
                     VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(concreteObjectType, true);
                     TranslationMap tm2;
-                    if (!mc.methodInfo().typeParameters().isEmpty()) {
+                    if (!mc.methodInfo().typeParameters().isEmpty() && vfTm.formalToConcrete() != null) {
                         // when the return type parameter agrees with the input type parameter, also translate that one!
                         // TP#0 in Optional->Map.Entry.XY[], but U (method TP in .map(...)) needs translating too:
                         // map.§u ⊆ 0:mapper must become map.§xys ⊆ ...
@@ -478,7 +478,7 @@ public record ExpressionVisitor(Runtime runtime,
                     } else {
                         tm2 = vfTm.formalToConcrete();
                     }
-                    mlvTranslated2 = mlvTranslated1.translate(tm2);
+                    mlvTranslated2 = tm2 == null ? mlvTranslated1 : mlvTranslated1.translate(tm2);
                 } else {
                     mlvTranslated2 = mlvTranslated1;
                 }
