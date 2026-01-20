@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,9 @@ public class TestMap extends CommonTest {
         MethodLinkedVariables mlv = getOrDefault.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getOrDefault));
         assertEquals("getWithDefault←1:defaultValue,getWithDefault∈this.map.§kvs[-2]",
                 mlv.ofReturnValue().toString());
+        Variable slice2 = mlv.ofReturnValue().stream().toList().getLast().to();
+        assertEquals("this.map.§kvs[-2]", slice2.toString());
+        assertEquals("Type param V[]", slice2.parameterizedType().toString());
 
         MethodLinkedVariables mlv2 = getOrDefault2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getOrDefault2));
         assertEquals("getWithDefault2←1:defaultValue,getWithDefault2∈this.map.§kvs[-2]",

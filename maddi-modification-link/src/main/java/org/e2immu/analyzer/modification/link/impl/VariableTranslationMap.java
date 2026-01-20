@@ -1,15 +1,14 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.expression.IntConstant;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.*;
-import org.e2immu.language.cst.impl.variable.DependentVariableImpl;
-import org.e2immu.language.cst.impl.variable.FieldReferenceImpl;
-import org.e2immu.language.cst.impl.variable.ThisImpl;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -90,13 +89,19 @@ public class VariableTranslationMap implements TranslationMap {
             if (tScope != fr.scope() || newField != fr.fieldInfo()) {
                 TypeInfo newOwner = owner(runtime, tScope.parameterizedType());
                 FieldInfo changedOwner = newField.withOwner(newOwner);
-                return new FieldReferenceImpl(changedOwner, tScope, null, fr.parameterizedType());
+                return runtime.newFieldReference(changedOwner, tScope, fr.parameterizedType());
             }
         } else if (variable instanceof DependentVariable dv) {
             Expression translatedArray = dv.arrayExpression().translate(tm);
             Expression translatedIndex = dv.indexExpression().translate(tm);
             if (translatedArray != dv.arrayExpression() || translatedIndex != dv.indexExpression()) {
-                return DependentVariableImpl.create(translatedArray, translatedIndex, null);
+                if (translatedIndex instanceof IntConstant ic && ic.constant() < 0
+                    && translatedArray instanceof VariableExpression ve
+                    && ve.variable() instanceof FieldReference base) {
+                    // slice... we must guard its type
+                    return SliceFactory.create(runtime, base, ic.constant());
+                }
+                return runtime.newDependentVariable(translatedArray, translatedIndex, null);
             }
         } else if (variable instanceof This thisVar) {
             ParameterizedType thisVarPt = thisVar.parameterizedType();
@@ -110,7 +115,7 @@ public class VariableTranslationMap implements TranslationMap {
                 tExplicitly = tExplicitlyPt.typeInfo();
             }
             if (translatedType != thisVarPt || !Objects.equals(thisVar.explicitlyWriteType(), tExplicitly)) {
-                return new ThisImpl(translatedType, tExplicitly, thisVar.writeSuper());
+                return runtime.newThis(translatedType, tExplicitly, thisVar.writeSuper());
             }
         }
 
