@@ -54,7 +54,7 @@ public record ExpressionVisitor(Runtime runtime,
                     yield anonymousClassAsFunctionalInterface(variableData, stage, cc);
                 }
                 if (cc.arrayInitializer() != null) {
-                    yield arrayInitializer(variableData, stage, cc);
+                    yield arrayInitializer(variableData, stage, cc.arrayInitializer());
                 }
                 yield constructorCall(variableData, stage, cc);
             }
@@ -63,8 +63,7 @@ public record ExpressionVisitor(Runtime runtime,
             case InstanceOf instanceOf -> instanceOf(variableData, stage, instanceOf);
             case ConstantExpression<?> ce -> constantExpression(ce);
             case InlineConditional ic -> inlineConditional(ic, variableData, stage);
-            case ArrayInitializer ai -> ai.expressions().stream().map(e -> visit(e, variableData, stage))
-                    .reduce(EMPTY, Result::merge);
+            case ArrayInitializer ai -> arrayInitializer(variableData, stage, ai);
             case And and -> and.expressions().stream().map(e -> visit(e, variableData, stage))
                     .reduce(EMPTY, Result::merge);
             case Or or -> or.expressions().stream().map(e -> visit(e, variableData, stage))
@@ -110,14 +109,14 @@ public record ExpressionVisitor(Runtime runtime,
                 .setEvaluated(evaluated);
     }
 
-    Result arrayInitializer(VariableData variableData, Stage stage, ConstructorCall cc) {
-        List<Result> rs = cc.arrayInitializer().expressions().stream()
+    Result arrayInitializer(VariableData variableData, Stage stage, ArrayInitializer ai) {
+        List<Result> rs = ai.expressions().stream()
                 .map(e -> visit(e, variableData, stage)).toList();
         // make new object of the correct array type; this will become the primary
         // then assignments per index
         int i = 0;
         LocalVariable c = IntermediateVariable.newObject(runtime, variableCounter.getAndIncrement(),
-                cc.parameterizedType());
+                ai.parameterizedType());
         VariableExpression cVe = runtime.newVariableExpression(c);
         LinksImpl.Builder builder = new LinksImpl.Builder(c);
         Result combined = null;

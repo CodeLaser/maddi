@@ -481,7 +481,7 @@ public class TestVarious extends CommonTest {
                         Process exec = Runtime.getRuntime().exec(cmdLine);
                         exec.waitFor();
                     } else {
-                        String[] browsers = { "firefox" };
+                        String[] browsers = { "firefox", "opera" };
                         String browser = null;
                         for (int count = 0; count < browsers.length && browser == null; count++) {
                             if (Runtime.getRuntime().exec(new String[] { "which", browsers[count] }).waitFor() == 0) {
@@ -495,12 +495,44 @@ public class TestVarious extends CommonTest {
                         }
                     }
                 }
-            }""";
+            }
+            """;
 
-    @DisplayName("?")
+    @DisplayName("bugfix for array initializer directly in local variable creation")
     @Test
     public void test12() {
         TypeInfo B = javaInspector.parse(INPUT12);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
+
+
+    @Language("java")
+    private static final String INPUT13 = """
+            class X {
+                private static int[] addIndex(final int[] indexes, final int newIndex, final boolean excludeFirstIndex) {
+                    int[] newIndices = null;
+                    if (excludeFirstIndex) {
+                        newIndices = new int[indexes.length];
+                        for (int i = 0, z = indexes.length - 1; i < z; i++) {
+                            newIndices[i] = indexes[i + 1];
+                        }
+                    } else {
+                        newIndices = new int[indexes.length + 1];
+                        for (int i = 0, z = indexes.length; i < z; i++) {
+                            newIndices[i] = indexes[i];
+                        }
+                    }
+                    newIndices[newIndices.length - 1] = newIndex;
+                    return newIndices;
+                }
+            }
+            """;
+
+    @DisplayName("?")
+    @Test
+    public void test13() {
+        TypeInfo B = javaInspector.parse(INPUT13);
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
