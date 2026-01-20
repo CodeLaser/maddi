@@ -22,6 +22,9 @@ public interface Links extends Iterable<Link>, Value {
 
     boolean containsVirtualFields();
 
+    // for debugging purposes
+    Link link(int i);
+
     Variable primary();
 
     boolean isEmpty();

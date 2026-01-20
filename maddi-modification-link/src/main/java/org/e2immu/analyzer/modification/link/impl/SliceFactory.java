@@ -21,7 +21,8 @@ public class SliceFactory {
         assert negativeIndex <= -1;
         VariableExpression arrayExpression = runtime.newVariableExpression(base);
         ParameterizedType sliceType = field.type().copyWithOneMoreArray();
-        return runtime.newDependentVariable(arrayExpression, runtime.newInt(negativeIndex), sliceType);
+        DependentVariable dv = runtime.newDependentVariable(arrayExpression, runtime.newInt(negativeIndex), sliceType);
+        return dv;
     }
 
     public record FF(FieldInfo fieldInfo, int index) {
@@ -34,6 +35,17 @@ public class SliceFactory {
         int i = 0;
         for (FieldInfo fieldInfo : container.fields()) {
             if (typeParameter.equals(fieldInfo.type().typeParameter())) {
+                return new FF(fieldInfo, i);
+            }
+            ++i;
+        }
+        return null;
+    }
+
+    public static FF findField(ParameterizedType parameterizedType, TypeInfo container) {
+        int i = 0;
+        for (FieldInfo fieldInfo : container.fields()) {
+            if (parameterizedType.equals(fieldInfo.type())) {
                 return new FF(fieldInfo, i);
             }
             ++i;

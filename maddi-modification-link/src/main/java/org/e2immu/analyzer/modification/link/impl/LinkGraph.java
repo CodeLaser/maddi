@@ -198,7 +198,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                 LinkNature linkNature = entry2.getValue();
                 if (linkNature.isIdenticalToOrAssignedFromTo()) {
                     Set<V> subsOfFrom = subs.get(vFrom);
-                    if (subsOfFrom != null) {
+                    if (subsOfFrom != null && vTo.v.equals(Util.firstRealVariable(vTo.v))) {
                         for (V s : subsOfFrom) {
                             LinkNature ln;
                             if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
@@ -212,7 +212,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                         }
                     }
                     Set<V> subsOfTo = subs.get(vTo);
-                    if (subsOfTo != null) {
+                    if (subsOfTo != null && vFrom.v.equals(Util.firstRealVariable(vFrom.v))) {
                         for (V s : subsOfTo) {
                             LinkNature ln;
                             if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {

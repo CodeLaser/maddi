@@ -99,7 +99,7 @@ public class TestMap extends CommonTest {
             VariableInfo x0 = vd0.variableInfo(x);
             Links tlvX0 = x0.linkedVariablesOrEmpty();
             assertEquals("0:x∈2:c.map.§kvs[-1]", tlvX0.toString());
-
+            assertEquals("Type param K[]", tlvX0.link(0).to().parameterizedType().toString());
             assertEquals("""
                     [0:x*∈2:c.map*.§kvs[-1], 1:y*∈2:c.map*.§kvs[-2], 2:c.map*.§kvs[-1]∋0:x*,2:c.map*.§kvs[-2]∋1:y*] --> \
                     staticPut∈2:c.map*.§kvs[-2]\

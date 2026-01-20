@@ -49,6 +49,11 @@ public class LinksImpl implements Links {
     }
 
     @Override
+    public Link link(int i) {
+        return linkSet.get(i);
+    }
+
+    @Override
     public Iterable<Link> linkSet() {
         return linkSet;
     }
