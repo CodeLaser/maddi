@@ -269,6 +269,7 @@ public class VirtualFieldComputer {
     public TypeInfo makeContainerType(TypeInfo typeInfo, String typeName, List<FieldInfo> hiddenContentComponents) {
         TypeInfo newType = runtime.newTypeInfo(typeInfo, typeName);
         newType.builder()
+                .setSynthetic(true)
                 .setTypeNature(VIRTUAL_FIELD)
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
@@ -286,6 +287,21 @@ public class VirtualFieldComputer {
             newType.builder().addField(fieldInfo);
         }
         newType.builder().commit();
+        return newType;
+    }
+
+    public static TypeInfo makeContainer(Runtime runtime, TypeInfo enclosingType, String name, List<FieldInfo> newFields) {
+        TypeInfo newType = runtime.newTypeInfo(enclosingType, name);
+        TypeInfo.Builder builder = newType.builder();
+        builder.setTypeNature(VIRTUAL_FIELD)
+                .setSynthetic(true)
+                .setParentClass(runtime.objectParameterizedType())
+                .setAccess(runtime.accessPublic());
+        newFields.forEach(builder::addField);
+        newFields.forEach(fi -> {
+            if (fi.type().typeParameter() != null) builder.addOrSetTypeParameter(fi.type().typeParameter());
+        });
+        builder.commit();
         return newType;
     }
 
@@ -415,6 +431,10 @@ public class VirtualFieldComputer {
     }
 
     public FieldInfo newField(String name, ParameterizedType type, TypeInfo owner) {
+        return newField(runtime, name, type, owner);
+    }
+
+    public static FieldInfo newField(Runtime runtime, String name, ParameterizedType type, TypeInfo owner) {
         String cleanName = name.replace(VF_CHAR, "");
         FieldInfo fi = runtime.newFieldInfo(VF_CHAR + cleanName, false, type, owner);
         fi.builder().setInitializer(runtime.newEmptyExpression()).commit();

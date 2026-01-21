@@ -115,7 +115,7 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
                 // ok we can make a new contain, with the new name, and the translated fields
                 String cleanNew = sbNew.toString().replace(VF_CHAR, "");
                 String typeName = cleanNew.toUpperCase();
-                TypeInfo container = makeContainer(fr.fieldInfo().owner(), typeName, newFields);
+                TypeInfo container = VirtualFieldComputer.makeContainer(runtime, fr.fieldInfo().owner(), typeName, newFields);
                 ParameterizedType containerPt = runtime.newParameterizedType(container, fr.parameterizedType().arrays());
                 String newName = cleanNew + "s".repeat(fr.parameterizedType().arrays());
                 FieldInfo newField = runtime.newFieldInfo(VF_CHAR + newName, false, containerPt,
@@ -148,21 +148,6 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
     private record C(String newName, ParameterizedType newType) {
     }
 
-    private TypeInfo makeContainer(TypeInfo enclosingType,
-                                   String name,
-                                   List<FieldInfo> newFields) {
-        TypeInfo newType = runtime.newTypeInfo(enclosingType, name);
-        TypeInfo.Builder builder = newType.builder();
-        builder.setTypeNature(VIRTUAL_FIELD)
-                .setParentClass(runtime.objectParameterizedType())
-                .setAccess(runtime.accessPublic());
-        newFields.forEach(builder::addField);
-        newFields.forEach(fi -> {
-            if (fi.type().typeParameter() != null) builder.addOrSetTypeParameter(fi.type().typeParameter());
-        });
-        builder.commit();
-        return newType;
-    }
 
     private FieldReference handleFieldReference(FieldReference fr, String newName, ParameterizedType newType) {
         TypeInfo owner = owner(fr.scope().parameterizedType());
