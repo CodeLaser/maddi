@@ -192,4 +192,159 @@ public class TestVarious2 extends CommonTest {
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.io.IOException;
+            import java.nio.channels.FileChannel;
+            import java.nio.channels.FileLock;
+            import java.nio.file.FileStore;
+            import java.nio.file.Files;
+            import java.nio.file.Path;
+            import java.nio.file.Paths;
+            import java.nio.file.StandardOpenOption;
+            import java.util.concurrent.CountDownLatch;
+            import java.util.concurrent.atomic.AtomicInteger;
+            
+            public class TestNioLock {
+              public static void main(String[] args) throws IOException, InterruptedException {
+                if (args.length != 3) {
+                  System.out.println("demo.TestNioLock <test|perform> <file> <sleepMs>");
+                  System.exit(EC_ERROR);
+                }
+                String mode = args[0];
+                Path path = Paths.get(args[1]).toAbsolutePath();
+                Path latchFile = path.getParent().resolve(TestNioLock.class.getName() + ".latchFile");
+                if (Files.isDirectory(path)) {
+                  System.out.println("The <file> cannot be directory.");
+                  System.exit(EC_ERROR);
+                }
+                if (!Files.isRegularFile(latchFile)) {
+                  Files.createFile(latchFile);
+                }
+                if ("test".equals(mode)) {
+                  System.out.println("Testing file locking on");
+                  System.out.println(
+                      "  Java "
+                          + System.getProperty("java.version")
+                          + ", "
+                          + System.getProperty("java.vendor"));
+                  System.out.println(
+                      "  OS "
+                          + System.getProperty("os.name")
+                          + " "
+                          + System.getProperty("os.version")
+                          + " "
+                          + System.getProperty("os.arch"));
+                  FileStore fileStore = Files.getFileStore(path.getParent());
+                  System.out.println("  FS " + fileStore.name() + " " + fileStore.type());
+                  System.out.println();
+                  AtomicInteger oneResult = new AtomicInteger(-1);
+                  AtomicInteger twoResult = new AtomicInteger(-1);
+                  CountDownLatch latch = new CountDownLatch(2);
+                  String javaCmd = System.getProperty("java.home") + "/bin/java";
+                  try (FileChannel latchChannel =
+                      FileChannel.open(latchFile, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+                    try (FileLock latchLock = latchChannel.lock(0L, 1L, false)) {
+                      new Thread(
+                              () -> {
+                                try {
+                                  oneResult.set(
+                                      new ProcessBuilder(
+                                              javaCmd, TestNioLock.class.getName(), "perform", args[1], args[2])
+                                          .inheritIO()
+                                          .start()
+                                          .waitFor());
+                                } catch (Exception e) {
+                                  oneResult.set(EC_FAILED);
+                                } finally {
+                                  latch.countDown();
+                                }
+                              })
+                          .start();
+                      new Thread(
+                              () -> {
+                                try {
+                                  twoResult.set(
+                                      new ProcessBuilder(
+                                              javaCmd, TestNioLock.class.getName(), "perform", args[1], args[2])
+                                          .inheritIO()
+                                          .start()
+                                          .waitFor());
+                                } catch (Exception e) {
+                                  twoResult.set(EC_FAILED);
+                                } finally {
+                                  latch.countDown();
+                                }
+                              })
+                          .start();
+                      // give them a bit of time (to both block)
+                      Thread.sleep(1000);
+                      latchLock.release();
+                      latch.await();
+                    }
+                  }
+                  int oneExit = oneResult.get();
+                  int twoExit = twoResult.get();
+                  if ((oneExit == EC_WON && twoExit == EC_LOST) || (oneExit == EC_LOST && twoExit == EC_WON)) {
+                    System.out.println("OK");
+                    System.exit(0);
+                  } else {
+                    System.out.println("FAILED: one=" + oneExit + " two=" + twoExit);
+                    System.exit(EC_FAILED);
+                  }
+                } else if ("perform".equals(mode)) {
+                  String processName = "this came from ManagementFactory.getRuntimeMXBean().getName()";
+                  System.out.println(processName + " > started");
+                  boolean won = false;
+                  long sleepMs = Long.parseLong(args[2]);
+                  try (FileChannel latchChannel = FileChannel.open(latchFile, StandardOpenOption.READ)) {
+                    try (FileLock latchLock = latchChannel.lock(0L, 1L, true)) {
+                      System.out.println(processName + " > latchLock acquired");
+                      try (FileChannel channel =
+                          FileChannel.open(
+                              path,
+                              StandardOpenOption.READ,
+                              StandardOpenOption.WRITE,
+                              StandardOpenOption.CREATE)) {
+                        try (FileLock lock = channel.tryLock(0L, 1L, false)) {
+                          if (lock != null && lock.isValid() && !lock.isShared()) {
+                            System.out.println(processName + " > WON");
+                            won = true;
+                            Thread.sleep(sleepMs);
+                          } else {
+                            System.out.println(processName + " > LOST");
+                          }
+                        }
+                      }
+                    }
+                  }
+                  System.out.println(processName + " > ended");
+                  if (won) {
+                    System.exit(EC_WON);
+                  } else {
+                    System.exit(EC_LOST);
+                  }
+                } else {
+                  System.err.println("Unknown mode: " + mode);
+                }
+                System.exit(EC_ERROR);
+              }
+            
+              private static final int EC_WON = 10;
+              private static final int EC_LOST = 20;
+              private static final int EC_FAILED = 30;
+              private static final int EC_ERROR = 100;
+            }
+            """;
+
+    @DisplayName("MLV can be null in TypeModIndyAnalyzerImpl")
+    @Test
+    public void test4() {
+        TypeInfo B = javaInspector.parse(INPUT4);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
 }

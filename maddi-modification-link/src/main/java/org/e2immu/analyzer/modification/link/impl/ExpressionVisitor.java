@@ -337,7 +337,9 @@ public record ExpressionVisitor(Runtime runtime,
         Result object = new Result(new LinksImpl.Builder(lv).build(), LinkedVariablesImpl.EMPTY);
 
         // only translate wrt concrete type
-        MethodLinkedVariables mlv = recurseIntoLinkComputer(cc.constructor()).removeSomeValue();
+        MethodLinkedVariables mlv0 = recurseIntoLinkComputer(cc.constructor());
+        if (mlv0 == null) return EMPTY; // cannot do anything at the moment, no data
+        MethodLinkedVariables mlv = mlv0.removeSomeValue();
         MethodLinkedVariables mlvTranslated1;
         if (mlv.virtual()) {
             VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
@@ -450,7 +452,9 @@ public record ExpressionVisitor(Runtime runtime,
             }
         }
 
-        MethodLinkedVariables mlv = recurseIntoLinkComputer(mc.methodInfo()).removeSomeValue();
+        MethodLinkedVariables mlv0 = recurseIntoLinkComputer(mc.methodInfo());
+        if (mlv0 == null) return EMPTY; // cannot do anything at the moment, no data
+        MethodLinkedVariables mlv = mlv0.removeSomeValue();
         // translate conditionally wrt concrete type, evaluated object
         MethodLinkedVariables mlvTranslated2;
         if (mc.methodInfo().isSAMOfStandardFunctionalInterface()) {
@@ -521,7 +525,7 @@ public record ExpressionVisitor(Runtime runtime,
         }
         RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
         return switch (how) {
-            case GET -> methodInfo.analysis().getOrDefault(METHOD_LINKS, MethodLinkedVariablesImpl.EMPTY);
+            case GET -> methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
             case SOURCE -> linkComputer.recurseMethod(methodInfo);
             case SHALLOW -> linkComputer.doMethodShallowDoNotWrite(methodInfo);
             case LOCK -> methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
