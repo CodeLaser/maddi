@@ -1013,7 +1013,7 @@ public abstract class ValueImpl implements Value {
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
             List<Codec.EncodedValue> encodedValues = typeInfoSet.stream()
                     .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
-                    .map(info -> codec.encodeInfoInContext(context, info, "")).toList();
+                    .map(info -> codec.encodeString(context, info.fullyQualifiedName())).toList();
             return codec.encodeList(context, encodedValues);
         }
 
@@ -1051,13 +1051,13 @@ public abstract class ValueImpl implements Value {
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
             List<Codec.EncodedValue> encodedValues = methodInfoSet.stream()
                     .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName))
-                    .map(info -> codec.encodeInfoInContext(context, info, "")).toList();
+                    .map(mi -> codec.encodeMethodInfo(context, mi)).toList();
             return codec.encodeList(context, encodedValues);
         }
 
         public static SetOfMethodInfo from(Codec codec, Codec.Context context, Codec.EncodedValue encodedList) {
             List<Codec.EncodedValue> encodedValues = codec.decodeList(context, encodedList);
-            Set<MethodInfo> set = encodedValues.stream().map(e -> (MethodInfo) codec.decodeInfoInContext(context, e))
+            Set<MethodInfo> set = encodedValues.stream().map(e -> codec.decodeMethodInfo(context, e))
                     .collect(Collectors.toUnmodifiableSet());
             return new SetOfMethodInfoImpl(set);
         }

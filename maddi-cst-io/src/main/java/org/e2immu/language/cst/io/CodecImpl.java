@@ -25,7 +25,6 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.cst.api.variable.*;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -630,6 +629,16 @@ public class CodecImpl implements Codec {
         EncodedValue e4 = encodeWildcard(context, type.wildcard());
         return encodeList(context, Stream.concat(Stream.concat(Stream.concat(
                 Stream.concat(Stream.of(e0), Stream.ofNullable(e1)), Stream.of(e2)), Stream.of(e3)), Stream.ofNullable(e4)).toList());
+    }
+
+    @Override
+    public EncodedValue encodeMethodInfo(Context context, MethodInfo mi) {
+        return encodeInfoOutOfContext(context, mi);
+    }
+
+    @Override
+    public MethodInfo decodeMethodInfo(Context context, EncodedValue e) {
+        return (MethodInfo) decodeInfoOutOfContext(context, e);
     }
 
     @Override

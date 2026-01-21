@@ -80,7 +80,7 @@ public class LinksImpl implements Links {
 
     @Override
     public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-        throw new UnsupportedOperationException();
+        return null; // not encoding links at the moment; issues would be marker variables, etc.
     }
 
     @Override
