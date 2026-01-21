@@ -12,6 +12,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -32,6 +33,19 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
 
     public static Value decode(Codec codec, Codec.Context context, Codec.EncodedValue ev) {
         throw new UnsupportedOperationException("NYI");
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof MethodLinkedVariablesImpl that)) return false;
+        return Objects.equals(ofReturnValue, that.ofReturnValue)
+               && Objects.equals(ofParameters, that.ofParameters)
+               && Objects.equals(modified, that.modified);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(ofReturnValue, ofParameters, modified);
     }
 
     @Override

@@ -203,7 +203,13 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         if (methodInfo.analysis().setAllowControlledOverwrite(NON_MODIFYING_METHOD, nonModifying)) {
             propertyChanges.incrementAndGet();
         }
-        Independent independentFromType = analysisHelper.typeIndependentFromImmutableOrNull(fieldValue.field().type());
+        ParameterizedType type;
+        if (fieldValue.hasIndex() && !fieldValue.list()) {
+            type = fieldValue.field().type().copyWithOneFewerArrays();
+        } else {
+            type = fieldValue.field().type();
+        }
+        Independent independentFromType = analysisHelper.typeIndependentFromImmutableOrNull(type);
         if (independentFromType == null) {
             UNDECIDED.debug("MI: Independent of method {} undecided", methodInfo);
         } else if (fieldValue.setter()) {
@@ -221,6 +227,10 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         for (ParameterInfo pi : methodInfo.parameters()) {
             if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.UNMODIFIED_PARAMETER, TRUE)) {
                 DECIDE.debug("MI: Decide unmodified of getter parameter: {} = true", pi);
+                propertyChanges.incrementAndGet();
+            }
+            if (pi.analysis().setAllowControlledOverwrite(INDEPENDENT_PARAMETER, TRUE)) {
+                DECIDE.debug("MI: Decide @Independent of getter parameter: {} = true", pi);
                 propertyChanges.incrementAndGet();
             }
         }

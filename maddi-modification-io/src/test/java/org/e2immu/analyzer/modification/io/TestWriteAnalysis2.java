@@ -72,8 +72,8 @@ public class TestWriteAnalysis2 extends CommonTest {
             {"name": "Ta.b.X", "data":{"partOfConstructionType":["C<init>(0)"]}, "subs":[
              {"name": "Fn(0)", "data":{"finalField":1}},
              {"name": "Fi(1)", "data":{"finalField":1}},
-             {"name": "MgetI(0)", "data":{"getSetField":["Fi(1)",false],"nonModifyingMethod":1}},
-             {"name": "MgetN(1)", "data":{"getSetField":["Fn(0)",false],"nonModifyingMethod":1}}]}
+             {"name": "MgetI(0)", "data":{"getSetField":["Fi(1)",false,false],"nonModifyingMethod":1}},
+             {"name": "MgetN(1)", "data":{"getSetField":["Fn(0)",false,false],"nonModifyingMethod":1}}]}
             ]
             """;
 
@@ -151,9 +151,9 @@ public class TestWriteAnalysis2 extends CommonTest {
               {"name": "Fset(0)", "data":{"finalField":1}},
               {"name": "Fi(1)", "data":{"finalField":1}},
               {"name": "Flist(2)", "data":{"finalField":1}},
-              {"name": "Mset(0)", "data":{"getSetField":["Fset(0)",false]}},
-              {"name": "Mi(1)", "data":{"getSetField":["Fi(1)",false]}},
-              {"name": "Mlist(2)", "data":{"getSetField":["Flist(2)",false]}}]},
+              {"name": "Mset(0)", "data":{"getSetField":["Fset(0)",false,false]}},
+              {"name": "Mi(1)", "data":{"getSetField":["Fi(1)",false,false]}},
+              {"name": "Mlist(2)", "data":{"getSetField":["Flist(2)",false,false]}}]},
              {"name": "MsetAdd(0)", "data":{"nonModifyingMethod":1}, "sub":
               {"name": "Pr(0)", "data":{"downcastParameter":[]}}},
              {"name": "Mmethod(1)", "data":{"nonModifyingMethod":1}}]}

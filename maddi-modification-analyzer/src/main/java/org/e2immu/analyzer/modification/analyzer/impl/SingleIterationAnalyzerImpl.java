@@ -77,7 +77,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
         List<MethodInfo> abstractMethods = new ArrayList<>();
         for (Info info : analysisOrder) {
             if (info instanceof MethodInfo methodInfo) {
-                if (methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
+                if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
                     shallowTypeAnalyzer.analyze(info.typeInfo());
                 }
                 MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
@@ -86,7 +86,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
                 }
                 if (methodInfo.isAbstract()) abstractMethods.add(methodInfo);
             } else if (info instanceof FieldInfo fieldInfo) {
-                if (fieldInfo.owner().isAbstract()) {
+                if (fieldInfo.owner().isAbstract() && firstIteration) {
                     shallowTypeAnalyzer.analyzeField(fieldInfo);
                 }
                 fieldAnalyzer.go(fieldInfo, activateCycleBreaking);

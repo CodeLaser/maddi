@@ -567,8 +567,12 @@ public abstract class ValueImpl implements Value {
         decoderMap.put(IndependentImpl.class, (di, ev) -> decodeIndependentImpl(di.codec(), di.context(), ev));
     }
 
-    public record GetSetValueImpl(FieldInfo field, boolean setter, int parameterIndexOfIndex) implements FieldValue {
-        public static final FieldValue EMPTY = new GetSetValueImpl(null, false, -1);
+    public record GetSetValueImpl(FieldInfo field,
+                                  boolean setter,
+                                  int parameterIndexOfIndex,
+                                  boolean list) implements FieldValue {
+        public static final FieldValue EMPTY = new GetSetValueImpl(null,
+                false, -1, false);
 
         @Override
         public boolean isDefault() {
@@ -580,6 +584,7 @@ public abstract class ValueImpl implements Value {
             List<Codec.EncodedValue> list = new ArrayList<>();
             list.add(codec.encodeInfoInContext(context, field, "" + codec.fieldIndex(field)));
             list.add(codec.encodeBoolean(context, setter));
+            list.add(codec.encodeBoolean(context, this.list));
             if (parameterIndexOfIndex >= 0) {
                 list.add(codec.encodeInt(context, parameterIndexOfIndex));
             }
@@ -604,7 +609,7 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public Value rewire(InfoMap infoMap) {
-            return new GetSetValueImpl(infoMap.fieldInfo(field), setter, parameterIndexOfIndex);
+            return new GetSetValueImpl(infoMap.fieldInfo(field), setter, parameterIndexOfIndex, list);
         }
     }
 
@@ -615,8 +620,9 @@ public abstract class ValueImpl implements Value {
             List<Codec.EncodedValue> list = codec.decodeList(context, encodedValue);
             FieldInfo field = codec.decodeFieldInfo(context.currentType(), list.getFirst());
             boolean setter = codec.decodeBoolean(context, list.get(1));
-            int index = list.size() == 2 ? -1 : codec.decodeInt(context, list.get(2));
-            return new GetSetValueImpl(field, setter, index);
+            boolean isList = codec.decodeBoolean(context, list.get(2));
+            int index = list.size() == 3 ? -1 : codec.decodeInt(context, list.get(3));
+            return new GetSetValueImpl(field, setter, index, isList);
         });
     }
 

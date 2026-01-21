@@ -31,9 +31,9 @@ import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
+import static org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet.*;
+
 public class GetSetHelper {
-    private static final String LIST_GET = "java.util.List.get(int)";
-    private static final String LIST_SET = "java.util.List.set(int,E)";
 
     /*
     a getter or accessor is a method that does nothing but return a field.
@@ -70,14 +70,14 @@ public class GetSetHelper {
                     && ve.variable() instanceof FieldReference fr
                     && fr.scopeIsRecursivelyThis()) {
                     // return this.field;
-                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), false, -1);
+                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), false, -1, false);
                 } else if (rs.expression() instanceof VariableExpression ve
                            && ve.variable() instanceof DependentVariable dv
                            && dv.arrayVariable() instanceof FieldReference fr
                            && dv.indexVariable() instanceof ParameterInfo
                            && fr.scopeIsRecursivelyThis()) {
                     // return this.objects[param]
-                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), false, 0);
+                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), false, 0, false);
                 } else if (rs.expression() instanceof MethodCall mc
                            && overrideOf(mc.methodInfo(), LIST_GET)
                            && mc.parameterExpressions().getFirst() instanceof VariableExpression ve
@@ -86,7 +86,7 @@ public class GetSetHelper {
                            && ve2.variable() instanceof FieldReference fr
                            && fr.scopeIsRecursivelyThis()) {
                     // return this.list.get(param);
-                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), false, 0);
+                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), false, 0, true);
                 } else {
                     return null;
                 }
@@ -95,14 +95,14 @@ public class GetSetHelper {
                     && a.variableTarget() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
                     && a.value() instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo) {
                     // this.field = param
-                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), true, -1);
+                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), true, -1, false);
                 } else if (eas.expression() instanceof Assignment a
                            && a.variableTarget() instanceof DependentVariable dv
                            && dv.arrayVariable() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
                            && dv.indexVariable() instanceof ParameterInfo
                            && a.value() instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo) {
                     // this.objects[i] = param
-                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), true, 0);
+                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), true, 0, false);
                 } else if (eas.expression() instanceof MethodCall mc
                            && overrideOf(mc.methodInfo(), LIST_SET)
                            && mc.parameterExpressions().get(0) instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo
@@ -110,7 +110,7 @@ public class GetSetHelper {
                            && mc.object() instanceof VariableExpression ve3 && ve3.variable() instanceof FieldReference fr
                            && fr.scopeIsRecursivelyThis()) {
                     // this.list.set(i, object)
-                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), true, 0);
+                    return new ValueImpl.GetSetValueImpl(fr.fieldInfo(), true, 0, true);
                 } else {
                     return null;
                 }
@@ -118,11 +118,6 @@ public class GetSetHelper {
                 return null;
             }
         }) != null;
-    }
-
-    private static boolean overrideOf(MethodInfo methodInfo, String fqn) {
-        if (fqn.equals(methodInfo.fullyQualifiedName())) return true;
-        return methodInfo.overrides().stream().anyMatch(mi -> fqn.equals(mi.fullyQualifiedName()));
     }
 
     private static boolean checkSetMethodEnsureFluent(MethodInfo methodInfo, Block methodBody) {
