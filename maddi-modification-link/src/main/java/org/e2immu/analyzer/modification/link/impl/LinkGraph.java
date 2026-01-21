@@ -247,10 +247,11 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         return change;
     }
 
-    // see TestVarious,9
+    // see TestVarious,9; TestVarious2,5
+    // must ensure that there are sufficient array capabilities on the target side when the sub is indexing
     private static boolean ensureArraysWhenSubIsIndex(Variable from, Variable sub, Variable target) {
         if (sub.equals(target)) return false;
-        if (sub instanceof DependentVariable dv && from.equals(dv.arrayVariable())
+        if (sub instanceof DependentVariable dv && Util.scopeVariables(dv).contains(from)
             && (!(dv.indexExpression() instanceof IntConstant ic) || ic.constant() >= 0)) {
             return target.parameterizedType().arrays() == from.parameterizedType().arrays();
         }
@@ -439,7 +440,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                                         Variable primary = Util.primary(v);
                                         // primary == null check: TestVarious,10
                                         return primary == null || !vd.isKnown(primary.fullyQualifiedName())
-                                                   && !LinkVariable.acceptForLinkedVariables(v);
+                                                                  && !LinkVariable.acceptForLinkedVariables(v);
                                     });
                             linkedVariables.merge(vLinks.primary(), translated, Links::merge);
                         }

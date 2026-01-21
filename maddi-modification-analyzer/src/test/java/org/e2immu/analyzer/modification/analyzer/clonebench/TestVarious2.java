@@ -347,4 +347,59 @@ public class TestVarious2 extends CommonTest {
         List<Info> ao = prepWork(B);
         analyzer.go(ao);
     }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            import java.awt.geom.AffineTransform;
+            import java.awt.geom.GeneralPath;
+            import java.awt.geom.PathIterator;
+            
+            public class Function4382409_file1762255 {
+            
+                @SuppressWarnings("unused")
+                public static Object[] findPartsPoints(GeneralPath[] paths, int i) {
+                    PathIterator pit = paths[i].getPathIterator(new AffineTransform());
+                    int nPoints = 0;
+                    int nParts = 0;
+                    float[] coords = { 0, 1, 2, 3, 4, 5, 6 };
+                    while (!pit.isDone()) {
+                        int segType = pit.currentSegment(coords);
+                        if (segType == PathIterator.SEG_MOVETO) {
+                            nParts++;
+                        }
+                        nPoints++;
+                        pit.next();
+                    }
+                    int[] parts = new int[nParts];
+                    double[][] thePoints = new double[nPoints][2];
+                    pit = paths[i].getPathIterator(null);
+                    nParts = 0;
+                    nPoints = 0;
+                    while (!pit.isDone()) {
+                        int segType = pit.currentSegment(coords);
+                        if (segType == PathIterator.SEG_MOVETO) {
+                            parts[nParts] = nPoints;
+                            nParts++;
+                        }
+                        thePoints[nPoints][0] = coords[0];
+                        thePoints[nPoints][1] = coords[1];
+                        nPoints++;
+                        pit.next();
+                    }
+                    Object[] returns = { parts, thePoints };
+                    return returns;
+                }
+            }
+            """;
+
+    // cause of the "problem": one but last line
+    @DisplayName("expansion of LinkGraph.ensureArraysWhenSubIsIndex")
+    @Test
+    public void test5() {
+        TypeInfo B = javaInspector.parse(INPUT5);
+        List<Info> ao = prepWork(B);
+        analyzer.go(ao);
+    }
 }
