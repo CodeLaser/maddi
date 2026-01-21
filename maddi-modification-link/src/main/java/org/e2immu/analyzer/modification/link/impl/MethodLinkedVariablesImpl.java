@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
-    public final static MethodLinkedVariables EMPTY = new MethodLinkedVariablesImpl(LinksImpl.EMPTY, List.of(), Set.of());
+    private final static MethodLinkedVariables EMPTY = new MethodLinkedVariablesImpl(LinksImpl.EMPTY, List.of(), Set.of());
     public static final Property METHOD_LINKS = new PropertyImpl("methodLinks", EMPTY);
 
 

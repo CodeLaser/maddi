@@ -104,7 +104,7 @@ public class TestLinkTypeParameters extends CommonTest {
     }
 
     private static String lvs(MethodInfo methodInfo) {
-        return methodInfo.analysis().getOrDefault(METHOD_LINKS, MethodLinkedVariablesImpl.EMPTY).toString();
+        return methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString();
     }
 
     @Language("java")

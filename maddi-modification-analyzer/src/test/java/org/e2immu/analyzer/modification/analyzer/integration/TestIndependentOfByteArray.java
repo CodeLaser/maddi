@@ -16,6 +16,7 @@ package org.e2immu.analyzer.modification.analyzer.integration;
 
 
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
@@ -31,7 +32,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.EMPTY;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_PARAMETER;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
@@ -98,13 +98,13 @@ public class TestIndependentOfByteArray extends CommonTest {
         MethodInfo readFully = B.findUniqueMethod("readFully", 3);
         assertEquals("""
                 [0:b*.§3←this*.arrayIn.§2,0:b*∋this*.back, -, -] --> -\
-                """, readFully.analysis().getOrDefault(METHOD_LINKS, EMPTY).toString());
+                """, readFully.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         MethodInfo read = B.findUniqueMethod("read", 3);
         assertEquals("""
                 [0:b*[1:off]←0:b*[off++],0:b*[1:off]←this*.back,0:b*[off++]←0:b*[1:off],\
                 0:b*[off++]←this*.back,0:b*∋this*.back,0:b*.§3←this*.arrayIn.§2, -, -] --> -\
-                """, read.analysis().getOrDefault(METHOD_LINKS, EMPTY).toString());
+                """, read.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         ParameterInfo b = read.parameters().getFirst();
         Statement s3 = read.methodBody().statements().get(3);

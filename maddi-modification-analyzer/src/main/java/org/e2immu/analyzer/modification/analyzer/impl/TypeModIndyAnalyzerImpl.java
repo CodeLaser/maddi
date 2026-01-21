@@ -18,6 +18,7 @@ import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.TypeModIndyAnalyzer;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
@@ -34,11 +35,8 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.EMPTY;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
@@ -88,18 +86,21 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
     private void handleNormalMethod(boolean cycleBreakingActive, MethodInfo methodInfo) {
         Statement lastStatement = methodInfo.methodBody().lastStatement();
         assert lastStatement != null;
-        doIdentityAnalysis(methodInfo);
-        doFluentAnalysis(methodInfo);
-        MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS, EMPTY);
-        doIndependent(cycleBreakingActive, methodInfo, mlv);
+        MethodLinkedVariables mlv = methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        if (mlv != null) {
+            doIdentityAnalysis(methodInfo, mlv);
+            doFluentAnalysis(methodInfo, mlv);
+            doIndependent(cycleBreakingActive, methodInfo, mlv);
 
-        for (ParameterInfo pi : methodInfo.parameters()) {
-            handleParameter(cycleBreakingActive, pi, mlv);
+            for (ParameterInfo pi : methodInfo.parameters()) {
+                handleParameter(cycleBreakingActive, pi, mlv);
+            }
+        } else {
+            UNDECIDED.debug("MI: method {} delayed, no MLV", methodInfo);
         }
     }
 
-    private void doFluentAnalysis(MethodInfo methodInfo) {
-        MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS, EMPTY);
+    private void doFluentAnalysis(MethodInfo methodInfo, MethodLinkedVariables mlv) {
         boolean identityFluent;
         if (methodInfo.hasReturnValue() && !mlv.ofReturnValue().isEmpty()) {
             identityFluent = mlv.ofReturnValue().stream()
@@ -116,8 +117,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         }
     }
 
-    private void doIdentityAnalysis(MethodInfo methodInfo) {
-        MethodLinkedVariables mlv = methodInfo.analysis().getOrDefault(METHOD_LINKS, EMPTY);
+    private void doIdentityAnalysis(MethodInfo methodInfo, MethodLinkedVariables mlv) {
         boolean identity;
         if (methodInfo.hasReturnValue()
             && !methodInfo.parameters().isEmpty()
@@ -306,6 +306,7 @@ normal methods: does a modification to the return value imply any modification i
         boolean typeIsImmutable = analysisHelper.typeImmutable(pi.parameterizedType()).isImmutable();
         if (typeIsImmutable) return INDEPENDENT;
         if (pi.methodInfo().isAbstract() || pi.methodInfo().methodBody().isEmpty()) return DEPENDENT;
+        assert pi.index() < mlv.ofParameters().size();
         Links links = mlv.ofParameters().get(pi.index());
         return worstLinkToFields(links);
     }
@@ -336,7 +337,7 @@ normal methods: does a modification to the return value imply any modification i
                 } else if (link.linkNature().equals(LinkNatureImpl.CONTAINS_AS_MEMBER)) {
                     // 0:element ∋ this.set.§cs
                     type = link.to().parameterizedType();
-                } else if(link.linkNature().equals(LinkNatureImpl.IS_ELEMENT_OF)) {
+                } else if (link.linkNature().equals(LinkNatureImpl.IS_ELEMENT_OF)) {
                     //getFile∈this._mruFileList.§es
                     type = link.from().parameterizedType();
                 } else {
