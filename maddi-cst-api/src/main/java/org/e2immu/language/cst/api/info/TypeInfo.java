@@ -373,4 +373,9 @@ public interface TypeInfo extends NamedType, Info {
     True for classes when the type's declaration does not contain "extends".
      */
     boolean hasImplicitParent();
+
+    default boolean inHierarchyOf(TypeInfo typeInfo) {
+        return equals(typeInfo) || typeHierarchyExcludingJLOStream().anyMatch(this::equals);
+    }
+
 }

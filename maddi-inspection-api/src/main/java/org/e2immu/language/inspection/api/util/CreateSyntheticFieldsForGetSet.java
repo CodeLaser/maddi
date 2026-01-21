@@ -84,8 +84,21 @@ public record CreateSyntheticFieldsForGetSet(Runtime runtime) {
             } else {
                 getSetField = fieldInfo;
             }
-            runtime.setGetSetField(mi, getSetField, setter, parameterIndexOfIndex);
+            boolean list = isList(mi);
+            runtime.setGetSetField(mi, getSetField, setter, parameterIndexOfIndex, list);
         }
+    }
+
+    public static final String LIST_GET = "java.util.List.get(int)";
+    public static final String LIST_SET = "java.util.List.set(int,E)";
+
+    public static boolean isList(MethodInfo methodInfo) {
+        return overrideOf(methodInfo, LIST_GET) || overrideOf(methodInfo, LIST_SET);
+    }
+
+    public static boolean overrideOf(MethodInfo methodInfo, String fqn) {
+        if (fqn.equals(methodInfo.fullyQualifiedName())) return true;
+        return methodInfo.overrides().stream().anyMatch(mi -> fqn.equals(mi.fullyQualifiedName()));
     }
 
     public static boolean isSetter(MethodInfo mi) {

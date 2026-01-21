@@ -52,7 +52,6 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
     private class InternalFieldAnalyzer {
         private void go(FieldInfo fieldInfo, boolean cycleBreakingActive) {
             LOGGER.debug("Do field {}", fieldInfo);
-            Links linkedVariablesDone = fieldInfo.analysis().getOrDefault(LinksImpl.LINKS, LinksImpl.EMPTY);
             Value.Bool unmodifiedDone = fieldInfo.analysis().getOrDefault(PropertyImpl.UNMODIFIED_FIELD, FALSE);
             Value.Independent currentIndependent = fieldInfo.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD,
                     ValueImpl.IndependentImpl.DEPENDENT);
@@ -193,16 +192,22 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             Value.Independent independent = INDEPENDENT;
             for (Link link : links) {
                 if (link.to() instanceof ParameterInfo pi && !pi.methodInfo().access().isPrivate()
-                    || link.to() instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()) {
+                    && pi.typeInfo().inHierarchyOf(fieldInfo.owner())
+                    || link.to() instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()
+                       && rv.methodInfo().typeInfo().inHierarchyOf(fieldInfo.owner())) {
                     Value.Independent toIndependent;
-                    if (link.from().equals(links.primary())) {
+                    if (link.from().equals(links.primary()) && link.linkNature().isIdenticalToOrAssignedFromTo()) {
                         // direct link
                         toIndependent = independentOfType;//already computed
-                    } else {
+                    } else if (!link.linkNature().isDecoration()) {
                         // a part of the field is linked to a parameter or return value...
                         toIndependent = analysisHelper.typeIndependentFromImmutableOrNull(link.to().parameterizedType());
+                    } else {
+                        toIndependent = null;
                     }
-                    independent = independent.min(toIndependent);
+                    if (toIndependent != null) {
+                        independent = independent.min(toIndependent);
+                    }
                 }
             }
             return independentOfType.max(independent);

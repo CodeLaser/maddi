@@ -310,7 +310,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     .commitParameters().commit();
             owner.builder().addMethod(method);
 
-            runtime.setGetSetField(method, fieldInfo, false, -1);
+            runtime.setGetSetField(method, fieldInfo, false, -1, false);
         }
     }
 
@@ -338,7 +338,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     .commitParameters().commit();
             owner.builder().addMethod(method);
 
-            runtime.setGetSetField(method, fieldInfo, true, -1);
+            runtime.setGetSetField(method, fieldInfo, true, -1, false);
         }
     }
 
@@ -397,7 +397,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                 .commitParameters().commit();
         builder.builder().addMethod(method);
 
-        runtime.setGetSetField(method, buildField, true, -1);
+        runtime.setGetSetField(method, buildField, true, -1, false);
     }
 
     private FieldInfo createBuilderField(TypeInfo builder, Source source, FieldInfo fieldInfo) {

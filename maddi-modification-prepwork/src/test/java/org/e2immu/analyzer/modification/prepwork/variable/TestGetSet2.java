@@ -72,21 +72,21 @@ public class TestGetSet2 extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
 
         MethodInfo get = X.findUniqueMethod("get", 1);
-        assertEquals("GetSetValueImpl[field=X.myList, setter=false, parameterIndexOfIndex=0]",
+        assertEquals("GetSetValueImpl[field=X.myList, setter=false, parameterIndexOfIndex=0, list=true]",
                 get.getSetField().toString());
 
         Expression getE = get.methodBody().lastStatement().expression();
         if(getE instanceof MethodCall mc) {
-            assertEquals("GetSetValueImpl[field=null, setter=false, parameterIndexOfIndex=-1]",
+            assertEquals("GetSetValueImpl[field=null, setter=false, parameterIndexOfIndex=-1, list=false]",
                     mc.methodInfo().getSetField().toString());
         } else fail();
 
         MethodInfo getMyList = X.findUniqueMethod("getMyList", 1);
-        assertEquals("GetSetValueImpl[field=X.myList, setter=false, parameterIndexOfIndex=0]",
+        assertEquals("GetSetValueImpl[field=X.myList, setter=false, parameterIndexOfIndex=0, list=true]",
                 getMyList.getSetField().toString());
 
         MethodInfo getMyList0 = X.findUniqueMethod("getMyList", 0);
-        assertEquals("GetSetValueImpl[field=X.myList, setter=false, parameterIndexOfIndex=-1]",
+        assertEquals("GetSetValueImpl[field=X.myList, setter=false, parameterIndexOfIndex=-1, list=false]",
                 getMyList0.getSetField().toString());
 
         MethodInfo add = X.findUniqueMethod("add", 1);
@@ -96,7 +96,7 @@ public class TestGetSet2 extends CommonTest {
         if (expression instanceof MethodCall mc) {
             Expression get1 = mc.object();
             assertEquals("this.myList.get(pos)", get1.toString());
-            assertEquals("this.get(pos)", mc.parameterExpressions().get(0).toString());
+            assertEquals("this.get(pos)", mc.parameterExpressions().getFirst().toString());
         } else fail();
     }
 

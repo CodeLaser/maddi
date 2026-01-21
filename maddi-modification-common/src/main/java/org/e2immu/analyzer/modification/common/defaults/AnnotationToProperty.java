@@ -28,6 +28,7 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import org.e2immu.util.internal.util.GetSetNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -200,7 +201,8 @@ class AnnotationToProperty {
                         } else {
                             boolean setter = GetSetHelper.isSetter(methodInfo);
                             int parameterIndexOfIndex = GetSetHelper.parameterIndexOfIndex(methodInfo, setter);
-                            getSetField = new ValueImpl.GetSetValueImpl(field, setter, parameterIndexOfIndex);
+                            boolean list = CreateSyntheticFieldsForGetSet.isList(methodInfo);
+                            getSetField = new ValueImpl.GetSetValueImpl(field, setter, parameterIndexOfIndex, list);
                         }
                     }
                 }
