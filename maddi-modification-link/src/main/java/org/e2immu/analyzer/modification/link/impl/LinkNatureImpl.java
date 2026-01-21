@@ -4,8 +4,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.info.MethodInfo;
 
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 //https://unicodemap.com/range/47/Mathematical_Operators/
 
@@ -55,6 +53,22 @@ public class LinkNatureImpl implements LinkNature {
         this.symbol = symbol;
         this.rank = rank;
         this.pass = pass;
+    }
+
+    private static final Map<String, LinkNature> stringMap = new HashMap<>();
+
+    static {
+        for (LinkNature ln : new LinkNature[]{
+                NONE, EMPTY, IS_FIELD_OF, CONTAINS_AS_FIELD, SHARES_FIELDS, OBJECT_GRAPH_OVERLAPS, IS_IN_OBJECT_GRAPH,
+                OBJECT_GRAPH_CONTAINS, SHARES_ELEMENTS, IS_SUBSET_OF, IS_SUPERSET_OF, IS_ELEMENT_OF,
+                CONTAINS_AS_MEMBER, IS_DECORATED_WITH, CONTAINS_DECORATION, IS_ASSIGNED_FROM,
+                IS_ASSIGNED_TO, IS_IDENTICAL_TO}) {
+            stringMap.put(ln.toString(), ln);
+        }
+    }
+
+    public static LinkNature decode(String s) {
+        return Objects.requireNonNull(stringMap.get(s), "Unknown symbol " + s);
     }
 
     @Override

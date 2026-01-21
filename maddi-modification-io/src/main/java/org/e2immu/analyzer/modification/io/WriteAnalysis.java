@@ -115,6 +115,7 @@ public class WriteAnalysis {
 
     private static Codec.EncodedValue write(Codec codec, Codec.Context context, Info fieldInfo, int index) {
         Stream<Codec.EncodedPropertyValue> stream = fieldInfo.analysis().propertyValueStream()
+                .filter(pv -> !pv.value().isDefault()) // not streaming default values
                 .map(pv -> codec.encode(context, pv.property(), pv.value()))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, fieldInfo, "" + index, stream, null);
@@ -130,6 +131,7 @@ public class WriteAnalysis {
             p++;
         }
         Stream<Codec.EncodedPropertyValue> stream = methodInfo.analysis().propertyValueStream()
+                .filter(pv -> !pv.value().isDefault())
                 .map(pv -> codec.encode(context, pv.property(), pv.value()))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, methodInfo, "" + index, stream, subs);
@@ -171,6 +173,7 @@ public class WriteAnalysis {
             mc++;
         }
         Stream<Codec.EncodedPropertyValue> stream = typeInfo.analysis().propertyValueStream()
+                .filter(pv -> !pv.value().isDefault())
                 .map(pv -> codec.encode(context, pv.property(), pv.value()))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
         return codec.encode(context, typeInfo, "" + index, stream, subs);

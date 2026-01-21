@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.io;
 
 import org.e2immu.language.cst.api.analysis.Codec;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -44,6 +45,7 @@ public class ExpressionCodec {
         map.put(StringConstant.NAME, new StringConstantCodec());
         map.put(Cast.NAME, new CastCodec());
         map.put(BooleanConstant.NAME, new BooleanConstantCodec());
+        map.put(IntConstant.NAME, new IntConstantCodec());
     }
 
     private interface ECodec {
@@ -60,8 +62,8 @@ public class ExpressionCodec {
         assert eCodec != null : "No codec yet for " + e.name();
         List<Codec.EncodedValue> list = eCodec.encode(e);
         Codec.EncodedValue e0 = codec.encodeString(context, e.name());
-        assert e.source() != null;
-        Codec.EncodedValue e1 = codec.encodeString(context, e.source().compact2());
+        Source source = e.source() != null ? e.source() : runtime.noSource();
+        Codec.EncodedValue e1 = codec.encodeString(context, source.compact2());
         return codec.encodeList(context, Stream.concat(Stream.of(e0, e1), list.stream()).toList());
     }
 
@@ -225,6 +227,20 @@ public class ExpressionCodec {
             String source = codec.decodeString(context, list.get(1));
             return runtime.newBoolean(List.of(), runtime.parseSourceFromCompact2(source),
                     codec.decodeBoolean(context, list.get(2)));
+        }
+    }
+
+    class IntConstantCodec implements ECodec {
+        @Override
+        public List<Codec.EncodedValue> encode(Expression e) {
+            return List.of(codec.encodeInt(context, ((IntConstant) e).constant()));
+        }
+
+        @Override
+        public Expression decode(List<Codec.EncodedValue> list) {
+            String source = codec.decodeString(context, list.get(1));
+            int value = codec.decodeInt(context, list.get(2));
+            return runtime.newInt(List.of(), runtime.parseSourceFromCompact2(source), value);
         }
     }
 }

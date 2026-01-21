@@ -16,7 +16,9 @@ package org.e2immu.analyzer.modification.io;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.io.LinkCodec;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -72,8 +74,9 @@ public class TestWriteAnalysis2 extends CommonTest {
             {"name": "Ta.b.X", "data":{"partOfConstructionType":["C<init>(0)"]}, "subs":[
              {"name": "Fn(0)", "data":{"finalField":1}},
              {"name": "Fi(1)", "data":{"finalField":1}},
-             {"name": "MgetI(0)", "data":{"getSetField":["Fi(1)",false,false],"nonModifyingMethod":1}},
-             {"name": "MgetN(1)", "data":{"getSetField":["Fn(0)",false,false],"nonModifyingMethod":1}}]}
+             {"name": "C<init>(0)", "data":{"methodLinks":[[],[[["P",["Ta.b.X","C<init>(0)","Pn(0)"]],[["P",["Ta.b.X","C<init>(0)","Pn(0)"]],"→",["F",["Ta.b.X","Fn(0)"],["variableExpression","5-23:5-26",["T",["Ta.b.X"]]]]]]],["T",["Ta.b.X"]]]}},
+             {"name": "MgetI(0)", "data":{"getSetField":["Fi(1)",false,false],"methodLinks":[[["R",["Ta.b.X","MgetI(0)"]],[["R",["Ta.b.X","MgetI(0)"]],"←",["F",["Ta.b.X","Fi(1)"]]]],[]],"nonModifyingMethod":1}},
+             {"name": "MgetN(1)", "data":{"getSetField":["Fn(0)",false,false],"methodLinks":[[["R",["Ta.b.X","MgetN(1)"]],[["R",["Ta.b.X","MgetN(1)"]],"←",["F",["Ta.b.X","Fn(0)"]]]],[]],"nonModifyingMethod":1}}]}
             ]
             """;
 
@@ -151,12 +154,12 @@ public class TestWriteAnalysis2 extends CommonTest {
               {"name": "Fset(0)", "data":{"finalField":1}},
               {"name": "Fi(1)", "data":{"finalField":1}},
               {"name": "Flist(2)", "data":{"finalField":1}},
+              {"name": "C<init>(0)", "data":{"methodLinks":[[],[[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],"→",["F",["Ta.b.X","SR(0)","Fset(0)"]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],"→",["F",["Ta.b.X","SR(0)","Fi(1)"]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],"→",["F",["Ta.b.X","SR(0)","Flist(2)"]]]]],["T",["Ta.b.X","SR(0)"]]]}},
               {"name": "Mset(0)", "data":{"getSetField":["Fset(0)",false,false]}},
               {"name": "Mi(1)", "data":{"getSetField":["Fi(1)",false,false]}},
               {"name": "Mlist(2)", "data":{"getSetField":["Flist(2)",false,false]}}]},
-             {"name": "MsetAdd(0)", "data":{"nonModifyingMethod":1}, "sub":
-              {"name": "Pr(0)", "data":{"downcastParameter":[]}}},
-             {"name": "Mmethod(1)", "data":{"nonModifyingMethod":1}}]}
+             {"name": "MsetAdd(0)", "data":{"methodLinks":[[],[[["P",["Ta.b.X","MsetAdd(0)","Pr(0)"]],[["F",["Ta.b.X","SR(0)","Fi(1)"],["variableExpression","10-19:10-19",["P",["Ta.b.X","MsetAdd(0)","Pr(0)"]]]],"∈",["F",["Tjava.util.Set","V§$s",["Tjava.lang.Integer",1,[]]],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Fset(0)"],["variableExpression","10-9:10-9",["P",["Ta.b.X","MsetAdd(0)","Pr(0)"]]]]]]]]],["F",["Ta.b.X","SR(0)","Fset(0)"],["variableExpression","10-9:10-9",["P",["Ta.b.X","MsetAdd(0)","Pr(0)"]]]],["P",["Ta.b.X","MsetAdd(0)","Pr(0)"]]],"nonModifyingMethod":1}},
+             {"name": "Mmethod(1)", "data":{"methodLinks":[[],[],["F",["Ta.b.X","SR(0)","Fset(0)"],["variableExpression","10-9:10-9",["P",["Ta.b.X","MsetAdd(0)","Pr(0)"]]]],["P",["Ta.b.X","MsetAdd(0)","Pr(0)"]]],"nonModifyingMethod":1}}]}
             ]
             """;
 
@@ -187,6 +190,74 @@ public class TestWriteAnalysis2 extends CommonTest {
         Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());
+        // assertEquals(JSON2, written);
+
+        javaInspector.invalidateAllSources();
+        TypeInfo X2 = javaInspector.parse(INPUT2);
+        LoadAnalyzedPackageFiles load = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
+        load.go(codec, written);
+
+        MethodInfo setAdd2 = X2.findUniqueMethod("setAdd", 1);
+        MethodLinkedVariables mlvSetAdd2 = setAdd2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[0:r*.i∈0:r.set*.§$s] --> -", mlvSetAdd2.toString());
+        assertEquals(mlvSetAdd, mlvSetAdd2);
+
         assertEquals(JSON2, written);
+    }
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            import java.util.Map;
+            import java.util.HashMap;
+            import java.util.Set;
+            import java.util.stream.Collectors;
+            public class C<K, V> {
+                Map<K, V> map;
+            
+                C(Map<K, V> map) { this.map = map; }
+            
+                private C<V, K> reverse() {
+                    Map<V, K> map = new HashMap<>();
+                    for(Map.Entry<K, V> entry: this.map.entrySet()) {
+                        map.put(entry.getValue(), entry.getKey());
+                    }
+                    return new C<>(map);
+                }
+            }
+            """;
+
+    @Test
+    public void test3() throws IOException {
+        TypeInfo C = javaInspector.parse(INPUT3);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo reverse = C.findUniqueMethod("reverse", 0);
+        MethodLinkedVariables mlvReverse0 = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
+        String expected = """
+                [] --> reverse.map.§vks[-1]∩this.map.§kvs,\
+                reverse.map.§vks[-2]∩this.map.§kvs,reverse.map.§vks~this.map.§kvs\
+                """;
+        assertEquals(expected, mlvReverse0.toString());
+
+        Trie<TypeInfo> typeTrie = new Trie<>();
+        typeTrie.add(C.fullyQualifiedName().split("\\."), C);
+        WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
+        File dest = new File("build/json");
+        if (dest.mkdirs()) LOGGER.info("Created {}", dest);
+        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
+        writeAnalysis.write(dest, typeTrie, codec);
+        String written = Files.readString(new File(dest, "ABC.json").toPath());
+        javaInspector.invalidateAllSources();
+        TypeInfo CC = javaInspector.parse(INPUT3);
+        LoadAnalyzedPackageFiles load = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
+        load.go(codec, written);
+
+        MethodInfo reverseCC = CC.findUniqueMethod("reverse", 0);
+        MethodLinkedVariables mlvReverseCC = reverseCC.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals(mlvReverse0, mlvReverseCC);
+        assertEquals(expected, mlvReverseCC.toString());
     }
 }

@@ -80,7 +80,18 @@ public class LinksImpl implements Links {
 
     @Override
     public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-        return null; // not encoding links at the moment; issues would be marker variables, etc.
+        assert primary != null || linkSet.isEmpty();
+        return codec.encodeList(context, Stream.concat(
+                primary == null ? Stream.empty() : Stream.of(codec.encodeVariable(context, primary)),
+                linkSet.stream().map(l -> encodeLink(codec, context, l))).toList());
+    }
+
+    private Codec.EncodedValue encodeLink(Codec codec, Codec.Context context, Link link) {
+        return codec.encodeList(context, List.of(
+                codec.encodeVariable(context, link.from()),
+                codec.encodeString(context, link.linkNature().toString()),
+                codec.encodeVariable(context, link.to())
+        ));
     }
 
     @Override

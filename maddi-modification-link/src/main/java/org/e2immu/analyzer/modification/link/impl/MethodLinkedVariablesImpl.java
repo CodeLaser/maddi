@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.io.LinkCodec;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
@@ -11,6 +12,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -31,10 +33,6 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
         this.modified = modified;
     }
 
-    public static Value decode(Codec codec, Codec.Context context, Codec.EncodedValue ev) {
-        throw new UnsupportedOperationException("NYI");
-    }
-
     @Override
     public boolean equals(Object object) {
         if (!(object instanceof MethodLinkedVariablesImpl that)) return false;
@@ -50,7 +48,25 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
 
     @Override
     public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-        return null;
+        List<Codec.EncodedValue> list = new ArrayList<>();
+        list.add(ofReturnValue.encode(codec, context));
+        list.add(codec.encodeList(context,
+                ofParameters.stream().map(l -> l.encode(codec, context)).toList()));
+        modified.stream().sorted().forEach(v -> list.add(codec.encodeVariable(context, v)));
+        return codec.encodeList(context, list);
+    }
+
+    public static Value decode(Codec codec, Codec.Context context, Codec.EncodedValue ev) {
+        List<Codec.EncodedValue> list = codec.decodeList(context, ev);
+        Links ofRv = LinkCodec.decodeLinks(codec, context, list.getFirst());
+        Codec.EncodedValue evParams = list.get(1);
+        List<Codec.EncodedValue> encodedParams = codec.decodeList(context, evParams);
+        List<Links> ofParams = encodedParams.stream()
+                .map(e -> LinkCodec.decodeLinks(codec, context, e))
+                .toList();
+        Set<Variable> modifiedVariables = list.stream().skip(2).map(e ->
+                codec.decodeVariable(context, e)).collect(Collectors.toUnmodifiableSet());
+        return new MethodLinkedVariablesImpl(ofRv, ofParams, modifiedVariables);
     }
 
     @Override

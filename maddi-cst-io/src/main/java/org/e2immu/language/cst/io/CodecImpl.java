@@ -169,18 +169,6 @@ public class CodecImpl implements Codec {
         }
     }
 
-    private Info decodeInfo(Info current, char type, String name) {
-        return switch (type) {
-            case 'F' -> decodeFieldInfo((TypeInfo) current, name);
-            case 'C' -> decodeConstructor((TypeInfo) current, name);
-            case 'M' -> decodeMethodInfo((TypeInfo) current, name);
-            case 'T' -> typeProvider.get(name);
-            case 'S' -> decodeSubType((TypeInfo) current, name);
-            case 'P' -> decodeParameterInfo((MethodInfo) current, name);
-            default -> throw new UnsupportedOperationException();
-        };
-    }
-
     @Override
     public Info decodeInfoInContext(Context context, EncodedValue ev) {
         if (ev instanceof D(Node s) && s instanceof StringLiteral sl) {
@@ -209,13 +197,31 @@ public class CodecImpl implements Codec {
     public Info decodeInfoOutOfContext(Context context, EncodedValue encodedValue) {
         List<EncodedValue> list = decodeList(context, encodedValue);
         Info current = null;
+        int pos = 0;
         for (EncodedValue ev : list) {
             if (ev instanceof D(Node s) && s instanceof StringLiteral sl) {
                 String src = unquote(sl.getSource());
-                current = decodeInfo(current, src.charAt(0), src.substring(1));
+                char type = src.charAt(0);
+                current = decodeInfo(context, current, type, src.substring(1), list, pos);
+                if (type != 'T' && type != 'S' && type != 'M' && type != 'C') {
+                    break; // nothing can follow; in particular, we definitely want to stop after F and V (see linking)
+                }
             } else throw new UnsupportedOperationException();
+            ++pos;
         }
         return current;
+    }
+
+    protected Info decodeInfo(Context context, Info current, char type, String name, List<EncodedValue> list, int pos) {
+        return switch (type) {
+            case 'F' -> decodeFieldInfo((TypeInfo) current, name);
+            case 'C' -> decodeConstructor((TypeInfo) current, name);
+            case 'M' -> decodeMethodInfo((TypeInfo) current, name);
+            case 'T' -> typeProvider.get(name);
+            case 'S' -> decodeSubType((TypeInfo) current, name);
+            case 'P' -> decodeParameterInfo((MethodInfo) current, name);
+            default -> throw new UnsupportedOperationException();
+        };
     }
 
     @Override
@@ -408,7 +414,11 @@ public class CodecImpl implements Codec {
     public Variable decodeVariable(Context context, EncodedValue encodedValue) {
         List<EncodedValue> list = decodeList(context, encodedValue);
         assert !list.isEmpty();
-        String s = decodeString(context, list.get(0));
+        String s = decodeString(context, list.getFirst());
+        return decodeVariable(context, s, list);
+    }
+
+    protected Variable decodeVariable(Context context, String s, List<EncodedValue> list) {
         return switch (s) {
             case "P" -> (ParameterInfo) this.decodeInfoOutOfContext(context, list.get(1));
             case "F" -> {
@@ -513,7 +523,7 @@ public class CodecImpl implements Codec {
         return encodeList(context, encodeInfoOutOfContextStream(context, info).toList());
     }
 
-    Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
+    protected Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
         String s;
         Stream<EncodedValue> prev;
         switch (info) {
