@@ -26,8 +26,10 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.io.CodecImpl;
+import org.parsers.json.ast.StringLiteral;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -98,13 +100,35 @@ public class LinkCodec {
 
         @Override
         public Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
+            if (info instanceof TypeInfo ti && ti.typeNature() == VirtualFieldComputer.VIRTUAL_FIELD) {
+                String s = "U" + ti.simpleName();
+                Stream<EncodedValue> prev = encodeInfoOutOfContextStream(context,
+                        ti.compilationUnitOrEnclosingType().getRight());
+                Stream<EncodedValue> post = ti.fields()
+                        .stream().map(f -> encodeInfoOutOfContext(context, f));
+                return Stream.concat(Stream.concat(prev, Stream.of(encodeString(context, s))),
+                        post);
+            }
             if (info instanceof FieldInfo fi && Util.virtual(fi)) {
                 Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context, fi.owner());
                 String s = "V" + fi.name();
-                Stream<EncodedValue> post = encodeVirtualFieldInfo(context, fi);
+                Stream<EncodedValue> post = Stream.of(encodeType(context, fi.type()));
                 return Stream.concat(Stream.concat(pre, Stream.of(encodeString(context, s))), post);
             }
             return super.encodeInfoOutOfContextStream(context, info);
+        }
+
+        private final Map<String, TypeInfo> virtualTypes = new HashMap<>();
+
+        @Override
+        protected ParameterizedType decodeSimpleType(Context context, StringLiteral sl) {
+            String fqn = unquote(sl.getSource());
+            TypeInfo virtualType = virtualTypes.get(fqn);
+            if (virtualType != null) {
+                // virtual types have no type parameters
+                return virtualType.asSimpleParameterizedType();
+            }
+            return super.decodeSimpleType(context, sl);
         }
 
         @Override
@@ -114,37 +138,39 @@ public class LinkCodec {
                                   String name,
                                   List<EncodedValue> list,
                                   int pos) {
-            if ('V' == type) {
-                // decode virtual field
-                TypeInfo owner = (TypeInfo) context.currentType();
-                if (list.size() == pos + 2) { // pre, this, one extra
-                    ParameterizedType fieldType = decodeType(context, list.get(pos + 1));
-                    return VirtualFieldComputer.newField(runtime, name, fieldType, owner);
-                }
+            if ('U' == type) {
+                // decode virtual container type
                 List<EncodedValue> tail = list.subList(pos + 1, list.size());
                 int arrays = decodeInt(context, tail.getFirst());
                 List<FieldInfo> fields = tail.stream().skip(1)
                         .map(ev -> (FieldInfo) decodeInfoOutOfContext(context, ev))
                         .toList();
-                String typeName = fields.stream()
-                                          .map(fi -> fi.name().toUpperCase()).collect(Collectors.joining())
+                String typeName = fields.stream().map(this::nameComponent).collect(Collectors.joining())
                                   + "S".repeat(arrays);
+                TypeInfo owner = context.currentType();
                 TypeInfo containerType = VirtualFieldComputer.makeContainer(runtime, owner, typeName, fields);
+                virtualTypes.put(containerType.fullyQualifiedName(), containerType);
                 return VirtualFieldComputer.newField(runtime, typeName.toLowerCase(), containerType.asParameterizedType(),
                         owner);
+            }
+            if ('V' == type) {
+                // decode virtual field
+                TypeInfo owner = context.currentType();
+                assert list.size() == pos + 2; // pre, this, one extra
+                ParameterizedType fieldType = decodeType(context, list.get(pos + 1));
+                return VirtualFieldComputer.newField(runtime, name, fieldType, owner);
             }
             return super.decodeInfo(context, currentType, type, name, list, pos);
         }
 
-        private Stream<EncodedValue> encodeVirtualFieldInfo(Context context, FieldInfo fieldInfo) {
-            ParameterizedType type = fieldInfo.type();
-            if (type.typeParameter() != null || type.typeInfo() != null && !type.typeInfo().isSynthetic()) {
-                return Stream.of(encodeType(context, type));
+        private String nameComponent(FieldInfo fieldInfo) {
+            String base;
+            if (fieldInfo.type().typeParameter() != null) {
+                base = fieldInfo.type().typeParameter().simpleName();
+            } else {
+                base = VirtualFieldComputer.VF_CONCRETE;
             }
-            // container type for virtual fields, stream the fields; of which there are minimally 2
-            Stream<EncodedValue> fieldStream = type.typeInfo().fields()
-                    .stream().map(f -> encodeInfoOutOfContext(context, f));
-            return Stream.concat(Stream.of(encodeInt(context, type.arrays())), fieldStream);
+            return base + "S".repeat(fieldInfo.type().arrays());
         }
     }
 
