@@ -75,7 +75,8 @@ public class PropertyImpl implements Property {
     public static final Property CONTAINER_PARAMETER = new PropertyImpl("containerParameter");
     public static final Property INDEPENDENT_PARAMETER = new PropertyImpl("independentParameter",
             ValueImpl.IndependentImpl.DEPENDENT);
-    public static final Property DOWNCAST_PARAMETER = new PropertyImpl("downcastParameter", ValueImpl.SetOfTypeInfoImpl.EMPTY);
+    public static final Property DOWNCAST_PARAMETER = new PropertyImpl("downcastParameter",
+            ValueImpl.VariableToTypeInfoSetImpl.EMPTY);
 
     // field
     public static final Property FINAL_FIELD = new PropertyImpl("finalField");
@@ -87,7 +88,7 @@ public class PropertyImpl implements Property {
     public static final Property CONTAINER_FIELD = new PropertyImpl("containerField");
     public static final Property INDEPENDENT_FIELD = new PropertyImpl("independentField",
             ValueImpl.IndependentImpl.DEPENDENT);
-    public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);
+    //public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);
 
     // statement
     public static final Property ALWAYS_ESCAPES = new PropertyImpl("statementAlwaysEscapes");

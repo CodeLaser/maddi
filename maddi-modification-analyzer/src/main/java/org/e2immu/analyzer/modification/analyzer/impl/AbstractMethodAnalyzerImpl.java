@@ -20,12 +20,13 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
@@ -86,20 +87,23 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
     }
 
     private void collectDowncast(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
-        Value.SetOfTypeInfo downcastsValue = pi.analysis().getOrNull(DOWNCAST_PARAMETER, Value.SetOfTypeInfo.class);
+        Value.VariableToTypeInfoSet downcastsValue = pi.analysis().getOrNull(DOWNCAST_PARAMETER,
+                ValueImpl.VariableToTypeInfoSetImpl.class);
         if (downcastsValue == null) {
-            Set<TypeInfo> downcasts = new HashSet<>();
+            Map<Variable, Set<TypeInfo>> downcasts = new HashMap<>();
             for (MethodInfo implementation : concreteImplementations) {
                 ParameterInfo pii = implementation.parameters().get(pi.index());
-                Value.SetOfTypeInfo downcastsImplValue = pii.analysis().getOrNull(DOWNCAST_PARAMETER,
-                        Value.SetOfTypeInfo.class);
+                Value.VariableToTypeInfoSet downcastsImplValue = pii.analysis().getOrNull(DOWNCAST_PARAMETER,
+                        ValueImpl.VariableToTypeInfoSetImpl.class);
                 if (downcastsImplValue == null) {
                     UNDECIDED.debug("AMA: Undecided downcast parameter {}", pi);
                     return;
                 }
-                downcasts.addAll(downcastsImplValue.typeInfoSet());
+                downcastsImplValue.variableToTypeInfoSet().forEach((v, set) ->
+                        downcasts.merge(v, set,
+                                (s0, s1) -> Stream.concat(s0.stream(), s1.stream()).collect(Collectors.toUnmodifiableSet())));
             }
-            ValueImpl.SetOfTypeInfoImpl value = new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts));
+            ValueImpl.VariableToTypeInfoSetImpl value = new ValueImpl.VariableToTypeInfoSetImpl(Map.copyOf(downcasts));
             if (pi.analysis().setAllowControlledOverwrite(DOWNCAST_PARAMETER, value)) {
                 DECIDE.debug("AMA: Decide downcast parameter {}: {}", pi, value.nice());
                 propertyChanges.incrementAndGet();

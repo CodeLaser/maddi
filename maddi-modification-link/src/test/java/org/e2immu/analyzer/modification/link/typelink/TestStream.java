@@ -116,7 +116,7 @@ public class TestStream extends CommonTest {
         assertEquals("[-] --> method.§xs⊆0:list.§xs", mlv.toString());
 
         int propertiesChanged = tlc.propertiesChanged();
-        assertEquals(21, propertiesChanged);
+        assertEquals(16, propertiesChanged);
         tlc.doMethod(method);
         tlc.doMethod(method1);
         tlc.doMethod(method2);

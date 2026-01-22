@@ -213,6 +213,10 @@ public interface Value extends Comparable<Value> {
         Set<TypeInfo> typeInfoSet();
     }
 
+    interface VariableToTypeInfoSet extends Value {
+        Map<Variable, Set<TypeInfo>> variableToTypeInfoSet();
+    }
+
     interface SetOfMethodInfo extends Value {
         Set<MethodInfo> methodInfoSet();
     }

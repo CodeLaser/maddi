@@ -1001,6 +1001,68 @@ public abstract class ValueImpl implements Value {
         decoderMap.put(SetOfInfoImpl.class, (di, ev) -> SetOfInfoImpl.from(di.codec(), di.context(), ev));
     }
 
+    public record VariableToTypeInfoSetImpl(
+            Map<Variable, Set<TypeInfo>> variableToTypeInfoSet) implements Value.VariableToTypeInfoSet {
+        public static final VariableToTypeInfoSet EMPTY = new VariableToTypeInfoSetImpl(Map.of());
+
+        @Override
+        public boolean isDefault() {
+            return variableToTypeInfoSet.isEmpty();
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = variableToTypeInfoSet.entrySet().stream()
+                    .collect(Collectors.toUnmodifiableMap(
+                            e -> codec.encodeVariable(context, e.getKey()),
+                            e -> codec.encodeList(context, e.getValue().stream()
+                                    .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
+                                    .map(info -> codec.encodeString(context, info.fullyQualifiedName()))
+                                    .toList())));
+            return codec.encodeMap(context, encodedMap);
+        }
+
+        public static VariableToTypeInfoSet from(Codec codec, Codec.Context context, Codec.EncodedValue encodedMap) {
+            Map<Codec.EncodedValue, Codec.EncodedValue> map = codec.decodeMap(context, encodedMap);
+            Map<Variable, Set<TypeInfo>> decoded = map.entrySet().stream()
+                    .collect(Collectors.toUnmodifiableMap(
+                            e -> codec.decodeVariable(context, e.getKey()),
+                            e -> {
+                                List<Codec.EncodedValue> list = codec.decodeList(context, e.getValue());
+                                return list.stream()
+                                        .map(ev -> (TypeInfo) codec.decodeInfoOutOfContext(context, ev))
+                                        .collect(Collectors.toUnmodifiableSet());
+                            }));
+            return new VariableToTypeInfoSetImpl(decoded);
+        }
+
+        public String nice() {
+            return variableToTypeInfoSet.entrySet().stream()
+                    .map(e -> e.getKey() + "->" + e.getValue())
+                    .sorted().collect(Collectors.joining(", "));
+        }
+
+        @Override
+        public boolean overwriteAllowed(Value newValue) {
+            VariableToTypeInfoSet other = (VariableToTypeInfoSet) newValue;
+            for (Map.Entry<Variable, Set<TypeInfo>> entry : variableToTypeInfoSet.entrySet()) {
+                Set<TypeInfo> otherSet = other.variableToTypeInfoSet().get(entry.getKey());
+                if (otherSet == null || !otherSet.containsAll(entry.getValue())) return false;
+            }
+            return true;
+        }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            throw new UnsupportedOperationException("NYI");
+        }
+    }
+
+    static {
+        decoderMap.put(VariableToTypeInfoSetImpl.class, (di, ev) -> VariableToTypeInfoSetImpl.from(di.codec(), di.context(), ev));
+    }
+
+
     public record SetOfTypeInfoImpl(Set<TypeInfo> typeInfoSet) implements SetOfTypeInfo {
         public static final SetOfTypeInfo EMPTY = new SetOfTypeInfoImpl(Set.of());
 
@@ -1013,7 +1075,7 @@ public abstract class ValueImpl implements Value {
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
             List<Codec.EncodedValue> encodedValues = typeInfoSet.stream()
                     .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
-                    .map(info -> codec.encodeString(context, info.fullyQualifiedName())).toList();
+                    .map(info -> codec.encodeInfoInContext(context, info, "")).toList();
             return codec.encodeList(context, encodedValues);
         }
 
@@ -1031,6 +1093,12 @@ public abstract class ValueImpl implements Value {
         @Override
         public Value rewire(InfoMap infoMap) {
             throw new UnsupportedOperationException("NYI");
+        }
+
+        @Override
+        public boolean overwriteAllowed(Value newValue) {
+            // must be smaller
+            return ((SetOfTypeInfo) newValue).typeInfoSet().containsAll(typeInfoSet);
         }
     }
 

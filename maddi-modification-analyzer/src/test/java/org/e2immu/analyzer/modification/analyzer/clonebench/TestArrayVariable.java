@@ -73,17 +73,14 @@ public class TestArrayVariable extends CommonTest {
         assertEquals("0:array[2:index]←1:element,0:array∋1:element", viPut0.linkedVariables().toString());
 
         /*
-        20241229
-        part of an as yet not fully resolved issue: should "array" be @Modified or not?
-        of course its object graph is modified, but it is done through casting.
-
-        the current code would have to use the parameterized type of DV.arrayExpression() rather that
-        that of DV.arrayVariable() to allow for -2- links which would propagate the modification.
-         */
+        Even though Object is immutable, it is immutable HC, so it can be downcast.
+        This downcast information is available.
+        Because of the downcast, modifications may occur; they are registered.
+        */
         assertTrue(put0.isModified());
-        ValueImpl.SetOfTypeInfoImpl downcast = (ValueImpl.SetOfTypeInfoImpl) put0.analysis().
-                getOrDefault(PropertyImpl.DOWNCAST_PARAMETER, ValueImpl.SetOfTypeInfoImpl.EMPTY);
-        assertEquals("java.lang.Object", downcast.nice());
+        ValueImpl.VariableToTypeInfoSetImpl downcast = (ValueImpl.VariableToTypeInfoSetImpl) put0.analysis().
+                getOrDefault(PropertyImpl.DOWNCAST_PARAMETER, ValueImpl.VariableToTypeInfoSetImpl.EMPTY);
+        assertEquals("C.put(Object,Object,int):0:array->[java.lang.Object]", downcast.nice());
     }
 
     @Language("java")
