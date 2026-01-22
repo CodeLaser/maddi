@@ -24,8 +24,8 @@ import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.util.internal.util.Trie;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -238,11 +238,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodInfo reverse = C.findUniqueMethod("reverse", 0);
         MethodLinkedVariables mlvReverse0 = reverse.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse));
-        String expected = """
-                [] --> reverse.map.§vks[-1]∩this.map.§kvs,\
-                reverse.map.§vks[-2]∩this.map.§kvs,reverse.map.§vks~this.map.§kvs\
-                """;
-        assertEquals(expected, mlvReverse0.toString());
+        testLink3(mlvReverse0);
 
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(C.fullyQualifiedName().split("\\."), C);
@@ -252,6 +248,8 @@ public class TestWriteAnalysis2 extends CommonTest {
         Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABC.json").toPath());
+        LOGGER.info("Wrote {}", written);
+
         javaInspector.invalidateAllSources();
         TypeInfo CC = javaInspector.parse(INPUT3);
         LoadAnalyzedPackageFiles load = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
@@ -260,9 +258,27 @@ public class TestWriteAnalysis2 extends CommonTest {
         MethodInfo reverseCC = CC.findUniqueMethod("reverse", 0);
         MethodLinkedVariables mlvReverseCC = reverseCC.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals(mlvReverse0, mlvReverseCC);
-        assertEquals(expected, mlvReverseCC.toString());
+        testLink3(mlvReverseCC);
     }
 
+    private void testLink3(MethodLinkedVariables mlv) {
+        String expected = """
+                [] --> reverse.map.§vks[-1]∩this.map.§kvs,\
+                reverse.map.§vks[-2]∩this.map.§kvs,reverse.map.§vks~this.map.§kvs\
+                """;
+        assertEquals(expected, mlv.toString());
+
+        DependentVariable vksSlice = (DependentVariable) mlv.ofReturnValue().link(0).from();
+        assertEquals("Type param V[]", vksSlice.parameterizedType().toString());
+        FieldReference vks = (FieldReference) vksSlice.arrayVariable();
+        assertEquals("§vks", vks.fieldInfo().name());
+        assertEquals("java.util.Map", vks.fieldInfo().owner().fullyQualifiedName());
+        assertEquals("Type java.util.Map.VK[]", vks.parameterizedType().toString());
+        TypeInfo vk = vks.parameterizedType().typeInfo();
+        assertSame(VirtualFieldComputer.VIRTUAL_FIELD, vk.typeNature());
+        assertEquals(2, vk.fields().size());
+        assertEquals("java.util.Map", vk.compilationUnitOrEnclosingType().getRight().fullyQualifiedName());
+    }
 
     @Language("java")
     private static final String INPUT4 = """
@@ -288,7 +304,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
         MethodLinkedVariables mlvOne = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
 
-        testLink(mlvOne);
+        testLink4(mlvOne);
 
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(C.fullyQualifiedName().split("\\."), C);
@@ -310,10 +326,10 @@ public class TestWriteAnalysis2 extends CommonTest {
         MethodInfo oneCC = CC.findUniqueMethod("oneInstance", 2);
         MethodLinkedVariables mlvOneCC = oneCC.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals(mlvOne, mlvOneCC);
-        testLink(mlvOneCC);
+        testLink4(mlvOneCC);
     }
 
-    private void testLink(MethodLinkedVariables mlvOne) {
+    private void testLink4(MethodLinkedVariables mlvOne) {
         assertEquals("""
                 [-, -] --> oneInstance.§ksvs.§ks∋0:x,oneInstance.§ksvs.§vs∋1:y\
                 """, mlvOne.toString());
@@ -323,7 +339,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         assertEquals("java.util.AbstractMap.SimpleEntry.KSVS", ks.fieldInfo().owner().fullyQualifiedName());
         assertEquals("Type param K[]", ks.parameterizedType().toString());
 
-        FieldReference ksvs = (FieldReference)ks.scopeVariable();
+        FieldReference ksvs = (FieldReference) ks.scopeVariable();
         assertEquals("§ksvs", ksvs.fieldInfo().name());
         assertEquals("Type java.util.AbstractMap.SimpleEntry.KSVS", ksvs.parameterizedType().toString());
         assertEquals("java.util.Map.Entry", ksvs.fieldInfo().owner().fullyQualifiedName());
