@@ -28,10 +28,7 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.io.CodecImpl;
 import org.parsers.json.ast.StringLiteral;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -98,6 +95,8 @@ public class LinkCodec {
             return super.decodeVariable(context, s, list);
         }
 
+        private final Set<TypeInfo> duplication = new HashSet<>();
+
         @Override
         public Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
             if (info instanceof TypeInfo ti && ti.typeNature() == VirtualFieldComputer.VIRTUAL_FIELD) {
@@ -146,15 +145,14 @@ public class LinkCodec {
                         .map(ev -> (FieldInfo) decodeInfoOutOfContext(context, ev))
                         .toList();
                 String typeName = fields.stream().map(this::nameComponent).collect(Collectors.joining());
-                TypeInfo owner = (TypeInfo) currentType;
+                TypeInfo owner = currentType.typeInfo();
                 TypeInfo containerType = VirtualFieldComputer.makeContainer(runtime, owner, typeName, fields);
                 virtualTypes.put(containerType.fullyQualifiedName(), containerType);
-                return VirtualFieldComputer.newField(runtime, typeName.toLowerCase(), containerType.asParameterizedType(),
-                        owner);
+                return containerType;
             }
             if ('V' == type) {
                 // decode virtual field
-                TypeInfo owner = context.currentType();
+                TypeInfo owner = currentType.typeInfo();
                 assert list.size() == pos + 2; // pre, this, one extra
                 ParameterizedType fieldType = decodeType(context, list.get(pos + 1));
                 return VirtualFieldComputer.newField(runtime, name, fieldType, owner);
