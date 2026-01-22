@@ -2,8 +2,8 @@ package org.e2immu.analyzer.modification.link;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.modification.io.LoadAnalyzedPackageFiles;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;

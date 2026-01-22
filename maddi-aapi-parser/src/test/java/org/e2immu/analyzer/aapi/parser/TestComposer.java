@@ -16,7 +16,7 @@ package org.e2immu.analyzer.aapi.parser;
 
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.modification.io.DecoratorImpl;
+import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.MethodInfo;

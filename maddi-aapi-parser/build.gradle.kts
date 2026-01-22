@@ -26,7 +26,6 @@ dependencies {
     api(project(":maddi-support"))
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-modification-common"))
-    implementation(project(":maddi-modification-io"))
     implementation(project(":maddi-modification-prepwork"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-util"))
@@ -42,7 +41,6 @@ dependencies {
     implementation(project(":maddi-java-parser"))
 
     implementation("ch.qos.logback:logback-classic")
-    testImplementation(project(":maddi-modification-io"))
 
     testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testRuntimeOnly("info.picocli:picocli:4.7.7")

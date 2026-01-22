@@ -11,11 +11,13 @@ module org.e2immu.analyzer.modification.prepwork {
 
     requires org.slf4j;
     requires org.jetbrains.annotations;
+    requires org.e2immu.language.inspection.integration;
 
     exports org.e2immu.analyzer.modification.prepwork;
     exports org.e2immu.analyzer.modification.prepwork.callgraph;
     exports org.e2immu.analyzer.modification.prepwork.escape;
     exports org.e2immu.analyzer.modification.prepwork.variable;
     exports org.e2immu.analyzer.modification.prepwork.variable.impl;
+    exports org.e2immu.analyzer.modification.prepwork.io;
 
 }
