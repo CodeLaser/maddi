@@ -203,10 +203,10 @@ public class CodecImpl implements Codec {
                 String src = unquote(sl.getSource());
                 char type = src.charAt(0);
                 current = decodeInfo(context, current, type, src.substring(1), list, pos);
-                if (type != 'T' && type != 'S' && type != 'M' && type != 'C') {
+                if (type != 'T' && type != 'S' && type != 'M' && type != 'C' && type != 'U') {
                     break; // nothing can follow; in particular, we definitely want to stop after F and V (see linking)
                 }
-            } else throw new UnsupportedOperationException();
+            } //else throw new UnsupportedOperationException();
             ++pos;
         }
         return current;

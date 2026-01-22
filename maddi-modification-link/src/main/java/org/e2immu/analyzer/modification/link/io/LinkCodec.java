@@ -102,16 +102,16 @@ public class LinkCodec {
         public Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
             if (info instanceof TypeInfo ti && ti.typeNature() == VirtualFieldComputer.VIRTUAL_FIELD) {
                 String s = "U" + ti.simpleName();
-                Stream<EncodedValue> prev = encodeInfoOutOfContextStream(context,
+                Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context,
                         ti.compilationUnitOrEnclosingType().getRight());
                 Stream<EncodedValue> post = ti.fields()
                         .stream().map(f -> encodeInfoOutOfContext(context, f));
-                return Stream.concat(Stream.concat(prev, Stream.of(encodeString(context, s))),
-                        post);
+                return Stream.concat(Stream.concat(pre, Stream.of(encodeString(context, s))),
+                        Stream.concat(Stream.of(encodeInt(context, ti.fields().size())), post));
             }
             if (info instanceof FieldInfo fi && Util.virtual(fi)) {
-                Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context, fi.owner());
                 String s = "V" + fi.name();
+                Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context, fi.owner());
                 Stream<EncodedValue> post = Stream.of(encodeType(context, fi.type()));
                 return Stream.concat(Stream.concat(pre, Stream.of(encodeString(context, s))), post);
             }
@@ -122,7 +122,7 @@ public class LinkCodec {
 
         @Override
         protected ParameterizedType decodeSimpleType(Context context, StringLiteral sl) {
-            String fqn = unquote(sl.getSource());
+            String fqn = unquote(sl.getSource()).substring(1);
             TypeInfo virtualType = virtualTypes.get(fqn);
             if (virtualType != null) {
                 // virtual types have no type parameters
@@ -141,13 +141,12 @@ public class LinkCodec {
             if ('U' == type) {
                 // decode virtual container type
                 List<EncodedValue> tail = list.subList(pos + 1, list.size());
-                int arrays = decodeInt(context, tail.getFirst());
-                List<FieldInfo> fields = tail.stream().skip(1)
+                int numFields = decodeInt(context, tail.getFirst());
+                List<FieldInfo> fields = tail.stream().skip(1).limit(numFields)
                         .map(ev -> (FieldInfo) decodeInfoOutOfContext(context, ev))
                         .toList();
-                String typeName = fields.stream().map(this::nameComponent).collect(Collectors.joining())
-                                  + "S".repeat(arrays);
-                TypeInfo owner = context.currentType();
+                String typeName = fields.stream().map(this::nameComponent).collect(Collectors.joining());
+                TypeInfo owner = (TypeInfo) currentType;
                 TypeInfo containerType = VirtualFieldComputer.makeContainer(runtime, owner, typeName, fields);
                 virtualTypes.put(containerType.fullyQualifiedName(), containerType);
                 return VirtualFieldComputer.newField(runtime, typeName.toLowerCase(), containerType.asParameterizedType(),
