@@ -43,8 +43,8 @@ import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesIm
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-public class TestWriteAnalysis3 extends CommonTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TestWriteAnalysis3.class);
+public class TestWriteAnalysisSyntheticFields extends CommonTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestWriteAnalysisSyntheticFields.class);
 
 
     @Language("java")
@@ -59,10 +59,10 @@ public class TestWriteAnalysis3 extends CommonTest {
                     TryData withException(Throwable exception);
                 }
                 public static class TryDataImpl implements TryData {
-                    private final Throwable exception;
-                    public TryDataImpl(Throwable exception) { this.exception = exception; }
-                    public Throwable exception() { return exception; }
-                    public TryData withException(Throwable exception) { return new TryDataImpl(exception); }
+                    private final Throwable exception1;
+                    public TryDataImpl(Throwable exception2) { this.exception1 = exception2; }
+                    public Throwable exception() { return exception1; }
+                    public TryData withException(Throwable exception3) { return new TryDataImpl(exception3); }
                 }
             }
             """;
@@ -77,18 +77,20 @@ public class TestWriteAnalysis3 extends CommonTest {
 
         MethodInfo exception = TryDataImpl.findUniqueMethod("exception", 0);
         MethodLinkedVariables mlv = exception.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[] --> exception←this.exception", mlv.toString());
+        assertEquals("[] --> exception←this.exception1", mlv.toString());
 
-        FieldInfo exceptionField = TryDataImpl.getFieldByName("exception", true);
+        FieldInfo exceptionField = TryDataImpl.getFieldByName("exception1", true);
         assertEquals("""
-                this.exception←0:exception,this.exception→exception\
+                this.exception1←0:exception2,this.exception1→exception\
                 """, exceptionField.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
 
         MethodInfo withException = TryDataImpl.findUniqueMethod("withException", 1);
         MethodLinkedVariables mlvWe = withException.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> withException.exception←0:exception", mlvWe.toString());
+        assertEquals("[-] --> withException.exception1←0:exception3", mlvWe.toString());
         FieldReference fr0 = (FieldReference) mlvWe.ofReturnValue().link(0).from();
-        assertEquals("a.b.Try.TryData", fr0.fieldInfo().owner().toString());
+        // why TryData? See LinkGraph.makeComparableSub; we correct the owner to the new sub
+        // in this case, that's an interface.
+        assertEquals("a.b.Try.TryData.exception1", fr0.fieldInfo().fullyQualifiedName());
 
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(Try.fullyQualifiedName().split("\\."), Try);

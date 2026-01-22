@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.io.CodecImpl;
+import org.jetbrains.annotations.NotNull;
 import org.parsers.json.Node;
 import org.parsers.json.ast.StringLiteral;
 
@@ -116,11 +117,32 @@ public class LinkCodec {
             }
             if (info instanceof FieldInfo fi && Util.virtual(fi)) {
                 String s = "V" + fi.name();
-                Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context, fi.owner());
-                Stream<EncodedValue> post = Stream.of(encodeType(context, fi.type()));
-                return Stream.concat(Stream.concat(pre, Stream.of(encodeString(context, s))), post);
+                return streamSyntheticFieldDetails(context, fi, s);
+            }
+            if (info instanceof FieldInfo fi) {
+                int fieldIndex = fieldIndexOrNegative(fi);
+                if (fieldIndex < 0) {
+                    // LinkGraph.makeComparableSub has changed the owner...
+                    String s = "G" + fi.name();
+                    return streamSyntheticFieldDetails(context, fi, s);
+                }
             }
             return super.encodeInfoOutOfContextStream(context, info);
+        }
+
+        private @NotNull Stream<EncodedValue> streamSyntheticFieldDetails(Context context, FieldInfo fi, String s) {
+            Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context, fi.owner());
+            Stream<EncodedValue> post = Stream.of(encodeType(context, fi.type()));
+            return Stream.concat(Stream.concat(pre, Stream.of(encodeString(context, s))), post);
+        }
+
+        public int fieldIndexOrNegative(FieldInfo fieldInfo) {
+            int i = 0;
+            for (FieldInfo fi : fieldInfo.owner().fields()) {
+                if (fi == fieldInfo) return i;
+                ++i;
+            }
+            return -1;
         }
 
         private final Map<String, TypeInfo> virtualTypes = new HashMap<>();
@@ -163,8 +185,8 @@ public class LinkCodec {
                 virtualTypes.put(containerType.fullyQualifiedName(), containerType);
                 return containerType;
             }
-            if ('V' == type) {
-                // decode virtual field
+            if ('V' == type || 'G' == type) {
+                // decode synthetic field (virtual, or created via makeComparableSub)
                 TypeInfo owner = currentType.typeInfo();
                 assert list.size() == pos + 2; // pre, this, one extra
                 ParameterizedType fieldType = decodeType(context, list.get(pos + 1));
@@ -222,7 +244,8 @@ public class LinkCodec {
 
     private static final Map<String, Property> PROPERTY_MAP = Map.of(
             PART_OF_CONSTRUCTION.key(), PART_OF_CONSTRUCTION,
-            METHOD_LINKS.key(), METHOD_LINKS);
+            METHOD_LINKS.key(), METHOD_LINKS,
+            LinksImpl.LINKS.key(), LinksImpl.LINKS);
 
     static class P implements Codec.PropertyProvider {
         @Override
