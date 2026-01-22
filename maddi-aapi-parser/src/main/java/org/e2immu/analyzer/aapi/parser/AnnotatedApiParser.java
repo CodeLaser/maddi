@@ -15,7 +15,7 @@
 package org.e2immu.analyzer.aapi.parser;
 
 import org.e2immu.analyzer.modification.common.defaults.AnnotationProvider;
-import org.e2immu.analyzer.modification.io.LoadAnalyzedPackageFiles;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.StringConstant;

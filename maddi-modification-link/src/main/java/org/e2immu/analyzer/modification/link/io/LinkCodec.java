@@ -1,11 +1,8 @@
 package org.e2immu.analyzer.modification.link.io;
 
-import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
-import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
@@ -244,32 +241,12 @@ public class LinkCodec {
                 return (di, ev) -> MethodLinkedVariablesImpl.decode(di.codec(), di.context(), ev);
             }
             if (LinksImpl.class.equals(clazz)) {
-                return (di, ev) -> decodeLinks(di.codec(), di.context(), ev);
+                return (di, ev) -> MethodLinkedVariablesImpl.decodeLinks(di.codec(), di.context(), ev);
             }
             // part of construction uses "set of info", which is in ValueImpl.
             return ValueImpl.decoder(clazz);
         }
     }
 
-
-    public static Links decodeLinks(Codec codec, Codec.Context context, Codec.EncodedValue encodedValue) {
-        List<Codec.EncodedValue> list = codec.decodeList(context, encodedValue);
-        if (list.isEmpty()) return LinksImpl.EMPTY;
-        Variable primary = codec.decodeVariable(context, list.getFirst());
-        LinksImpl.Builder builder = new LinksImpl.Builder(primary);
-        list.stream().skip(1).forEach(ev -> decodeLink(codec, context, ev, builder));
-        return builder.build();
-    }
-
-    private static void decodeLink(Codec codec,
-                                   Codec.Context context,
-                                   Codec.EncodedValue ev,
-                                   LinksImpl.Builder builder) {
-        List<Codec.EncodedValue> list = codec.decodeList(context, ev);
-        Variable from = codec.decodeVariable(context, list.getFirst());
-        LinkNature linkNature = LinkNatureImpl.decode(codec.decodeString(context, list.get(1)));
-        Variable to = codec.decodeVariable(context, list.getLast());
-        builder.add(from, linkNature, to);
-    }
 }
 

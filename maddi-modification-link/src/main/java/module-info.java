@@ -11,6 +11,7 @@ module org.e2immu.analyzer.modification.link {
     requires org.jetbrains.annotations;
     requires org.slf4j;
     requires org.e2immu.analyzer.modification.common;
+    requires org.e2immu.util.internal.util;
 
     exports org.e2immu.analyzer.modification.link;
     exports org.e2immu.analyzer.modification.link.vf;

@@ -16,7 +16,7 @@ package org.e2immu.analyzer.aapi.parser;
 
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.analyzer.modification.io.DecoratorImpl;
+import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
