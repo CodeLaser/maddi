@@ -18,11 +18,14 @@ import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.io.LinkCodec;
+import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.util.internal.util.Trie;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -35,8 +38,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestWriteAnalysis2 extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestWriteAnalysis2.class);
@@ -259,5 +261,72 @@ public class TestWriteAnalysis2 extends CommonTest {
         MethodLinkedVariables mlvReverseCC = reverseCC.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals(mlvReverse0, mlvReverseCC);
         assertEquals(expected, mlvReverseCC.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.AbstractMap;
+            import java.util.Map;
+            import java.util.stream.Stream;
+            public class C<K, V> {
+                public Map.Entry<Stream<K>, Stream<V>> oneInstance(K x, V y) {
+                    return new AbstractMap.SimpleEntry<>(Stream.of(x), Stream.of(y));
+                }
+            }
+            """;
+
+    @Test
+    public void test4() throws IOException {
+        TypeInfo C = javaInspector.parse(INPUT4);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
+        MethodLinkedVariables mlvOne = oneInstance.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(oneInstance));
+
+        testLink(mlvOne);
+
+        Trie<TypeInfo> typeTrie = new Trie<>();
+        typeTrie.add(C.fullyQualifiedName().split("\\."), C);
+        WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
+        File dest = new File("build/json");
+        if (dest.mkdirs()) LOGGER.info("Created {}", dest);
+        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
+        writeAnalysis.write(dest, typeTrie, codec);
+        String written = Files.readString(new File(dest, "ABC.json").toPath());
+
+        LOGGER.info("Encoded: {}", written);
+
+        javaInspector.invalidateAllSources();
+        TypeInfo CC = javaInspector.parse(INPUT4);
+        LoadAnalyzedPackageFiles load = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
+        load.go(codec, written);
+
+
+        MethodInfo oneCC = CC.findUniqueMethod("oneInstance", 2);
+        MethodLinkedVariables mlvOneCC = oneCC.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals(mlvOne, mlvOneCC);
+        testLink(mlvOneCC);
+    }
+
+    private void testLink(MethodLinkedVariables mlvOne) {
+        assertEquals("""
+                [-, -] --> oneInstance.§ksvs.§ks∋0:x,oneInstance.§ksvs.§vs∋1:y\
+                """, mlvOne.toString());
+
+        FieldReference ks = (FieldReference) mlvOne.ofReturnValue().link(0).from();
+        assertEquals("§ks", ks.fieldInfo().name());
+        assertEquals("java.util.AbstractMap.SimpleEntry.KSVS", ks.fieldInfo().owner().fullyQualifiedName());
+        assertEquals("Type param K[]", ks.parameterizedType().toString());
+
+        FieldReference ksvs = (FieldReference)ks.scopeVariable();
+        assertEquals("§ksvs", ksvs.fieldInfo().name());
+        assertEquals("Type java.util.AbstractMap.SimpleEntry.KSVS", ksvs.parameterizedType().toString());
+        assertEquals("java.util.Map.Entry", ksvs.fieldInfo().owner().fullyQualifiedName());
+        assertSame(VirtualFieldComputer.VIRTUAL_FIELD, ksvs.parameterizedType().typeInfo().typeNature());
     }
 }

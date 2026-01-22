@@ -305,7 +305,7 @@ public class CodecImpl implements Codec {
         return list;
     }
 
-    private ParameterizedType decodeSimpleType(Context context, StringLiteral sl) {
+    protected ParameterizedType decodeSimpleType(Context context, StringLiteral sl) {
         String fqn = unquote(sl.getSource());
         if (fqn.isEmpty()) return null;
         char first = fqn.charAt(0);
