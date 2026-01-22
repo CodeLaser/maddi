@@ -58,6 +58,8 @@ public class TestCast extends CommonTest {
         MethodLinkedVariables mlv = setAdd.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[0:r.object*.§$s∋1:s, 1:s∈0:r.object*.§$s] --> -", mlv.toString());
         assertEquals("a.b.X.setAdd(a.b.X.R,String):0:r, r.object", mlv.sortedModifiedString());
+        assertEquals("r.object->[java.util.Set]", r.analysis().getOrNull(DOWNCAST_PARAMETER,
+                ValueImpl.VariableToTypeInfoSetImpl.class).nice());
     }
 
 
@@ -120,6 +122,11 @@ public class TestCast extends CommonTest {
             VariableInfo vi0Set = vd0.variableInfo("set");
             assertEquals("set←0:r.object", vi0Set.linkedVariables().toString());
             assertFalse(vi0Set.isModified());
+            assertEquals("""
+                    a.b.X.R.object#a.b.X.setAdd(a.b.X.R,String):0:r, a.b.X.setAdd(a.b.X.R,String):0:r, set\
+                    """, vd0.knownVariableNamesToString());
+            VariableInfo rObject = vd0.variableInfo("a.b.X.R.object#a.b.X.setAdd(a.b.X.R,String):0:r");
+            assertEquals("[java.util.Set]", rObject.downcast().toString());
         }
         {
             Statement s1 = setAdd.methodBody().statements().get(1);
@@ -134,6 +141,8 @@ public class TestCast extends CommonTest {
         assertTrue(r.isModified());
         assertEquals("[0:r.object*.§$s∋1:s, 1:s∈0:r.object*.§$s] --> -", mlv.toString());
         assertEquals("a.b.X.setAdd(a.b.X.R,String):0:r, r.object", mlv.sortedModifiedString());
+        assertEquals("r.object->[java.util.Set]", r.analysis().getOrNull(DOWNCAST_PARAMETER,
+                ValueImpl.VariableToTypeInfoSetImpl.class).nice());
     }
 
 
@@ -181,8 +190,8 @@ public class TestCast extends CommonTest {
         assertEquals("[java.util.Set]", downcastsViM.typeInfoSet().toString());
         assertTrue(vi0ObjectM.isModified());
 
-        Value.SetOfTypeInfo downcastsPi = pi0.analysis().getOrDefault(DOWNCAST_PARAMETER, EMPTY);
-        assertEquals("[java.util.Set]", downcastsPi.typeInfoSet().toString());
+        Value.VariableToTypeInfoSet downcastsPi = pi0.analysis().getOrDefault(DOWNCAST_PARAMETER, ValueImpl.VariableToTypeInfoSetImpl.EMPTY);
+        assertEquals("{a.b.B.method(Object):0:object=[java.util.Set]}", downcastsPi.variableToTypeInfoSet().toString());
         assertTrue(pi0.isModified());
 
         @Language("java")

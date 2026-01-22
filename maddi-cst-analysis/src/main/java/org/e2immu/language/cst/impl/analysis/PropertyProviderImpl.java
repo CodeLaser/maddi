@@ -38,7 +38,7 @@ public class PropertyProviderImpl {
                 CONTAINER_PARAMETER,
                 CONTAINER_TYPE,
                 DEFAULTS_ANALYZER,
-                DOWNCAST_FIELD,
+                //DOWNCAST_FIELD,
                 DOWNCAST_PARAMETER,
                 FINAL_FIELD,
                 FINAL_TYPE,

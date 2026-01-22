@@ -204,8 +204,8 @@ public class DecoratorImpl implements Qualification.Decorator {
                 propertyNotNull = NOT_NULL_PARAMETER;
                 notNull = notNull(analysis.getOrDefault(NOT_NULL_PARAMETER, ValueImpl.NotNullImpl.NULLABLE), pi.parameterizedType());
                 propertyIgnoreModifications = pi.isIgnoreModifications() ? IGNORE_MODIFICATIONS_PARAMETER : null;
-                Value.SetOfTypeInfo casts = analysis.getOrDefault(DOWNCAST_PARAMETER, ValueImpl.SetOfTypeInfoImpl.EMPTY);
-                if (!casts.typeInfoSet().isEmpty() && !pi.isUnmodified()) downcast = DOWNCAST_PARAMETER;
+                Value.VariableToTypeInfoSet casts = analysis.getOrDefault(DOWNCAST_PARAMETER, ValueImpl.VariableToTypeInfoSetImpl.EMPTY);
+                if (!casts.variableToTypeInfoSet().isEmpty() && !pi.isUnmodified()) downcast = DOWNCAST_PARAMETER;
             }
             case TypeInfo typeInfo -> {
                 immutable = analysis.getOrDefault(IMMUTABLE_TYPE, MUTABLE);

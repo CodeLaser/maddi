@@ -256,15 +256,25 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void copyDowncastIntoParameters(VariableData vd) {
-            for (ParameterInfo pi : methodInfo.parameters()) {
-                VariableInfoContainer vic = vd.variableInfoContainerOrNull(pi.fullyQualifiedName());
-                if (vic != null) {
-                    VariableInfo vi = vic.best();
+            Map<ParameterInfo, Map<Variable, Set<TypeInfo>>> all = new HashMap<>();
+            for (VariableInfo vi : vd.variableInfoIterable()) {
+                ParameterInfo pi = Util.parameterPrimaryOrNull(vi.variable());
+                if (pi != null) {
                     Value.SetOfTypeInfo fromVariable = vi.analysis().getOrDefault(DOWNCAST_VARIABLE,
                             ValueImpl.SetOfTypeInfoImpl.EMPTY);
-                    if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.DOWNCAST_PARAMETER, fromVariable)) {
-                        propertiesChanged.incrementAndGet();
+                    if (!fromVariable.typeInfoSet().isEmpty()) {
+                        Map<Variable, Set<TypeInfo>> map = all.computeIfAbsent(pi, _ -> new HashMap<>());
+                        map.merge(vi.variable(), fromVariable.typeInfoSet(),
+                                (s0, s1) ->
+                                        Stream.concat(s0.stream(), s1.stream()).collect(Collectors.toUnmodifiableSet()));
                     }
+                }
+            }
+            for (Map.Entry<ParameterInfo, Map<Variable, Set<TypeInfo>>> entry : all.entrySet()) {
+                ParameterInfo pi = entry.getKey();
+                var v2tiSet = new ValueImpl.VariableToTypeInfoSetImpl(entry.getValue());
+                if (pi.analysis().setAllowControlledOverwrite(PropertyImpl.DOWNCAST_PARAMETER, v2tiSet)) {
+                    propertiesChanged.incrementAndGet();
                 }
             }
         }

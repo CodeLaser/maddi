@@ -153,7 +153,9 @@ public record ExpressionVisitor(Runtime runtime,
         if (narrowingCast(cast.expression().parameterizedType(), cast.parameterizedType())) {
             return r.with(LinksImpl.EMPTY);
         }
-        if (cast.expression() instanceof VariableExpression ve && cast.parameterizedType().typeInfo() != null) {
+        // use r.getValuated() rather than cast.expression(); in this way, getters get resolved
+        // see e.g. analyzer/TestCast,3
+        if (r.getEvaluated() instanceof VariableExpression ve && cast.parameterizedType().typeInfo() != null) {
             return r.addCast(ve.variable(), cast.parameterizedType().typeInfo());
         }
         return r;
