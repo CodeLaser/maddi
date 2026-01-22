@@ -100,7 +100,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
-        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
+        Codec codec = new LinkCodec(javaInspector).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());
         assertEquals(JSON1, written);
@@ -191,7 +191,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
-        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
+        Codec codec = new LinkCodec(javaInspector).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());
         // assertEquals(JSON2, written);
@@ -247,7 +247,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
-        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
+        Codec codec = new LinkCodec(javaInspector).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABC.json").toPath());
         LOGGER.info("Wrote {}", written);
@@ -313,7 +313,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
-        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
+        Codec codec = new LinkCodec(javaInspector).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABC.json").toPath());
 

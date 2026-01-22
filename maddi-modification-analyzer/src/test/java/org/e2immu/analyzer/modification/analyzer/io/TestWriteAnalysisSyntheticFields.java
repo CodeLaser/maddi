@@ -97,7 +97,7 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
         WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
-        Codec codec = new LinkCodec(runtime, javaInspector.mainSources()).codec();
+        Codec codec = new LinkCodec(javaInspector).codec();
         writeAnalysis.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABTry.json").toPath());
 

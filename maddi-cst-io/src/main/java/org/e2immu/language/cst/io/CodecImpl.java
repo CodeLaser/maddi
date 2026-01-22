@@ -310,24 +310,29 @@ public class CodecImpl implements Codec {
     }
 
     protected ParameterizedType decodeSimpleType(Context context, StringLiteral sl) {
-        String fqn = unquote(sl.getSource());
-        if (fqn.isEmpty()) return null;
-        char first = fqn.charAt(0);
+        String unquoted = unquote(sl.getSource());
+        if (unquoted.isEmpty()) return null;
+        char first = unquoted.charAt(0);
+        String substring = unquoted.substring(1);
         return switch (first) {
             case 'X' -> runtime.parameterizedTypeNullConstant();
             case '?' -> runtime.parameterizedTypeWildcard();
-            case 'T' -> context.findType(typeProvider, fqn.substring(1)).asSimpleParameterizedType();
+            case 'T' -> {
+                TypeInfo type = context.findType(typeProvider, substring);
+                assert type != null : "Cannot find " + substring;
+                yield type.asSimpleParameterizedType();
+            }
             case 'M' -> {
                 // method type parameter in current context
-                int index = Integer.parseInt(fqn.substring(1));
+                int index = Integer.parseInt(substring);
                 yield context.currentMethod().typeParameters().get(index).asParameterizedType();
             }
             case 'P' -> {
                 // type parameter in current context
-                int index = Integer.parseInt(fqn.substring(1));
+                int index = Integer.parseInt(substring);
                 yield context.currentType().typeParameters().get(index).asParameterizedType();
             }
-            default -> throw new UnsupportedOperationException("TODO: " + fqn);
+            default -> throw new UnsupportedOperationException("TODO: " + unquoted);
         };
     }
 
@@ -370,6 +375,8 @@ public class CodecImpl implements Codec {
             char first = fqn.charAt(0);
             if ('T' == first) {
                 nt = context.findType(typeProvider, fqn.substring(1));
+            } else if ('?' == first) {
+                return runtime.parameterizedTypeWildcard();
             } else {
                 int index = Integer.parseInt(fqn.substring(1));
                 boolean ownerNotInContext = !(list.get(i) instanceof D(Node s1) && s1 instanceof NumberLiteral);
