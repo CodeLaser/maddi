@@ -125,6 +125,8 @@ public interface PredefinedWithoutParameterizedType {
 
     TypeInfo primitiveByName(String asString);
 
+    TypeInfo primitiveByNameOrNull(String name);
+
     MethodInfo remainderOperatorInt();
 
     MethodInfo signedRightShiftOperatorInt();

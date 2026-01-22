@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.io.CodecImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 import org.parsers.json.Node;
 import org.parsers.json.ast.StringLiteral;
@@ -43,12 +44,20 @@ public class LinkCodec {
     private final Runtime runtime;
     private final SourceSet sourceSetOfRequest;
 
-    public LinkCodec(Runtime runtime, SourceSet sourceSetOfRequest) {
-        this.typeProvider = fqn -> runtime.getFullyQualified(fqn, true, sourceSetOfRequest);
+    public LinkCodec(JavaInspector javaInspector) {
+        this(javaInspector, javaInspector.mainSources());
+    }
+
+    public LinkCodec(JavaInspector javaInspector, SourceSet sourceSetOfRequest) {
+        this.typeProvider = fqn -> {
+            TypeInfo primitive = javaInspector.runtime().primitiveByNameOrNull(fqn);
+            if (primitive != null) return primitive;
+            return javaInspector.compiledTypesManager().getOrLoad(fqn, sourceSetOfRequest);
+        };
         decoderProvider = new D();
         this.propertyProvider = new P();
         this.sourceSetOfRequest = sourceSetOfRequest;
-        this.runtime = runtime;
+        this.runtime = javaInspector.runtime();
     }
 
     public Codec codec() {
