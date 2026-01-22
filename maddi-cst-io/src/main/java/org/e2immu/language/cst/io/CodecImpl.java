@@ -196,6 +196,10 @@ public class CodecImpl implements Codec {
     @Override
     public Info decodeInfoOutOfContext(Context context, EncodedValue encodedValue) {
         List<EncodedValue> list = decodeList(context, encodedValue);
+        return decodeInfoOutOfContext(context, list);
+    }
+
+    protected Info decodeInfoOutOfContext(Context context, List<EncodedValue> list) {
         Info current = null;
         int pos = 0;
         for (EncodedValue ev : list) {
@@ -354,8 +358,10 @@ public class CodecImpl implements Codec {
         if (encodedValue instanceof D(Node s) && s instanceof StringLiteral sl) {
             return decodeSimpleType(context, sl);
         }
-        List<EncodedValue> list = decodeList(context, encodedValue);
+        return decodeComplexType(context, decodeList(context, encodedValue));
+    }
 
+    protected ParameterizedType decodeComplexType(Context context, List<EncodedValue> list) {
         // list index 0: named type
         int i = 1;
         NamedType nt;

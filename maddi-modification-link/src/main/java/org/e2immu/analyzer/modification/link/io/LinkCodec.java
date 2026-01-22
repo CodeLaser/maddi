@@ -26,6 +26,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyProviderImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.io.CodecImpl;
+import org.parsers.json.Node;
 import org.parsers.json.ast.StringLiteral;
 
 import java.util.*;
@@ -103,10 +104,18 @@ public class LinkCodec {
                 String s = "U" + ti.simpleName();
                 Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context,
                         ti.compilationUnitOrEnclosingType().getRight());
-                Stream<EncodedValue> post = ti.fields()
-                        .stream().map(f -> encodeInfoOutOfContext(context, f));
+                Stream<EncodedValue> post;
+                int n;
+                if (duplication.add(ti)) {
+                    post = ti.fields()
+                            .stream().map(f -> encodeInfoOutOfContext(context, f));
+                    n = ti.fields().size();
+                } else {
+                    post = Stream.empty();
+                    n = 0;
+                }
                 return Stream.concat(Stream.concat(pre, Stream.of(encodeString(context, s))),
-                        Stream.concat(Stream.of(encodeInt(context, ti.fields().size())), post));
+                        Stream.concat(Stream.of(encodeInt(context, n)), post));
             }
             if (info instanceof FieldInfo fi && Util.virtual(fi)) {
                 String s = "V" + fi.name();
@@ -141,12 +150,19 @@ public class LinkCodec {
                 // decode virtual container type
                 List<EncodedValue> tail = list.subList(pos + 1, list.size());
                 int numFields = decodeInt(context, tail.getFirst());
-                List<FieldInfo> fields = tail.stream().skip(1).limit(numFields)
-                        .map(ev -> (FieldInfo) decodeInfoOutOfContext(context, ev))
-                        .toList();
-                String typeName = fields.stream().map(this::nameComponent).collect(Collectors.joining());
-                TypeInfo owner = currentType.typeInfo();
-                TypeInfo containerType = VirtualFieldComputer.makeContainer(runtime, owner, typeName, fields);
+                TypeInfo containerType;
+                if (numFields == 0) {
+                    String fqn = currentType.typeInfo().fullyQualifiedName() + "." + name;
+                    containerType = virtualTypes.get(fqn);
+                    assert containerType != null;
+                } else {
+                    List<FieldInfo> fields = tail.stream().skip(1).limit(numFields)
+                            .map(ev -> (FieldInfo) decodeInfoOutOfContext(context, ev))
+                            .toList();
+                    String typeName = fields.stream().map(this::nameComponent).collect(Collectors.joining());
+                    TypeInfo owner = currentType.typeInfo();
+                    containerType = VirtualFieldComputer.makeContainer(runtime, owner, typeName, fields);
+                }
                 virtualTypes.put(containerType.fullyQualifiedName(), containerType);
                 return containerType;
             }
@@ -168,6 +184,42 @@ public class LinkCodec {
                 base = VirtualFieldComputer.VF_CONCRETE;
             }
             return base + "S".repeat(fieldInfo.type().arrays());
+        }
+
+        @Override
+        public EncodedValue encodeType(Context context, ParameterizedType type) {
+            if (type.typeInfo() != null && type.typeInfo().typeNature() == VirtualFieldComputer.VIRTUAL_FIELD) {
+                if (!duplication.contains(type.typeInfo())) {
+                    Stream<EncodedValue> name = Stream.of(encodeString(context, "V" + type.typeInfo().fullyQualifiedName()));
+                    Stream<EncodedValue> arrays = Stream.of(encodeInt(context, type.arrays()));
+                    // this one will add to duplication
+                    Stream<EncodedValue> typeStream = encodeInfoOutOfContextStream(context, type.typeInfo());
+                    List<EncodedValue> list = Stream.concat(Stream.concat(name, arrays), typeStream).toList();
+                    return encodeList(context, list);
+                } else {
+                    EncodedValue name = encodeString(context, "R" + type.typeInfo().fullyQualifiedName());
+                    return encodeList(context, List.of(name, encodeInt(context, type.arrays())));
+                }
+            }
+            return super.encodeType(context, type);
+        }
+
+        @Override
+        protected ParameterizedType decodeComplexType(Context context, List<EncodedValue> list) {
+            if (list.getFirst() instanceof D(Node s) && s instanceof StringLiteral sl) {
+                String fqn = unquote(sl.getSource());
+                char first = fqn.charAt(0);
+                if ('V' == first) {
+                    int arrays = decodeInt(context, list.get(1));
+                    TypeInfo typeInfo = (TypeInfo) decodeInfoOutOfContext(context, list.subList(2, list.size()));
+                    return runtime.newParameterizedType(typeInfo, arrays);
+                } else if ('R' == first) {
+                    TypeInfo typeInfo = virtualTypes.get(fqn.substring(1));
+                    int arrays = decodeInt(context, list.get(1));
+                    return runtime.newParameterizedType(typeInfo, arrays);
+                }
+            }
+            return super.decodeComplexType(context, list);
         }
     }
 
