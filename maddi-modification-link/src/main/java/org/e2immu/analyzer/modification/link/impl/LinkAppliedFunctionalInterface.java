@@ -16,10 +16,7 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 /*
@@ -92,6 +89,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
 
     private SearchResult searchAndExpand(List<Links> list) {
         Set<Variable> extraModified = new HashSet<>();
+        int paramIndex = 0;
         for (Links links : list) {
             if (links.primary() == null) continue;
             Variable list0Primary = links.primary();
@@ -105,9 +103,13 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                 for (FunctionalInterfaceVariable fi : fis) {
                     TranslationMap.Builder builder = runtime.newTranslationMapBuilder();
                     if (fi.result().links().primary() instanceof ReturnVariable rv) {
-                        // FIXME this is hard-coded, needs general implementation
                         // See TestModificationFunctional,5,6,7
-                        builder.put(rv.methodInfo().parameters().getFirst(), list0Primary);
+                        builder.put(rv.methodInfo().parameters().get(paramIndex), list0Primary);
+                    }
+                    for(Map.Entry<Variable, Links> entry: fi.result().extra().map().entrySet()) {
+                        if(entry.getKey() instanceof ParameterInfo pi) {
+                            builder.put(pi, list0Primary);
+                        }
                     }
                     TranslationMap tm = builder.build();
                     fi.modified().stream()
@@ -119,6 +121,7 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                 }
 
             }
+            ++paramIndex;
         }
         return null;
     }
