@@ -78,10 +78,14 @@ public record LinkMethodCall(JavaInspector javaInspector,
         List<Result> results = new ArrayList<>(paramsIn.size());
         int i = 0;
         int n = mlv.ofParameters().size();
+        boolean rv = mlv.ofReturnValue().stream().anyMatch(l -> l.to() instanceof AppliedFunctionalInterfaceVariable);
         for (Result result : paramsIn) {
             Links pLinks = mlv.ofParameters().get(Math.min(n - 1, i));
             Result r;
+            // why external library? we'll assume that any functional interface passed to an external method,
+            // is actually called.
             if (externalLibrary
+                || rv // see TestModifiedFunctional,4
                 || pLinks.stream().anyMatch(l -> l.to() instanceof AppliedFunctionalInterfaceVariable)) {
                 r = result.expandFunctionalInterfaceVariables();
             } else {

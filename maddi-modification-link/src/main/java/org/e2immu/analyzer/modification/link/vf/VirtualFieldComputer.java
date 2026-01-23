@@ -434,8 +434,12 @@ public class VirtualFieldComputer {
     }
 
     public static FieldInfo newField(Runtime runtime, String name, ParameterizedType type, TypeInfo owner) {
-        String cleanName = name.replace(VF_CHAR, "");
-        FieldInfo fi = runtime.newFieldInfo(VF_CHAR + cleanName, false, type, owner);
+        String cleanName = VF_CHAR + name.replace(VF_CHAR, "");
+        return newFieldKeepName(runtime, cleanName, type, owner);
+    }
+
+    public static FieldInfo newFieldKeepName(Runtime runtime, String name, ParameterizedType type, TypeInfo owner) {
+        FieldInfo fi = runtime.newFieldInfo(name, false, type, owner);
         fi.builder().setInitializer(runtime.newEmptyExpression()).commit();
         return fi;
     }

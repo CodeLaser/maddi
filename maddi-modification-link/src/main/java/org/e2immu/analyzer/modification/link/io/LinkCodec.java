@@ -199,7 +199,7 @@ public class LinkCodec {
                 TypeInfo owner = currentType.typeInfo();
                 assert list.size() == pos + 2; // pre, this, one extra
                 ParameterizedType fieldType = decodeType(context, list.get(pos + 1));
-                return VirtualFieldComputer.newField(runtime, name, fieldType, owner);
+                return VirtualFieldComputer.newFieldKeepName(runtime, name, fieldType, owner);
             }
             return super.decodeInfo(context, currentType, type, name, list, pos);
         }
