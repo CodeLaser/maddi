@@ -197,7 +197,7 @@ public class TestList extends CommonTest {
 
         MethodInfo constructor = X.findConstructor(1);
         MethodLinkedVariables mlvConstructor = tlc.doMethod(constructor);
-        assertEquals("[0:in→this*.list] --> -", mlvConstructor.toString());
+        assertEquals("[0:in→this*.list,0:in.§m≡this*.list.§m] --> -", mlvConstructor.toString());
     }
 
     @Language("java")

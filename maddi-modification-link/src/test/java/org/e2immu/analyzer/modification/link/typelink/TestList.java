@@ -28,7 +28,8 @@ import java.util.List;
 import java.util.Set;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class TestList extends CommonTest {
 
@@ -298,6 +299,53 @@ public class TestList extends CommonTest {
                     .getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT, ValueImpl.VariableBooleanMapImpl.class);
             assertEquals("iis=true", tlvMc.toString());
         }
+    }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            import java.util.List;
+            public class X {
+                List<String> method1(List<String> in) {
+                    return in.subList(0, 4);
+                }
+                List<String> method2(List<String> in) {
+                    List<String> intermediate1 = in.subList(0, 4);
+                    System.out.println(intermediate1);
+                    List<String> intermediate2 = intermediate1;
+                    return intermediate2;
+                }
+            }
+            """;
+
+    @DisplayName("Show how §m is present after an assignment")
+    @Test
+    public void test5() {
+        TypeInfo X = javaInspector.parse(INPUT5);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo method1 = X.findUniqueMethod("method1", 1);
+        MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method1));
+        assertEquals("[-] --> method1.§$s⊆0:in.§$s,method1.§m≡0:in.§m", mlv1.toString());
+
+        MethodInfo method2 = X.findUniqueMethod("method2", 1);
+        MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
+
+        VariableData vd2 = VariableDataImpl.of(method2.methodBody().statements().get(2));
+        VariableInfo viIntermediate2 = vd2.variableInfo("intermediate2");
+        // the 4th link is created by LinkGraph.makeComparableSub
+        assertEquals("""
+                intermediate2.§$s←intermediate1.§$s,\
+                intermediate2.§$s⊆0:in.§$s,\
+                intermediate2.§m≡0:in.§m,\
+                intermediate2.§m≡intermediate1.§m,\
+                intermediate2←intermediate1\
+                """, viIntermediate2.linkedVariables().toString());
+        assertEquals("[-] --> method2.§$s⊆0:in.§$s,method2.§m≡0:in.§m", mlv2.toString());
     }
 
 }

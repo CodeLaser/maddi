@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_FIELD;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.IS_FIELD_OF;
-import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.isVirtualModificationField;
 
 public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean checkDuplicateNames) {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkGraph.class);
@@ -205,7 +204,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                     if (subsOfFrom != null && vTo.v.equals(Util.firstRealVariable(vTo.v)) && isNotNullConstant(vTo.v)) {
                         for (V s : subsOfFrom) {
                             LinkNature ln;
-                            if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
+                            if (s.v instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())) {
                                 ln = LinkNatureImpl.makeIdenticalTo(null);
                             } else {
                                 ln = linkNature;
@@ -221,7 +220,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                     if (subsOfTo != null && vFrom.v.equals(Util.firstRealVariable(vFrom.v)) && isNotNullConstant(vFrom.v)) {
                         for (V s : subsOfTo) {
                             LinkNature ln;
-                            if (s.v instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo())) {
+                            if (s.v instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())) {
                                 ln = LinkNatureImpl.makeIdenticalTo(null);
                             } else {
                                 ln = linkNature;
@@ -304,7 +303,8 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     }
 
     // sorting is needed to consistently take the same direction for tests
-    static Links.Builder followGraph(Map<V, Map<V, LinkNature>> graph, Variable primary,
+    static Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer,
+                                     Map<V, Map<V, LinkNature>> graph, Variable primary,
                                      Set<MethodInfo> causesOfModification) {
         V tPrimary = new V(primary);
         Links.Builder builder = new LinksImpl.Builder(tPrimary.v);
@@ -355,6 +355,17 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                         !firstRealFrom.equals(firstRealTo))
                     && block.add(new PC(from.v, linkNature, toV))) {
                     builder.add(from.v, linkNature, toV);
+                    if (linkNature.isIdenticalToOrAssignedFromTo()
+                        && !(primaryTo instanceof ReturnVariable) && !(primaryFrom instanceof ReturnVariable)
+                        && !Util.virtual(from.v)
+                        && !Util.virtual(toV)
+                        && virtualFieldComputer != null) {
+                        VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(from.v, toV);
+                        LinkNature id = LinkNatureImpl.makeIdenticalTo(null);
+                        if (m2 != null && !builder.contains(m2.m1(), id, m2.m2())) {
+                            builder.add(m2.m1(), id, m2.m2());
+                        }
+                    }
                     // don't add if the reverse is already present in this builder
                     block.add(new PC(toV, linkNature.reverse(), from.v));
                     // when adding p.sub < q.sub, don't add p < q.sub, p.sub < q
@@ -470,7 +481,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(graph));
         }
-        Links.Builder builder = followGraph(graph, links.primary(), Set.of());
+        Links.Builder builder = followGraph(null, graph, links.primary(), Set.of());
         builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
         return builder.build();
     }

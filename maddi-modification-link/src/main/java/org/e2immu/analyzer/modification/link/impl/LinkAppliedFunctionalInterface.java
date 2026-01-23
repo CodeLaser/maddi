@@ -9,12 +9,14 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -32,12 +34,12 @@ TestBiFunction
     toAdd = $__rv1 ← this.ix, $__rv1 ← this.jx
 TestStaticBiFunction
 
-TestModificationFunctional,1b: the MR is a direct argument
-
-TMF,2: the MR is a field inside the argument. What we can do is open up the record variable,
+TestModificationFunctional,1: the MR is a direct argument
+TestModificationFunctional,2,2b: the MR is a field inside the argument. What we can do is open up the record variable,
 and find out that it links to a functional interface variable, nr.function ← Λ$_fi1.
 In TestBiFunction, this fiv has already been expanded at the beginning of LinkMethodCall.
 
+In TestModificationFunctional,5, the MR is a "field" defined by a getter on an interface
  */
 public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                                              Runtime runtime,
@@ -58,8 +60,10 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
         ParameterizedType functionalType;
         if (!applied.sourceOfFunctionalInterface().parameterizedType().isStandardFunctionalInterface()) {
             // we must search for links to FIVs, and expand them
-            SearchResult sr = searchAndExpand(list, extraModified);
+            SearchResult sr = searchAndExpand(list);
             if (sr == null) return;
+            // do the default translation from formal parameter to argument
+            extraModified.addAll(sr.extraModified);
             functionalType = sr.functionalType;
             list = List.of(sr.links);
         } else if (isLinkedToParameter(list)) {
@@ -83,11 +87,13 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                                              && l.linkNature().isAssignedFrom()));
     }
 
-    private record SearchResult(ParameterizedType functionalType, Links links) {
+    private record SearchResult(ParameterizedType functionalType, Links links, Set<Variable> extraModified) {
     }
 
-    private SearchResult searchAndExpand(List<Links> list, Set<Variable> extraModified) {
+    private SearchResult searchAndExpand(List<Links> list) {
+        Set<Variable> extraModified = new HashSet<>();
         for (Links links : list) {
+            if (links.primary() == null) continue;
             Variable list0Primary = links.primary();
             VariableInfoContainer vic = variableData.variableInfoContainerOrNull(list0Primary.fullyQualifiedName());
             if (vic != null) {
@@ -97,9 +103,19 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                         .map(l -> (FunctionalInterfaceVariable) l.to())
                         .toList();
                 for (FunctionalInterfaceVariable fi : fis) {
-                    fi.modified().stream().filter(this::acceptForExtra).forEach(extraModified::add);
+                    TranslationMap.Builder builder = runtime.newTranslationMapBuilder();
+                    if (fi.result().links().primary() instanceof ReturnVariable rv) {
+                        // FIXME this is hard-coded, needs general implementation
+                        // See TestModificationFunctional,5,6,7
+                        builder.put(rv.methodInfo().parameters().getFirst(), list0Primary);
+                    }
+                    TranslationMap tm = builder.build();
+                    fi.modified().stream()
+                            .map(tm::translateVariableRecursively)
+                            .filter(this::acceptForExtra)
+                            .forEach(extraModified::add);
                     Result expanded = fi.result().expandFunctionalInterfaceVariables();
-                    return new SearchResult(fi.parameterizedType(), expanded.links());
+                    return new SearchResult(fi.parameterizedType(), expanded.links(), extraModified);
                 }
 
             }

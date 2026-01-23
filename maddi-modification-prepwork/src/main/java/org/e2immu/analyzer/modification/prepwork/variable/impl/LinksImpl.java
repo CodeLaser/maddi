@@ -246,7 +246,7 @@ public class LinksImpl implements Links {
         }
 
         private static boolean doNotStackMOnTopOfVirtualField(Variable v) {
-            return !(v instanceof FieldReference fr && Util.isVirtualMutationField(fr.fieldInfo())
+            return !(v instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())
                      && fr.scopeVariable() instanceof FieldReference fr2 && Util.virtual(fr2.fieldInfo()));
         }
 

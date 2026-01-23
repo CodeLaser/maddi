@@ -1,5 +1,8 @@
 package org.e2immu.analyzer.modification.link.vf;
 
+import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.link.impl.VariableTranslationMap;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -12,6 +15,8 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -75,12 +80,6 @@ public class VirtualFieldComputer {
         ParameterizedType iterator = javaInspector.compiledTypesManager().getOrLoad(Iterator.class).asParameterizedType();
         this.genericsHelper = new GenericsHelperImpl(runtime);
         multi2 = Set.of(iterable.typeInfo(), iterator.typeInfo());
-    }
-
-    public static boolean isVirtualModificationField(FieldInfo fieldInfo) {
-        return "§m".equals(fieldInfo.name())
-               && fieldInfo.type().typeInfo() != null
-               && AtomicBoolean.class.getCanonicalName().equals(fieldInfo.type().typeInfo().fullyQualifiedName());
     }
 
     // ----- computation of "temporary" virtual fields
@@ -458,4 +457,24 @@ public class VirtualFieldComputer {
             };
         }
     };
+
+    public record M2(Variable m1, Variable m2) {
+    }
+
+    public M2 addModificationFieldEquivalence(Variable from, Variable to) {
+        if (Util.needsVirtual(from.parameterizedType()) && Util.needsVirtual(to.parameterizedType())) {
+            // FIXME what when one needs virtual, and the other does not? is technically possible;
+            Value.Immutable immutableTo = new AnalysisHelper().typeImmutable(to.parameterizedType());
+            Value.Immutable immutableFrom = new AnalysisHelper().typeImmutable(to.parameterizedType());
+            Value.Immutable worst = immutableFrom.min(immutableTo);
+            if (worst.isMutable()) {
+                FieldInfo f1 = newMField(VariableTranslationMap.owner(runtime, from.parameterizedType()));
+                FieldReference m1 = runtime.newFieldReference(f1, runtime.newVariableExpression(from), f1.type());
+                FieldInfo f2 = newMField(VariableTranslationMap.owner(runtime, to.parameterizedType()));
+                FieldReference m2 = runtime.newFieldReference(f2, runtime.newVariableExpression(to), f2.type());
+                return new M2(m1, m2);
+            }
+        }
+        return null;
+    }
 }
