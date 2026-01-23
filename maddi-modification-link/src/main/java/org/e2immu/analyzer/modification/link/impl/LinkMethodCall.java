@@ -20,8 +20,6 @@ import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,7 +34,6 @@ public record LinkMethodCall(JavaInspector javaInspector,
                              MethodInfo currentMethod,
                              VariableData variableData,
                              Stage stage) {
-    private static final Logger LOGGER = LoggerFactory.getLogger(LinkMethodCall.class);
 
     public Result constructorCall(MethodInfo methodInfo,
                                   Result object,
@@ -71,8 +68,6 @@ public record LinkMethodCall(JavaInspector javaInspector,
 
     private record LM(Links links, Set<Variable> extraModified) {
     }
-
-    private static final LM EMPTY_LM = new LM(LinksImpl.EMPTY, Set.of());
 
     private List<Result> expandParams(MethodLinkedVariables mlv, boolean externalLibrary, List<Result> paramsIn) {
         List<Result> results = new ArrayList<>(paramsIn.size());
@@ -113,18 +108,18 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
         Links concreteReturnValue;
         Set<Variable> extraModified;
-        if (mlv.ofReturnValue() == null) {
-            concreteReturnValue = LinksImpl.EMPTY;
-            extraModified = Set.of();
-        } else if (methodInfo.isSAMOfStandardFunctionalInterface() && methodInfo.hasReturnValue()) {
+        if (methodInfo.isSAMOfStandardFunctionalInterface()) {
             assert methodInfo == methodInfo.typeInfo().singleAbstractMethod();
-            concreteReturnValue = parametersToReturnValue(methodInfo, concreteReturnType, params, objectPrimary,
-                    extra);
-            extraModified = Set.of();
-        } else {
+            concreteReturnValue = samOfFunctionalInterface(concreteReturnType, params, objectPrimary, extra);
+            extraModified = new HashSet<>();
+        } else if (!mlv.ofReturnValue().isEmpty()) {
+            assert mlv.ofReturnValue().primary() instanceof ReturnVariable;
             LM lm = objectToReturnValue(methodInfo, concreteReturnType, params, mlv, objectPrimary);
             concreteReturnValue = lm.links;
             extraModified = lm.extraModified;
+        } else {
+            concreteReturnValue = LinksImpl.EMPTY;
+            extraModified = new HashSet<>();
         }
         if (objectPrimary != null) {
             Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
@@ -136,9 +131,36 @@ public record LinkMethodCall(JavaInspector javaInspector,
             }
         } else {
             linksBetweenParameters(methodInfo, params, mlv, extra);
+            appliedFunctionalInterfaces(methodInfo, params, extraModified, mlv, extra);
         }
         return new Result(concreteReturnValue, new LinkedVariablesImpl(extra))
                 .addModified(extraModified, null);
+    }
+
+    private void appliedFunctionalInterfaces(MethodInfo methodInfo,
+                                             List<Result> params,
+                                             Set<Variable> extraModified,
+                                             MethodLinkedVariables mlv,
+                                             Map<Variable, Links> extra) {
+        int i = 0;
+        assert mlv.ofParameters().size() == methodInfo.parameters().size();
+        for (Links links : mlv.ofParameters()) {
+            if (links != null) {
+                for (Link link : links) {
+                    if (link.to() instanceof AppliedFunctionalInterfaceVariable applied) {
+                        // TestModificationFunctional,7,8
+                        LinkAppliedFunctionalInterface handler = new LinkAppliedFunctionalInterface(javaInspector, runtime,
+                                linkComputerOptions, virtualFieldComputer, currentMethod, variableData, stage);
+                        LinksImpl.Builder builder = new LinksImpl.Builder(links.primary());
+                        Function<Variable, List<Links>> paramProvider = v ->
+                                v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
+                        handler.go(builder, paramProvider, applied, extraModified, null, link.linkNature(),
+                                null);
+                        extra.merge(links.primary(), builder.build(), Links::merge);
+                    }
+                }
+            }
+        }
     }
 
     private void linksBetweenParameters(MethodInfo methodInfo,
@@ -148,7 +170,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         int i = 0;
         assert mlv.ofParameters().size() == methodInfo.parameters().size();
         for (Links links : mlv.ofParameters()) {
-            if (links != null && !links.isEmpty()) {
+            if (links != null) {
                 for (Link link : links) {
                     ParameterInfo to = Util.parameterPrimaryOrNull(link.to());
                     if (to == null) continue;
@@ -231,12 +253,6 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                    MethodLinkedVariables mlv,
                                    Variable objectPrimary) {
         Links ofReturnValue = mlv.ofReturnValue();
-        Variable rvPrimary = ofReturnValue.primary();
-        if (rvPrimary == null || ofReturnValue.isEmpty()) {
-            return EMPTY_LM;
-        }
-        assert rvPrimary instanceof ReturnVariable
-                : "the links of the method return value must be in the return variable";
         assert !methodInfo.isVoid() || methodInfo.isConstructor()
                 : "Cannot be a void function if we have a return variable";
         Variable newPrimary = IntermediateVariable.returnValue(runtime, variableCounter.getAndIncrement(),
@@ -309,13 +325,10 @@ public record LinkMethodCall(JavaInspector javaInspector,
         return v instanceof ReturnVariable || v instanceof IntermediateVariable iv && iv.isReturnVariable();
     }
 
-    private Links parametersToReturnValue(MethodInfo methodInfo,
-                                          ParameterizedType concreteReturnType,
-                                          List<Result> params,
-                                          Variable objectPrimary,
-                                          Map<Variable, Links> extra) {
-        assert !methodInfo.isVoid() || methodInfo.isConstructor()
-                : "Cannot be a void function if we have a return variable";
+    private Links samOfFunctionalInterface(ParameterizedType concreteReturnType,
+                                           List<Result> params,
+                                           Variable objectPrimary,
+                                           Map<Variable, Links> extra) {
         ParameterInfo piPrimary = Util.parameterPrimaryOrNull(objectPrimary);
         Variable applied = new AppliedFunctionalInterfaceVariable(runtime,
                 variableCounter.getAndIncrement(),
