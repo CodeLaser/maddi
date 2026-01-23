@@ -124,7 +124,10 @@ public interface MethodInfo extends Info {
         return this == typeInfo().singleAbstractMethod()
                && ("java.util.function".equals(typeInfo().packageName())
                    || Runnable.class.getCanonicalName().equals(typeInfo().fullyQualifiedName())
-                   || typeInfo().isSynthetic());
+                   || typeInfo().isSynthetic()
+                   || typeInfo().annotations().stream()
+                           .anyMatch(ae -> "java.lang.FunctionalInterface"
+                                   .equals(ae.typeInfo().fullyQualifiedName())));
     }
     // from inspection
 

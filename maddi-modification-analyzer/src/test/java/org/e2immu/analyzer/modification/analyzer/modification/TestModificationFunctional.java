@@ -24,6 +24,7 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestModificationFunctional extends CommonTest {
@@ -386,4 +386,294 @@ public class TestModificationFunctional extends CommonTest {
                 """, mlvGo.sortedModifiedString());
     }
 
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            
+            import org.e2immu.annotation.Independent;
+            import org.e2immu.annotation.Modified;
+            import org.e2immu.annotation.NotModified;
+            import org.e2immu.annotation.method.GetSet;
+            import java.util.HashSet;import java.util.Set;
+            
+            public class X {
+                @FunctionalInterface
+                public interface ThrowingFunction {
+                    TryData apply(@Independent(hc = true) @Modified TryData o) throws Throwable;
+                }
+                public interface TryData {
+                    @GetSet
+                    @NotModified
+                    ThrowingFunction throwingFunction();
+                }
+                public static TryData run(TryData td) {
+                    try {
+                        return td.throwingFunction().apply(td);
+                    } catch (Throwable e) {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+                public static class TryDataImpl implements TryData {
+                    private final ThrowingFunction throwingFunction;
+                    public TryDataImpl(ThrowingFunction throwingFunction) {
+                        this.throwingFunction = throwingFunction;
+                    }
+                    @Override
+                    public ThrowingFunction throwingFunction() {
+                        return throwingFunction;
+                    }
+                    public static class Builder {
+                        private ThrowingFunction bodyThrowingFunction;
+            
+                        public Builder body(ThrowingFunction throwingFunction) {
+                            this.bodyThrowingFunction = throwingFunction;
+                            return this;
+                        }
+                        public TryDataImpl build() {
+                            return new TryDataImpl(bodyThrowingFunction);
+                        }
+                    }
+                }
+                private Set<Integer> someSet = new HashSet<>();
+                public void method() {
+                    TryData td = new TryDataImpl.Builder().body(this::methodBody).build();
+                    run(td);
+                }
+                private TryData methodBody(TryData tryData) {
+                    this.someSet.add(5);
+                    return tryData;
+                }
+            }
+            """;
+
+    @DisplayName("ThrowingFunction: propagation part 1")
+    @Test
+    public void test5() {
+        TypeInfo X = javaInspector.parse(INPUT5);
+        List<Info> analysisOrder = prepWork(X);
+        analyzer.go(analysisOrder);
+
+        MethodInfo method = X.findUniqueMethod("method", 0);
+        MethodInfo methodBody = X.findUniqueMethod("methodBody", 1);
+        assertTrue(methodBody.isModifying());
+        MethodLinkedVariablesImpl mlvMethodBody = methodBody.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> methodBody←Λ0:tryData", mlvMethodBody.toString());
+        assertEquals("this, this.someSet", mlvMethodBody.sortedModifiedString());
+        assertTrue(methodBody.isIdentity());
+
+        TypeInfo throwingFunction = X.findSubType("ThrowingFunction");
+        assertTrue(throwingFunction.isFunctionalInterface());
+
+        TypeInfo tryData = X.findSubType("TryData");
+
+        TypeInfo tryDataImpl = X.findSubType("TryDataImpl");
+        TypeInfo builder = tryDataImpl.findSubType("Builder");
+        MethodInfo build = builder.findUniqueMethod("build", 0);
+        assertEquals("""
+                [] --> build.throwingFunction←Λthis.bodyThrowingFunction\
+                """, build.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
+
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo viTd = vd0.variableInfo("td");
+        // important intermediary step: we know that the lambda is present as a field of 'td'
+        assertEquals("td.throwingFunction←ΛmethodBody", viTd.linkedVariables().toString());
+
+        MethodInfo run = X.findUniqueMethod("run", 1);
+        // second step: we must acknowledge that a functional interface is being called by "run"
+        assertEquals("""
+                [0:td.throwingFunction*↗Λ$_afi2] --> run←Λ$_afi2,run↖Λ0:td.throwingFunction*\
+                """, run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
+
+        // this is the ultimate goal: we know that run(td) calls the apply function, so we know that methodBody
+        // is called, so its modification is propagated.
+        assertTrue(method.isModifying());
+
+        FieldInfo someSet = X.getFieldByName("someSet", true);
+        assertTrue(someSet.isModified());
+    }
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            
+            import org.e2immu.annotation.Independent;
+            import org.e2immu.annotation.Modified;
+            import org.e2immu.annotation.NotModified;
+            import org.e2immu.annotation.method.GetSet;
+            
+            import java.util.HashSet;
+            import java.util.Set;
+            
+            public class X {
+                @FunctionalInterface
+                public interface ThrowingFunction {
+                    TryData apply(@Independent(hc = true) @Modified TryData o) throws Throwable;
+                }
+                public interface TryData {
+                    @GetSet
+                    @NotModified
+                    ThrowingFunction throwingFunction();
+                    @GetSet("variables")
+                    @NotModified
+                    Object get(int i);
+                }
+                public static TryData run(TryData td) {
+                    try {
+                        return td.throwingFunction().apply(td);
+                    } catch (Throwable e) {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+                public static class TryDataImpl implements TryData {
+                    private final ThrowingFunction throwingFunction;
+                    private final Object[] variables;
+
+                    public TryDataImpl(ThrowingFunction throwingFunction, Object[] variables) {
+                        this.throwingFunction = throwingFunction;
+                        this.variables = variables;
+                    }
+                    @Override
+                    public ThrowingFunction throwingFunction() {
+                        return throwingFunction;
+                    }
+                    @Override
+                    public Object get(int i) {
+                        return variables[i];
+                    }
+
+                    public static class Builder {
+                        private ThrowingFunction bodyThrowingFunction;
+                        private final Object[] variables = new Object[10];
+            
+                        public Builder body(ThrowingFunction throwingFunction) {
+                            this.bodyThrowingFunction = throwingFunction;
+                            return this;
+                        }
+                        public Builder set(int pos, Object value) {
+                            variables[pos] = value;
+                            return this;
+                        }
+                        public TryDataImpl build() {
+                            return new TryDataImpl(bodyThrowingFunction, variables);
+                        }
+                    }
+                }
+                private Set<Integer> someSet = new HashSet<>();
+                public void method() {
+                    TryData td = new TryDataImpl.Builder().set(0, someSet).body(this::methodBody).build();
+                    run(td);
+                }
+                @SuppressWarnings("unchecked")
+                private TryData methodBody(TryData tryData) {
+                    Set<Integer> set = (Set<Integer>)tryData.get(0);
+                    set.add(5);
+                    return tryData;
+                }
+            }
+            """;
+
+    @DisplayName("ThrowingFunction: propagation part 2")
+    @Test
+    public void test6() {
+        TypeInfo X = javaInspector.parse(INPUT6);
+        List<Info> analysisOrder = prepWork(X);
+        analyzer.go(analysisOrder);
+
+        MethodInfo method = X.findUniqueMethod("method", 0);
+        MethodInfo methodBody = X.findUniqueMethod("methodBody", 1);
+        assertFalse(methodBody.isModifying());
+        ParameterInfo methodBody0 = methodBody.parameters().getFirst();
+        assertTrue(methodBody0.isModified());
+        // FIXME downcast parameter should be present as explanation for modification of methodBody:0:tryData
+        //assertEquals("", methodBody0.analysis().getOrNull(PropertyImpl.DOWNCAST_PARAMETER,
+        //        ValueImpl.VariableToTypeInfoSetImpl.class).toString());
+        MethodLinkedVariablesImpl mlvMethodBody = methodBody.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("""
+                [0:tryData.variables*[0]*.§$s∋$_ce3,0:tryData.variables*[0]*.§$s≤0:tryData.variables*,\
+                0:tryData.variables*[0]*.§m≤0:tryData.variables*,0:tryData.variables*[0]*∈0:tryData.variables*] \
+                --> \
+                methodBody.variables[0].§$s←0:tryData.variables*[0]*.§$s,\
+                methodBody.variables[0].§$s∋$_ce3,\
+                methodBody.variables[0].§$s≤methodBody.variables,\
+                methodBody.variables[0].§$s≤0:tryData.variables*,\
+                methodBody.variables[0].§m≡0:tryData.variables*[0]*.§m,\
+                methodBody.variables[0].§m≤methodBody.variables,\
+                methodBody.variables[0].§m≤0:tryData.variables*,\
+                methodBody.variables[0]←0:tryData.variables*[0]*,\
+                methodBody.variables[0]∈methodBody.variables,\
+                methodBody.variables[0]∈0:tryData.variables*,\
+                methodBody.variables←0:tryData.variables*,\
+                methodBody.variables∋0:tryData.variables*[0]*,\
+                methodBody.variables≥0:tryData.variables*[0]*.§$s,\
+                methodBody.variables≥0:tryData.variables*[0]*.§m,\
+                methodBody←0:tryData*\
+                """, mlvMethodBody.toString());
+        assertEquals("a.b.X.methodBody(a.b.X.TryData):0:tryData, tryData.variables, tryData.variables[0]",
+                mlvMethodBody.sortedModifiedString());
+        assertTrue(methodBody.isIdentity());
+
+        TypeInfo throwingFunction = X.findSubType("ThrowingFunction");
+        assertTrue(throwingFunction.isFunctionalInterface());
+
+        TypeInfo tryData = X.findSubType("TryData");
+
+        TypeInfo tryDataImpl = X.findSubType("TryDataImpl");
+        TypeInfo builder = tryDataImpl.findSubType("Builder");
+        MethodInfo build = builder.findUniqueMethod("build", 0);
+        assertEquals("""
+                [] --> build.throwingFunction←Λthis.bodyThrowingFunction,build.variables←this.variables\
+                """, build.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
+
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo viTd = vd0.variableInfo("td");
+        // important intermediary step: we know that the lambda is present as a field of 'td'
+        assertEquals("""
+                td.throwingFunction.variables←0:tryData.bodyThrowingFunction.variables,\
+                td.throwingFunction.variables←methodBody.variables,\
+                td.throwingFunction.variables≥Λ0:tryData.bodyThrowingFunction,\
+                td.throwingFunction.variables≥Λtd.throwingFunction,\
+                td.throwingFunction.variables≥0:tryData.variables,td.throwingFunction.variables≥0:tryData.variables[0],\
+                td.throwingFunction.variables≥td.variables,td.throwingFunction.variables≥td.variables[0],\
+                td.throwingFunction.variables≥0:tryData.variables[0].§$s,\
+                td.throwingFunction.variables≥td.variables[0].§$s,td.throwingFunction.variables≥0:tryData.variables[0].§m,\
+                td.throwingFunction.variables≥td.variables[0].§m,td.throwingFunction.variables≥this.someSet.§$s,\
+                td.throwingFunction.variables≥this.someSet.§m,td.throwingFunction.variables≥$_ce3,\
+                td.throwingFunction.variables≥methodBody,td.throwingFunction←Λ0:tryData.bodyThrowingFunction,\
+                td.throwingFunction←methodBody,td.throwingFunction≥0:tryData.bodyThrowingFunction.variables,\
+                td.throwingFunction≥td.throwingFunction.variables,td.throwingFunction≥methodBody.variables,\
+                td.throwingFunction≥this.someSet,td.variables[0].§$s←0:tryData.variables[0].§$s,\
+                td.variables[0].§$s←this.someSet.§$s,td.variables[0].§$s∋$_ce3,\
+                td.variables[0].§$s∋0:tryData,td.variables[0].§$s≥0:tryData.bodyThrowingFunction.variables,\
+                td.variables[0].§$s≥td.throwingFunction.variables,td.variables[0].§$s≥methodBody.variables,\
+                td.variables[0].§$s≥0:tryData.variables,td.variables[0].§$s≥0:tryData.variables[0],\
+                td.variables[0].§$s≥td.variables,td.variables[0].§$s≥0:tryData.variables[0].§m,\
+                td.variables[0].§$s≥this.someSet.§m,td.variables[0].§m≡0:tryData.variables[0].§m,\
+                td.variables[0].§m≡this.someSet.§m,td.variables[0].§m≤0:tryData.bodyThrowingFunction.variables,\
+                td.variables[0].§m≤Λtd.throwingFunction,td.variables[0].§m≤methodBody.variables,\
+                td.variables[0].§m≤0:tryData.variables,td.variables[0].§m≤td.variables,\
+                td.variables[0].§m≤0:tryData.variables[0].§$s,td.variables[0].§m≤this.someSet.§$s,\
+                td.variables[0]←0:tryData.variables[0],\
+                td.variables[0]←this.someSet,\
+                td.variables[0]∈0:tryData.variables,td.variables[0]∈td.variables,\
+                td.variables[0]≤Λ0:tryData.bodyThrowingFunction,td.variables[0]≤methodBody,td.variables←0:tryData.variables,\
+                td.variables∋0:tryData.variables[0],td.variables∋this.someSet,\
+                td.variables≥Λ0:tryData.bodyThrowingFunction,td.variables≥Λtd.throwingFunction,\
+                td.variables≥0:tryData.variables[0].§$s,td.variables≥td.variables[0].§$s,\
+                td.variables≥this.someSet.§$s,td.variables≥methodBody\
+                """, viTd.linkedVariables().toString());
+
+        MethodInfo run = X.findUniqueMethod("run", 1);
+        // second step: we must acknowledge that a functional interface is being called by "run"
+        assertEquals("""
+                [0:td.throwingFunction*↗$_afi4] --> run←$_afi4,run↖Λ0:td.throwingFunction*\
+                """, run.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
+
+        // this is the ultimate goal: we know that run(td) calls the apply function, so we know that methodBody
+        // is called, so its modification is propagated.
+        assertTrue(method.isModifying());
+
+        FieldInfo someSet = X.getFieldByName("someSet", true);
+        assertTrue(someSet.isModified());
+    }
 }
