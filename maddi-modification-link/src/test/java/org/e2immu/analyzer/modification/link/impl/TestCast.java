@@ -50,7 +50,7 @@ public class TestCast extends CommonTest {
             Statement s0 = setAdd.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo viObject0 = vd0.variableInfo(object);
-            assertEquals("0:object→set", viObject0.linkedVariables().toString());
+            assertEquals("0:object→set,0:object.§m≡set.§m", viObject0.linkedVariables().toString());
             assertFalse(viObject0.isModified());
         }
         {

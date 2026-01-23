@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_MEMBER;
 import static org.e2immu.analyzer.modification.prepwork.Util.virtual;
@@ -35,18 +37,34 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
     record Triplet(Variable from, LinkNature linkNature, Variable to) {
     }
 
+    private static List<Links> expand(List<Links> in) {
+        return in.stream().flatMap(links -> {
+            if (links.primary() instanceof FunctionalInterfaceVariable fiv) {
+                return Stream.of(fiv.result().links());
+            }
+            for (Link link : links) {
+                if (link.from().equals(links.primary())
+                    && link.to() instanceof FunctionalInterfaceVariable fiv && link.linkNature().isAssignedFrom()) {
+                    // 3 cases in TestSupplier (1b, 5method2, 7)
+                    return Stream.of(fiv.result().links());
+                }
+            }
+            return Stream.of(links);
+        }).toList();
+    }
+
     List<Triplet> go(ParameterizedType functionalInterfaceType,
                      Variable fromTranslated,
                      LinkNature linkNature,
                      Variable returnPrimary,
-                     List<Links> linksList,
+                     List<Links> linksListIn,
                      Variable objectPrimary) {
 
         // FUNCTIONAL INTERFACE
 
         MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
-        if (sam == null || linksList.isEmpty()) return List.of();
-
+        if (sam == null || linksListIn.isEmpty()) return List.of();
+        List<Links> linksList = expand(linksListIn);
         if (sam.parameters().isEmpty() || sam.noReturnValue()) {
             if (sam.noReturnValue() && linksList.stream().allMatch(Links::isEmpty)) {
                 // we must keep the connection to the primary (see TestForEachLambda,6)

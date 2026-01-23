@@ -29,7 +29,7 @@ import static org.e2immu.analyzer.modification.link.impl.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
-record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
+record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime, VirtualFieldComputer virtualFieldComputer) {
     private static final Logger LOGGER = LoggerFactory.getLogger(WriteLinksAndModification.class);
 
     record WriteResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData) {
@@ -64,7 +64,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
         LOGGER.debug("Variables to recompute: {}", recompute);
         Map<Variable, Links> newLinkedVariables = new HashMap<>(lr.newLinkedVariables);
         for (Variable variable : recompute) {
-            Links.Builder builder = followGraph(graph2, variable, modifiedDuringEvaluation.get(variable));
+            Links.Builder builder = followGraph(virtualFieldComputer, graph2, variable, modifiedDuringEvaluation.get(variable));
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
             newLinkedVariables.put(variable, builder.build());
         }
@@ -109,7 +109,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph(graph, variable, modifiedInThisEvaluation.get(variable));
+        Links.Builder builder = followGraph(virtualFieldComputer, graph, variable, modifiedInThisEvaluation.get(variable));
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
             handleReturnVariable(rv, builder);
@@ -168,7 +168,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                 LinkNature ln = link.linkNature();
                 if (ln.isIdenticalTo()
                     && link.to() instanceof FieldReference fr
-                    && VirtualFieldComputer.isVirtualModificationField(fr.fieldInfo())
+                    && Util.isVirtualModificationField(fr.fieldInfo())
                     && (ln.pass().isEmpty() || !Collections.disjoint(ln.pass(), causesOfModification))) {
                     // x.§m ≡ y.§m
                     // pass = see Iterable, whose iterator() method is @Independent(hc = true, except = "remove")
@@ -183,9 +183,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime) {
                 // in particular, it is NOT valid for arrays and unbound type parameters
                 if (ln == IS_ASSIGNED_TO) {
                     ParameterizedType pt = toReal.parameterizedType();
-                    TypeInfo typeInfo = pt.bestTypeInfo();
-                    if (pt.arrays() == 0 && typeInfo != null
-                        && !typeInfo.isAbstract() && !typeInfo.compilationUnit().externalLibrary()) {
+                    if (!Util.needsVirtual(pt)) {
                         Value.Immutable immutable = new AnalysisHelper().typeImmutable(pt);
                         if (!immutable.isAtLeastImmutableHC()) return false;
                     }

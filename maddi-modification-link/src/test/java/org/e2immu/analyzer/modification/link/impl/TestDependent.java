@@ -76,7 +76,7 @@ public class TestDependent extends CommonTest {
         MethodLinkedVariables mlv4 = extract4.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(extract4));
         VariableData vd04 = VariableDataImpl.of(extract4.methodBody().statements().getFirst());
         VariableInfo vi04copy = vd04.variableInfo("copy");
-        assertEquals("copy←0:list", vi04copy.linkedVariables().toString());
+        assertEquals("copy←0:list,copy.§m≡0:list.§m", vi04copy.linkedVariables().toString());
         assertEquals("[-] --> extract4∈0:list*.§ts", mlv4.toString());
 
         MethodInfo extract5 = X.findUniqueMethod("extract5", 1);

@@ -277,6 +277,7 @@ public class TestMap extends CommonTest {
         VariableInfo viMap = vd3.variableInfo("map");
 
         assertEquals("""
+                map.§m≡reverse0.map.§m,\
                 map.§vks[-1]→reverse0.map.§vks[-1],\
                 map.§vks[-1]∩this.map.§kvs,\
                 map.§vks[-1]∩reverse0.map.§vks[-2],\

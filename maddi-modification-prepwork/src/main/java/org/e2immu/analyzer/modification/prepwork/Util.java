@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.*;
 import org.jetbrains.annotations.NotNull;
 
@@ -122,7 +123,7 @@ public class Util {
         return variable == primary(variable);
     }
 
-    public static boolean isVirtualMutationField(FieldInfo fieldInfo) {
+    public static boolean isVirtualModificationField(FieldInfo fieldInfo) {
         return "§m".equals(fieldInfo.name());
     }
 
@@ -280,5 +281,12 @@ public class Util {
                    dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0;
         }
         return false;
+    }
+
+    public static boolean needsVirtual(ParameterizedType pt) {
+        if (pt.typeParameter() != null && pt.arrays() > 0) return true;
+        if (pt.isFunctionalInterface()) return false;
+        TypeInfo best = pt.bestTypeInfo();
+        return best != null && (best.isAbstract() || best.compilationUnit().externalLibrary());
     }
 }

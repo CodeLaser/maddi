@@ -81,13 +81,13 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
 
         FieldInfo exceptionField = TryDataImpl.getFieldByName("exception1", true);
         assertEquals("""
-                this.exception1←0:exception2,this.exception1→exception\
+                this.exception1←0:exception2,this.exception1≡0:exception2.§m,this.exception1→exception\
                 """, exceptionField.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
 
         MethodInfo withException = TryDataImpl.findUniqueMethod("withException", 1);
         MethodLinkedVariables mlvWe = withException.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> withException.exception1←0:exception3", mlvWe.toString());
-        FieldReference fr0 = (FieldReference) mlvWe.ofReturnValue().link(0).from();
+        assertEquals("[-] --> withException.exception1.§m≡0:exception3.§m,withException.exception1←0:exception3", mlvWe.toString());
+        FieldReference fr0 = (FieldReference) mlvWe.ofReturnValue().link(1).from();
         // why TryData? See LinkGraph.makeComparableSub; we correct the owner to the new sub
         // in this case, that's an interface.
         assertEquals("a.b.Try.TryData.exception1", fr0.fieldInfo().fullyQualifiedName());
@@ -112,22 +112,5 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
         MethodInfo exception1 = TryDataImpl1.findUniqueMethod("exception", 0);
         MethodLinkedVariables mlv1 = exception1.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals(mlv, mlv1);
-    }
-
-    private void testLink4(MethodLinkedVariables mlv) {
-        assertEquals("""
-                [-, -] --> oneInstance.§ksvs.§ks∋0:x,oneInstance.§ksvs.§vs∋1:y\
-                """, mlv.toString());
-
-        FieldReference ks = (FieldReference) mlv.ofReturnValue().link(0).from();
-        assertEquals("§ks", ks.fieldInfo().name());
-        assertEquals("java.util.AbstractMap.SimpleEntry.KSVS", ks.fieldInfo().owner().fullyQualifiedName());
-        assertEquals("Type param K[]", ks.parameterizedType().toString());
-
-        FieldReference ksvs = (FieldReference) ks.scopeVariable();
-        assertEquals("§ksvs", ksvs.fieldInfo().name());
-        assertEquals("Type java.util.AbstractMap.SimpleEntry.KSVS", ksvs.parameterizedType().toString());
-        assertEquals("java.util.Map.Entry", ksvs.fieldInfo().owner().fullyQualifiedName());
-        assertSame(VirtualFieldComputer.VIRTUAL_FIELD, ksvs.parameterizedType().typeInfo().typeNature());
     }
 }
