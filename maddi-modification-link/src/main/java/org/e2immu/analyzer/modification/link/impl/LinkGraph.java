@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -250,6 +251,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     // must ensure that there are sufficient array capabilities on the target side when the sub is indexing
     private static boolean ensureArraysWhenSubIsIndex(Variable from, Variable sub, Variable target) {
         if (sub.equals(target)) return false;
+        if (from instanceof FunctionalInterfaceVariable || target instanceof FunctionalInterfaceVariable) return false;
         if (sub instanceof DependentVariable dv && Util.scopeVariables(dv).contains(from)
             && (!(dv.indexExpression() instanceof IntConstant ic) || ic.constant() >= 0)) {
             return target.parameterizedType().arrays() == from.parameterizedType().arrays();
