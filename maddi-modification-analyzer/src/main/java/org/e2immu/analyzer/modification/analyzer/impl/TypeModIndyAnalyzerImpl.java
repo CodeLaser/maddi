@@ -124,11 +124,10 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             && !mlv.ofReturnValue().isEmpty()) {
             Variable primaryFrom = mlv.ofReturnValue().primary();
             Variable p0 = methodInfo.parameters().getFirst();
-            identity = mlv.ofReturnValue().stream().allMatch(link -> {
-                if (link.from().equals(primaryFrom)) return link.to().equals(p0);
-                ParameterInfo pi = Util.parameterPrimaryOrNull(link.to());
-                return p0.equals(pi);
-            });
+            identity = mlv.ofReturnValue().stream().allMatch(link -> !link.from().equals(primaryFrom) || link.to().equals(p0));
+            //     ParameterInfo pi = Util.parameterPrimaryOrNull(link.to());
+            //     return p0.equals(pi);
+            // });
         } else {
             identity = false;
         }
