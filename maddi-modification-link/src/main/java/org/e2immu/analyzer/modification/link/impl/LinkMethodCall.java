@@ -74,6 +74,25 @@ public record LinkMethodCall(JavaInspector javaInspector,
 
     private static final LM EMPTY_LM = new LM(LinksImpl.EMPTY, Set.of());
 
+    private List<Result> expandParams(MethodLinkedVariables mlv, boolean externalLibrary, List<Result> paramsIn) {
+        List<Result> results = new ArrayList<>(paramsIn.size());
+        int i = 0;
+        int n = mlv.ofParameters().size();
+        for (Result result : paramsIn) {
+            Links pLinks = mlv.ofParameters().get(Math.min(n - 1, i));
+            Result r;
+            if (externalLibrary
+                || pLinks.stream().anyMatch(l -> l.to() instanceof AppliedFunctionalInterfaceVariable)) {
+                r = result.expandFunctionalInterfaceVariables();
+            } else {
+                r = result;
+            }
+            results.add(r);
+            ++i;
+        }
+        return results;
+    }
+
     // we're trying for both method calls and normal constructor calls
     // the latter have a newly created temporary local variable as their object primary
     public Result methodCall(MethodInfo methodInfo,
@@ -82,7 +101,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
                              List<Result> paramsIn,
                              MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
-        List<Result> params = paramsIn.stream().map(Result::expandFunctionalInterfaceVariables).toList();
+        List<Result> params = expandParams(mlv, methodInfo.typeInfo().compilationUnit().externalLibrary(), paramsIn);
         copyParamsIntoExtra(methodInfo.parameters(), params, extra);
         Variable objectPrimary = object.links().primary();
         if (!object.links().isEmpty()) {

@@ -82,8 +82,8 @@ public class TestMapManual extends CommonTest {
                 new LinksImpl.Builder(mapGetRv)
                         .add(mapGetRv, LinkNatureImpl.IS_ELEMENT_OF, eInfo.thisMapEV)
                         .build(),
-                List.of(), Set.of());
-        assertEquals("[] --> get∈this.eArray[-1].v", mlvGet.toString());
+                List.of(LinksImpl.EMPTY), Set.of());
+        assertEquals("[-] --> get∈this.eArray[-1].v", mlvGet.toString());
         mapGet.analysis().set(METHOD_LINKS, mlvGet);
     }
 
