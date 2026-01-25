@@ -905,7 +905,8 @@ public class TestModificationFunctional extends CommonTest {
         MethodInfo build = builder.findUniqueMethod("build", 0);
         assertEquals("""
                 [] --> build.throwingFunction←Λthis.bodyThrowingFunction,\
-                build.variables.§m≡this.variables.§m,build.variables←this.variables\
+                build.variables.§m≡this.variables.§m,\
+                build.variables←this.variables\
                 """, build.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
