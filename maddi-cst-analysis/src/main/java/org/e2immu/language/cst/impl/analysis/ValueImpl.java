@@ -1107,8 +1107,28 @@ public abstract class ValueImpl implements Value {
     }
 
 
-    public record SetOfMethodInfoImpl(Set<MethodInfo> methodInfoSet) implements SetOfMethodInfo {
+    public static class SetOfMethodInfoImpl implements SetOfMethodInfo {
         public static final SetOfMethodInfo EMPTY = new SetOfMethodInfoImpl(Set.of());
+
+        private final Set<MethodInfo> methodInfoSet;
+
+        public SetOfMethodInfoImpl() {
+            this.methodInfoSet = new HashSet<>();
+        }
+
+        private SetOfMethodInfoImpl(Set<MethodInfo> set) {
+            this.methodInfoSet = set;
+        }
+
+        @Override
+        public Iterable<MethodInfo> methodInfoSet() {
+            return methodInfoSet;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return methodInfoSet.isEmpty();
+        }
 
         @Override
         public boolean isDefault() {
@@ -1132,6 +1152,11 @@ public abstract class ValueImpl implements Value {
 
         public String nice() {
             return methodInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
+        }
+
+        @Override
+        public boolean add(MethodInfo methodInfo) {
+            return methodInfoSet.add(methodInfo);
         }
 
         @Override

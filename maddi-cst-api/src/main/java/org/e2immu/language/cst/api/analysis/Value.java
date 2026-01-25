@@ -218,7 +218,11 @@ public interface Value extends Comparable<Value> {
     }
 
     interface SetOfMethodInfo extends Value {
-        Set<MethodInfo> methodInfoSet();
+        Iterable<MethodInfo> methodInfoSet();
+
+        boolean isEmpty();
+
+        boolean add(MethodInfo methodInfo);
     }
 
     interface SetOfStrings extends Value {

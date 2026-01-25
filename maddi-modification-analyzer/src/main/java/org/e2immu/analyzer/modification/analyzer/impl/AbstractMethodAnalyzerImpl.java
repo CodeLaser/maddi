@@ -45,10 +45,10 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         for (MethodInfo methodInfo : abstractMethods) {
             Value.SetOfMethodInfo implementations = methodInfo.analysis().getOrDefault(IMPLEMENTATIONS,
                     ValueImpl.SetOfMethodInfoImpl.EMPTY);
-            if (implementations.methodInfoSet().isEmpty()) {
+            if (implementations.isEmpty()) {
                 if (firstIteration) doMethodWithoutImplementation(methodInfo);
             } else {
-                Set<MethodInfo> concreteImplementations = implementations.methodInfoSet();
+                Iterable<MethodInfo> concreteImplementations = implementations.methodInfoSet();
                 for (ParameterInfo pi : methodInfo.parameters()) {
                     unmodified(concreteImplementations, pi);
                     independent(concreteImplementations, pi);
@@ -86,7 +86,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
     }
 
-    private void collectDowncast(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
+    private void collectDowncast(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
         Value.VariableToTypeInfoSet downcastsValue = pi.analysis().getOrNull(DOWNCAST_PARAMETER,
                 ValueImpl.VariableToTypeInfoSetImpl.class);
         if (downcastsValue == null) {
@@ -111,7 +111,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
     }
 
-    private void independent(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
+    private void independent(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
         Value.Independent independent = pi.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
         if (independent.isIndependent()) {
             return;
@@ -128,7 +128,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
     }
 
-    private void methodNonModifying(Set<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+    private void methodNonModifying(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
         Value.Bool nonModifying = methodInfo.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE);
         if (nonModifying.isTrue()) {
             return;
@@ -146,7 +146,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
     }
 
-    private void methodIndependent(Set<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
+    private void methodIndependent(Iterable<MethodInfo> concreteImplementations, MethodInfo methodInfo) {
         Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
         if (independent.isIndependent()) {
             return;
@@ -163,7 +163,7 @@ public class AbstractMethodAnalyzerImpl extends CommonAnalyzerImpl implements Ab
         }
     }
 
-    private void unmodified(Set<MethodInfo> concreteImplementations, ParameterInfo pi) {
+    private void unmodified(Iterable<MethodInfo> concreteImplementations, ParameterInfo pi) {
         Value.Bool unmodified = pi.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE);
         if (unmodified.isTrue()) {
             return;

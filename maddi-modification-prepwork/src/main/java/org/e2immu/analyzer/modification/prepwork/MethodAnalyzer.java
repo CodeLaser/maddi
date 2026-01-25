@@ -34,7 +34,6 @@ import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.variable.*;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.support.AddOnceSet;
 import org.e2immu.support.Either;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -286,8 +285,8 @@ public class MethodAnalyzer {
 
     private static void addImplementation(MethodInfo override, MethodInfo implementation) {
         Value.SetOfMethodInfo set = override.analysis().getOrCreate(PropertyImpl.IMPLEMENTATIONS,
-                () -> new ValueImpl.SetOfMethodInfoImpl(new AddOnceSet<>()));
-        set.methodInfoSet().add(implementation);
+                ValueImpl.SetOfMethodInfoImpl::new);
+        set.add(implementation);
     }
 
     private Map<String, VariableData> doBlocks(MethodInfo methodInfo,
