@@ -9,7 +9,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -29,7 +28,8 @@ import static org.e2immu.analyzer.modification.link.impl.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
-record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime, VirtualFieldComputer virtualFieldComputer) {
+record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
+                                 VirtualFieldComputer virtualFieldComputer) {
     private static final Logger LOGGER = LoggerFactory.getLogger(WriteLinksAndModification.class);
 
     record WriteResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData) {
@@ -91,7 +91,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime, V
         for (Link link : toRemove) {
             Variable primary = Util.primary(link.from());
             Links.Builder builder = newLinkedVariables.get(primary);
-            if(builder != null) builder.removeIf(l -> l.equals(link));
+            if (builder != null) builder.removeIf(l -> l.equals(link));
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
         newLinkedVariables.forEach((v, b) -> builtNewLinkedVariables.put(v, b.build()));
@@ -114,10 +114,13 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime, V
         if (variable instanceof ReturnVariable rv) {
             handleReturnVariable(rv, builder);
         } else {
-            boolean unmodified = !previouslyModified.contains(variable)
-                                 && (assignedInThisStatement(statement, vi)
-                                     || !modifiedInThisEvaluation.containsKey(variable)
-                                        && notLinkedToModified(builder, modifiedInThisEvaluation));
+            boolean unmodified =
+                    variable instanceof FieldReference fr && fr.fieldInfo().isIgnoreModifications()
+                    ||
+                    !previouslyModified.contains(variable)
+                    && (assignedInThisStatement(statement, vi)
+                        || !modifiedInThisEvaluation.containsKey(variable)
+                           && notLinkedToModified(builder, modifiedInThisEvaluation));
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
             Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
