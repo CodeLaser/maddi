@@ -334,6 +334,12 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                            Variable objectPrimary,
                                            Map<Variable, Links> extra) {
         ParameterInfo piPrimary = Util.parameterPrimaryOrNull(objectPrimary);
+        if (piPrimary == null) {
+            piPrimary = findLinkToParameter(objectPrimary);
+        }
+        if (piPrimary == null) {
+            return LinksImpl.EMPTY;
+        }
         Variable applied = new AppliedFunctionalInterfaceVariable(runtime,
                 variableCounter.getAndIncrement(),
                 concreteReturnType,
@@ -342,6 +348,29 @@ public record LinkMethodCall(JavaInspector javaInspector,
         Links decoration = new LinksImpl.Builder(objectPrimary).add(LinkNatureImpl.IS_DECORATED_WITH, applied).build();
         extra.put(objectPrimary, decoration);
         return new LinksImpl.Builder(applied).build();
+    }
+
+    private ParameterInfo findLinkToParameter(Variable objectPrimary) {
+        if (variableData == null) return null;
+        return objectPrimary.variableStreamDescend()
+                .map(v -> {
+                    VariableInfoContainer vic = variableData.variableInfoContainerOrNull(v.fullyQualifiedName());
+                    if (vic != null) {
+                        VariableInfo vi = vic.best(stage);
+                        if (vi.linkedVariables() != null) {
+                            return vi.linkedVariables().stream()
+                                    .map(l -> Util.parameterPrimaryOrNull(l.to()))
+                                    .filter(Objects::nonNull)
+                                    .filter(pi -> pi.methodInfo() == currentMethod)
+                                    .peek(pi -> System.err.println(pi+" occurs in "+vi.linkedVariables()))
+                                    .findFirst().orElse(null);
+                        }
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
     }
 
     private @NotNull Links parametersToObject(MethodInfo methodInfo,
