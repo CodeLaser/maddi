@@ -1,8 +1,14 @@
 package org.e2immu.analyzer.modification.link.io;
 
+import org.e2immu.analyzer.modification.link.impl.LinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
+import org.e2immu.analyzer.modification.link.impl.Result;
+import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
@@ -12,10 +18,7 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.IntConstant;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DependentVariable;
@@ -69,6 +72,8 @@ public class LinkCodec {
             super(runtime, propertyProvider, decoderProvider, typeProvider, sourceSetOfRequest);
         }
 
+        private final Set<String> encodedMarkerVariables = new HashSet<>();
+
         @Override
         public EncodedValue encodeVariable(Context context, Variable variable) {
             if (variable instanceof DependentVariable dv && dv.indexExpression()
@@ -85,8 +90,82 @@ public class LinkCodec {
                 return encodeList(context, List.of(encodeString(context, "R"),
                         encodeMethodInfo(context, rv.methodInfo())));
             }
+            if (variable instanceof MarkerVariable mv) {
+                String name = mv.simpleName() + "M";
+                // because they may contain an extensive definition, we cache these marker variables
+                // the name has an "M" appended, so that it does not clash with marker variables generated from
+                // sources
+                if (encodedMarkerVariables.add(name)) {
+                    if (variable instanceof AppliedFunctionalInterfaceVariable afi) {
+                        List<EncodedValue> list = new ArrayList<>();
+                        Collections.addAll(list, encodeString(context, "a"),
+                                encodeString(context, name),
+                                encodeType(context, afi.parameterizedType()),
+                                encodeList(context, afi.params().stream()
+                                        .map(r -> encodeResult(context, r)).toList()));
+                        if (afi.sourceOfFunctionalInterface() != null) {
+                            list.add(encodeInfoOutOfContext(context, afi.sourceOfFunctionalInterface()));
+                        }
+                        return encodeList(context, list);
+                    }
+                    if (variable instanceof FunctionalInterfaceVariable fiv) {
+                        return encodeList(context, List.of(encodeString(context, "f"),
+                                encodeString(context, name),
+                                encodeType(context, fiv.parameterizedType()),
+                                encodeResult(context, fiv.result())
+                        ));
+                    }
+                    if (mv.isSomeValue()) {
+                        return encodeList(context, List.of(encodeString(context, "M"),
+                                encodeString(context, name),
+                                encodeType(context, mv.parameterizedType())));
+                    }
+                    assert mv.isConstant();
+                    return encodeList(context, List.of(encodeString(context, "M"),
+                            encodeString(context, name),
+                            encodeType(context, mv.parameterizedType()),
+                            encodeExpression(context, mv.assignmentExpression())));
+                }
+                return encodeList(context, List.of(encodeString(context, "m"), encodeString(context, name)));
+            }
             return super.encodeVariable(context, variable);
         }
+
+        // links, extra, modified
+        public Result decodeResult(Context context, EncodedValue encodedValue) {
+            List<EncodedValue> list = decodeList(context, encodedValue);
+            Links links = MethodLinkedVariablesImpl.decodeLinks(this, context, list.get(0));
+            List<List<EncodedValue>> extraList = decodeList(context, list.get(1)).stream().map(ev ->
+                    decodeList(context, ev)).toList();
+            Map<Variable, Links> extra = extraList.stream().collect(Collectors.toUnmodifiableMap(
+                    evList -> decodeVariable(context, evList.getFirst()),
+                    evList -> MethodLinkedVariablesImpl.decodeLinks(this, context,
+                            evList.getLast())));
+            List<List<EncodedValue>> modifiedList = decodeList(context, list.get(2))
+                    .stream().map(ev -> decodeList(context, ev)).toList();
+            Map<Variable, Set<MethodInfo>> modified = modifiedList.stream().collect(Collectors.toUnmodifiableMap(
+                    l -> decodeVariable(context, l.getFirst()),
+                    l -> l.size() == 1 ? Set.of() : decodeList(context, l.get(1)).stream()
+                            .map(ev -> (MethodInfo) decodeInfoOutOfContext(context, ev))
+                            .collect(Collectors.toUnmodifiableSet())));
+            return new Result(links, new LinkedVariablesImpl(extra), modified, List.of(), Map.of(), Set.of(), Set.of());
+        }
+
+        public EncodedValue encodeResult(Context context, Result result) {
+            EncodedValue links = result.links().encode(this, context);
+            EncodedValue extra = encodeList(context, result.extra().stream()
+                    .map(e -> encodeList(context, List.of(encodeVariable(context, e.getKey()),
+                            e.getValue().encode(this, context)))).toList());
+            EncodedValue modified = encodeList(context, result.modified().entrySet().stream()
+                    .map(e -> encodeList(context, e.getValue() == null
+                            ? List.of(encodeVariable(context, e.getKey()))
+                            : List.of(encodeVariable(context, e.getKey()),
+                            encodeList(context, e.getValue().stream()
+                                    .map(mi -> encodeInfoOutOfContext(context, mi)).toList())))).toList());
+            return encodeList(context, List.of(links, extra, modified));
+        }
+
+        private final Map<String, MarkerVariable> decodedMarkerVariables = new HashMap<>();
 
         @Override
         public Variable decodeVariable(Context context, String s, List<EncodedValue> list) {
@@ -99,6 +178,43 @@ public class LinkCodec {
             if ("R".equals(s)) {
                 MethodInfo methodInfo = decodeMethodInfo(context, list.get(1));
                 return new ReturnVariableImpl(methodInfo);
+            }
+            if ("m".equals(s)) {
+                String name = decodeString(context, list.get(1));
+                MarkerVariable mv = decodedMarkerVariables.get(name);
+                assert mv != null : "Cannot find" + name;
+                return mv;
+            }
+            if ("a".equals(s)) {
+                String name = decodeString(context, list.get(1));
+                ParameterizedType type = decodeType(context, list.get(2));
+                List<Result> params = decodeList(context, list.get(3)).stream()
+                        .map(ev -> decodeResult(context, ev)).toList();
+                ParameterInfo source = list.size() > 4
+                        ? (ParameterInfo) decodeInfoOutOfContext(context, list.get(4)) : null;
+                AppliedFunctionalInterfaceVariable afi = new AppliedFunctionalInterfaceVariable(name, type, runtime,
+                        source, params);
+                decodedMarkerVariables.put(name, afi);
+                return afi;
+            }
+            if ("f".equals(s)) {
+                String name = decodeString(context, list.get(1));
+                ParameterizedType type = decodeType(context, list.get(2));
+                Result result = decodeResult(context, list.get(3));
+                FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(name, type, runtime, result);
+                decodedMarkerVariables.put(name, fiv);
+                return fiv;
+            }
+            if ("M".equals(s)) {
+                String name = decodeString(context, list.get(1));
+                ParameterizedType pt = decodeType(context, list.get(2));
+                if (list.size() == 3) {
+                    return new MarkerVariable(name, pt, runtime.newEmptyExpression());
+                }
+                Expression ae = decodeExpression(context, list.get(3));
+                MarkerVariable mv = new MarkerVariable(name, pt, ae);
+                decodedMarkerVariables.put(mv.simpleName(), mv);
+                return mv;
             }
             return super.decodeVariable(context, s, list);
         }

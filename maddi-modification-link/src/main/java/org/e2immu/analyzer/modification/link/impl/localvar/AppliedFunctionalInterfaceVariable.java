@@ -2,8 +2,6 @@ package org.e2immu.analyzer.modification.link.impl.localvar;
 
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.analyzer.modification.link.impl.Result;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -23,7 +21,17 @@ public class AppliedFunctionalInterfaceVariable extends MarkerVariable implement
                                               ParameterizedType parameterizedType,
                                               ParameterInfo sourceOfFunctionalInterface,
                                               List<Result> params) {
-        super(LABEL + index, parameterizedType, runtime.newEmptyExpression());
+        super(PREFIX + LABEL + index, parameterizedType, runtime.newEmptyExpression());
+        this.params = params;
+        this.sourceOfFunctionalInterface = sourceOfFunctionalInterface;
+    }
+
+    public AppliedFunctionalInterfaceVariable(String name,
+                                              ParameterizedType parameterizedType,
+                                              Runtime runtime,
+                                              ParameterInfo sourceOfFunctionalInterface,
+                                              List<Result> params) {
+        super(name, parameterizedType, runtime.newEmptyExpression());
         this.params = params;
         this.sourceOfFunctionalInterface = sourceOfFunctionalInterface;
     }

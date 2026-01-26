@@ -100,7 +100,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
                              List<Result> paramsIn,
                              MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
-        List<Result> params = expandParams(mlv, methodInfo.typeInfo().compilationUnit().externalLibrary(), paramsIn);
+        List<Result> params = expandParams(mlv,
+                // FIXME hard-coded
+                methodInfo.typeInfo().compilationUnit().externalLibrary()
+                && !methodInfo.typeInfo().packageName().startsWith("io.codelaser"),
+                paramsIn);
         copyParamsIntoExtra(methodInfo.parameters(), params, extra);
         Variable objectPrimary = object.links().primary();
         if (!object.links().isEmpty()) {
