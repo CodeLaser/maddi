@@ -579,7 +579,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         Links.Builder collect = eval == null || eval.primary() == null
                                 ? new LinksImpl.Builder(variable)
                                 : new LinksImpl.Builder(eval);
-                        AtomicBoolean unmodified = new AtomicBoolean(true);
+                        AtomicBoolean unmodified = new AtomicBoolean(viEval.isUnmodified());
                         Set<TypeInfo> downcasts = new HashSet<>(viEval.analysis().getOrDefault(DOWNCAST_VARIABLE,
                                 ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet());
                         vds.forEach(subVd -> {
