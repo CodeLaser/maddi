@@ -106,13 +106,13 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                         // See TestModificationFunctional,5,6,7
                         builder.put(rv.methodInfo().parameters().get(paramIndex), list0Primary);
                     }
-                    for(Map.Entry<Variable, Links> entry: fi.result().extra().map().entrySet()) {
-                        if(entry.getKey() instanceof ParameterInfo pi) {
+                    for (Map.Entry<Variable, Links> entry : fi.result().extra().map().entrySet()) {
+                        if (entry.getKey() instanceof ParameterInfo pi) {
                             builder.put(pi, list0Primary);
                         }
                     }
                     TranslationMap tm = builder.build();
-                    fi.modified().stream()
+                    fi.result().modified().keySet().stream()
                             .map(tm::translateVariableRecursively)
                             .filter(this::acceptForExtra)
                             .forEach(extraModified::add);

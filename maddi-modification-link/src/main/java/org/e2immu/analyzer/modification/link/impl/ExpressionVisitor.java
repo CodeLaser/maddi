@@ -234,13 +234,12 @@ public record ExpressionVisitor(Runtime runtime,
             map.merge(object.links().primary(), object.links(), Links::merge);
             object.extra().forEach(e -> map.merge(e.getKey(), e.getValue(), Links::merge));
         }
-        Result wrapped = new Result(newRv, new LinkedVariablesImpl(map));
+        Result wrapped = new Result(newRv, new LinkedVariablesImpl(map)).addModified(tMlv.modified(), null);
         FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(
                 runtime,
                 variableCounter.getAndIncrement(),
                 mr.parameterizedType(),
-                wrapped,
-                tMlv.modified());
+                wrapped);
         Links links = new LinksImpl.Builder(fiv).build();
         return new Result(links, LinkedVariablesImpl.EMPTY).addModified(modifiedInReference, null);
     }
@@ -383,14 +382,14 @@ public record ExpressionVisitor(Runtime runtime,
             map.put(lambda.methodInfo().parameters().get(i), paramLinks);
             ++i;
         }
-        Result wrapped = new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
+        Result wrapped = new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map))
+                .addModified(mlvTranslated.modified(), null);
 
         FunctionalInterfaceVariable fiv = new FunctionalInterfaceVariable(
                 runtime,
                 variableCounter.getAndIncrement(),
                 lambda.concreteFunctionalType(),
-                wrapped,
-                mlvTranslated.modified());
+                wrapped);
         Links links = new LinksImpl.Builder(fiv).build();
         return new Result(links, LinkedVariablesImpl.EMPTY).addModified(modifiedInLambda, null);
     }
