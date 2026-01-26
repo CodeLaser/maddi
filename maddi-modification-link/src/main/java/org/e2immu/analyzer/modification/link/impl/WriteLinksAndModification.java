@@ -115,7 +115,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
             handleReturnVariable(rv, builder);
         } else {
             boolean unmodified =
-                    variable instanceof FieldReference fr && fr.fieldInfo().isIgnoreModifications()
+                    variable.isIgnoreModifications()
                     ||
                     !previouslyModified.contains(variable)
                     && (assignedInThisStatement(statement, vi)
