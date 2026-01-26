@@ -8,12 +8,10 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.MethodReference;
 import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +30,7 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
             if (methodInfo.isModifying() && !methodInfo.isIgnoreModification()) {
                 LOGGER.debug("Mark object primary {} as modified by {}", objectPrimary, methodInfo);
                 Util.variableAndScopes(objectPrimary)
-                        .filter(v -> isNotIgnoreModifications(v))
+                        .filter(v -> !v.isIgnoreModifications())
                         .forEach(modified::add);
             }
         }
@@ -58,16 +56,12 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
                     || variableData != null && variableData.isKnown(translated.fullyQualifiedName())) {
                     LOGGER.debug("Propagated modification to {}", translated);
                     Util.variableAndScopes(translated)
-                            .filter(v -> isNotIgnoreModifications(v))
+                            .filter(v -> !v.isIgnoreModifications())
                             .forEach(modified::add);
                 }
             }
         }
         return modified;
-    }
-
-    private static boolean isNotIgnoreModifications(Variable v) {
-        return !(v instanceof FieldReference fr) || !fr.fieldInfo().isIgnoreModifications();
     }
 
     private void handleModifiedParameter(Expression argument, Result rp, Set<Variable> modified) {
@@ -83,7 +77,7 @@ public record MethodModification(Runtime runtime, VariableData variableData, Sta
     private void propagateModificationOfObject(Set<Variable> modified, MethodReference mr) {
         if (mr.methodInfo().isModifying() && mr.scope() instanceof VariableExpression ve) {
             Util.variableAndScopes(ve.variable())
-                    .filter(v -> isNotIgnoreModifications(v))
+                    .filter(v -> !v.isIgnoreModifications())
                     .forEach(modified::add);
         }
     }

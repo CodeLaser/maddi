@@ -259,4 +259,9 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
                 scopeVariable == null ? null : scopeVariable.rewire(infoMap),
                 parameterizedType().rewire(infoMap));
     }
+
+    @Override
+    public boolean isIgnoreModifications() {
+        return fieldInfo.isIgnoreModifications();
+    }
 }

@@ -53,8 +53,6 @@ public interface ParameterInfo extends Variable, Info {
     // result of analysis
     boolean isUnmodified();
 
-    boolean isIgnoreModifications();
-
     Value.AssignedToField assignedToField();
 
     MethodInfo methodInfo();
