@@ -23,19 +23,22 @@ import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.TryStatement;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Objects;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class TestIdentity extends CommonTest {
@@ -217,4 +220,49 @@ public class TestIdentity extends CommonTest {
         assertFalse(method.isIdentity());
     }
 
+    @Language("java")
+    String INPUT6 = """
+            package a.b.ii;
+            import java.util.Objects;
+            class C1 {
+                interface II {
+                    void method2(int i);
+                    void method1(String s);
+                }
+                void method(II ii) { // cannot change
+                    II ii2 = Objects.requireNonNull(ii);
+                    ii2.method2(1);
+                }
+                void method2(II ii) { // changes
+                    II ii2 = Objects.requireNonNull(ii);
+                    ii2.method1("1");
+                }
+            }
+            """;
+
+    @DisplayName("identity and variables linked to object")
+    @Test
+    public void test6() {
+        TypeInfo X = javaInspector.parse(INPUT6);
+        List<Info> ao = prepWork(X);
+        analyzer.go(ao);
+
+        TypeInfo objects = javaInspector.compiledTypesManager().getOrLoad(Objects.class);
+        MethodInfo requireNonNull = objects.findUniqueMethod("requireNonNull", 1);
+        assertTrue(requireNonNull.isIdentity());
+        MethodLinkedVariables mlvRnn = requireNonNull.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[-] --> requireNonNull←0:obj", mlvRnn.toString());
+
+        MethodInfo method = X.findUniqueMethod("method", 1);
+
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo vi0ii2 = vd0.variableInfo("ii2");
+        assertEquals("ii2←0:ii,ii2.§m≡0:ii.§m", vi0ii2.linkedVariables().toString());
+
+        MethodCall call2 = (MethodCall) method.methodBody().statements().getLast().expression();
+        Value.VariableBooleanMap vbm = call2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT,
+                ValueImpl.VariableBooleanMapImpl.class);
+        assertEquals("a.b.ii.C1.method(a.b.ii.C1.II):0:ii=false, ii2=true", vbm.toString());
+
+    }
 }
