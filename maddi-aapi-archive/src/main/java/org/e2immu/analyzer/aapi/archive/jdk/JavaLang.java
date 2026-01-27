@@ -463,8 +463,8 @@ class JavaLang {
         void getBytes(int srcBegin, int srcEnd, byte[] dst, int dstBegin) {}
 
         // IMPORTANT: violates @Container
-        @NotModified
-        void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin) {}
+        //@NotModified
+        //void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin) {}
 
         @NotNull
         String valueOf(int i) { return null; }
