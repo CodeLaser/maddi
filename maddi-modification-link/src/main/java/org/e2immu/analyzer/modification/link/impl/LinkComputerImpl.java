@@ -546,19 +546,20 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);
-                Links links = Objects.requireNonNullElse(viPrimary.linkedVariables(), LinksImpl.EMPTY);
+                Links links = viPrimary.linkedVariablesOrEmpty();
                 for (Link link : links) {
-                    for (Variable v : Util.goUp(link.from())) {
-                        if (vd.isKnown(v.fullyQualifiedName())) {
-                            variablesLinkedToObject.put(v, true);
+                    if (!link.linkNature().isIdenticalTo()) {
+                        for (Variable v : Util.goUp(link.from())) {
+                            if (vd.isKnown(v.fullyQualifiedName())) {
+                                variablesLinkedToObject.put(v, true);
+                            }
                         }
-                    }
-                    for (Variable v : Util.goUp(link.to())) {
-                        if (vd.isKnown(v.fullyQualifiedName())) {
-                            variablesLinkedToObject.put(v, false);
+                        for (Variable v : Util.goUp(link.to())) {
+                            if (vd.isKnown(v.fullyQualifiedName())) {
+                                variablesLinkedToObject.put(v, false);
+                            }
                         }
-                    }
-
+                    } // TODO exclude other links? See TestVariablesLinkedToObject,1
                 }
             }
         }

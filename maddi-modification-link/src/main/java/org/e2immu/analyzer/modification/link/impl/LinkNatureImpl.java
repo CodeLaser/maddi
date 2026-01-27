@@ -32,14 +32,17 @@ public class LinkNatureImpl implements LinkNature {
     public static final LinkNature IS_DECORATED_WITH = new LinkNatureImpl("↗", 11);
     public static final LinkNature CONTAINS_DECORATION = new LinkNatureImpl("↖", 12);
 
-    // java a=b implies a ← b
-    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 30);
-    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 31);
-
     private static final String IDENTICAL_TO_PASS_SYMBOL = "☷"; // tri-gram for earth, 0x2637
-    private static final int IDENTICAL_TO_RANK = 32;
+    private static final int IDENTICAL_TO_RANK = 30;
 
     private static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", IDENTICAL_TO_RANK);
+
+    // java a=b implies a ← b
+    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 31);
+    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 32);
+
+    // ← → are more important than ≡
+    // they follow the flow of assignments
 
     private final String symbol;
     private final int rank;
@@ -179,14 +182,15 @@ public class LinkNatureImpl implements LinkNature {
             }
             return this;
         }
-        if (this.isIdenticalTo()) {
-            if (other.isIdenticalTo()) {
-                return intersection(other);
-            }
-            return other;
+
+        if (other == IS_ASSIGNED_TO) {
+            if (this == IS_ASSIGNED_FROM) return makeIdenticalTo(null);
+            return this; // a R b → c implies a R c;
         }
-        if (other == IS_ASSIGNED_TO) return this; // a R b → c implies a R c;
-        if (this == IS_ASSIGNED_FROM) return other; // a ← b R c implies a R c
+        if (this == IS_ASSIGNED_FROM) {
+            //assert other != IS_ASSIGNED_TO;
+            return other; // a ← b R c implies a R c
+        }
 
         // no other interactions with IS_DECORATED_WITH
         if (this == IS_DECORATED_WITH ||
