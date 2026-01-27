@@ -51,7 +51,7 @@ public record ExpressionVisitor(Runtime runtime,
             case MethodReference mr -> methodReference(variableData, stage, mr);
             case ConstructorCall cc -> {
                 if (cc.anonymousClass() != null) {
-                    yield anonymousClassAsFunctionalInterface(variableData, stage, cc);
+                    yield anonymousClass(variableData, stage, cc);
                 }
                 if (cc.arrayInitializer() != null) {
                     yield arrayInitializer(variableData, stage, cc.arrayInitializer());
@@ -401,12 +401,11 @@ public record ExpressionVisitor(Runtime runtime,
                || thisVar.typeInfo() != methodInfo.typeInfo();
     }
 
-    private Result anonymousClassAsFunctionalInterface(VariableData variableData, Stage stage, ConstructorCall cc) {
+    private Result anonymousClass(VariableData variableData, Stage stage, ConstructorCall cc) {
         TypeInfo anonymousTypeInfo = cc.anonymousClass();
 
         MethodInfo sami = anonymousTypeImplementsFunctionalInterface(anonymousTypeInfo);
         if (sami != null) {
-
             MethodLinkedVariables mlv = linkComputer.recurseMethod(sami);
             MethodLinkedVariables mlvTranslated;
             if (mlv.virtual()) {
@@ -415,15 +414,19 @@ public record ExpressionVisitor(Runtime runtime,
             } else {
                 mlvTranslated = mlv;
             }
+            Set<Variable> modifiedInLambda = mlv.modified().stream()
+                    .filter(v -> doesNotBelongToLambda(v, sami))
+                    .collect(Collectors.toUnmodifiableSet());
             int i = 0;
             Map<Variable, Links> map = new HashMap<>();
             for (Links paramLinks : mlvTranslated.ofParameters()) {
                 map.put(sami.parameters().get(i), paramLinks);
                 ++i;
             }
-            return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map));
+            return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map))
+                    .addModified(modifiedInLambda, null);
         }
-        // TODO call recursion
+        //
         return EMPTY;
     }
 
