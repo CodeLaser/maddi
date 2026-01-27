@@ -8,16 +8,21 @@ import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.expression.MethodReference;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.variable.This;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 
 public class TestForEachMethodReference extends CommonTest {
@@ -57,8 +62,9 @@ public class TestForEachMethodReference extends CommonTest {
         VariableInfo set0 = vdAdd0.variableInfoContainerOrNull("a.b.X.set").best(Stage.EVALUATION);
         Links tlvSet0 = set0.linkedVariablesOrEmpty();
         assertEquals("this.set.§$s∋0:ii", tlvSet0.toString());
-        MethodLinkedVariables mtlNext = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:ii∈this.set*.§$s] --> -", mtlNext.toString());
+        MethodLinkedVariables mlvAdd = add.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("[0:ii∈this.set*.§$s] --> -", mlvAdd.toString());
+        assertEquals("this, this.set", mlvAdd.sortedModifiedString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
 
@@ -67,10 +73,18 @@ public class TestForEachMethodReference extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
-
         assertEquals("0:list.§$s~this.set.§$s", tlvT1.toString());
-        assertEquals("[0:list.§$s~this*.set.§$s] --> -",
-                method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
+
+        // note that "this" in "this::add" points to a.b.X, and not the this of the lambda anonymous type
+        MethodCall mc = (MethodCall) forEach.expression();
+        MethodReference mr = (MethodReference) mc.parameterExpressions().getFirst();
+        if (mr.scope() instanceof VariableExpression ve && ve.variable() instanceof This thisVar) {
+            assertEquals("a.b.X", thisVar.typeInfo().fullyQualifiedName());
+        } else fail();
+
+        MethodLinkedVariablesImpl mlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
+        assertEquals("this, this.set", mlvMethod.sortedModifiedString());
+        assertEquals("[0:list.§$s~this.set*.§$s] --> -", mlvMethod.toString());
     }
 
 
