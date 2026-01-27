@@ -348,7 +348,7 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(rLvc);
         VariableInfo rVi0 = vd0.variableInfo(r);
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m,r.§m→0:in.§m\
+                r.§$s←1:rr.§$s,r.§$s⊇0:in.§$s,r.§m→0:in.§m,r.§m≡1:rr.§m\
                 """, rVi0.linkedVariables().toString());
         assertFalse(rVi0.isModified());
         VariableInfo rrVi0 = vd0.variableInfo(rr);
@@ -357,7 +357,7 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().getLast());
         VariableInfo rVi1 = vd1.variableInfo(r);
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s⊇method.§$s,r.§$s⊇0:in.§$s,r.§m≡1:rr.§m,r.§m→method.§m,r.§m→0:in.§m\
+                r.§$s←1:rr.§$s,r.§$s⊇method.§$s,r.§$s⊇0:in.§$s,r.§m→method.§m,r.§m→0:in.§m,r.§m≡1:rr.§m\
                 """, rVi1.linkedVariables().toString());
         assertFalse(rVi1.isModified()); // cannot be modified, because it is newly created
         VariableInfo rrVi1 = vd1.variableInfo(rr);
@@ -365,7 +365,7 @@ public class TestStaticValuesRecord extends CommonTest {
 
         assertEquals("""
                 [0:in.§$s⊆1:rr*.§$s,0:in.§m←1:rr*.§m, 1:rr*.§$s⊇0:in.§$s,1:rr*.§m→0:in.§m] --> \
-                method.§m←1:rr*.§m,method.§m←0:in.§m,method∩0:in.§$s\
+                method.§m←1:rr*.§m,method.§m≡0:in.§m,method∩0:in.§$s\
                 """, mlv.toString());
     }
 
@@ -424,7 +424,7 @@ public class TestStaticValuesRecord extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().getLast());
         VariableInfo rVi1 = vd1.variableInfo(r);
         assertEquals("""
-                r.§$s←1:rr.§$s,r.§$s←0:in,r.§$s⊇method.§$s,r.§m≡1:rr.§m,r.§m→method.§m\
+                r.§$s←1:rr.§$s,r.§$s←0:in,r.§$s⊇method.§$s,r.§m→method.§m,r.§m≡1:rr.§m\
                 """, rVi1.linkedVariables().toString());
         assertFalse(rVi1.isModified());
 
@@ -785,7 +785,7 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData v2 = VariableDataImpl.of(s2);
             VariableInfo vi2Rv = v2.variableInfo("o");
             assertEquals("""
-                    o←b.variables[0],o←r.variables[0],o←0:s,o∈b.variables,o∈r.variables\
+                    o→r.variables[0],o←b.variables[0],o←0:s,o∈b.variables,o∈r.variables\
                     """, vi2Rv.linkedVariables().toString());
         }
         assertEquals("[-] --> method2←0:s*", mlvMethod2.toString());

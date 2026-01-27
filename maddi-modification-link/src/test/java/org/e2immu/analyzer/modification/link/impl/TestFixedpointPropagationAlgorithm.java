@@ -64,6 +64,16 @@ public class TestFixedpointPropagationAlgorithm {
         assertEquals("b: →, c: →, d: X", compute(graph));
     }
 
+    // a ← b == c → d --> a ≡ d
+    @Test
+    public void test4b() {
+        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
+        graph.put(START, Map.of("b", IS_ASSIGNED_FROM));
+        graph.put("b", Map.of("c", IS_IDENTICAL_TO));
+        graph.put("c", Map.of("d", IS_ASSIGNED_TO));
+        assertEquals("b: ←, c: ←, d: ≡", compute(graph));
+    }
+
     // a ~ b == c ∈ d --> a ∈ d
     @Test
     public void test6() {
