@@ -219,9 +219,6 @@ public record ExpressionVisitor(Runtime runtime,
         } else {
             tMlv = mlv;
         }
-        Set<Variable> modifiedInReference = tMlv.modified().stream()
-                .filter(v -> doesNotBelongToLambda(v, mr.methodInfo()))
-                .collect(Collectors.toUnmodifiableSet());
         Links newRv = tMlv.ofReturnValue();
         int i = 0;
         Map<Variable, Links> map = new HashMap<>();
@@ -240,7 +237,9 @@ public record ExpressionVisitor(Runtime runtime,
                 mr.parameterizedType(),
                 wrapped);
         Links links = new LinksImpl.Builder(fiv).build();
-        return new Result(links, LinkedVariablesImpl.EMPTY).addModified(modifiedInReference, null);
+        return new Result(links, LinkedVariablesImpl.EMPTY)
+                // there is no need to filter the modifications
+                .addModified(tMlv.modified(), null);
     }
 
     private @NotNull Result inlineConditional(InlineConditional ic, VariableData variableData, Stage stage) {
@@ -395,39 +394,63 @@ public record ExpressionVisitor(Runtime runtime,
 
     private boolean doesNotBelongToLambda(Variable v, MethodInfo methodInfo) {
         Variable base = Util.primary(v);
-        if (base instanceof ParameterInfo pi && pi.methodInfo() == methodInfo) return false;
-        return !(base instanceof FieldReference fr)
-               || !(fr.scopeVariable() instanceof This thisVar)
-               || thisVar.typeInfo() != methodInfo.typeInfo();
+        if (base instanceof ParameterInfo pi && pi.methodInfo() == methodInfo) {
+            return false;
+        }
+        if (base instanceof FieldReference fr
+            && fr.scopeVariable() instanceof This thisVar
+            && thisVar.typeInfo() == methodInfo.typeInfo()) {
+            return false;
+        }
+        if (base instanceof This thisVar && thisVar.typeInfo() == methodInfo.typeInfo()) {
+            return false;
+        }
+        return true;
     }
 
     private Result anonymousClass(VariableData variableData, Stage stage, ConstructorCall cc) {
         TypeInfo anonymousTypeInfo = cc.anonymousClass();
-
         MethodInfo sami = anonymousTypeImplementsFunctionalInterface(anonymousTypeInfo);
         if (sami != null) {
-            MethodLinkedVariables mlv = linkComputer.recurseMethod(sami);
-            MethodLinkedVariables mlvTranslated;
-            if (mlv.virtual()) {
-                VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
-                mlvTranslated = mlv.translate(vfTm.formalToConcrete());
-            } else {
-                mlvTranslated = mlv;
-            }
-            Set<Variable> modifiedInLambda = mlv.modified().stream()
-                    .filter(v -> doesNotBelongToLambda(v, sami))
-                    .collect(Collectors.toUnmodifiableSet());
-            int i = 0;
-            Map<Variable, Links> map = new HashMap<>();
-            for (Links paramLinks : mlvTranslated.ofParameters()) {
-                map.put(sami.parameters().get(i), paramLinks);
-                ++i;
-            }
-            return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map))
-                    .addModified(modifiedInLambda, null);
+            return anonymousClassAsLambda(cc, sami);
         }
-        //
-        return EMPTY;
+        return anonymousClassAsClass(anonymousTypeInfo);
+    }
+
+    // we collect modifications, but not more
+    private Result anonymousClassAsClass(TypeInfo anonymousTypeInfo) {
+        Set<Variable> modifiedInAnonymous = new HashSet<>();
+        for (MethodInfo methodInfo : anonymousTypeInfo.constructorsAndMethods()) {
+            MethodLinkedVariables mlv = linkComputer.recurseMethod(methodInfo);
+            Set<Variable> modifiedInMethod = mlv.modified().stream()
+                    .filter(v -> doesNotBelongToLambda(v, methodInfo))
+                    .collect(Collectors.toUnmodifiableSet());
+            modifiedInAnonymous.addAll(modifiedInMethod);
+        }
+        return new Result(LinksImpl.EMPTY, LinkedVariablesImpl.EMPTY)
+                .addModified(modifiedInAnonymous, null);
+    }
+
+    private Result anonymousClassAsLambda(ConstructorCall cc, MethodInfo sami) {
+        MethodLinkedVariables mlv = linkComputer.recurseMethod(sami);
+        MethodLinkedVariables mlvTranslated;
+        if (mlv.virtual()) {
+            VirtualFieldComputer.VfTm vfTm = virtualFieldComputer.compute(cc.parameterizedType(), true);
+            mlvTranslated = mlv.translate(vfTm.formalToConcrete());
+        } else {
+            mlvTranslated = mlv;
+        }
+        Set<Variable> modifiedInLambda = mlv.modified().stream()
+                .filter(v -> doesNotBelongToLambda(v, sami))
+                .collect(Collectors.toUnmodifiableSet());
+        int i = 0;
+        Map<Variable, Links> map = new HashMap<>();
+        for (Links paramLinks : mlvTranslated.ofParameters()) {
+            map.put(sami.parameters().get(i), paramLinks);
+            ++i;
+        }
+        return new Result(mlvTranslated.ofReturnValue(), new LinkedVariablesImpl(map))
+                .addModified(modifiedInLambda, null);
     }
 
     private MethodInfo anonymousTypeImplementsFunctionalInterface(TypeInfo typeInfo) {
