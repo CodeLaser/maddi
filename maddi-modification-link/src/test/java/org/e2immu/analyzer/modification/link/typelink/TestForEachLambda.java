@@ -430,6 +430,55 @@ public class TestForEachLambda extends CommonTest {
                 """, mlvMethod.toString());
     }
 
+
+    @Language("java")
+    private static final String INPUT9b = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.function.BiConsumer;
+            public class X {
+                 interface H { }
+                 interface I { }
+                 class II implements I { }
+                 Map<II, H> map = new HashMap<>();
+                 void put(II ii, H h) {
+                     map.put(ii, h);
+                 }
+                 void method(Map<H, II> map) {
+                    map.forEach(new BiConsumer<a.b.X.H, a.b.X.II>() {
+                        @Override 
+                        public void accept(a.b.X.H h, a.b.X.II ii) {
+                            put(ii, h);
+                        }
+                    });
+                 }
+            }
+            """;
+
+
+    @DisplayName("map.forEach((p0, p1) -> put(p1, p0)) using anonymous class construction")
+    @Test
+    public void test9b() {
+        TypeInfo X = javaInspector.parse(INPUT9b);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
+        MethodInfo put = X.findUniqueMethod("put", 2);
+        MethodLinkedVariables mlvPut = put.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(put));
+        assertEquals("[0:ii∈this.map*.§$$s[-1], 1:h∈this.map*.§$$s[-2]] --> -", mlvPut.toString());
+
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        assertEquals("""
+                [0:map.§$$s[-1]~this.map*.§$$s[-1],\
+                0:map.§$$s[-2]~this.map*.§$$s[-2],\
+                0:map.§$$s~this.map*.§$$s] --> -\
+                """, mlvMethod.toString());
+    }
+
     @Language("java")
     String INPUT10 = """
             package a.b.ii;
