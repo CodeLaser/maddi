@@ -1,6 +1,5 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFields;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -25,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_MEMBER;
 import static org.e2immu.analyzer.modification.prepwork.Util.virtual;
@@ -121,7 +119,11 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         false).virtualFields();
                 VirtualFields vfMapTarget = virtualFieldComputer.compute(returnPrimary.parameterizedType(),
                         false).virtualFields();
-
+                if (toPrimaries.isEmpty()) {
+                    if (links.primary() != null) {
+                        result.add(new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()));
+                    }
+                }
                 for (Variable newPrimary : toPrimaries) {
                     VariableTranslationMap tmMapSource = new VariableTranslationMap(runtime);
                     if (!Util.isPartOf(objectPrimary, newPrimary)) {

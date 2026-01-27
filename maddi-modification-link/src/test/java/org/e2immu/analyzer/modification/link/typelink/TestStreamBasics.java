@@ -251,7 +251,7 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("stream.§$s⊆0:in.§$s", tlv.toString());
+                assertEquals("stream.§$s∋0:ii,stream.§$s⊆0:in.§$s", tlv.toString());
 
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
                 Value.VariableBooleanMap tlvEntry = anyMatch.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
