@@ -318,20 +318,23 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     l.to() instanceof MarkerVariable mv && (mv.isSomeValue() || mv.isConstant()))) {
                 return LinksImpl.EMPTY;
             }
-            // remove SomeValue unless p0 is present
             if (!links.isEmpty()) {
+                // remove links to lambda parameters, which we keep for VL2O in VariableInfo.linkedVariables
+                Links links2 = links.removeIfTo(this::isParameterOfStrictlyEnclosed);
+                // remove SomeValue unless p0 is present
                 ParameterInfo p0 = methodInfo.parameters().isEmpty() ? null : methodInfo.parameters().getFirst();
-                if (p0 == null || links.stream().noneMatch(l ->
-                        l.from().equals(links.primary()) &&
+                if (p0 == null || links2.stream().noneMatch(l ->
+                        l.from().equals(links2.primary()) &&
                         l.linkNature().isIdenticalToOrAssignedFromTo() &&
                         l.to() instanceof ParameterInfo pi && pi.equals(p0))) {
-                    return links.removeIfTo(v -> v instanceof MarkerVariable mv && mv.isSomeValue());
+                    return links2.removeIfTo(v -> v instanceof MarkerVariable mv && mv.isSomeValue());
                 }
+                return links2;
             }
             return links;
         }
 
-        private static Links filteredPi(ParameterInfo pi, Set<ParameterInfo> ignoreReturnValue, VariableData vd) {
+        private Links filteredPi(ParameterInfo pi, Set<ParameterInfo> ignoreReturnValue, VariableData vd) {
             if (vd == null) return LinksImpl.EMPTY;
             VariableInfoContainer vic = vd.variableInfoContainerOrNull(pi.fullyQualifiedName());
             if (vic == null) return LinksImpl.EMPTY;
@@ -340,11 +343,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (viLinks == null || viLinks.primary() == null) return LinksImpl.EMPTY;
             Links links = viLinks.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v));
             if (ignoreReturnValue.contains(pi)) {
-                return links.removeIfTo(v -> v instanceof ReturnVariable);
+                return links.removeIfTo(v -> v instanceof ReturnVariable || isParameterOfStrictlyEnclosed(v));
             }
-            return links;
+            return links.removeIfTo(this::isParameterOfStrictlyEnclosed);
         }
 
+        private boolean isParameterOfStrictlyEnclosed(Variable variable) {
+            ParameterInfo pi = Util.parameterPrimaryOrNull(variable);
+            return pi != null && pi.methodInfo().typeInfo().isStrictlyEnclosedIn(methodInfo.typeInfo());
+        }
 
         VariableData doBlock(Block block, VariableData previousVd) {
             VariableData vd = previousVd;
@@ -550,12 +557,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 for (Link link : links) {
                     if (!link.linkNature().isIdenticalTo()) {
                         for (Variable v : Util.goUp(link.from())) {
-                            if (vd.isKnown(v.fullyQualifiedName())) {
+                            if (!Util.virtual(v)) {
                                 variablesLinkedToObject.put(v, true);
                             }
                         }
                         for (Variable v : Util.goUp(link.to())) {
-                            if (vd.isKnown(v.fullyQualifiedName())) {
+                            if (!Util.virtual(v)) {
                                 variablesLinkedToObject.put(v, false);
                             }
                         }

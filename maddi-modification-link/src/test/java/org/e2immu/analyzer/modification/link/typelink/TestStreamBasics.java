@@ -256,10 +256,9 @@ public class TestStreamBasics extends CommonTest {
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
                 Value.VariableBooleanMap tlvEntry = anyMatch.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
                         ValueImpl.VariableBooleanMapImpl.EMPTY);
-                // NOTE: ii not present
+                // NOTE: ii is present!
                 assertEquals("""
-                        a.b.C.method1(java.util.List<a.b.C.II>,String):0:in=false, \
-                        stream=true\
+                        a.b.C.$1.test(a.b.C.II):0:ii=false, a.b.C.method1(java.util.List<a.b.C.II>,String):0:in=false, stream=true\
                         """, tlvEntry.toString());
             }
         }
@@ -271,8 +270,10 @@ public class TestStreamBasics extends CommonTest {
                 MethodCall anyMatch = (MethodCall) ((LocalVariableCreation) statement).localVariable().assignmentExpression();
                 Value.VariableBooleanMap tlvEntry = anyMatch.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
                         ValueImpl.VariableBooleanMapImpl.EMPTY);
-                // NOTE: ii not present
-                assertEquals("a.b.C.method(java.util.List<a.b.C.II>,String):0:in=true", tlvEntry.toString());
+                // NOTE: ii is present!
+                assertEquals("""
+                        a.b.C.$0.test(a.b.C.II):0:ii=false, a.b.C.method(java.util.List<a.b.C.II>,String):0:in=true\
+                        """, tlvEntry.toString());
             }
 
         }
