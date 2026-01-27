@@ -547,4 +547,16 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(arrayCopy);
         assertEquals("[-, -, 2:out*.§$s⊆0:in*.§$s, -, -] --> -", mlvAdd.toString());
     }
+
+    @DisplayName("Links of identity")
+    @Test
+    public void test11() {
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
+        TypeInfo objects = javaInspector.compiledTypesManager().getOrLoad(Objects.class);
+        MethodInfo requireNonNull = objects.findUniqueMethod("requireNonNull", 1);
+        assertTrue(requireNonNull.isIdentity());
+        MethodLinkedVariables mlv = requireNonNull.analysis().getOrCreate(METHOD_LINKS,
+                () -> linkComputer.doMethod(requireNonNull));
+        assertEquals("[-] --> requireNonNull←0:obj", mlv.toString());
+    }
 }

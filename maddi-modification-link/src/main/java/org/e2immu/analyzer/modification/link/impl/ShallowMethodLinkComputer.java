@@ -254,6 +254,12 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             }
             ofParameters.add(piBuilder.build());
         }
+
+        // dedicated code for the @Identity annotation; from parameter directly into return value
+        if (methodInfo.isIdentity()) {
+            ofReturnValue.add(IS_ASSIGNED_FROM, methodInfo.parameters().getFirst());
+        }
+
         return new MethodLinkedVariablesImpl(ofReturnValue.build(), ofParameters, Set.copyOf(modified));
     }
 
