@@ -220,8 +220,7 @@ public record ExpressionVisitor(Runtime runtime,
             tMlv = mlv;
         }
         Set<Variable> modifiedInReference = tMlv.modified().stream()
-                .filter(v -> v.variableStreamDescend()
-                        .anyMatch(s -> fromLambdaToEnclosing(s, variableData)))
+                .filter(v -> doesNotBelongToLambda(v, mr.methodInfo()))
                 .collect(Collectors.toUnmodifiableSet());
         Links newRv = tMlv.ofReturnValue();
         int i = 0;
@@ -373,7 +372,7 @@ public record ExpressionVisitor(Runtime runtime,
             mlvTranslated = mlv;
         }
         Set<Variable> modifiedInLambda = mlv.modified().stream()
-                .filter(v -> v.variableStreamDescend().anyMatch(s -> fromLambdaToEnclosing(s, vd)))
+                .filter(v -> doesNotBelongToLambda(v, lambda.methodInfo()))
                 .collect(Collectors.toUnmodifiableSet());
 
         int i = 0;
@@ -394,10 +393,12 @@ public record ExpressionVisitor(Runtime runtime,
         return new Result(links, LinkedVariablesImpl.EMPTY).addModified(modifiedInLambda, null);
     }
 
-    private boolean fromLambdaToEnclosing(Variable variable, VariableData vd) {
-        return vd != null && vd.isKnown(variable.fullyQualifiedName())
-               || variable instanceof FieldReference fr && fr.scopeIsRecursivelyThis()
-               || variable instanceof ParameterInfo pi && pi.methodInfo() == currentMethod;
+    private boolean doesNotBelongToLambda(Variable v, MethodInfo methodInfo) {
+        Variable base = Util.primary(v);
+        if (base instanceof ParameterInfo pi && pi.methodInfo() == methodInfo) return false;
+        return !(base instanceof FieldReference fr)
+               || !(fr.scopeVariable() instanceof This thisVar)
+               || thisVar.typeInfo() != methodInfo.typeInfo();
     }
 
     private Result anonymousClassAsFunctionalInterface(VariableData variableData, Stage stage, ConstructorCall cc) {

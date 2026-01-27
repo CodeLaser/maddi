@@ -69,7 +69,7 @@ public class TestForEachMethodReference extends CommonTest {
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
 
         assertEquals("0:list.§$s~this.set.§$s", tlvT1.toString());
-        assertEquals("[0:list.§$s~this.set*.§$s] --> -",
+        assertEquals("[0:list.§$s~this*.set.§$s] --> -",
                 method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
     }
 
