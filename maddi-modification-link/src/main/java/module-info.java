@@ -17,4 +17,5 @@ module org.e2immu.analyzer.modification.link {
     exports org.e2immu.analyzer.modification.link.vf;
     exports org.e2immu.analyzer.modification.link.impl;
     exports org.e2immu.analyzer.modification.link.impl.localvar;
+    exports org.e2immu.analyzer.modification.link.io;
 }
