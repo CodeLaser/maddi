@@ -87,7 +87,7 @@ public class TestStream extends CommonTest {
                 orElse←first.§t,orElse∈this.list.§ts,orElse∈filtered.§ts,orElse∈stream.§ts,orElse∩0:t\
                 """, viOrElse.linkedVariables().toString());
 
-        assertEquals("[-] --> large2∈this.list.§ts,large2∩0:t", mlvLarge2.toString());
+        assertEquals("[-] --> large2∈this.list.§ts", mlvLarge2.toString());
 
         MethodInfo large1 = X.findUniqueMethod("large1", 1);
         MethodLinkedVariables mlvLarge1 = linkComputer.doMethod(large1);
@@ -99,7 +99,7 @@ public class TestStream extends CommonTest {
 
         MethodInfo large3 = X.findUniqueMethod("large3", 1);
         MethodLinkedVariables mlvLarge3 = linkComputer.doMethod(large3);
-        assertEquals("[-] --> large3∈this.list.§ts,large3∩0:t", mlvLarge3.toString());
+        assertEquals("[-] --> large3∈this.list.§ts", mlvLarge3.toString());
 
     }
 }

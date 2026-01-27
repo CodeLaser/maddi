@@ -50,6 +50,8 @@ public interface TypeInfo extends NamedType, Info {
 
     boolean isEnclosedIn(TypeInfo typeInfo);
 
+    boolean isStrictlyEnclosedIn(TypeInfo typeInfo);
+
     boolean isEqualToOrInnerClassOf(TypeInfo typeInfo);
 
     default boolean isPrimaryType() {

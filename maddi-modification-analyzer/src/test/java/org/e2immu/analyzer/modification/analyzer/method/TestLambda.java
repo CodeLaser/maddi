@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.e2immu.analyzer.modification.link.impl.LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestLambda extends CommonTest {
@@ -58,14 +59,20 @@ public class TestLambda extends CommonTest {
         assertEquals("0:in.§$s∋0:ii", vi0In.linkedVariables().toString());
 
         MethodCall anyMatch = (MethodCall) lvc.localVariable().assignmentExpression();
-        Lambda lambda = (Lambda)anyMatch.parameterExpressions().getFirst();
+        Lambda lambda = (Lambda) anyMatch.parameterExpressions().getFirst();
         Statement s0 = lambda.methodBody().statements().getFirst();
+        var aMap = anyMatch.analysis().getOrNull(VARIABLES_LINKED_TO_OBJECT, ValueImpl.VariableBooleanMapImpl.class);
+        assertEquals("""
+                a.b.ii.C1.$1.test(a.b.ii.C1.II):0:ii=false, a.b.ii.C1.method2(java.util.List<a.b.ii.C1.II>,int):0:in=true\
+                """, aMap.toString());
 
         VariableData vdL0 = VariableDataImpl.of(s0);
         VariableInfo vi0ii = vdL0.variableInfo(lambda.methodInfo().parameters().getFirst());
+        //inside the lambda, we cannot know of the link to "in"
         assertEquals("-", vi0ii.linkedVariables().toString());
         MethodCall mc2 = (MethodCall) s0.expression();
-        var map = mc2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT, ValueImpl.VariableBooleanMapImpl.class);
-        assertEquals("a.b.ii.C1.$1.test(a.b.ii.C1.II):0:ii=true, link to in??", map.toString());
+        var map = mc2.analysis().getOrNull(VARIABLES_LINKED_TO_OBJECT, ValueImpl.VariableBooleanMapImpl.class);
+        //hence, the VL2O also cannot see "in"
+        assertEquals("a.b.ii.C1.$1.test(a.b.ii.C1.II):0:ii=true", map.toString());
     }
 }
