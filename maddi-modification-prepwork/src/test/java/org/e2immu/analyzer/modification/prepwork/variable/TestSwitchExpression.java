@@ -34,10 +34,15 @@ public class TestSwitchExpression extends CommonTest {
             record X(List<String> list, int k) {
                 int method() {
                     return switch(k) {
-                        case 0 -> list.get(0).length();
+                        case 0 -> list.getFirst().length();
                         case 1 -> {
                             System.out.println("?");
                             yield k+3;
+                        }
+                        case 2 -> {
+                            int v = 5;
+                            System.out.println(v);
+                            yield v;
                         }
                         default -> throw new UnsupportedOperationException();
                     };
@@ -52,14 +57,21 @@ public class TestSwitchExpression extends CommonTest {
         assertTrue(X.typeNature().isRecord());
 
         MethodInfo method = X.findUniqueMethod("method", 0);
-        SwitchExpression switchExpression = (SwitchExpression) method.methodBody().statements().getFirst().expression();
+        Statement returnStatement = method.methodBody().statements().getFirst();
+        SwitchExpression switchExpression = (SwitchExpression) returnStatement.expression();
         Statement s0 = switchExpression.entries().getFirst().statement();
-        assertEquals("5-23:5-42", s0.source().compact2());
+        assertEquals("5-23:5-46", s0.source().compact2());
         VariableData vd0 = VariableDataImpl.of(s0);
         assertEquals("X.list, X.this", vd0.knownVariableNamesToString());
         Block b1 = (Block) switchExpression.entries().get(1).statement();
         Statement s1 = b1.statements().get(1);
         assertEquals("8-17:8-26", s1.source().compact2());
         assertNotNull(VariableDataImpl.of(s1).knownVariableNamesToString());
+
+        VariableData vdRs = VariableDataImpl.of(returnStatement);
+        // should NOT contain v!!
+        assertEquals("""
+                X.k, X.list, X.method(), X.this, java.lang.System.out\
+                """, vdRs.knownVariableNamesToString());
     }
 }

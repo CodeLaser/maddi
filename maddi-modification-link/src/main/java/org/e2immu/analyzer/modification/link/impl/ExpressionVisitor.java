@@ -266,7 +266,6 @@ public record ExpressionVisitor(Runtime runtime,
         Result rc = visit(se.selector(), variableData, stage);
         Links newLinks = null;
         Result merge = rc;
-        List<VariableData> variableDataList = new ArrayList<>(se.entries().size());
         Variable primary = IntermediateVariable.returnValue(javaInspector.runtime(),
                 variableCounter.getAndIncrement(), se.parameterizedType());
         for (SwitchEntry entry : se.entries()) {
@@ -274,16 +273,10 @@ public record ExpressionVisitor(Runtime runtime,
             if (newLinks == null) newLinks = resultVd.result.links();
             else newLinks = newLinks.merge(resultVd.result.links());
             merge = merge.merge(resultVd.result);
-            if (resultVd.variableData != null) {
-                variableDataList.add(resultVd.variableData);
-            }
         }
-        if (variableData != null) {
-            // FIXME wrong variableData; have the previous, need the current
-            sourceMethodComputer.handleSubBlocks(variableDataList, variableData);
-        }
+
         assert newLinks != null;
-        return new Result(newLinks, merge.extra());
+        return merge.with(newLinks);
     }
 
     private record ResultVd(Result result, VariableData variableData) {
@@ -305,7 +298,38 @@ public record ExpressionVisitor(Runtime runtime,
         sourceMethodComputer.startSwitchExpression(primary);
         VariableData vd = sourceMethodComputer.doBlock(entry.statementAsBlock(), variableData);
         Links yieldResult = sourceMethodComputer.endSwitchExpression();
-        return new ResultVd(new Result(yieldResult, LinkedVariablesImpl.EMPTY).merge(rc), vd);
+        D d = copyLinksFromSwitchExpressionBlock(variableData, vd);
+
+        return new ResultVd(new Result(yieldResult, new LinkedVariablesImpl(d.map))
+                .merge(rc)
+                .addModified(d.modified, null)
+                .addCasts(d.casts), vd);
+    }
+
+    private record D(Map<Variable, Links> map, Set<Variable> modified, Map<Variable, Set<TypeInfo>> casts) {
+    }
+
+    private D copyLinksFromSwitchExpressionBlock(VariableData outer, VariableData vd) {
+        Map<Variable, Links> map = new HashMap<>();
+        Set<Variable> modified = new HashSet<>();
+        Map<Variable, Set<TypeInfo>> casts = new HashMap<>();
+        for (VariableInfo vi : vd.variableInfoIterable()) {
+            // don't copy: variables local to the switch expression block
+            boolean accept = !(vi.variable() instanceof LocalVariable)
+                             || outer != null && outer.isKnown(vi.variable().fullyQualifiedName());
+            if (accept) {
+                Links links = vi.linkedVariablesOrEmpty();
+                if (links.primary() != null) {
+                    map.merge(links.primary(), links, Links::merge);
+                }
+                if (vi.isModified()) modified.add(vi.variable());
+                Set<TypeInfo> castTypes = vi.downcast();
+                if (!castTypes.isEmpty()) {
+                    casts.computeIfAbsent(vi.variable(), _ -> new HashSet<>()).addAll(castTypes);
+                }
+            }
+        }
+        return new D(map, modified, casts);
     }
 
     private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData, Stage stage) {

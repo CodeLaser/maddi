@@ -27,6 +27,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +55,8 @@ Secondary synchronization takes place in PropertyValueMapImpl.getOrCreate().
 
 public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkComputerImpl.class);
+    private static final TimedLogger TIMED = new TimedLogger(LOGGER, 100L);
+
     public static final PropertyImpl VARIABLES_LINKED_TO_OBJECT = new PropertyImpl("variablesLinkedToObject",
             ValueImpl.VariableBooleanMapImpl.EMPTY);
     public static final PropertyImpl LINKED_VARIABLES_ARGUMENTS = new PropertyImpl("linkedVariablesArguments",
@@ -88,6 +91,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final ShallowMethodAnalyzer shallowMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
     private final AtomicInteger variableCounter = new AtomicInteger();
+    private final AtomicInteger countSourceMethods = new AtomicInteger();
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -285,7 +289,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             MethodLinkedVariables mlv = new MethodLinkedVariablesImpl(ofReturnValue, ofParameters, allModified);
             copyModificationsIntoMethod(allModified, inClosure, mlv);
             if (vd != null) copyDowncastIntoParameters(vd);
-            LOGGER.debug("Return source method {}: {}", methodInfo, mlv);
+
+            int n = countSourceMethods.incrementAndGet();
+            TIMED.info("Link computer: analyzed {} source methods", n);
             return mlv;
         }
 
