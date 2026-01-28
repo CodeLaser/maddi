@@ -166,7 +166,10 @@ public class RunAnalyzer implements Runnable {
             LOGGER.info("Call graph analysis order has size {}; start modification analysis", order.size());
 
             // do actual modification analysis
-            IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder().build();
+            IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
+                    .setMaxIterations(10)
+                    .setTrackObjectCreations(false)
+                    .build();
             IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
             analyzer.analyze(order);
 
