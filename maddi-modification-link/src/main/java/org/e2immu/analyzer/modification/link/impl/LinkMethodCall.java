@@ -7,6 +7,8 @@ import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.ObjectCreationVariableImpl;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -35,15 +37,24 @@ public record LinkMethodCall(JavaInspector javaInspector,
                              VariableData variableData,
                              Stage stage) {
 
-    public Result constructorCall(MethodInfo methodInfo,
+    public Result constructorCall(ConstructorCall cc,
                                   Result object,
                                   List<Result> params,
                                   MethodLinkedVariables mlv) {
         Map<Variable, Links> extra = new HashMap<>(object.extra().map());
+        MethodInfo methodInfo = cc.constructor();
         copyParamsIntoExtra(methodInfo.parameters(), params, extra);
 
         Links newObjectLinks = parametersToObject(methodInfo, object, params, mlv);
-
+        if (linkComputerOptions.trackObjectCreations()) {
+            ObjectCreationVariable oc = new ObjectCreationVariableImpl(methodInfo, cc.source().compact(),
+                    cc.parameterizedType());
+            Variable objectPrimary = object.links().primary();
+            assert objectPrimary != null;
+            Links toObjectCreation = new LinksImpl.Builder(objectPrimary)
+                    .add(LinkNatureImpl.IS_ASSIGNED_FROM, oc).build();
+            extra.merge(objectPrimary, toObjectCreation, Links::merge);
+        }
         return new Result(newObjectLinks, new LinkedVariablesImpl(extra));
     }
 
@@ -362,7 +373,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                     .map(l -> Util.parameterPrimaryOrNull(l.to()))
                                     .filter(Objects::nonNull)
                                     .filter(pi -> pi.methodInfo() == currentMethod)
-                                    .peek(pi -> System.err.println(pi+" occurs in "+vi.linkedVariables()))
+                                    .peek(pi -> System.err.println(pi + " occurs in " + vi.linkedVariables()))
                                     .findFirst().orElse(null);
                         }
                     }
