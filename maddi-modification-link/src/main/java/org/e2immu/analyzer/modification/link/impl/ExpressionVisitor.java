@@ -15,6 +15,8 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
+import org.e2immu.language.cst.api.statement.SwitchEntry;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.*;
@@ -24,6 +26,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
@@ -76,6 +79,7 @@ public record ExpressionVisitor(Runtime runtime,
             case GreaterThanZero gt0 -> greaterThanZero(variableData, stage, gt0);
             case BinaryOperator bo -> binaryOperator(variableData, stage, bo);
             case TypeExpression _, EmptyExpression _ -> EMPTY;
+            case SwitchExpression se -> switchExpression(se, variableData, stage);
             default -> throw new UnsupportedOperationException("Implement: " + expression.getClass());
         };
         if (r.getEvaluated() == null) r.setEvaluated(expression);
@@ -255,6 +259,53 @@ public record ExpressionVisitor(Runtime runtime,
         Links newLinks = rtChanged.merge(rfChanged);
         Result merge = rc.merge(rt).merge(rf);
         return new Result(newLinks, merge.extra());
+    }
+
+    // this part of the switchExpression code is very similar to inlineConditional
+    private @NotNull Result switchExpression(SwitchExpression se, VariableData variableData, Stage stage) {
+        Result rc = visit(se.selector(), variableData, stage);
+        Links newLinks = null;
+        Result merge = rc;
+        List<VariableData> variableDataList = new ArrayList<>(se.entries().size());
+        Variable primary = IntermediateVariable.returnValue(javaInspector.runtime(),
+                variableCounter.getAndIncrement(), se.parameterizedType());
+        for (SwitchEntry entry : se.entries()) {
+            ResultVd resultVd = evaluateSwitchEntry(entry, variableData, stage, primary);
+            if (newLinks == null) newLinks = resultVd.result.links();
+            else newLinks = newLinks.merge(resultVd.result.links());
+            merge = merge.merge(resultVd.result);
+            if (resultVd.variableData != null) {
+                variableDataList.add(resultVd.variableData);
+            }
+        }
+        if (variableData != null) {
+            // FIXME wrong variableData; have the previous, need the current
+            sourceMethodComputer.handleSubBlocks(variableDataList, variableData);
+        }
+        assert newLinks != null;
+        return new Result(newLinks, merge.extra());
+    }
+
+    private record ResultVd(Result result, VariableData variableData) {
+    }
+
+    // this part of the switchExpression code copies from instanceof and ...
+    private ResultVd evaluateSwitchEntry(SwitchEntry entry, VariableData variableData, Stage stage, Variable primary) {
+        Result rc = Stream.concat(entry.conditions().stream(), Stream.ofNullable(entry.whenExpression()))
+                .map(e -> visit(e, variableData, stage))
+                .reduce(EMPTY, Result::merge);
+        if (entry.statement() instanceof ExpressionAsStatement eas) {
+            Result r = visit(eas.expression(), variableData, stage);
+            Links.Builder linksBuilder = new LinksImpl.Builder(primary);
+            if (r.links().primary() != null) {
+                linksBuilder.add(primary, LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
+            }
+            return new ResultVd(new Result(linksBuilder.build(), r.extra()).merge(rc), null);
+        }
+        sourceMethodComputer.startSwitchExpression(primary);
+        VariableData vd = sourceMethodComputer.doBlock(entry.statementAsBlock(), variableData);
+        Links yieldResult = sourceMethodComputer.endSwitchExpression();
+        return new ResultVd(new Result(yieldResult, LinkedVariablesImpl.EMPTY).merge(rc), vd);
     }
 
     private @NotNull Result variableExpression(VariableExpression ve, VariableData variableData, Stage stage) {
