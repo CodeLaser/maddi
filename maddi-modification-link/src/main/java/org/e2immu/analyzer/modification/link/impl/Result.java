@@ -99,6 +99,12 @@ public class Result {
         return this;
     }
 
+    public Result addCasts(Map<Variable, Set<TypeInfo>> map) {
+        map.forEach((v, tiSet) -> this.casts.computeIfAbsent(v, _ -> new HashSet<>())
+                .addAll(tiSet));
+        return this;
+    }
+
     public Result addCast(Variable variable, TypeInfo pt) {
         this.casts.computeIfAbsent(variable, _ -> new HashSet<>()).add(pt);
         return this;

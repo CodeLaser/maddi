@@ -297,7 +297,7 @@ public class LinksImpl implements Links {
         public Link replaceSubsetSuperset(Variable modified) {
             LinkNature ln2 = linkNature.replaceSubsetSuperset();
             if (ln2 != linkNature && (Util.primary(from).equals(modified) || Util.primary(to).equals(modified))) {
-                LOGGER.info("Change {} -> {} for {} because of modification on {}", linkNature, ln2, this, modified);
+                LOGGER.debug("Change {} -> {} for {} because of modification on {}", linkNature, ln2, this, modified);
                 return new LinkImpl(from, ln2, to);
             }
             return this;

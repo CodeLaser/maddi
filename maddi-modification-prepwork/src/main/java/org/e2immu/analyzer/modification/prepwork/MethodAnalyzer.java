@@ -957,10 +957,25 @@ public class MethodAnalyzer {
             if (e instanceof SwitchExpression switchExpression) {
                 switchExpression.selector().visit(this);
                 for (SwitchEntry se : switchExpression.entries()) {
+                    VariableData vd;
                     if (se.statement() instanceof Block block) {
-                        doBlock(currentMethod, block, currentVariableData, internalVariables);
+                        vd = doBlock(currentMethod, block, currentVariableData, internalVariables);
                     } else {
-                        doStatement(currentMethod, se.statement(), currentVariableData, true, internalVariables);
+                        vd = doStatement(currentMethod, se.statement(), currentVariableData, true, internalVariables);
+                    }
+
+                    // we want to add all but locally created variables
+                    String end = index + StatementIndex.END;
+                    for (VariableInfo vi : vd.variableInfoIterable()) {
+                        boolean definedBeforeSwitchExpression = vi.assignments().indexOfDefinition().compareTo(index) <= 0;
+                        if (definedBeforeSwitchExpression) {
+                            if (vi.reads().between(index, end)) {
+                                markRead(vi.variable());
+                            }
+                            if (vi.assignments().between(index, end)) {
+                                assignedAdd(vi.variable());
+                            }
+                        }
                     }
                 }
                 return false;
