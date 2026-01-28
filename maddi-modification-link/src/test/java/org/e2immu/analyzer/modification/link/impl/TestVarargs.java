@@ -98,7 +98,6 @@ public class TestVarargs extends CommonTest {
     }
 
 
-
     @Language("java")
     private static final String INPUT3a = """
             import java.util.Collection;
@@ -259,8 +258,7 @@ public class TestVarargs extends CommonTest {
         TypeInfo B = javaInspector.parse(INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, new LinkComputer.Options(true,
-                true, true));
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
         MethodInfo method = B.findUniqueMethod("combine", 2);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("[-, -] --> combine←0:target", mlv.toString());

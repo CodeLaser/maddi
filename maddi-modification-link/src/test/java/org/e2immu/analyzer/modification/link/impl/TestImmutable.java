@@ -41,7 +41,7 @@ public class TestImmutable extends CommonTest {
         get.analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT);
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
-                new LinkComputer.Options(false, false, true));
+                new LinkComputer.Options.Builder().setCheckDuplicateNames(true).build());
         MethodLinkedVariables mlvGet = tlc.doMethod(get);
         assertEquals("[-] --> -", mlvGet.toString());
 
