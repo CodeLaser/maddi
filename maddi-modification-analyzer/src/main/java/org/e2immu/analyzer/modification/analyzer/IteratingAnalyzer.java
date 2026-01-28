@@ -16,13 +16,17 @@ package org.e2immu.analyzer.modification.analyzer;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.language.cst.api.info.Info;
+
 import java.util.List;
 
 public interface IteratingAnalyzer {
 
     interface Configuration {
         default LinkComputer.Options linkComputerOptions() {
-            return new LinkComputer.Options(true, false, false);
+            return new LinkComputer.Options.Builder()
+                    .setRecurse(true)
+                    .setTrackObjectCreations(trackObjectCreations())
+                    .build();
         }
 
         int maxIterations();

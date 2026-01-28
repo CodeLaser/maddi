@@ -57,7 +57,7 @@ public class TestList extends CommonTest {
             }
             """;
 
-    LinkComputer.Options doNotRecurse = new LinkComputer.Options(false, false, true);
+    LinkComputer.Options doNotRecurse = new LinkComputer.Options.Builder().setCheckDuplicateNames(true).build();
 
     @DisplayName("Analyze 'get', array access")
     @Test

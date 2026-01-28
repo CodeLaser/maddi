@@ -36,15 +36,13 @@ public class TestShallowArray extends CommonTest {
             }
             """;
 
-    LinkComputer.Options forceShallow = new LinkComputer.Options(true, true, true);
-
     @Test
     public void test1() {
         TypeInfo C = javaInspector.parse(INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
 
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
         MethodLinkedVariables mlv1 = method1.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(method1));
@@ -96,7 +94,7 @@ public class TestShallowArray extends CommonTest {
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
 
         // shallow, so modified is assumed
         MethodInfo method1 = C.findUniqueMethod("method1", 1);

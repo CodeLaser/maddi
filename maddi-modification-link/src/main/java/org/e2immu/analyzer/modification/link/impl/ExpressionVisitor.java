@@ -350,6 +350,14 @@ public record ExpressionVisitor(Runtime runtime,
         List<Result> params = cc.parameterExpressions().stream()
                 .map(e -> visit(e, variableData, stage))
                 .toList();
+        if (linkComputerOptions.trackObjectCreations() && !params.isEmpty()) {
+            List<Links> links = params.stream()
+                    .map(r -> r.links().primary() == null ? r.links()
+                            : r.links().removeIfTo(v -> !LinkVariable.acceptForLinkedVariables(v)))
+                    .toList();
+            LinkComputer.ListOfLinks list = new LinkComputerImpl.ListOfLinksImpl(links);
+            cc.analysis().setAllowControlledOverwrite(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+        }
         Set<Variable> extraModified = params.stream().flatMap(p ->
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
         return new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter,
@@ -529,6 +537,14 @@ public record ExpressionVisitor(Runtime runtime,
         List<Result> params = mc.parameterExpressions().stream()
                 .map(e -> visit(e, variableData, stage))
                 .toList();
+        if (linkComputerOptions.trackObjectCreations() && !params.isEmpty()) {
+            List<Links> links = params.stream()
+                    .map(r -> r.links().primary() == null ? r.links()
+                            : r.links().removeIfTo(v -> !LinkVariable.acceptForLinkedVariables(v)))
+                    .toList();
+            LinkComputer.ListOfLinks list = new LinkComputerImpl.ListOfLinksImpl(links);
+            mc.analysis().setAllowControlledOverwrite(LinkComputerImpl.LINKED_VARIABLES_ARGUMENTS, list);
+        }
 
         // handle all matters 'linking'
 

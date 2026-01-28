@@ -10,6 +10,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl;
+import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -54,6 +55,28 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkComputerImpl.class);
     public static final PropertyImpl VARIABLES_LINKED_TO_OBJECT = new PropertyImpl("variablesLinkedToObject",
             ValueImpl.VariableBooleanMapImpl.EMPTY);
+    public static final PropertyImpl LINKED_VARIABLES_ARGUMENTS = new PropertyImpl("linkedVariablesArguments",
+            ListOfLinksImpl.EMPTY);
+
+    public record ListOfLinksImpl(List<Links> list) implements ListOfLinks {
+        public static final ListOfLinks EMPTY = new ListOfLinksImpl(List.of());
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            return null;
+        }
+
+        @Override
+        public boolean isDefault() {
+            return list.isEmpty();
+        }
+
+        @Override
+        public boolean overwriteAllowed(Value newValue) {
+            // TODO
+            return true;
+        }
+    }
 
     private final Options options;
     private final JavaInspector javaInspector;

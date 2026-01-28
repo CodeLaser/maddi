@@ -1,7 +1,8 @@
 package org.e2immu.analyzer.modification.link.typelink;
 
 
-import org.e2immu.analyzer.modification.link.*;
+import org.e2immu.analyzer.modification.link.CommonTest;
+import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
@@ -14,7 +15,6 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,9 +45,9 @@ public class TestAssignmentIdentityMethod extends CommonTest {
         analyzer.doPrimaryType(X);
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
-                new LinkComputer.Options(false, false, true));
+                new LinkComputer.Options.Builder().setCheckDuplicateNames(true).build());
         MethodInfo notNull = X.findUniqueMethod("notNull", 1);
-        MethodLinkedVariables mlvNotNull =notNull.analysis().getOrCreate(METHOD_LINKS, ()-> tlc.doMethod(notNull));
+        MethodLinkedVariables mlvNotNull = notNull.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(notNull));
         assertEquals("[-] --> notNull←0:t", mlvNotNull.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
@@ -81,7 +81,7 @@ public class TestAssignmentIdentityMethod extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
-                new LinkComputer.Options(false, true, true));
+                new LinkComputer.Options.Builder().setForceShallow(true).setCheckDuplicateNames(true).build());
         tlc.doPrimaryType(X);
 
         MethodInfo notNull = X.findUniqueMethod("notNull", 1);

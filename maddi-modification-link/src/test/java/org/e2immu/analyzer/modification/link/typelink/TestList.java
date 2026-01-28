@@ -49,8 +49,7 @@ public class TestList extends CommonTest {
             }
             """;
 
-    LinkComputer.Options doNotRecurse = new LinkComputer.Options(false, false, true);
-    LinkComputer.Options forceShallow = new LinkComputer.Options(true, true, true);
+    LinkComputer.Options doNotRecurse = new LinkComputer.Options.Builder().setCheckDuplicateNames(true).build();
 
     @Test
     public void test1() {
@@ -92,7 +91,7 @@ public class TestList extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
         tlc.doPrimaryType(X);
 
         MethodInfo get = X.findUniqueMethod("get", 1);
@@ -171,7 +170,7 @@ public class TestList extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
         tlc.doPrimaryType(X);
 
         MethodInfo set = X.findUniqueMethod("set", 2);
@@ -235,7 +234,7 @@ public class TestList extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
         tlc.doPrimaryType(X);
 
         MethodInfo copy = X.findUniqueMethod("copy", 0);

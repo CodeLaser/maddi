@@ -36,7 +36,6 @@ public class TestShallowPrefix extends CommonTest {
             }
             """;
 
-    LinkComputer.Options forceShallow = new LinkComputer.Options(true, true, true);
 
     // see also TestPrefix,1 and 2
     @Test
@@ -45,7 +44,7 @@ public class TestShallowPrefix extends CommonTest {
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
         MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
@@ -97,7 +96,7 @@ public class TestShallowPrefix extends CommonTest {
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
 
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
         MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);
@@ -146,7 +145,7 @@ public class TestShallowPrefix extends CommonTest {
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector, forceShallow);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
         MethodInfo oneStatic = C.findUniqueMethod("oneStatic", 2);

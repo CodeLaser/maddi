@@ -502,7 +502,7 @@ public class TestShallow extends CommonTest {
         MethodInfo method = C.findUniqueMethod("method", 1);
         assertSame(INDEPENDENT_HC, method.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.class));
         //method.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
-         //       new ValueImpl.IndependentImpl(1, Map.of(-1, 1)));
+        //       new ValueImpl.IndependentImpl(1, Map.of(-1, 1)));
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         assertEquals("§m - C §0", vfc.compute(C).toString());
@@ -542,8 +542,7 @@ public class TestShallow extends CommonTest {
         Value.Independent independentIn = in.analysis().getOrNull(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.class);
         assertEquals("@Independent(hc=true, hcParameters={2})", independentIn.toString());
 
-        LinkComputer linkComputer = new LinkComputerImpl(javaInspector,
-                new LinkComputer.Options(true, true, true));
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
         MethodLinkedVariables mlvAdd = linkComputer.doMethod(arrayCopy);
         assertEquals("[-, -, 2:out*.§$s⊆0:in*.§$s, -, -] --> -", mlvAdd.toString());
     }
