@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.e2immu.analyzer.modification.link.impl.ExpressionVisitor.EMPTY;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.DOWNCAST_VARIABLE;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
@@ -205,6 +206,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         final Set<LocalVariable> variablesRepresentingConstants = new HashSet<>();
         final Variable returnVariable;
         final Set<Variable> modificationsOutsideVariableData = new HashSet<>();
+        final Stack<Links.Builder> yieldStack = new Stack<>();
 
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
@@ -213,6 +215,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     LinkComputerImpl.this, this, methodInfo, recursionPrevention,
                     variableCounter);
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;
+        }
+
+        // both methods called from ExpressionVisitor.evaluateSwitchEntry
+        void startSwitchExpression(Variable primary) {
+            yieldStack.push(new LinksImpl.Builder(primary));
+        }
+
+        Links endSwitchExpression() {
+            return yieldStack.pop().build();
         }
 
         private TranslationMap replaceConstants(VariableData vd, Stage stage) {
@@ -415,7 +426,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                             .filter(i -> i instanceof LocalVariableCreation)
                             .map(i ->
                                     handleLvc((LocalVariableCreation) i, previousVd, stageOfPrevious))
-                            .reduce(ExpressionVisitor.EMPTY, Result::merge);
+                            .reduce(EMPTY, Result::merge);
                     evaluate = true;
                     forEachLv = null;
                 }
@@ -476,6 +487,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 } else {
                     r = new Result(rvLinks, LinkedVariablesImpl.EMPTY);
                 }
+            } else if (statement instanceof YieldStatement && r != null) {
+                Links.Builder current = yieldStack.peek();
+                current.add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
             }
             Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph;
             if (r != null) {
@@ -600,6 +614,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .map(block -> doBlock(block, vd))
                     .filter(Objects::nonNull)
                     .toList();
+            handleSubBlocks(vds, vd);
+        }
+
+        // also called from ExpressionVisitor.switchExpression
+        void handleSubBlocks(List<VariableData> vds, VariableData vd) {
             vd.variableInfoContainerStream()
                     .filter(VariableInfoContainer::hasMerge)
                     .forEach(vic -> {
@@ -669,7 +688,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 Stage stageOfPrevious) {
             return lvc.localVariableStream()
                     .map(lv -> handleSingleLvc(previousVd, stageOfPrevious, lv))
-                    .reduce(ExpressionVisitor.EMPTY, Result::merge);
+                    .reduce(EMPTY, Result::merge);
         }
 
         private @NotNull Result handleSingleLvc(VariableData previousVd,
@@ -689,7 +708,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 }
                 return r.addExtra(linkedVariables);
             }
-            return ExpressionVisitor.EMPTY;
+            return EMPTY;
         }
     }
 }

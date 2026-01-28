@@ -41,6 +41,7 @@ public class IntermediateVariable extends LocalVariableImpl implements LocalVari
         return new IntermediateVariable(LABEL_NEW_OBJECT + index, parameterizedType, runtime.newEmptyExpression());
     }
 
+    // also used for switch expressions
     public static IntermediateVariable inlineCondition(Runtime runtime, int index, ParameterizedType parameterizedType) {
         return new IntermediateVariable(LABEL_INLINE_CONDITION + index, parameterizedType, runtime.newEmptyExpression());
     }
