@@ -19,11 +19,11 @@ public interface LinkComputer {
 
     record Options(boolean recurse, boolean forceShallow, boolean checkDuplicateNames, boolean trackObjectCreations) {
         public static final Options TEST = new Options(true, false, true,
-                true);
+                false);
         public static final Options PRODUCTION = new Options(true, false, false,
                 true);
         public static final Options FORCE_SHALLOW = new Options(true, true, true,
-                true);
+                false);
 
         public static class Builder {
             boolean recurse;

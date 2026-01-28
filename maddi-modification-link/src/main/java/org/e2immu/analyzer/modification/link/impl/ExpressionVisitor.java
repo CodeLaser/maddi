@@ -362,7 +362,7 @@ public record ExpressionVisitor(Runtime runtime,
                 p.modified().keySet().stream()).collect(Collectors.toUnmodifiableSet());
         return new LinkMethodCall(javaInspector, runtime, linkComputerOptions, virtualFieldComputer, variableCounter,
                 currentMethod, variableData, stage)
-                .constructorCall(cc.constructor(), object, params, mlvTranslated1)
+                .constructorCall(cc, object, params, mlvTranslated1)
                 .addModified(extraModified, null)
                 .addVariablesRepresentingConstant(params)
                 .addVariablesRepresentingConstant(object);
