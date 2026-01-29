@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class Test1 extends CommonTest {
@@ -137,8 +138,7 @@ public class Test1 extends CommonTest {
             }
             """;
 
-    @Disabled("TODO")
-    @DisplayName("strings parameter unmodified from t->f")
+    @DisplayName("recursive method")
     @Test
     public void test4() {
         TypeInfo C = javaInspector.parse(INPUT4);
