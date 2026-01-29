@@ -120,6 +120,11 @@ public class RunAnalyzer implements Runnable {
                 .setLombok(inputConfiguration.containsLombok())
                 .build();
         Summary summary = javaInspector.parse(parseOptions);
+        assert summary.parseResult().primaryTypes().stream()
+                .flatMap(TypeInfo::recursiveSubTypeStream)
+                .noneMatch(ti -> ti.simpleName().endsWith("$"))
+                : "It looks like the annotated API types are part of the primary types of the parse result";
+
         boolean printMemory = configuration.generalConfiguration().debugTargets().contains("memory");
         if (printMemory) {
             printMemUse();
@@ -140,10 +145,12 @@ public class RunAnalyzer implements Runnable {
             Predicate<TypeInfo> externalsToAccept = _ -> false;
             LOGGER.info("Running prep analyzer on {} types", summary.types().size());
             PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime());
-            prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
             ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(Set.copyOf(parseResult.primaryTypes()),
                     parseResult.sourceSetToModuleInfoMap().values(),
                     externalsToAccept, parseOptions.parallel());
+            assert ccg.graph().vertices().stream().noneMatch(v -> v.t() instanceof TypeInfo typeInfo && typeInfo.simpleName().endsWith("$"))
+                    : "It looks like the annotated API types are part of the call graph.";
+
             if (printMemory) {
                 printMemUse();
             }
@@ -159,7 +166,6 @@ public class RunAnalyzer implements Runnable {
             ccg = null;
         }
         if (modification) {
-            assert ccg != null;
             ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
             LOGGER.info("Computing analysis order");
             List<Info> order = cao.go(ccg.graph(), parseOptions.parallel());

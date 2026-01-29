@@ -39,7 +39,9 @@ dependencies {
     implementation(project(":maddi-java-bytecode"))
     implementation(project(":maddi-java-parser"))
     implementation(project(":maddi-aapi-parser"))
-    testRuntimeOnly(project(":maddi-aapi-archive"))
+
+    // to access resource:/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs.jar
+    runtimeOnly(project(":maddi-aapi-archive"))
 
     implementation(project(":maddi-run-config"))
 

@@ -127,4 +127,41 @@ public class TestSwitchExpression extends CommonTest {
                 """, mlv.toString());
     }
 
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            public class C {
+                public static String escaped(char constant) {
+                    return switch (constant) {
+                        case '\\0' -> "\\\\0";
+                        case '\\t' -> "\\\\t";
+                        case '\\b' -> "\\\\b";
+                        case '\\n' -> "\\\\n";
+                        case '\\r' -> "\\\\r";
+                        case '\\f' -> "\\\\f";
+                        case '\\'' -> "\\\\'";
+                        case '\\"' -> "\\\\\\"";
+                        case '\\\\' -> "\\\\\\\\";
+                        default -> {
+                            if (constant >= 32 && constant <= 127) yield Character.toString(constant);
+                            String hex = Integer.toString(constant, 16);
+                            yield "\\\\u" + "0".repeat(Math.max(0, 4 - hex.length())) + hex;
+                        }
+                    };
+                }
+            }
+            """;
+
+    @DisplayName("assertion error in LinkImpl constructor")
+    @Test
+    public void test4() {
+        TypeInfo C = javaInspector.parse(INPUT4);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(true).build());
+        tlc.doPrimaryType(C);
+    }
 }
