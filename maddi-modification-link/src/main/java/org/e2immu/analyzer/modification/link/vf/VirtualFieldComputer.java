@@ -406,7 +406,7 @@ public class VirtualFieldComputer {
 
         VfTm vfTmFormal = compute(typeInfo.asParameterizedType(), false);
         FieldInfo formalHiddenContent = vfTmFormal.virtualFields.hiddenContent();
-        return Stream.concat(Stream.of(formalHiddenContent), fromHigher.stream()).toList();
+        return Stream.concat(Stream.ofNullable(formalHiddenContent), fromHigher.stream()).toList();
     }
 
     private VirtualFields arrayType(ParameterizedType pt) {
