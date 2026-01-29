@@ -67,4 +67,34 @@ public class Test1 extends CommonTest {
                 new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(true).build());
         tlc.doPrimaryType(C);
     }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            import org.e2immu.annotation.Independent;import java.util.HashMap;import java.util.Map;import java.util.Objects;
+            public class C<K, V> {
+                private final Map<K, V> map = new HashMap<>();
+                public void put(K k, V v) {
+                    Objects.requireNonNull(k);
+                    Objects.requireNonNull(v);
+                    map.put(k, v);
+                }
+                public void putAll(@Independent(hc = true) C<K, V> setOnceMap) {
+                    setOnceMap.map.forEach(this::put);
+                }
+            }
+            """;
+
+    @DisplayName("null owner")
+    @Test
+    public void test3() {
+        TypeInfo C = javaInspector.parse(INPUT3);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(true).build());
+        tlc.doPrimaryType(C);
+    }
 }
