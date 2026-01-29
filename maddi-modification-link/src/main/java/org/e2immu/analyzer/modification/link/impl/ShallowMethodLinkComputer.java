@@ -368,9 +368,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                         // List.toArray()
                         if (arraysFrom == arraysTo) {
                             builder.add(subFrom, IS_SUBSET_OF, subTo);
-                        } else {
-                            throw new UnsupportedOperationException("NYI");
-                        }
+                        } // no idea what to do, see TestShallow,12
                     }
                 } else {
                     List<TypeParameter> intersection = new ArrayList<>(typeParametersFrom.stream()

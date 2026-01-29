@@ -14,6 +14,7 @@ import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
@@ -558,4 +559,36 @@ public class TestShallow extends CommonTest {
                 () -> linkComputer.doMethod(requireNonNull));
         assertEquals("[-] --> requireNonNull←0:obj", mlv.toString());
     }
+
+
+    @Language("java")
+    private static final String INPUT12 = """
+            package a.b;
+            import java.util.Map;
+            public interface EdgePrinter<T> {
+                record V<T>(T t) {}
+                String print(Map<V<T>, Map<V<T>, Long>> edges);
+            }
+            """;
+
+    @DisplayName("from a MapMap into a type parameter")
+    @Test
+    public void test12() {
+        TypeInfo X = javaInspector.parse(INPUT12);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        MethodInfo print = X.findUniqueMethod("print", 1);
+        ParameterizedType pt0 = print.parameters().getFirst().parameterizedType();
+        VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
+        VirtualFieldComputer.VfTm vfTmMapMap = virtualFieldComputer.compute(pt0, true);
+        assertEquals("""
+                VfTm[virtualFields=§m - T$[] §t$s, formalToConcrete=K=TP#0 in Map [] --> T=TP#0 in EdgePrinter []
+                V=TP#1 in Map [] --> java.util.Map<a.b.EdgePrinter.V<T>,Long>]\
+                """, vfTmMapMap.toString());
+        LinkComputer linkComputer = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
+        // from parameter into object. The object is of type T (which is pretty weird, but correct according to the logic)
+        MethodLinkedVariables mlvAdd = linkComputer.doMethod(print);
+        assertEquals("[0:edges*.§m≡this*.§m] --> -", mlvAdd.toString());
+    }
+
 }
