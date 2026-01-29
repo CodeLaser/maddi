@@ -34,4 +34,37 @@ public class Test1 extends CommonTest {
                 new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(true).build());
         tlc.doPrimaryType(C);
     }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.Collection;
+            import java.util.List;
+            import java.util.Map;
+            public class C {
+                private static final Map<String, List<Integer>> mapList = Map.of("a", List.of(1, 2),
+                            "b", List.of(3), "c", List.of(), "d", List.of(4, 5, 6));
+            
+                private int method() {
+                    int sum = 1;
+                    sum += mapList.values().stream()
+                                .flatMap(Collection::stream)
+                                .mapToInt(i -> i)
+                                .sum();
+                    return sum;
+                 }
+            }
+            """;
+
+    @DisplayName("wrong link in LMC.linksBetweenParameters")
+    @Test
+    public void test2() {
+        TypeInfo C = javaInspector.parse(INPUT2);
+
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(true).build());
+        tlc.doPrimaryType(C);
+    }
 }
