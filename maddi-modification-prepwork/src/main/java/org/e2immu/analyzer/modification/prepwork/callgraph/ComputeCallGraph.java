@@ -387,10 +387,6 @@ public class ComputeCallGraph {
         return false;
     }
 
-    private void addType(Info from, TypeInfo to, long edgeValue) {
-        builder.mergeEdge(from, to, edgeValue);
-    }
-
     private void addType(Info from, ParameterizedType pt, long edgeValue) {
         if (!from.typeInfo().asParameterizedType().isAssignableFrom(runtime, pt)) {
             TypeInfo best = pt.bestTypeInfo();

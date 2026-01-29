@@ -1172,6 +1172,16 @@ public class MethodResolutionImpl implements MethodResolution {
             else add = bestType(context.enclosingType().primaryType(), typesOfParametersFromMethod.get(i),
                         typesOfParametersFromForward.get(i), methodMap);
             typesOfParameters.add(add);
+            if (i < methodInfo.parameters().size()) {
+                ParameterInfo pi = methodInfo.parameters().get(i);
+                if (pi.parameterizedType().typeParameter() != null) {
+                    // see TestMethodCall13,2,3 (identity, Y -> X)
+                    // method is a SAM called in Stream.map(), formally mapping X -> Y
+                    // when the output contains Y but the type parameter in Function contains X, replace Y by X
+                    int arrayDiff = methodInfo.returnType().arrays() - pi.parameterizedType().arrays();
+                    methodMap.put(pi.parameterizedType().typeParameter(), add.copyWithArrays(add.arrays() + arrayDiff));
+                } // else: handle matching type parameters in objects TODO
+            }
         }
 
         ParameterizedType returnTypeFromMethod;

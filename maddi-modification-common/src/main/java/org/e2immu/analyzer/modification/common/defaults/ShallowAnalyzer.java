@@ -17,6 +17,7 @@ package org.e2immu.analyzer.modification.common.defaults;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -25,6 +26,7 @@ import org.e2immu.util.internal.graph.ImmutableGraph;
 import org.e2immu.util.internal.graph.op.Linearize;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.DEFAULTS_ANALYZER;
@@ -80,11 +82,14 @@ public class ShallowAnalyzer {
     }
 
     public Result go(List<TypeInfo> types) {
+        Set<SourceSet> stayWithinSourceSets = types.stream()
+                .map(typeInfo -> typeInfo.compilationUnit().sourceSet()).collect(Collectors.toUnmodifiableSet());
         if(debugVisitor != null) debugVisitor.inputTypes(types);
         List<TypeInfo> allTypes = types.stream().flatMap(TypeInfo::recursiveSubTypeStream)
                 .filter(this::acceptAccess)
                 .flatMap(t -> Stream.concat(Stream.of(t), t.recursiveSuperTypeStream()))
                 .distinct()
+                .filter(t -> stayWithinSourceSets.contains(t.compilationUnit().sourceSet()))
                 .toList();
         if (debugVisitor != null) debugVisitor.allTypes(allTypes);
 
@@ -92,6 +97,7 @@ public class ShallowAnalyzer {
         for (TypeInfo typeInfo : allTypes) {
             List<TypeInfo> allSuperTypes = typeInfo.recursiveSuperTypeStream()
                     .filter(this::acceptAccess)
+                    .filter(t -> stayWithinSourceSets.contains(t.compilationUnit().sourceSet()))
                     .toList();
             graphBuilder.add(typeInfo, allSuperTypes);
         }

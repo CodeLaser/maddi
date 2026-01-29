@@ -335,20 +335,42 @@ public abstract class ValueImpl implements Value {
     }
 
     public static final int INDEX_RETURN_VALUE = -1;
+    public static final int START_INDEX_DEPENDENT = -10;
 
     public static class IndependentImpl implements Independent {
         private final int value;
         private final Map<Integer, Integer> linkToParametersReturnValue;
+        private final List<MethodInfo> dependentExceptions;
 
         private IndependentImpl(int value) {
             this.value = value;
             this.linkToParametersReturnValue = Map.of();
+            this.dependentExceptions = List.of();
         }
 
         // public: testing in cst-io
-        public IndependentImpl(int value, Map<Integer, Integer> linkToParametersReturnValue) {
+        public IndependentImpl(int value,
+                               Map<Integer, Integer> linkToParametersReturnValue,
+                               List<MethodInfo> dependentExceptions) {
             this.value = value;
             this.linkToParametersReturnValue = linkToParametersReturnValue;
+            this.dependentExceptions = dependentExceptions;
+        }
+
+        public static List<MethodInfo> makeDependentExceptions(String[] dependentMethods, Info info) {
+            List<MethodInfo> methods = new ArrayList<>();
+            if (info instanceof MethodInfo methodInfo && dependentMethods != null) {
+                TypeInfo typeInfo = methodInfo.returnType().bestTypeInfo();
+                if (typeInfo != null) {
+                    for (String methodName : dependentMethods) {
+                        typeInfo.methods().stream()
+                                .filter(m -> methodName.equals(m.name()))
+                                .findFirst()
+                                .ifPresent(methods::add);
+                    }
+                }
+            }
+            return List.copyOf(methods);
         }
 
         /*
@@ -368,6 +390,20 @@ public abstract class ValueImpl implements Value {
                 for (int i : hcParameters) map.put(i, 1);
             }
             return Map.copyOf(map);
+        }
+
+        @Override
+        public List<MethodInfo> dependentMethods() {
+            return dependentExceptions;
+        }
+
+        private static int methodIndex(MethodInfo methodInfo) {
+            int i = 0;
+            for (MethodInfo mi : methodInfo.typeInfo().methods()) {
+                if (mi == methodInfo) return i;
+                ++i;
+            }
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -417,13 +453,20 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-            if (linkToParametersReturnValue.isEmpty()) {
+            if (linkToParametersReturnValue.isEmpty() && dependentExceptions.isEmpty()) {
                 if (value == 0) return null;
                 return codec.encodeInt(context, value);
             }
-            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = linkToParametersReturnValue.entrySet().stream()
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap1 = linkToParametersReturnValue.entrySet().stream()
                     .collect(Collectors.toUnmodifiableMap(e -> codec.encodeString(context, "" + e.getKey()),
                             e -> codec.encodeInt(context, e.getValue())));
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap2 = dependentMethods().stream()
+                    .map(IndependentImpl::methodIndex)
+                    .collect(Collectors.toUnmodifiableMap(i -> codec.encodeString(context, "" + (START_INDEX_DEPENDENT - i)),
+                            i -> codec.encodeInt(context, +i)));
+
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = new HashMap<>(encodedMap1);
+            encodedMap.putAll(encodedMap2);
             return codec.encodeList(context, List.of(codec.encodeInt(context, value), codec.encodeMap(context, encodedMap)));
         }
 
@@ -484,6 +527,12 @@ public abstract class ValueImpl implements Value {
             if (!hcList.isEmpty()) {
                 list.add("hcParameters={" + String.join(", ", hcList) + "}");
             }
+            if (!dependentExceptions.isEmpty()) {
+                String dependentMethods = dependentExceptions.stream()
+                        .map(MethodInfo::name)
+                        .collect(Collectors.joining("\", \"", "{\"", "\"}"));
+                list.add("except=" + dependentMethods);
+            }
             return String.join(", ", list);
         }
 
@@ -498,10 +547,18 @@ public abstract class ValueImpl implements Value {
             List<Codec.EncodedValue> encodedList = codec.decodeList(context, encodedValue);
             int value = codec.decodeInt(context, encodedList.getFirst());
             Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = codec.decodeMap(context, encodedList.get(1));
-            Map<Integer, Integer> map = encodedMap.entrySet().stream().collect(Collectors.toUnmodifiableMap(
-                    e -> Integer.parseInt(codec.decodeString(context, e.getKey())),
-                    e -> codec.decodeInt(context, e.getValue())));
-            return new IndependentImpl(value, map);
+            Map<Integer, Integer> map = encodedMap.entrySet().stream()
+                    .filter(e -> Integer.parseInt(codec.decodeString(context, e.getKey())) > START_INDEX_DEPENDENT)
+                    .collect(Collectors.toUnmodifiableMap(
+                            e -> Integer.parseInt(codec.decodeString(context, e.getKey())),
+                            e -> codec.decodeInt(context, e.getValue())));
+            List<MethodInfo> methods = encodedMap.keySet().stream()
+                    .map(ev -> Integer.parseInt(codec.decodeString(context, ev)))
+                    .filter(i -> i <= START_INDEX_DEPENDENT)
+                    .map(i -> context.currentMethod().returnType()
+                            .typeInfo().methods().get(START_INDEX_DEPENDENT - i))
+                    .toList();
+            return new IndependentImpl(value, map, methods);
         }
         return IndependentImpl.from(codec.decodeInt(context, encodedValue));
     }
@@ -510,8 +567,12 @@ public abstract class ValueImpl implements Value {
         decoderMap.put(IndependentImpl.class, (di, ev) -> decodeIndependentImpl(di.codec(), di.context(), ev));
     }
 
-    public record GetSetValueImpl(FieldInfo field, boolean setter, int parameterIndexOfIndex) implements FieldValue {
-        public static final FieldValue EMPTY = new GetSetValueImpl(null, false, -1);
+    public record GetSetValueImpl(FieldInfo field,
+                                  boolean setter,
+                                  int parameterIndexOfIndex,
+                                  boolean list) implements FieldValue {
+        public static final FieldValue EMPTY = new GetSetValueImpl(null,
+                false, -1, false);
 
         @Override
         public boolean isDefault() {
@@ -523,6 +584,7 @@ public abstract class ValueImpl implements Value {
             List<Codec.EncodedValue> list = new ArrayList<>();
             list.add(codec.encodeInfoInContext(context, field, "" + codec.fieldIndex(field)));
             list.add(codec.encodeBoolean(context, setter));
+            list.add(codec.encodeBoolean(context, this.list));
             if (parameterIndexOfIndex >= 0) {
                 list.add(codec.encodeInt(context, parameterIndexOfIndex));
             }
@@ -547,7 +609,7 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public Value rewire(InfoMap infoMap) {
-            return new GetSetValueImpl(infoMap.fieldInfo(field), setter, parameterIndexOfIndex);
+            return new GetSetValueImpl(infoMap.fieldInfo(field), setter, parameterIndexOfIndex, list);
         }
     }
 
@@ -558,8 +620,9 @@ public abstract class ValueImpl implements Value {
             List<Codec.EncodedValue> list = codec.decodeList(context, encodedValue);
             FieldInfo field = codec.decodeFieldInfo(context.currentType(), list.getFirst());
             boolean setter = codec.decodeBoolean(context, list.get(1));
-            int index = list.size() == 2 ? -1 : codec.decodeInt(context, list.get(2));
-            return new GetSetValueImpl(field, setter, index);
+            boolean isList = codec.decodeBoolean(context, list.get(2));
+            int index = list.size() == 3 ? -1 : codec.decodeInt(context, list.get(3));
+            return new GetSetValueImpl(field, setter, index, isList);
         });
     }
 
@@ -809,11 +872,11 @@ public abstract class ValueImpl implements Value {
     }
 
 
-    public record NotNullImpl(int value) implements NotNull {
-        public static final NotNull NO_VALUE = new NotNullImpl(-1);
-        public static final NotNull NULLABLE = new NotNullImpl(0);
-        public static final NotNull NOT_NULL = new NotNullImpl(1);
-        public static final NotNull CONTENT_NOT_NULL = new NotNullImpl(2);
+    public record NotNullImpl(int value) implements NotNullProperty {
+        public static final NotNullProperty NO_VALUE = new NotNullImpl(-1);
+        public static final NotNullProperty NULLABLE = new NotNullImpl(0);
+        public static final NotNullProperty NOT_NULL = new NotNullImpl(1);
+        public static final NotNullProperty CONTENT_NOT_NULL = new NotNullImpl(2);
 
         public static Value from(int level) {
             return switch (level) {
@@ -855,7 +918,7 @@ public abstract class ValueImpl implements Value {
         }
 
         @Override
-        public NotNull max(NotNull other) {
+        public NotNullProperty max(NotNullProperty other) {
             int v = ((NotNullImpl) other).value;
             return value >= v ? this : other;
         }
@@ -894,6 +957,7 @@ public abstract class ValueImpl implements Value {
     }
 
     public record SetOfInfoImpl(Set<? extends Info> infoSet) implements SetOfInfo {
+        public static SetOfInfo EMPTY = new SetOfInfoImpl(Set.of());
 
         @Override
         public boolean isDefault() {
@@ -937,6 +1001,68 @@ public abstract class ValueImpl implements Value {
         decoderMap.put(SetOfInfoImpl.class, (di, ev) -> SetOfInfoImpl.from(di.codec(), di.context(), ev));
     }
 
+    public record VariableToTypeInfoSetImpl(
+            Map<Variable, Set<TypeInfo>> variableToTypeInfoSet) implements Value.VariableToTypeInfoSet {
+        public static final VariableToTypeInfoSet EMPTY = new VariableToTypeInfoSetImpl(Map.of());
+
+        @Override
+        public boolean isDefault() {
+            return variableToTypeInfoSet.isEmpty();
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = variableToTypeInfoSet.entrySet().stream()
+                    .collect(Collectors.toUnmodifiableMap(
+                            e -> codec.encodeVariable(context, e.getKey()),
+                            e -> codec.encodeList(context, e.getValue().stream()
+                                    .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
+                                    .map(info -> codec.encodeString(context, info.fullyQualifiedName()))
+                                    .toList())));
+            return codec.encodeMap(context, encodedMap);
+        }
+
+        public static VariableToTypeInfoSet from(Codec codec, Codec.Context context, Codec.EncodedValue encodedMap) {
+            Map<Codec.EncodedValue, Codec.EncodedValue> map = codec.decodeMap(context, encodedMap);
+            Map<Variable, Set<TypeInfo>> decoded = map.entrySet().stream()
+                    .collect(Collectors.toUnmodifiableMap(
+                            e -> codec.decodeVariable(context, e.getKey()),
+                            e -> {
+                                List<Codec.EncodedValue> list = codec.decodeList(context, e.getValue());
+                                return list.stream()
+                                        .map(ev -> (TypeInfo) codec.decodeInfoOutOfContext(context, ev))
+                                        .collect(Collectors.toUnmodifiableSet());
+                            }));
+            return new VariableToTypeInfoSetImpl(decoded);
+        }
+
+        public String nice() {
+            return variableToTypeInfoSet.entrySet().stream()
+                    .map(e -> e.getKey() + "->" + e.getValue())
+                    .sorted().collect(Collectors.joining(", "));
+        }
+
+        @Override
+        public boolean overwriteAllowed(Value newValue) {
+            VariableToTypeInfoSet other = (VariableToTypeInfoSet) newValue;
+            for (Map.Entry<Variable, Set<TypeInfo>> entry : variableToTypeInfoSet.entrySet()) {
+                Set<TypeInfo> otherSet = other.variableToTypeInfoSet().get(entry.getKey());
+                if (otherSet == null || !otherSet.containsAll(entry.getValue())) return false;
+            }
+            return true;
+        }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            throw new UnsupportedOperationException("NYI");
+        }
+    }
+
+    static {
+        decoderMap.put(VariableToTypeInfoSetImpl.class, (di, ev) -> VariableToTypeInfoSetImpl.from(di.codec(), di.context(), ev));
+    }
+
+
     public record SetOfTypeInfoImpl(Set<TypeInfo> typeInfoSet) implements SetOfTypeInfo {
         public static final SetOfTypeInfo EMPTY = new SetOfTypeInfoImpl(Set.of());
 
@@ -960,6 +1086,79 @@ public abstract class ValueImpl implements Value {
             return new SetOfTypeInfoImpl(set);
         }
 
+        public String nice() {
+            return typeInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
+        }
+
+        @Override
+        public Value rewire(InfoMap infoMap) {
+            throw new UnsupportedOperationException("NYI");
+        }
+
+        @Override
+        public boolean overwriteAllowed(Value newValue) {
+            // must be smaller
+            return ((SetOfTypeInfo) newValue).typeInfoSet().containsAll(typeInfoSet);
+        }
+    }
+
+    static {
+        decoderMap.put(SetOfTypeInfoImpl.class, (di, ev) -> SetOfTypeInfoImpl.from(di.codec(), di.context(), ev));
+    }
+
+
+    public static class SetOfMethodInfoImpl implements SetOfMethodInfo {
+        public static final SetOfMethodInfo EMPTY = new SetOfMethodInfoImpl(Set.of());
+
+        private final Set<MethodInfo> methodInfoSet;
+
+        public SetOfMethodInfoImpl() {
+            this.methodInfoSet = new HashSet<>();
+        }
+
+        private SetOfMethodInfoImpl(Set<MethodInfo> set) {
+            this.methodInfoSet = set;
+        }
+
+        @Override
+        public Iterable<MethodInfo> methodInfoSet() {
+            return methodInfoSet;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return methodInfoSet.isEmpty();
+        }
+
+        @Override
+        public boolean isDefault() {
+            return methodInfoSet.isEmpty();
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            List<Codec.EncodedValue> encodedValues = methodInfoSet.stream()
+                    .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName))
+                    .map(mi -> codec.encodeMethodInfo(context, mi)).toList();
+            return codec.encodeList(context, encodedValues);
+        }
+
+        public static SetOfMethodInfo from(Codec codec, Codec.Context context, Codec.EncodedValue encodedList) {
+            List<Codec.EncodedValue> encodedValues = codec.decodeList(context, encodedList);
+            Set<MethodInfo> set = encodedValues.stream().map(e -> codec.decodeMethodInfo(context, e))
+                    .collect(Collectors.toUnmodifiableSet());
+            return new SetOfMethodInfoImpl(set);
+        }
+
+        public String nice() {
+            return methodInfoSet.stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
+        }
+
+        @Override
+        public boolean add(MethodInfo methodInfo) {
+            return methodInfoSet.add(methodInfo);
+        }
+
         @Override
         public Value rewire(InfoMap infoMap) {
             throw new UnsupportedOperationException("NYI");
@@ -967,6 +1166,6 @@ public abstract class ValueImpl implements Value {
     }
 
     static {
-        decoderMap.put(SetOfTypeInfoImpl.class, (di, ev) -> SetOfTypeInfoImpl.from(di.codec(), di.context(), ev));
+        decoderMap.put(SetOfMethodInfoImpl.class, (di, ev) -> SetOfMethodInfoImpl.from(di.codec(), di.context(), ev));
     }
 }

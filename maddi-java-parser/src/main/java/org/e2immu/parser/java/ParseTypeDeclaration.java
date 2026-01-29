@@ -30,7 +30,7 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.language.inspection.api.parser.Lombok;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.parser.TypeContext;
-import org.e2immu.language.inspection.api.util.GetSetUtil;
+import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import org.e2immu.support.Either;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
@@ -48,11 +48,11 @@ import static org.e2immu.language.inspection.api.parser.TypeContext.*;
 
 public class ParseTypeDeclaration extends CommonParse {
     private static final Logger LOGGER = LoggerFactory.getLogger(ParseTypeDeclaration.class);
-    private final GetSetUtil getSetUtil;
+    private final CreateSyntheticFieldsForGetSet createSyntheticFieldsForGetSet;
 
     public ParseTypeDeclaration(Runtime runtime, Parsers parsers) {
         super(runtime, parsers);
-        this.getSetUtil = new GetSetUtil(runtime);
+        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
     }
 
     public Either<TypeInfo, DelayedParsingInformation> parse(Context context,
@@ -484,8 +484,9 @@ public class ParseTypeDeclaration extends CommonParse {
         }
 
         if (typeNature.isInterface() || typeNature.isClass() && builder.isAbstract()) {
-            getSetUtil.createSyntheticFields(typeInfo);
+            createSyntheticFieldsForGetSet.createSyntheticFields(typeInfo);
         }
+
         return typeInfo;
     }
 

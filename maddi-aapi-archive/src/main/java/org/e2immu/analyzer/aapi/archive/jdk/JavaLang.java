@@ -752,8 +752,8 @@ class JavaLang {
         @Modified
         String clearProperty(String key);
 
-        @Modified
-        void setSecurityManager(SecurityManager securityManager);
+        //@Modified
+        //void setSecurityManager(SecurityManager securityManager);
     }
 
     /*

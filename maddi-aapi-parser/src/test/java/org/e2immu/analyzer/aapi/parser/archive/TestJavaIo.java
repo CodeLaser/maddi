@@ -36,7 +36,7 @@ public class TestJavaIo extends CommonTest {
     @Test
     public void testSerializable() {
         TypeInfo typeInfo = compiledTypesManager().get(Serializable.class);
-        testImmutableContainer(typeInfo, true, false);
+        testImmutableContainer(typeInfo, true);
     }
 
     @Test

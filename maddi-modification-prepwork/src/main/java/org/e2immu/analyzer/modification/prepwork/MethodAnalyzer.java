@@ -275,6 +275,18 @@ public class MethodAnalyzer {
             LOGGER.error("Caught exception in method {}", methodInfo);
             throw t;
         }
+        if (!methodInfo.isAbstract()) {
+            methodInfo.overrides().stream()
+                    .filter(override -> override.isAbstract()
+                                        && !override.typeInfo().compilationUnit().externalLibrary())
+                    .forEach(override -> addImplementation(override, methodInfo));
+        }
+    }
+
+    private static void addImplementation(MethodInfo override, MethodInfo implementation) {
+        Value.SetOfMethodInfo set = override.analysis().getOrCreate(PropertyImpl.IMPLEMENTATIONS,
+                ValueImpl.SetOfMethodInfoImpl::new);
+        set.add(implementation);
     }
 
     private Map<String, VariableData> doBlocks(MethodInfo methodInfo,
@@ -883,11 +895,9 @@ public class MethodAnalyzer {
                     handleInnerClass(anonymousClass);
                     return true; // so that the arguments get processed; the current visitor ignores the anonymous class
                 }
-                if (cc.constructor() != null && cc.constructor().isSyntheticArrayConstructor()) {
-                    prepAnalyzer.handleSyntheticArrayConstructor(cc);
-                }
                 if (prepAnalyzer.trackObjectCreations()) {
-                    ObjectCreationVariable ocv = new ObjectCreationVariableImpl(currentMethod, cc.source().compact(), cc.parameterizedType());
+                    ObjectCreationVariable ocv = new ObjectCreationVariableImpl(currentMethod, cc.source().compact(),
+                            cc.parameterizedType());
                     assignedAdd(ocv);
                 }
             }
@@ -942,15 +952,30 @@ public class MethodAnalyzer {
             }
             if (e instanceof MethodCall mc) {
                 // also, simply ensure that modified component variables exist
-                copyModifiedComponentsMethod(mc.methodInfo(), mc.object());
+                //copyModifiedComponentsMethod(mc.methodInfo(), mc.object());
             }
             if (e instanceof SwitchExpression switchExpression) {
                 switchExpression.selector().visit(this);
                 for (SwitchEntry se : switchExpression.entries()) {
+                    VariableData vd;
                     if (se.statement() instanceof Block block) {
-                        doBlock(currentMethod, block, currentVariableData, internalVariables);
+                        vd = doBlock(currentMethod, block, currentVariableData, internalVariables);
                     } else {
-                        doStatement(currentMethod, se.statement(), currentVariableData, true, internalVariables);
+                        vd = doStatement(currentMethod, se.statement(), currentVariableData, true, internalVariables);
+                    }
+
+                    // we want to add all but locally created variables
+                    String end = index + StatementIndex.END;
+                    for (VariableInfo vi : vd.variableInfoIterable()) {
+                        boolean definedBeforeSwitchExpression = vi.assignments().indexOfDefinition().compareTo(index) <= 0;
+                        if (definedBeforeSwitchExpression) {
+                            if (vi.reads().between(index, end)) {
+                                markRead(vi.variable());
+                            }
+                            if (vi.assignments().between(index, end)) {
+                                assignedAdd(vi.variable());
+                            }
+                        }
                     }
                 }
                 return false;
@@ -999,7 +1024,7 @@ public class MethodAnalyzer {
                     .forEach(mi -> copyReadsFromAnonymousMethod(mi, localFields, typeHierarchy,
                             variableInfoMap));
         }
-
+/*
         // This annotation only exists here through @Modified("...") annotations; not through analysis, which comes later
         private void copyModifiedComponentsMethod(MethodInfo methodInfo, Expression object) {
             Value.VariableBooleanMap modifiedComponents = methodInfo.analysis()
@@ -1010,7 +1035,7 @@ public class MethodAnalyzer {
                     markRead(newFr);
                 }
             });
-        }
+        }*/
 
         private VariableInfoMap ensureLocalVariableNamesOfEnclosingType(TypeInfo anonymousClass) {
             VariableInfoMap stored = anonymousClass.analysis().getOrNull(VARIABLES_OF_ENCLOSING_METHOD,

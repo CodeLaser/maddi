@@ -18,15 +18,15 @@ plugins {
     id("java-library-conventions")
 }
 java {
-    sourceCompatibility = JavaVersion.VERSION_24
-    targetCompatibility = JavaVersion.VERSION_24
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-modification-common"))
-    implementation(project(":maddi-modification-io"))
     implementation(project(":maddi-modification-prepwork"))
-    implementation(project(":maddi-modification-linkedvariables"))
+    implementation(project(":maddi-modification-link"))
+    implementation(project(":maddi-modification-analyzer"))
     implementation(project(":maddi-graph"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-analysis"))

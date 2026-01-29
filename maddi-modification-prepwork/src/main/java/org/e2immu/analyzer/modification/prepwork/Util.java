@@ -14,7 +14,20 @@
 
 package org.e2immu.analyzer.modification.prepwork;
 
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.language.cst.api.expression.IntConstant;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.*;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.Iterator;
+import java.util.Set;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.prepwork.StatementIndex.*;
 
@@ -31,6 +44,53 @@ public class Util {
         int i = index.lastIndexOf('.');
         if (i < 0) return "~";
         return index.substring(0, i) + ".~";
+    }
+
+    public static Iterable<Variable> goUp(Variable variable) {
+        return new Iterable<>() {
+            @Override
+            public @NotNull Iterator<Variable> iterator() {
+                return new Iterator<>() {
+                    Variable v = variable;
+
+                    @Override
+                    public boolean hasNext() {
+                        return v != null;
+                    }
+
+                    @Override
+                    public Variable next() {
+                        Variable rv = v;
+                        if (v instanceof FieldReference fr && fr.scopeVariable() != null) {
+                            v = fr.scopeVariable();
+                        } else if (v instanceof DependentVariable dv) {
+                            v = dv.arrayVariable();
+                        } else {
+                            v = null;
+                        }
+                        return rv;
+                    }
+                };
+            }
+        };
+    }
+
+    public static boolean hasVirtualFields(Variable v) {
+        if (v instanceof ReturnVariable rv) {
+            return rv.methodInfo().isAbstract() || rv.methodInfo().typeInfo().compilationUnit().externalLibrary();
+        }
+        if (v instanceof ParameterInfo pi) {
+            return pi.methodInfo().isAbstract() || pi.methodInfo().typeInfo().compilationUnit().externalLibrary();
+        }
+        TypeInfo typeInfo;
+        if (v.parameterizedType().typeInfo() != null) {
+            typeInfo = v.parameterizedType().typeInfo();
+        } else if (v.parameterizedType().typeParameter() != null) {
+            typeInfo = v.parameterizedType().typeParameter().typeInfo();
+        } else {
+            return false; // wildcard type
+        }
+        return typeInfo.isAbstract() || typeInfo.compilationUnit().externalLibrary();
     }
 
     /**
@@ -59,6 +119,136 @@ public class Util {
         return index.compareTo(scope) >= 0;
     }
 
+    public static boolean isPrimary(Variable variable) {
+        return variable == primary(variable);
+    }
+
+    public static boolean isVirtualModificationField(FieldInfo fieldInfo) {
+        return "§m".equals(fieldInfo.name());
+    }
+
+    public static LocalVariable lvPrimaryOrNull(Variable variable) {
+        if (variable instanceof LocalVariable lv) return lv;
+        if (primary(variable) instanceof LocalVariable lv) return lv;
+        return null;
+    }
+
+    public static ParameterInfo parameterPrimaryOrNull(Variable variable) {
+        if (primary(variable) instanceof ParameterInfo pi) return pi;
+        return null;
+    }
+
+    public static Variable oneBelowThis(Variable v) {
+        if (v instanceof FieldReference fr && fr.scopeVariable() != null && !fr.scopeIsThis()) {
+            return oneBelowThis(fr.scopeVariable());
+        }
+        if (v instanceof DependentVariable dv) {
+            return oneBelowThis(dv.arrayVariable());
+        }
+        return v;
+    }
+
+    public static @NotNull ParameterInfo parameterPrimary(Variable variable) {
+        return (ParameterInfo) primary(variable);
+    }
+
+    public static Variable primary(Variable variable) {
+        if (variable instanceof FieldReference fr) {
+            if (fr.scopeVariable() != null
+                // accept this.§xs, but not this.v.§xs
+                // see e.g. TestPrefix,3 for the this.§xs situation
+                && (!(fr.scopeVariable() instanceof This) || Util.virtual(fr.fieldInfo()))) {
+                return primary(fr.scopeVariable());
+            }
+        }
+        if (variable instanceof DependentVariable dv) {
+            return primary(dv.arrayVariable());
+        }
+        return variable;
+    }
+
+    public static Variable firstRealVariable(Variable variable) {
+        if (variable instanceof FieldReference fr
+            && fr.scopeVariable() != null
+            && Util.virtual(fr.fieldInfo())) {
+            return firstRealVariable(fr.scopeVariable());
+        }
+        if (variable instanceof DependentVariable dv
+            && dv.indexExpression() instanceof IntConstant ic
+            && ic.constant() < 0) {
+            // slices
+            return firstRealVariable(dv.arrayVariable());
+        }
+        return variable;
+    }
+
+    public static boolean isPartOf(Variable base, Variable sub) {
+        if (base.equals(sub)) return true;
+        if (sub instanceof FieldReference fr) {
+            if (fr.scopeVariable() != null) {
+                return isPartOf(base, fr.scopeVariable());
+            }
+        }
+        if (sub instanceof DependentVariable dv) {
+            return isPartOf(base, dv.arrayVariable());
+        }
+        return false;
+    }
+
+    public static Set<Variable> scopeVariables(Variable variable) {
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return Stream.concat(scopeVariables(fr.scopeVariable()).stream(), Stream.of(fr.scopeVariable()))
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+        if (variable instanceof DependentVariable dv && dv.arrayVariable() != null) {
+            return Stream.concat(scopeVariables(dv.arrayVariable()).stream(), Stream.of(dv.arrayVariable()))
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+        return Set.of();
+    }
+
+    public static Stream<Variable> variableAndScopes(Variable variable) {
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return Stream.concat(variableAndScopes(fr.scopeVariable()), Stream.of(variable));
+        }
+        if (variable instanceof DependentVariable dv) {
+            return Stream.concat(variableAndScopes(dv.arrayVariable()), Stream.of(variable));
+        }
+        return Stream.of(variable);
+    }
+
+    public static String simpleName(Variable variable) {
+        return simpleName(variable, Set.of());
+    }
+
+    public static String simpleName(Variable variable, Set<Variable> modified) {
+        assert modified != null;
+        assert variable != null;
+        if (variable instanceof ParameterInfo pi) {
+            return pi.index() + ":" + pi.name() + (modified.contains(pi) ? "*" : "");
+        }
+        if (variable instanceof ReturnVariable rv) {
+            return rv.methodInfo().name();
+        }
+        if (variable instanceof FieldReference fr) {
+            boolean frModified = modified.contains(fr);
+            String scope = fr.scopeVariable() != null
+                    ? simpleName(fr.scopeVariable(), frModified ? Set.of() : modified)
+                    : fr.scope().toString();
+            return scope + "." + fr.fieldInfo().name() + (frModified ? "*" : "");
+        }
+        if (variable instanceof DependentVariable dv) {
+            boolean dvModified = modified.contains(dv);
+            String index = dv.indexVariable() != null
+                    ? simpleName(dv.indexVariable(), dvModified ? Set.of() : modified) : dv.indexExpression().toString();
+            String simpleArrayVar;
+            if (dv.arrayVariable() != null) simpleArrayVar = simpleName(dv.arrayVariable(), modified);
+            else simpleArrayVar = dv.arrayExpression().toString();
+            return simpleArrayVar + "[" + index + "]" + (dvModified ? "*" : "");
+        }
+        return variable + (modified.contains(variable) ? "*" : "");
+    }
+
 
     // 3.0.0-E, +I
     public static String stage(String assignmentId) {
@@ -76,5 +266,27 @@ public class Util {
     // add a character so that we're definitely beyond this index
     public static String beyond(String index) {
         return index + END;
+    }
+
+    public static boolean virtual(FieldInfo fieldInfo) {
+        return fieldInfo.name().startsWith("§");
+    }
+
+    public static boolean virtual(Variable v) {
+        if (v instanceof FieldReference fr) {
+            return virtual(fr.fieldInfo());
+        }
+        if (v instanceof DependentVariable dv) {
+            return virtual(dv.arrayVariable()) ||
+                   dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0;
+        }
+        return false;
+    }
+
+    public static boolean needsVirtual(ParameterizedType pt) {
+        if (pt.typeParameter() != null && pt.arrays() > 0) return true;
+        if (pt.isFunctionalInterface()) return false;
+        TypeInfo best = pt.bestTypeInfo();
+        return best != null && (best.isAbstract() || best.compilationUnit().externalLibrary());
     }
 }

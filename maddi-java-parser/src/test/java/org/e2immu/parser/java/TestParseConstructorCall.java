@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -112,4 +113,24 @@ public class TestParseConstructorCall extends CommonTestParse {
             assertEquals("C<K> e=new C();", lvc.toString());
         } else fail();
     }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package k;
+            
+            public class K {
+                private String name;
+            
+                public K() {}
+            }
+            """;
+
+    @Test
+    public void test3() {
+        TypeInfo typeInfo = parse(INPUT3, true);
+        MethodInfo constructor = typeInfo.findConstructor(0);
+        assertEquals("6-5:6-17", constructor.source().compact2());
+    }
+
 }

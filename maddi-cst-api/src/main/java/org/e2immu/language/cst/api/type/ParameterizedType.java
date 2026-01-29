@@ -64,6 +64,8 @@ public interface ParameterizedType {
 
     ParameterizedType copyWithOneFewerArrays();
 
+    ParameterizedType copyWithOneMoreArray();
+
     ParameterizedType copyWithoutArrays();
 
     // print
@@ -134,6 +136,17 @@ public interface ParameterizedType {
     boolean isBoxedExcludingVoid();
 
     boolean isFunctionalInterface();
+
+    default boolean isStandardFunctionalInterface() {
+        return isFunctionalInterface() &&
+               typeInfo() != null &&
+               ("java.util.function".equals(typeInfo().packageName())
+                ||
+                "java.lang.Runnable".equals(fullyQualifiedName())
+                ||
+                // auto-created, see Runtime.syntheticFunctionalType()
+                typeInfo().isSynthetic());
+    }
 
     boolean isInt();
 

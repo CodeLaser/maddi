@@ -99,8 +99,8 @@ public class PropertyValueMapImpl implements PropertyValueMap {
                 map.put(property, value);
                 return true;
             }
-            // FIXME-DEMO this should be an exception thrown
-            LOGGER.warn("Trying to overwrite {} with {} for property {}", current, value, property);
+            throw new UnsupportedOperationException("Trying to overwrite " + current + " with "
+                                                    + value + " for property " + property);
         }
         return false;
     }

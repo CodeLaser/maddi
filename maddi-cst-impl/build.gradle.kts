@@ -17,8 +17,8 @@ plugins {
     id("java-library-conventions")
 }
 java {
-    sourceCompatibility = JavaVersion.VERSION_24
-    targetCompatibility = JavaVersion.VERSION_24
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
     api(project(":maddi-cst-api"))

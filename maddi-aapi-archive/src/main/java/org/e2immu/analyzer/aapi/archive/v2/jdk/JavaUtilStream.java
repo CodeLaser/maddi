@@ -695,9 +695,11 @@ public class JavaUtilStream {
         void forEach(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { }
         @Finalizer
         void forEachOrdered(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { }
+        @Independent(hcReturnValue = true)
         @NotNull @Finalizer
         Object [] toArray() { return null; }
         //frequency 3
+        @Independent(hcReturnValue = true)
         @NotNull @Finalizer
         <A> A [] toArray(/*@IgnoreModifications[T]*/ @NotNull IntFunction<A []> intFunction) { return null; }
 

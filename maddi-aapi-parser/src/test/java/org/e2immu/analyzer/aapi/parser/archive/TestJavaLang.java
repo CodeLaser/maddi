@@ -15,7 +15,6 @@
 package org.e2immu.analyzer.aapi.parser.archive;
 
 import org.e2immu.analyzer.aapi.parser.CommonTest;
-import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -40,7 +39,7 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testObject() {
         TypeInfo typeInfo = compiledTypesManager().get(Object.class);
-        testImmutableContainer(typeInfo, true, false);
+        testImmutableContainer(typeInfo, true);
     }
 
     @Test
@@ -139,13 +138,13 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testCharSequence() {
         TypeInfo typeInfo = compiledTypesManager().get(CharSequence.class);
-        testImmutableContainer(typeInfo, true, false);
+        testImmutableContainer(typeInfo, true);
     }
 
     @Test
     public void testClass() {
         TypeInfo typeInfo = compiledTypesManager().get(Class.class);
-        testImmutableContainer(typeInfo, false, false);
+        testImmutableContainer(typeInfo, false);
         TypeParameter tp = typeInfo.typeParameters().getFirst();
         assertSame(INDEPENDENT, tp.analysis().getOrDefault(INDEPENDENT_TYPE_PARAMETER, DEPENDENT));
     }
@@ -162,9 +161,24 @@ public class TestJavaLang extends CommonTest {
     }
 
     @Test
+    public void testClassGetCanonicalName() {
+        TypeInfo typeInfo = compiledTypesManager().get(Class.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("getCanonicalName", 0);
+        assertSame(FALSE, methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE));
+        assertFalse(methodInfo.isModifying());
+        assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
+    }
+
+    @Test
+    public void testEnum() {
+        TypeInfo typeInfo = compiledTypesManager().get(Enum.class);
+        testImmutableContainer(typeInfo, true);
+    }
+
+    @Test
     public void testComparable() {
         TypeInfo typeInfo = compiledTypesManager().get(Comparable.class);
-        testImmutableContainer(typeInfo, true, false);
+        testImmutableContainer(typeInfo, true);
     }
 
     @Test
@@ -234,7 +248,7 @@ public class TestJavaLang extends CommonTest {
         assertTrue(methodInfo.overrides().isEmpty());
         assertTrue(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
-        ParameterInfo p0 = methodInfo.parameters().get(0);
+        ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertSame(INDEPENDENT, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
     }
 
@@ -244,6 +258,16 @@ public class TestJavaLang extends CommonTest {
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
+    }
+
+
+    @Test
+    public void testIterableIterator() {
+        TypeInfo typeInfo = compiledTypesManager().get(Iterable.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("iterator", 0);
+        assertTrue(methodInfo.overrides().isEmpty());
+        Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertEquals("@Independent(hc=true, except={\"remove\"})", independent.toString());
     }
 
     @Test
@@ -264,7 +288,7 @@ public class TestJavaLang extends CommonTest {
         assertSame(NO_VALUE, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
-        ParameterInfo p0 = methodInfo.parameters().get(0);
+        ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
     }
@@ -297,7 +321,8 @@ public class TestJavaLang extends CommonTest {
         ParameterInfo p0 = methodInfo.parameters().getFirst();
         // name generated from Object
         assertEquals("object", p0.name());
-        assertSame(INDEPENDENT, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
+        Independent independentP0 = p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
+        assertEquals("@Independent(hc=true, hcParameters={2})", independentP0.toString());
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
 
@@ -305,14 +330,9 @@ public class TestJavaLang extends CommonTest {
         // name generated from Object
         assertEquals("object1", p2.name());
         Value.Independent independentP2 = p2.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
-        // NOTE: the decorator will not print the hc=true
-        assertEquals("@Independent(hc=true, hcParameters={0})", independentP2.toString());
+        assertTrue(independentP2.isIndependent());
         assertSame(NOT_NULL, p2.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(TRUE, p2.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
-
-        HiddenContentTypes hctMethod = methodInfo.analysis().getOrNull(HiddenContentTypes.HIDDEN_CONTENT_TYPES, HiddenContentTypes.class);
-        assertNotNull(hctMethod);
-        assertEquals(" - 0=Object", hctMethod.detailedSortedTypes());
     }
 
 
@@ -326,13 +346,13 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testBoolean() {
         TypeInfo typeInfo = compiledTypesManager().get(Boolean.class);
-        testImmutableContainer(typeInfo, false, false);
+        testImmutableContainer(typeInfo, false);
     }
 
     @Test
     public void testInteger() {
         TypeInfo typeInfo = compiledTypesManager().get(Integer.class);
-        testImmutableContainer(typeInfo, false, false);
+        testImmutableContainer(typeInfo, false);
     }
 
     @Test

@@ -250,6 +250,11 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
+    public ParameterizedType copyWithOneMoreArray() {
+        return new ParameterizedTypeImpl(typeInfo, typeParameter, parameters, arrays + 1, wildcard);
+    }
+
+    @Override
     public ParameterizedType ensureBoxed(PredefinedWithoutParameterizedType predefined) {
         if (isPrimitiveExcludingVoid() || isVoid()) {
             return toBoxed(predefined).asSimpleParameterizedType();

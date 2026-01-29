@@ -25,7 +25,6 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.cst.api.variable.*;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
@@ -170,18 +169,6 @@ public class CodecImpl implements Codec {
         }
     }
 
-    private Info decodeInfo(Info current, char type, String name) {
-        return switch (type) {
-            case 'F' -> decodeFieldInfo((TypeInfo) current, name);
-            case 'C' -> decodeConstructor((TypeInfo) current, name);
-            case 'M' -> decodeMethodInfo((TypeInfo) current, name);
-            case 'T' -> typeProvider.get(name);
-            case 'S' -> decodeSubType((TypeInfo) current, name);
-            case 'P' -> decodeParameterInfo((MethodInfo) current, name);
-            default -> throw new UnsupportedOperationException();
-        };
-    }
-
     @Override
     public Info decodeInfoInContext(Context context, EncodedValue ev) {
         if (ev instanceof D(Node s) && s instanceof StringLiteral sl) {
@@ -209,14 +196,36 @@ public class CodecImpl implements Codec {
     @Override
     public Info decodeInfoOutOfContext(Context context, EncodedValue encodedValue) {
         List<EncodedValue> list = decodeList(context, encodedValue);
+        return decodeInfoOutOfContext(context, list);
+    }
+
+    protected Info decodeInfoOutOfContext(Context context, List<EncodedValue> list) {
         Info current = null;
+        int pos = 0;
         for (EncodedValue ev : list) {
             if (ev instanceof D(Node s) && s instanceof StringLiteral sl) {
                 String src = unquote(sl.getSource());
-                current = decodeInfo(current, src.charAt(0), src.substring(1));
-            } else throw new UnsupportedOperationException();
+                char type = src.charAt(0);
+                current = decodeInfo(context, current, type, src.substring(1), list, pos);
+                if (type != 'T' && type != 'S' && type != 'M' && type != 'C' && type != 'U') {
+                    break; // nothing can follow; in particular, we definitely want to stop after F and V (see linking)
+                }
+            } //else throw new UnsupportedOperationException();
+            ++pos;
         }
         return current;
+    }
+
+    protected Info decodeInfo(Context context, Info current, char type, String name, List<EncodedValue> list, int pos) {
+        return switch (type) {
+            case 'F' -> decodeFieldInfo((TypeInfo) current, name);
+            case 'C' -> decodeConstructor((TypeInfo) current, name);
+            case 'M' -> decodeMethodInfo((TypeInfo) current, name);
+            case 'T' -> typeProvider.get(name);
+            case 'S' -> decodeSubType((TypeInfo) current, name);
+            case 'P' -> decodeParameterInfo((MethodInfo) current, name);
+            default -> throw new UnsupportedOperationException();
+        };
     }
 
     @Override
@@ -300,25 +309,30 @@ public class CodecImpl implements Codec {
         return list;
     }
 
-    private ParameterizedType decodeSimpleType(Context context, StringLiteral sl) {
-        String fqn = unquote(sl.getSource());
-        if (fqn.isEmpty()) return null;
-        char first = fqn.charAt(0);
+    protected ParameterizedType decodeSimpleType(Context context, StringLiteral sl) {
+        String unquoted = unquote(sl.getSource());
+        if (unquoted.isEmpty()) return null;
+        char first = unquoted.charAt(0);
+        String substring = unquoted.substring(1);
         return switch (first) {
             case 'X' -> runtime.parameterizedTypeNullConstant();
             case '?' -> runtime.parameterizedTypeWildcard();
-            case 'T' -> context.findType(typeProvider, fqn.substring(1)).asSimpleParameterizedType();
+            case 'T' -> {
+                TypeInfo type = context.findType(typeProvider, substring);
+                assert type != null : "Cannot find " + substring;
+                yield type.asSimpleParameterizedType();
+            }
             case 'M' -> {
                 // method type parameter in current context
-                int index = Integer.parseInt(fqn.substring(1));
+                int index = Integer.parseInt(substring);
                 yield context.currentMethod().typeParameters().get(index).asParameterizedType();
             }
             case 'P' -> {
                 // type parameter in current context
-                int index = Integer.parseInt(fqn.substring(1));
+                int index = Integer.parseInt(substring);
                 yield context.currentType().typeParameters().get(index).asParameterizedType();
             }
-            default -> throw new UnsupportedOperationException("TODO: " + fqn);
+            default -> throw new UnsupportedOperationException("TODO: " + unquoted);
         };
     }
 
@@ -349,8 +363,10 @@ public class CodecImpl implements Codec {
         if (encodedValue instanceof D(Node s) && s instanceof StringLiteral sl) {
             return decodeSimpleType(context, sl);
         }
-        List<EncodedValue> list = decodeList(context, encodedValue);
+        return decodeComplexType(context, decodeList(context, encodedValue));
+    }
 
+    protected ParameterizedType decodeComplexType(Context context, List<EncodedValue> list) {
         // list index 0: named type
         int i = 1;
         NamedType nt;
@@ -359,6 +375,8 @@ public class CodecImpl implements Codec {
             char first = fqn.charAt(0);
             if ('T' == first) {
                 nt = context.findType(typeProvider, fqn.substring(1));
+            } else if ('?' == first) {
+                return runtime.parameterizedTypeWildcard();
             } else {
                 int index = Integer.parseInt(fqn.substring(1));
                 boolean ownerNotInContext = !(list.get(i) instanceof D(Node s1) && s1 instanceof NumberLiteral);
@@ -409,7 +427,11 @@ public class CodecImpl implements Codec {
     public Variable decodeVariable(Context context, EncodedValue encodedValue) {
         List<EncodedValue> list = decodeList(context, encodedValue);
         assert !list.isEmpty();
-        String s = decodeString(context, list.get(0));
+        String s = decodeString(context, list.getFirst());
+        return decodeVariable(context, s, list);
+    }
+
+    protected Variable decodeVariable(Context context, String s, List<EncodedValue> list) {
         return switch (s) {
             case "P" -> (ParameterInfo) this.decodeInfoOutOfContext(context, list.get(1));
             case "F" -> {
@@ -514,7 +536,7 @@ public class CodecImpl implements Codec {
         return encodeList(context, encodeInfoOutOfContextStream(context, info).toList());
     }
 
-    Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
+    protected Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
         String s;
         Stream<EncodedValue> prev;
         switch (info) {
@@ -630,6 +652,16 @@ public class CodecImpl implements Codec {
         EncodedValue e4 = encodeWildcard(context, type.wildcard());
         return encodeList(context, Stream.concat(Stream.concat(Stream.concat(
                 Stream.concat(Stream.of(e0), Stream.ofNullable(e1)), Stream.of(e2)), Stream.of(e3)), Stream.ofNullable(e4)).toList());
+    }
+
+    @Override
+    public EncodedValue encodeMethodInfo(Context context, MethodInfo mi) {
+        return encodeInfoOutOfContext(context, mi);
+    }
+
+    @Override
+    public MethodInfo decodeMethodInfo(Context context, EncodedValue e) {
+        return (MethodInfo) decodeInfoOutOfContext(context, e);
     }
 
     @Override

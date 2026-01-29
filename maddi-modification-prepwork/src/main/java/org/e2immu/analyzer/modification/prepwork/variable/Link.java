@@ -1,28 +1,43 @@
-/*
- * maddi: a modification analyzer for duplication detection and immutability.
- * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
- *
- * This program is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
- * more details. You should have received a copy of the GNU Lesser General Public
- * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 package org.e2immu.analyzer.modification.prepwork.variable;
 
-import java.util.Map;
+import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.Variable;
+import org.jetbrains.annotations.NotNull;
 
-public interface Link {
-    Link correctTo(Map<Indices, Indices> correctionMap);
+import java.util.Set;
+import java.util.stream.Stream;
 
-    Link merge(Link l2);
 
-    Link prefixTheirs(int index);
+public interface Link extends Comparable<Link> {
+    boolean containsVirtualFields();
 
-    Indices to();
-    boolean mutable();
+    Variable from();
+
+    LinkNature linkNature();
+
+    Link replaceSubsetSuperset(Variable modified);
+
+    Variable to();
+
+    @NotNull String toString(Set<Variable> modified);
+
+    @Override
+    default int compareTo(@NotNull Link o) {
+        int c = from().compareTo(o.from());
+        if (c != 0) return c;
+        int d = to().compareTo(o.to());
+        if (d != 0) return d;
+        return Long.compare(linkNature().rank(), o.linkNature().rank());
+    }
+
+    Link translate(TranslationMap translationMap);
+
+    Link translateFrom(TranslationMap translationMap);
+
+    default Stream<ParameterInfo> parameterStream() {
+        return Stream.concat(from().variableStreamDescend(), to().variableStreamDescend())
+                .filter(v -> v instanceof ParameterInfo)
+                .map(v -> (ParameterInfo) v);
+    }
 }

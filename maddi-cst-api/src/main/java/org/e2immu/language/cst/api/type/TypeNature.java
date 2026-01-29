@@ -17,26 +17,42 @@ package org.e2immu.language.cst.api.type;
 import org.e2immu.language.cst.api.output.element.Keyword;
 
 public interface TypeNature {
-    boolean isClass();
+    default boolean isClass() {
+        return false;
+    }
 
-    boolean isEnum();
+    default boolean isEnum() {
+        return false;
+    }
 
-    boolean isInterface();
+    default boolean isInterface() {
+        return false;
+    }
 
-    boolean isRecord();
+    default boolean isRecord() {
+        return false;
+    }
 
-    boolean isStatic(); // is true for all but inner classes in Java
+    default boolean isStatic() {
+        return false;
+    } // is true for all but inner classes in Java
 
-    boolean isAnnotation();
+    default boolean isAnnotation() {
+        return false;
+    }
 
     /*
     A stub type is created during parsing, because both source and byte code are missing.
     The type's inspection data gets filled up as well as possible, so that we don't have to stop
     parsing.
      */
-    boolean isStub();
+    default boolean isStub() {
+        return false;
+    }
 
-    boolean isPackageInfo();
+    default boolean isPackageInfo() {
+        return false;
+    }
 
     Keyword keyword();
 }

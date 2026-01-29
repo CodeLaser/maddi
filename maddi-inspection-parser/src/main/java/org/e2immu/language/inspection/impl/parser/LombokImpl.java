@@ -28,7 +28,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.inspection.api.parser.Lombok;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.util.internal.util.GetSetHelper;
+import org.e2immu.util.internal.util.GetSetNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -288,7 +288,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
     }
 
     private void addGetter(FieldInfo fieldInfo) {
-        String getterName = GetSetHelper.getterName(fieldInfo.name(), fieldInfo.type().isBoolean());
+        String getterName = GetSetNames.getterName(fieldInfo.name(), fieldInfo.type().isBoolean());
         TypeInfo owner = fieldInfo.owner();
         LOGGER.debug("Handle getter for {}", fieldInfo);
         if (owner.methodStream().noneMatch(mi -> getterName.equals(mi.name()) && mi.parameters().isEmpty())) {
@@ -310,12 +310,12 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     .commitParameters().commit();
             owner.builder().addMethod(method);
 
-            runtime.setGetSetField(method, fieldInfo, false, -1);
+            runtime.setGetSetField(method, fieldInfo, false, -1, false);
         }
     }
 
     private void addSetter(FieldInfo fieldInfo) {
-        String setterName = GetSetHelper.setterName(fieldInfo.name());
+        String setterName = GetSetNames.setterName(fieldInfo.name());
         TypeInfo owner = fieldInfo.owner();
         LOGGER.debug("Handle setter for {}", fieldInfo);
         if (owner.methodStream().noneMatch(mi -> setterName.equals(mi.name()) && mi.parameters().size() == 1)
@@ -338,7 +338,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                     .commitParameters().commit();
             owner.builder().addMethod(method);
 
-            runtime.setGetSetField(method, fieldInfo, true, -1);
+            runtime.setGetSetField(method, fieldInfo, true, -1, false);
         }
     }
 
@@ -374,7 +374,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
     }
 
     private void addSetterToBuilder(TypeInfo builder, Source source, FieldInfo buildField) {
-        String setterName = GetSetHelper.setterName(buildField.name());
+        String setterName = GetSetNames.setterName(buildField.name());
         MethodInfo method = runtime.newMethod(builder, setterName, runtime.methodTypeMethod());
         ParameterInfo pi = method.builder().addParameter(buildField.name(), buildField.type());
         pi.builder().setSynthetic(true).setSource(source);
@@ -397,7 +397,7 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
                 .commitParameters().commit();
         builder.builder().addMethod(method);
 
-        runtime.setGetSetField(method, buildField, true, -1);
+        runtime.setGetSetField(method, buildField, true, -1, false);
     }
 
     private FieldInfo createBuilderField(TypeInfo builder, Source source, FieldInfo fieldInfo) {

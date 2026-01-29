@@ -61,6 +61,8 @@ public interface Codec {
 
     Map<EncodedValue, EncodedValue> decodeMapAsList(Context context, EncodedValue encodedValue);
 
+    MethodInfo decodeMethodInfo(Context context, EncodedValue e);
+
     Set<EncodedValue> decodeSet(Context context, EncodedValue encodedValue);
 
     String decodeString(Context context, EncodedValue encodedValue);
@@ -92,6 +94,8 @@ public interface Codec {
     EncodedValue encodeMap(Context context, Map<EncodedValue, EncodedValue> map);
 
     EncodedValue encodeMapAsList(Context context, Map<EncodedValue, EncodedValue> map);
+
+    EncodedValue encodeMethodInfo(Context context, MethodInfo mi);
 
     EncodedValue encodeSet(Context context, Set<EncodedValue> set);
 

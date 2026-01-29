@@ -156,7 +156,7 @@ public class ShallowTypeAnalyzer extends AnnotationToProperty {
             }
         }
         ValueOrigin nn = fieldMap.get(NOT_NULL_FIELD);
-        if (nn == null || ((Value.NotNull) nn.value()).isNullable()) {
+        if (nn == null || ((Value.NotNullProperty) nn.value()).isNullable()) {
             if (enumField) {
                 fieldMap.put(NOT_NULL_FIELD, new ValueOrigin(NOT_NULL, FROM_OWNER));
             } else if (fieldInfo.type().isPrimitiveExcludingVoid()) {

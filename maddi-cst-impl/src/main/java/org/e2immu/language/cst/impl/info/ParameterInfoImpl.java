@@ -271,4 +271,14 @@ public class ParameterInfoImpl implements ParameterInfo {
     public JavaDoc javaDoc() {
         return null; // parameters have no JavaDoc
     }
+
+    @Override
+    public ParameterInfo withParameterizedType(ParameterizedType parameterizedType) {
+        return new ParameterInfoImpl(methodInfo, index, name, parameterizedType);
+    }
+
+    @Override
+    public ParameterInfo with(String name, ParameterizedType parameterizedType) {
+        return new ParameterInfoImpl(methodInfo, index, name, parameterizedType);
+    }
 }

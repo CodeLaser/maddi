@@ -451,6 +451,11 @@ public class PredefinedImpl implements Predefined {
     }
 
     @Override
+    public TypeInfo primitiveByNameOrNull(String name) {
+        return primitiveByName.get(name);
+    }
+
+    @Override
     public int isAssignableFromToForPrimitives(ParameterizedType from, ParameterizedType to, boolean covariant) {
         int fromOrder = primitiveTypeOrder(from);
         if (fromOrder <= 1 || fromOrder >= 9) return -1;
