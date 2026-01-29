@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
@@ -20,6 +21,7 @@ import org.e2immu.language.cst.api.statement.SwitchEntry;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.*;
+import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
@@ -638,7 +640,9 @@ public record ExpressionVisitor(Runtime runtime,
     }
 
     private MethodLinkedVariables recurseIntoLinkComputer(MethodInfo methodInfo) {
-        if (methodInfo.equals(currentMethod)) {
+        if (methodInfo.equals(currentMethod)
+            || currentMethod.analysis().getOrDefault(ComputeCallGraph.RECURSIVE_METHOD, ValueImpl.BoolImpl.FALSE)
+                    .isTrue()) {
             return new MethodLinkedVariablesImpl(LinksImpl.EMPTY,
                     methodInfo.parameters().stream().map(_ -> LinksImpl.EMPTY).toList(), Set.of());
         }
