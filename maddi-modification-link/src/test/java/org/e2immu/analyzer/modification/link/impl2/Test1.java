@@ -3,11 +3,20 @@ package org.e2immu.analyzer.modification.link.impl2;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
+import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.language.cst.api.expression.Lambda;
+import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class Test1 extends CommonTest {
 
@@ -96,5 +105,52 @@ public class Test1 extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
                 new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(true).build());
         tlc.doPrimaryType(C);
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.Stack;
+            import java.util.function.BiConsumer;
+            public class C<T> {
+                private static class TrieNode<T> {
+                    List<T> data;
+                    Map<String, TrieNode<T>> map;
+                }
+                private static <T> void recursivelyVisit(TrieNode<T> node,
+                                                          Stack<String> strings,
+                                                          BiConsumer<String[], List<T>> visitor) {
+                    if (node.data != null) {
+                        visitor.accept(strings.toArray(String[]::new), node.data);
+                    }
+                    if (node.map != null) {
+                        node.map.forEach((s, n) -> {
+                            strings.push(s);
+                            recursivelyVisit(n, strings, visitor);
+                            strings.pop();
+                        });
+                    }
+                }
+            }
+            """;
+
+    @Disabled("TODO")
+    @DisplayName("strings parameter unmodified from t->f")
+    @Test
+    public void test4() {
+        TypeInfo C = javaInspector.parse(INPUT4);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        MethodInfo recursivelyVisit = C.findUniqueMethod("recursivelyVisit", 3);
+        MethodCall forEach = (MethodCall) recursivelyVisit.methodBody().statements().getLast().block().statements()
+                .getFirst().expression();
+        Lambda lambda = (Lambda) forEach.parameterExpressions().getFirst();
+        lambda.methodInfo().analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(lambda.methodInfo()));
+        ParameterInfo strings = recursivelyVisit.parameters().get(1);
+        assertFalse(strings.isUnmodified());
     }
 }
