@@ -373,7 +373,6 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                     .map(l -> Util.parameterPrimaryOrNull(l.to()))
                                     .filter(Objects::nonNull)
                                     .filter(pi -> pi.methodInfo() == currentMethod)
-                                    .peek(pi -> System.err.println(pi + " occurs in " + vi.linkedVariables()))
                                     .findFirst().orElse(null);
                         }
                     }
