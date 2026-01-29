@@ -154,7 +154,8 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         ParameterizedType sourcePt = sub.parameterizedType();
         String name = sourcePt.typeParameter() != null ? sourcePt.typeParameter().simpleName().toLowerCase() : "$";
         String names = name + "s".repeat(sourcePt.arrays());
-        FieldInfo newField = virtualFieldComputer.newField(names, sourcePt, sourcePt.typeInfo());
+        FieldInfo newField = virtualFieldComputer.newField(names, sourcePt,
+                VariableTranslationMap.owner(runtime, sourcePt));
         // make a slice
         return SliceFactory.create(runtime, base, -1 - i, newField);
     }
