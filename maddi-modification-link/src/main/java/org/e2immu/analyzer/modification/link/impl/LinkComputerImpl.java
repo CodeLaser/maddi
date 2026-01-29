@@ -454,10 +454,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Expression e = javaInspector.runtime().sortAndSimplify(true, statement.expression());
                 Result u = new ForEach(javaInspector.runtime(), expressionVisitor)
                         .linkIntoIterable(forEachLv.parameterizedType(), e, previousVd, stageOfPrevious);
-                Links newLinks = new LinksImpl.Builder(forEachLv)
-                        .add(LinkNatureImpl.IS_ASSIGNED_FROM, u.links().primary())
-                        .build();
-                r = u.addExtra(Map.of(forEachLv, newLinks));
+                if (u.links().primary() != null) {
+                    Links newLinks = new LinksImpl.Builder(forEachLv)
+                            .add(LinkNatureImpl.IS_ASSIGNED_FROM, u.links().primary())
+                            .build();
+                    r = u.addExtra(Map.of(forEachLv, newLinks));
+                } // else: most often: a recursive method, which has an empty result
             }
             if (statement instanceof ForStatement fs) {
                 for (Expression updater : fs.updaters()) {
