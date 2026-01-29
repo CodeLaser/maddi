@@ -188,7 +188,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
             if (links != null) {
                 for (Link link : links) {
                     ParameterInfo to = Util.parameterPrimaryOrNull(link.to());
-                    if (to == null) continue;
+                    if (to == null || to.index() == i) {
+                        // if to's index == i, we're talking the same index, rather than between indices
+                        // see Test1,2
+                        continue;
+                    }
                     Variable toPrimary = params.get(to.index()).links().primary();
                     if (toPrimary != null) {
                         TranslationMap toTm = new VariableTranslationMap(runtime).put(to, toPrimary);
