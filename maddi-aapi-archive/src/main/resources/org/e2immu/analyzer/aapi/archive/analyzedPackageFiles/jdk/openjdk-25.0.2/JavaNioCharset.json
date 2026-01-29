@@ -1,0 +1,35 @@
+[
+{"name": "Tjava.nio.charset.Charset", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MisSupported(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PcharsetName(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MforName(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "PcharsetName(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MforName(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "PcharsetName(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pfallback(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MavailableCharsets(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MdefaultCharset(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mname(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "Maliases(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "MdisplayName(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MisRegistered(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MdisplayName(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Plocale(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mcontains(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pcharset(0)", "data":{"annotatedApi":1}}},
+ {"name": "MnewDecoder(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MnewEncoder(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "McanEncode(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mdecode(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Pbb(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mencode(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Pcb(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mencode(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Pstr(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "McompareTo(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pthat(0)", "data":{"annotatedApi":1,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MhashCode(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Mequals(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Pob(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoString(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]}
+]
