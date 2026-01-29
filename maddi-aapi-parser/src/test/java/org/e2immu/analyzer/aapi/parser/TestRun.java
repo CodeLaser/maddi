@@ -33,13 +33,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestRun {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestRun.class);
-    private static final String JDK_HOMEBREW_21 = "jdk-Homebrew-21.0.9";
+    private static final String JDK_HOMEBREW_21 = "jdk-Homebrew-21.0.10";
     private static final String JDK_HOMEBREW_24 = "jdk-Homebrew-24.0.2";
-    private static final String JDK_HOMEBREW_25 = "jdk-Homebrew-25.0.1";
+    private static final String JDK_HOMEBREW_25 = "jdk-Homebrew-25.0.2";
 
-    public static final String LIBS_MADDI_HOMEBREW_25 = "libs.e2immu-Homebrew-25.0.1";
-    public static final String LIBS_LOG_HOMEBREW_25 = "libs.log-Homebrew-25.0.1";
-    public static final String LIBS_TEST_HOMEBREW_25 = "libs.test-Homebrew-25.0.1";
+    public static final String LIBS_MADDI_HOMEBREW_25 = "libs.e2immu-Homebrew-25.0.2";
+    public static final String LIBS_LOG_HOMEBREW_25 = "libs.log-Homebrew-25.0.2";
+    public static final String LIBS_TEST_HOMEBREW_25 = "libs.test-Homebrew-25.0.2";
     public static final String LIBS_MADDI_ORACLE_24 = "libs.e2immu-OracleCorporation-24.0.2";
     public static final String LIBS_LOG_ORACLE_24 = "libs.log-OracleCorporation-24.0.2";
     public static final String LIBS_TEST_ORACLE_24 = "libs.test-OracleCorporation-24.0.2";
