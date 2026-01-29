@@ -15,6 +15,7 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -136,7 +137,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
                 boolean outputHasTypeParameters = sam.returnType().hasTypeParameters();
                 if (outputHasTypeParameters && !forceIntoReturn) {
                     // yes to Supplier<T> (result: T), no to Predicate<T> (result: boolean)
-                    ParameterizedType sourceType = pi.parameterizedType().parameters().getLast().withWildcard(null);
+                    ParameterizedType sourceType = findReturnType(pi.parameterizedType());
                     Set<TypeParameter> sourceVariableTps = collectTypeParametersFromVirtualField(sourceType);
                     Set<TypeParameter> returnTypeTps = returnType.extractTypeParameters();
                     if (sourceVariableTps.equals(returnTypeTps)) {
@@ -582,5 +583,19 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             modified = Set.of(thisVar, fr);
         }
         return new MethodLinkedVariablesImpl(returnLinks, paramList, modified);
+    }
+
+    // TestShallowFunctional,2, case where the interface is not one of the java.util.function.* interfaces
+    private ParameterizedType findReturnType(ParameterizedType fiType) {
+        TypeInfo best = fiType.bestTypeInfo();
+        MethodInfo sam = best.singleAbstractMethod();
+        assert sam != null : "Not a functional interface if it hasn't got a SAM";
+        Map<NamedType, ParameterizedType> map;
+        if (sam.typeInfo() == best) {
+            map = fiType.initialTypeParameterMap();
+        } else {
+            map = new GenericsHelperImpl(runtime).mapInTermsOfParametersOfSuperType(best, sam.typeInfo().asParameterizedType());
+        }
+        return sam.returnType().withWildcard(null).applyTranslation(runtime, map).withWildcard(null);
     }
 }
