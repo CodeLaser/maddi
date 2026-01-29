@@ -493,7 +493,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 } else {
                     r = new Result(rvLinks, LinkedVariablesImpl.EMPTY);
                 }
-            } else if (statement instanceof YieldStatement && r != null) {
+            } else if (statement instanceof YieldStatement && r != null && r.links().primary() != null) {
                 Links.Builder current = yieldStack.peek();
                 current.add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
             }

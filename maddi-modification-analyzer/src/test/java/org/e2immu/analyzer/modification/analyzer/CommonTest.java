@@ -75,10 +75,9 @@ public abstract class CommonTest {
     }
 
     protected List<Info> prepWork(TypeInfo typeInfo) {
-        List<TypeInfo> typesLoaded = javaInspector.compiledTypesManager().typesLoaded(true);
-        assertTrue(typesLoaded.stream().anyMatch(ti -> "java.util.ArrayList".equals(ti.fullyQualifiedName())));
-        prepAnalyzer.initialize(typesLoaded);
-
-        return prepAnalyzer.doPrimaryType(typeInfo);
+        List<Info> analysisOrder = prepAnalyzer.doPrimaryType(typeInfo);
+        assert analysisOrder.stream().noneMatch(i -> i instanceof TypeInfo ti && ti.simpleName().endsWith("$"))
+                : "It looks like annotated API types are part of the analysis info list.";
+        return analysisOrder;
     }
 }

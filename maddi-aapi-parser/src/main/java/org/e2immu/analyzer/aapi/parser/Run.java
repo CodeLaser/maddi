@@ -92,8 +92,6 @@ public class Run {
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(annotatedApiParser.runtime(), annotatedApiParser,
                 true, runVisitor == null ? null : runVisitor.debugVisitor());
         ShallowAnalyzer.Result rs = shallowAnalyzer.go(annotatedApiParser.types());
-        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(annotatedApiParser.runtime());
-        prepAnalyzer.initialize(annotatedApiParser.javaInspector().compiledTypesManager().typesLoaded(true));
 
         Set<Element> hasAnnotations = annotatedApiParser.infos();
         LOGGER.info("Parsed and analyzed {} types; {} info objects", annotatedApiParser.types().size(),

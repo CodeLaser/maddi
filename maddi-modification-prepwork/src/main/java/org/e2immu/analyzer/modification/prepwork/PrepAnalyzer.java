@@ -191,8 +191,4 @@ public class PrepAnalyzer {
         });
         typeInfo.fields().forEach(methodAnalyzer::doInitializerExpression);
     }
-
-    public void initialize(List<TypeInfo> typesLoaded) {
-        // nothing here at the moment
-    }
 }

@@ -39,7 +39,7 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testObject() {
         TypeInfo typeInfo = compiledTypesManager().get(Object.class);
-        testImmutableContainer(typeInfo, true, false);
+        testImmutableContainer(typeInfo, true);
     }
 
     @Test
@@ -138,13 +138,13 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testCharSequence() {
         TypeInfo typeInfo = compiledTypesManager().get(CharSequence.class);
-        testImmutableContainer(typeInfo, true, false);
+        testImmutableContainer(typeInfo, true);
     }
 
     @Test
     public void testClass() {
         TypeInfo typeInfo = compiledTypesManager().get(Class.class);
-        testImmutableContainer(typeInfo, false, false);
+        testImmutableContainer(typeInfo, false);
         TypeParameter tp = typeInfo.typeParameters().getFirst();
         assertSame(INDEPENDENT, tp.analysis().getOrDefault(INDEPENDENT_TYPE_PARAMETER, DEPENDENT));
     }
@@ -161,15 +161,24 @@ public class TestJavaLang extends CommonTest {
     }
 
     @Test
+    public void testClassGetCanonicalName() {
+        TypeInfo typeInfo = compiledTypesManager().get(Class.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("getCanonicalName", 0);
+        assertSame(FALSE, methodInfo.analysis().getOrDefault(FLUENT_METHOD, FALSE));
+        assertFalse(methodInfo.isModifying());
+        assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
+    }
+
+    @Test
     public void testEnum() {
         TypeInfo typeInfo = compiledTypesManager().get(Enum.class);
-        testImmutableContainer(typeInfo, true, false);
+        testImmutableContainer(typeInfo, true);
     }
 
     @Test
     public void testComparable() {
         TypeInfo typeInfo = compiledTypesManager().get(Comparable.class);
-        testImmutableContainer(typeInfo, true, false);
+        testImmutableContainer(typeInfo, true);
     }
 
     @Test
@@ -337,13 +346,13 @@ public class TestJavaLang extends CommonTest {
     @Test
     public void testBoolean() {
         TypeInfo typeInfo = compiledTypesManager().get(Boolean.class);
-        testImmutableContainer(typeInfo, false, false);
+        testImmutableContainer(typeInfo, false);
     }
 
     @Test
     public void testInteger() {
         TypeInfo typeInfo = compiledTypesManager().get(Integer.class);
-        testImmutableContainer(typeInfo, false, false);
+        testImmutableContainer(typeInfo, false);
     }
 
     @Test

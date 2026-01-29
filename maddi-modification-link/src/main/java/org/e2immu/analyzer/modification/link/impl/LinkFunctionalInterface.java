@@ -169,6 +169,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         }
         Variable translated = tm.translateVariableRecursively(variable);
         Variable upscaled;
+        if (vfMapSource.hiddenContent() == null) return null;
         TypeParameter sourceTp = vfMapSource.hiddenContent().type().typeParameter();
         TypeParameter targetTp = vfMapTarget.hiddenContent() == null
                 ? null : vfMapTarget.hiddenContent().type().typeParameter();

@@ -17,7 +17,6 @@ package org.e2immu.analyzer.aapi.parser;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -81,9 +80,6 @@ public class CommonTest {
                 true);
         ShallowAnalyzer.Result sr = shallowAnalyzer.go(annotatedApiParser.types());
 
-        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(annotatedApiParser.runtime());
-        prepAnalyzer.initialize(annotatedApiParser.javaInspector().compiledTypesManager().typesLoaded(true));
-
         sorted = sr.sorted();
         graph = sr.typeGraph();
         allTypes = sr.allTypes();
@@ -91,16 +87,14 @@ public class CommonTest {
         runtime = annotatedApiParser.runtime();
     }
 
-    protected void testImmutableContainer(TypeInfo typeInfo, boolean hcImmutable, boolean hcIndependent) {
+    protected void testImmutableContainer(TypeInfo typeInfo, boolean hcImmutable) {
         Value.Immutable immutable = typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE);
         Value.Immutable expectImmutable = hcImmutable
                 ? ValueImpl.ImmutableImpl.IMMUTABLE_HC : ValueImpl.ImmutableImpl.IMMUTABLE;
         assertSame(expectImmutable, immutable);
 
         Value.Independent independent = typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT);
-        Value.Independent expectIndependent = hcIndependent
-                ? ValueImpl.IndependentImpl.INDEPENDENT_HC : ValueImpl.IndependentImpl.INDEPENDENT;
-        assertSame(expectIndependent, independent);
+        assertSame(ValueImpl.IndependentImpl.INDEPENDENT, independent);
 
         boolean container = typeInfo.analysis().getOrDefault(CONTAINER_TYPE, ValueImpl.BoolImpl.FALSE).isTrue();
         assertTrue(container);

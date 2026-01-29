@@ -18,7 +18,6 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -82,11 +81,10 @@ public class CommonTest {
         prepAnalyzer = new PrepAnalyzer(runtime);
     }
 
-    protected List<Info> prepWork(TypeInfo typeInfo) {
+    protected void prepWork(TypeInfo typeInfo) {
         List<TypeInfo> typesLoaded = javaInspector.compiledTypesManager().typesLoaded(true);
         assertTrue(typesLoaded.stream().anyMatch(ti -> "java.util.ArrayList".equals(ti.fullyQualifiedName())));
-        prepAnalyzer.initialize(typesLoaded);
 
-        return prepAnalyzer.doPrimaryType(typeInfo);
+        prepAnalyzer.doPrimaryType(typeInfo);
     }
 }
