@@ -14,29 +14,28 @@
 
 package org.e2immu.analyzer.modification.prepwork.variable.impl;
 
-import org.e2immu.analyzer.modification.prepwork.variable.*;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.Set;
 
 public class VariableInfoImpl implements VariableInfo {
-    private static final Logger LOGGER = LoggerFactory.getLogger(VariableInfoImpl.class);
-
     public static final Property UNMODIFIED_VARIABLE = new PropertyImpl("unmodifiedVariable");
-    public static final Property MODIFIED_FI_COMPONENTS_VARIABLE =
-            new PropertyImpl("modifiedFunctionalInterfaceComponentsVariable",
-                    ValueImpl.VariableBooleanMapImpl.EMPTY);
 
-    public static final Property DOWNCAST_VARIABLE = new PropertyImpl("downcastVariable", ValueImpl.SetOfTypeInfoImpl.EMPTY);
+    public static final Property DOWNCAST_VARIABLE = new PropertyImpl("downcastVariable",
+            ValueImpl.SetOfTypeInfoImpl.EMPTY);
 
-    private LinkedVariables linkedVariables;
-    private StaticValues staticValues;
+    private Links linkedVariables;
 
     private final PropertyValueMap analysis = new PropertyValueMapImpl();
 
@@ -52,16 +51,9 @@ public class VariableInfoImpl implements VariableInfo {
         this.variableInClosure = variableInClosure;
     }
 
-    public void initializeLinkedVariables(LinkedVariables initialValue) {
-        if (this.linkedVariables == null) {
-            this.linkedVariables = initialValue;
-        }
-    }
-
-    public boolean setLinkedVariables(LinkedVariables linkedVariables) {
+    public boolean setLinkedVariables(Links linkedVariables) {
         assert linkedVariables != null;
-        assert !linkedVariables.contains(variable) : "Self references are not allowed";
-        if (this.linkedVariables.isNotYetSet() || this.linkedVariables.isDelayed()) {
+        if (this.linkedVariables == null) {
             this.linkedVariables = linkedVariables;
             return true;
         }
@@ -72,16 +64,7 @@ public class VariableInfoImpl implements VariableInfo {
             this.linkedVariables = linkedVariables;
             return true;
         }
-        // FIXME-DEMO this should be an exception thrown
-        LOGGER.warn("Variable {}: new linked variables are not better than old: {}, new {}",
-                variable, this.linkedVariables, linkedVariables);
-        return false;
-    }
-
-    public void staticValuesSet(StaticValues staticValues) {
-        if (this.staticValues == null || this.staticValues.overwriteAllowed(staticValues)) {
-            this.staticValues = staticValues;
-        }
+        throw new UnsupportedOperationException("Not allowed to overwrite");
     }
 
     @Override
@@ -90,13 +73,13 @@ public class VariableInfoImpl implements VariableInfo {
     }
 
     @Override
-    public LinkedVariables linkedVariables() {
+    public Links linkedVariables() {
         return linkedVariables;
     }
 
     @Override
-    public StaticValues staticValues() {
-        return staticValues;
+    public Links linkedVariablesOrEmpty() {
+        return linkedVariables == null ? LinksImpl.EMPTY : linkedVariables;
     }
 
     @Override
@@ -125,6 +108,11 @@ public class VariableInfoImpl implements VariableInfo {
     @Override
     public boolean isUnmodified() {
         return analysis.getOrDefault(UNMODIFIED_VARIABLE, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    @Override
+    public Set<TypeInfo> downcast() {
+        return analysis.getOrDefault(DOWNCAST_VARIABLE, ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet();
     }
 
     @Override

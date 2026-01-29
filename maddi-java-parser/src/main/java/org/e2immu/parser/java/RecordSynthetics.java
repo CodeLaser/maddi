@@ -93,7 +93,7 @@ class RecordSynthetics {
                 .commitParameters()
                 .setMethodBody(methodBody);
         // NOT YET COMMITTING! we cannot yet compute the overrides
-        runtime.setGetSetField(methodInfo, fieldInfo, false, -1);
+        runtime.setGetSetField(methodInfo, fieldInfo, false, -1, false);
         return methodInfo;
     }
 }

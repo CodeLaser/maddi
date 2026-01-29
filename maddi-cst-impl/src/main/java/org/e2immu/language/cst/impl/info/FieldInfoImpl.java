@@ -286,6 +286,20 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     }
 
     @Override
+    public FieldInfo withOwner(TypeInfo newOwner) {
+        if (owner != newOwner) {
+            FieldInfoImpl fi = new FieldInfoImpl(name, isStatic, type, newOwner);
+            if (inspection.isFinal()) {
+                fi.inspection.setFinal(inspection.get());
+            } else {
+                fi.inspection.setVariable(inspection.get());
+            }
+            return fi;
+        }
+        return this;
+    }
+
+    @Override
     public boolean isUnmodified() {
         return analysis().getOrDefault(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.FALSE).isTrue();
     }

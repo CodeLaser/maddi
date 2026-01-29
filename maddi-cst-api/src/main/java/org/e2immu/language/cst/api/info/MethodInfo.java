@@ -33,6 +33,8 @@ public interface MethodInfo extends Info {
 
     boolean isFactoryMethod();
 
+    boolean isFinalizer();
+
     boolean isSyntheticArrayConstructor();
 
     Set<MethodModifier> methodModifiers();
@@ -117,6 +119,16 @@ public interface MethodInfo extends Info {
 
     Set<MethodInfo> topOfOverloadingHierarchy();
 
+    // SAM = single abstract method
+    default boolean isSAMOfStandardFunctionalInterface() {
+        return this == typeInfo().singleAbstractMethod()
+               && ("java.util.function".equals(typeInfo().packageName())
+                   || Runnable.class.getCanonicalName().equals(typeInfo().fullyQualifiedName())
+                   || typeInfo().isSynthetic()
+                   || typeInfo().annotations().stream()
+                           .anyMatch(ae -> "java.lang.FunctionalInterface"
+                                   .equals(ae.typeInfo().fullyQualifiedName())));
+    }
     // from inspection
 
     List<ParameterInfo> parameters();
@@ -151,7 +163,9 @@ public interface MethodInfo extends Info {
 
     // from analysis
 
-    default boolean isModifying() { return !isNonModifying(); }
+    default boolean isModifying() {
+        return !isNonModifying();
+    }
 
     boolean isNonModifying();
 
@@ -261,7 +275,7 @@ public interface MethodInfo extends Info {
 
     default boolean isVarargs() {
         if (parameters().isEmpty()) return false;
-        return parameters().get(parameters().size() - 1).isVarArgs();
+        return parameters().getLast().isVarArgs();
     }
 }
 

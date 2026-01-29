@@ -77,7 +77,6 @@ public class CommonTest2 {
         JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
                 .setFailFast(true).setDetailedSources(true).build();
         summary = javaInspector.parse(sourcesByURIString, parseOptions);
-        prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
         G<Info> graph = prepAnalyzer.doPrimaryTypesReturnGraph(Set.copyOf(summary.types()));
         ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
         return new R(cao.go(graph), graph);

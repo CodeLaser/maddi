@@ -342,8 +342,10 @@ public class IsAssignableFrom {
          with the same return type and parameters. But they're not seen as assignable.
          */
         if (!targetMi.name().equals(fromMi.name())
-            && isNotSyntheticOrFunctionInterface(targetMi)
-            && isNotSyntheticOrFunctionInterface(fromMi)) {
+            && !targetMi.isSynthetic()
+            && !fromMi.isSynthetic()
+            && !targetMi.isSAMOfStandardFunctionalInterface()
+            && !fromMi.isSAMOfStandardFunctionalInterface()) {
             return NOT_ASSIGNABLE;
         }
         if (targetMi.parameters().size() != fromMi.parameters().size()) return NOT_ASSIGNABLE;
@@ -367,12 +369,6 @@ public class IsAssignableFrom {
         }
         if (!targetMi.returnType().equals(fromMi.returnType())) return NOT_ASSIGNABLE;
         return EQUALS;
-    }
-
-    private boolean isNotSyntheticOrFunctionInterface(MethodInfo methodInfo) {
-        if ("java.lang.Runnable.run()".equals(methodInfo.fullyQualifiedName())) return false;
-        String packageName = methodInfo.typeInfo().packageName();
-        return !"java.util.function".equals(packageName) && !methodInfo.isSynthetic();
     }
 
     private int hierarchy(boolean strictTypeParameterTargets, ParameterizedType target, ParameterizedType from, Mode mode) {

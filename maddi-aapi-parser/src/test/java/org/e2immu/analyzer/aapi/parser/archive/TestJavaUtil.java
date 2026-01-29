@@ -15,9 +15,8 @@
 package org.e2immu.analyzer.aapi.parser.archive;
 
 import org.e2immu.analyzer.aapi.parser.CommonTest;
-import org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector;
-import org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes;
 import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.analysis.Value.Independent;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -28,13 +27,11 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.prepwork.hcs.HiddenContentSelector.*;
-import org.e2immu.language.cst.api.analysis.Value.Independent;
-import static org.e2immu.analyzer.modification.prepwork.hct.HiddenContentTypes.HIDDEN_CONTENT_TYPES;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.*;
+import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.FieldValue;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.NO_VALUE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.*;
@@ -50,9 +47,6 @@ public class TestJavaUtil extends CommonTest {
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
-
-        HiddenContentTypes hct = typeInfo.analysis().getOrDefault(HIDDEN_CONTENT_TYPES, HiddenContentTypes.NO_VALUE);
-        assertEquals("0=E", hct.detailedSortedTypes());
     }
 
     @Test
@@ -61,13 +55,6 @@ public class TestJavaUtil extends CommonTest {
         TypeInfo collectionTypeInfo = compiledTypesManager().get(Collection.class);
         MethodInfo methodInfo = typeInfo.findConstructor(collectionTypeInfo);
         assertEquals("java.util.ArrayList.<init>(java.util.Collection<? extends E>)", methodInfo.fullyQualifiedName());
-        HiddenContentTypes methodHct = methodInfo.analysis().getOrDefault(HIDDEN_CONTENT_TYPES, HiddenContentTypes.NO_VALUE);
-        assertEquals("0=E - 1=Collection", methodHct.detailedSortedTypes());
-        assertEquals("ArrayList:E - <init>:Collection", methodHct.toString());
-
-        ParameterInfo p0 = methodInfo.parameters().get(0);
-        HiddenContentSelector paramHcs = p0.analysis().getOrDefault(HCS_PARAMETER, HiddenContentSelector.NONE);
-        assertEquals("0=0,1=*", paramHcs.detailed());
     }
 
 
@@ -82,7 +69,7 @@ public class TestJavaUtil extends CommonTest {
         assertEquals("java.util.Arrays.equals(long[],long[])", methodInfo.fullyQualifiedName());
         assertFalse(methodInfo.isModifying());
 
-        ParameterInfo add0 = methodInfo.parameters().get(0);
+        ParameterInfo add0 = methodInfo.parameters().getFirst();
         assertFalse(add0.isModified());
         ParameterInfo add1 = methodInfo.parameters().get(1);
         assertFalse(add1.isModified());
@@ -118,7 +105,7 @@ public class TestJavaUtil extends CommonTest {
         assertTrue(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
-        ParameterInfo add0 = methodInfo.parameters().get(0);
+        ParameterInfo add0 = methodInfo.parameters().getFirst();
         assertFalse(add0.isModified());
     }
 
@@ -140,7 +127,24 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(methodInfo.allowsInterrupts());
 
         assertFalse(methodInfo.isModifying());
-        assertSame(DEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertTrue(independent.isIndependentHc());
+        assertEquals("[java.util.Iterator.remove()]", independent.dependentMethods().toString());
+    }
+
+    @Test
+    public void testListIterator() {
+        TypeInfo typeInfo = compiledTypesManager().get(List.class);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("iterator", 0);
+        assertEquals("java.lang.Iterable.iterator(), java.util.Collection.iterator()",
+                methodInfo.overrides().stream().map(Object::toString).sorted()
+                        .collect(Collectors.joining(", ")));
+        assertFalse(methodInfo.allowsInterrupts());
+
+        assertFalse(methodInfo.isModifying());
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertTrue(independent.isIndependentHc());
+        assertEquals("[java.util.Iterator.remove()]", independent.dependentMethods().toString());
     }
 
 
@@ -152,7 +156,9 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(methodInfo.allowsInterrupts());
 
         assertFalse(methodInfo.isModifying());
-        assertSame(DEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
+        Value.Independent independent = methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT);
+        assertTrue(independent.isIndependentHc());
+        assertEquals("[java.util.Iterator.remove()]", independent.dependentMethods().toString());
     }
 
 
@@ -166,7 +172,7 @@ public class TestJavaUtil extends CommonTest {
         assertTrue(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
-        ParameterInfo add0 = methodInfo.parameters().get(0);
+        ParameterInfo add0 = methodInfo.parameters().getFirst();
         assertFalse(add0.isModified());
     }
 
@@ -188,7 +194,7 @@ public class TestJavaUtil extends CommonTest {
         TypeInfo typeInfo = compiledTypesManager().get(Collections.class);
         assertFalse(typeInfo.isInterface());
         // NOTE at the moment: @UtilityClass does not enforce @Immutable (without hc)
-        assertSame(IMMUTABLE_HC, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
+        assertSame(IMMUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(INDEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(FALSE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
     }
@@ -197,22 +203,18 @@ public class TestJavaUtil extends CommonTest {
     public void testCollectionsAddAll() {
         TypeInfo typeInfo = compiledTypesManager().get(Collections.class);
         MethodInfo addAll = typeInfo.findUniqueMethod("addAll", 2);
-        assertEquals(" - 0=T, 1=Collection", addAll.analysis().getOrDefault(HIDDEN_CONTENT_TYPES, HiddenContentTypes.NO_VALUE)
-                .detailedSortedTypes());
 
-        ParameterInfo p0 = addAll.parameters().get(0);
+        ParameterInfo p0 = addAll.parameters().getFirst();
         assertTrue(p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE).isFalse());
         Value.Independent independent0 = p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
         Map<Integer, Integer> map = independent0.linkToParametersReturnValue();
         assertEquals(1, map.size());
         assertEquals(1, map.get(1)); // links at HC level (1) to parameter with index 1
-        assertEquals("0=0,1=*", p0.analysis().getOrDefault(HCS_PARAMETER, HiddenContentSelector.NONE).detailed());
 
         ParameterInfo p1 = addAll.parameters().get(1);
         assertTrue(p1.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE).isTrue());
         Value.Independent independent1 = p1.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
         assertTrue(independent1.linkToParametersReturnValue().isEmpty());
-        assertEquals("0=0", p1.analysis().getOrDefault(HCS_PARAMETER, HiddenContentSelector.NONE).detailed());
     }
 
     @Test
@@ -220,18 +222,16 @@ public class TestJavaUtil extends CommonTest {
         TypeInfo typeInfo = compiledTypesManager().get(List.class);
         assertTrue(typeInfo.isInterface());
         assertFalse(typeInfo.isAtLeastImmutableHC());
-        ParameterizedType collection = typeInfo.interfacesImplemented().get(0);
+        ParameterizedType collection = typeInfo.interfacesImplemented().getFirst();
         String expectImplemented = ToolChain.currentJdkMainVersion() < 21
                 ? "Type java.util.Collection<E>"
                 : "Type java.util.SequencedCollection<E>";
         assertEquals(expectImplemented, collection.toString());
-        assertEquals("E=TP#0 in List", collection.parameters().get(0).typeParameter().toString());
+        assertEquals("E=TP#0 in List", collection.parameters().getFirst().typeParameter().toString());
 
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
-
-        assertEquals("List:E", typeInfo.analysis().getOrNull(HIDDEN_CONTENT_TYPES, HiddenContentTypes.class).toString());
     }
 
     @Test
@@ -255,7 +255,7 @@ public class TestJavaUtil extends CommonTest {
         assertTrue(methodInfo.isModifying());
         assertSame(INDEPENDENT_HC, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
-        ParameterInfo remove0 = methodInfo.parameters().get(0);
+        ParameterInfo remove0 = methodInfo.parameters().getFirst();
         assertFalse(remove0.isModified());
 
         assertNull(methodInfo.getSetField().field());
@@ -271,7 +271,7 @@ public class TestJavaUtil extends CommonTest {
         assertTrue(methodInfo.isModifying());
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
 
-        ParameterInfo remove0 = methodInfo.parameters().get(0);
+        ParameterInfo remove0 = methodInfo.parameters().getFirst();
         assertFalse(remove0.isModified());
     }
 
@@ -281,10 +281,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertTrue(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        FieldValue getField = get.getSetField();
-        assertEquals("java.util.List._synthetic_list", getField.field().fullyQualifiedName());
-        assertFalse(getField.setter());
     }
 
 
@@ -294,12 +290,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo set = typeInfo.findUniqueMethod("set", 2);
         assertTrue(set.overrides().isEmpty());
         assertSame(FALSE, set.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        FieldValue setField = set.getSetField();
-        assertEquals("java.util.List._synthetic_list", setField.field().fullyQualifiedName());
-        assertEquals(0, setField.parameterIndexOfIndex());
-        assertEquals(1, setField.parameterIndexOfValue());
-        assertTrue(setField.setter());
     }
 
     @Test
@@ -308,11 +298,14 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo of = typeInfo.methods().stream()
                 .filter(m -> "of".equals(m.name()) && 1 == m.parameters().size() && 0 == m.parameters().getFirst().parameterizedType().arrays())
                 .findFirst().orElseThrow();
+        assertEquals("java.util.List.of(E)", of.toString());
         assertTrue(of.overrides().isEmpty());
         assertTrue(of.isNonModifying());
         ParameterInfo e = of.parameters().getFirst();
         Independent independent = e.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
-        assertEquals(1, independent.linkToParametersReturnValue().get(-1));
+        assertTrue(independent.isIndependentHc());
+        // empty: the shallow method link computer does not need the annotation
+        assertTrue(independent.linkToParametersReturnValue().isEmpty());
     }
 
 
@@ -322,11 +315,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertFalse(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        // inherited from AAPI
-        FieldValue getField = get.getSetField();
-        assertEquals("java.util.List._synthetic_list", getField.field().fullyQualifiedName());
-        assertFalse(getField.setter());
     }
 
     @Test
@@ -335,13 +323,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo set = typeInfo.findUniqueMethod("set", 2);
         assertFalse(set.overrides().isEmpty());
         assertSame(FALSE, set.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        // inherited from AAPI
-        FieldValue setField = set.getSetField();
-        assertEquals("java.util.List._synthetic_list", setField.field().fullyQualifiedName());
-        assertEquals(0, setField.parameterIndexOfIndex());
-        assertEquals(1, setField.parameterIndexOfValue());
-        assertTrue(setField.setter());
     }
 
     @Test
@@ -350,9 +331,6 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
         assertFalse(get.overrides().isEmpty());
         assertSame(TRUE, get.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
-
-        // inherited from AAPI
-        assertEquals("java.util.List._synthetic_list", get.getSetField().field().fullyQualifiedName());
     }
 
 
@@ -372,8 +350,6 @@ public class TestJavaUtil extends CommonTest {
         assertEquals("java.util.List.get(int)",
                 get.overrides().stream().map(Objects::toString).sorted().collect(Collectors.joining(",")));
         assertFalse(get.isModifying());
-        // inherited from AAPI
-        assertEquals("java.util.List._synthetic_list", get.getSetField().field().fullyQualifiedName());
     }
 
     // Vector implements List, but also extends AbstractList, AbstractCollection
@@ -415,18 +391,12 @@ public class TestJavaUtil extends CommonTest {
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
-
-        assertEquals("HashMap:K, V",
-                typeInfo.analysis().getOrNull(HIDDEN_CONTENT_TYPES, HiddenContentTypes.class).toString());
     }
 
 
     @Test
     public void testHashMapEntryIterator() {
         TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
-        TypeInfo sub = typeInfo.findSubType("EntryIterator");
-        assertEquals("0=K, 1=V",
-                sub.analysis().getOrNull(HIDDEN_CONTENT_TYPES, HiddenContentTypes.class).detailedSortedTypes());
     }
 
     @Test
@@ -438,7 +408,7 @@ public class TestJavaUtil extends CommonTest {
         assertSame(INDEPENDENT_HC, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
         assertSame(IMMUTABLE_HC, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
 
-        ParameterInfo p0 = methodInfo.parameters().get(0);
+        ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertFalse(p0.isModified());
         assertSame(NULLABLE, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(IMMUTABLE_HC, p0.analysis().getOrDefault(IMMUTABLE_PARAMETER, MUTABLE));
@@ -470,7 +440,8 @@ public class TestJavaUtil extends CommonTest {
         assertFalse(p1.isModified());
         assertSame(NULLABLE, p1.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(IMMUTABLE_HC, p1.analysis().getOrDefault(IMMUTABLE_PARAMETER, MUTABLE));
-        assertSame(INDEPENDENT, p1.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
+        assertEquals("@Independent(hc=true, hcReturnValue=true)",
+                p1.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT).toString());
     }
 
 
@@ -544,7 +515,7 @@ public class TestJavaUtil extends CommonTest {
         TypeInfo collection = compiledTypesManager().get(Collection.class);
         TypeInfo typeInfo = compiledTypesManager().get(HashSet.class);
         MethodInfo methodInfo = typeInfo.findConstructor(collection);
-        ParameterInfo p0 = methodInfo.parameters().get(0);
+        ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertFalse(p0.isModified());
         assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
@@ -555,7 +526,7 @@ public class TestJavaUtil extends CommonTest {
         TypeInfo map = compiledTypesManager().get(Map.class);
         TypeInfo typeInfo = compiledTypesManager().get(HashMap.class);
         MethodInfo methodInfo = typeInfo.findConstructor(map);
-        ParameterInfo p0 = methodInfo.parameters().get(0);
+        ParameterInfo p0 = methodInfo.parameters().getFirst();
         assertFalse(p0.isModified());
         assertSame(INDEPENDENT_HC, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
@@ -620,10 +591,6 @@ public class TestJavaUtil extends CommonTest {
 
         assertSame(INDEPENDENT_HC, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
         assertSame(IMMUTABLE_HC, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
-
-        assertEquals("Iterator:E - next:", methodInfo.analysis()
-                .getOrDefault(HIDDEN_CONTENT_TYPES, HiddenContentTypes.NO_VALUE).toString());
-        assertEquals("*", methodInfo.analysis().getOrDefault(HCS_METHOD, NONE).toString());
     }
 
     @Test

@@ -487,9 +487,8 @@ public interface Factory {
 
     Set<TypeInfo> rewire(Set<TypeInfo> types);
 
-    void setGetSetField(MethodInfo getSetMethod, FieldInfo fieldInfo, boolean setter, int parameterIndexOfIndex);
-
-    void setModificationComponent(MethodInfo methodInfo, FieldInfo component);
+    void setGetSetField(MethodInfo getSetMethod, FieldInfo fieldInfo, boolean setter, int parameterIndexOfIndex,
+                        boolean list);
 
     void setNonNullProperty(FieldInfo fieldInfo);
 

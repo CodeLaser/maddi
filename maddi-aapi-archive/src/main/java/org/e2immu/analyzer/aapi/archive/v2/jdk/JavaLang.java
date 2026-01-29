@@ -592,6 +592,7 @@ public class JavaLang {
 
     //public abstract class Enum implements Constable, Comparable<E>, Serializable
     @ImmutableContainer(hc = true)
+    @Independent
     class Enum$<E extends Enum<E>> {
         //public static final class EnumDesc extends DynamicConstantDesc<E>
         class EnumDesc<E extends Enum<E>> {
@@ -1019,7 +1020,7 @@ public class JavaLang {
     @Container
     class Iterable$<T> {
         //override has frequency 2
-        @NotModified @NotNull
+        @NotModified @NotNull @Independent(hc = true, except = "remove")
         Iterator<T> iterator() { return null; }
 
         //frequency 69
@@ -2336,9 +2337,9 @@ public class JavaLang {
         static long currentTimeMillis() { return 0L; }
         static long nanoTime() { return 0L; }
         static void arraycopy(
-            /*@Immutable(hc=true)[T] @Independent[T]*/ @NotModified @NotNull Object object,
+            /*@Immutable(hc=true)[T] @Independent[T]*/ @Independent(hcParameters = { 2 }) @NotModified @NotNull Object object,
             int i,
-            /*@Immutable(hc=true)[T] @NotModified[T]*/ @Independent(hcParameters = { 0 }) @NotNull Object object1,
+            /*@Immutable(hc=true)[T] @NotModified[T]*/ @NotNull Object object1,
             int i1,
             int i2) { }
 

@@ -1239,21 +1239,13 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
-    public void setGetSetField(MethodInfo getSetMethod, FieldInfo fieldInfo, boolean setter, int parameterIndexOfIndex) {
+    public void setGetSetField(MethodInfo getSetMethod, FieldInfo fieldInfo, boolean setter, int parameterIndexOfIndex,
+                               boolean list) {
         assert fieldInfo != null;
         assert !getSetMethod.isConstructor();
         if (!getSetMethod.analysis().haveAnalyzedValueFor(PropertyImpl.GET_SET_FIELD)) {
             getSetMethod.analysis().set(PropertyImpl.GET_SET_FIELD,
-                    new ValueImpl.GetSetValueImpl(fieldInfo, setter, parameterIndexOfIndex));
-        }
-    }
-
-    @Override
-    public void setModificationComponent(MethodInfo methodInfo, FieldInfo component) {
-        if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.MODIFIED_COMPONENTS_METHOD)) {
-            FieldReference fr = newFieldReference(component);
-            ValueImpl.VariableBooleanMapImpl value = new ValueImpl.VariableBooleanMapImpl(Map.of(fr, true));
-            methodInfo.analysis().set(PropertyImpl.MODIFIED_COMPONENTS_METHOD, value);
+                    new ValueImpl.GetSetValueImpl(fieldInfo, setter, parameterIndexOfIndex, list));
         }
     }
 

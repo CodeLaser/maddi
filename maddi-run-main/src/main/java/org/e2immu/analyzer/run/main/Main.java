@@ -381,7 +381,7 @@ public class Main {
     public static AnnotatedAPIConfiguration annotatedAPIConfiguration(Map<String, String> kvMap) {
         AnnotatedAPIConfigurationImpl.Builder builder = new AnnotatedAPIConfigurationImpl.Builder();
 
-        setSplitStringProperty(kvMap, File.pathSeparator, ANALYZED_ANNOTATED_API_DIRS, builder::addAnalyzedAnnotatedApiDirs);
+        setSplitStringProperty(kvMap, ",", ANALYZED_ANNOTATED_API_DIRS, builder::addAnalyzedAnnotatedApiDirs);
 
         setStringProperty(kvMap, ANALYZED_ANNOTATED_API_TARGET_DIR, builder::setAnalyzedAnnotatedApiTargetDir);
         setStringProperty(kvMap, ANNOTATED_API_TARGET_DIR, builder::setAnnotatedApiTargetDir);
@@ -396,7 +396,7 @@ public class Main {
         AnnotatedAPIConfigurationImpl.Builder builder = new AnnotatedAPIConfigurationImpl.Builder();
 
         String[] analyzedDirs = cmd.getOptionValues(ANALYZED_ANNOTATED_API_DIRS);
-        splitAndAdd(analyzedDirs, File.pathSeparator, builder::addAnalyzedAnnotatedApiDirs);
+        splitAndAdd(analyzedDirs, ",", builder::addAnalyzedAnnotatedApiDirs);
 
         String writeAnalyzedDir = cmd.getOptionValue(ANALYZED_ANNOTATED_API_TARGET_DIR);
         builder.setAnalyzedAnnotatedApiTargetDir(writeAnalyzedDir);

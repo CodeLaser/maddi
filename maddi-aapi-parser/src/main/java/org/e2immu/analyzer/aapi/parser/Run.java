@@ -17,8 +17,8 @@ package org.e2immu.analyzer.aapi.parser;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.analyzer.modification.io.WriteAnalysis;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.Info;
@@ -92,8 +92,6 @@ public class Run {
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(annotatedApiParser.runtime(), annotatedApiParser,
                 true, runVisitor == null ? null : runVisitor.debugVisitor());
         ShallowAnalyzer.Result rs = shallowAnalyzer.go(annotatedApiParser.types());
-        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(annotatedApiParser.runtime());
-        prepAnalyzer.initialize(annotatedApiParser.javaInspector().compiledTypesManager().typesLoaded(true));
 
         Set<Element> hasAnnotations = annotatedApiParser.infos();
         LOGGER.info("Parsed and analyzed {} types; {} info objects", annotatedApiParser.types().size(),

@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.util.ParSeq;
 import org.e2immu.language.cst.api.variable.Variable;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -100,15 +101,17 @@ public interface Value extends Comparable<Value> {
         boolean isIndependentHc();
 
         Map<Integer, Integer> linkToParametersReturnValue();
+
+        List<MethodInfo> dependentMethods();
     }
 
-    interface NotNull extends Value {
+    interface NotNullProperty extends Value {
 
         boolean isAtLeastNotNull();
 
         boolean isNullable();
 
-        NotNull max(NotNull other);
+        NotNullProperty max(NotNullProperty other);
     }
 
     /*
@@ -141,6 +144,8 @@ public interface Value extends Comparable<Value> {
     // meant for the "GetSetField" property
     interface FieldValue extends Value {
         Variable createVariable(Runtime runtime, Expression object, Expression indexOrNull);
+
+        boolean list();
 
         default int parameterIndexOfValue() {
             int i = parameterIndexOfIndex();
@@ -206,6 +211,18 @@ public interface Value extends Comparable<Value> {
 
     interface SetOfTypeInfo extends Value {
         Set<TypeInfo> typeInfoSet();
+    }
+
+    interface VariableToTypeInfoSet extends Value {
+        Map<Variable, Set<TypeInfo>> variableToTypeInfoSet();
+    }
+
+    interface SetOfMethodInfo extends Value {
+        Iterable<MethodInfo> methodInfoSet();
+
+        boolean isEmpty();
+
+        boolean add(MethodInfo methodInfo);
     }
 
     interface SetOfStrings extends Value {

@@ -1,37 +1,89 @@
-/*
- * maddi: a modification analyzer for duplication detection and immutability.
- * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
- *
- * This program is free software: you can redistribute it and/or modify it under the
- * terms of the GNU Lesser General Public License as published by the Free Software
- * Foundation, either version 3 of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
- * more details. You should have received a copy of the GNU Lesser General Public
- * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 package org.e2immu.analyzer.modification.prepwork.variable;
 
-import org.e2immu.util.internal.graph.op.DijkstraShortestPath;
+import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.language.cst.api.analysis.Value;
+import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.Variable;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.Map;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public interface Links extends DijkstraShortestPath.Connection {
-    Links ensureNoModification();
+/*
+Links from one variable (primary) and its constituent parts ("fields") to other variables.
+This is the main object stored in the analysis() of VariableInfo, and the main constituent of
+MethodLinkedVariables.
+ */
+public interface Links extends Iterable<Link>, Value {
 
-    Map<Indices, Link> map();
+    boolean containsVirtualFields();
 
-    Indices modificationAreaSource();
+    // for debugging purposes
+    Link link(int i);
 
-    Indices modificationAreaTarget();
+    Variable primary();
 
-    Links mineToTheirs(Links links);
+    boolean isEmpty();
 
-    Links reverse();
+    Iterable<Link> linkSet();
 
-    String toString(int hc);
+    Links removeIfTo(Predicate<Variable> toPredicate);
 
-    Links theirsToTheirs(Links links);
+    Links removeIfFromTo(Predicate<Variable> predicate);
+
+    Stream<Link> stream();
+
+    Links merge(Links links);
+
+    Links translate(TranslationMap translationMap);
+
+    Links translateFrom(TranslationMap translationMap);
+
+    Iterable<Links> removeThisAsPrimary();
+
+    @NotNull String toString(Set<Variable> modified);
+
+    interface Builder extends Iterable<Link> {
+        void replaceAll(List<Link> newLinks);
+
+        Links build();
+
+        Builder addAllDistinct(Links other);
+
+        Builder add(LinkNature linkNature, Variable to);
+
+        Builder add(Variable from, LinkNature linkNature, Variable to);
+
+        boolean contains(Variable from, LinkNature reverse, Variable to);
+
+        void prepend(LinkNature linkNature, Variable to);
+
+        Variable primary();
+
+        void removeIf(Predicate<Link> link);
+
+        void removeIfFromTo(Predicate<Variable> predicate);
+
+        // return the reverse links of those replaced
+        List<Link> replaceSubsetSuperset(Variable modified);
+    }
+
+    // methods that do something
+    // used by LVC
+    Links changePrimaryTo(Runtime runtime, Variable newPrimary);
+
+    default boolean overwriteAllowed(Links linkedVariables) {
+        // the primary changes to/from null
+        return isEmpty() && linkedVariables.isEmpty();
+    }
+
+    default Set<Variable> toPrimaries() {
+        return stream().map(l -> Util.primary(l.to())).collect(Collectors.toUnmodifiableSet());
+    }
+
+    List<Variable> primaryAssigned();
 }

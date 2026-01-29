@@ -17,10 +17,11 @@ package org.e2immu.language.cst.impl.runtime;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.ComputeMethodOverrides;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
 import org.e2immu.language.cst.api.runtime.Eval;
+import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -31,6 +32,7 @@ import org.e2immu.language.cst.impl.info.ComputeMethodOverridesImpl;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 public class RuntimeImpl extends FactoryImpl implements Runtime {
@@ -349,12 +351,13 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
             }
             TypeInfo list = getFullyQualified(List.class, true);
             MethodInfo get = list.findUniqueMethod("get", 1);
-            Value.FieldValue fv = get.getSetField();
+            Value.FieldValue fv = Objects.requireNonNull(get.getSetField());
             VariableExpression scope = newVariableExpressionBuilder()
                     .setVariable(fr)
                     .setSource(methodCall.object().source())
                     .build();
-            fr2 = newFieldReference(fv.field(), scope, pt.copyWithArrays(pt.arrays() + 1));
+            FieldInfo field = Objects.requireNonNull(fv.field(), "Called on wrong method");
+            fr2 = newFieldReference(field, scope, pt.copyWithArrays(pt.arrays() + 1));
         } else {
             fr2 = fr;
         }

@@ -1,7 +1,6 @@
 module org.e2immu.analyzer.aapi.parser {
     requires ch.qos.logback.classic;
     requires org.e2immu.analyzer.modification.common;
-    requires org.e2immu.analyzer.modification.io;
     requires org.e2immu.analyzer.modification.prepwork;
     requires org.e2immu.language.cst.analysis;
     requires org.e2immu.language.cst.api;

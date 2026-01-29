@@ -18,14 +18,14 @@ import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
 import org.e2immu.analyzer.aapi.parser.AnnotatedApiParser;
 import org.e2immu.analyzer.aapi.parser.Composer;
+import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
+import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.analyzer.modification.io.LoadAnalyzedPackageFiles;
-import org.e2immu.analyzer.modification.io.WriteAnalysis;
-import org.e2immu.analyzer.modification.linkedvariables.IteratingAnalyzer;
-import org.e2immu.analyzer.modification.linkedvariables.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
+import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
@@ -120,6 +120,11 @@ public class RunAnalyzer implements Runnable {
                 .setLombok(inputConfiguration.containsLombok())
                 .build();
         Summary summary = javaInspector.parse(parseOptions);
+        assert summary.parseResult().primaryTypes().stream()
+                .flatMap(TypeInfo::recursiveSubTypeStream)
+                .noneMatch(ti -> ti.simpleName().endsWith("$"))
+                : "It looks like the annotated API types are part of the primary types of the parse result";
+
         boolean printMemory = configuration.generalConfiguration().debugTargets().contains("memory");
         if (printMemory) {
             printMemUse();
@@ -137,13 +142,15 @@ public class RunAnalyzer implements Runnable {
         boolean prep = modification || rewireTests || analysisSteps.contains(Main.AS_PREP);
         if (prep) {
             ParseResult parseResult = summary.parseResult();
-            Predicate<TypeInfo> externalsToAccept = t -> false;
+            Predicate<TypeInfo> externalsToAccept = _ -> false;
             LOGGER.info("Running prep analyzer on {} types", summary.types().size());
             PrepAnalyzer prepAnalyzer = new PrepAnalyzer(javaInspector.runtime());
-            prepAnalyzer.initialize(javaInspector.compiledTypesManager().typesLoaded(true));
             ccg = prepAnalyzer.doPrimaryTypesReturnComputeCallGraph(Set.copyOf(parseResult.primaryTypes()),
                     parseResult.sourceSetToModuleInfoMap().values(),
                     externalsToAccept, parseOptions.parallel());
+            assert ccg.graph().vertices().stream().noneMatch(v -> v.t() instanceof TypeInfo typeInfo && typeInfo.simpleName().endsWith("$"))
+                    : "It looks like the annotated API types are part of the call graph.";
+
             if (printMemory) {
                 printMemUse();
             }
@@ -159,7 +166,6 @@ public class RunAnalyzer implements Runnable {
             ccg = null;
         }
         if (modification) {
-            assert ccg != null;
             ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
             LOGGER.info("Computing analysis order");
             List<Info> order = cao.go(ccg.graph(), parseOptions.parallel());
@@ -167,9 +173,10 @@ public class RunAnalyzer implements Runnable {
 
             // do actual modification analysis
             IteratingAnalyzer.Configuration modConfig = new IteratingAnalyzerImpl.ConfigurationBuilder()
-                    .setStoreErrors(false)
+                    .setMaxIterations(10)
+                    .setTrackObjectCreations(false)
                     .build();
-            IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector.runtime(), modConfig);
+            IteratingAnalyzer analyzer = new IteratingAnalyzerImpl(javaInspector, modConfig);
             analyzer.analyze(order);
 
             // write results
@@ -224,13 +231,13 @@ public class RunAnalyzer implements Runnable {
         String destinationPackage = ac.annotatedApiTargetPackage() == null ? "" : ac.annotatedApiTargetPackage();
         Predicate<Info> filter;
         if (ac.annotatedApiPackages().isEmpty()) {
-            filter = w -> true;
+            filter = _ -> true;
             LOGGER.info("No filter.");
         } else {
             filter = new PackageFilter(ac.annotatedApiPackages());
             LOGGER.info("Created package filter based on {}", ac.annotatedApiPackages());
         }
-        Composer composer = new Composer(javaInspector, set -> destinationPackage, filter);
+        Composer composer = new Composer(javaInspector, _ -> destinationPackage, filter);
         List<TypeInfo> compiledPrimaryTypes = javaInspector.compiledTypesManager()
                 .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
         LOGGER.info("Loaded {} compiled primary types", compiledPrimaryTypes.size());

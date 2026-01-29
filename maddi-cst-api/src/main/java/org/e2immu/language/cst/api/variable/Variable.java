@@ -30,6 +30,10 @@ public interface Variable extends Comparable<Variable>, Element, OneVariable {
     @NotNull
     String fullyQualifiedName();
 
+    default boolean isIgnoreModifications() {
+        return false;
+    }
+
     @NotNull
     String simpleName();
 

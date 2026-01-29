@@ -15,60 +15,61 @@
 package org.e2immu.language.inspection.integration.java.method;
 
 import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.Lambda;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestMethodCall13 extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
-         package a.b;
-         import java.util.List;
-         import java.util.Map;
-         import java.util.stream.Collectors;
-         
-         class X {
-             interface ClinicalDataCount { 
-                 boolean accept();
-             }
-             interface ClinicalDataCountItem {
-                  List<ClinicalDataCount> getCounts();
-                  void setCounts(List<ClinicalDataCount> list);
-                  String getAttributeId();
-              }
-
-             public Map<String, ClinicalDataCountItem> method(List<ClinicalDataCountItem> clinicalDataCountItems) {
-                 return clinicalDataCountItems.stream()
-                       // Exclude NA category
-                       .map(
-                           clinicalDataCountItem -> {
-                             List<ClinicalDataCount> filteredClinicalDataCount =
-                                 clinicalDataCountItem.getCounts().stream()
-                                     .filter(
-                                         clinicalDataCount -> {
-                                           if(clinicalDataCount.accept()) {
-                                               return true;
-                                           }
-                                           return false;
-                                         })
-                                     .collect(Collectors.toList());
-                             clinicalDataCountItem.setCounts(filteredClinicalDataCount);
-                             return clinicalDataCountItem;
-                           })
-                       .collect(
-                           Collectors.toMap(
-                               clinicalDataCountItem -> clinicalDataCountItem.getAttributeId(),
-                               clinicalDataCountItem -> clinicalDataCountItem));
+            package a.b;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.stream.Collectors;
+            
+            class X {
+                interface ClinicalDataCount { 
+                    boolean accept();
                 }
-            }
+                interface ClinicalDataCountItem {
+                     List<ClinicalDataCount> getCounts();
+                     void setCounts(List<ClinicalDataCount> list);
+                     String getAttributeId();
+                 }
+            
+                public Map<String, ClinicalDataCountItem> method(List<ClinicalDataCountItem> clinicalDataCountItems) {
+                    return clinicalDataCountItems.stream()
+                          // Exclude NA category
+                          .map(
+                              clinicalDataCountItem -> {
+                                List<ClinicalDataCount> filteredClinicalDataCount =
+                                    clinicalDataCountItem.getCounts().stream()
+                                        .filter(
+                                            clinicalDataCount -> {
+                                              if(clinicalDataCount.accept()) {
+                                                  return true;
+                                              }
+                                              return false;
+                                            })
+                                        .collect(Collectors.toList());
+                                clinicalDataCountItem.setCounts(filteredClinicalDataCount);
+                                return clinicalDataCountItem;
+                              })
+                          .collect(
+                              Collectors.toMap(
+                                  clinicalDataCountItem -> clinicalDataCountItem.getAttributeId(),
+                                  clinicalDataCountItem -> clinicalDataCountItem));
+                   }
+               }
             """;
 
     @Test
@@ -82,34 +83,34 @@ public class TestMethodCall13 extends CommonTest {
 
     @Language("java")
     private static final String INPUT1b = """
-         package a.b;
-         import java.util.List;
-         import java.util.Map;
-         import java.util.stream.Collectors;
-         
-         class X {
-             interface ClinicalDataCount {
-                 boolean accept();
-             }
-             interface ClinicalDataCountItem {
-                  List<ClinicalDataCount> getCounts();
-                  void setCounts(List<ClinicalDataCount> list);
-                  String getAttributeId();
-              }
-
-             public Map<String, ClinicalDataCountItem> method(List<ClinicalDataCountItem> clinicalDataCountItems) {
-                 return clinicalDataCountItems.stream()
-                       .map(clinicalDataCountItem -> {
-                             clinicalDataCountItem.setCounts(List.of());
-                             return clinicalDataCountItem;
-                           })
-                       .collect(
-                           Collectors.toMap(
-                               clinicalDataCountItem -> clinicalDataCountItem.getAttributeId(),
-                               clinicalDataCountItem -> clinicalDataCountItem));
+            package a.b;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.stream.Collectors;
+            
+            class X {
+                interface ClinicalDataCount {
+                    boolean accept();
                 }
-            }
-         """;
+                interface ClinicalDataCountItem {
+                     List<ClinicalDataCount> getCounts();
+                     void setCounts(List<ClinicalDataCount> list);
+                     String getAttributeId();
+                 }
+            
+                public Map<String, ClinicalDataCountItem> method(List<ClinicalDataCountItem> clinicalDataCountItems) {
+                    return clinicalDataCountItems.stream()
+                          .map(clinicalDataCountItem -> {
+                                clinicalDataCountItem.setCounts(List.of());
+                                return clinicalDataCountItem;
+                              })
+                          .collect(
+                              Collectors.toMap(
+                                  clinicalDataCountItem -> clinicalDataCountItem.getAttributeId(),
+                                  clinicalDataCountItem -> clinicalDataCountItem));
+                   }
+               }
+            """;
 
     @Test
     public void test1b() {
@@ -119,4 +120,103 @@ public class TestMethodCall13 extends CommonTest {
         assertNotNull(expression);
     }
 
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.List;
+            import java.util.stream.Stream;
+            public class C {
+                public <Y> Y identity(Y y)  { return y; }
+                public <X> List<X> method(List<X> list) {
+                    return list.stream().map(this::identity).toList();
+                }
+                public <X> List<X> method2(List<X> list) {
+                    Stream<X> stream = list.stream().map(this::identity);
+                    return stream.toList();
+                }
+            }
+            """;
+
+    @DisplayName("identity function")
+    @Test
+    public void test2() {
+        TypeInfo C = javaInspector.parse(INPUT2);
+        {
+            MethodInfo method = C.findUniqueMethod("method", 1);
+            MethodCall mc = (MethodCall) method.methodBody().statements().getFirst().expression();
+            assertNotNull(mc);
+            assertEquals("java.util.List<X>", mc.parameterizedType().detailedString());
+            assertEquals("Type java.util.List<X>", mc.concreteReturnType().toString());
+            MethodCall mc2 = (MethodCall) mc.object();
+            assertEquals("Type java.util.stream.Stream<X>", mc2.concreteReturnType().toString());
+        }
+        {
+            MethodInfo method = C.findUniqueMethod("method2", 1);
+            LocalVariableCreation lvc = (LocalVariableCreation) method.methodBody().statements().getFirst();
+            MethodCall mc = (MethodCall) lvc.localVariable().assignmentExpression();
+            assertNotNull(mc);
+            assertEquals("java.util.stream.Stream<X>", mc.parameterizedType().detailedString());
+            assertEquals("Type java.util.stream.Stream<X>", mc.concreteReturnType().toString());
+
+            MethodCall mc2 = (MethodCall) mc.object();
+            assertEquals("Type java.util.stream.Stream<X>", mc2.concreteReturnType().toString());
+        }
+    }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            import java.util.List;
+            import java.util.stream.Stream;
+            public class C {
+                <Y> Y first(Y[] ys)  { return ys[0]; }
+                <X> List<X> method(List<X[]> list) {
+                    return list.stream().map(this::first).toList();
+                }
+            }
+            """;
+
+    @DisplayName("take first function")
+    @Test
+    public void test3() {
+        TypeInfo C = javaInspector.parse(INPUT3);
+
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        MethodCall toList = (MethodCall) method.methodBody().statements().getFirst().expression();
+        assertEquals("java.util.stream.Stream.toList()", toList.methodInfo().fullyQualifiedName());
+        MethodCall map = (MethodCall) toList.object();
+        assertEquals("java.util.stream.Stream.map(java.util.function.Function<? super T,? extends R>)",
+                map.methodInfo().fullyQualifiedName());
+        assertEquals("Type java.util.stream.Stream<X>", map.concreteReturnType().toString());
+        assertEquals("Type java.util.List<X>", toList.concreteReturnType().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            import java.util.Arrays;public class X<T> {
+                T[] ts;
+                private T get(int index) {
+                    return ts[index];
+                }
+                public static <K> K method(int i, X<K> x) {
+                    K k = x.get(i);
+                    return k;
+                }
+                public void print() { System.out.println(ts); }
+            }
+            """;
+
+    @DisplayName("which of the println methods?")
+    @Test
+    public void test4() {
+        TypeInfo C = javaInspector.parse(INPUT4);
+
+        MethodInfo print = C.findUniqueMethod("print", 0);
+        MethodCall println = (MethodCall) print.methodBody().statements().getFirst().expression();
+        // definitely not 'println(double)'
+        assertEquals("java.io.PrintStream.println(Object)", println.methodInfo().fullyQualifiedName());
+    }
 }

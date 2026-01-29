@@ -31,8 +31,6 @@ public class PropertyImpl implements Property {
 
     // method
     public static final Property NON_MODIFYING_METHOD = new PropertyImpl("nonModifyingMethod");
-    public static final Property MODIFIED_COMPONENTS_METHOD = new PropertyImpl("modifiedComponentsMethod",
-            ValueImpl.VariableBooleanMapImpl.EMPTY);
     public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     public static final Property NOT_NULL_METHOD = new PropertyImpl("notNullMethod", ValueImpl.NotNullImpl.NULLABLE);
@@ -63,13 +61,11 @@ public class PropertyImpl implements Property {
             ValueImpl.GetSetValueImpl.EMPTY);
     public static final Property GET_SET_EQUIVALENT = new PropertyImpl("getSetEquivalent",
             ValueImpl.GetSetEquivalentImpl.EMPTY);
+    public static final Property IMPLEMENTATIONS = new PropertyImpl("implementations",
+            ValueImpl.SetOfMethodInfoImpl.EMPTY);
 
     // parameter
     public static final Property UNMODIFIED_PARAMETER = new PropertyImpl("unmodifiedParameter");
-    public static final Property MODIFIED_FI_COMPONENTS_PARAMETER = new PropertyImpl("modifiedFunctionalInterfaceComponentsParameter",
-            ValueImpl.VariableBooleanMapImpl.EMPTY);
-    public static final Property MODIFIED_COMPONENTS_PARAMETER = new PropertyImpl("modifiedComponentsParameter",
-            ValueImpl.VariableBooleanMapImpl.EMPTY);
     public static final Property IGNORE_MODIFICATIONS_PARAMETER = new PropertyImpl("ignoreModsParameter");
     public static final Property PARAMETER_ASSIGNED_TO_FIELD = new PropertyImpl("parameterAssignedToField",
             ValueImpl.AssignedToFieldImpl.EMPTY);
@@ -79,7 +75,8 @@ public class PropertyImpl implements Property {
     public static final Property CONTAINER_PARAMETER = new PropertyImpl("containerParameter");
     public static final Property INDEPENDENT_PARAMETER = new PropertyImpl("independentParameter",
             ValueImpl.IndependentImpl.DEPENDENT);
-    public static final Property DOWNCAST_PARAMETER = new PropertyImpl("downcastParameter", ValueImpl.SetOfTypeInfoImpl.EMPTY);
+    public static final Property DOWNCAST_PARAMETER = new PropertyImpl("downcastParameter",
+            ValueImpl.VariableToTypeInfoSetImpl.EMPTY);
 
     // field
     public static final Property FINAL_FIELD = new PropertyImpl("finalField");
@@ -91,7 +88,7 @@ public class PropertyImpl implements Property {
     public static final Property CONTAINER_FIELD = new PropertyImpl("containerField");
     public static final Property INDEPENDENT_FIELD = new PropertyImpl("independentField",
             ValueImpl.IndependentImpl.DEPENDENT);
-    public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);
+    //public static final Property DOWNCAST_FIELD = new PropertyImpl("downcastField", ValueImpl.SetOfTypeInfoImpl.EMPTY);
 
     // statement
     public static final Property ALWAYS_ESCAPES = new PropertyImpl("statementAlwaysEscapes");

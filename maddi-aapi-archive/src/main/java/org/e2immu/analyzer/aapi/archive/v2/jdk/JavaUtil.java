@@ -1528,15 +1528,18 @@ public class JavaUtil {
         Iterator<E> iterator() { return null; }
 
         //override has frequency 3
+        @Independent(hcReturnValue = true)
         @NotModified
         Object [] toArray() { return null; }
 
         //override has frequency 3
+        @Independent(hcReturnValue = true)
         @NotModified
         <T> T [] toArray(/*@Independent[M] @NotModified[O]*/ T [] t) { return null; }
 
+        @Independent(hcReturnValue = true)
         @NotModified
-        <T> T [] toArray(/*@IgnoreModifications[T]*/ @Independent(hc = true) IntFunction<T []> generator) { return null; }
+        <T> T [] toArray(/*@IgnoreModifications[T]*/ IntFunction<T []> generator) { return null; }
 
         //frequency 2
         boolean add(/*@Independent(hc=true)[T] @NotModified[O]*/ E e) { return false; }
@@ -2492,7 +2495,7 @@ public class JavaUtil {
 
         //frequency 25
         @ImmutableContainer(hc = true) @NotNull(content = true) @NotModified
-        static <E> List<E> of(/*@Independent(hc=true)[T] @NotModified[O]*/ @Independent(hcReturnValue = true) @NotNull E e1) { return null; }
+        static <E> List<E> of(/*@Independent(hc=true)[T] @NotModified[O]*/ @NotNull E e1) { return null; }
 
         //frequency 4
         @ImmutableContainer(hc = true) @NotNull(content = true) @NotModified
@@ -2894,7 +2897,7 @@ public class JavaUtil {
 
         V getOrDefault(
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object key,
-            /*@Independent[M] @NotModified[O]*/ V defaultValue) { return null; }
+            @Independent(hcReturnValue = true)  /* @NotModified[O]*/ V defaultValue) { return null; }
 
         //frequency 1
         @NotModified
@@ -3361,7 +3364,7 @@ public class JavaUtil {
 
         //frequency 131
         //@Independent(hc=true)[O] @NotModified[T]
-        T orElse(/*@Independent[M] @NotModified[O]*/ T other) { return null; }
+        T orElse(@Independent(hcReturnValue = true) /*@NotModified[O]*/ T other) { return null; }
 
         //frequency 16
         //@Independent(hc=true)[O] @NotModified[T]

@@ -524,6 +524,11 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     }
 
     @Override
+    public boolean isFinalizer() {
+        return analysis().getOrDefault(PropertyImpl.FINALIZER_METHOD, ValueImpl.BoolImpl.FALSE).isTrue();
+    }
+
+    @Override
     public void rewirePhase3(InfoMap infoMap) {
         Block rewired = methodBody() == null ? null : methodBody().rewire(infoMap);
         MethodInfo rewiredMethod = infoMap.methodInfo(this);

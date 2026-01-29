@@ -50,6 +50,10 @@ public interface TypeInfo extends NamedType, Info {
 
     boolean isEnclosedIn(TypeInfo typeInfo);
 
+    boolean isStrictlyEnclosedIn(TypeInfo typeInfo);
+
+    boolean isEqualToOrInnerClassOf(TypeInfo typeInfo);
+
     default boolean isPrimaryType() {
         return compilationUnitOrEnclosingType().isLeft();
     }
@@ -371,4 +375,9 @@ public interface TypeInfo extends NamedType, Info {
     True for classes when the type's declaration does not contain "extends".
      */
     boolean hasImplicitParent();
+
+    default boolean inHierarchyOf(TypeInfo typeInfo) {
+        return equals(typeInfo) || typeHierarchyExcludingJLOStream().anyMatch(this::equals);
+    }
+
 }

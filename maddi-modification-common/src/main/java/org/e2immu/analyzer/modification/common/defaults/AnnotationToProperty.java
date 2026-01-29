@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.common.defaults;
 
+import org.e2immu.analyzer.modification.common.getset.GetSetHelper;
 import org.e2immu.annotation.*;
 import org.e2immu.annotation.method.GetSet;
 import org.e2immu.annotation.rare.AllowsInterrupt;
@@ -25,11 +26,10 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.api.util.GetSetUtil;
-import org.e2immu.util.internal.util.GetSetHelper;
+import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
+import org.e2immu.util.internal.util.GetSetNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +78,7 @@ class AnnotationToProperty {
     protected Map<Property, Value> annotationsToMap(Info info, List<AnnotationExpression> annotations) {
         Value.Immutable immutable = null;
         Value.Independent independent = null;
-        Value.NotNull notNull = null;
+        Value.NotNullProperty notNull = null;
         Value.Bool container = null;
         Value.Bool fluent = null;
         Value.Bool identity = null;
@@ -90,7 +90,6 @@ class AnnotationToProperty {
         Value.Bool allowInterrupt = null;
         Value.GetSetEquivalent getSetEquivalent = null;
         Value.CommutableData commutableData = null;
-        Value.VariableBooleanMap modifiedComponents = null;
         Value.Bool utilityClass = null;
 
         for (AnnotationExpression ae : annotations) {
@@ -131,13 +130,20 @@ class AnnotationToProperty {
                     int[] hcParameters = ae.extractIntArray("hcParameters");
                     Boolean dependentReturnValue = ae.extractBoolean("dependentReturnValue");
                     Boolean hcReturnValue = ae.extractBoolean("hcReturnValue");
+                    String[] dependentMethods = ae.extractStringArray("except");
                     Map<Integer, Integer> map = ValueImpl.IndependentImpl.makeMap(dependentParameters, hcParameters,
                             dependentReturnValue, hcReturnValue);
+                    List<MethodInfo> dependentExceptions = ValueImpl.IndependentImpl
+                            .makeDependentExceptions(dependentMethods, info);
                     if (map.isEmpty()) {
-                        independent = hc ? ValueImpl.IndependentImpl.INDEPENDENT_HC : ValueImpl.IndependentImpl.INDEPENDENT;
+                        if (dependentExceptions.isEmpty()) {
+                            independent = hc ? ValueImpl.IndependentImpl.INDEPENDENT_HC : ValueImpl.IndependentImpl.INDEPENDENT;
+                        } else {
+                            independent = new ValueImpl.IndependentImpl(hc ? 1 : 2, map, dependentExceptions);
+                        }
                     } else {
                         boolean hcFromMap = map.values().stream().anyMatch(v -> v == 1);
-                        independent = new ValueImpl.IndependentImpl(hcFromMap ? 1 : 0, map);
+                        independent = new ValueImpl.IndependentImpl(hcFromMap ? 1 : 0, map, dependentExceptions);
                     }
                 }
             } else if (NotModified.class.getCanonicalName().equals(fqn)) {
@@ -148,10 +154,10 @@ class AnnotationToProperty {
                 if (!value.isBlank()) {
                     FieldInfo fieldInfo = info.typeInfo().getFieldByName(value, false);
                     if (fieldInfo == null) {
-                        LOGGER.warn("Cannot find field {} in {}", value, info.typeInfo());
+                        LOGGER.warn("@Modified: Cannot find field {} in {}", value, info.typeInfo());
                     } else {
-                        FieldReference fr = runtime.newFieldReference(fieldInfo);
-                        modifiedComponents = new ValueImpl.VariableBooleanMapImpl(Map.of(fr, true));
+                        // FIXME
+                        LOGGER.warn("Ignoring field list in @Modified");
                     }
                 }
             } else if (Identity.class.getCanonicalName().equals(fqn)) {
@@ -188,14 +194,15 @@ class AnnotationToProperty {
                         }
                         getSetEquivalent = findBestCompatibleMethod(candidateStream, methodInfo);
                     } else {
-                        String name = ae.extractString("value", GetSetHelper.fieldName(methodInfo.name()));
+                        String name = ae.extractString("value", GetSetNames.fieldName(methodInfo.name()));
                         FieldInfo field = methodInfo.typeInfo().getFieldByName(name, false);
                         if (field == null) {
-                            LOGGER.warn("Cannot find field {} in {}", name, methodInfo.typeInfo());
+                            LOGGER.warn("@GetSet: Cannot find field {} in {}", name, methodInfo.typeInfo());
                         } else {
-                            boolean setter = GetSetUtil.isSetter(methodInfo);
-                            int parameterIndexOfIndex = GetSetUtil.parameterIndexOfIndex(methodInfo, setter);
-                            getSetField = new ValueImpl.GetSetValueImpl(field, setter, parameterIndexOfIndex);
+                            boolean setter = GetSetHelper.isSetter(methodInfo);
+                            int parameterIndexOfIndex = GetSetHelper.parameterIndexOfIndex(methodInfo, setter);
+                            boolean list = CreateSyntheticFieldsForGetSet.isList(methodInfo);
+                            getSetField = new ValueImpl.GetSetValueImpl(field, setter, parameterIndexOfIndex, list);
                         }
                     }
                 }
@@ -238,7 +245,7 @@ class AnnotationToProperty {
             if (getSetField != null) map.put(PropertyImpl.GET_SET_FIELD, getSetField);
             if (immutable != null) map.put(PropertyImpl.IMMUTABLE_METHOD, immutable);
             if (independent != null) {
-                assert independent.linkToParametersReturnValue().isEmpty();
+                //assert independent.linkToParametersReturnValue().isEmpty(); is now possible (20251216)
                 map.put(PropertyImpl.INDEPENDENT_METHOD, independent);
             }
             if (container != null) map.put(PropertyImpl.CONTAINER_METHOD, container);
@@ -248,7 +255,6 @@ class AnnotationToProperty {
             if (ignoreModifications != null) map.put(PropertyImpl.IGNORE_MODIFICATION_METHOD, ignoreModifications);
             if (getSetEquivalent != null) map.put(PropertyImpl.GET_SET_EQUIVALENT, getSetEquivalent);
             if (commutableData != null) map.put(PropertyImpl.COMMUTABLE_METHODS, commutableData);
-            if (modifiedComponents != null) map.put(PropertyImpl.MODIFIED_COMPONENTS_METHOD, modifiedComponents);
             if (finalizer != null) map.put(PropertyImpl.FINALIZER_METHOD, finalizer);
             return map;
         }
@@ -272,7 +278,6 @@ class AnnotationToProperty {
             if (notNull != null) map.put(PropertyImpl.NOT_NULL_PARAMETER, notNull);
             if (unmodified != null) map.put(PropertyImpl.UNMODIFIED_PARAMETER, unmodified);
             if (ignoreModifications != null) map.put(PropertyImpl.IGNORE_MODIFICATIONS_PARAMETER, ignoreModifications);
-            if (modifiedComponents != null) map.put(PropertyImpl.MODIFIED_COMPONENTS_PARAMETER, modifiedComponents);
             return map;
         }
         throw new UnsupportedOperationException();

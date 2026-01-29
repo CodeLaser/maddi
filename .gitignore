@@ -1,6 +1,6 @@
 MODULE.bazel.lock
 bazel-*
-
+.run
 **/.DS_Store
 **/build/
 **/target/
