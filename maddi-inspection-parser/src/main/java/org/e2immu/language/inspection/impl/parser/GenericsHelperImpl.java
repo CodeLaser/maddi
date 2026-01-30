@@ -163,11 +163,24 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
                     infiniteLoopProtection, visited);
         }
 
-        Map<NamedType, ParameterizedType> mapOfConcreteType = concreteType.initialTypeParameterMap();
+        // formal type does have type parameters; concrete type may or may not have them
         Map<NamedType, ParameterizedType> formalMap;
         if (formalType.typeInfo() == concreteType.typeInfo()) {
             // see Lambda_8 Stream<R>, R from flatmap -> Stream<T>
             formalMap = formalType.forwardTypeParameterMap();
+            // see TestGenericsHelper,1: List<List<...>>, List<ArrayList<...>>
+            if (concreteType.parameters().size() == formalType.parameters().size()) {
+                int i = 0;
+                for (ParameterizedType formalParameter : formalType.parameters()) {
+                    ParameterizedType concreteParameter = concreteType.parameters().get(i);
+                    Map<NamedType, ParameterizedType> recursive = translateMap(formalParameter, concreteParameter,
+                            concreteTypeIsAssignableToThis);
+                    if (!recursive.isEmpty()) {
+                        formalMap.putAll(recursive);
+                    }
+                    ++i;
+                }
+            }//else: concrete type may not have them (List<...> vs ArrayList)
         } else if (concreteTypeIsAssignableToThis) {
             // this is the super type (Set), concrete type is the subtype (HashSet)
             formalMap = mapInTermsOfParametersOfSuperType(concreteType.typeInfo(), formalType);
@@ -175,6 +188,7 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
             // concrete type is the super type, we MUST work towards the supertype!
             formalMap = mapInTermsOfParametersOfSubType(formalType.typeInfo(), concreteType);
         }
+        Map<NamedType, ParameterizedType> mapOfConcreteType = concreteType.initialTypeParameterMap();
         if (formalMap == null) return mapOfConcreteType;
         return combineMaps(mapOfConcreteType, formalMap);
     }
