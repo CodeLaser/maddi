@@ -439,10 +439,6 @@ public class TranslationMapImpl implements TranslationMap {
             if (variable instanceof LocalVariable from && from.assignmentExpression() != null
                 && translated instanceof LocalVariable to && to.assignmentExpression() == null) {
                 Expression te = from.assignmentExpression().translate(tm);
-                if (te.variableStreamDescend().anyMatch(to::equals)) {
-                    // this goes in conjunction with the assertion
-                    return from.withAssignmentExpression(null);
-                }
                 return to.withAssignmentExpression(te);
             }
             return translated;

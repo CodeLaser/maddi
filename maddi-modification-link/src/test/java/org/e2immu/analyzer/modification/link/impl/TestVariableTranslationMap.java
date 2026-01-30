@@ -8,12 +8,14 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -124,4 +126,78 @@ public class TestVariableTranslationMap extends CommonTest {
             assertEquals("java.util.Set", mSetTFr.fieldInfo().owner().toString());
         } else fail();
     }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            public class X {
+                record S(String c) { }
+                record R(S b) { }
+            }
+            """;
+
+    // base a, sub a.b.c; tm = a -> d; result of translating should be d.b.c;
+    @Test
+    public void test3() {
+        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo R = X.findSubType("R");
+        FieldInfo b = R.getFieldByName("b", true);
+        TypeInfo S = X.findSubType("S");
+        FieldInfo c = S.getFieldByName("c", true);
+
+        VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+        LocalVariable a = runtime.newLocalVariable("a", R.asParameterizedType());
+        LocalVariable d = runtime.newLocalVariable("d", R.asParameterizedType());
+        vtm.put(a, d);
+
+        FieldReference ab = runtime.newFieldReference(b, runtime.newVariableExpression(a), b.type());
+        FieldReference abc = runtime.newFieldReference(c, runtime.newVariableExpression(ab), c.type());
+        Variable abcTranslated = vtm.translateVariableRecursively(abc);
+        assertEquals("d.b.c", abcTranslated.toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT3b = """
+            package a.b;
+            public class X {
+                record S(String c) { }
+                record R(S b) { }
+                R method(R r) {
+                    return r;
+                }
+            }
+            """;
+
+    // base a, sub a.b.§c; tm = a -> d; result of translating should be d.b.§c;
+    // test originally failed because of code in VariableTranslationMap related to assignmentExpression of local variables
+    // NOTE: this bit has been removed from the original code in TranslationMapImpl as well
+    @Test
+    public void test3b() {
+        TypeInfo X = javaInspector.parse(INPUT3b);
+        TypeInfo R = X.findSubType("R");
+        FieldInfo b = R.getFieldByName("b", true);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+
+        VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
+        FieldInfo c = virtualFieldComputer.newMField(R);
+        VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+        LocalVariable d = runtime.newLocalVariable("d", R.asParameterizedType());
+        LocalVariable a = runtime.newLocalVariable("a", R.asParameterizedType(),
+                runtime.newMethodCallBuilder()
+                        .setMethodInfo(method)
+                        .setConcreteReturnType(R.asParameterizedType())
+                        .setObject(runtime.newVariableExpression(runtime.newThis(X.asParameterizedType())))
+                        .setParameterExpressions(List.of(runtime.newVariableExpression(d)))
+                        .build());
+        vtm.put(a, d);
+
+        FieldReference ab = runtime.newFieldReference(b, runtime.newVariableExpression(a), b.type());
+        FieldReference abc = runtime.newFieldReference(c, runtime.newVariableExpression(ab), c.type());
+        assertEquals("a.b.§m", abc.toString());
+        Variable abcTranslated = vtm.translateVariableRecursively(abc);
+        assertEquals("d.b.§m", abcTranslated.toString());
+    }
+
 }

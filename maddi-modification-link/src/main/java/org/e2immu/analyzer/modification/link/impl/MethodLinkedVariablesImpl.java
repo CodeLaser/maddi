@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
@@ -11,6 +12,7 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -146,6 +148,13 @@ public class MethodLinkedVariablesImpl implements MethodLinkedVariables, Value {
     public boolean overwriteAllowed(Value newValue) {
         MethodLinkedVariables nv = (MethodLinkedVariables) newValue;
         // TODO currently not implementing restrictions on linking; pretty complicated
-        return modified.containsAll(nv.modified()); // can only shrink
+        Set<Variable> newModified = excludeInternal(nv.modified());
+        return modified.containsAll(newModified); // can only shrink
+    }
+
+    private static @NotNull Set<Variable> excludeInternal(Set<Variable> variables) {
+        return variables.stream()
+                .filter(v -> !(v instanceof IntermediateVariable) && !(v instanceof MarkerVariable))
+                .collect(Collectors.toUnmodifiableSet());
     }
 }
