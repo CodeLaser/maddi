@@ -15,6 +15,8 @@ public interface LinkNature {
 
     boolean isIdenticalTo();
 
+    boolean known();
+
     boolean multiplySymbols();
 
     int rank();
@@ -31,7 +33,7 @@ public interface LinkNature {
 
     boolean valid();
 
-    LinkNature combine(LinkNature other, Set<MethodInfo> block);
+    LinkNature combine(LinkNature other);
 
     LinkNature best(LinkNature other);
 

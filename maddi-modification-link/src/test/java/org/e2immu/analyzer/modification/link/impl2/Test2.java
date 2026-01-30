@@ -50,15 +50,39 @@ public class Test2 extends CommonTest {
     private static final String INPUT2 = """
             package a.b;
 
+            import java.util.Collection;
+            import java.util.Set;
+            
             class X {
+                interface TypeInfo { }
+                interface ModuleInfo { }
+                interface Graph { }
+                interface Builder { Graph build(); }
+                private final Set<TypeInfo> primaryTypes;
+                private final Collection<ModuleInfo> moduleInfos;
+                private final Builder builder;
+                private Graph graph;
+
+                public X go() {
+                    primaryTypes.forEach(this::go);
+                    moduleInfos.forEach(this::go);
+                    graph = builder.build();
+                    return this;
+                }
                 
+                private void go(TypeInfo typeInfo) {
+                    
+                }
+                private void go(ModuleInfo moduleInfo) {
+                    
+                }
             }
             """;
 
-    @DisplayName("more modifications in 2nd iteration")
+    @DisplayName("expand slice NYI")
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse(INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
