@@ -366,4 +366,38 @@ public class Test1 extends CommonTest {
                 new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(false).build());
         tlc.doPrimaryType(C);
     }
+
+
+    @Language("java")
+    private static final String INPUT10 = """
+            package a.b;
+            import java.util.List;class X {
+                static class Logger { void debug(String s, Object o) { } }
+                Logger LOGGER;
+                interface TypeInfo {
+                    List<TypeInfo> subTypes();
+                    List<MethodInfo> methods();
+                }
+                interface MethodInfo { }
+                void doType(TypeInfo typeInfo) {
+                   doType(typeInfo, typeInfo.methods());
+                }
+                private void doType(TypeInfo typeInfo, List<MethodInfo> methods) {
+                    LOGGER.debug("Do type {}", typeInfo);
+                    // recurse
+                    typeInfo.subTypes().forEach(this::doType);
+                }
+            }
+            """;
+
+    @DisplayName("§m stacked on top of virtual fields")
+    @Test
+    public void test10() {
+        TypeInfo C = javaInspector.parse(INPUT10);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(false).build());
+        tlc.doPrimaryType(C);
+    }
 }

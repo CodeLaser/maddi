@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -81,11 +82,21 @@ public class VariableTranslationMap implements TranslationMap {
         }
         if (variable instanceof FieldReference fr) {
             Expression tScope = fr.scope().translate(tm);
+            Expression ttScope;
+            if (tScope instanceof VariableExpression ve
+                && Util.virtual(ve.variable())
+                && !Util.isVirtualModification(ve.variable())
+                && Util.isVirtualModification(fr)) {
+                // tScope == $__rv1.§$s, fr == typeInfo.§m --> change tScope to $__rv1
+                ttScope = runtime.newVariableExpression(Util.firstRealVariable(ve.variable()));
+            } else {
+                ttScope = tScope;
+            }
             FieldInfo newField = tm.translateFieldInfo(fr.fieldInfo());
-            if (tScope != fr.scope() || newField != fr.fieldInfo()) {
-                TypeInfo newOwner = owner(runtime, tScope.parameterizedType());
+            if (ttScope != fr.scope() || newField != fr.fieldInfo()) {
+                TypeInfo newOwner = owner(runtime, ttScope.parameterizedType());
                 FieldInfo changedOwner = newField.withOwner(newOwner);
-                return runtime.newFieldReference(changedOwner, tScope, fr.parameterizedType());
+                return runtime.newFieldReference(changedOwner, ttScope, fr.parameterizedType());
             }
         } else if (variable instanceof DependentVariable dv) {
             Expression translatedArray = dv.arrayExpression().translate(tm);
