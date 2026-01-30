@@ -415,7 +415,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         public VariableData doStatement(Statement statement, VariableData previousVd, boolean first) {
-            LOGGER.debug("Do statement {} {}", methodInfo.fullyQualifiedName(), statement.source().index());
+            TIMED.info("Do statement {} {}", methodInfo.fullyQualifiedName(), statement.source().index());
 
             Stage stageOfPrevious = first ? Stage.EVALUATION : Stage.MERGE;
             LocalVariable forEachLv;
