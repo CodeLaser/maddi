@@ -44,4 +44,25 @@ public class Test2 extends CommonTest {
                 new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(false).build());
         tlc.doPrimaryType(C);
     }
+
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+
+            class X {
+                
+            }
+            """;
+
+    @DisplayName("more modifications in 2nd iteration")
+    @Test
+    public void test2() {
+        TypeInfo C = javaInspector.parse(INPUT1);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(false).build());
+        tlc.doPrimaryType(C);
+    }
 }

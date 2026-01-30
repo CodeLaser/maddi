@@ -26,6 +26,8 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -36,6 +38,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 
 public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, ModAnalyzerForTesting {
+    private static final Logger LOGGER = LoggerFactory.getLogger(SingleIterationAnalyzerImpl.class);
+
     private final LinkComputer linkComputer;
     private final FieldAnalyzer fieldAnalyzer;
     private final TypeModIndyAnalyzer typeModIndyAnalyzer;
@@ -76,23 +80,30 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
         List<MethodInfo> abstractMethods = new ArrayList<>();
         for (Info info : analysisOrder) {
-            if (info instanceof MethodInfo methodInfo) {
-                if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
-                    shallowTypeAnalyzer.analyze(info.typeInfo());
+            try {
+                if (info instanceof MethodInfo methodInfo) {
+                    if (firstIteration && methodInfo.isAbstract() && abstractTypes.add(info.typeInfo())) {
+                        shallowTypeAnalyzer.analyze(info.typeInfo());
+                    }
+                    if (!firstIteration || !methodInfo.analysis().haveAnalyzedValueFor(METHOD_LINKS)) {
+                        MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
+                        if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
+                            propertiesChanged.incrementAndGet();
+                        }
+                    }
+                    if (methodInfo.isAbstract()) abstractMethods.add(methodInfo);
+                } else if (info instanceof FieldInfo fieldInfo) {
+                    if (fieldInfo.owner().isAbstract() && firstIteration) {
+                        shallowTypeAnalyzer.analyzeField(fieldInfo);
+                    }
+                    fieldAnalyzer.go(fieldInfo, activateCycleBreaking);
+                } else if (info instanceof TypeInfo typeInfo) {
+                    runTypeAnalyzers(activateCycleBreaking, typeInfo);
+                    typesInOrder.add(typeInfo);
                 }
-                MethodLinkedVariables mlv = linkComputer.doMethod(methodInfo);
-                if (methodInfo.analysis().setAllowControlledOverwrite(METHOD_LINKS, mlv)) {
-                    propertiesChanged.incrementAndGet();
-                }
-                if (methodInfo.isAbstract()) abstractMethods.add(methodInfo);
-            } else if (info instanceof FieldInfo fieldInfo) {
-                if (fieldInfo.owner().isAbstract() && firstIteration) {
-                    shallowTypeAnalyzer.analyzeField(fieldInfo);
-                }
-                fieldAnalyzer.go(fieldInfo, activateCycleBreaking);
-            } else if (info instanceof TypeInfo typeInfo) {
-                runTypeAnalyzers(activateCycleBreaking, typeInfo);
-                typesInOrder.add(typeInfo);
+            } catch (RuntimeException | AssertionError e) {
+                LOGGER.error("Caught exception processing {}: {}", info, e.getMessage());
+                throw e;
             }
         }
 
