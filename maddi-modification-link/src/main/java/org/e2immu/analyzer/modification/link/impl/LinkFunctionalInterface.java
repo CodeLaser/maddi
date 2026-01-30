@@ -68,16 +68,17 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
             for (Links links : linksList) {
                 for (Link link : links) {
                     if (!(Util.primary(link.to()) instanceof ReturnVariable)) {
+                        Variable from;
                         if (link.from().equals(links.primary())) {
                             // also accommodate for suppliers
-                            Triplet t = new Triplet(createVirtualField(functionalInterfaceType,
-                                    i, fromTranslated, link.from()), linkNature, link.to());
-                            result.add(t);
+                            from = createVirtualField(functionalInterfaceType, i, fromTranslated, link.from());
                         } else {
                             TranslationMap tm = new VariableTranslationMap(runtime)
                                     .put(Util.primary(link.from()), fromTranslated);
-                            Variable tFrom = tm.translateVariableRecursively(link.from());
-                            Triplet t = new Triplet(tFrom, linkNature, link.to());
+                            from = tm.translateVariableRecursively(link.from());
+                        }
+                        if (LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, link.to())) {
+                            Triplet t = new Triplet(from, linkNature, link.to());
                             result.add(t);
                         }
                     }

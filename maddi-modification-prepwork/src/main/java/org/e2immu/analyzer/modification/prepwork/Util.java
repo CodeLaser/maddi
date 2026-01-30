@@ -123,6 +123,10 @@ public class Util {
         return variable == primary(variable);
     }
 
+    public static boolean isSlice(Variable v) {
+        return v instanceof DependentVariable dv && dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0;
+    }
+
     public static boolean isVirtualModificationField(FieldInfo fieldInfo) {
         return fieldInfo.name().startsWith("§m") && fieldInfo.type().typeInfo() != null
                && "java.util.concurrent.atomic.AtomicBoolean".equals(fieldInfo.type().typeInfo().fullyQualifiedName());
