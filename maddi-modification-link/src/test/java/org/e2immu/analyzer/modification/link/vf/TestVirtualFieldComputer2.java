@@ -110,7 +110,7 @@ public class TestVirtualFieldComputer2 extends CommonTest {
         assertEquals("Type java.util.HashMap<Long,Integer[]>", assignment.value().parameterizedType().toString());
         VirtualFieldComputer.VfTm vfTm = vfc.compute(assignment.value().parameterizedType(), true);
         assertEquals("""
-                VfTm[virtualFields=§m - $$S[] §$$ss, formalToConcrete=K=TP#0 in AbstractMap [] --> Long
+                VfTm[virtualFields=§m - §$$S[] §$$ss, formalToConcrete=K=TP#0 in AbstractMap [] --> Long
                 K=TP#0 in HashMap [] --> Long
                 K=TP#0 in Map [] --> Long
                 V=TP#1 in AbstractMap [] --> Integer[]
@@ -119,7 +119,7 @@ public class TestVirtualFieldComputer2 extends CommonTest {
                 """, vfTm.toString());
 
         VirtualFieldComputer.VfTm vfTm2 = vfc.compute(assignment.value().parameterizedType(), false);
-        assertEquals("VfTm[virtualFields=§m - $$S[] §$$ss, formalToConcrete=null]", vfTm2.toString());
+        assertEquals("VfTm[virtualFields=§m - §$$S[] §$$ss, formalToConcrete=null]", vfTm2.toString());
     }
 
     @DisplayName("stack overflow when computing VF of File[]")

@@ -89,7 +89,7 @@ public class TestFunction extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         ParameterInfo optional = method.parameters().getFirst();
         VirtualFields vfOptional = vfc.compute(optional.parameterizedType(), true).virtualFields();
-        assertEquals("§m - XY[] §xys", vfOptional.toString());
+        assertEquals("§m - §XY[] §xys", vfOptional.toString());
 
         // IMPORTANT: just as in TestSupplier,2, the Map.Entry<X,Y> is seen as a single type
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());

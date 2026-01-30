@@ -281,7 +281,7 @@ public class TestShallow extends CommonTest {
         MethodLinkedVariables mlvEntrySet = linkComputer.doMethod(entrySet);
         assertEquals("[] --> entrySet.§kvs⊆this.§kvs,entrySet.§m≡this.§m", mlvEntrySet.toString());
         Link l1 = mlvEntrySet.ofReturnValue().stream().findFirst().orElseThrow();
-        assertEquals("Type java.util.Map.Entry.KV[]", l1.from().parameterizedType().toString());
+        assertEquals("Type java.util.Map.Entry.§KV[]", l1.from().parameterizedType().toString());
 
         // ---
 
@@ -582,7 +582,7 @@ public class TestShallow extends CommonTest {
         VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         VirtualFieldComputer.VfTm vfTmMapMap = virtualFieldComputer.compute(pt0, true);
         assertEquals("""
-                VfTm[virtualFields=§m - T$[] §t$s, formalToConcrete=K=TP#0 in Map [] --> T=TP#0 in EdgePrinter []
+                VfTm[virtualFields=§m - §T$[] §t$s, formalToConcrete=K=TP#0 in Map [] --> T=TP#0 in EdgePrinter []
                 V=TP#1 in Map [] --> java.util.Map<a.b.EdgePrinter.V<T>,Long>]\
                 """, vfTmMapMap.toString());
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);

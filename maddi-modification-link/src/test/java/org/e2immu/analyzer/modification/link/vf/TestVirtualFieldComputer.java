@@ -56,11 +56,11 @@ public class TestVirtualFieldComputer extends CommonTest {
 
         TypeInfo treeMap = javaInspector.compiledTypesManager().getOrLoad(TreeMap.class);
         VirtualFields vfList = vfc.compute(treeMap);
-        assertEquals("§m - KV[] §kvs", vfList.toString());
+        assertEquals("§m - §KV[] §kvs", vfList.toString());
         assertEquals("java.util.TreeMap", vfList.mutable().owner().toString());
-        assertEquals("java.util.TreeMap.KV", vfList.hiddenContent().type().typeInfo().toString());
+        assertEquals("java.util.TreeMap.§KV", vfList.hiddenContent().type().typeInfo().toString());
         FieldInfo k = vfList.hiddenContent().type().typeInfo().getFieldByName("§k", true);
-        assertEquals("java.util.TreeMap.KV", k.owner().toString());
+        assertEquals("java.util.TreeMap.§KV", k.owner().toString());
 
         assertEquals(2, vfc.maxMultiplicityFromMethods(treeMap));
     }
@@ -204,7 +204,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("java.util.TreeMap<T,E>", mapTE.descriptor());
         VirtualFieldComputer.VfTm vfTmMapTE = vfc.compute(mapTE, true);
         VirtualFields vfMapTE = vfTmMapTE.virtualFields();
-        assertEquals("§m - TE[] §tes", vfMapTE.toString());
+        assertEquals("§m - §TE[] §tes", vfMapTE.toString());
         assertEquals("java.util.Optional[T]", vfMapTE.hiddenContent().type().typeInfo()
                 .fields().getFirst().type().typeParameter().descriptor());
         assertEquals("""
@@ -243,7 +243,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFieldComputer.VfTm vfTm = vfc.compute(mapEntryStreamTStreamE, false);
         assertEquals("§tses", vfTm.virtualFields().hiddenContent().name());
         ParameterizedType hcType = vfTm.virtualFields().hiddenContent().type();
-        assertEquals("java.util.Map.Entry.TSES", hcType.detailedString());
+        assertEquals("java.util.Map.Entry.§TSES", hcType.detailedString());
         assertEquals(2, hcType.typeInfo().fields().size());
         FieldInfo ts = hcType.typeInfo().fields().getFirst();
         assertEquals("§ts", ts.name());
@@ -270,11 +270,11 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
         VirtualFields vf = vfc.compute(C);
         // this could be correct, could be wrong, depending on other methods being present or absent
-        assertEquals("§m - XY §xy", vf.toString());
+        assertEquals("§m - §XY §xy", vf.toString());
         MethodInfo oneInstance = C.findUniqueMethod("oneInstance", 2);
         VirtualFields vf2 = vfc.compute(oneInstance.returnType(), false).virtualFields();
         // but this one is correct
-        assertEquals("§m - XSYS §xsys", vf2.toString());
+        assertEquals("§m - §XSYS §xsys", vf2.toString());
     }
 
 
@@ -311,7 +311,7 @@ public class TestVirtualFieldComputer extends CommonTest {
 
         TypeInfo map = javaInspector.compiledTypesManager().getOrLoad(Map.class);
         VirtualFields vfMap = vfc.compute(map);
-        assertEquals("§m - KV[] §kvs", vfMap.toString());
+        assertEquals("§m - §KV[] §kvs", vfMap.toString());
 
         TypeInfo stringBuilder = javaInspector.compiledTypesManager().getOrLoad(StringBuilder.class);
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);
@@ -322,7 +322,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         assertEquals("java.util.Map<java.lang.StringBuilder,E>", mapSE.descriptor());
         VirtualFieldComputer.VfTm vfTmMapTE = vfc.compute(mapSE, true);
         VirtualFields vfMapTE = vfTmMapTE.virtualFields();
-        assertEquals("§m - $E[] §$es", vfMapTE.toString());
+        assertEquals("§m - §$E[] §$es", vfMapTE.toString());
 
         assertEquals("""
                 K=TP#0 in Map [] --> StringBuilder

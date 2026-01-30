@@ -9,16 +9,14 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.api.output.FormattingOptions;
-import org.e2immu.language.cst.api.output.element.Keyword;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.type.TypeNature;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
+import org.e2immu.language.cst.impl.info.TypeNatureEnum;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.GenericsHelper;
 import org.e2immu.language.inspection.impl.parser.GenericsHelperImpl;
@@ -106,7 +104,7 @@ public class VirtualFieldComputer {
         if (arrays == 0 && (typeInfo == null
                             || typeInfo.isPrimitiveExcludingVoid()
                             || typeInfo.isVoid()
-                            || typeInfo.typeNature() == VIRTUAL_FIELD
+                            || Util.isContainerType(typeInfo)
                             || typeInfo.packageName().equals("java.util.function"))) {
             return NONE_NONE;
         }
@@ -266,10 +264,10 @@ public class VirtualFieldComputer {
     }
 
     public TypeInfo makeContainerType(TypeInfo typeInfo, String typeName, List<FieldInfo> hiddenContentComponents) {
-        TypeInfo newType = runtime.newTypeInfo(typeInfo, typeName);
+        TypeInfo newType = runtime.newTypeInfo(typeInfo, "§" + typeName);
         newType.builder()
+                .setTypeNature(TypeNatureEnum.CLASS)
                 .setSynthetic(true)
-                .setTypeNature(VIRTUAL_FIELD)
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
         for (FieldInfo fi : hiddenContentComponents) {
@@ -289,11 +287,12 @@ public class VirtualFieldComputer {
         return newType;
     }
 
+    // called from destreaming, where the § is already present in the name
     public static TypeInfo makeContainer(Runtime runtime, TypeInfo enclosingType, String name, List<FieldInfo> newFields) {
-        TypeInfo newType = runtime.newTypeInfo(enclosingType, name);
+        TypeInfo newType = runtime.newTypeInfo(enclosingType, name.startsWith("§") ? name : "§" + name);
         TypeInfo.Builder builder = newType.builder();
-        builder.setTypeNature(VIRTUAL_FIELD)
-                .setSynthetic(true)
+        builder.setSynthetic(true)
+                .setTypeNature(TypeNatureEnum.CLASS)
                 .setParentClass(runtime.objectParameterizedType())
                 .setAccess(runtime.accessPublic());
         newFields.forEach(builder::addField);
@@ -443,24 +442,6 @@ public class VirtualFieldComputer {
         fi.builder().setInitializer(runtime.newEmptyExpression()).commit();
         return fi;
     }
-
-    public static final TypeNature VIRTUAL_FIELD = new TypeNature() {
-
-        @Override
-        public Keyword keyword() {
-            return new Keyword() {
-                @Override
-                public String minimal() {
-                    return "VF";
-                }
-
-                @Override
-                public String write(FormattingOptions options) {
-                    return "VF";
-                }
-            };
-        }
-    };
 
     public record M2(Variable m1, Variable m2) {
     }
