@@ -244,9 +244,12 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                 upscaled = translated;
             } else {
                 FieldInfo targetField = vfMapTarget.hiddenContent();
-                assert targetField != null;
-                upscaled = runtime.newFieldReference(targetField, runtime.newVariableExpression(translated),
-                        targetField.type());
+                if (targetField != null) {
+                    upscaled = runtime.newFieldReference(targetField, runtime.newVariableExpression(translated),
+                            targetField.type());
+                } else {
+                    upscaled = null; // see e.g. Test1,6
+                }
             }
         }
 

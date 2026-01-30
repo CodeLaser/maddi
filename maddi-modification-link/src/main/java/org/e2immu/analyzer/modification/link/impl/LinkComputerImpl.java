@@ -55,7 +55,7 @@ Secondary synchronization takes place in PropertyValueMapImpl.getOrCreate().
 
 public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkComputerImpl.class);
-    private static final TimedLogger TIMED = new TimedLogger(LOGGER, 100L);
+    private static final TimedLogger TIMED = new TimedLogger(LOGGER, 1000L);
 
     public static final PropertyImpl VARIABLES_LINKED_TO_OBJECT = new PropertyImpl("variablesLinkedToObject",
             ValueImpl.VariableBooleanMapImpl.EMPTY);
@@ -401,7 +401,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     // a block among the statements
                     vd = doBlock(b, vd);
                 } else {
-                    vd = doStatement(statement, vd, first);
+                    try {
+                        vd = doStatement(statement, vd, first);
+                    } catch (RuntimeException | AssertionError re) {
+                        LOGGER.error("Caught exception in statement {} of {}: {}", statement.source(), methodInfo,
+                                re.getMessage());
+                        throw re;
+                    }
                 }
                 first = false;
             }

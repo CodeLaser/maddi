@@ -156,7 +156,8 @@ public class Test1 extends CommonTest {
     private static final String INPUT5 = """
             package a.b;
             
-            import java.util.Collections;import java.util.List;
+            import java.util.Collections;
+            import java.util.List;
             import java.util.Objects;
             
             public class C<T> {
@@ -190,6 +191,107 @@ public class Test1 extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        tlc.doPrimaryType(C);
+    }
+
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            
+            import java.util.Collections;
+            import java.util.List;
+            import java.util.Objects;
+            
+            public class C<T> {
+                interface Runtime { }
+                interface Expression { }
+                interface Operator { }
+                interface Parallel<T> { }
+                interface CMParSeq<T> { int size(); Expression template(); List<T> toList(); }
+                interface SeqPars<T> { }
+                List<T> elements;
+                Runtime runtime;
+                record ParSeqElement<T>(Runtime runtime, T t) implements Parallel<T> { }
+                void combineWithSeqPars(SeqPars<T> seqPars, Operator operator) {
+                       List<Parallel<T>> converted = elements.stream()
+                                    .map(e -> new ParSeqElement<>(runtime, e))
+                                    .map(e -> (Parallel<T>) e).toList();
+                }
+            }
+            """;
+
+    @DisplayName("null virtual field")
+    @Test
+    public void test6() {
+        TypeInfo C = javaInspector.parse(INPUT6);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        tlc.doPrimaryType(C);
+    }
+
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            
+            import java.util.ArrayList;
+            import java.util.Collections;
+            import java.util.List;
+            import java.util.Objects;
+            
+            class C  {
+                interface Runtime { }
+                interface Expression { }
+                interface Operator { }
+                interface CMParSeq<T> { int size(); Expression template(); List<T> toList(); }
+                interface Parallel<T> extends CMParSeq<T> { }
+                interface EmptyParSeq<T> extends CMParSeq<T> { }
+                record EmptyParSeqImpl(Runtime runtime) implements EmptyParSeq<?> { }
+                interface SeqPars<T> { }
+                static class SeqElements<T> implements CMParSeq<T> {
+                    List<T> elements;
+                    Runtime runtime;
+                    Expression template;
+                    record ParSeqElement<T>(Runtime runtime, T t) implements Parallel<T> { }
+                    SeqElements(Runtime runtime, List<T> intersection, Expression template) {
+                        this.elements = intersection;
+                        this.runtime = runtime;
+                        this.template = template;
+                    }
+                    void inParallelWith(CMParSeq<T> other, Operator operator) {
+                        if (other instanceof SeqElements<T> ets) {
+                            CMParSeq<T> intersection = intersection(ets);
+                        }
+                    }
+                    private CMParSeq<T> intersection(CMParSeq<T> other) {
+                        if (other instanceof EmptyParSeq<T>) return other;
+                        if (other instanceof ParSeqElement<T> e) return contains(e.t()) ? other : new EmptyParSeqImpl<>(runtime);
+                        if (other instanceof SeqElements<T> seq) {
+                            List<T> intersection = new ArrayList<>(elements);
+                            intersection.retainAll(seq.elements);
+                            if (intersection.isEmpty()) return new EmptyParSeqImpl<>(runtime);
+                            if (intersection.size() == 1) return new ParSeqElement<>(runtime, intersection.get(0));
+                            return new SeqElements<>(runtime, intersection, template);
+                        }
+                        throw new UnsupportedOperationException();
+                    }
+                    private boolean contains(T t) {
+                        return elements.contains(t);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("null virtual field")
+    @Test
+    public void test7() {
+        TypeInfo C = javaInspector.parse(INPUT7);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(false).build());
         tlc.doPrimaryType(C);
     }
 }
