@@ -246,8 +246,8 @@ public class LinksImpl implements Links {
             assert noRelationBetweenMAndOtherVirtualFields(from, to);
         }
 
-        public static boolean noRelationBetweenMAndOtherVirtualFields(Variable checkM, Variable checkOther) {
-            if (checkM instanceof FieldReference frM && checkOther instanceof FieldReference frO) {
+        public static boolean noRelationBetweenMAndOtherVirtualFields(Variable v1, Variable v2) {
+            if (v1 instanceof FieldReference frM && v2 instanceof FieldReference frO) {
                 return !(Util.isVirtualModificationField(frM.fieldInfo())
                          && !Util.isVirtualModificationField(frO.fieldInfo())
                          && Util.virtual(frO.fieldInfo()))
@@ -255,6 +255,12 @@ public class LinksImpl implements Links {
                        !(Util.isVirtualModificationField(frO.fieldInfo())
                          && !Util.isVirtualModificationField(frM.fieldInfo())
                          && Util.virtual(frM.fieldInfo()));
+            }
+            if (v1 instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo()) && Util.isSlice(v2)) {
+                return false;
+            }
+            if (Util.isSlice(v1) && v2 instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())) {
+                return false;
             }
             return true;
         }
