@@ -28,11 +28,6 @@ public interface LocalVariable extends Variable {
 
     Expression assignmentExpression();
 
-    @Override
-    default String fullyQualifiedName() {
-        return simpleName();
-    }
-
     LocalVariable translate(TranslationMap translationMap);
 
     LocalVariable withType(ParameterizedType type);

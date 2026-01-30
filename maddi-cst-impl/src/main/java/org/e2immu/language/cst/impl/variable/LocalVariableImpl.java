@@ -51,6 +51,11 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
     }
 
     @Override
+    public String fullyQualifiedName() {
+        return name;
+    }
+
+    @Override
     public boolean isUnnamed() {
         return UNNAMED.equals(name);
     }

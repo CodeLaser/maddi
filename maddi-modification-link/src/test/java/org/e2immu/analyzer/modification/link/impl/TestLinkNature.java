@@ -43,7 +43,7 @@ public class TestLinkNature {
         for (LinkNature ln1 : all) {
             sb.append("| ").append(ln1).append(" ");
             for (LinkNature ln2 : all) {
-                LinkNature combined = ln1.combine(ln2, null);
+                LinkNature combined = ln1.combine(ln2);
                 sb.append(" | ").append(combined);
             }
             sb.append("\n\n");
@@ -61,8 +61,8 @@ public class TestLinkNature {
         int count = 0;
         for (LinkNature ln1 : all) {
             for (LinkNature ln2 : all) {
-                LinkNature combined = ln1.combine(ln2, null);
-                LinkNature symmetric = ln2.reverse().combine(ln1.reverse(), null);
+                LinkNature combined = ln1.combine(ln2);
+                LinkNature symmetric = ln2.reverse().combine(ln1.reverse());
                 if (combined != symmetric.reverse() || combined.reverse() != symmetric) {
                     System.out.println(ln1 + " " + ln2 + " => " + combined + "  but "
                                        + ln2.reverse() + " " + ln1.reverse() + " => " + symmetric);

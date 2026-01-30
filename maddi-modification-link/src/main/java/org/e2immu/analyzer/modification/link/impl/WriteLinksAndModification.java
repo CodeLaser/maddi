@@ -64,7 +64,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         LOGGER.debug("Variables to recompute: {}", recompute);
         Map<Variable, Links> newLinkedVariables = new HashMap<>(lr.newLinkedVariables);
         for (Variable variable : recompute) {
-            Links.Builder builder = followGraph(virtualFieldComputer, graph2, variable, modifiedDuringEvaluation.get(variable));
+            Links.Builder builder = followGraph(virtualFieldComputer, graph2, variable);
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
             newLinkedVariables.put(variable, builder.build());
         }
@@ -109,7 +109,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph(virtualFieldComputer, graph, variable, modifiedInThisEvaluation.get(variable));
+        Links.Builder builder = followGraph(virtualFieldComputer, graph, variable);
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
             handleReturnVariable(rv, builder);

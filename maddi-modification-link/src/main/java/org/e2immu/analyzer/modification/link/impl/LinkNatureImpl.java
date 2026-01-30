@@ -10,36 +10,44 @@ import java.util.*;
 public class LinkNatureImpl implements LinkNature {
     // rank is from least interesting to most interesting
 
-    public static final LinkNature NONE = new LinkNatureImpl("X", -2);
-    public static final LinkNature EMPTY = new LinkNatureImpl("∅", -1);
 
-    public static final LinkNature IS_FIELD_OF = new LinkNatureImpl("≺", 0);
-    public static final LinkNature CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 1);
-    public static final LinkNature SHARES_FIELDS = new LinkNatureImpl("≈", 2);
+    public static final LinkNature NONE = new LinkNatureImpl("X", 0);
+    public static final LinkNature EMPTY = new LinkNatureImpl("∅", 1);
 
-    public static final LinkNature OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 3);
-    public static final LinkNature IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 4);
-    public static final LinkNature OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 5);
+    public static final LinkNature IS_FIELD_OF = new LinkNatureImpl("≺", 2);
+    public static final LinkNature CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 3);
+    public static final LinkNature SHARES_FIELDS = new LinkNatureImpl("≈", 4);
 
-    public static final LinkNature SHARES_ELEMENTS = new LinkNatureImpl("~", 6);
+    public static final LinkNature OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 5);
+    public static final LinkNature IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 6);
+    public static final LinkNature OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 7);
 
-    public static final LinkNature IS_SUBSET_OF = new LinkNatureImpl("⊆", 7);
-    public static final LinkNature IS_SUPERSET_OF = new LinkNatureImpl("⊇", 8);
+    public static final LinkNature SHARES_ELEMENTS = new LinkNatureImpl("~", 8);
 
-    public static final LinkNature IS_ELEMENT_OF = new LinkNatureImpl("∈", 9);
-    public static final LinkNature CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 10);
+    public static final LinkNature IS_SUBSET_OF = new LinkNatureImpl("⊆", 9);
+    public static final LinkNature IS_SUPERSET_OF = new LinkNatureImpl("⊇", 10);
 
-    public static final LinkNature IS_DECORATED_WITH = new LinkNatureImpl("↗", 11);
-    public static final LinkNature CONTAINS_DECORATION = new LinkNatureImpl("↖", 12);
+    public static final LinkNature IS_ELEMENT_OF = new LinkNatureImpl("∈", 11);
+    public static final LinkNature CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 12);
+
+    public static final LinkNature IS_DECORATED_WITH = new LinkNatureImpl("↗", 13);
+    public static final LinkNature CONTAINS_DECORATION = new LinkNatureImpl("↖", 14);
 
     private static final String IDENTICAL_TO_PASS_SYMBOL = "☷"; // tri-gram for earth, 0x2637
-    private static final int IDENTICAL_TO_RANK = 30;
+    private static final int IDENTICAL_TO_RANK = 15;
 
     private static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", IDENTICAL_TO_RANK);
 
     // java a=b implies a ← b
-    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 31);
-    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 32);
+    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 16);
+    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 17);
+    private static final int N = IS_ASSIGNED_TO.rank() + 1;
+
+
+    private static final LinkNature LN_THIS = new LinkNatureImpl("this", -1);
+    private static final LinkNature LN_OTHER = new LinkNatureImpl("other", -2);
+    private static final LinkNature LN_INTERSECT = new LinkNatureImpl("other", -3);
+
 
     // ← → are more important than ≡
     // they follow the flow of assignments
@@ -60,18 +68,38 @@ public class LinkNatureImpl implements LinkNature {
 
     private static final Map<String, LinkNature> stringMap = new HashMap<>();
 
+    private static final LinkNature[] linkNatures = {
+            NONE, EMPTY, IS_FIELD_OF, CONTAINS_AS_FIELD, SHARES_FIELDS, OBJECT_GRAPH_OVERLAPS, IS_IN_OBJECT_GRAPH,
+            OBJECT_GRAPH_CONTAINS, SHARES_ELEMENTS, IS_SUBSET_OF, IS_SUPERSET_OF, IS_ELEMENT_OF,
+            CONTAINS_AS_MEMBER, IS_DECORATED_WITH, CONTAINS_DECORATION, IS_ASSIGNED_FROM,
+            IS_ASSIGNED_TO, IS_IDENTICAL_TO};
+
     static {
-        for (LinkNature ln : new LinkNature[]{
-                NONE, EMPTY, IS_FIELD_OF, CONTAINS_AS_FIELD, SHARES_FIELDS, OBJECT_GRAPH_OVERLAPS, IS_IN_OBJECT_GRAPH,
-                OBJECT_GRAPH_CONTAINS, SHARES_ELEMENTS, IS_SUBSET_OF, IS_SUPERSET_OF, IS_ELEMENT_OF,
-                CONTAINS_AS_MEMBER, IS_DECORATED_WITH, CONTAINS_DECORATION, IS_ASSIGNED_FROM,
-                IS_ASSIGNED_TO, IS_IDENTICAL_TO}) {
+        for (LinkNature ln : linkNatures) {
             stringMap.put(ln.toString(), ln);
         }
     }
 
     public static LinkNature decode(String s) {
         return Objects.requireNonNull(stringMap.get(s), "Unknown symbol " + s);
+    }
+
+    private static final LinkNature[][] combinations = new LinkNature[N][N];
+    private static final LinkNature[] reverse = new LinkNature[N];
+    private static final int[] hashCode = new int[N];
+
+    static {
+        for (LinkNature ln1 : linkNatures) {
+            LinkNature r = ((LinkNatureImpl) ln1).computeReverse();
+            int r1 = ln1.rank();
+            if (r != ln1) reverse[r1] = r;
+            for (LinkNature ln2 : linkNatures) {
+                LinkNature c = ((LinkNatureImpl) ln1).computeCombine(ln2);
+                LinkNature v = c == ln1 ? LN_THIS : c == ln2 ? LN_OTHER : c;
+                combinations[r1][ln2.rank()] = v;
+            }
+            hashCode[r1] = Objects.hash(((LinkNatureImpl) ln1).symbol, r1);
+        }
     }
 
     @Override
@@ -82,6 +110,7 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public int hashCode() {
+        if (pass == null) return hashCode[rank];
         return Objects.hash(symbol, rank, pass);
     }
 
@@ -111,6 +140,11 @@ public class LinkNatureImpl implements LinkNature {
     }
 
     @Override
+    public boolean known() {
+        return rank >= IS_FIELD_OF.rank();
+    }
+
+    @Override
     public boolean isDecoration() {
         return this == IS_DECORATED_WITH || this == CONTAINS_DECORATION;
     }
@@ -127,7 +161,7 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public boolean valid() {
-        return rank >= 2;
+        return rank >= SHARES_FIELDS.rank();
     }
 
     @Override
@@ -143,6 +177,11 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public LinkNature reverse() {
+        LinkNature r = reverse[rank];
+        return r == null ? this : r;
+    }
+
+    private LinkNature computeReverse() {
         if (this == IS_ELEMENT_OF) return CONTAINS_AS_MEMBER;
         if (this == CONTAINS_AS_MEMBER) return IS_ELEMENT_OF;
         if (this == IS_FIELD_OF) return CONTAINS_AS_FIELD;
@@ -169,7 +208,8 @@ public class LinkNatureImpl implements LinkNature {
         return makeIdenticalTo(Set.copyOf(intersection));
     }
 
-    public LinkNature combine(LinkNature other, Set<MethodInfo> causesOfModification) {
+    @Override
+    public LinkNature combine(LinkNature other) {
         if (this == other) return this;
         if (this == EMPTY) return other;
         if (other == EMPTY) return this;
@@ -182,6 +222,19 @@ public class LinkNatureImpl implements LinkNature {
             }
             return this;
         }
+        LinkNature c = combinations[rank][other.rank()];
+        if (c == LN_THIS) return this;
+        if (c == LN_OTHER) return other;
+        return c;
+    }
+
+    private LinkNature computeCombine(LinkNature other) {
+        if (this == other) return this;
+        if (this == EMPTY) return other;
+        if (other == EMPTY) return this;
+        if (this == NONE || other == NONE) return NONE;
+        if (other == IS_IDENTICAL_TO) return this;
+        if (this == IS_IDENTICAL_TO) return other;
 
         if (other == IS_ASSIGNED_TO) {
             if (this == IS_ASSIGNED_FROM) return makeIdenticalTo(null);

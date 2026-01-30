@@ -34,7 +34,7 @@ public class ExpandSlice {
         for (Map.Entry<Variable , Map<Variable , LinkNature>> entry : graph.entrySet()) {
             if (entry.getKey() instanceof FieldReference frK && virtual(frK)
                 && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv)) {
-                Map<Variable , LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey(), Set.of());
+                Map<Variable , LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey());
                 // FIXME cause of mod
                 for (Map.Entry<Variable , LinkNature> entry2 : expanded.entrySet()) {
                     // (1)
@@ -66,7 +66,7 @@ public class ExpandSlice {
             }
             int index;
             if (entry.getKey() instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
-                Map<Variable , LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey(), Set.of()); // FIXME
+                Map<Variable , LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey());
                 for (Map.Entry<Variable , LinkNature> entry2 : expanded.entrySet()) {
                     int index1;
                     // (3)

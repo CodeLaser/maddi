@@ -50,7 +50,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         if (prev == null) {
             change = true;
         } else {
-            LinkNature combined = prev.combine(linkNature, null);
+            LinkNature combined = prev.combine(linkNature);
             if (combined != prev) {
                 edges.put(to, combined);
             }
@@ -131,7 +131,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             change = doOneMakeGraphCycle(graph, modifiedInThisEvaluation);
         }
         assert !checkDuplicateNames ||
-               graph.size() == graph.keySet().stream().map(v -> stringForDuplicate(v)).distinct().count();
+               graph.size() == graph.keySet().stream().map(LinkGraph::stringForDuplicate).distinct().count();
         return graph;
     }
 
@@ -257,8 +257,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
 
     // sorting is needed to consistently take the same direction for tests
     static Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer,
-                                     Map<Variable, Map<Variable, LinkNature>> graph, Variable primary,
-                                     Set<MethodInfo> causesOfModification) {
+                                     Map<Variable, Map<Variable, LinkNature>> graph, Variable primary) {
         Links.Builder builder = new LinksImpl.Builder(primary);
         var fromList = graph.keySet().stream()
                 .filter(v -> Util.isPartOf(primary, v))
@@ -273,7 +272,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         Set<PC> block = new HashSet<>();
 
         for (Variable from : fromList) {
-            Map<Variable, LinkNature> all = bestPath(graph, from, causesOfModification);
+            Map<Variable, LinkNature> all = bestPath(graph, from);
             List<Map.Entry<Variable, LinkNature>> entries = all.entrySet().stream()
                     .sorted((e1, e2) -> {
                         int c = e2.getValue().rank() - e1.getValue().rank();
@@ -300,7 +299,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                 Variable firstRealTo = Util.firstRealVariable(to);
                 // remove internal references (field inside primary to primary or other field in primary)
                 // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
-                if (linkNature.rank() >= 0
+                if (linkNature.known()
                     && (!primaryTo.equals(primaryFrom) ||
                         !firstRealFrom.equals(primaryFrom) &&
                         !firstRealTo.equals(primaryTo) &&
@@ -347,13 +346,11 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         return builder;
     }
 
-    static Map<Variable, LinkNature> bestPath(Map<Variable, Map<Variable, LinkNature>> graph,
-                                              Variable start,
-                                              Set<MethodInfo> causesOfModification) {
+    static Map<Variable, LinkNature> bestPath(Map<Variable, Map<Variable, LinkNature>> graph, Variable start) {
         Map<Variable, Set<LinkNature>> res =
                 FixpointPropagationAlgorithm.computePathLabels(s -> graph.getOrDefault(s, Map.of()),
                         graph.keySet(), start, LinkNatureImpl.EMPTY,
-                        (ln1, ln2) -> ln1.combine(ln2, causesOfModification));
+                        LinkNature::combine);
         return res.entrySet().stream()
                 .filter(e -> !start.equals(e.getKey()))
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
@@ -382,11 +379,11 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
      Filtering out ? links is done in followGraph.
      */
     Map<Variable, Map<Variable, LinkNature>> compute(Map<Variable, Links> lvIn,
-                                       VariableData previousVd,
-                                       Stage stageOfPrevious,
-                                       VariableData vd,
-                                       TranslationMap replaceConstants,
-                                       Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation) {
+                                                     VariableData previousVd,
+                                                     Stage stageOfPrevious,
+                                                     VariableData vd,
+                                                     TranslationMap replaceConstants,
+                                                     Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation) {
         // copy everything into lv
         Map<Variable, Links> linkedVariables = new HashMap<>();
         lvIn.entrySet().stream()
@@ -436,7 +433,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(graph));
         }
-        Links.Builder builder = followGraph(null, graph, links.primary(), Set.of());
+        Links.Builder builder = followGraph(null, graph, links.primary());
         builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
         return builder.build();
     }
