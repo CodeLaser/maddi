@@ -284,10 +284,39 @@ public class Test1 extends CommonTest {
             }
             """;
 
-    @DisplayName("null virtual field")
+    @DisplayName("could not reproduce the bug")
     @Test
     public void test7() {
         TypeInfo C = javaInspector.parse(INPUT7);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(false).build());
+        tlc.doPrimaryType(C);
+    }
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            class JSONParser {
+                interface Node extends List<Node> { }
+                NodeScope currentNodeScope;
+                class NodeScope extends ArrayList<Node> {
+                    NodeScope parentScope;
+                    NodeScope() {
+                        this.parentScope = JSONParser.this.currentNodeScope;
+                        JSONParser.this.currentNodeScope = this;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("cycle protection")
+    @Test
+    public void test8() {
+        TypeInfo C = javaInspector.parse(INPUT8);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,

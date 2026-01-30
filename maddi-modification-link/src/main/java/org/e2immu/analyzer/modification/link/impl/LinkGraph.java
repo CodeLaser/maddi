@@ -256,6 +256,12 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             && (!(dv.indexExpression() instanceof IntConstant ic) || ic.constant() >= 0)) {
             return target.parameterizedType().arrays() == from.parameterizedType().arrays();
         }
+        if (sub instanceof FieldReference fr
+            && fr.scopeVariable() instanceof FieldReference fr2
+            && fr2.fieldInfo() == fr.fieldInfo()) {
+            // Test1,8: protect against self references
+            return false;
+        }
         return true;
     }
 
@@ -355,6 +361,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                         !firstRealFrom.equals(primaryFrom) &&
                         !firstRealTo.equals(primaryTo) &&
                         !firstRealFrom.equals(firstRealTo))
+                    && LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from.v, toV)
                     && block.add(new PC(from.v, linkNature, toV))) {
                     builder.add(from.v, linkNature, toV);
                     if (linkNature.isIdenticalToOrAssignedFromTo()

@@ -124,7 +124,8 @@ public class Util {
     }
 
     public static boolean isVirtualModificationField(FieldInfo fieldInfo) {
-        return "§m".equals(fieldInfo.name());
+        return fieldInfo.name().startsWith("§m") && fieldInfo.type().typeInfo() != null
+               && "java.util.concurrent.atomic.AtomicBoolean".equals(fieldInfo.type().typeInfo().fullyQualifiedName());
     }
 
     public static LocalVariable lvPrimaryOrNull(Variable variable) {
@@ -146,10 +147,6 @@ public class Util {
             return oneBelowThis(dv.arrayVariable());
         }
         return v;
-    }
-
-    public static @NotNull ParameterInfo parameterPrimary(Variable variable) {
-        return (ParameterInfo) primary(variable);
     }
 
     public static Variable primary(Variable variable) {
@@ -224,29 +221,28 @@ public class Util {
     public static String simpleName(Variable variable, Set<Variable> modified) {
         assert modified != null;
         assert variable != null;
-        if (variable instanceof ParameterInfo pi) {
-            return pi.index() + ":" + pi.name() + (modified.contains(pi) ? "*" : "");
-        }
-        if (variable instanceof ReturnVariable rv) {
-            return rv.methodInfo().name();
-        }
-        if (variable instanceof FieldReference fr) {
-            boolean frModified = modified.contains(fr);
-            String scope = fr.scopeVariable() != null
-                    ? simpleName(fr.scopeVariable(), frModified ? Set.of() : modified)
-                    : fr.scope().toString();
-            return scope + "." + fr.fieldInfo().name() + (frModified ? "*" : "");
-        }
-        if (variable instanceof DependentVariable dv) {
-            boolean dvModified = modified.contains(dv);
-            String index = dv.indexVariable() != null
-                    ? simpleName(dv.indexVariable(), dvModified ? Set.of() : modified) : dv.indexExpression().toString();
-            String simpleArrayVar;
-            if (dv.arrayVariable() != null) simpleArrayVar = simpleName(dv.arrayVariable(), modified);
-            else simpleArrayVar = dv.arrayExpression().toString();
-            return simpleArrayVar + "[" + index + "]" + (dvModified ? "*" : "");
-        }
-        return variable + (modified.contains(variable) ? "*" : "");
+        return switch (variable) {
+            case ParameterInfo pi -> pi.index() + ":" + pi.name() + (modified.contains(pi) ? "*" : "");
+            case ReturnVariable rv -> rv.methodInfo().name();
+            case FieldReference fr -> {
+                boolean frModified = modified.contains(fr);
+                String scope = fr.scopeVariable() != null
+                        ? simpleName(fr.scopeVariable(), frModified ? Set.of() : modified)
+                        : fr.scope().toString();
+                yield scope + "." + fr.fieldInfo().name() + (frModified ? "*" : "");
+            }
+            case DependentVariable dv -> {
+                boolean dvModified = modified.contains(dv);
+                String index = dv.indexVariable() != null
+                        ? simpleName(dv.indexVariable(), dvModified ? Set.of() : modified)
+                        : dv.indexExpression().toString();
+                String simpleArrayVar;
+                if (dv.arrayVariable() != null) simpleArrayVar = simpleName(dv.arrayVariable(), modified);
+                else simpleArrayVar = dv.arrayExpression().toString();
+                yield simpleArrayVar + "[" + index + "]" + (dvModified ? "*" : "");
+            }
+            default -> variable + (modified.contains(variable) ? "*" : "");
+        };
     }
 
 
