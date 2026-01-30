@@ -1,6 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -102,7 +102,7 @@ public class ExpandSlice {
         assert !fields.isEmpty();
         FieldInfo kv = fields.getFirst().kv;
         if (fields.stream().skip(1).anyMatch(f2 -> !f2.kv.equals(kv))) return false;
-        if (kv.type().typeInfo() != null && VirtualFieldComputer.VIRTUAL_FIELD == kv.type().typeInfo().typeNature()) {
+        if (kv.type().typeInfo() != null && Util.isContainerType(kv.type().typeInfo())) {
             Set<ParameterizedType> subs = kv.type().typeInfo().fields().stream()
                     .map(FieldInfo::type)
                     .collect(Collectors.toUnmodifiableSet());

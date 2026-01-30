@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
@@ -99,7 +100,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             assertEquals("java.util.Map<T,E>", mapTE.descriptor());
             VirtualFieldComputer.VfTm vfTmMapTE = vfc.compute(mapTE, true);
             VirtualFields vfMapTE = vfTmMapTE.virtualFields();
-            assertEquals("§m - TE[] §tes", vfMapTE.toString());
+            assertEquals("§m - §TE[] §tes", vfMapTE.toString());
 
             VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(optional.typeParameters().getFirst(), vfMapTE.hiddenContent().type());
@@ -107,8 +108,8 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             FieldReference fr = runtime.newFieldReference(vfListTpArray.hiddenContent());
             Variable tFr = ftm.translateVariableRecursively(fr);
             assertEquals("§tesss", tFr.simpleName());
-            assertEquals("Type java.util.Map.TE[][][]", tFr.parameterizedType().toString());
-            assertSame(VirtualFieldComputer.VIRTUAL_FIELD, tFr.parameterizedType().typeInfo().typeNature());
+            assertEquals("Type java.util.Map.§TE[][][]", tFr.parameterizedType().toString());
+            assertTrue(Util.isContainerType(tFr.parameterizedType().typeInfo()));
         }
     }
 
@@ -127,7 +128,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         assertEquals("java.util.Map<T,E>", mapTE.descriptor());
         VirtualFieldComputer.VfTm vfTmMapTE = vfc.compute(mapTE, true);
         VirtualFields vfMapTE = vfTmMapTE.virtualFields();
-        assertEquals("§m - TE[] §tes", vfMapTE.toString());
+        assertEquals("§m - §TE[] §tes", vfMapTE.toString());
 
         TypeParameter map0 = map.typeParameters().getFirst();
         {
@@ -138,7 +139,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
             Variable tFr = ftm.translateVariableRecursively(fr);
             assertEquals("§kes", tFr.simpleName());
-            assertEquals("Type java.util.Map.KE[]", tFr.parameterizedType().toString());
+            assertEquals("Type java.util.Map.§KE[]", tFr.parameterizedType().toString());
         }
         {
             // inject array VF
@@ -150,7 +151,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
             Variable tFr = ftm.translateVariableRecursively(fr);
             assertEquals("§kvss", tFr.simpleName());
-            assertEquals("Type java.util.Map.KVS[]", tFr.parameterizedType().toString());
+            assertEquals("Type java.util.Map.§KVS[]", tFr.parameterizedType().toString());
         }
         {
             // inject ordinary type as the second parameter
@@ -160,7 +161,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
             Variable tFr = ftm.translateVariableRecursively(fr);
             assertEquals("§t$s", tFr.simpleName());
-            assertEquals("Type java.util.Map.T$[]", tFr.parameterizedType().toString());
+            assertEquals("Type java.util.Map.§T$[]", tFr.parameterizedType().toString());
         }
         {
             // inject ordinary type array String[] as the second parameter
@@ -170,7 +171,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
             Variable tFr = ftm.translateVariableRecursively(fr);
             assertEquals("§t$ss", tFr.simpleName());
-            assertEquals("Type java.util.Map.T$S[]", tFr.parameterizedType().toString());
+            assertEquals("Type java.util.Map.§T$S[]", tFr.parameterizedType().toString());
         }
         {
             TypeParameter X = runtime.newTypeParameter(0, "X", runtime.objectTypeInfo());
@@ -184,7 +185,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             assertEquals("java.util.Map<X,Y>", mapXY.descriptor());
             VirtualFieldComputer.VfTm vfTmMapXY = vfc.compute(mapXY, true);
             VirtualFields vfMapXY = vfTmMapXY.virtualFields();
-            assertEquals("§m - XY[] §xys", vfMapXY.toString());
+            assertEquals("§m - §XY[] §xys", vfMapXY.toString());
 
             VirtualFieldTranslationMap ftm = new VirtualFieldTranslationMapImpl(vfc, runtime);
             ftm.put(list.typeParameters().getFirst(), vfMapXY.hiddenContent().type());
@@ -192,7 +193,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
             FieldReference fr = runtime.newFieldReference(vfMapTE.hiddenContent());
             Variable tFr = ftm.translateVariableRecursively(fr);
             assertEquals("§txyss", tFr.simpleName());
-            assertEquals("Type java.util.Map.TXYS[]", tFr.parameterizedType().toString());
+            assertEquals("Type java.util.Map.§TXYS[]", tFr.parameterizedType().toString());
         }
     }
 

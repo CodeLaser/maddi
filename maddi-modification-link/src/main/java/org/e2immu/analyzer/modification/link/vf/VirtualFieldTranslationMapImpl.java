@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VF_CHAR;
-import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 
 // uses VariableTranslationMap.translateVariableRecursively()
 public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap {
@@ -134,7 +133,7 @@ public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modif
             TypeParameter newTp = out.typeParameter();
             newName = newTp.simpleName().toLowerCase() + "s".repeat(newArrays);
             newType = runtime.newParameterizedType(newTp, newArrays, wildcard);
-        } else if (out.typeInfo() != null && out.typeInfo().typeNature() == VIRTUAL_FIELD) {
+        } else if (out.typeInfo() != null && Util.isContainerType(out.typeInfo())) {
             newName = out.typeInfo().simpleName().toLowerCase() + "s".repeat(newArrays);
             newType = out.typeInfo().asSimpleParameterizedType().copyWithArrays(newArrays);
         } else {

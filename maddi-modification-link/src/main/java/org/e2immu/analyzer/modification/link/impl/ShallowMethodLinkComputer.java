@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
-import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VIRTUAL_FIELD;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.collectTypeParametersFromVirtualField;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.GET_SET_FIELD;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD;
@@ -313,7 +312,7 @@ public record ShallowMethodLinkComputer(Runtime runtime, VirtualFieldComputer vi
             }
         } else {
             VirtualFields vfFromType;
-            if (fromType.typeInfo() != null && fromType.typeInfo().typeNature() == VIRTUAL_FIELD) {
+            if (fromType.typeInfo() != null && Util.isContainerType(fromType.typeInfo())) {
                 assert fromVf != null;
                 vfFromType = fromVf;
             } else {

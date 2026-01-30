@@ -223,7 +223,7 @@ public class LinkCodec {
 
         @Override
         public Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
-            if (info instanceof TypeInfo ti && ti.typeNature() == VirtualFieldComputer.VIRTUAL_FIELD) {
+            if (info instanceof TypeInfo ti && Util.isContainerType(ti)) {
                 String s = "U" + ti.simpleName();
                 Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context,
                         ti.compilationUnitOrEnclosingType().getRight());
@@ -332,7 +332,7 @@ public class LinkCodec {
 
         @Override
         public EncodedValue encodeType(Context context, ParameterizedType type) {
-            if (type.typeInfo() != null && type.typeInfo().typeNature() == VirtualFieldComputer.VIRTUAL_FIELD) {
+            if (type.typeInfo() != null && Util.isContainerType(type.typeInfo())) {
                 if (!duplication.contains(type.typeInfo())) {
                     Stream<EncodedValue> name = Stream.of(encodeString(context, "V" + type.typeInfo().fullyQualifiedName()));
                     Stream<EncodedValue> arrays = Stream.of(encodeInt(context, type.arrays()));

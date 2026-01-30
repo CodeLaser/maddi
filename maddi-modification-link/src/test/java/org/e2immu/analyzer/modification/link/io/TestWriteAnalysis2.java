@@ -17,8 +17,8 @@ package org.e2immu.analyzer.modification.link.io;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
@@ -40,7 +40,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestWriteAnalysis2 extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestWriteAnalysis2.class);
@@ -275,9 +276,9 @@ public class TestWriteAnalysis2 extends CommonTest {
         FieldReference vks = (FieldReference) vksSlice.arrayVariable();
         assertEquals("§vks", vks.fieldInfo().name());
         assertEquals("java.util.Map", vks.fieldInfo().owner().fullyQualifiedName());
-        assertEquals("Type java.util.Map.VK[]", vks.parameterizedType().toString());
+        assertEquals("Type java.util.Map.§VK[]", vks.parameterizedType().toString());
         TypeInfo vk = vks.parameterizedType().typeInfo();
-        assertSame(VirtualFieldComputer.VIRTUAL_FIELD, vk.typeNature());
+        assertTrue(Util.isContainerType(vk));
         assertEquals(2, vk.fields().size());
         assertEquals("java.util.Map", vk.compilationUnitOrEnclosingType().getRight().fullyQualifiedName());
     }
@@ -338,13 +339,13 @@ public class TestWriteAnalysis2 extends CommonTest {
 
         FieldReference ks = (FieldReference) mlvOne.ofReturnValue().link(0).from();
         assertEquals("§ks", ks.fieldInfo().name());
-        assertEquals("java.util.AbstractMap.SimpleEntry.KSVS", ks.fieldInfo().owner().fullyQualifiedName());
+        assertEquals("java.util.AbstractMap.SimpleEntry.§KSVS", ks.fieldInfo().owner().fullyQualifiedName());
         assertEquals("Type param K[]", ks.parameterizedType().toString());
 
         FieldReference ksvs = (FieldReference) ks.scopeVariable();
         assertEquals("§ksvs", ksvs.fieldInfo().name());
-        assertEquals("Type java.util.AbstractMap.SimpleEntry.KSVS", ksvs.parameterizedType().toString());
+        assertEquals("Type java.util.AbstractMap.SimpleEntry.§KSVS", ksvs.parameterizedType().toString());
         assertEquals("java.util.Map.Entry", ksvs.fieldInfo().owner().fullyQualifiedName());
-        assertSame(VirtualFieldComputer.VIRTUAL_FIELD, ksvs.parameterizedType().typeInfo().typeNature());
+        assertTrue(Util.isContainerType(ksvs.parameterizedType().typeInfo()));
     }
 }

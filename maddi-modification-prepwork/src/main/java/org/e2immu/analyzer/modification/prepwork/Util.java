@@ -127,6 +127,10 @@ public class Util {
         return index.compareTo(scope) >= 0;
     }
 
+    public static boolean isContainerType(TypeInfo typeInfo) {
+        return typeInfo.simpleName().startsWith("§");
+    }
+
     public static boolean isPrimary(Variable variable) {
         return variable == primary(variable);
     }

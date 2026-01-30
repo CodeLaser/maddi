@@ -60,8 +60,8 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             if (v instanceof FieldReference fr) {
                 TypeInfo typeInfo = fr.fieldInfo().type().typeInfo();
                 String name;
-                if (typeInfo != null && typeInfo.typeNature() == VirtualFieldComputer.VIRTUAL_FIELD
-                    || fr.fieldInfo().name().contains("$")) { // $m, $s (where $ replaces ts)
+                if (typeInfo != null && Util.isContainerType(typeInfo) || fr.fieldInfo().name().contains("$")) {
+                    // $m, $s (where $ replaces ts)
                     name = "VF:" + fr.fieldInfo().name(); // NOTE: for now there is ambiguity in the 's'
                 } else {
                     name = fr.fieldInfo().fullyQualifiedName();
