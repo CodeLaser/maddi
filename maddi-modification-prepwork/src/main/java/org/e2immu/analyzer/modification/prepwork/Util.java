@@ -46,6 +46,14 @@ public class Util {
         return index.substring(0, i) + ".~";
     }
 
+    public static Stream<FieldInfo> fieldsOf(Variable v) {
+        if (v instanceof FieldReference fr) {
+            Stream<FieldInfo> sub = fr.scopeVariable() != null ? fieldsOf(fr.scopeVariable()) : Stream.empty();
+            return Stream.concat(sub, Stream.of(fr.fieldInfo()));
+        }
+        return Stream.of();
+    }
+
     public static Iterable<Variable> goUp(Variable variable) {
         return new Iterable<>() {
             @Override
@@ -125,6 +133,10 @@ public class Util {
 
     public static boolean isSlice(Variable v) {
         return v instanceof DependentVariable dv && dv.indexExpression() instanceof IntConstant ic && ic.constant() < 0;
+    }
+
+    public static boolean isVirtualModification(Variable variable) {
+        return variable instanceof FieldReference fr && isVirtualModificationField(fr.fieldInfo());
     }
 
     public static boolean isVirtualModificationField(FieldInfo fieldInfo) {

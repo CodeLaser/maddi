@@ -256,13 +256,28 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             && (!(dv.indexExpression() instanceof IntConstant ic) || ic.constant() >= 0)) {
             return target.parameterizedType().arrays() == from.parameterizedType().arrays();
         }
-        if (sub instanceof FieldReference fr
-            && fr.scopeVariable() instanceof FieldReference fr2
-            && fr2.fieldInfo() == fr.fieldInfo()) {
-            // Test1,8: protect against self references
+        Set<FieldInfo> subFields = Util.fieldsOf(sub).collect(Collectors.toUnmodifiableSet());
+        Set<FieldInfo> targetFields = Util.fieldsOf(target).collect(Collectors.toUnmodifiableSet());
+        return Collections.disjoint(subFields, targetFields);
+        /*
+        if(sub instanceof FieldReference fr
+           && fr.scopeVariable() instanceof FieldReference fr2
+           && fr2.fieldInfo() == fr.fieldInfo()) {
             return false;
         }
-        return true;
+        if (sub instanceof FieldReference fr
+            && fr.scopeVariable() != null
+            && fr.scopeVariable().variableStreamDescend().anyMatch(v -> v instanceof FieldReference fr2 && fr2.fieldInfo() == fr.fieldInfo())) {
+            // Test1,8: protect against self references; not only one level, but multiple levels!!
+            return false;
+        }
+        if (sub instanceof FieldReference fr
+            && target instanceof FieldReference tfr
+            && tfr.variableStreamDescend().anyMatch(v -> v instanceof FieldReference fr2 && fr2.fieldInfo() == fr.fieldInfo())) {
+            // Test1,8: protect against self references; not only one level, but multiple levels!!
+            return false;
+        }
+        return true;*/
     }
 
     private static boolean isNotNullConstant(Variable v) {
