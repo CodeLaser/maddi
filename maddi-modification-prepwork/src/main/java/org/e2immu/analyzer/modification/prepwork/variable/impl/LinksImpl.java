@@ -243,6 +243,20 @@ public class LinksImpl implements Links {
             assert linkNature != null;
             assert doNotStackMOnTopOfVirtualField(from);
             assert doNotStackMOnTopOfVirtualField(to);
+            assert noRelationBetweenMAndOtherVirtualFields(from, to);
+        }
+
+        public static boolean noRelationBetweenMAndOtherVirtualFields(Variable checkM, Variable checkOther) {
+            if (checkM instanceof FieldReference frM && checkOther instanceof FieldReference frO) {
+                return !(Util.isVirtualModificationField(frM.fieldInfo())
+                         && !Util.isVirtualModificationField(frO.fieldInfo())
+                         && Util.virtual(frO.fieldInfo()))
+                       &&
+                       !(Util.isVirtualModificationField(frO.fieldInfo())
+                         && !Util.isVirtualModificationField(frM.fieldInfo())
+                         && Util.virtual(frM.fieldInfo()));
+            }
+            return true;
         }
 
         private static boolean doNotStackMOnTopOfVirtualField(Variable v) {
