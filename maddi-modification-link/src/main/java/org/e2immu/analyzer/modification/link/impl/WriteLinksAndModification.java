@@ -39,7 +39,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                             VariableData vd,
                             Set<Variable> previouslyModified,
                             Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation,
-                            Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph) {
+                            Map<Variable , Map<Variable , LinkNature>> graph) {
 
         // do the first iteration
         LoopResult lr = loopOverVd(vd, statement, graph, previouslyModified, modifiedDuringEvaluation);
@@ -50,7 +50,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         // do a second iteration, we have changed some of the operations because of a modification
         // (⊆ becomes ~ after List.add(...) e.g. See TestConstructor,1)
         LinkGraph linkGraph = new LinkGraph(javaInspector, runtime, false);
-        Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph2 = linkGraph.makeGraph(lr.newLinkedVariables, Set.of());
+        Map<Variable , Map<Variable , LinkNature>> graph2 = linkGraph.makeGraph(lr.newLinkedVariables, Set.of());
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Recomputed bi-directional graph for local:\n{}", printGraph(graph2));
         }
@@ -78,7 +78,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
 
     private LoopResult loopOverVd(VariableData vd,
                                   Statement statement,
-                                  Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph,
+                                  Map<Variable , Map<Variable , LinkNature>> graph,
                                   Set<Variable> previouslyModified,
                                   Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
@@ -100,7 +100,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
 
 
     private List<Link> doVariableReturnRecompute(Statement statement,
-                                                 Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph,
+                                                 Map<Variable , Map<Variable , LinkNature>> graph,
                                                  VariableInfo vi,
                                                  Set<Variable> unmarkedModifications,
                                                  Set<Variable> previouslyModified,

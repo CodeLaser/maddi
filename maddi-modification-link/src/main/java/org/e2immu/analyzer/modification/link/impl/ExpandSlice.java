@@ -29,17 +29,17 @@ public class ExpandSlice {
     (3) TestForEachLambda,7
     if 0:map.§$$s[-1]~this.map.§$$s[-2] and 0:map.§$$s[-2]~this.map.§$$s[-1]] then 0:map.§$$s ~ this.map.§$$s
      */
-    List<LinkGraph.PC> completeSliceInformation(Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph) {
+    List<LinkGraph.PC> completeSliceInformation(Map<Variable , Map<Variable , LinkNature>> graph) {
         Map<LinkGraph.PC, List<List<F2>>> map = new HashMap<>();
-        for (Map.Entry<LinkGraph.V, Map<LinkGraph.V, LinkNature>> entry : graph.entrySet()) {
-            if (entry.getKey().v() instanceof FieldReference frK && virtual(frK)
+        for (Map.Entry<Variable , Map<Variable , LinkNature>> entry : graph.entrySet()) {
+            if (entry.getKey() instanceof FieldReference frK && virtual(frK)
                 && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv)) {
-                Map<LinkGraph.V, LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey(), Set.of());
+                Map<Variable , LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey(), Set.of());
                 // FIXME cause of mod
-                for (Map.Entry<LinkGraph.V, LinkNature> entry2 : expanded.entrySet()) {
+                for (Map.Entry<Variable , LinkNature> entry2 : expanded.entrySet()) {
                     // (1)
                     if (LinkNatureImpl.IS_ELEMENT_OF.equals(entry2.getValue())
-                        && entry2.getKey().v() instanceof DependentVariable dv
+                        && entry2.getKey() instanceof DependentVariable dv
                         && negative(dv.indexExpression()) >= 0
                         && dv.arrayVariable() instanceof FieldReference fr2Vks && virtual(fr2Vks)) {
                         LinkGraph.PC pc = new LinkGraph.PC(frKv.scopeVariable(), LinkNatureImpl.IS_ELEMENT_OF, fr2Vks);
@@ -49,7 +49,7 @@ public class ExpandSlice {
                     }
                     // (2)
                     if (entry2.getValue().isIdenticalToOrAssignedFromTo()
-                        && entry2.getKey().v() instanceof FieldReference fr2K && virtual(fr2K)
+                        && entry2.getKey() instanceof FieldReference fr2K && virtual(fr2K)
                         && fr2K.scopeVariable() instanceof FieldReference fr2kv && virtual(fr2kv)) {
                         if (frKv.compareTo(fr2kv) < 0) {
                             LinkGraph.PC pc = new LinkGraph.PC(frKv, LinkNatureImpl.SHARES_ELEMENTS, fr2kv);
@@ -65,13 +65,13 @@ public class ExpandSlice {
                 }
             }
             int index;
-            if (entry.getKey().v() instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
-                Map<LinkGraph.V, LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey(), Set.of()); // FIXME
-                for (Map.Entry<LinkGraph.V, LinkNature> entry2 : expanded.entrySet()) {
+            if (entry.getKey() instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
+                Map<Variable , LinkNature> expanded = LinkGraph.bestPath(graph, entry.getKey(), Set.of()); // FIXME
+                for (Map.Entry<Variable , LinkNature> entry2 : expanded.entrySet()) {
                     int index1;
                     // (3)
                     if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalToOrAssignedFromTo())
-                        && entry2.getKey().v() instanceof DependentVariable dv
+                        && entry2.getKey() instanceof DependentVariable dv
                         && (index1 = negative(dv.indexExpression())) >= 0) {
                         // record only in one direction
                         Variable frKv = dvK.arrayVariable();
