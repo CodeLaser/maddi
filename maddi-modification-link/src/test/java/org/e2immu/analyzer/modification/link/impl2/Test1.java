@@ -323,4 +323,47 @@ public class Test1 extends CommonTest {
                 new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(false).build());
         tlc.doPrimaryType(C);
     }
+
+
+    @Language("java")
+    private static final String INPUT9 = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.HashMap;import java.util.List;import java.util.Map;import java.util.stream.Stream;
+            class X {
+                static <T> List<T> concatImmutable(List<T> l1, List<T> l2) {
+                    return Stream.concat(l1.stream(), l2.stream()).toList();
+                }
+                interface Variable { }
+                interface CMParSeq<T> { Template template(); }
+                interface Template { }
+                interface Expression { }
+                record ByTemplate(Template template, int pos, List<CMParSeq<Variable>> list) {
+                    ByTemplate merge(ByTemplate other) {
+                        assert template.equals(other.template);
+                        return new ByTemplate(template, Math.min(pos, other.pos), concatImmutable(list, other.list));
+                    }
+                }
+                private static List<ByTemplate> groupByTemplate(List<CMParSeq<Variable>> parSeqs) {
+                    Map<Expression, ByTemplate> map = new HashMap<>();
+                    int index = 0;
+                    for (CMParSeq<Variable> ps : parSeqs) {
+                        map.merge(ps.template(), new ByTemplate(ps.template(), index, List.of(ps)), ByTemplate::merge);
+                        index++;
+                    }
+                    return map.values().stream().filter(bt -> bt.list.size() > 1).toList();
+                }
+            }
+            """;
+
+    @DisplayName("§m mixes with other virtual fields")
+    @Test
+    public void test9() {
+        TypeInfo C = javaInspector.parse(INPUT9);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector,
+                new LinkComputer.Options.Builder().setRecurse(true).setCheckDuplicateNames(false).build());
+        tlc.doPrimaryType(C);
+    }
 }

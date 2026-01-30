@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -135,7 +136,8 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                 false);
                         Variable to = translateAndRecreateVirtualFields(tmMapSource, l.to(), vfMapSource, vfMapTarget,
                                 true);
-                        if (from != null && to != null) {
+                        if (from != null && to != null
+                            && LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, to)) {
                             result.add(new Triplet(from, l.linkNature(), to));
                         }
                     }
