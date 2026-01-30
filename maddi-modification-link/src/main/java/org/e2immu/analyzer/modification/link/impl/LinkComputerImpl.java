@@ -505,7 +505,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links.Builder current = yieldStack.peek();
                 current.add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
             }
-            Map<LinkGraph.V, Map<LinkGraph.V, LinkNature>> graph;
+            Map<Variable, Map<Variable, LinkNature>> graph;
             if (r != null) {
                 this.erase.addAll(r.erase());
                 graph = linkGraph.compute(r.extra().map(), previousVd, stageOfPrevious, vd, replaceConstants,
@@ -564,10 +564,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             casts.forEach((v, set) -> {
                 VariableInfoContainer vic = variableData.variableInfoContainerOrNull(v.fullyQualifiedName());
-                VariableInfoImpl vii = (VariableInfoImpl) vic.best(Stage.EVALUATION);
-                if (vii.analysis().setAllowControlledOverwrite(VariableInfoImpl.DOWNCAST_VARIABLE,
-                        new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(set)))) {
-                    propertiesChanged.incrementAndGet();
+                if (vic != null) {
+                    VariableInfoImpl vii = (VariableInfoImpl) vic.best(Stage.EVALUATION);
+                    if (vii.analysis().setAllowControlledOverwrite(VariableInfoImpl.DOWNCAST_VARIABLE,
+                            new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(set)))) {
+                        propertiesChanged.incrementAndGet();
+                    }
                 }
             });
         }
