@@ -3,7 +3,6 @@ package org.e2immu.analyzer.modification.link.impl2;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
-import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.MethodCall;
@@ -11,12 +10,10 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class Test1 extends CommonTest {
@@ -152,5 +149,47 @@ public class Test1 extends CommonTest {
         lambda.methodInfo().analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(lambda.methodInfo()));
         ParameterInfo strings = recursivelyVisit.parameters().get(1);
         assertFalse(strings.isUnmodified());
+    }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            
+            import java.util.Collections;import java.util.List;
+            import java.util.Objects;
+            
+            public class C<T> {
+                interface Runtime { }
+                interface Expression { }
+                interface Operator { }
+                interface Parallel<T> { }
+                interface CMParSeq<T> { int size(); Expression template(); List<T> toList(); }
+                record ParSeqs<T extends Comparable<? super T>>(Runtime runtime,
+                                                                List<CMParSeq<T>> parSeqs,
+                                                                Expression template,
+                                                                Operator operator) implements Parallel<T> {
+                    public ParSeqs {
+                        assert operator != null;
+                        assert template != null;
+                        String msg = compatibleWithParSeqs(parSeqs);
+                        assert msg == null : msg;
+                    }
+                    public static <T> String compatibleWithParSeqs(List<CMParSeq<T>> parSeqs) {
+                        //... not relevant to this test
+                        return null;
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("limitation in GenericsHelper.translateMap")
+    @Test
+    public void test5() {
+        TypeInfo C = javaInspector.parse(INPUT5);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(C);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        tlc.doPrimaryType(C);
     }
 }
