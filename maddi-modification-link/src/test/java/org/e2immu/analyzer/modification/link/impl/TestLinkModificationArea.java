@@ -363,7 +363,7 @@ public class TestLinkModificationArea extends CommonTest {
             assertTrue(viA.isModified());
 
             VariableInfo viR = vd2.variableInfo(r);
-            assertEquals("0:r.a.i→aa.i,0:r.a→aa,0:r.b→bb", viR.linkedVariables().toString());
+            assertEquals("0:r.a→aa,0:r.a≻aa.i,0:r.b→bb,0:r.a.i→aa.i", viR.linkedVariables().toString());
             assertTrue(viR.isModified());
 
             VariableInfo viB = vd2.variableInfo("bb");
