@@ -264,7 +264,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                 .sorted((v1, v2) -> {
                     if (Util.isPartOf(v1, v2)) return 1;
                     if (Util.isPartOf(v2, v1)) return -1;
-                    return v1.fullyQualifiedName().compareTo(v2.fullyQualifiedName());
+                    return Util.isPartOfComparator(v1, v2);
                 })
                 .toList();
 
