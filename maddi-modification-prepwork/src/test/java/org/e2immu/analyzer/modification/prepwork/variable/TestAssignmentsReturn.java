@@ -53,7 +53,10 @@ public class TestAssignmentsReturn extends CommonTest {
         analyzer.doMethod(method);
         VariableData vdMethod = VariableDataImpl.of(method);
         assertNotNull(vdMethod);
+        // alphabetically:
         assertEquals("a.b.X.method(char), a.b.X.method(char):0:c, i", vdMethod.knownVariableNamesToString());
+        // in order of appearance:
+        assertEquals("[i, a.b.X.method(char):0:c, a.b.X.method(char)]", vdMethod.knownVariableNames().toString());
 
         VariableInfo iVi = vdMethod.variableInfo("i");
         assertEquals("2", iVi.reads().toString());

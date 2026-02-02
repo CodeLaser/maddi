@@ -81,6 +81,12 @@ public class TestAssignmentsReuse extends CommonTest {
         VariableData vdMethod = VariableDataImpl.of(method);
         VariableInfo vi = vdMethod.variableInfo("out");
         assertEquals("Type String", vi.variable().parameterizedType().toString());
+        // in order of appearance:
+        assertEquals("""
+                [url, a.b.X.connect(String,String,String):0:url_str, conn, \
+                a.b.X.connect(String,String,String):1:oauth_header, a.b.X.connect(String,String,String):2:data, \
+                reader, out, temp, a.b.X.connect(String,String,String)]\
+                """, vdMethod.knownVariableNames().toString());
     }
 
 }
