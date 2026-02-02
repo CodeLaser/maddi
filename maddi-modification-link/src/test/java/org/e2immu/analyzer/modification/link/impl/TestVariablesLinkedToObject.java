@@ -50,7 +50,7 @@ public class TestVariablesLinkedToObject extends CommonTest {
 
         VariableData vd2 = VariableDataImpl.of(method.methodBody().statements().get(2));
         VariableInfo vi2ii2 = vd2.variableInfo("ii2");
-        assertEquals("ii2.§m≡ii.§m,ii2.§m≡0:o.§m,ii2←0:o,ii2≡ii", vi2ii2.linkedVariables().toString());
+        assertEquals("ii2.§m≡ii.§m,ii2←0:o,ii2≡ii", vi2ii2.linkedVariables().toString());
 
         MethodCall mc2 = (MethodCall) method.methodBody().statements().getLast().expression();
         ValueImpl.VariableBooleanMapImpl vbm = mc2.analysis().getOrNull(VARIABLES_LINKED_TO_OBJECT,

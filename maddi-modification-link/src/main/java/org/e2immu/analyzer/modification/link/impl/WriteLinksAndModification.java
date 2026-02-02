@@ -85,9 +85,15 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
         Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
         List<Link> toRemove = new ArrayList<>();
+
+        // the purpose of this map is to make sure that we don't add unnecessary virtual modification links (a.§m ≡ b.§m)
+        // this system depends on always processing the variables in the same order (linked hash map in VD, order of occurrence)
+        // this should reduce the modification links to something below quadratic
+        Map<Variable, Set<Variable>> modificationCompletionGuard = new LinkedHashMap<>();
+
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
             toRemove.addAll(doVariableReturnRecompute(statement, graph, vi, unmarkedModifications,
-                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables));
+                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables, modificationCompletionGuard));
         }
         for (Link link : toRemove) {
             Variable primary = Util.primary(link.from());
@@ -110,21 +116,26 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                                                  Set<Variable> unmarkedModifications,
                                                  Set<Variable> previouslyModified,
                                                  Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
-                                                 Map<Variable, Links.Builder> newLinkedVariables) {
+                                                 Map<Variable, Links.Builder> newLinkedVariables,
+                                                 Map<Variable, Set<Variable>> modificationCompletionGuard) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
         Links.Builder builder = followGraph(virtualFieldComputer, graph, variable);
         List<Link> toRemove = new ArrayList<>();
+
         if (variable instanceof ReturnVariable rv) {
             handleReturnVariable(rv, builder);
         } else {
+            Set<Variable> completion = computeRedundantModificationLinks(builder, modificationCompletionGuard);
             boolean unmodified =
                     variable.isIgnoreModifications()
                     ||
                     !previouslyModified.contains(variable)
                     && (assignedInThisStatement(statement, vi)
                         || !modifiedInThisEvaluation.containsKey(variable)
+                           // all the §m links
+                           && Collections.disjoint(modifiedInThisEvaluation.keySet(), completion)
                            && notLinkedToModified(builder, modifiedInThisEvaluation));
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
 
@@ -139,6 +150,51 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
             throw new UnsupportedOperationException("Each real variable must be a primary");
         }
         return toRemove;
+    }
+
+    // we already have v2.§m -> {v1.§m}, v3.§m->{v1.§m, v2.§m}, and now we want to add
+    // v4.§m -> v3.§m, -> v1.§m, -> v2.§m.
+    // we only need keep add the first link.
+    private Set<Variable> computeRedundantModificationLinks(Links.Builder builder,
+                                                            Map<Variable, Set<Variable>> modificationCompletionGuard) {
+        Map<Variable, Set<Variable>> completions = new HashMap<>();
+        builder.forEach(link -> {
+            if (Util.isVirtualModification(link.to()) && link.linkNature().isIdenticalTo()) {
+                completions.put(link.to(), completion(modificationCompletionGuard, link.to()));
+            }
+        });
+        Set<Variable> redundantTo = new HashSet<>();
+        for (Map.Entry<Variable, Set<Variable>> entry : completions.entrySet()) {
+            redundantTo.addAll(entry.getValue());
+        }
+        builder.forEach(link -> {
+            if (completions.containsKey(link.to())) {
+                Set<Variable> toSet = modificationCompletionGuard.get(link.to());
+                if (toSet == null || !toSet.contains(link.from())) {
+                    modificationCompletionGuard.computeIfAbsent(link.from(), _ -> new HashSet<>())
+                            .add(link.to());
+                }
+            }
+        });
+        builder.removeIf(link -> redundantTo.contains(link.to()));
+        return redundantTo.stream().map(Util::firstRealVariable).collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static Set<Variable> completion(Map<Variable, Set<Variable>> graph, Variable start) {
+        Set<Variable> result = new HashSet<>();
+        completion(graph, result, start);
+        return result;
+    }
+
+    private static void completion(Map<Variable, Set<Variable>> graph, Set<Variable> result, Variable start) {
+        Set<Variable> targets = graph.get(start);
+        if (targets != null) {
+            for (Variable target : targets) {
+                if (result.add(target)) {
+                    completion(graph, result, target);
+                }
+            }
+        }
     }
 
     private void handleReturnVariable(ReturnVariable rv, Links.Builder builder) {
@@ -180,6 +236,9 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                     && (ln.pass().isEmpty() || !Collections.disjoint(ln.pass(), causesOfModification))) {
                     // x.§m ≡ y.§m
                     // pass = see Iterable, whose iterator() method is @Independent(hc = true, except = "remove")
+
+                    // because we're processing the variables in order, adding to the map here provides the completion
+                    modifiedVariablesAndTheirCause.put(builder.primary(), causesOfModification);
                     return false;
                 }
                 if (ln == CONTAINS_AS_FIELD
