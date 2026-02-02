@@ -35,6 +35,8 @@ public interface Links extends Iterable<Link>, Value {
 
     Links removeIfFromTo(Predicate<Variable> predicate);
 
+    int size();
+
     Stream<Link> stream();
 
     Links merge(Links links);
@@ -70,6 +72,8 @@ public interface Links extends Iterable<Link>, Value {
 
         // return the reverse links of those replaced
         List<Link> replaceSubsetSuperset(Variable modified);
+
+        int size();
     }
 
     // methods that do something

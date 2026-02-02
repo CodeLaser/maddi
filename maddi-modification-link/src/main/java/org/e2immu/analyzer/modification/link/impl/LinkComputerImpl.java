@@ -290,8 +290,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             copyModificationsIntoMethod(allModified, inClosure, mlv);
             if (vd != null) copyDowncastIntoParameters(vd);
 
-            int n = countSourceMethods.incrementAndGet();
-            TIMED.info("Link computer: analyzed {} source methods", n);
+            countSourceMethods.incrementAndGet();
             return mlv;
         }
 
@@ -415,8 +414,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         public VariableData doStatement(Statement statement, VariableData previousVd, boolean first) {
-            TIMED.info("Do statement {} {}", methodInfo.fullyQualifiedName(), statement.source().index());
-
             Stage stageOfPrevious = first ? Stage.EVALUATION : Stage.MERGE;
             LocalVariable forEachLv;
             boolean evaluate;
@@ -519,7 +516,21 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
-
+            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}",
+                    countSourceMethods.get(),
+                    methodInfo.fullyQualifiedName(),
+                    statement.source().index(), graph.size(), wr.newLinksSize());
+           /* if (wr.newLinksSize() > 1000) {
+                double fraction = (double) wr.newLinksSize() / (graph.size() * graph.size());
+                if (fraction > 0.4) {
+                    LOGGER.error("Do statement {} {} graph size {}, sum of links {}\n\n", methodInfo.fullyQualifiedName(),
+                            statement.source().index(), graph.size(), wr.newLinksSize());
+                    for (Map.Entry<Variable, Links> entry : wr.newLinks().entrySet()) {
+                        LOGGER.error("{} -> {}", entry.getKey(), entry.getValue());
+                    }
+                    throw new UnsupportedOperationException();
+                }
+            }*/
             writeCasts(r == null ? new HashMap<>() : r.casts(), previousVd, stageOfPrevious, vd);
 
             if (statement.hasSubBlocks()) {

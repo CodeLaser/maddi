@@ -32,25 +32,25 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                                  VirtualFieldComputer virtualFieldComputer) {
     private static final Logger LOGGER = LoggerFactory.getLogger(WriteLinksAndModification.class);
 
-    record WriteResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData) {
+    record WriteResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData, int newLinksSize) {
     }
 
     @NotNull WriteResult go(Statement statement,
                             VariableData vd,
                             Set<Variable> previouslyModified,
                             Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation,
-                            Map<Variable , Map<Variable , LinkNature>> graph) {
+                            Map<Variable, Map<Variable, LinkNature>> graph) {
 
         // do the first iteration
         LoopResult lr = loopOverVd(vd, statement, graph, previouslyModified, modifiedDuringEvaluation);
         if (!lr.redo) {
-            return new WriteResult(lr.newLinkedVariables, lr.unmarkedModifications);
+            return new WriteResult(lr.newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
         }
 
         // do a second iteration, we have changed some of the operations because of a modification
         // (⊆ becomes ~ after List.add(...) e.g. See TestConstructor,1)
         LinkGraph linkGraph = new LinkGraph(javaInspector, runtime, false);
-        Map<Variable , Map<Variable , LinkNature>> graph2 = linkGraph.makeGraph(lr.newLinkedVariables, Set.of());
+        Map<Variable, Map<Variable, LinkNature>> graph2 = linkGraph.makeGraph(lr.newLinkedVariables, Set.of());
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Recomputed bi-directional graph for local:\n{}", printGraph(graph2));
         }
@@ -68,17 +68,18 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
             newLinkedVariables.put(variable, builder.build());
         }
-        return new WriteResult(newLinkedVariables, lr.unmarkedModifications);
+        return new WriteResult(newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
     }
 
     private record LoopResult(boolean redo,
                               Set<Variable> unmarkedModifications,
-                              Map<Variable, Links> newLinkedVariables) {
+                              Map<Variable, Links> newLinkedVariables,
+                              int newLinksSize) {
     }
 
     private LoopResult loopOverVd(VariableData vd,
                                   Statement statement,
-                                  Map<Variable , Map<Variable , LinkNature>> graph,
+                                  Map<Variable, Map<Variable, LinkNature>> graph,
                                   Set<Variable> previouslyModified,
                                   Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
         Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
@@ -94,13 +95,17 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
             if (builder != null) builder.removeIf(l -> l.equals(link));
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
-        newLinkedVariables.forEach((v, b) -> builtNewLinkedVariables.put(v, b.build()));
-        return new LoopResult(!toRemove.isEmpty(), unmarkedModifications, builtNewLinkedVariables);
+        int sum = newLinkedVariables.entrySet().stream().mapToInt(e -> {
+            Links links = e.getValue().build();
+            builtNewLinkedVariables.put(e.getKey(), links);
+            return links.size();
+        }).sum();
+        return new LoopResult(!toRemove.isEmpty(), unmarkedModifications, builtNewLinkedVariables, sum);
     }
 
 
     private List<Link> doVariableReturnRecompute(Statement statement,
-                                                 Map<Variable , Map<Variable , LinkNature>> graph,
+                                                 Map<Variable, Map<Variable, LinkNature>> graph,
                                                  VariableInfo vi,
                                                  Set<Variable> unmarkedModifications,
                                                  Set<Variable> previouslyModified,
