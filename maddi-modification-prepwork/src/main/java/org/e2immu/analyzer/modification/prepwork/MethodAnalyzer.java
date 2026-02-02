@@ -375,17 +375,17 @@ public class MethodAnalyzer {
 
     void doInitializerExpression(FieldInfo fieldInfo) {
         Expression expression = fieldInfo.initializer();
-        VariableDataImpl vd = new VariableDataImpl();
+        VariableDataImpl.Builder vdb = new VariableDataImpl.Builder();
         if (!expression.isEmpty()) {
             InternalVariables iv = new InternalVariables();
             Visitor v = new Visitor("0", Set.of(), expression, null, null, null, iv);
             expression.visit(v);
             ReadWriteData readWriteData = new ReadWriteData(null, v.seenFirstTime, v.accessorSeenFirstTime,
                     v.read, v.assigned, v.restrictToScope);
-            fromReadWriteDataIntoVd(readWriteData, false, vd, iv,
+            fromReadWriteDataIntoVd(readWriteData, false, vdb, iv,
                     null, null, "0");
         }
-        fieldInfo.analysisOfInitializer().set(VariableDataImpl.VARIABLE_DATA, vd);
+        fieldInfo.analysisOfInitializer().set(VariableDataImpl.VARIABLE_DATA, vdb.build());
     }
 
     private VariableData doStatement(MethodInfo methodInfo,
@@ -395,21 +395,21 @@ public class MethodAnalyzer {
                                      InternalVariables ivIn) {
         InternalVariables iv = new InternalVariables(ivIn);
         String index = statement.source().index();
-        VariableDataImpl vdi = new VariableDataImpl();
-        ReadWriteData readWriteData = analyzeEval(methodInfo, previous, vdi, index, statement, iv);
+        VariableDataImpl.Builder vdbuilder = new VariableDataImpl.Builder();
+        ReadWriteData readWriteData = analyzeEval(methodInfo, previous, vdbuilder, index, statement, iv);
         boolean hasMerge = statement.hasSubBlocks();
         Stage stageOfPrevious = first ? Stage.EVALUATION : Stage.MERGE;
 
-        fromReadWriteDataIntoVd(readWriteData, hasMerge, vdi, iv, previous, stageOfPrevious, index);
+        fromReadWriteDataIntoVd(readWriteData, hasMerge, vdbuilder, iv, previous, stageOfPrevious, index);
 
         iv.handleStatement(index, statement);
 
         if (statement instanceof SwitchStatementOldStyle oss) {
-            doOldStyleSwitchBlock(methodInfo, oss, vdi, iv);
+            doOldStyleSwitchBlock(methodInfo, oss, vdbuilder, iv);
         } else {
             // sub-blocks
             if (statement.hasSubBlocks()) {
-                Map<String, VariableData> lastOfEachSubBlock = doBlocks(methodInfo, statement, vdi, iv);
+                Map<String, VariableData> lastOfEachSubBlock = doBlocks(methodInfo, statement, vdbuilder, iv);
 
                 boolean noBreakStatementsInside;
                 if (statement instanceof LoopStatement) {
@@ -417,32 +417,23 @@ public class MethodAnalyzer {
                 } else {
                     noBreakStatementsInside = false;
                 }
-                addMerge(index, statement, vdi, noBreakStatementsInside, lastOfEachSubBlock, iv, Map.of());
+                addMerge(index, statement, vdbuilder, noBreakStatementsInside, lastOfEachSubBlock, iv, Map.of());
             }
         }
         iv.endHandleStatement(statement);
 
-        statement.analysis().set(VariableDataImpl.VARIABLE_DATA, vdi);
-        return vdi;
+        VariableDataImpl vd = vdbuilder.build();
+        statement.analysis().set(VariableDataImpl.VARIABLE_DATA, vd);
+        return vd;
     }
 
     private void fromReadWriteDataIntoVd(ReadWriteData readWriteData,
                                          boolean hasMerge,
-                                         VariableDataImpl vdi,
+                                         VariableDataImpl.Builder vdBuilder,
                                          InternalVariables iv,
                                          VariableData previousVd,
                                          Stage stageOfPrevious,
                                          String index) {
-        readWriteData.seenFirstTime.forEach((v, i) -> {
-            VariableInfoContainer vic = initialVariable(i, v, readWriteData, previousVd, iv,
-                    hasMerge && localComponents(v).isEmpty());
-            vdi.put(v, vic);
-            String limitedScope = readWriteData.restrictToScope.get(v);
-            if (limitedScope != null) {
-                assert iv.parent != null;
-                iv.parent.limitedScopeOfPatternVariablesPut(v, i, limitedScope);
-            }
-        });
 
         Stream<VariableInfoContainer> streamOfPrevious;
         if (previousVd == null) {
@@ -457,19 +448,33 @@ public class MethodAnalyzer {
             VariableData closureVic = iv.closure.get(variable.fullyQualifiedName());
             if (closureVic != null ||
                 Util.inScopeOf(indexOfDefinition, index) && iv.acceptLimitedScope(previousVd, vi.variable(), indexOfDefinition, index)) {
-                if (!vdi.isKnown(variable.fullyQualifiedName())) {
+                if (!vdBuilder.isKnown(variable.fullyQualifiedName())
+                    && !readWriteData.seenFirstTime.containsKey(variable)
+                    && !readWriteData.accessorSeenFirstTime.containsKey(variable)) {
                     VariableInfoImpl eval = new VariableInfoImpl(variable, readWriteData.assignmentIds(variable, vi),
                             readWriteData.isRead(variable, vi), closureVic);
                     boolean specificHasMerge = hasMerge && !readWriteData.seenFirstTime.containsKey(variable);
                     VariableInfoContainer newVic = new VariableInfoContainerImpl(variable, vic.variableNature(),
                             Either.left(vic), eval, specificHasMerge);
-                    vdi.put(variable, newVic);
+                    vdBuilder.put(variable, newVic);
                 } // e.g. a variable from outer shadowed in a lambda
             }
         });
 
+
+        readWriteData.seenFirstTime.forEach((v, i) -> {
+            VariableInfoContainer vic = initialVariable(i, v, readWriteData, previousVd, iv,
+                    hasMerge && localComponents(v).isEmpty());
+            vdBuilder.put(v, vic);
+            String limitedScope = readWriteData.restrictToScope.get(v);
+            if (limitedScope != null) {
+                assert iv.parent != null;
+                iv.parent.limitedScopeOfPatternVariablesPut(v, i, limitedScope);
+            }
+        });
+
         readWriteData.accessorSeenFirstTime
-                .entrySet().stream().filter(e -> !vdi.isKnown(e.getKey().fullyQualifiedName()))
+                .entrySet().stream().filter(e -> !vdBuilder.isKnown(e.getKey().fullyQualifiedName()))
                 .forEach(e -> {
                     String i = e.getValue();
                     Variable v = e.getKey();
@@ -479,7 +484,7 @@ public class MethodAnalyzer {
                     VariableInfoImpl eval = new VariableInfoImpl(v, readWriteData.assignmentIds(v, initial), reads, null);
                     VariableInfoContainer vic = new VariableInfoContainerImpl(v, NormalVariableNature.INSTANCE,
                             Either.right(initial), eval, false);
-                    vdi.put(v, vic);
+                    vdBuilder.put(v, vic);
                 });
     }
 
@@ -491,7 +496,7 @@ public class MethodAnalyzer {
      */
     private void doOldStyleSwitchBlock(MethodInfo methodInfo,
                                        SwitchStatementOldStyle oss,
-                                       VariableDataImpl vdOfParent,
+                                       VariableDataImpl.Builder vdOfParent,
                                        InternalVariables iv) {
         Set<String> startOfNewLabels = oss.switchLabelMap().keySet();
         String index = oss.source().index();
@@ -571,12 +576,12 @@ public class MethodAnalyzer {
      */
     private void addMerge(String index,
                           Statement statement,
-                          VariableDataImpl vdStatement,
+                          VariableDataImpl.Builder vdStatement,
                           boolean noBreakStatementsInside,
                           Map<String, VariableData> lastOfEachSubBlock,
                           InternalVariables iv,
                           Map<String, List<VariableData>> fallThroughRecord) {
-        Map<Variable, Map<String, VariableInfo>> map = new HashMap<>();
+        Map<Variable, Map<String, VariableInfo>> map = new LinkedHashMap<>();
         for (Map.Entry<String, VariableData> entry : lastOfEachSubBlock.entrySet()) {
             String subIndex = entry.getKey();
             VariableData vd = entry.getValue();
@@ -818,11 +823,11 @@ public class MethodAnalyzer {
         String index;
         int inNegative;
 
-        final Map<Variable, List<String>> read = new HashMap<>();
-        final Map<Variable, List<String>> assigned = new HashMap<>();
-        final Map<Variable, String> seenFirstTime = new HashMap<>();
-        final Map<Variable, String> accessorSeenFirstTime = new HashMap<>();
-        final Map<Variable, String> restrictToScope = new HashMap<>();
+        final Map<Variable, List<String>> read = new LinkedHashMap<>();
+        final Map<Variable, List<String>> assigned = new LinkedHashMap<>();
+        final Map<Variable, String> seenFirstTime = new LinkedHashMap<>();
+        final Map<Variable, String> accessorSeenFirstTime = new LinkedHashMap<>();
+        final Map<Variable, String> restrictToScope = new LinkedHashMap<>();
         final Set<String> knownVariableNames;
         final Element statement;
         final VariableData previousVariableData;

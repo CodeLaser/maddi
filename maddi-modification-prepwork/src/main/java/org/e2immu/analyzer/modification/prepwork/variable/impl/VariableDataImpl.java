@@ -14,24 +14,71 @@
 
 package org.e2immu.analyzer.modification.prepwork.variable.impl;
 
-import org.e2immu.analyzer.modification.prepwork.variable.Stage;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
-import org.e2immu.support.SetOnceMap;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.SequencedMap;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class VariableDataImpl implements VariableData {
-    public static final PropertyImpl VARIABLE_DATA = new PropertyImpl("variableData", new VariableDataImpl());
+    public static final PropertyImpl VARIABLE_DATA = new PropertyImpl("variableData",
+            new VariableDataImpl(new LinkedHashMap<>()));
 
-    private final SetOnceMap<String, VariableInfoContainer> vicByFqn = new SetOnceMap<>();
+    public static class Builder implements VariableData {
+        // we employ a linkedHashMap to keep the order of creation, with this first, then fields, then parameters,
+        // followed by local variables
+        private final LinkedHashMap<String, VariableInfoContainer> vicByFqn = new LinkedHashMap<>();
+
+        @Override
+        public Set<String> knownVariableNames() {
+            return Set.copyOf(vicByFqn.keySet());
+        }
+
+        public boolean isKnown(String fqn) {
+            return vicByFqn.containsKey(fqn);
+        }
+
+        @Override
+        public boolean isDefault() {
+            return vicByFqn.isEmpty();
+        }
+
+        public void put(Variable v, VariableInfoContainer vic) {
+            vicByFqn.put(v.fullyQualifiedName(), vic);
+        }
+
+        public VariableDataImpl build() {
+            return new VariableDataImpl(vicByFqn);
+        }
+
+        @Override
+        public VariableInfoContainer variableInfoContainerOrNull(String fullyQualifiedName) {
+            return vicByFqn.get(fullyQualifiedName);
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            throw new UnsupportedOperationException("Builder cannot be encoded, must be built first");
+        }
+
+        @Override
+        public Stream<VariableInfoContainer> variableInfoContainerStream() {
+            return vicByFqn.values().stream();
+        }
+    }
+
+    private final SequencedMap<String, VariableInfoContainer> vicByFqn;
+
+    private VariableDataImpl(LinkedHashMap<String, VariableInfoContainer> map) {
+        this.vicByFqn = Collections.unmodifiableSequencedMap(map);
+    }
 
     @Override
     public boolean isDefault() {
@@ -45,57 +92,22 @@ public class VariableDataImpl implements VariableData {
 
     @Override
     public boolean isKnown(String fullyQualifiedName) {
-        return vicByFqn.isSet(fullyQualifiedName);
+        return vicByFqn.containsKey(fullyQualifiedName);
     }
 
     @Override
     public VariableInfoContainer variableInfoContainerOrNull(String fullyQualifiedName) {
-        return vicByFqn.getOrDefaultNull(fullyQualifiedName);
-    }
-
-    @Override
-    public VariableInfo variableInfo(String fqn) {
-        return vicByFqn.get(fqn).best(Stage.MERGE);
-    }
-
-    public void put(Variable v, VariableInfoContainer vic) {
-        vicByFqn.put(v.fullyQualifiedName(), vic);
+        return vicByFqn.get(fullyQualifiedName);
     }
 
     @Override
     public Stream<VariableInfoContainer> variableInfoContainerStream() {
-        return vicByFqn.valueStream();
+        return vicByFqn.values().stream();
     }
 
     @Override
     public Set<String> knownVariableNames() {
-        return vicByFqn.keyStream().collect(Collectors.toUnmodifiableSet());
-    }
-
-    @Override
-    public String knownVariableNamesToString() {
-        return knownVariableNames().stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
-    }
-
-    @Override
-    public Iterable<VariableInfo> variableInfoIterable(Stage stage) {
-        Stream<VariableInfo> stream = vicByFqn.valueStream().map(vic -> vic.best(stage));
-        return stream::iterator;
-    }
-
-    @Override
-    public Stream<VariableInfo> variableInfoStream(Stage stage) {
-        return vicByFqn.valueStream().map(vic -> vic.best(stage));
-    }
-
-    @Override
-    public VariableInfo variableInfo(Variable variable, Stage stage) {
-        return vicByFqn.get(variable.fullyQualifiedName()).best(stage);
-    }
-
-    @Override
-    public VariableInfo variableInfo(String fullyQualifiedName, Stage stage) {
-        return vicByFqn.get(fullyQualifiedName).best(stage);
+        return vicByFqn.keySet();
     }
 
     public static VariableData of(Element element) {

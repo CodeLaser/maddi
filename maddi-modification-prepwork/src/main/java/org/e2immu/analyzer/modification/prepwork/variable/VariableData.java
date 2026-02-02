@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public interface VariableData extends Value {
@@ -25,10 +26,13 @@ public interface VariableData extends Value {
 
     boolean isKnown(String fullyQualifiedName);
 
-    String knownVariableNamesToString();
+    default String knownVariableNamesToString() {
+        return knownVariableNames().stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
+    }
 
-    @org.e2immu.annotation.NotNull
-    VariableInfo variableInfo(String fullyQualifiedName);
+    default VariableInfo variableInfo(String fullyQualifiedName) {
+        return variableInfoContainerOrNull(fullyQualifiedName).best();
+    }
 
     default String indexOfDefinitionOrNull(Variable variable) {
         VariableInfoContainer vic = variableInfoContainerOrNull(variable.fullyQualifiedName());
@@ -40,9 +44,13 @@ public interface VariableData extends Value {
         return variableInfo(variable, Stage.MERGE);
     }
 
-    VariableInfo variableInfo(Variable variable, Stage stage);
+    default VariableInfo variableInfo(Variable variable, Stage stage) {
+        return variableInfoContainerOrNull(variable.fullyQualifiedName()).best(stage);
+    }
 
-    VariableInfo variableInfo(String fullyQualifiedName, Stage stage);
+    default VariableInfo variableInfo(String fullyQualifiedName, Stage stage) {
+        return variableInfoContainerOrNull(fullyQualifiedName).best(stage);
+    }
 
     VariableInfoContainer variableInfoContainerOrNull(String fullyQualifiedName);
 
@@ -52,11 +60,16 @@ public interface VariableData extends Value {
         return variableInfoIterable(Stage.MERGE);
     }
 
-    Iterable<VariableInfo> variableInfoIterable(Stage stage);
+    default Iterable<VariableInfo> variableInfoIterable(Stage stage) {
+        Stream<VariableInfo> stream = variableInfoContainerStream().map(vic -> vic.best(stage));
+        return stream::iterator;
+    }
 
     default Stream<VariableInfo> variableInfoStream() {
         return variableInfoStream(Stage.MERGE);
     }
 
-    Stream<VariableInfo> variableInfoStream(Stage stage);
+    default Stream<VariableInfo> variableInfoStream(Stage stage) {
+        return variableInfoContainerStream().map(vic -> vic.best(stage));
+    }
 }
