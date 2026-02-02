@@ -199,6 +199,22 @@ public class Util {
         return variable;
     }
 
+    // to avoid TimSort problems
+    public static int isPartOfComparator(Variable v1, Variable v2) {
+        if (v1 instanceof FieldReference fr1 && v2 instanceof FieldReference fr2) {
+            int c = fr1.fieldInfo().simpleName().compareTo(fr2.fieldInfo().simpleName());
+            if (c != 0) return c;
+            if (fr1.scopeVariable() != null && fr2.scopeVariable() != null) {
+                return isPartOfComparator(fr1.scopeVariable(), fr2.scopeVariable());
+            }
+        }
+        if (v1 instanceof DependentVariable dv1 && v2 instanceof DependentVariable dv2) {
+            int c = isPartOfComparator(dv1.arrayVariable(), dv2.arrayVariable());
+            if (c != 0) return c;
+        }
+        return v1.fullyQualifiedName().compareTo(v2.fullyQualifiedName());
+    }
+
     public static boolean isPartOf(Variable base, Variable sub) {
         if (base.equals(sub)) return true;
         if (sub instanceof FieldReference fr) {
