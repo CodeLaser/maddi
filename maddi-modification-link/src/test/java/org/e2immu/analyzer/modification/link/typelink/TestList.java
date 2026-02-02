@@ -332,6 +332,7 @@ public class TestList extends CommonTest {
         assertEquals("[-] --> method1.§$s⊆0:in.§$s,method1.§m≡0:in.§m", mlv1.toString());
 
         MethodInfo method2 = X.findUniqueMethod("method2", 1);
+        ParameterInfo in = method2.parameters().getFirst();
         MethodLinkedVariables mlv2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
 
         VariableData vd2 = VariableDataImpl.of(method2.methodBody().statements().get(2));
@@ -340,10 +341,21 @@ public class TestList extends CommonTest {
         assertEquals("""
                 intermediate2.§$s←intermediate1.§$s,\
                 intermediate2.§$s⊆0:in.§$s,\
-                intermediate2.§m≡0:in.§m,\
                 intermediate2.§m≡intermediate1.§m,\
                 intermediate2←intermediate1\
                 """, viIntermediate2.linkedVariables().toString());
+        VariableInfo viIntermediate1 = vd2.variableInfo("intermediate1");
+        assertEquals("""
+                intermediate1.§$s→intermediate2.§$s,intermediate1.§$s⊆0:in.§$s,\
+                intermediate1.§m≡0:in.§m,\
+                intermediate1.§m≡intermediate2.§m,\
+                intermediate1→intermediate2\
+                """, viIntermediate1.linkedVariables().toString());
+        VariableInfo viIn = vd2.variableInfo(in);
+        assertEquals("""
+                0:in.§$s⊇intermediate1.§$s,0:in.§$s⊇intermediate2.§$s,\
+                0:in.§m≡intermediate1.§m\
+                """, viIn.linkedVariables().toString());
         assertEquals("[-] --> method2.§$s⊆0:in.§$s,method2.§m≡0:in.§m", mlv2.toString());
     }
 

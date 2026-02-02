@@ -262,6 +262,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         var fromList = graph.keySet().stream()
                 .filter(v -> Util.isPartOf(primary, v))
                 .sorted((v1, v2) -> {
+                    if (v1.equals(v2)) return 0;
                     if (Util.isPartOf(v1, v2)) return 1;
                     if (Util.isPartOf(v2, v1)) return -1;
                     return Util.isPartOfComparator(v1, v2);
