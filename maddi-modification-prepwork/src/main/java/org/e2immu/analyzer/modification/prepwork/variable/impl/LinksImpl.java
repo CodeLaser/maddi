@@ -44,6 +44,11 @@ public class LinksImpl implements Links {
     }
 
     @Override
+    public int size() {
+        return linkSet.size();
+    }
+
+    @Override
     public Variable primary() {
         return primary;
     }
@@ -231,6 +236,11 @@ public class LinksImpl implements Links {
 
         public Links build() {
             return new LinksImpl(primary, List.copyOf(links));
+        }
+
+        @Override
+        public int size() {
+            return links.size();
         }
     }
 
