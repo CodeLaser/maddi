@@ -14,7 +14,10 @@
 
 package org.e2immu.analyzer.modification.prepwork.variable.impl;
 
-import org.e2immu.analyzer.modification.prepwork.variable.*;
+import org.e2immu.analyzer.modification.prepwork.variable.Stage;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableInfoContainer;
+import org.e2immu.analyzer.modification.prepwork.variable.VariableNature;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.support.Either;
 import org.e2immu.support.SetOnce;
@@ -38,7 +41,7 @@ public class VariableInfoContainerImpl implements VariableInfoContainer {
         this.merge = haveMerge ? new SetOnce<>() : null;
         assert evaluation == null || evaluation.variable() == variable;
         assert previousOrInitial.isLeft() && previousOrInitial.getLeft().variable() == variable
-                || previousOrInitial.isRight() && previousOrInitial.getRight().variable() == variable;
+               || previousOrInitial.isRight() && previousOrInitial.getRight().variable() == variable;
     }
 
     public void setMerge(VariableInfoImpl merge) {
@@ -116,13 +119,10 @@ public class VariableInfoContainerImpl implements VariableInfoContainer {
     }
 
     @Override
-    public VariableInfo getRecursiveInitialOrNull() {
+    public VariableInfo getRecursiveInitial() {
         if (previousOrInitial.isRight()) return previousOrInitial.getRight();
         VariableInfoContainer previous = previousOrInitial.getLeft();
-        if (!previous.hasEvaluation() && (stageForPrevious() == Stage.EVALUATION || !previous.hasMerge())) {
-            return previous.getRecursiveInitialOrNull();
-        }
-        return null;
+        return previous.getRecursiveInitial();
     }
 
     private Stage stageForPrevious() {
