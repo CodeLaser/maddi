@@ -271,12 +271,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             List<Links> ofParameters = methodInfo.parameters().stream()
                     .map(pi -> filteredPi(pi, paramsInOfReturnValue, vd)).toList();
             Set<Variable> inClosure = vd == null ? Set.of()
-                    : vd.variableInfoStream().filter(vi -> vi.variableInfoInClosure() != null)
+                    : vd.variableInfoStream()
+                    .filter(VariableInfo::isVariableInClosure)
                     .map(VariableInfo::variable).collect(Collectors.toUnmodifiableSet());
             Set<Variable> modified = vd == null ? Set.of()
                     : vd.variableInfoStream()
                     .filter(vi -> !vi.variable().equals(returnVariable)
-                                  && (vi.variableInfoInClosure() != null
+                                  && (vi.isVariableInClosure()
                                       || LinkVariable.acceptForLinkedVariables(vi.variable())))
                     .filter(VariableInfo::isModified)
                     .map(VariableInfo::variable)
