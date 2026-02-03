@@ -13,6 +13,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -139,7 +140,9 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                            && Collections.disjoint(modifiedInThisEvaluation.keySet(), completion)
                            && notLinkedToModified(builder, modifiedInThisEvaluation));
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
-
+            if (variable instanceof This) {
+                builder.removeIf(l -> !(l.from() instanceof This));
+            }
             Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
             vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
 

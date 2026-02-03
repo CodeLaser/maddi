@@ -273,9 +273,7 @@ public class TestMap extends CommonTest {
         assertFalse(thisMap2E.isModified());
 
         VariableInfo this2E = vd2.variableInfo("a.b.C.this", Stage.EVALUATION);
-        assertEquals("""
-                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,this.map.§m≡entries.§m\
-                """, this2E.linkedVariables().toString());
+        assertTrue(this2E.linkedVariables().isEmpty());
         assertFalse(this2E.isModified());
 
         // statement 2.0.0
@@ -308,10 +306,7 @@ public class TestMap extends CommonTest {
         assertFalse(thisMap200.isModified());
 
         VariableInfo this200 = vd200.variableInfo("a.b.C.this");
-        assertEquals("""
-                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,this.map.§kvs~map.§vks,this.map.§kvs≥entry.§kv.§k,\
-                this.map.§kvs≥entry.§kv.§v,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2],this.map.§m≡entries.§m\
-                """, this200.linkedVariables().toString());
+        assertTrue(this200.linkedVariables().isEmpty());
         assertFalse(this200.isModified());
 
         VariableInfo entry200 = vd200.variableInfo("entry");
@@ -355,13 +350,7 @@ public class TestMap extends CommonTest {
                 """, thisMap2.linkedVariables().toString());
 
         VariableInfo this2 = vd2.variableInfo("a.b.C.this");
-        assertEquals("""
-                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,\
-                this.map.§m≡entries.§m,\
-                this.map.§kvs~map.§vks,\
-                this.map.§kvs≥entry.§kv.§k,this.map.§kvs≥entry.§kv.§v,this.map.§kvs∩map.§vks[-1],\
-                this.map.§kvs∩map.§vks[-2]\
-                """, this2.linkedVariables().toString());
+        assertNull(this2.linkedVariables());
         assertFalse(this2.isModified());
 
         VariableInfo entry2 = vd2.variableInfo("entry", Stage.MERGE);
