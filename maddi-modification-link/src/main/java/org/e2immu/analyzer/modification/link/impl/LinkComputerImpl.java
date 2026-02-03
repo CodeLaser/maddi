@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.ExpressionVisitor.EMPTY;
+import static org.e2immu.analyzer.modification.link.impl.LinkGraph.followGraph;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.DOWNCAST_VARIABLE;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
@@ -92,6 +94,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final AtomicInteger propertiesChanged;
     private final AtomicInteger variableCounter = new AtomicInteger();
     private final AtomicInteger countSourceMethods = new AtomicInteger();
+    private final VirtualFieldComputer virtualFieldComputer;
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -107,7 +110,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.recursionPrevention = new RecursionPrevention(options.recurse());
         this.javaInspector = javaInspector;
         this.options = options;
-        VirtualFieldComputer virtualFieldComputer = new VirtualFieldComputer(javaInspector);
+        this.virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
         this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames());
         this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, javaInspector.runtime(), virtualFieldComputer);
@@ -542,7 +545,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 handleSubBlocks(statement, vd);
             }
             if (r != null) {
-                writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
+                writeOutMethodCallAnalysis(r.writeMethodCalls(), vd, graph);
             }
             return vd;
         }
@@ -591,15 +594,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void writeOutMethodCallAnalysis(List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
-                                                VariableData vd) {
+                                                VariableData vd,
+                                                Map<Variable, Map<Variable, LinkNature>> graph) {
             for (ExpressionVisitor.WriteMethodCall wmc : writeMethodCalls) {
                 // rather than taking the links in wmc, we want the fully expanded links
                 // (after running copyEvalIntoVariableData)
                 Map<Variable, Boolean> variablesLinkedToObject = new HashMap<>();
                 for (Link l : wmc.linksFromObject()) {
-                    addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject);
+                    addToVariablesLinkedToObject(vd, graph, l.to(), variablesLinkedToObject);
                 }
-                addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
+                addToVariablesLinkedToObject(vd, graph, wmc.linksFromObject().primary(), variablesLinkedToObject);
                 if (!variablesLinkedToObject.isEmpty()
                     // only write once, no point because actual variables in links will not change
                     && !wmc.methodCall().analysis().haveAnalyzedValueFor(VARIABLES_LINKED_TO_OBJECT)) {
@@ -615,29 +619,34 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
         }
 
-        private static void addToVariablesLinkedToObject(VariableData vd,
-                                                         Variable sub,
-                                                         Map<Variable, Boolean> variablesLinkedToObject) {
+        private void addToVariablesLinkedToObject(VariableData vd,
+                                                  Map<Variable, Map<Variable, LinkNature>> graph,
+                                                  Variable sub,
+                                                  Map<Variable, Boolean> variablesLinkedToObject) {
             Variable primary = Util.primary(sub);
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);
-                Links links = viPrimary.linkedVariablesOrEmpty();
+                Links links = followGraph(virtualFieldComputer, graph, viPrimary.variable()).build();
                 for (Link link : links) {
                     if (!link.linkNature().isIdenticalTo()) {
                         for (Variable v : Util.goUp(link.from())) {
-                            if (!Util.virtual(v)) {
+                            if (acceptForVL2O(v)) {
                                 variablesLinkedToObject.put(v, true);
                             }
                         }
                         for (Variable v : Util.goUp(link.to())) {
-                            if (!Util.virtual(v)) {
+                            if (acceptForVL2O(v)) {
                                 variablesLinkedToObject.put(v, false);
                             }
                         }
-                    } // TODO exclude other links? See TestVariablesLinkedToObject,1
+                    }
                 }
             }
+        }
+
+        private static boolean acceptForVL2O(Variable v) {
+            return !Util.virtual(v) && !(v instanceof MarkerVariable) && !(v instanceof IntermediateVariable);
         }
 
         private void handleSubBlocks(Statement statement, VariableData vd) {
