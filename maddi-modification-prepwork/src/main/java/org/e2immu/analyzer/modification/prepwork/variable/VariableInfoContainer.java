@@ -14,7 +14,6 @@
 
 package org.e2immu.analyzer.modification.prepwork.variable;
 
-import org.e2immu.annotation.Modified;
 import org.e2immu.annotation.NotNull;
 import org.e2immu.language.cst.api.variable.Variable;
 
@@ -77,7 +76,7 @@ public interface VariableInfoContainer {
     boolean isRecursivelyInitial();
 
     @NotNull
-    VariableInfo getRecursiveInitialOrNull();
+    VariableInfo getRecursiveInitial();
 
     VariableInfo bestCurrentlyComputed();
 

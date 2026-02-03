@@ -725,7 +725,7 @@ public class MethodAnalyzer {
         }
         VariableInfoContainer viPrevious = previousVd != null ? previousVd.variableInfoContainerOrNull(v.fullyQualifiedName()) : null;
         if (viPrevious != null) {
-            VariableInfo recursiveInitialOrNull = viPrevious.getRecursiveInitialOrNull();
+            VariableInfo recursiveInitialOrNull = viPrevious.getRecursiveInitial();
             if (recursiveInitialOrNull != null) {
                 return recursiveInitialOrNull.assignments().indexOfDefinition();
             }
