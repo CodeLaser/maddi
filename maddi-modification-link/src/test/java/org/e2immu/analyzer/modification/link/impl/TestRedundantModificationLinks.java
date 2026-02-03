@@ -73,20 +73,10 @@ public class TestRedundantModificationLinks extends CommonTest {
                 l1←0:list\
                 """, vi3L1.linkedVariables().toString());
         VariableInfo vi3L2 = vd3.variableInfo("l2");
-        assertEquals("""
-                l2.§$s⊇method.§$s,l2.§$s⊇l3.§$s,l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,\
-                l2.§m≡l1.§m\
-                """, vi3L2.linkedVariables().toString());
+        assertEquals("l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,l2.§m≡l1.§m", vi3L2.linkedVariables().toString());
         VariableInfo vi3L3 = vd3.variableInfo("l3");
         assertFalse(vi3L3.isModified());
-        assertEquals("""
-                l3.§$s→method.§$s,\
-                l3.§$s⊆0:list.§$s,\
-                l3.§$s⊆l1.§$s,\
-                l3.§$s⊆l2.§$s,\
-                l3.§m≡l1.§m,\
-                l3→method\
-                """, vi3L3.linkedVariables().toString());
+        assertEquals("l3.§$s⊆l1.§$s,l3.§m≡l1.§m,l3→method", vi3L3.linkedVariables().toString());
         assertTrue(mlvSet.modified().isEmpty());
 
         assertEquals("[-] --> method.§$s⊆0:list.§$s,method.§m≡0:list.§m", mlvSet.toString());

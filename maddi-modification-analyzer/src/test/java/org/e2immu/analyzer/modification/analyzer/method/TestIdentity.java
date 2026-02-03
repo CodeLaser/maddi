@@ -153,7 +153,7 @@ public class TestIdentity extends CommonTest {
         VariableData vd = VariableDataImpl.of(method.methodBody().lastStatement());
         VariableInfo viRv = vd.variableInfo(method.fullyQualifiedName());
         assertEquals("D:-, A:[1.0.0, 3]", viRv.assignments().toString());
-        assertEquals("method→1:num,method←0:amb", viRv.linkedVariables().toString());
+        assertEquals("method←0:amb,method←1:num", viRv.linkedVariables().toString());
 
         assertFalse(method.isIdentity());
     }

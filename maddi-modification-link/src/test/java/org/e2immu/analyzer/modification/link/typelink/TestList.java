@@ -164,7 +164,6 @@ public class TestList extends CommonTest {
                 """, tlvMethod.toString());
     }
 
-
     @Test
     public void testShallow2() {
         TypeInfo X = javaInspector.parse(INPUT2);

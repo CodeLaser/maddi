@@ -16,16 +16,17 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TestRedundantModificationLinks extends CommonTest {
+public class TestRedundantLinks extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
+            import java.util.ArrayList;
             import java.util.List;
             public class X {
                 List<String> method(List<String> list) {
-                    List<String> l1 = list;
-                    List<String> l2 = l1.subList(0, 10);
-                    List<String> l3 = l2.subList(0, 10);
+                    List<String> l1 = new ArrayList<>(list);
+                    List<String> l2 = new ArrayList<>(l1);
+                    List<String> l3 = new ArrayList<>(l2);
                     return l3;
                 }
             }
@@ -46,50 +47,36 @@ public class TestRedundantModificationLinks extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo vi0L1 = vd0.variableInfo("l1");
-        assertEquals("l1←0:list,l1.§m≡0:list.§m", vi0L1.linkedVariables().toString());
+        assertEquals("l1.§$s⊆0:list.§$s", vi0L1.linkedVariables().toString());
         VariableInfo vi0List = vd0.variableInfo(list);
-        assertEquals("0:list→l1,0:list.§m≡l1.§m", vi0List.linkedVariables().toString());
+        assertEquals("0:list.§$s⊇l1.§$s", vi0List.linkedVariables().toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         assertEquals("[l1, a.b.X.method(java.util.List<String>):0:list, l2]",
                 vd1.knownVariableNames().toString());
         VariableInfo vi1L1 = vd1.variableInfo("l1");
-        assertEquals("l1.§$s←0:list.§$s,l1.§$s⊇l2.§$s,l1.§m≡0:list.§m,l1.§m≡l2.§m,l1←0:list",
+        assertEquals("l1.§$s⊇l2.§$s,l1.§$s⊆0:list.§$s",
                 vi1L1.linkedVariables().toString());
         VariableInfo vi1List = vd1.variableInfo(list);
         // only points to l1
-        assertEquals("0:list.§$s→l1.§$s,0:list.§$s⊇l2.§$s,0:list.§m≡l1.§m,0:list→l1",
-                vi1List.linkedVariables().toString());
+        assertEquals("0:list.§$s⊇l1.§$s", vi1List.linkedVariables().toString()); // 0:list.§$s⊇l2.§$s dropped
         VariableInfo vi1L2 = vd1.variableInfo("l2");
-        assertEquals("l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,l2.§m≡l1.§m", vi1L2.linkedVariables().toString());
+        assertEquals("l2.§$s⊆l1.§$s", vi1L2.linkedVariables().toString()); // l2.§$s⊆0:list.§$s dropped
 
         VariableData vd3 = VariableDataImpl.of(method.methodBody().statements().getLast());
         VariableInfo vi3L1 = vd3.variableInfo("l1");
         assertEquals("""
-                l1.§$s←0:list.§$s,l1.§$s⊇method.§$s,l1.§$s⊇l2.§$s,l1.§$s⊇l3.§$s,l1.§m≡method.§m,\
-                l1.§m≡0:list.§m,\
-                l1.§m≡l2.§m,\
-                l1.§m≡l3.§m,\
-                l1←0:list\
+                l1.§$s⊇method.§$s,l1.§$s⊇l2.§$s,l1.§$s⊇l3.§$s,l1.§$s⊆0:list.§$s\
                 """, vi3L1.linkedVariables().toString());
         VariableInfo vi3L2 = vd3.variableInfo("l2");
-        assertEquals("""
-                l2.§$s⊇method.§$s,l2.§$s⊇l3.§$s,l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,\
-                l2.§m≡l1.§m\
-                """, vi3L2.linkedVariables().toString());
+        assertEquals("l2.§$s⊆l1.§$s", vi3L2.linkedVariables().toString());
         VariableInfo vi3L3 = vd3.variableInfo("l3");
         assertFalse(vi3L3.isModified());
-        assertEquals("""
-                l3.§$s→method.§$s,\
-                l3.§$s⊆0:list.§$s,\
-                l3.§$s⊆l1.§$s,\
-                l3.§$s⊆l2.§$s,\
-                l3.§m≡l1.§m,\
-                l3→method\
-                """, vi3L3.linkedVariables().toString());
+        assertEquals("l3.§$s⊆l1.§$s,l3→method", vi3L3.linkedVariables().toString());
+        // l3.§$s⊆0:list.§$s andl3.§$s⊆l1.§$s dropped
         assertTrue(mlvSet.modified().isEmpty());
 
-        assertEquals("[-] --> method.§$s⊆0:list.§$s,method.§m≡0:list.§m", mlvSet.toString());
+        assertEquals("[-] --> method.§$s⊆0:list.§$s", mlvSet.toString());
     }
 
 }

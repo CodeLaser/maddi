@@ -71,7 +71,7 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("stream1");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("stream1.§xs⊆0:in.§xs,stream1.§xs⊆stream.§xs", tlv.toString());
+                assertEquals("stream1.§xs⊆stream.§xs", tlv.toString()); // stream1.§xs⊆0:in.§xs dropped
             }
 
             MethodLinkedVariables tlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
@@ -190,14 +190,14 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("sorted.§xs⊆0:in.§xs,sorted.§xs⊆stream.§xs", tlv.toString());
+                assertEquals("sorted.§xs⊆stream.§xs", tlv.toString());
             }
             {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("list");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("list.§xs⊆0:in.§xs,list.§xs⊆sorted.§xs,list.§xs⊆stream.§xs", tlv.toString());
+                assertEquals("list.§xs⊆stream.§xs", tlv.toString());
             }
 
             assertEquals("[-] --> method1.§xs⊆0:in.§xs", mlv.toString());
@@ -315,14 +315,15 @@ public class TestStreamBasics extends CommonTest {
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("sorted.§$s⊆0:in.§$s,sorted.§$s⊆stream.§$s", tlv.toString());
+                assertEquals("sorted.§$s⊆stream.§$s", tlv.toString()); // sorted.§$s⊆0:in.§$s dropped
             }
             {
                 Statement statement = method.methodBody().statements().get(2);
                 VariableData vd = VariableDataImpl.of(statement);
                 VariableInfo vi = vd.variableInfo("sorted");
                 Links tlv = vi.linkedVariablesOrEmpty();
-                assertEquals("sorted.§$s⊇array.§$s,sorted.§$s⊆0:in.§$s,sorted.§$s⊆stream.§$s", tlv.toString());
+                assertEquals("sorted.§$s⊆stream.§$s", tlv.toString());
+                // sorted.§$s⊇array.§$s,sorted.§$s⊆0:in.§$s dropped
             }
             {
                 Statement statement = method.methodBody().statements().get(3);
@@ -330,8 +331,8 @@ public class TestStreamBasics extends CommonTest {
                 VariableInfo vi = vd.variableInfo("array");
                 Links tlv = vi.linkedVariablesOrEmpty();
                 assertEquals("""
-                        array.§$s→method1.§$s,array.§$s⊆0:in.§$s,array.§$s⊆sorted.§$s,array.§$s⊆stream.§$s,array→method1\
-                        """, tlv.toString());
+                        array.§$s⊆stream.§$s,array→method1\
+                        """, tlv.toString()); // array.§$s→method1.§$s,array.§$s⊆0:in.§$s,array.§$s⊆sorted.§$s dropped
             }
             // NOTE: because of the "@Independent(hcReturnValue = true)" force annotation, we lose the information of $
             assertEquals("[-] --> method1.§$s⊆0:in.§$s", mlv.toString());

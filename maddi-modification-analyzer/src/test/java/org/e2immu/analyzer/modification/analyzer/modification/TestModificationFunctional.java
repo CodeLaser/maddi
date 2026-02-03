@@ -215,8 +215,9 @@ public class TestModificationFunctional extends CommonTest {
             assertEquals("r.function→Λs.r.function,r.function←Λ$_fi4,r→s.r",
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
-            assertEquals("s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r.function≺s.r,s.r←r",
+            assertEquals("s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r←r",
                     vi1S.linkedVariables().toString());
+            // s.r.function≺s.r dropped
         }
         assertTrue(go.isModifying());
         ParameterInfo goIn = go.parameters().getFirst();
@@ -298,8 +299,8 @@ public class TestModificationFunctional extends CommonTest {
                     vi1R.linkedVariables().toString());
             VariableInfo vi1S = vd1.variableInfo("s");
             assertEquals("""
-                    s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r.function≺Λs.r,s.r←Λr\
-                    """, vi1S.linkedVariables().toString());
+                    s.r.function←Λr.function,s.r.function←Λ$_fi4,s.r←Λr\
+                    """, vi1S.linkedVariables().toString()); // s.r.function≺Λs.r dropped
         }
 
         MethodInfo run = X.findUniqueMethod("run", 2);

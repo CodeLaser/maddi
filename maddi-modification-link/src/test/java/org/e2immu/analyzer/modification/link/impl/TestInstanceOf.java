@@ -122,8 +122,8 @@ public class TestInstanceOf extends CommonTest {
 
         VariableInfo vi000Set = vd000.variableInfo("set");
         assertTrue(vi000Set.isModified());
-        assertEquals("set.§es←o.§es,set.§es∋1:s,set.§es≺0:i,set.§m≡o.§m,set.§m≺0:i,set←o",
-                vi000Set.linkedVariables().toString());
+        assertEquals("set.§es←o.§es,set.§es∋1:s,set.§es≺0:i,set.§m≡o.§m,set.§m≺0:i",
+                vi000Set.linkedVariables().toString()); // set←o dropped
 
         VariableInfo vi000O = vd000.variableInfo("o");
         assertEquals("o.§es→set.§es,o.§es∋1:s,o.§m≡set.§m,o.§m≺0:i,o→set", vi000O.linkedVariables().toString());

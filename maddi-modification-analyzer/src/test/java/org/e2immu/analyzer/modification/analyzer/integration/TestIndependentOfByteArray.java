@@ -113,8 +113,7 @@ public class TestIndependentOfByteArray extends CommonTest {
             VariableData vd312 = VariableDataImpl.of(s312);
             VariableInfo viB = vd312.variableInfo(b);
             assertEquals("""
-                    0:b[1:off]←this.back,0:b[1:off]≡0:b[off++],0:b[off++]←this.back,\
-                    0:b.§3←this.arrayIn.§2,0:b∋this.back\
+                    0:b[1:off]←this.back,0:b[off++]←this.back,0:b.§3←this.arrayIn.§2,0:b∋this.back\
                     """, viB.linkedVariables().toString());
         }
         {

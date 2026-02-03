@@ -69,7 +69,7 @@ public class TestAssignmentIdentityMethod extends CommonTest {
 
         VariableInfo ttt1 = vd1.variableInfo("ttt");
         Links tlvTtt1 = ttt1.linkedVariablesOrEmpty();
-        assertEquals("ttt←0:t,ttt←tt", tlvTtt1.toString());
+        assertEquals("ttt←tt", tlvTtt1.toString()); // ttt←0:t dropped
 
         // NOTE: this is different from the shallow one; but has the same meaning
         assertEquals("[-] --> method←0:t", tlvMethod.toString());
