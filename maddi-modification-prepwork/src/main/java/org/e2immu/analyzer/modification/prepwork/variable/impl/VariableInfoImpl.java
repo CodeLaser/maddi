@@ -16,7 +16,6 @@ package org.e2immu.analyzer.modification.prepwork.variable.impl;
 
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.language.cst.api.analysis.Property;
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
@@ -42,29 +41,31 @@ public class VariableInfoImpl implements VariableInfo {
     private final Variable variable;
     private final Assignments assignments;
     private final Reads reads;
-    private final VariableData variableInClosure;
+    private final boolean isVariableInClosure;
 
-    public VariableInfoImpl(Variable variable, Assignments assignments, Reads reads, VariableData variableInClosure) {
+    public VariableInfoImpl(Variable variable, Assignments assignments, Reads reads, boolean isVariableInClosure) {
         this.variable = variable;
         this.assignments = assignments;
         this.reads = reads;
-        this.variableInClosure = variableInClosure;
+        this.isVariableInClosure = isVariableInClosure;
     }
 
-    public boolean setLinkedVariables(Links linkedVariables) {
+    public void setLinkedVariables(Links linkedVariables) {
         assert linkedVariables != null;
         if (this.linkedVariables == null) {
             this.linkedVariables = linkedVariables;
-            return true;
+        } else if (!this.linkedVariables.equals(linkedVariables)) {
+            if (this.linkedVariables.overwriteAllowed(linkedVariables)) {
+                this.linkedVariables = linkedVariables;
+            } else {
+                throw new UnsupportedOperationException("Not allowed to overwrite");
+            }
         }
-        if (this.linkedVariables.equals(linkedVariables)) {
-            return false;
-        }
-        if (this.linkedVariables.overwriteAllowed(linkedVariables)) {
-            this.linkedVariables = linkedVariables;
-            return true;
-        }
-        throw new UnsupportedOperationException("Not allowed to overwrite");
+    }
+
+    @Override
+    public boolean isVariableInClosure() {
+        return isVariableInClosure;
     }
 
     @Override
@@ -113,11 +114,6 @@ public class VariableInfoImpl implements VariableInfo {
     @Override
     public Set<TypeInfo> downcast() {
         return analysis.getOrDefault(DOWNCAST_VARIABLE, ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet();
-    }
-
-    @Override
-    public VariableData variableInfoInClosure() {
-        return variableInClosure;
     }
 
     @Override

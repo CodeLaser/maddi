@@ -35,13 +35,9 @@ public interface VariableInfo {
      */
     Assignments assignments();
 
-    default boolean isVariableInClosure() {
-        return variableInfoInClosure() != null;
-    }
+    boolean isVariableInClosure();
 
     Links linkedVariablesOrEmpty();
-
-    VariableData variableInfoInClosure();
 
     Reads reads();
 

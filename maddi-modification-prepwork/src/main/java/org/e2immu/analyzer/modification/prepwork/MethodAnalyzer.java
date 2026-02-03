@@ -264,6 +264,7 @@ public class MethodAnalyzer {
         try {
             VariableData lastOfMainBlock = doBlock(methodInfo, methodBody, null, iv);
             if (lastOfMainBlock != null) {
+                assert !(lastOfMainBlock instanceof VariableDataImpl.Builder);
                 if (!methodInfo.analysis().haveAnalyzedValueFor(VariableDataImpl.VARIABLE_DATA)) {
                     methodInfo.analysis().set(VariableDataImpl.VARIABLE_DATA, lastOfMainBlock);
                 }
@@ -385,7 +386,8 @@ public class MethodAnalyzer {
             fromReadWriteDataIntoVd(readWriteData, false, vdb, iv,
                     null, null, "0");
         }
-        fieldInfo.analysisOfInitializer().set(VariableDataImpl.VARIABLE_DATA, vdb.build());
+        VariableData built = vdb.build();
+        fieldInfo.analysisOfInitializer().set(VariableDataImpl.VARIABLE_DATA, built);
     }
 
     private VariableData doStatement(MethodInfo methodInfo,
@@ -422,7 +424,7 @@ public class MethodAnalyzer {
         }
         iv.endHandleStatement(statement);
 
-        VariableDataImpl vd = vdbuilder.build();
+        VariableData vd = vdbuilder.build();
         statement.analysis().set(VariableDataImpl.VARIABLE_DATA, vd);
         return vd;
     }
@@ -452,7 +454,7 @@ public class MethodAnalyzer {
                     && !readWriteData.seenFirstTime.containsKey(variable)
                     && !readWriteData.accessorSeenFirstTime.containsKey(variable)) {
                     VariableInfoImpl eval = new VariableInfoImpl(variable, readWriteData.assignmentIds(variable, vi),
-                            readWriteData.isRead(variable, vi), closureVic);
+                            readWriteData.isRead(variable, vi), closureVic != null);
                     boolean specificHasMerge = hasMerge && !readWriteData.seenFirstTime.containsKey(variable);
                     VariableInfoContainer newVic = new VariableInfoContainerImpl(variable, vic.variableNature(),
                             Either.left(vic), eval, specificHasMerge);
@@ -479,9 +481,9 @@ public class MethodAnalyzer {
                     String i = e.getValue();
                     Variable v = e.getKey();
                     Assignments firstAssigned = new Assignments(i);
-                    VariableInfoImpl initial = new VariableInfoImpl(v, firstAssigned, Reads.NOT_YET_READ, null);
+                    VariableInfoImpl initial = new VariableInfoImpl(v, firstAssigned, Reads.NOT_YET_READ, false);
                     Reads reads = new Reads(i);
-                    VariableInfoImpl eval = new VariableInfoImpl(v, readWriteData.assignmentIds(v, initial), reads, null);
+                    VariableInfoImpl eval = new VariableInfoImpl(v, readWriteData.assignmentIds(v, initial), reads, false);
                     VariableInfoContainer vic = new VariableInfoContainerImpl(v, NormalVariableNature.INSTANCE,
                             Either.right(initial), eval, false);
                     vdBuilder.put(v, vic);
@@ -505,7 +507,7 @@ public class MethodAnalyzer {
                 runtime.newEmptyExpression());
         iv.setBreakVariable(bv);
         Assignments notYetAssigned = new Assignments(index + EVAL);
-        VariableInfoImpl vii = new VariableInfoImpl(bv, notYetAssigned, Reads.NOT_YET_READ, null);
+        VariableInfoImpl vii = new VariableInfoImpl(bv, notYetAssigned, Reads.NOT_YET_READ, false);
         vdOfParent.put(bv, new VariableInfoContainerImpl(bv, SYNTHETIC, Either.right(vii), null,
                 false));
         VariableData previous = vdOfParent;
@@ -619,13 +621,15 @@ public class MethodAnalyzer {
                 List<String> readIds = vis.values().stream()
                         .flatMap(vi -> vi.reads().indices().stream()).distinct().sorted().toList();
                 VariableData closureVi = iv.closure.get(v.fullyQualifiedName());
-                VariableInfoImpl merge = new VariableInfoImpl(v, assignments, new Reads(readIds), closureVi);
+                VariableInfoImpl merge = new VariableInfoImpl(v, assignments, new Reads(readIds),
+                        closureVi != null);
                 VariableInfoContainer inMap = vdStatement.variableInfoContainerOrNull(v.fullyQualifiedName());
                 VariableInfoContainerImpl vici;
                 if (inMap == null) {
                     String indexOfDefinition = v instanceof LocalVariable ? index : BEFORE_METHOD;
                     Assignments notYetAssigned = new Assignments(indexOfDefinition);
-                    VariableInfoImpl initial = new VariableInfoImpl(v, notYetAssigned, Reads.NOT_YET_READ, closureVi);
+                    VariableInfoImpl initial = new VariableInfoImpl(v, notYetAssigned, Reads.NOT_YET_READ,
+                            closureVi != null);
                     vici = new VariableInfoContainerImpl(v, NormalVariableNature.INSTANCE, Either.right(initial), initial,
                             true);
                     vdStatement.put(v, vici);
@@ -694,9 +698,11 @@ public class MethodAnalyzer {
         String indexOfDefinition = indexOfDefinition(v, index, previousVd, iv);
         Assignments notYetAssigned = new Assignments(indexOfDefinition);
         VariableData viInClosure = iv.closure.get(v.fullyQualifiedName());
-        VariableInfoImpl initial = new VariableInfoImpl(v, notYetAssigned, Reads.NOT_YET_READ, viInClosure);
+        VariableInfoImpl initial = new VariableInfoImpl(v, notYetAssigned, Reads.NOT_YET_READ,
+                viInClosure != null);
         Reads reads = readWriteData.isRead(v, initial);
-        VariableInfoImpl eval = new VariableInfoImpl(v, readWriteData.assignmentIds(v, initial), reads, viInClosure);
+        VariableInfoImpl eval = new VariableInfoImpl(v, readWriteData.assignmentIds(v, initial), reads,
+                viInClosure != null);
         return new VariableInfoContainerImpl(v, NormalVariableNature.INSTANCE,
                 Either.right(initial), eval, hasMerge);
     }

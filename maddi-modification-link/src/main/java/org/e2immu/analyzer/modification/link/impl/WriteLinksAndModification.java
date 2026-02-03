@@ -127,7 +127,8 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         if (variable instanceof ReturnVariable rv) {
             handleReturnVariable(rv, builder);
         } else {
-            Set<Variable> completion = computeRedundantModificationLinks(builder, modificationCompletionGuard);
+            Set<Variable> completion = computeRedundantModificationLinks(builder, modificationCompletionGuard,
+                    modifiedInThisEvaluation);
             boolean unmodified =
                     variable.isIgnoreModifications()
                     ||
@@ -156,11 +157,23 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
     // v4.§m -> v3.§m, -> v1.§m, -> v2.§m.
     // we only need keep add the first link.
     private Set<Variable> computeRedundantModificationLinks(Links.Builder builder,
-                                                            Map<Variable, Set<Variable>> modificationCompletionGuard) {
+                                                            Map<Variable, Set<Variable>> modificationCompletionGuard,
+                                                            Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
         Map<Variable, Set<Variable>> completions = new HashMap<>();
         builder.forEach(link -> {
-            if (Util.isVirtualModification(link.to()) && link.linkNature().isIdenticalTo()) {
-                completions.put(link.to(), completion(modificationCompletionGuard, link.to()));
+            LinkNature ln = link.linkNature();
+            if (Util.isVirtualModification(link.to()) && ln.isIdenticalTo()) {
+                boolean accept;
+                if (ln.pass().isEmpty()) {
+                    accept = true;
+                } else {
+                    Variable toReal = Util.firstRealVariable(link.to());
+                    Set<MethodInfo> causesOfModification = modifiedVariablesAndTheirCause.get(toReal);
+                    accept = causesOfModification == null || !Collections.disjoint(ln.pass(), causesOfModification);
+                }
+                if (accept) {
+                    completions.put(link.to(), completion(modificationCompletionGuard, link.to()));
+                }
             }
         });
         Set<Variable> redundantTo = new HashSet<>();

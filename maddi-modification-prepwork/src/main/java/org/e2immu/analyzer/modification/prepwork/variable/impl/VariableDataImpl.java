@@ -54,7 +54,7 @@ public class VariableDataImpl implements VariableData {
             vicByFqn.put(v.fullyQualifiedName(), vic);
         }
 
-        public VariableDataImpl build() {
+        public VariableData build() {
             return new VariableDataImpl(vicByFqn);
         }
 

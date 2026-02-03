@@ -238,6 +238,8 @@ public class TestMap extends CommonTest {
         MethodInfo reverse0 = C.findUniqueMethod("reverse0", 0);
         MethodLinkedVariables mlvReverse0 = reverse0.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(reverse0));
 
+        // statement 1
+
         Statement s1 = reverse0.methodBody().statements().get(1);
         VariableData vd1 = VariableDataImpl.of(s1);
         VariableInfo entries = vd1.variableInfo("entries");
@@ -245,34 +247,137 @@ public class TestMap extends CommonTest {
         assertEquals("entries.§kvs⊆this.map.§kvs,entries.§m≡this.map.§m",
                 entriesLinks.toString());
 
+        VariableInfo thisMap1 = vd1.variableInfo("a.b.C.map");
+        assertFalse(thisMap1.isModified());
+
+        VariableInfo this1 = vd1.variableInfo("a.b.C.this");
+        assertFalse(this1.isModified());
+
+        // statement 2 EVAL
 
         Statement s2 = reverse0.methodBody().statements().get(2);
         VariableData vd2 = VariableDataImpl.of(s2);
-        VariableInfo viEntry2 = vd2.variableInfoContainerOrNull("entry").best(Stage.EVALUATION);
-        Links entry2Links = viEntry2.linkedVariablesOrEmpty();
-        assertEquals("entry∈this.map.§kvs,entry∈entries.§kvs", entry2Links.toString());
 
-        // map.put(entry.getValue(), entry.getKey());
+        // map, entries, this.map, this, entry
+
+        VariableInfo entries2E = vd2.variableInfo("entries", Stage.EVALUATION);
+        assertEquals("""
+                entries.§kvs∋entry,entries.§kvs⊆this.map.§kvs,entries.§m≡this.map.§m\
+                """, entries2E.linkedVariables().toString());
+        assertFalse(entries2E.isModified());
+
+        VariableInfo thisMap2E = vd2.variableInfo("a.b.C.map", Stage.EVALUATION);
+        assertEquals("""
+                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,this.map.§m≡entries.§m\
+                """, thisMap2E.linkedVariables().toString());
+        assertFalse(thisMap2E.isModified());
+
+        VariableInfo this2E = vd2.variableInfo("a.b.C.this", Stage.EVALUATION);
+        assertEquals("""
+                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,this.map.§m≡entries.§m\
+                """, this2E.linkedVariables().toString());
+        assertFalse(this2E.isModified());
+
+        // statement 2.0.0
+
         Statement s200 = reverse0.methodBody().statements().get(2).block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(s200);
-        VariableInfo viEntry200 = vd200.variableInfo("entry");
-        Links entry200Links = viEntry200.linkedVariablesOrEmpty();
+        assertEquals("[map, entries, a.b.C.map, a.b.C.this, entry]", vd200.knownVariableNames().toString());
+
+        VariableInfo map200 = vd200.variableInfo("map");
         assertEquals("""
-                entry.§kv.§k∈map.§vks[-2],\
-                entry.§kv.§k≤this.map.§kvs,\
-                entry.§kv.§k≤entries.§kvs,\
-                entry.§kv.§v∈map.§vks[-1],\
-                entry.§kv.§v≤this.map.§kvs,\
-                entry.§kv.§v≤entries.§kvs,\
-                entry∈this.map.§kvs,\
-                entry∈map.§vks,\
-                entry∈entries.§kvs\
-                """, entry200Links.toString());
+                map.§vks[-1]∋entry.§kv.§v,map.§vks[-1]∩this.map.§kvs,map.§vks[-1]∩entries.§kvs,\
+                map.§vks[-2]∋entry.§kv.§k,map.§vks[-2]∩this.map.§kvs,map.§vks[-2]∩entries.§kvs,\
+                map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs\
+                """, map200.linkedVariables().toString());
+        assertTrue(map200.isModified());
+
+        VariableInfo entries200 = vd200.variableInfo("entries");
+        assertEquals("""
+                entries.§kvs∋entry,entries.§kvs⊆this.map.§kvs,entries.§kvs~map.§vks,entries.§kvs≥entry.§kv.§k,\
+                entries.§kvs≥entry.§kv.§v,entries.§kvs∩map.§vks[-1],entries.§kvs∩map.§vks[-2],\
+                entries.§m≡this.map.§m\
+                """, entries200.linkedVariables().toString());
+        assertFalse(entries200.isModified());
+
+        VariableInfo thisMap200 = vd200.variableInfo("a.b.C.map");
+        assertEquals("""
+                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,this.map.§kvs~map.§vks,this.map.§kvs≥entry.§kv.§k,\
+                this.map.§kvs≥entry.§kv.§v,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2],this.map.§m≡entries.§m\
+                """, thisMap200.linkedVariables().toString());
+        assertFalse(thisMap200.isModified());
+
+        VariableInfo this200 = vd200.variableInfo("a.b.C.this");
+        assertEquals("""
+                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,this.map.§kvs~map.§vks,this.map.§kvs≥entry.§kv.§k,\
+                this.map.§kvs≥entry.§kv.§v,this.map.§kvs∩map.§vks[-1],this.map.§kvs∩map.§vks[-2],this.map.§m≡entries.§m\
+                """, this200.linkedVariables().toString());
+        assertFalse(this200.isModified());
+
+        VariableInfo entry200 = vd200.variableInfo("entry");
+        Links entry2Links = entry200.linkedVariablesOrEmpty();
+        assertEquals("""
+                entry.§kv.§k∈map.§vks[-2],entry.§kv.§k≤this.map.§kvs,entry.§kv.§k≤entries.§kvs,\
+                entry.§kv.§v∈map.§vks[-1],entry.§kv.§v≤this.map.§kvs,entry.§kv.§v≤entries.§kvs,\
+                entry∈this.map.§kvs,entry∈map.§vks,entry∈entries.§kvs\
+                """, entry200.linkedVariables().toString());
+        assertFalse(entry200.isModified());
+
+
+        // statement 2 merge
+
+        assertEquals("[map, entries, a.b.C.map, a.b.C.this, entry]", vd2.knownVariableNames().toString());
+
+        VariableInfo map2 = vd2.variableInfo("map");
+        assertEquals("""
+                map.§vks[-1]∋entry.§kv.§v,map.§vks[-1]∩this.map.§kvs,map.§vks[-1]∩entries.§kvs,\
+                map.§vks[-2]∋entry.§kv.§k,map.§vks[-2]∩this.map.§kvs,map.§vks[-2]∩entries.§kvs,\
+                map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs\
+                """, map2.linkedVariables().toString());
+        assertTrue(map2.isModified());
+
+        VariableInfo entries2 = vd2.variableInfo("entries");
+        assertEquals("""
+                entries.§kvs∋entry,entries.§kvs⊆this.map.§kvs,\
+                entries.§m≡this.map.§m,\
+                entries.§kvs~map.§vks,entries.§kvs≥entry.§kv.§k,entries.§kvs≥entry.§kv.§v,entries.§kvs∩map.§vks[-1],\
+                entries.§kvs∩map.§vks[-2]\
+                """, entries2.linkedVariables().toString());
+        assertFalse(entries2.isModified());
+
+        VariableInfo thisMap2 = vd2.variableInfo("a.b.C.map");
+        assertEquals("""
+                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,\
+                this.map.§m≡entries.§m,\
+                this.map.§kvs~map.§vks,\
+                this.map.§kvs≥entry.§kv.§k,this.map.§kvs≥entry.§kv.§v,this.map.§kvs∩map.§vks[-1],\
+                this.map.§kvs∩map.§vks[-2]\
+                """, thisMap2.linkedVariables().toString());
+
+        VariableInfo this2 = vd2.variableInfo("a.b.C.this");
+        assertEquals("""
+                this.map.§kvs∋entry,this.map.§kvs⊇entries.§kvs,\
+                this.map.§m≡entries.§m,\
+                this.map.§kvs~map.§vks,\
+                this.map.§kvs≥entry.§kv.§k,this.map.§kvs≥entry.§kv.§v,this.map.§kvs∩map.§vks[-1],\
+                this.map.§kvs∩map.§vks[-2]\
+                """, this2.linkedVariables().toString());
+        assertFalse(this2.isModified());
+
+        VariableInfo entry2 = vd2.variableInfo("entry", Stage.MERGE);
+        assertEquals("entry∈this.map.§kvs,entry∈entries.§kvs", entry2.linkedVariables().toString());
+        assertFalse(entry2.isModified());
+
+        assertFalse(thisMap2.isModified());
+
+        // statement 3
 
         Statement s3 = reverse0.methodBody().statements().getLast();
         VariableData vd3 = VariableDataImpl.of(s3);
+        assertEquals("""
+                [map, entries, a.b.C.map, a.b.C.this, a.b.C.reverse0()]\
+                """, vd3.knownVariableNames().toString());
         VariableInfo viMap = vd3.variableInfo("map");
-
         assertEquals("""
                 map.§m≡reverse0.map.§m,\
                 map.§vks[-1]→reverse0.map.§vks[-1],\
@@ -287,8 +392,25 @@ public class TestMap extends CommonTest {
                 map.§vks~reverse0.map.§vks,\
                 map.§vks~entries.§kvs,map→reverse0.map\
                 """, viMap.linkedVariables().toString());
+
+        VariableInfo viEntries = vd3.variableInfo("entries");
+        assertEquals("""
+                entries.§kvs⊆this.map.§kvs,entries.§kvs~reverse0.map.§vks,entries.§kvs~map.§vks,\
+                entries.§kvs∩reverse0.map.§vks[-1],entries.§kvs∩reverse0.map.§vks[-2],entries.§kvs∩map.§vks[-1],\
+                entries.§kvs∩map.§vks[-2],\
+                entries.§m≡this.map.§m\
+                """, viEntries.linkedVariables().toString());
+
+        VariableInfo viThisMap = vd3.variableInfo("a.b.C.map");
+        assertEquals("""
+                this.map.§kvs⊇entries.§kvs,this.map.§kvs~reverse0.map.§vks,this.map.§kvs~map.§vks,\
+                this.map.§kvs∩reverse0.map.§vks[-1],this.map.§kvs∩reverse0.map.§vks[-2],this.map.§kvs∩map.§vks[-1],\
+                this.map.§kvs∩map.§vks[-2],this.map.§m≡entries.§m\
+                """, viThisMap.linkedVariables().toString());
+
         // NOTE: map.§vks∋entry,map.§vks~this.map.§kvs,map.§vks~entries.§kvs has been generated by
         // Expand.completeSliceInformation().
+        assertEquals("", mlvReverse0.sortedModifiedString());
         assertEquals("""
                 [] --> reverse0.map.§vks[-1]∩this.map.§kvs,\
                 reverse0.map.§vks[-2]∩this.map.§kvs,\
