@@ -39,7 +39,7 @@ public class TestVirtualFieldComputer extends CommonTest {
 
         TypeInfo object = javaInspector.compiledTypesManager().getOrLoad(Object.class);
         VirtualFields vfObject = vfc.compute(object);
-        assertEquals("/ - Object §0", vfObject.toString());
+        assertEquals("/ - Object §$", vfObject.toString());
 
         TypeInfo arrayList = javaInspector.compiledTypesManager().getOrLoad(ArrayList.class);
         assertEquals("§m - E[] §es", vfc.compute(arrayList).toString());
@@ -99,7 +99,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         ParameterizedType os = runtime.newParameterizedType(optional, List.of(runtime.stringParameterizedType()));
         VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
-        assertEquals("/ - String §0", vfTm.virtualFields().toString());
+        assertEquals("/ - String §$", vfTm.virtualFields().toString());
         assertEquals("T=TP#0 in Optional [] --> String", vfTm.formalToConcrete().toString());
     }
 
@@ -112,7 +112,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         TypeInfo optional = javaInspector.compiledTypesManager().getOrLoad(Optional.class);
         ParameterizedType os = runtime.newParameterizedType(optional, List.of(stringBuilder.asParameterizedType()));
         VirtualFieldComputer.VfTm vfTm = vfc.compute(os, true);
-        assertEquals("§m - StringBuilder §0", vfTm.virtualFields().toString());
+        assertEquals("§m - StringBuilder §$", vfTm.virtualFields().toString());
         assertEquals("T=TP#0 in Optional [] --> StringBuilder", vfTm.formalToConcrete().toString());
     }
 
@@ -126,7 +126,7 @@ public class TestVirtualFieldComputer extends CommonTest {
         VirtualFields vfStream = vfTm.virtualFields();
         assertEquals("§m - Object[] §$s", vfStream.toString());
         VirtualFields vfFormal = vfc.compute(runtime.objectTypeInfo());
-        assertEquals("/ - Object §0", vfFormal.toString());
+        assertEquals("/ - Object §$", vfFormal.toString());
         assertEquals("", vfTm.formalToConcrete().toString());
     }
 

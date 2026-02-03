@@ -233,7 +233,7 @@ public class TestForEachLambda extends CommonTest {
 
         TypeInfo II = X.findSubType("II");
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("§m - II §0", vfc.compute(II).toString());
+        assertEquals("§m - II §$", vfc.compute(II).toString());
         MethodInfo method2 = II.findUniqueMethod("method2", 1);
         MethodLinkedVariables mlvMethod2 = method2.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method2));
         assertEquals("[-] --> -", mlvMethod2.toString());
@@ -504,7 +504,7 @@ public class TestForEachLambda extends CommonTest {
         analyzer.doPrimaryType(C);
 
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
-        assertEquals("§m - C §0", vfc.compute(C).toString());
+        assertEquals("§m - C §$", vfc.compute(C).toString());
 
         MethodInfo method1 = II.findUniqueMethod("method1", 1);
         method1.parameters().getFirst().analysis().set(PropertyImpl.INDEPENDENT_PARAMETER,
