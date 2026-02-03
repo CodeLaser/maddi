@@ -9,6 +9,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -37,13 +38,14 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
     }
 
     @NotNull WriteResult go(Statement statement,
+                            boolean lastStatement,
                             VariableData vd,
                             Set<Variable> previouslyModified,
                             Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation,
                             Map<Variable, Map<Variable, LinkNature>> graph) {
 
         // do the first iteration
-        LoopResult lr = loopOverVd(vd, statement, graph, previouslyModified, modifiedDuringEvaluation);
+        LoopResult lr = loopOverVd(vd, statement, lastStatement, graph, previouslyModified, modifiedDuringEvaluation);
         if (!lr.redo) {
             return new WriteResult(lr.newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
         }
@@ -80,6 +82,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
 
     private LoopResult loopOverVd(VariableData vd,
                                   Statement statement,
+                                  boolean lastStatement,
                                   Map<Variable, Map<Variable, LinkNature>> graph,
                                   Set<Variable> previouslyModified,
                                   Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
@@ -91,10 +94,12 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         // this system depends on always processing the variables in the same order (linked hash map in VD, order of occurrence)
         // this should reduce the modification links to something below quadratic
         Map<Variable, Set<Variable>> modificationCompletionGuard = new LinkedHashMap<>();
+        Map<LinkNature, Map<Variable, Set<Variable>>> completionGuard = new HashMap<>();
 
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
-            toRemove.addAll(doVariableReturnRecompute(statement, graph, vi, unmarkedModifications,
-                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables, modificationCompletionGuard));
+            toRemove.addAll(doVariableReturnRecompute(statement, lastStatement, graph, vi, unmarkedModifications,
+                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables, modificationCompletionGuard,
+                    completionGuard));
         }
         for (Link link : toRemove) {
             Variable primary = Util.primary(link.from());
@@ -112,13 +117,15 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
 
 
     private List<Link> doVariableReturnRecompute(Statement statement,
+                                                 boolean lastStatement,
                                                  Map<Variable, Map<Variable, LinkNature>> graph,
                                                  VariableInfo vi,
                                                  Set<Variable> unmarkedModifications,
                                                  Set<Variable> previouslyModified,
                                                  Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
                                                  Map<Variable, Links.Builder> newLinkedVariables,
-                                                 Map<Variable, Set<Variable>> modificationCompletionGuard) {
+                                                 Map<Variable, Set<Variable>> modificationCompletionGuard,
+                                                 Map<LinkNature, Map<Variable, Set<Variable>>> completionGuard) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
@@ -126,10 +133,18 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         List<Link> toRemove = new ArrayList<>();
 
         if (variable instanceof ReturnVariable rv) {
+            // return variables will always be complete
             handleReturnVariable(rv, builder);
         } else {
-            Set<Variable> completion = computeRedundantModificationLinks(builder, modificationCompletionGuard,
-                    modifiedInThisEvaluation);
+            // in the very last statement, we want the parameters to be complete
+            Set<Variable> completion;
+            if (!lastStatement || !(variable instanceof ParameterInfo)) {
+                computeRedundantLinks(builder, completionGuard);
+                completion = computeRedundantModificationLinks(builder, modificationCompletionGuard,
+                        modifiedInThisEvaluation);
+            } else {
+                completion = Set.of();
+            }
             boolean unmodified =
                     variable.isIgnoreModifications()
                     ||
@@ -140,13 +155,16 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                            && Collections.disjoint(modifiedInThisEvaluation.keySet(), completion)
                            && notLinkedToModified(builder, modifiedInThisEvaluation));
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
+
             if (variable instanceof This) {
+                // only keep direct links for "this", the others are replicated in its fields
                 builder.removeIf(l -> !(l.from() instanceof This));
             }
             Value.Bool newValue = ValueImpl.BoolImpl.from(unmodified);
             vi.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE, newValue);
 
             if (!unmodified) {
+                // ⊆, ⊇ become ~ after a modification
                 toRemove.addAll(builder.replaceSubsetSuperset(variable));
             }
         }
@@ -154,6 +172,58 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
             throw new UnsupportedOperationException("Each real variable must be a primary");
         }
         return toRemove;
+    }
+
+    // compute completions per group of link natures.
+    private static LinkNature key(LinkNature ln) {
+        if (SHARES_ELEMENTS.equals(ln) || IS_SUBSET_OF.equals(ln) || IS_SUPERSET_OF.equals(ln)) {
+            return SHARES_ELEMENTS;
+        }
+        if (IS_ELEMENT_OF.equals(ln) || CONTAINS_AS_MEMBER.equals(ln)) {
+            return IS_ELEMENT_OF;
+        }
+        if (IS_ASSIGNED_FROM.equals(ln) || IS_ASSIGNED_TO.equals(ln)) {
+            return IS_ASSIGNED_FROM;
+        }
+        if (OBJECT_GRAPH_OVERLAPS.equals(ln) || IS_IN_OBJECT_GRAPH.equals(ln) || OBJECT_GRAPH_CONTAINS.equals(ln)) {
+            return OBJECT_GRAPH_OVERLAPS;
+        }
+        if (SHARES_FIELDS.equals(ln) || IS_FIELD_OF.equals(ln) || CONTAINS_AS_FIELD.equals(ln)) {
+            return SHARES_FIELDS;
+        }
+        return null;
+    }
+
+    // concept copied from computeRedundantModificationLinks, but now for groups of links
+    private void computeRedundantLinks(Links.Builder builder, Map<LinkNature, Map<Variable, Set<Variable>>> completionGuard) {
+        Map<Variable, Set<Variable>> completions = new HashMap<>();
+        builder.forEach(link -> {
+            LinkNature key = key(link.linkNature());
+            if (key != null) {
+                Map<Variable, Set<Variable>> completionGuardForLn
+                        = completionGuard.computeIfAbsent(key, _ -> new LinkedHashMap<>());
+                completions.put(link.to(), completion(completionGuardForLn, link.to()));
+            }
+        });
+        Set<Variable> redundantTo = new HashSet<>();
+        for (Map.Entry<Variable, Set<Variable>> entry : completions.entrySet()) {
+            redundantTo.addAll(entry.getValue());
+        }
+        builder.forEach(link -> {
+            if (completions.containsKey(link.to())) {
+                LinkNature key = key(link.linkNature());
+                if (key != null) {
+                    Map<Variable, Set<Variable>> completionGuardForLn
+                            = completionGuard.computeIfAbsent(key, _ -> new LinkedHashMap<>());
+                    Set<Variable> toSet = completionGuardForLn.get(link.to());
+                    if (toSet == null || !toSet.contains(link.from())) {
+                        completionGuardForLn.computeIfAbsent(link.from(), _ -> new HashSet<>())
+                                .add(link.to());
+                    }
+                }
+            }
+        });
+        builder.removeIf(link -> redundantTo.contains(link.to()));
     }
 
     // we already have v2.§m -> {v1.§m}, v3.§m->{v1.§m, v2.§m}, and now we want to add

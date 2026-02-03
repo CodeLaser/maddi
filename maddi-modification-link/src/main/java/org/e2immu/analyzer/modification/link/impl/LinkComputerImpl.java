@@ -260,7 +260,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         // TODO: copy linked variables of a variable in closure to others in the closure, to that closure
         public MethodLinkedVariables go() {
-            VariableData vd = doBlock(methodInfo.methodBody(), null);
+            VariableData vd = doBlock(true, methodInfo.methodBody(), null);
             Links ofReturnValue = vd == null || returnVariable == null
                                   || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
@@ -393,29 +393,33 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return pi != null && pi.methodInfo().typeInfo().isStrictlyEnclosedIn(methodInfo.typeInfo());
         }
 
-        VariableData doBlock(Block block, VariableData previousVd) {
+        VariableData doBlock(boolean topBlock, Block block, VariableData previousVd) {
             VariableData vd = previousVd;
-            boolean first = true;
+            boolean firstStatementOfBlock = true;
             for (Statement statement : block.statements()) {
                 if (statement instanceof Block b) {
                     // a block among the statements
-                    vd = doBlock(b, vd);
+                    vd = doBlock(false, b, vd);
                 } else {
                     try {
-                        vd = doStatement(statement, vd, first);
+                        boolean lastStatement = topBlock && statement == block.statements().getLast();
+                        vd = doStatement(statement, lastStatement, vd, firstStatementOfBlock);
                     } catch (RuntimeException | AssertionError re) {
                         LOGGER.error("Caught exception in statement {} of {}: {}", statement.source(), methodInfo,
                                 re.getMessage());
                         throw re;
                     }
                 }
-                first = false;
+                firstStatementOfBlock = false;
             }
             return vd;
         }
 
-        public VariableData doStatement(Statement statement, VariableData previousVd, boolean first) {
-            Stage stageOfPrevious = first ? Stage.EVALUATION : Stage.MERGE;
+        public VariableData doStatement(Statement statement,
+                                        boolean lastStatement,
+                                        VariableData previousVd,
+                                        boolean firstStatementOfBlock) {
+            Stage stageOfPrevious = firstStatementOfBlock ? Stage.EVALUATION : Stage.MERGE;
             LocalVariable forEachLv;
             boolean evaluate;
 
@@ -512,7 +516,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 graph = Map.of();
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
-            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, vd, previouslyModified,
+            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, lastStatement, vd, previouslyModified,
                     r == null ? Map.of() : r.modified(), graph);
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
@@ -639,7 +643,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private void handleSubBlocks(Statement statement, VariableData vd) {
             List<VariableData> vds = statement.subBlockStream()
                     .filter(block -> !block.isEmpty())
-                    .map(block -> doBlock(block, vd))
+                    .map(block -> doBlock(false, block, vd))
                     .filter(Objects::nonNull)
                     .toList();
             handleSubBlocks(vds, vd);
