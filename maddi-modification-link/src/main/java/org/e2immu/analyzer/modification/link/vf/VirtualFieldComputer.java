@@ -65,7 +65,6 @@ public class VirtualFieldComputer {
     private final Runtime runtime;
     private final GenericsHelper genericsHelper;
     private final Set<TypeInfo> multi2;
-    private final AtomicInteger typeCounter = new AtomicInteger();
 
     public static final String VF_CHAR = "§";
     public static final String VF_CONCRETE = "$";
@@ -233,7 +232,7 @@ public class VirtualFieldComputer {
         Value.Immutable immutable = typeInfo.analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE,
                 ValueImpl.ImmutableImpl.MUTABLE);
         FieldInfo mutable = immutable.isMutable() ? newMField(typeInfo) : null;
-        FieldInfo hiddenContent = newField("" + typeCounter.getAndIncrement(), pt, typeInfo);
+        FieldInfo hiddenContent = newField("$", pt, typeInfo);
         VirtualFields vf = new VirtualFields(mutable, hiddenContent);
         return new VfTm(vf, null);
     }

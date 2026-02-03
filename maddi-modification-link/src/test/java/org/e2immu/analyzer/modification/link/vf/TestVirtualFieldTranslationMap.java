@@ -287,7 +287,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
         FieldInfo set = C.getFieldByName("set", true);
         assertEquals("Type java.util.Set", set.type().toString());
         VirtualFieldComputer.VfTm vfTm = vfc.compute(set.type(), true);
-        assertEquals("§m - Set §0", vfTm.virtualFields().toString());
+        assertEquals("§m - Set §$", vfTm.virtualFields().toString());
         assertNull(vfTm.formalToConcrete());
     }
 }

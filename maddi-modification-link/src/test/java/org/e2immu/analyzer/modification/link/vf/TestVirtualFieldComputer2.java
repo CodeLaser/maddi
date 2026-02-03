@@ -129,7 +129,7 @@ public class TestVirtualFieldComputer2 extends CommonTest {
 
         TypeInfo path = javaInspector.compiledTypesManager().getOrLoad(Path.class);
         VirtualFieldComputer.VfTm vfTm = vfc.compute(path.asParameterizedType(), true);
-        assertEquals("VfTm[virtualFields=/ - Path §0, formalToConcrete=null]", vfTm.toString());
+        assertEquals("VfTm[virtualFields=/ - Path §$, formalToConcrete=null]", vfTm.toString());
 
         TypeInfo file = javaInspector.compiledTypesManager().getOrLoad(File.class);
         ParameterizedType fileArray = file.asParameterizedType().copyWithOneMoreArray();

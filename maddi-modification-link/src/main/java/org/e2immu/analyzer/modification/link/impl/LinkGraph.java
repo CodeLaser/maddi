@@ -259,7 +259,8 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     static Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer,
                                      Map<Variable, Map<Variable, LinkNature>> graph, Variable primary) {
         Links.Builder builder = new LinksImpl.Builder(primary);
-        var fromList = graph.keySet().stream()
+        List<Variable> fromList = primary instanceof This ? (graph.containsKey(primary) ? List.of(primary) : List.of())
+                : graph.keySet().stream()
                 .filter(v -> Util.isPartOf(primary, v))
                 .sorted((v1, v2) -> {
                     if (v1.equals(v2)) return 0;

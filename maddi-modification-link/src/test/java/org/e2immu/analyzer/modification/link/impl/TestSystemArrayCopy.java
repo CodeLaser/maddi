@@ -112,20 +112,20 @@ public class TestSystemArrayCopy extends CommonTest {
 
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         MethodLinkedVariables mlvArrayCopy = arrayCopy.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(arrayCopy));
-        assertEquals("[-, -, 2:object1.§2←0:object.§1, -, -] --> -", mlvArrayCopy.toString());
+        assertEquals("[-, -, 2:object1.§$←0:object.§$, -, -] --> -", mlvArrayCopy.toString());
 
         MethodInfo copy = X.findUniqueMethod("copy", 1);
         MethodLinkedVariables mlvCopy = copy.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(copy));
 
         VariableData vd2 = VariableDataImpl.of(copy.methodBody().statements().get(2));
         VariableInfo out2 = vd2.variableInfo("out");
-        assertEquals("out.§2←0:in.§1", out2.linkedVariables().toString());
+        assertEquals("out.§$←0:in.§$", out2.linkedVariables().toString());
 
-        assertEquals("[-] --> copy.§2←0:in.§1", mlvCopy.toString());
+        assertEquals("[-] --> copy.§$←0:in.§$", mlvCopy.toString());
 
         MethodInfo go = X.findUniqueMethod("go", 1);
         MethodLinkedVariables mlvGo = go.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(go));
         // this is not quite what we want, but it is what it is. Blame JDK 1.0
-        assertEquals("[0:input.§1→this*.ts.§2] --> -", mlvGo.toString());
+        assertEquals("[0:input.§$→this*.ts.§$] --> -", mlvGo.toString());
     }
 }
