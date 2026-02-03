@@ -177,13 +177,23 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
     }
 
     // compute completions per group of link natures.
-    // not doing IS_ELEMENT_OF/CONTAINS_AS_MEMBER see TestMap,1b
     private static LinkNature key(LinkNature ln) {
         if (SHARES_ELEMENTS.equals(ln) || IS_SUBSET_OF.equals(ln) || IS_SUPERSET_OF.equals(ln)) {
             return SHARES_ELEMENTS;
         }
-        if (IS_ASSIGNED_FROM.equals(ln) || IS_ASSIGNED_TO.equals(ln)) {
+        if (IS_ASSIGNED_FROM.equals(ln)) {
             return IS_ASSIGNED_FROM;
+        }
+        // see TestList,2 why IS_ASSIGNED_FROM cannot be merged with IS_ASSIGNED_TO
+        if (IS_ASSIGNED_TO.equals(ln)) {
+            return IS_ASSIGNED_TO;
+        }
+        if (IS_ELEMENT_OF.equals(ln)) {
+            return IS_ELEMENT_OF;
+        }
+        // see TestMap,1b why CONTAINS_AS_MEMBER cannot be merged with IS_ELEMENT_OF
+        if (CONTAINS_AS_MEMBER.equals(ln)) {
+            return CONTAINS_AS_MEMBER;
         }
         if (OBJECT_GRAPH_OVERLAPS.equals(ln) || IS_IN_OBJECT_GRAPH.equals(ln) || OBJECT_GRAPH_CONTAINS.equals(ln)) {
             return OBJECT_GRAPH_OVERLAPS;

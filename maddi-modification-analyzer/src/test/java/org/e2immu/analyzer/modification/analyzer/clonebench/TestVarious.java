@@ -724,8 +724,9 @@ public class TestVarious extends CommonTest {
         assertEquals("""
                 tmp[u][0]←0:dcts[u][0],tmp[u][0]∈0:dcts[u],tmp[u][0]∈tmp[u],tmp[u][0]∈$_ce57,tmp[u][0]∈∈0:dcts,\
                 tmp[u]∋0:dcts[u][0],tmp[u]∈$_ce57,tmp[u]~0:dcts[u],tmp[u]~0:dcts,tmp←$_ce57,tmp∋∋0:dcts[u][0],\
-                tmp~0:dcts[u],tmp~0:dcts,tmp[u][0]∩this.nxnTmp[u],tmp[u][v]→this.nxnTmp[u],tmp[u][v]∈this.nxnTmp,\
-                tmp[u][v]∩0:dcts[u][0],tmp[u]∋this.nxnTmp[u],tmp[u]~this.nxnTmp,tmp∋∋this.nxnTmp[u],tmp~this.nxnTmp\
+                tmp~0:dcts[u],tmp~0:dcts,tmp[u][0]∩this.nxnTmp[u],tmp[u][0]∩tmp[u][v],tmp[u][v]→this.nxnTmp[u],\
+                tmp[u][v]∈this.nxnTmp,tmp[u][v]∩0:dcts[u][0],tmp[u]∋this.nxnTmp[u],tmp[u]~this.nxnTmp,\
+                tmp∋∋this.nxnTmp[u],tmp~this.nxnTmp\
                 """, tmp7.linkedVariables().toString());
 
         Statement s8 = methodInfo.methodBody().statements().get(8);
@@ -733,9 +734,9 @@ public class TestVarious extends CommonTest {
         VariableInfo tmp8 = vd8.variableInfo("tmp");
         assertEquals("Type double[][]", tmp8.variable().parameterizedType().toString());
         assertEquals("""
-                tmp[u][0]←0:dcts[u][0],tmp[u][0]∩this.nxnTmp[u],tmp[u][v]→this.nxnTmp[u],tmp[u][v]∈this.nxnTmp,\
-                tmp[u][v]∩0:dcts[u][0],tmp[u]∋0:dcts[u][0],tmp[u]∋this.nxnTmp[u],tmp[u]~this.nxnTmp,\
-                tmp∋∋0:dcts[u][0],tmp∋∋this.nxnTmp[u],tmp~this.nxnTmp\
+                tmp[u][0]←0:dcts[u][0],tmp[u][0]∩this.nxnTmp[u],tmp[u][0]∩tmp[u][v],tmp[u][v]→this.nxnTmp[u],\
+                tmp[u][v]∈this.nxnTmp,tmp[u][v]∩0:dcts[u][0],tmp[u]∋0:dcts[u][0],tmp[u]∋this.nxnTmp[u],\
+                tmp[u]~this.nxnTmp,tmp∋∋0:dcts[u][0],tmp∋∋this.nxnTmp[u],tmp~this.nxnTmp\
                 """, tmp8.linkedVariables().toString());
     }
 
