@@ -298,7 +298,7 @@ public record ExpressionVisitor(Runtime runtime,
             return new ResultVd(new Result(linksBuilder.build(), r.extra()).merge(rc), null);
         }
         sourceMethodComputer.startSwitchExpression(primary);
-        VariableData vd = sourceMethodComputer.doBlock(entry.statementAsBlock(), variableData);
+        VariableData vd = sourceMethodComputer.doBlock(false, entry.statementAsBlock(), variableData);
         Links yieldResult = sourceMethodComputer.endSwitchExpression();
         D d = copyLinksFromSwitchExpressionBlock(variableData, vd);
 
