@@ -1,6 +1,8 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -175,12 +177,10 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
     }
 
     // compute completions per group of link natures.
+    // not doing IS_ELEMENT_OF/CONTAINS_AS_MEMBER see TestMap,1b
     private static LinkNature key(LinkNature ln) {
         if (SHARES_ELEMENTS.equals(ln) || IS_SUBSET_OF.equals(ln) || IS_SUPERSET_OF.equals(ln)) {
             return SHARES_ELEMENTS;
-        }
-        if (IS_ELEMENT_OF.equals(ln) || CONTAINS_AS_MEMBER.equals(ln)) {
-            return IS_ELEMENT_OF;
         }
         if (IS_ASSIGNED_FROM.equals(ln) || IS_ASSIGNED_TO.equals(ln)) {
             return IS_ASSIGNED_FROM;
@@ -223,7 +223,10 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                 }
             }
         });
-        builder.removeIf(link -> redundantTo.contains(link.to()));
+        builder.removeIf(link -> redundantTo.contains(link.to())
+                                 // see TestModificationFunctional,2b
+                                 && !(link.to() instanceof FunctionalInterfaceVariable)
+                                 && !(link.to() instanceof AppliedFunctionalInterfaceVariable));
     }
 
     // we already have v2.§m -> {v1.§m}, v3.§m->{v1.§m, v2.§m}, and now we want to add
