@@ -141,21 +141,29 @@ public class TestList extends CommonTest {
         assertEquals("prev←1:x.ts[0:i],prev∈1:x.ts", tlvPrev0.toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
+        // order of processing
+        assertEquals("""
+                [prev, \
+                a.b.X.ts#a.b.X.method(int,a.b.X<K>,K):1:x[a.b.X.method(int,a.b.X<K>,K):0:i], \
+                a.b.X.method(int,a.b.X<K>,K):0:i, \
+                a.b.X.ts#a.b.X.method(int,a.b.X<K>,K):1:x, \
+                a.b.X.method(int,a.b.X<K>,K):1:x, \
+                a.b.X.method(int,a.b.X<K>,K):2:k]\
+                """, vd1.knownVariableNames().toString());
+
         VariableInfo prev1 = vd1.variableInfo("prev");
         Links tlvPrev1 = prev1.linkedVariablesOrEmpty();
         assertEquals("prev←1:x.ts[0:i],prev←2:k,prev∈1:x.ts", tlvPrev1.toString());
 
-
         ParameterInfo k = method.parameters().get(2);
         VariableInfo k1 = vd1.variableInfo(k);
         Links tlvK1 = k1.linkedVariablesOrEmpty();
-        assertEquals("2:k→1:x.ts[0:i],2:k→prev,2:k∈1:x.ts", tlvK1.toString());
+        assertEquals("2:k→1:x.ts[0:i],2:k∈1:x.ts", tlvK1.toString());
 
         ParameterInfo x = method.parameters().get(1);
         VariableInfo x1 = vd1.variableInfo(x);
-        Links tlvX1 = x1.linkedVariablesOrEmpty();
         assertEquals("1:x.ts[0:i]→prev,1:x.ts[0:i]←2:k,1:x.ts[0:i]∈1:x.ts,1:x.ts∋2:k,1:x.ts∋prev",
-                tlvX1.toString());
+                x1.linkedVariables().toString());
 
         MethodLinkedVariables tlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("""
