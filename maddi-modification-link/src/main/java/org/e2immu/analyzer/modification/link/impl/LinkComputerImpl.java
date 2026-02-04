@@ -175,7 +175,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write) {
         if (shallow) {
-            if (!methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEFAULTS_ANALYZER)) {
+            // FIXME what if we want to use annotations to help when !write? then they will not be seen
+            if (write && !methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEFAULTS_ANALYZER)) {
                 shallowMethodAnalyzer.analyze(methodInfo);
             }
             MethodLinkedVariables mlv = shallowMethodLinkComputer.go(methodInfo);

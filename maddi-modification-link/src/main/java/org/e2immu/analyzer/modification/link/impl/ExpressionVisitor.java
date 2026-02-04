@@ -643,13 +643,13 @@ public record ExpressionVisitor(Runtime runtime,
         if (methodInfo.equals(currentMethod)
             || currentMethod.analysis().getOrDefault(ComputeCallGraph.RECURSIVE_METHOD, ValueImpl.BoolImpl.FALSE)
                     .isTrue()) {
+            // direct recursion, lambda to enclosing method
             return new MethodLinkedVariablesImpl(LinksImpl.EMPTY,
                     methodInfo.parameters().stream().map(_ -> LinksImpl.EMPTY).toList(), Set.of());
         }
         RecursionPrevention.How how = recursionPrevention.contains(methodInfo);
         return switch (how) {
             case GET -> methodInfo.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-            case SOURCE -> linkComputer.recurseMethod(methodInfo);
             case SHALLOW -> linkComputer.doMethodShallowDoNotWrite(methodInfo);
             case LOCK -> methodInfo.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(methodInfo));
         };
