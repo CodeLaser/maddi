@@ -184,6 +184,11 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                     }
                 }
             }
+            if (Util.isSlice(vFrom)) {
+                // see TestConsumers,2; necessary to make the connection between filtered and streamed
+                newLinks.add(new Add(vFrom, LinkNatureImpl.IS_IN_OBJECT_GRAPH,
+                        ((DependentVariable) vFrom).arrayVariable()));
+            }
         }
         boolean change = false;
         for (Add add : newLinks) {
