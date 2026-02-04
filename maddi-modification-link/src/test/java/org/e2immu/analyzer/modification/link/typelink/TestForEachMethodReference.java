@@ -162,9 +162,12 @@ public class TestForEachMethodReference extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
-        assertEquals("0:list.§$s~1:x.set.§$s", tlvT1.toString());
+        assertEquals("0:list.§$s∋1:x,0:list.§$s~1:x.set.§$s,0:list≥1:x.set.§$s", tlvT1.toString());
         MethodLinkedVariables mlv = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[0:list.§$s~1:x.set*.§$s, 1:x.set*.§$s~0:list.§$s] --> -", mlv.toString());
+        assertEquals("""
+                [0:list*.§$s∋1:x*,0:list*.§$s~1:x.set*.§$s,0:list*≥1:x.set*.§$s, \
+                1:x.set*.§$s~0:list*.§$s,1:x.set*.§$s≤0:list*,1:x*∈0:list*.§$s] --> -\
+                """, mlv.toString());
     }
 
 
@@ -208,8 +211,10 @@ public class TestForEachMethodReference extends CommonTest {
         VariableInfo listVi = VariableDataImpl.of(forEach).variableInfoContainerOrNull(list.fullyQualifiedName())
                 .best(Stage.EVALUATION);
         Links tlvT1 = listVi.linkedVariablesOrEmpty();
-        assertEquals("-", tlvT1.toString());
+        // maybe we should drop this link, maybe we should keep it
+        assertEquals("0:list.§$s∋0:ii", tlvT1.toString());
 
+        // but we definitely don't want [0:list.§$s∋0:ii, -] --> -
         assertEquals("[-, -] --> -", method.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class).toString());
     }

@@ -52,21 +52,6 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         boolean isConsumer = sam.noReturnValue();
 
         if (isSupplier || isConsumer) {
-            if (isConsumer && linksList.stream().allMatch(Links::isEmpty)) {
-                // we must keep the connection to the primary (see TestForEachLambda,6)
-                return linksList.stream()
-                        .filter(links -> !links.isEmpty())
-                        .map(links -> new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()))
-                        .toList();
-            }
-            /*
-            SUPPLIER: grab the "to" of the primary, if it is present (get==c.alternative in the example of a Supplier)
-
-            In a supplier, the return value of the SAM must consist of variables external to the lambda,
-            as it has no no parameters itself. We directly link to them.
-
-            In a BiConsumer, we must make synthetic fields...
-             */
             List<Triplet> result = new ArrayList<>();
             int i = 0;
             for (Links links : linksList) {
@@ -111,6 +96,9 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                             result.add(t);
                         }
                     }
+                }
+                if (links.isEmpty() && links.primary() != null) {
+                    result.add(new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()));
                 }
                 ++i;
             }

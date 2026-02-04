@@ -8,10 +8,12 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.expression.Lambda;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -62,6 +64,7 @@ public class TestConsumers extends CommonTest {
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
+            import java.util.List;
             import java.util.Map;
             import java.util.stream.Stream;
             public class C {
@@ -76,21 +79,23 @@ public class TestConsumers extends CommonTest {
                     }
                      Stream<VariableInfo> variableInfoStream2() {
                         Stream<Map.Entry<String,VariableInfoContainer>> stream = map.entrySet().stream();
-                        Stream<Map.Entry<String,VariableInfoContainer>> filtered = stream.filter(e -> e.getKey().startsWith("$"));
+                        Stream<Map.Entry<String,VariableInfoContainer>> filtered =
+                            stream.filter(e -> e.getKey().startsWith("$"));
                         Stream<VariableInfo> mapped = filtered.map(e -> e.getValue().variableInfo());
                         return mapped;
                     }
-                 }
+                }
+                List<VariableInfo> list;
                 void method(VariableData vd) {
-                   vd.variableInfoStream().forEach(vi -> {
+                   Stream<a.b.C.VariableInfo> variableInfoStream = vd.variableInfoStream();
+                   variableInfoStream.forEach(vi -> {
                        System.out.println(vi);
-                       System.out.println("?");
+                       list.add(vi);
                    });
                 }
             }
             """;
 
-    @Disabled("working on it")
     @DisplayName("example of consumer with ∩ rather than ∈ link")
     @Test
     public void test2() {
@@ -125,13 +130,24 @@ public class TestConsumers extends CommonTest {
         assertEquals("[] --> variableInfoStream2.§$s≤this.map.§$$s",
                 variableInfoStream2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
-
         MethodInfo variableInfoStream = vd.findUniqueMethod("variableInfoStream", 0);
         assertEquals("[] --> variableInfoStream.§$s≤this.map.§$$s",
                 variableInfoStream.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
 
         MethodInfo method = C.findUniqueMethod("method", 1);
-        assertEquals("[-, -, 2:consumer*↗$_afi0] --> -",
+
+        VariableData vdM0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
+        VariableInfo vis0 = vdM0.variableInfo("variableInfoStream");
+        assertEquals("variableInfoStream.§$s≤0:vd.map.§$$s", vis0.linkedVariables().toString());
+
+        MethodCall methodCall = (MethodCall) method.methodBody().statements().get(1).expression();
+        Lambda lambda = (Lambda) methodCall.parameterExpressions().getFirst();
+        ParameterInfo lambda0 = lambda.methodInfo().parameters().getFirst();
+        VariableData vd1Lambda = VariableDataImpl.of(lambda.methodInfo().methodBody().statements().get(1));
+        VariableInfo vi1Lambda0 = vd1Lambda.variableInfo(lambda0);
+        assertEquals("0:vi∈this.list.§$s", vi1Lambda0.linkedVariables().toString());
+
+        assertEquals("[0:vd.map.§$$s∩this.list*.§$s] --> -",
                 method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
     }
 
