@@ -143,7 +143,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         try {
             TypeInfo typeInfo = method.typeInfo();
             boolean shallow = options.forceShallow() || method.isAbstract() || typeInfo.compilationUnit().externalLibrary();
-            return doMethod(method, shallow, false);
+            return doMethod(method, shallow, false, true);
         } catch (RuntimeException | AssertionError e) {
             LOGGER.error("Caught exception computing {}", method, e);
             throw e;
@@ -161,7 +161,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         try {
             TypeInfo typeInfo = method.typeInfo();
             boolean shallow = options.forceShallow() || typeInfo.compilationUnit().externalLibrary();
-            return doMethod(method, shallow, true);
+            return doMethod(method, shallow, true, true);
         } catch (RuntimeException | AssertionError e) {
             LOGGER.error("Caught exception recursively computing {}", method, e);
             throw e;
@@ -170,13 +170,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
     @Override
     public MethodLinkedVariables doMethodShallowDoNotWrite(MethodInfo methodInfo) {
-        return doMethod(methodInfo, true, false);
+        return doMethod(methodInfo, true, false, false);
     }
 
-    private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write) {
+    private MethodLinkedVariables doMethod(MethodInfo methodInfo, boolean shallow, boolean write, boolean writeShallow) {
         if (shallow) {
             // FIXME what if we want to use annotations to help when !write? then they will not be seen
-            if (write && !methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEFAULTS_ANALYZER)) {
+            if (writeShallow && !methodInfo.analysis().haveAnalyzedValueFor(PropertyImpl.DEFAULTS_ANALYZER)) {
                 shallowMethodAnalyzer.analyze(methodInfo);
             }
             MethodLinkedVariables mlv = shallowMethodLinkComputer.go(methodInfo);
@@ -202,7 +202,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         } else {
             // we're already analyzing methodInfo... so we return a shallow copy, not written out!
             LOGGER.debug("Fall-back to shallow for {}", methodInfo);
-            tlv = doMethod(methodInfo, true, false);
+            tlv = doMethod(methodInfo, true, false, false);
         }
         return tlv;
     }
