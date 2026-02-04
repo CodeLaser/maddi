@@ -384,11 +384,19 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             VariableInfo vi = vic.best();
             Links viLinks = vi.linkedVariables();
             if (viLinks == null || viLinks.primary() == null) return LinksImpl.EMPTY;
-            Links links = viLinks.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v));
+            Links links = viLinks.removeIfFromTo(v -> !LinkVariable.acceptForLinkedVariables(v)
+                                                      || isParameterOfSiblingMethod(v));
             if (ignoreReturnValue.contains(pi)) {
                 return links.removeIfTo(v -> v instanceof ReturnVariable || isParameterOfStrictlyEnclosed(v));
             }
             return links.removeIfTo(this::isParameterOfStrictlyEnclosed);
+        }
+
+        // see TestForEachLambda,5 and TestForEachMethodReference
+        private boolean isParameterOfSiblingMethod(Variable v) {
+            return v instanceof ParameterInfo otherParameter
+                   && otherParameter.methodInfo() != methodInfo
+                   && otherParameter.methodInfo().typeInfo() == methodInfo.typeInfo();
         }
 
         private boolean isParameterOfStrictlyEnclosed(Variable variable) {
