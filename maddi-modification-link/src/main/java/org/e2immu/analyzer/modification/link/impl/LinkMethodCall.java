@@ -188,7 +188,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
             if (links != null) {
                 for (Link link : links) {
                     ParameterInfo to = Util.parameterPrimaryOrNull(link.to());
-                    if (to == null || to.index() == i) {
+                    if (to == null || to.index() == i || to.methodInfo() != methodInfo) {
                         // if to's index == i, we're talking the same index, rather than between indices
                         // see Test1,2
                         continue;
