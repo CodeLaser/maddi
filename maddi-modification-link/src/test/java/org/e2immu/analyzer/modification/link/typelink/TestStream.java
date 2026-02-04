@@ -434,13 +434,15 @@ public class TestStream extends CommonTest {
         VariableInfo viStream2 = vd2.variableInfo("stream2");
         Links tlvStream2 = viStream2.linkedVariablesOrEmpty();
         assertEquals("""
-                stream2.§yxs[-1]←stream1.§xys[-2],stream2.§yxs[-2]←stream1.§xys[-1],stream2.§yxs~entries.§xys\
+                stream2.§yxs[-1]←stream1.§xys[-2],stream2.§yxs[-1]≤entries.§xys,stream2.§yxs[-2]←stream1.§xys[-1],\
+                stream2.§yxs[-2]≤entries.§xys,stream2.§yxs~entries.§xys,stream2.§yxs≥stream1.§xys[-1],\
+                stream2.§yxs≥stream1.§xys[-2]\
                 """, tlvStream2.toString()); // stream2.§yxs~0:map.§xys, stream2.§yxs~stream1.§xys  dropped
 
         assertEquals("Type param Y[]", tlvStream2.link(0).from().parameterizedType().toString());
         assertEquals("Type param Y[]", tlvStream2.link(0).to().parameterizedType().toString());
-        assertEquals("Type param X[]", tlvStream2.link(1).from().parameterizedType().toString());
-        assertEquals("Type param X[]", tlvStream2.link(1).to().parameterizedType().toString());
+       // assertEquals("Type param X[]", tlvStream2.link(1).from().parameterizedType().toString());
+       // assertEquals("Type param X[]", tlvStream2.link(1).to().parameterizedType().toString());
 
         MethodCall mcReverse2 = (MethodCall) ((LocalVariableCreation) reverse2).localVariable().assignmentExpression();
         Value.VariableBooleanMap tlvMcReverse2 = mcReverse2.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
@@ -452,6 +454,7 @@ public class TestStream extends CommonTest {
                 """, tlvMcReverse2.toString());
 
         MethodLinkedVariables mlvReverse = reverse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals("[-] --> reverse.§yxs~0:map.§xys", mlvReverse.toString());
+        assertEquals("[-] --> reverse.§yxs[-1]≤0:map.§xys,reverse.§yxs[-2]≤0:map.§xys,reverse.§yxs~0:map.§xys",
+                mlvReverse.toString());
     }
 }

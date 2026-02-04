@@ -47,8 +47,12 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
 
         MethodInfo sam = functionalInterfaceType.typeInfo().singleAbstractMethod();
         if (sam == null || linksList.isEmpty()) return List.of();
-        if (sam.parameters().isEmpty() || sam.noReturnValue()) {
-            if (sam.noReturnValue() && linksList.stream().allMatch(Links::isEmpty)) {
+
+        boolean isSupplier = sam.parameters().isEmpty();
+        boolean isConsumer = sam.noReturnValue();
+
+        if (isSupplier || isConsumer) {
+            if (isConsumer && linksList.stream().allMatch(Links::isEmpty)) {
                 // we must keep the connection to the primary (see TestForEachLambda,6)
                 return linksList.stream()
                         .filter(links -> !links.isEmpty())
@@ -71,8 +75,33 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                         Variable from;
                         if (link.from().equals(links.primary())) {
                             // also accommodate for suppliers
-                            from = createVirtualField(functionalInterfaceType, i, fromTranslated, link.from());
+                            if (LinkNatureImpl.IS_ELEMENT_OF.equals(link.linkNature())) {
+                                if (functionalInterfaceType.parameters().size() >= 2) {
+                                    // BiConsumer (e.g. TestForEachLambda,9b)
+                                    // 1:ii∈this.map.§$$s[-1], fromTranslated = map.§$$s, from = map.§$$s[-1]
+                                    from = createSlice(i, fromTranslated, link.from());
+                                } else {
+                                    // Consumer (e.g. TestForEachLambda,3)
+                                    // j->add(j), link 0:j∈this.set.§$s, fromTranslated = list.§$s
+                                    from = fromTranslated;
+                                }
+                            } else if (LinkNatureImpl.IS_ASSIGNED_FROM.equals(link.linkNature())
+                                       || LinkNatureImpl.IS_DECORATED_WITH.equals(link.linkNature())) {
+                                // ←
+                                // implicit Supplier (e.g. TestSupplier,1,1b,2,3)
+                                // get←1:alternative, fromTranslated = $__rv1 (result of Supplier.get())
+                                // ↗
+                                // TestBiConsumer
+                                from = fromTranslated;
+                            } else {
+                                // 0:vi∩4:map.§$$s[-1], fromTranslated = $__rv11247.§$s, sam = Consumer<T>
+                                // FIXME working on example in TestConsumers; source: Flags line 240
+                                throw new UnsupportedOperationException();
+                            }
                         } else {
+                            // Consumer (e.g. Test1,10, forEach(this::doType), 0:typeInfo.§m≡this.§m)
+                            // Supplier (e.g. TestSupplier,5,7 ()->this.main.subList(0,2), get.§m≡1:main.§m,get.§xs⊆1:main.§xs)
+                            //    both links are translated ->
                             TranslationMap tm = new VariableTranslationMap(runtime)
                                     .put(Util.primary(link.from()), fromTranslated);
                             from = tm.translateVariableRecursively(link.from());
@@ -148,11 +177,7 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
         return result;
     }
 
-    private Variable createVirtualField(ParameterizedType functionalType,
-                                        int i,
-                                        Variable base,
-                                        Variable sub) {
-        if (functionalType.parameters().size() < 2) return base;
+    private Variable createSlice(int i, Variable base, Variable sub) {
         // essentially for a BiConsumer: (x,y)-> ...
         ParameterizedType sourcePt = sub.parameterizedType();
         String name = sourcePt.typeParameter() != null ? sourcePt.typeParameter().simpleName().toLowerCase() : "$";
