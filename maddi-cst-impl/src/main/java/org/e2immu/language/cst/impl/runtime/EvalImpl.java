@@ -213,8 +213,8 @@ public class EvalImpl implements Eval {
 
     @Override
     public boolean isNegationOf(Expression e1, Expression e2) {
-        if (e1.parameterizedType().isBoolean()) {
-            assert e2.parameterizedType().isBoolean();
+        if (e1.parameterizedType().isBooleanOrBoxedBoolean()) {
+            assert e2.parameterizedType().isBooleanOrBoxedBoolean();
             return evalBoolean.isNegationOf(e1, e2);
         }
         return e1.equals(evalNegation.eval(e2));
