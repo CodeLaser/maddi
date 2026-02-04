@@ -79,25 +79,25 @@ public record LinkFunctionalInterface(Runtime runtime, VirtualFieldComputer virt
                                 // TestBiConsumer
                                 from = fromTranslated;
                             } else {
-                                // 0:vi∩4:map.§$$s[-1], fromTranslated = $__rv11247.§$s, sam = Consumer<T>
-                                // FIXME working on example in TestConsumers; source: Flags line 240
-                                throw new UnsupportedOperationException();
+                                from = null; // TODO
                             }
-                        } else {
+                        } else if (fromTranslated != null) {
                             // Consumer (e.g. Test1,10, forEach(this::doType), 0:typeInfo.§m≡this.§m)
                             // Supplier (e.g. TestSupplier,5,7 ()->this.main.subList(0,2), get.§m≡1:main.§m,get.§xs⊆1:main.§xs)
                             //    both links are translated ->
                             TranslationMap tm = new VariableTranslationMap(runtime)
                                     .put(Util.primary(link.from()), fromTranslated);
                             from = tm.translateVariableRecursively(link.from());
+                        } else {
+                            from = null;
                         }
-                        if (LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, link.to())) {
+                        if (from != null && LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, link.to())) {
                             Triplet t = new Triplet(from, linkNature, link.to());
                             result.add(t);
                         }
                     }
                 }
-                if (links.isEmpty() && links.primary() != null) {
+                if (fromTranslated != null && links.isEmpty() && links.primary() != null) {
                     result.add(new Triplet(fromTranslated, CONTAINS_AS_MEMBER, links.primary()));
                 }
                 ++i;

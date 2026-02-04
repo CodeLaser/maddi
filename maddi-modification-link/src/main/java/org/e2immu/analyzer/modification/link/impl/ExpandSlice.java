@@ -110,7 +110,7 @@ public class ExpandSlice {
                     .map(f2 -> f2.k.type()).collect(Collectors.toUnmodifiableSet());
             return kv.type().typeInfo().fields().size() == fields.size() && subs.equals(concrete);
         }
-        throw new UnsupportedOperationException("NYI");
+        return false; // TODO consider this case
     }
 
     private static int negative(Expression expression) {
