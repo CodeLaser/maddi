@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.link.impl.translate;
 
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldTranslationMapImpl;
@@ -30,7 +30,7 @@ public class VirtualFieldTranslationMapForMethodParameters {
 
     // instance call, but with method type parameters that are linked to other type parameters
     // e.g. TestStreamBasics,5 .toArray(String[]::new)
-    VirtualFieldTranslationMap go(VirtualFieldTranslationMap vfTm, MethodCall mc) {
+    public VirtualFieldTranslationMap go(VirtualFieldTranslationMap vfTm, MethodCall mc) {
         for (TypeParameter tp : mc.methodInfo().typeParameters()) {
             ParameterizedType bestValue = findValue(mc, tp);
             VirtualFields vf = virtualFieldComputer.compute(bestValue, false).virtualFields();
@@ -42,7 +42,7 @@ public class VirtualFieldTranslationMapForMethodParameters {
     }
 
     // static call, but with method type parameters
-    VirtualFieldTranslationMap staticCall(MethodCall mc) {
+    public VirtualFieldTranslationMap staticCall(MethodCall mc) {
         VirtualFieldTranslationMap vfTm = new VirtualFieldTranslationMapImpl(virtualFieldComputer, runtime);
         for (TypeParameter tp : mc.methodInfo().typeParameters()) {
             ParameterizedType bestValue = findValue(mc, tp);

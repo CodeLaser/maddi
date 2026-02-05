@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.link.impl.translate;
 
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
