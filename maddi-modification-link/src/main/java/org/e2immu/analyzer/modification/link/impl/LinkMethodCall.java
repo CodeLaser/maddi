@@ -210,7 +210,9 @@ public record LinkMethodCall(JavaInspector javaInspector,
                             }
                         } else {
                             Variable fromPrimary = params.get(i).links().primary();
-                            addCrosslink(fromPrimary, extra, from, link.from(), link.linkNature(), translatedTo);
+                            if (fromPrimary != null) {
+                                addCrosslink(fromPrimary, extra, from, link.from(), link.linkNature(), translatedTo);
+                            }
                         }
                     }
                 }
@@ -294,7 +296,8 @@ public record LinkMethodCall(JavaInspector javaInspector,
         }
         tm.put(ofReturnValue.primary(), newPrimary);
         Function<Variable, List<Links>> samLinks = v ->
-                v instanceof ParameterInfo pi ? List.of(params.get(pi.index()).links()) : List.of();
+                v instanceof ParameterInfo pi && params.size() > pi.index() ? List.of(params.get(pi.index()).links())
+                        : List.of();
         Links.Builder builder = new LinksImpl.Builder(newPrimary);
         Set<Variable> extraModified = new HashSet<>();
         for (Link link : ofReturnValue.linkSet()) {
@@ -423,7 +426,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
                 }
             }
             ParameterizedType parameterizedType = pi.parameterizedType();
-            if (parameterizedType.isFunctionalInterface() && !r.extra().isEmpty()) {
+            if (parameterizedType.isFunctionalInterface() && !r.extra().isEmpty() && links.primary() != null) {
                 // pi is a consumer, the link information is in the extras
 
                 // link from the method call object (list) into this (not into the parameter, not the return value)

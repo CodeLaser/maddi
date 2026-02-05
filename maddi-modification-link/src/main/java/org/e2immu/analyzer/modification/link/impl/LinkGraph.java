@@ -80,19 +80,25 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
     }
 
     private Variable makeComparableSub(Variable base, Variable sub, Variable target) {
+        Variable translated;
         if (sub instanceof FieldReference fr && base.equals(fr.scopeVariable())) {
             VariableExpression tve = runtime.newVariableExpression(target);
             FieldInfo newField = fr.fieldInfo().withOwner(VariableTranslationMap.owner(runtime,
                     target.parameterizedType()));
-            return runtime.newFieldReference(newField, tve, newField.type());
+            translated = runtime.newFieldReference(newField, tve, newField.type());
+        } else {
+            TranslationMap tm = new VariableTranslationMap(runtime).put(base, target);
+            translated = tm.translateVariableRecursively(sub);
         }
-        TranslationMap tm = new VariableTranslationMap(runtime).put(base, target);
-        Variable translated = tm.translateVariableRecursively(sub);
         // we definitely want to avoid duplicate fields in cyclic class references
         // mapping the field to the owner also avoids sibling-fields, as would occur when we analyze the
         // Eval code in maddi, which refers to Runtime, and RuntimeImpl refers to EvalImpl which then goes to all
         // EvalXX children (we would have runtime.evalOr.runtime.evalAnd.runtime.evalInline and all sorts of
         // permutations.
+
+        // FIXME the following is stable
+        //  return Util.realTypeStream(translated).count() == Util.realTypeStream(translated).distinct().count()
+        //          ? translated : null;
         return Util.fieldsOf(translated).filter(fieldInfo -> !Util.virtual(fieldInfo)).count()
                ==
                Util.fieldsOf(translated)

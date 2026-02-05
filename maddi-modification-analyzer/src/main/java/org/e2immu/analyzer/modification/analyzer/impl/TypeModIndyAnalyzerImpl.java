@@ -228,7 +228,7 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
                 DECIDE.debug("MI: Decide unmodified of getter parameter: {} = true", pi);
                 propertyChanges.incrementAndGet();
             }
-            if (pi.analysis().setAllowControlledOverwrite(INDEPENDENT_PARAMETER, TRUE)) {
+            if (pi.analysis().setAllowControlledOverwrite(INDEPENDENT_PARAMETER, INDEPENDENT)) {
                 DECIDE.debug("MI: Decide @Independent of getter parameter: {} = true", pi);
                 propertyChanges.incrementAndGet();
             }
