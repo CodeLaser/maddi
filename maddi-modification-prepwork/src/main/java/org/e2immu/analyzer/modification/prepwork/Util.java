@@ -54,6 +54,27 @@ public class Util {
         return Stream.of();
     }
 
+    public static Stream<TypeInfo> realTypeStream(Variable v) {
+        return switch (v) {
+            case null -> Stream.empty();
+            case FieldReference fr -> {
+                TypeInfo owner;
+                if (virtual(fr.fieldInfo())) {
+                    owner = null;
+                } else if (fr.fieldInfo().type().typeParameter() != null && fr.scopeVariable() != null) {
+                    // return the concrete value for types like SetOnce<T>
+                    owner = fr.scopeVariable().parameterizedType().parameters()
+                            .get(fr.fieldInfo().type().typeParameter().getIndex()).typeInfo();
+                } else {
+                    owner = fr.fieldInfo().owner();
+                }
+                yield Stream.concat(Stream.ofNullable(owner), realTypeStream(fr.scopeVariable()));
+            }
+            case DependentVariable dv -> realTypeStream(dv.arrayVariable());
+            default -> Stream.ofNullable(v.parameterizedType().bestTypeInfo());
+        };
+    }
+
     public static Iterable<Variable> goUp(Variable variable) {
         return new Iterable<>() {
             @Override

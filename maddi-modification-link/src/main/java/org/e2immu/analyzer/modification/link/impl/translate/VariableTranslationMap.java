@@ -25,6 +25,8 @@ public class VariableTranslationMap implements TranslationMap {
     }
 
     public VariableTranslationMap put(Variable from, Variable to) {
+        assert from != null;
+        assert to != null;
         this.map.put(from, to);
         return this;
     }

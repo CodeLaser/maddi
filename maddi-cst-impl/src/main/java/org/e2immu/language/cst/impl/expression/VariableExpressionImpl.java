@@ -206,6 +206,7 @@ public class VariableExpressionImpl extends ExpressionImpl implements VariableEx
         }
         Variable translated3 = translationMap.translateVariableRecursively(variable);
         if (translated3 != variable) {
+            assert translated3 != null;
             return new VariableExpressionImpl(comments(), source(), translated3, suffix);
         }
         return this;

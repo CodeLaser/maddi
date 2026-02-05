@@ -41,6 +41,8 @@ public class VirtualFieldTranslationMapImpl implements VirtualFieldTranslationMa
 
     @Override
     public void put(TypeParameter in, ParameterizedType out) {
+        assert in != null;
+        assert out != null;
         this.map.put(in, out);
     }
 
