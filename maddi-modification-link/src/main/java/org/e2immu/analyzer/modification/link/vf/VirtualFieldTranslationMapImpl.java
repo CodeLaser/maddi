@@ -1,10 +1,11 @@
 package org.e2immu.analyzer.modification.link.vf;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
-import org.e2immu.analyzer.modification.link.impl.VariableTranslationMap;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
+import org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -27,7 +28,7 @@ import java.util.stream.Stream;
 import static org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer.VF_CHAR;
 
 // uses VariableTranslationMap.translateVariableRecursively()
-public class VirtualFieldTranslationMapImpl implements org.e2immu.analyzer.modification.prepwork.variable.VirtualFieldTranslationMap {
+public class VirtualFieldTranslationMapImpl implements VirtualFieldTranslationMap {
 
     private final Runtime runtime;
     private final VirtualFieldComputer virtualFieldComputer;

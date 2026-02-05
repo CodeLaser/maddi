@@ -4,6 +4,7 @@ import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.TranslateConstants;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;

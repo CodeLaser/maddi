@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.impl;
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -86,7 +87,19 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             return runtime.newFieldReference(newField, tve, newField.type());
         }
         TranslationMap tm = new VariableTranslationMap(runtime).put(base, target);
-        return tm.translateVariableRecursively(sub);
+        Variable translated = tm.translateVariableRecursively(sub);
+        // we definitely want to avoid duplicate fields in cyclic class references
+        // mapping the field to the owner also avoids sibling-fields, as would occur when we analyze the
+        // Eval code in maddi, which refers to Runtime, and RuntimeImpl refers to EvalImpl which then goes to all
+        // EvalXX children (we would have runtime.evalOr.runtime.evalAnd.runtime.evalInline and all sorts of
+        // permutations.
+        return Util.fieldsOf(translated).filter(fieldInfo -> !Util.virtual(fieldInfo)).count()
+               ==
+               Util.fieldsOf(translated)
+                       .filter(fieldInfo -> !Util.virtual(fieldInfo))
+                       .map(FieldInfo::owner)
+                       .distinct().count()
+                ? translated : null;
     }
 
     private boolean addField(Map<Variable, Map<Variable, LinkNature>> graph, Variable from, Variable primary) {
@@ -153,32 +166,37 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                     Set<Variable> subsOfFrom = subs.get(vFrom);
                     if (subsOfFrom != null && vTo.equals(Util.firstRealVariable(vTo)) && isNotNullConstant(vTo)) {
                         for (Variable s : subsOfFrom) {
-                            LinkNature ln;
-                            if (s instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())) {
-                                ln = LinkNatureImpl.makeIdenticalTo(null);
-                            } else {
-                                ln = linkNature;
-                            }
                             if (ensureArraysWhenSubIsIndex(vFrom, s, vTo)) {
                                 Variable sub = makeComparableSub(vFrom, s, vTo);
-                                assert !sub.equals(s);
-                                newLinks.add(new Add(s, ln, sub));
+                                if (sub != null) {
+                                    assert !sub.equals(s);
+                                    LinkNature ln;
+                                    if (s instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())) {
+                                        ln = LinkNatureImpl.makeIdenticalTo(null);
+                                    } else {
+                                        ln = linkNature;
+                                    }
+                                    newLinks.add(new Add(s, ln, sub));
+                                }
                             }
                         }
                     }
                     Set<Variable> subsOfTo = subs.get(vTo);
                     if (subsOfTo != null && vFrom.equals(Util.firstRealVariable(vFrom)) && isNotNullConstant(vFrom)) {
                         for (Variable s : subsOfTo) {
-                            LinkNature ln;
-                            if (s instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())) {
-                                ln = LinkNatureImpl.makeIdenticalTo(null);
-                            } else {
-                                ln = linkNature;
-                            }
+
                             if (ensureArraysWhenSubIsIndex(vTo, s, vFrom)) {
                                 Variable sub = makeComparableSub(vTo, s, vFrom);
-                                assert !sub.equals(s);
-                                newLinks.add(new Add(sub, ln, s));
+                                if (sub != null) {
+                                    assert !sub.equals(s);
+                                    LinkNature ln;
+                                    if (s instanceof FieldReference fr && Util.isVirtualModificationField(fr.fieldInfo())) {
+                                        ln = LinkNatureImpl.makeIdenticalTo(null);
+                                    } else {
+                                        ln = linkNature;
+                                    }
+                                    newLinks.add(new Add(sub, ln, s));
+                                }
                             }
                         }
                     }
@@ -210,6 +228,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
             && (!(dv.indexExpression() instanceof IntConstant ic) || ic.constant() >= 0)) {
             return target.parameterizedType().arrays() == from.parameterizedType().arrays();
         }
+        // cycle protection, Test1, Test2
         Set<FieldInfo> subFields = Util.fieldsOf(sub).collect(Collectors.toUnmodifiableSet());
         Set<FieldInfo> targetFields = Util.fieldsOf(target).collect(Collectors.toUnmodifiableSet());
         return Collections.disjoint(subFields, targetFields);
@@ -271,6 +290,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                     if (v1.equals(v2)) return 0;
                     if (Util.isPartOf(v1, v2)) return 1;
                     if (Util.isPartOf(v2, v1)) return -1;
+                    // FIXME still an issue occasionally
                     return Util.isPartOfComparator(v1, v2);
                 })
                 .toList();
