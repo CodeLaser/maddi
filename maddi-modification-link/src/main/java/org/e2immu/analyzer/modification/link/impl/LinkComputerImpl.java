@@ -125,6 +125,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     }
 
     @Override
+    public void reset() {
+        this.countSourceMethods.set(0);
+        this.variableCounter.set(0);
+        this.propertiesChanged.set(0);
+    }
+
+    @Override
     public void doPrimaryType(TypeInfo primaryType) {
         doType(primaryType);
     }

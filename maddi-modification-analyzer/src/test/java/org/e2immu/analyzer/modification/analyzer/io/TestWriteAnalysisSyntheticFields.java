@@ -81,7 +81,7 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
 
         FieldInfo exceptionField = TryDataImpl.getFieldByName("exception1", true);
         assertEquals("""
-                this.exception1←0:exception2,this.exception1≡0:exception2.§m,this.exception1→exception\
+                this.exception1←0:exception2,this.exception1.§m≡0:exception2.§m,this.exception1→exception\
                 """, exceptionField.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class).toString());
 
         MethodInfo withException = TryDataImpl.findUniqueMethod("withException", 1);

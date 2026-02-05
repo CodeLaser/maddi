@@ -39,7 +39,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
         LinksImpl links = set.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-        assertEquals("this.set←0:set,this.set≡0:set.§m,this.set→getSet", links.toString());
+        assertEquals("this.set←0:set,this.set.§m≡0:set.§m,this.set→getSet", links.toString());
         assertTrue(set.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.DEPENDENT)
                 .isDependent());
         assertTrue(set.isUnmodified());
@@ -73,7 +73,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
         Links fieldLinks = set.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-        assertEquals("this.set←0:set,this.set≡0:set.§m,this.set→getSet,this.set∋0:c", fieldLinks.toString());
+        assertEquals("this.set←0:set,this.set.§m≡0:set.§m,this.set→getSet,this.set.§cs∋0:c", fieldLinks.toString());
         assertTrue(set.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.DEPENDENT)
                 .isDependent());
         assertTrue(set.isModified());
@@ -112,7 +112,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
         analyzer.go(ao);
         FieldInfo set = B.getFieldByName("set", true);
         Links fieldLinks = set.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-        assertEquals("this.set⊆0:set.§cs,this.set→getSet,this.set∋0:c", fieldLinks.toString());
+        assertEquals("this.set.§cs⊆0:set.§cs,this.set→getSet,this.set.§cs∋0:c", fieldLinks.toString());
         assertTrue(set.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.DEPENDENT)
                 .isDependent());
         assertTrue(set.isModified());
@@ -160,7 +160,7 @@ public class TestFieldAnalyzerFinalField extends CommonTest {
 
         FieldInfo set = B.getFieldByName("set", true);
         Links fieldLinks = set.analysis().getOrNull(LinksImpl.LINKS, LinksImpl.class);
-        assertEquals("this.set⊆0:set.§$s,this.set→getSet,this.set∋0:m", fieldLinks.toString());
+        assertEquals("this.set.§$s⊆0:set.§$s,this.set→getSet,this.set.§$s∋0:m", fieldLinks.toString());
         assertTrue(set.analysis().getOrDefault(PropertyImpl.INDEPENDENT_FIELD, ValueImpl.IndependentImpl.DEPENDENT)
                .isDependent());
         assertTrue(set.isModified());

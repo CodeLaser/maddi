@@ -17,6 +17,8 @@ public interface LinkComputer {
 
     int propertiesChanged();
 
+    void reset();
+
     record Options(boolean recurse, boolean forceShallow, boolean checkDuplicateNames, boolean trackObjectCreations) {
         public static final Options TEST = new Options(true, false, true,
                 false);
