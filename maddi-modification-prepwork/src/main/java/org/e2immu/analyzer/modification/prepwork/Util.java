@@ -34,6 +34,10 @@ import static org.e2immu.analyzer.modification.prepwork.StatementIndex.*;
 
 public class Util {
 
+    public static boolean acceptModificationLink(Variable from, Variable to) {
+        return isVirtualModification(from) == isVirtualModification(to);
+    }
+
     public static boolean atSameLevel(String i0, String i1) {
         int d0 = i0.lastIndexOf(DOT);
         int d1 = i1.lastIndexOf(DOT);

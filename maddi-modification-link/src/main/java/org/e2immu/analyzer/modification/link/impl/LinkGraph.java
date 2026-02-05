@@ -328,7 +328,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                         !firstRealFrom.equals(primaryFrom) &&
                         !firstRealTo.equals(primaryTo) &&
                         !firstRealFrom.equals(firstRealTo))
-                    && LinksImpl.LinkImpl.noRelationBetweenMAndOtherVirtualFields(from, to)
+                    && Util.acceptModificationLink(from, to)
                     && block.add(new PC(from, linkNature, to))) {
                     builder.add(from, linkNature, to);
                     if (linkNature.isIdenticalToOrAssignedFromTo()

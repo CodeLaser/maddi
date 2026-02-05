@@ -77,7 +77,6 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
     @Override
     public void analyze(List<Info> analysisOrder) {
         int iterations = 0;
-        int prevPropertiesChanged = 0;
         SingleIterationAnalyzer singleIterationAnalyzer = new SingleIterationAnalyzerImpl(javaInspector, configuration);
         boolean cycleBreakingActive = false;
         while (true) {
@@ -91,12 +90,11 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             LOGGER.info("Duration of single iteration: {} min {} sec {} ms", duration.toMinutesPart(),
                     duration.toSecondsPart(), duration.toMillisPart());
             int propertiesChanged = singleIterationAnalyzer.propertiesChanged();
-            boolean done = propertiesChanged == prevPropertiesChanged;
+            boolean done = propertiesChanged == 0;
             if (iterations == configuration.maxIterations() || done) {
                 LOGGER.info("Stop iterating after {} iterations, done? {}", iterations, done);
                 return;
             }
-            prevPropertiesChanged = propertiesChanged;
             LOGGER.info("Run again, properties changed {}", propertiesChanged);
             // TODO any strategy, e.g. after 3 iterations, activate cycle breaking
         }

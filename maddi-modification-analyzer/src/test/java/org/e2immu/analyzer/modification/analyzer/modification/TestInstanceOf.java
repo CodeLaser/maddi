@@ -55,7 +55,7 @@ public class TestInstanceOf extends CommonTest {
 
         VariableData vd000 = VariableDataImpl.of(method.methodBody().statements().getLast().block().statements().getLast());
         VariableInfo viO00 = vd000.variableInfo("o");
-        assertEquals("o.§es→set.§es,o.§es∋1:s,o.§m≡set.§m,o.§m≺0:i,o→set", viO00.linkedVariables().toString());
+        assertEquals("o.§es→set.§es,o.§es∋1:s,o.§m≡set.§m,o→set,o∩0:i", viO00.linkedVariables().toString());
         assertTrue(viO00.isModified());
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getLast());
@@ -73,8 +73,7 @@ public class TestInstanceOf extends CommonTest {
 
         VariableInfo viI = vd0.variableInfo(i);
         assertEquals("[a.b.X.R]", viI.downcast().toString());
-        assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≻o.§m,0:i≻set.§m",
-                viI.linkedVariables().toString());
+        assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es", viI.linkedVariables().toString());
         assertTrue(viI.isModified());
 
         // TODO can we link the downcast of i->R to that of o to set?

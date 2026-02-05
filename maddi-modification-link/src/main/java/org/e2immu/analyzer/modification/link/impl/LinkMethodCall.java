@@ -204,9 +204,11 @@ public record LinkMethodCall(JavaInspector javaInspector,
                             LinkNature linkNature = varargsLinkNature(link.linkNature());
                             for (int j = i; j < params.size(); ++j) {
                                 Variable fromPrimary = params.get(j).links().primary();
-                                Variable linkFrom = downgrade(link.from(), fromPrimary);
-                                // loop over all the elements in the varargs
-                                addCrosslink(fromPrimary, extra, from, linkFrom, linkNature, translatedTo);
+                                if (fromPrimary != null) {
+                                    Variable linkFrom = downgrade(link.from(), fromPrimary);
+                                    // loop over all the elements in the varargs
+                                    addCrosslink(fromPrimary, extra, from, linkFrom, linkNature, translatedTo);
+                                }
                             }
                         } else {
                             Variable fromPrimary = params.get(i).links().primary();
@@ -252,7 +254,7 @@ public record LinkMethodCall(JavaInspector javaInspector,
         Links.Builder builder = new LinksImpl.Builder(fromPrimary);
         TranslationMap fromTm = new VariableTranslationMap(runtime).put(from, fromPrimary);
         Variable translatedFrom = fromTm.translateVariableRecursively(linkFrom);
-        if (translatedFrom != null) {
+        if (translatedFrom != null && Util.acceptModificationLink(translatedFrom, translatedTo)) {
             builder.add(translatedFrom, linkNature, translatedTo);
             Links links = builder.build();
             extra.merge(fromPrimary, links, Links::merge);
@@ -340,7 +342,10 @@ public record LinkMethodCall(JavaInspector javaInspector,
             extraTest = false;
         }
         if (!extraTest || !isReturnVariable(Util.firstRealVariable(fromTranslated))) {
-            builder.add(fromTranslated, linkNature, defaultTm.translateVariableRecursively(link.to()));
+            Variable toTranslated = defaultTm.translateVariableRecursively(link.to());
+            if (Util.acceptModificationLink(fromTranslated, toTranslated)) {
+                builder.add(fromTranslated, linkNature, toTranslated);
+            }
         }
     }
 
@@ -419,10 +424,12 @@ public record LinkMethodCall(JavaInspector javaInspector,
             for (Link link : links) {
                 Variable translatedFrom = tm.translateVariableRecursively(link.from());
                 Variable translatedTo = tm.translateVariableRecursively(link.to());
-                if (Util.isPartOf(objectPrimary, translatedTo)) {
-                    builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
-                } else if (Util.isPartOf(objectPrimary, translatedTo)) {
-                    builder.add(translatedTo, link.linkNature(), translatedFrom);
+                if (Util.acceptModificationLink(translatedFrom, translatedTo)) {
+                    if (Util.isPartOf(objectPrimary, translatedTo)) {
+                        builder.add(translatedTo, link.linkNature().reverse(), translatedFrom);
+                    } else if (Util.isPartOf(objectPrimary, translatedTo)) {
+                        builder.add(translatedTo, link.linkNature(), translatedFrom);
+                    }
                 }
             }
             ParameterizedType parameterizedType = pi.parameterizedType();
@@ -447,8 +454,13 @@ public record LinkMethodCall(JavaInspector javaInspector,
                                             builder.primary(),
                                             linksList,
                                             objectPrimary);
-                    toAdd.forEach(t ->
-                            builder.add(vtm.translateVariableRecursively(t.from()), t.linkNature(), t.to()));
+                    toAdd.forEach(t -> {
+                        Variable from = vtm.translateVariableRecursively(t.from());
+                        Variable to = t.to();
+                        if (Util.acceptModificationLink(from, to)) {
+                            builder.add(from, t.linkNature(), to);
+                        }
+                    });
                 }
             }
             ++i;

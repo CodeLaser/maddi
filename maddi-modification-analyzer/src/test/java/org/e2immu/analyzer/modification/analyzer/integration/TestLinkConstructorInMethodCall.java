@@ -156,8 +156,10 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
                         .collect(Collectors.joining("\n", "", "\n")));
             }
             assertEquals("""
-                    [-] --> withException.exit.exception.§m≡0:e.§m,withException.exit.exception.§m≺withException.exit,\
-                    withException.exit.exception←0:e,withException.exit≈withException.exit.exception\
+                    [-] --> withException.exit.exception.§m≡0:e.§m,\
+                    withException.exit.exception←0:e,\
+                    withException.exit.exception∩withException.exit,\
+                    withException.exit≈withException.exit.exception\
                     """, withException.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class).toString());
         }
 
@@ -213,9 +215,10 @@ public class TestLinkConstructorInMethodCall extends CommonTest {
             // formal type of variable:
             assertEquals("Type a.b.X.LoopData", vi0Rv.variable().parameterizedType().toString());
             assertEquals("""
-                    withException←Λ$_v,withException.exit.exception.§m≡0:e.§m,\
-                    withException.exit.exception.§m≺withException.exit,\
+                    withException←Λ$_v,\
+                    withException.exit.exception.§m≡0:e.§m,\
                     withException.exit.exception←0:e,\
+                    withException.exit.exception∩withException.exit,\
                     withException.exit≈withException.exit.exception\
                     """, vi0Rv.linkedVariables().toString());
         }
