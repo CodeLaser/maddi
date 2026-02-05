@@ -68,7 +68,9 @@ public class VirtualFieldTranslationMapForMethodParameters {
         }
         // try the return type
         ParameterizedType rt = extractValueForTp(mc.methodInfo().returnType(), mc.concreteReturnType(), tp);
-        if (rt != null) return rt;
+        if (rt != null) {
+            return rt;
+        }
         throw new UnsupportedOperationException("Unable to find concrete value");
     }
 
