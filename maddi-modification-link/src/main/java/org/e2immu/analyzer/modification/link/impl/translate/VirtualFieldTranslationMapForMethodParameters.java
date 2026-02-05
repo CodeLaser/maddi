@@ -79,7 +79,20 @@ public class VirtualFieldTranslationMapForMethodParameters {
                                                 TypeParameter tp) {
         Map<NamedType, ParameterizedType> tm = genericsHelper.translateMap(formal, concrete,
                 true);
-        return tm.get(tp);
+        ParameterizedType directResult = tm.get(tp);
+        if (directResult != null) return directResult;
+        for (Map.Entry<NamedType, ParameterizedType> entry : tm.entrySet()) {
+            // we'll try here
+            if (entry.getKey() instanceof TypeParameter tp2
+                && formal.parameters().size() > tp2.getIndex()
+                && concrete.parameters().size() > tp2.getIndex()) {
+                ParameterizedType formal2 = formal.parameters().get(tp2.getIndex());
+                ParameterizedType concrete2 = concrete.parameters().get(tp2.getIndex());
+                ParameterizedType recursive = extractValueForTp(formal2, concrete2, tp);
+                if (recursive != null) return recursive;
+            }
+        }
+        return null;
     }
 
 }
