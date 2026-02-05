@@ -146,9 +146,9 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
             unmodifiedInMethod = ValueImpl.BoolImpl.from(!mlv.modified().contains(pi));
             Links links = mlv.ofParameters().get(pi.index());
             if (!links.isEmpty() && unmodifiedInMethod.isTrue()) {
-                // FIXME if mutable, check for §m; if HC, check for a HC link such as ~
                 for (Link link : links) {
-                    if (link.to() instanceof FieldReference fr && fr.scopeIsRecursivelyThis()) {
+                    FieldReference fr;
+                    if ((fr = relevantLinkForModification(link)) != null) {
                         Bool unmodifiedField = fr.fieldInfo().analysis().getOrNull(UNMODIFIED_FIELD,
                                 ValueImpl.BoolImpl.class);
                         if (unmodifiedField == null) {
@@ -172,6 +172,17 @@ public class TypeModIndyAnalyzerImpl extends CommonAnalyzerImpl implements TypeM
         } else {
             UNDECIDED.debug("MI: Unmodified of parameter {} undecided", pi);
         }
+    }
+
+    private FieldReference relevantLinkForModification(Link link) {
+        if (link.linkNature().isIdenticalTo()
+            && Util.isVirtualModification(link.from())
+            && Util.isVirtualModification(link.to())
+            && Util.firstRealVariable(link.to()) instanceof FieldReference fr) return fr;
+        if (LinkNatureImpl.IS_ASSIGNED_TO.equals(link.linkNature())
+            && !Util.virtual(link.from())
+            && !Util.virtual(link.to()) && link.to() instanceof FieldReference fr) return fr;
+        return null;
     }
 
     private void handleExplicitlyEmptyMethod(MethodInfo methodInfo) {
