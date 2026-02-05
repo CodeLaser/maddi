@@ -141,7 +141,10 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
                             } else if (!lv.isEmpty()) {
                                 // we're only interested in parameters, other fields, return values
                                 for (Link l : lv) {
-                                    if (LinkVariable.acceptForLinkedVariables(l.to()) && primary.equals(Util.primary(l.from()))) {
+                                    if (LinkVariable.acceptForLinkedVariables(l.to())
+                                        && primary.equals(Util.primary(l.from()))
+                                        // avoid duplicate links
+                                        && !builder.contains(l.from(), l.linkNature(), l.to())) {
                                         builder.add(l.from(), l.linkNature(), l.to());
                                     }
                                 }
