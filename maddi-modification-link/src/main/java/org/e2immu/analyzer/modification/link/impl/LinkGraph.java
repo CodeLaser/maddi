@@ -95,16 +95,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         // Eval code in maddi, which refers to Runtime, and RuntimeImpl refers to EvalImpl which then goes to all
         // EvalXX children (we would have runtime.evalOr.runtime.evalAnd.runtime.evalInline and all sorts of
         // permutations.
-
-        // FIXME the following is stable
-        //  return Util.realTypeStream(translated).count() == Util.realTypeStream(translated).distinct().count()
-        //          ? translated : null;
-        return Util.fieldsOf(translated).filter(fieldInfo -> !Util.virtual(fieldInfo)).count()
-               ==
-               Util.fieldsOf(translated)
-                       .filter(fieldInfo -> !Util.virtual(fieldInfo))
-                       .map(FieldInfo::owner)
-                       .distinct().count()
+        return Util.realTypeStream(translated).count() == Util.realTypeStream(translated).distinct().count()
                 ? translated : null;
     }
 
@@ -144,7 +135,8 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         int cycleProtection = 0;
         while (change) {
             ++cycleProtection;
-            if (cycleProtection > 10) {
+            if (cycleProtection > 20) {
+                // NOTE: there is a class that requires more than 10 cycles in the maddi code base...
                 throw new UnsupportedOperationException("cycle protection");
             }
             change = doOneMakeGraphCycle(graph, modifiedInThisEvaluation);
