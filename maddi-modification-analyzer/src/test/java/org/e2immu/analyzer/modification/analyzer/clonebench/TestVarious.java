@@ -710,8 +710,8 @@ public class TestVarious extends CommonTest {
         VariableData vd5 = VariableDataImpl.of(methodInfo.methodBody().statements().get(5));
         VariableInfo tmp5 = vd5.variableInfo("tmp");
         assertEquals("""
-                tmp←$_ce57,tmp[u][v]←0:dcts[u][v],tmp[u][v]∈0:dcts[u],tmp[u][v]∈tmp[u],tmp[u][v]∈$_ce57,\
-                tmp[u][v]∈∈0:dcts,tmp[u]∋0:dcts[u][v],tmp[u]∈$_ce57,tmp[u]~0:dcts[u],tmp∋∋0:dcts[u][v],tmp~0:dcts[u]\
+                tmp←$_ce57,tmp[u][v]←0:dcts[u][v],tmp[u][v]∈0:dcts[u],tmp[u][v]∈tmp[u],\
+                tmp[u][v]∈∈0:dcts,tmp[u]∋0:dcts[u][v],tmp[u]~0:dcts[u],tmp∋∋0:dcts[u][v],tmp~0:dcts[u]\
                 """, tmp5.linkedVariables().toString());
         Link l0 = tmp5.linkedVariables().link(0);
         assertEquals("tmp←$_ce57", l0.toString());
@@ -722,10 +722,10 @@ public class TestVarious extends CommonTest {
         VariableData vd7 = VariableDataImpl.of(methodInfo.methodBody().statements().get(7));
         VariableInfo tmp7 = vd7.variableInfo("tmp");
         assertEquals("""
-                tmp[u][0]←0:dcts[u][0],tmp[u][0]∈0:dcts[u],tmp[u][0]∈tmp[u],tmp[u][0]∈$_ce57,\
-                tmp[u][0]∈∈0:dcts,tmp[u]∋0:dcts[u][0],tmp[u]∈$_ce57,tmp[u]~0:dcts[u],tmp[u]~0:dcts,tmp←$_ce57,\
+                tmp[u][0]←0:dcts[u][0],tmp[u][0]∈0:dcts[u],tmp[u][0]∈tmp[u],tmp[u][0]∈∈0:dcts,\
+                tmp[u]∋0:dcts[u][0],tmp[u]~0:dcts[u],tmp[u]~0:dcts,tmp←$_ce57,\
                 tmp∋∋0:dcts[u][0],tmp~0:dcts[u],tmp~0:dcts,tmp[u][0]∩this.nxnTmp[u],tmp[u][0]∩tmp[u][v],\
-                tmp[u][v]→this.nxnTmp[u],tmp[u][v]∈tmp[u],tmp[u][v]∈$_ce57,tmp[u][v]∈this.nxnTmp,tmp[u][v]∩0:dcts[u],\
+                tmp[u][v]→this.nxnTmp[u],tmp[u][v]∈tmp[u],tmp[u][v]∈this.nxnTmp,tmp[u][v]∩0:dcts[u],\
                 tmp[u][v]∩0:dcts[u][0],tmp[u]∋this.nxnTmp[u],tmp[u]~this.nxnTmp,tmp∋∋this.nxnTmp[u],tmp~this.nxnTmp\
                 """, tmp7.linkedVariables().toString());
 
@@ -734,11 +734,11 @@ public class TestVarious extends CommonTest {
         VariableInfo tmp8 = vd8.variableInfo("tmp");
         assertEquals("Type double[][]", tmp8.variable().parameterizedType().toString());
         assertEquals("""
-                tmp[u][0]←0:dcts[u][0],tmp[u][0]∈0:dcts[u],tmp[u][0]∈tmp[u],tmp[u][0]∈$_ce57,tmp[u][0]∈∈0:dcts,\
-                tmp[u][0]∩this.nxnTmp[u],tmp[u][0]∩tmp[u][v],tmp[u][v]→this.nxnTmp[u],tmp[u][v]∈tmp[u],\
-                tmp[u][v]∈$_ce57,tmp[u][v]∈this.nxnTmp,tmp[u][v]∩0:dcts[u],tmp[u][v]∩0:dcts[u][0],tmp[u]∋0:dcts[u][0],\
-                tmp[u]∋this.nxnTmp[u],tmp[u]∈$_ce57,tmp[u]~0:dcts[u],tmp[u]~0:dcts,tmp[u]~this.nxnTmp,tmp←$_ce57,\
-                tmp∋∋0:dcts[u][0],tmp∋∋this.nxnTmp[u],tmp~0:dcts[u],tmp~0:dcts,tmp~this.nxnTmp\
+                tmp[u][0]←0:dcts[u][0],tmp[u][0]∈0:dcts[u],tmp[u][0]∈tmp[u],tmp[u][0]∈∈0:dcts,tmp[u][0]∩this.nxnTmp[u],\
+                tmp[u][0]∩tmp[u][v],tmp[u][v]→this.nxnTmp[u],tmp[u][v]∈tmp[u],tmp[u][v]∈this.nxnTmp,tmp[u][v]∩0:dcts[u],\
+                tmp[u][v]∩0:dcts[u][0],tmp[u]∋0:dcts[u][0],tmp[u]∋this.nxnTmp[u],tmp[u]~0:dcts[u],tmp[u]~0:dcts,\
+                tmp[u]~this.nxnTmp,tmp←$_ce57,tmp∋∋0:dcts[u][0],tmp∋∋this.nxnTmp[u],tmp~0:dcts[u],\
+                tmp~0:dcts,tmp~this.nxnTmp\
                 """, tmp8.linkedVariables().toString());
     }
 

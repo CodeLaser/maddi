@@ -156,7 +156,9 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                            // all the §m links
                            && Collections.disjoint(modifiedInThisEvaluation.keySet(), completion)
                            && notLinkedToModified(builder, modifiedInThisEvaluation));
-            builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
+            builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable
+                                  || l.to() instanceof MarkerVariable mv && mv.isConstant() && !(l.linkNature().equals(IS_ASSIGNED_FROM)||l.linkNature().equals(CONTAINS_AS_MEMBER))
+                                  || l.from() instanceof MarkerVariable mvf && mvf.isConstant() && !(l.linkNature().equals(IS_ASSIGNED_TO)||l.linkNature().equals(IS_ELEMENT_OF)));
 
             if (variable instanceof This) {
                 // only keep direct links for "this", the others are replicated in its fields

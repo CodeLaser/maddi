@@ -182,7 +182,6 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                     Set<Variable> subsOfTo = subs.get(vTo);
                     if (subsOfTo != null && vFrom.equals(Util.firstRealVariable(vFrom)) && isNotNullConstant(vFrom)) {
                         for (Variable s : subsOfTo) {
-
                             if (ensureArraysWhenSubIsIndex(vTo, s, vFrom)) {
                                 Variable sub = makeComparableSub(vTo, s, vFrom);
                                 if (sub != null) {
