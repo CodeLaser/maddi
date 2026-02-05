@@ -89,7 +89,10 @@ public class TestVirtualFieldTranslationMapForMethodParameters extends CommonTes
                 .setSource(runtime.noSource())
                 .build();
         VirtualFieldTranslationMap vfTm = tm.staticCall(mc);
-        assertEquals("", vfTm.toString());
+        assertEquals("""
+                K=TP#0 in Entry.comparingByValue [] --> String
+                V=TP#1 in Entry.comparingByValue [Type Comparable<? super V extends Comparable<? super V>>] --> Integer\
+                """, vfTm.toString());
     }
 
 }
