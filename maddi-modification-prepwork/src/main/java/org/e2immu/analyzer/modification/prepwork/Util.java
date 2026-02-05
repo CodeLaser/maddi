@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.*;
 import org.jetbrains.annotations.NotNull;
@@ -61,17 +62,20 @@ public class Util {
                 TypeInfo owner;
                 if (virtual(fr.fieldInfo())) {
                     owner = null;
-                } else if (fr.fieldInfo().type().typeParameter() != null && fr.scopeVariable() != null) {
-                    // return the concrete value for types like SetOnce<T>
-                    owner = fr.scopeVariable().parameterizedType().parameters()
-                            .get(fr.fieldInfo().type().typeParameter().getIndex()).typeInfo();
                 } else {
-                    owner = fr.fieldInfo().owner();
+                    TypeParameter typeParameter = fr.fieldInfo().type().typeParameter();
+                    if (typeParameter != null
+                        && typeParameter.getIndex() < fr.scope().parameterizedType().parameters().size()) {
+                        // return the concrete value for types like SetOnce<T>
+                        owner = fr.scope().parameterizedType().parameters().get(typeParameter.getIndex()).typeInfo();
+                    } else {
+                        owner = fr.fieldInfo().owner();
+                    }
                 }
                 yield Stream.concat(Stream.ofNullable(owner), realTypeStream(fr.scopeVariable()));
             }
             case DependentVariable dv -> realTypeStream(dv.arrayVariable());
-            default -> Stream.ofNullable(v.parameterizedType().bestTypeInfo());
+            default -> Stream.of();
         };
     }
 
