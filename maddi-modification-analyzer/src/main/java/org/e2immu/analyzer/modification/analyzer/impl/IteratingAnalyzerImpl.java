@@ -22,6 +22,8 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements IteratingAnalyzer {
@@ -82,7 +84,12 @@ public class IteratingAnalyzerImpl extends CommonAnalyzerImpl implements Iterati
             ++iterations;
             LOGGER.info("{}, cycle breaking active? {}", highlight("Start iteration " + iterations),
                     cycleBreakingActive);
+            Instant start = Instant.now();
             singleIterationAnalyzer.go(analysisOrder, cycleBreakingActive, iterations == 1);
+            Instant end = Instant.now();
+            Duration duration = Duration.between(start, end);
+            LOGGER.info("Duration of single iteration: {} min {} sec {} ms", duration.toMinutesPart(),
+                    duration.toSecondsPart(), duration.toMillisPart());
             int propertiesChanged = singleIterationAnalyzer.propertiesChanged();
             boolean done = propertiesChanged == prevPropertiesChanged;
             if (iterations == configuration.maxIterations() || done) {

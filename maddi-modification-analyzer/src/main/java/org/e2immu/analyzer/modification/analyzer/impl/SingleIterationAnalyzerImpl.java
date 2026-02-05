@@ -75,6 +75,7 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     @Override
     public void go(List<Info> analysisOrder, boolean activateCycleBreaking, boolean firstIteration) {
+        propertiesChanged.set(0);
         Set<TypeInfo> abstractTypes = new HashSet<>();
         List<TypeInfo> typesInOrder = new ArrayList<>(analysisOrder.size());
 
