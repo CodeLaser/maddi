@@ -296,4 +296,35 @@ public class TestLambda extends CommonTest {
         javaInspector.parse(INPUT5);
     }
 
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            
+            import static org.assertj.core.api.Assertions.assertThat;
+            import static org.junit.jupiter.api.Assertions.assertThrows;
+            
+            class C {
+                static class MyException extends RuntimeException {
+                    long errorCode;
+                    MyException(long ec) {
+                        this.errorCode = ec;
+                    }
+                    static final long EC = 5;
+                 }
+                void throwsTheException() {
+                    throw new MyException(MyException.EC);
+                }
+                void method() {
+                    MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
+                    assertThat(exception).isNotNull().extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
+                }
+            }
+            """;
+
+    @Test
+    public void test6() {
+        javaInspector.parse(INPUT6);
+    }
+
 }
