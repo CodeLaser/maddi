@@ -85,7 +85,8 @@ public class ScanCompilationUnit extends CommonParse {
             comments = List.of();
         } else {
             Name name = packageDeclaration.firstChildOfType(Name.class);
-            packageName = Objects.requireNonNullElse(name.toString(), "");
+            // note that there can be spaces in the package name
+            packageName = Objects.requireNonNullElse(name.toString(), "").replaceAll("\\s+", "");
             source = addDetailedSources
                     ? s1.withDetailedSources(runtime.newDetailedSourcesBuilder().put(packageName, source(name)).build())
                     : s1;
@@ -168,7 +169,7 @@ public class ScanCompilationUnit extends CommonParse {
     private ImportStatement parseImportDeclaration(ImportDeclaration id) {
         boolean isStatic = id.get(1) instanceof KeyWord kw && Token.TokenType.STATIC.equals(kw.getType());
         int i = isStatic ? 2 : 1;
-        String importString = id.get(i).getSource();
+        String importString = id.get(i).getSource().replaceAll("\\s+", "");
         ImportStatement.Builder builder = runtime.newImportStatementBuilder();
         builder.setSource(source(id))
                 .addComments(comments(id))
