@@ -301,7 +301,9 @@ public class TestLambda extends CommonTest {
     private static final String INPUT6 = """
             package a.b;
             
-            import static org.assertj.core.api.Assertions.assertThat;
+            import org.assertj.core.api.AbstractThrowableAssert;
+
+import static org.assertj.core.api.Assertions.assertThat;
             import static org.junit.jupiter.api.Assertions.assertThrows;
             
             class C {
@@ -315,9 +317,16 @@ public class TestLambda extends CommonTest {
                 void throwsTheException() {
                     throw new MyException(MyException.EC);
                 }
-                void method() {
+                void method1() {
                     MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
-                    assertThat(exception).isNotNull().extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
+                    AbstractThrowableAssert<?,a.b.C.MyException> notNull = assertThat(exception).isNotNull();
+                    notNull.extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
+                }
+                // check that the result of isNotNull is correctly forwarded to extracting
+                void method2() {
+                    MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
+                    AbstractThrowableAssert<?,a.b.C.MyException> ata = assertThat(exception);
+                    ata.isNotNull().extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
                 }
             }
             """;
