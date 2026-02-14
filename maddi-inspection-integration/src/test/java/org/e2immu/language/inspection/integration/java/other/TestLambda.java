@@ -201,7 +201,6 @@ public class TestLambda extends CommonTest {
     }
 
 
-
     @Language("java")
     private static final String INPUT3d = """
             package a.b;
@@ -299,40 +298,57 @@ public class TestLambda extends CommonTest {
 
     @Language("java")
     private static final String INPUT6 = """
-            package a.b;
+                        package a.b;
             
-            import org.assertj.core.api.AbstractThrowableAssert;
-
-import static org.assertj.core.api.Assertions.assertThat;
-            import static org.junit.jupiter.api.Assertions.assertThrows;
+                        import org.assertj.core.api.AbstractThrowableAssert;
             
-            class C {
-                static class MyException extends RuntimeException {
-                    long errorCode;
-                    MyException(long ec) {
-                        this.errorCode = ec;
-                    }
-                    static final long EC = 5;
-                 }
-                void throwsTheException() {
-                    throw new MyException(MyException.EC);
-                }
-                void method1() {
-                    MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
-                    AbstractThrowableAssert<?,a.b.C.MyException> notNull = assertThat(exception).isNotNull();
-                    notNull.extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
-                }
-                // check that the result of isNotNull is correctly forwarded to extracting
-                void method2() {
-                    MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
-                    AbstractThrowableAssert<?,a.b.C.MyException> ata = assertThat(exception);
-                    ata.isNotNull().extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
-                }
-            }
+            import static org.assertj.core.api.Assertions.assertThat;
+                        import static org.junit.jupiter.api.Assertions.assertThrows;
+            
+                        class C {
+                            static class MyException extends RuntimeException {
+                                long errorCode;
+                                MyException(long ec) {
+                                    this.errorCode = ec;
+                                }
+                                static final long EC = 5;
+                             }
+                            void throwsTheException() {
+                                throw new MyException(MyException.EC);
+                            }
+                            void method1() {
+                                MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
+                                AbstractThrowableAssert<?,a.b.C.MyException> notNull = assertThat(exception).isNotNull();
+                                notNull.extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
+                            }
+                            // check that the result of isNotNull is correctly forwarded to extracting
+                            // we need the method "SELF AbstractAssert.isNotNull()"
+                            // note: AbstractAssert implements Assert
+                            void method2() {
+                                MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
+                                AbstractThrowableAssert<?,a.b.C.MyException> ata = assertThat(exception);
+                                ata.isNotNull().extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
+                            }
+                        }
             """;
 
     @Test
     public void test6() {
+        /*
+         the problem at the moment is that the return type of the method call ata.isNotNull() is
+         "? extends AbstractThrowableAssert"
+         rather than
+         "AbstractThrowableAssert<?,a.b.C.MyException>"
+
+         in extra, we find ACTUAL = TP#1 in ATA = MyException, which is good
+                   we find SELF = TP#0 in ATA = ? extends ATA, which is good
+         The problem seems to be that SELF needs combining with ACTUAL
+
+         The definition of ATA is
+         public abstract class AbstractThrowableAssert<SELF extends AbstractThrowableAssert<SELF, ACTUAL>, ACTUAL extends Throwable>
+            extends AbstractObjectAssert<SELF, ACTUAL> { ... }
+         so it is clear that ACTUAL needs to be combined with SELF
+        */
         javaInspector.parse(INPUT6);
     }
 
