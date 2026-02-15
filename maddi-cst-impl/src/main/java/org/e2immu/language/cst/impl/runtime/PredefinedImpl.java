@@ -30,6 +30,7 @@ import org.e2immu.language.cst.impl.info.InspectionImpl;
 import org.e2immu.language.cst.impl.info.MethodInfoImpl;
 import org.e2immu.language.cst.impl.info.TypeInfoImpl;
 import org.e2immu.language.cst.impl.info.TypeNatureEnum;
+import org.e2immu.language.cst.impl.type.ParameterizedTypeImpl;
 
 import java.net.URI;
 import java.nio.charset.Charset;
@@ -863,5 +864,10 @@ public class PredefinedImpl implements Predefined {
     public MethodInfo assignOperator(ParameterizedType returnType) {
         // NOTE: we have only one at the moment, no distinction between the types
         return assignOperatorInt;
+    }
+
+    @Override
+    public ParameterizedType parameterizedTypeWildcard() {
+        return ParameterizedTypeImpl.WILDCARD_PARAMETERIZED_TYPE;
     }
 }

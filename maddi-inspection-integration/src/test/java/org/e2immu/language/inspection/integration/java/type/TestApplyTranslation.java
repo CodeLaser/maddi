@@ -107,8 +107,6 @@ public class TestApplyTranslation extends CommonTest {
         map.put(ata0, qAta);
         map.put(ata1, myException.asParameterizedType());
         ParameterizedType translatedTp = aa0Pt.applyTranslation(runtime, map);
-        // FIXME
-        //  what we expect the algorithm to do is to go up in the resolution of type parameters, to AOA and then to ATA
         assertEquals("""
                 Type org.assertj.core.api.AbstractThrowableAssert<?,a.b.C.MyException>\
                 """, translatedTp.toString());

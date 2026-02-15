@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.runtime;
 
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 
 public interface PredefinedWithoutParameterizedType {
 
@@ -144,4 +145,6 @@ public interface PredefinedWithoutParameterizedType {
     MethodInfo xorOperatorBool();
 
     MethodInfo xorOperatorInt();
+
+    ParameterizedType parameterizedTypeWildcard();
 }

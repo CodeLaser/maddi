@@ -348,6 +348,8 @@ public class TestLambda extends CommonTest {
          public abstract class AbstractThrowableAssert<SELF extends AbstractThrowableAssert<SELF, ACTUAL>, ACTUAL extends Throwable>
             extends AbstractObjectAssert<SELF, ACTUAL> { ... }
          so it is clear that ACTUAL needs to be combined with SELF
+
+         See TestApplyTranslation,1
         */
         javaInspector.parse(INPUT6);
     }

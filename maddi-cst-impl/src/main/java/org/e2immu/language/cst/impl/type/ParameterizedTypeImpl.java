@@ -639,16 +639,29 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         ParameterizedType pt = this;
         if (pt.isTypeParameter()) {
             boolean add = false;
-            // we must have some form of cycle protection; when K->V and V->K;; // TestTypeParameter,7 as an example
+            // we must have some form of cycle protection; when K->V and V->K;; TestTypeParameter,7 as an example
             Set<ParameterizedType> reached = new HashSet<>();
             while (pt.isTypeParameter() && translate.containsKey(pt.typeParameter())) {
                 ParameterizedType newPt = translate.get(pt.typeParameter());
-                if (newPt.equals(pt) || newPt.isTypeParameter() && pt.typeParameter().equals(newPt.typeParameter()))
+                if (newPt.equals(pt) || newPt.isTypeParameter() && pt.typeParameter().equals(newPt.typeParameter())) {
                     break;
+                }
+                // see TestApplyTranslation,1: SELF references; see also TestMethodCall8,4
+                if (newPt.typeInfo() != null && pt.typeParameter().getOwner().isLeft()
+                    && newPt.typeInfo().equals(pt.typeParameter().getOwner().getLeft())
+                    && pt.typeParameter().typeBounds().size() > pt.typeParameter().getIndex()
+                    && pt.typeParameter().getOwner().getLeft().equals(pt.typeParameter().typeBounds()
+                        .get(pt.typeParameter().getIndex()).typeInfo())) {
+
+                    pt = selfReference(primitives, translate, pt, newPt);
+                    break;
+                }
                 if (reached.add(newPt)) {
                     pt = newPt;
                     add = true;
-                } else break;
+                } else {
+                    break;
+                }
             }
             // we want to add this.arrays only once, and only when there was a translation (MethodCall_61)
             if (add) {
@@ -672,6 +685,32 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             throw new UnsupportedOperationException("? input " + stablePt + " has no type");
         }
         return new ParameterizedTypeImpl(stablePt.typeInfo(), null, recursivelyMappedParameters, arrays, wildcard);
+    }
+
+    private static ParameterizedType selfReference(PredefinedWithoutParameterizedType primitives, Map<NamedType, ParameterizedType> translate, ParameterizedType pt, ParameterizedType newPt) {
+        List<ParameterizedType> allTypeParams = new ArrayList<>();
+        ParameterizedType formal = pt.typeParameter().getOwner().getLeft().asParameterizedType();
+        for (ParameterizedType fpt : formal.parameters()) {
+            if (fpt.isTypeParameter()) {
+                ParameterizedType add;
+                if (fpt.typeParameter().equals(pt.typeParameter())) {
+                    if (newPt.wildcard() != null && newPt.wildcard().isExtends()) {
+                        add = primitives.parameterizedTypeWildcard();
+                    } else if (newPt.parameters().size() > fpt.typeParameter().getIndex()) {
+                        add = newPt.parameters().get(fpt.typeParameter().getIndex());
+                    } else {
+                        throw new UnsupportedOperationException("NYI");
+                    }
+                } else {
+                    add = translate.get(fpt.typeParameter());
+                }
+                allTypeParams.add(add);
+            } else {
+                throw new UnsupportedOperationException("?");
+            }
+        }
+        pt = formal.withParameters(allTypeParams);
+        return pt;
     }
 
     @Override
