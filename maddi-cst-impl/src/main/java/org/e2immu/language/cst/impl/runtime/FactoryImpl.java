@@ -1101,11 +1101,6 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
         return ParameterizedTypeImpl.RETURN_TYPE_OF_CONSTRUCTOR;
     }
 
-    @Override
-    public ParameterizedType parameterizedTypeWildcard() {
-        return ParameterizedTypeImpl.WILDCARD_PARAMETERIZED_TYPE;
-    }
-
     private static final Pattern COMPACT2_PATTERN = Pattern.compile("(\\d+)-(\\d+):(\\d+)-(\\d+)");
 
     @Override
