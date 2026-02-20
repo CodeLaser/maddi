@@ -330,7 +330,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
                         qualification.qualifierRequired(thisVar));
                 boolean qualifierRequired = qualification.qualifierRequired(methodInfo);
                 outputBuilder.add(new QualifiedNameImpl(methodName, thisName,
-                        qualifierRequired ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
+                        qualifierRequired || thisVar.writeSuper() ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
                 if (guideGenerator != null) start = true;
             } else {
                 // next level is NOT a gg; if gg != null we're at the start of the chain
