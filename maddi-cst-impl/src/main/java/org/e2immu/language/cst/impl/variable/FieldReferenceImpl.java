@@ -157,7 +157,7 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
                     qualification.qualifierRequired(thisVar.typeInfo()), false);
             ThisNameImpl thisName = new ThisNameImpl(thisVar.writeSuper(),
                     typeName,
-                    qualification.qualifierRequired(thisVar));
+                    thisVar.explicitlyWriteType() != null && qualification.qualifierRequired(thisVar));
             return new OutputBuilderImpl().add(new QualifiedNameImpl(fieldInfo.name(), thisName,
                     qualification.qualifierRequired(this) ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_FIELD));
         }
