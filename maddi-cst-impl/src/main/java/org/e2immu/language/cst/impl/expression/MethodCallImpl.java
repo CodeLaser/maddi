@@ -327,7 +327,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
                 TypeName typeName = TypeNameImpl.typeName(thisVar.typeInfo(),
                         qualification.qualifierRequired(thisVar.typeInfo()), false);
                 ThisName thisName = new ThisNameImpl(thisVar.writeSuper(), typeName,
-                        qualification.qualifierRequired(thisVar));
+                        qualification.qualifierRequired(thisVar) && thisVar.explicitlyWriteType() != null);
                 boolean qualifierRequired = qualification.qualifierRequired(methodInfo);
                 outputBuilder.add(new QualifiedNameImpl(methodName, thisName,
                         qualifierRequired || thisVar.writeSuper() ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
