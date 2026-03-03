@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.variable;
 
 import org.e2immu.annotation.NotNull;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.util.OneVariable;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
