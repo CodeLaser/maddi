@@ -48,6 +48,7 @@ public interface DetailedSources {
     Object THROWS_COMMAS = new Object();
     Object LOCAL_VARIABLE_COMMAS = new Object();
     Object LOCAL_VARIABLE_ASSIGNMENT_OPERATORS = new Object();
+    Object TYPE_BOUND_AMPERSANDS = new Object();
 
     Source detail(Object object);
 

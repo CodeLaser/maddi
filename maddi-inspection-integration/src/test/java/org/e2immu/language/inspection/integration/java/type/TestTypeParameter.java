@@ -299,4 +299,33 @@ public class TestTypeParameter extends CommonTest {
     public void test7() {
         javaInspector.parse(INPUT7);
     }
+
+
+    @Language("java")
+    public static final String INPUT8 = """
+            package a.b;
+            public class C {
+                interface A { }
+                interface B { }
+                class K { }
+                <T extends K & A & B> T method(T t) {
+                    return t;
+                }
+            }
+            """;
+
+    @Test
+    public void test8() {
+        TypeInfo C = javaInspector.parse(INPUT8, JavaInspectorImpl.DETAILED_SOURCES);
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        assertEquals("T extends a.b.C.K&a.b.C.A&a.b.C.B", method.returnType().detailedString());
+        List<ParameterizedType> bounds = method.returnType().typeParameter().typeBounds();
+        assertEquals(3, bounds.size());
+        assertEquals("6-6:6-24", method.typeParameters().getFirst().source().compact2());
+        DetailedSources ds = method.typeParameters().getFirst().source().detailedSources();
+        assertEquals("6-16:6-16", ds.detail(bounds.getFirst()).compact2());
+        assertEquals("6-20:6-20", ds.detail(bounds.get(1)).compact2());
+        assertEquals("6-24:6-24", ds.detail(bounds.getLast()).compact2());
+        assertEquals("[@6:18-6:18, @6:22-6:22]", ds.details(DetailedSources.TYPE_BOUND_AMPERSANDS).toString());
+    }
 }
