@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.element.SourceImpl;
 import org.e2immu.language.cst.impl.output.QualificationImpl;
 
 import java.util.List;
@@ -55,11 +56,6 @@ public abstract class VariableImpl implements Variable {
     }
 
     @Override
-    public Source source() {
-        return null;
-    }
-
-    @Override
     public Stream<Variable> variableStreamDescend() {
         return variables(DescendModeEnum.YES);
     }
@@ -72,5 +68,10 @@ public abstract class VariableImpl implements Variable {
     @Override
     public String toString() {
         return print(QualificationImpl.FULLY_QUALIFIED_NAMES).toString();
+    }
+
+    @Override
+    public Source source() {
+        return SourceImpl.NO_SOURCE;
     }
 }

@@ -28,6 +28,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.element.ElementImpl;
+import org.e2immu.language.cst.impl.element.SourceImpl;
 import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
 import org.e2immu.language.cst.impl.output.TextImpl;
 
@@ -134,7 +135,7 @@ public class ObjectCreationVariableImpl implements ObjectCreationVariable {
 
     @Override
     public Source source() {
-        return null;
+        return SourceImpl.NO_SOURCE;
     }
 
     @Override
