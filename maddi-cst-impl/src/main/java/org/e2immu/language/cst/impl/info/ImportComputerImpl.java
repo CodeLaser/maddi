@@ -23,12 +23,16 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.impl.output.QualificationImpl;
 import org.e2immu.language.cst.impl.output.TypeNameImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ImportComputerImpl implements ImportComputer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ImportComputerImpl.class);
+
     private final int minStar;
     private final Function<String, Collection<TypeInfo>> typesPerPackage;
 
@@ -43,6 +47,11 @@ public class ImportComputerImpl implements ImportComputer {
 
     private static class PerPackage {
         final List<TypeInfo> types = new LinkedList<>();
+
+        @Override
+        public String toString() {
+            return types.toString();
+        }
     }
 
     public Result go(CompilationUnit compilationUnit, Qualification q) {
@@ -53,7 +62,7 @@ public class ImportComputerImpl implements ImportComputer {
                 .map(TypeInfo::primaryType)
                 .filter(ImportComputerImpl::allowInImport)
                 .collect(Collectors.toUnmodifiableSet());
-        Map<String, PerPackage> typesPerPackage = new HashMap<>();
+        LOGGER.debug("Types referenced in {}: {}", compilationUnit, typesReferenced);
         QualificationImpl qualification;
         if (q == null) {
             qualification = new QualificationImpl(false,
@@ -62,16 +71,19 @@ public class ImportComputerImpl implements ImportComputer {
             qualification = new QualificationImpl(q.doNotQualifyImplicit(), q.typeNameRequired(), q.decorator());
         }
         String myPackage = compilationUnit.packageName();
+        Map<String, PerPackage> typesPerPackage = new HashMap<>();
         typesReferenced.forEach(ti -> {
             String packageName = ti.packageName();
             if (packageName != null && !myPackage.equals(packageName)) {
                 boolean doImport = qualification.addTypeReturnImport(ti);
+                LOGGER.debug("Do import of {}? {}", ti, doImport);
                 if (doImport) {
                     PerPackage perPackage = typesPerPackage.computeIfAbsent(packageName, p -> new PerPackage());
                     perPackage.types.add(ti);
                 }
             }
         });
+        LOGGER.debug("Types per package: {}", typesPerPackage);
         Map<String, List<Comment>> originalComments = compilationUnit
                 .importStatements().stream()
                 .collect(Collectors.toUnmodifiableMap(ImportStatement::importString, Element::comments));

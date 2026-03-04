@@ -44,6 +44,7 @@ public abstract class CommonTest {
     @BeforeAll
     public static void beforeAll() {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
+        ((Logger) LoggerFactory.getLogger("org.e2immu.language.cst.impl")).setLevel(Level.DEBUG);
     }
 
     @BeforeEach
