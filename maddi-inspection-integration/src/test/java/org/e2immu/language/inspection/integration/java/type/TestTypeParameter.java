@@ -210,7 +210,7 @@ public class TestTypeParameter extends CommonTest {
                 import org.e2immu.annotation.Container;
                 import org.e2immu.annotation.Independent;
                 class X { class Class$<@Independent @Container T> { } }
-                """, javaInspector.print2(typeInfo));
+                """, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
     @Language("java")
@@ -238,7 +238,7 @@ public class TestTypeParameter extends CommonTest {
                 import org.e2immu.annotation.Container;
                 import org.e2immu.annotation.Independent;
                 class X { private static final String COMMENT = "comment"; class Class$<@Independent@Container(comment = COMMENT) T> { } }
-                """, javaInspector.print2(typeInfo));
+                """, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
 

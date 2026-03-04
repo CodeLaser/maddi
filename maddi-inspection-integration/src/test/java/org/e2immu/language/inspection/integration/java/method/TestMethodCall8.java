@@ -188,7 +188,7 @@ public class TestMethodCall8 extends CommonTest {
         javaInspector.parse(INPUT3);
         TypeInfo aca = javaInspector.compiledTypesManager()
                 .getOrLoad("org.assertj.core.api.AbstractCollectionAssert", null);
-        String print = javaInspector.print2(aca);
+        String print = javaInspector.print2(aca.compilationUnit());
         @Language("java")
         String expected = """
                 package org.assertj.core.api;

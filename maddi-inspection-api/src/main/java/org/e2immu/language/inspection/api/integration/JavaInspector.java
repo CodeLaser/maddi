@@ -120,9 +120,9 @@ public interface JavaInspector {
     // only for testing, after general parse();
     List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions);
 
-    String print2(TypeInfo typeInfo);
+    String print2(CompilationUnit compilationUnit);
 
-    String print2(TypeInfo typeInfo, Qualification.Decorator decorator, ImportComputer importComputer);
+    String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator, ImportComputer importComputer);
 
     Runtime runtime();
 

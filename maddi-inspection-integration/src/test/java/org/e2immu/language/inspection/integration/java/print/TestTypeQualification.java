@@ -49,6 +49,6 @@ public class TestTypeQualification extends CommonTest {
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
-        assertEquals(OUTPUT1, javaInspector.print2(X));
+        assertEquals(OUTPUT1, javaInspector.print2(X.compilationUnit()));
     }
 }

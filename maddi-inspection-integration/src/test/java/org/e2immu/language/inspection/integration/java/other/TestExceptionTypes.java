@@ -80,6 +80,6 @@ public class TestExceptionTypes extends CommonTest {
                     }
                 }
                 """;
-        assertEquals(expected, javaInspector.print2(x));
+        assertEquals(expected, javaInspector.print2(x.compilationUnit()));
     }
 }

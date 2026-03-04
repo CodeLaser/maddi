@@ -48,7 +48,7 @@ public class TestTextBlockFormatting extends CommonTest {
         LocalVariableCreation lvc  = (LocalVariableCreation)  methodInfo.methodBody().statements().get(0);
         TextBlock tb = (TextBlock) lvc.localVariable().assignmentExpression();
         assertNotNull(tb.textBlockFormatting());
-        String s = javaInspector.print2(X);
+        String s = javaInspector.print2(X.compilationUnit());
         @Language("java")
         String expect = """
             package a.b;

@@ -25,7 +25,10 @@ import org.e2immu.language.cst.api.output.element.Split;
 import org.e2immu.language.cst.api.output.element.TextBlockFormatting;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.*;
+import org.e2immu.language.cst.api.type.Diamond;
+import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.type.TypeNature;
+import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.cst.api.variable.*;
 
 import java.util.Collection;
@@ -195,6 +198,8 @@ public interface Factory {
     CommaExpression.Builder newCommaBuilder();
 
     CompilationUnit.Builder newCompilationUnitBuilder();
+
+    CompilationUnitPrinter newCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2);
 
     CompilationUnit newCompilationUnitStub(String candidatePackageName);
 
