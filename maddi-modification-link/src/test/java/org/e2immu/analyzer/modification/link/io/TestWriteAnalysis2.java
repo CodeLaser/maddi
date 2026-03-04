@@ -93,7 +93,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         LinkComputer lc = new LinkComputerImpl(javaInspector);
         lc.doPrimaryType(X);
 
-        String s = javaInspector.print2(X, new DecoratorImpl(runtime, javaInspector.mainSources()),
+        String s = javaInspector.print2(X.compilationUnit(), new DecoratorImpl(runtime, javaInspector.mainSources()),
                 javaInspector.importComputer(4, javaInspector.mainSources()));
         assertEquals(OUTPUT1, s);
         Trie<TypeInfo> typeTrie = new Trie<>();
@@ -184,7 +184,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         assertEquals("a.b.X.setAdd(a.b.X.R):0:r, r.set", mlvMethod.sortedModifiedString());
         assertTrue(method.isNonModifying());
 
-        String s = javaInspector.print2(X, new DecoratorImpl(runtime, javaInspector.mainSources()),
+        String s = javaInspector.print2(X.compilationUnit(), new DecoratorImpl(runtime, javaInspector.mainSources()),
                 javaInspector.importComputer(4, javaInspector.mainSources()));
         assertEquals(OUTPUT2, s);
         Trie<TypeInfo> typeTrie = new Trie<>();

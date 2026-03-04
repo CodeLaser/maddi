@@ -70,6 +70,9 @@ public class TestComments extends CommonTest {
 
         assertEquals(" at end of class", typeInfo.trailingComments().getFirst().comment());
         assertEquals(" at end of CU", typeInfo.compilationUnit().trailingComments().getFirst().comment());
+
+        String printed = javaInspector.print2(typeInfo.compilationUnit());
+        assertEquals(INPUT1, printed);
     }
 
     @Language("java")

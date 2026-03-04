@@ -80,7 +80,7 @@ public class TestCloneBench extends CommonTest {
 
         List<Info> analysisOrder = prepWork(typeInfo);
         analyzer.go(analysisOrder);
-        String printed = javaInspector.print2(typeInfo);
+        String printed = javaInspector.print2(typeInfo.compilationUnit());
         Files.writeString(outFile.toPath(), printed, StandardCharsets.UTF_8);
 
         analysisOrder.stream().filter(info -> info instanceof MethodInfo)

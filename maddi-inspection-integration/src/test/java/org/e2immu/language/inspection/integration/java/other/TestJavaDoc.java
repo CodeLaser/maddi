@@ -79,7 +79,7 @@ public class TestJavaDoc extends CommonTest {
                     }
                 }
                 """;
-        assertEquals(expected, javaInspector.print2(typeInfo));
+        assertEquals(expected, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
     @Language("java")

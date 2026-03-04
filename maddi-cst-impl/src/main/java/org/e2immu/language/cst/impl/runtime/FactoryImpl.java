@@ -513,6 +513,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public CompilationUnitPrinter newCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2) {
+        return new CompilationUnitPrinterImpl(compilationUnit, formatter2);
+    }
+
+    @Override
     public CompilationUnit newCompilationUnitStub(String candidatePackageName) {
         return new CompilationUnitStub(candidatePackageName);
     }
