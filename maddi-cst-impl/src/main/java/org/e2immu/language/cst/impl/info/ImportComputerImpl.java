@@ -14,7 +14,10 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.language.cst.api.element.Comment;
+import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -42,21 +45,23 @@ public class ImportComputerImpl implements ImportComputer {
         final List<TypeInfo> types = new LinkedList<>();
     }
 
-    public Result go(TypeInfo typeInfo, Qualification q) {
-        Set<TypeInfo> typesReferenced = typeInfo.typesReferenced()
+    public Result go(CompilationUnit compilationUnit, Qualification q) {
+        Set<TypeInfo> typesReferenced = compilationUnit.types().stream()
+                .flatMap(Element::typesReferenced)
                 .filter(Element.TypeReference::explicit)
                 .map(Element.TypeReference::typeInfo)
                 .map(TypeInfo::primaryType)
                 .filter(ImportComputerImpl::allowInImport)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toUnmodifiableSet());
         Map<String, PerPackage> typesPerPackage = new HashMap<>();
         QualificationImpl qualification;
         if (q == null) {
-            qualification = new QualificationImpl(false, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
+            qualification = new QualificationImpl(false,
+                    TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
         } else {
             qualification = new QualificationImpl(q.doNotQualifyImplicit(), q.typeNameRequired(), q.decorator());
         }
-        String myPackage = typeInfo.packageName();
+        String myPackage = compilationUnit.packageName();
         typesReferenced.forEach(ti -> {
             String packageName = ti.packageName();
             if (packageName != null && !myPackage.equals(packageName)) {
@@ -67,19 +72,28 @@ public class ImportComputerImpl implements ImportComputer {
                 }
             }
         });
+        Map<String, List<Comment>> originalComments = compilationUnit
+                .importStatements().stream()
+                .collect(Collectors.toUnmodifiableMap(ImportStatement::importString, Element::comments));
+
         // IMPROVE static fields and methods
         // IMPROVE order of imports: for now, we simply do alphabetic, and ensure there are no conflicts
-        Set<String> imports = new TreeSet<>();
+        List<ImportDetails> imports = new ArrayList<>();
         for (Map.Entry<String, PerPackage> e : typesPerPackage.entrySet()) {
             PerPackage perPackage = e.getValue();
             if (perPackage.types.size() < minStar || conflict(e.getKey(), typesReferenced)) {
                 for (TypeInfo ti : perPackage.types) {
-                    imports.add(ti.fullyQualifiedName());
+                    String importString = ti.fullyQualifiedName();
+                    imports.add(new ImportDetails(importString, originalComments.getOrDefault(importString, List.of())));
                 }
             } else {
-                imports.add(perPackage.types.getFirst().packageName() + ".*");
+                List<Comment> comments = perPackage.types.stream().flatMap(ti ->
+                                originalComments.getOrDefault(ti.fullyQualifiedName(), List.of()).stream())
+                        .toList();
+                imports.add(new ImportDetails(perPackage.types.getFirst().packageName() + ".*", comments));
             }
         }
+        imports.sort(Comparator.comparing(ImportDetails::importString));
         return new Result(imports, qualification);
     }
 

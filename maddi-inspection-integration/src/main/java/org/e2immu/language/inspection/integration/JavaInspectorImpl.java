@@ -508,7 +508,9 @@ public class JavaInspectorImpl implements JavaInspector {
                 = parseCompilationUnit.parse(cu, parser.get().CompilationUnit());
         computeSingleAbstractMethods(sr.sourceTypes().values(), parseOptions.parallel());
         rootContext.resolver().resolve(true);
-        return types.stream().map(Either::getLeft).toList();
+        List<TypeInfo> typeInfoList = types.stream().map(Either::getLeft).toList();
+        cu.setTypes(typeInfoList);
+        return typeInfoList;
     }
 
     @Override
@@ -644,15 +646,19 @@ public class JavaInspectorImpl implements JavaInspector {
                 List<Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation>> types
                         = parseCompilationUnit.parse(sfCu.parsedCu, sfCu.cu);
                 DelayedCU delayedCU = null;
+                List<TypeInfo> typeInfoList = new ArrayList<>();
                 for (Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation> either : types) {
                     if (either.isLeft()) {
                         TypeInfo ti = either.getLeft();
                         summary.addType(ti);
+                        typeInfoList.add(ti);
                     } else {
                         if (delayedCU == null) delayedCU = new DelayedCU(sfCu, new LinkedList<>());
                         delayedCU.delayed.add(either.getRight());
+                        typeInfoList.add(either.getRight().typeInfo());
                     }
                 }
+                sfCu.parsedCu.setTypes(List.copyOf(typeInfoList));
                 count.incrementAndGet();
                 TIMED_LOGGER.info("Phase 3: parsing type/method/field declarations, done {}", count);
                 if (delayedCU == null) {

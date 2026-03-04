@@ -315,6 +315,7 @@ public class Composer {
                 .setSourceSet(sourceSet)
                 .build();
         TypeInfo typeInfo = runtime.newTypeInfo(compilationUnit, camelCasePackageName);
+        compilationUnit.setTypes(List.of(typeInfo));
         TypeInfo.Builder builder = typeInfo.builder();
         builder.setTypeNature(runtime.typeNatureClass())
                 .setParentClass(runtime.objectParameterizedType())

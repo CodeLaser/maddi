@@ -17,9 +17,16 @@ package org.e2immu.language.cst.api.info;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 
-import java.util.List;
-
 public interface CompilationUnitPrinter {
 
     OutputBuilder print(ImportComputer importComputer, Qualification qualification);
+
+    // helper method for printing type content without the declaration (e.g. for lambdas), see TypePrinter
+    interface ImportData {
+        Qualification insideType();
+
+        Qualification qualification();
+    }
+
+    ImportData computeImportData(ImportComputer importComputer, Qualification qualification);
 }
