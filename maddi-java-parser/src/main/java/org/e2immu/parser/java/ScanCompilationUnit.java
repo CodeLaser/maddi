@@ -104,6 +104,12 @@ public class ScanCompilationUnit extends CommonParse {
             ImportStatement importStatement = parseImportDeclaration(id);
             compilationUnitBuilder.addImportStatement(importStatement);
         }
+
+        Node lastChild = cu.getLastChild();
+        if (lastChild.getType().isEOF()) {
+            compilationUnitBuilder.addTrailingComments(comments(lastChild));
+        }
+
         org.e2immu.language.cst.api.element.CompilationUnit compilationUnit = compilationUnitBuilder.build();
         Map<String, TypeInfo> sourceTypes = recursivelyFindTypes(Either.left(compilationUnit), null, cu,
                 addDetailedSources);

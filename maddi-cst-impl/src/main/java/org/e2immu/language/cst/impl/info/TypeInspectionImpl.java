@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
@@ -37,6 +38,7 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
     private final List<TypeInfo> permittedWhenSealed;
     private final Set<TypeInfo> superTypesExcludingJavaLangObject;
     private final int anonymousTypes;
+    private final List<Comment> trailingComments;
 
     public TypeInspectionImpl(Inspection inspection,
                               Set<TypeModifier> typeModifiers,
@@ -53,7 +55,8 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
                               MethodInfo enclosingMethod,
                               List<TypeInfo> permittedWhenSealed,
                               Set<TypeInfo> superTypesExcludingJavaLangObject,
-                              int anonymousTypes) {
+                              int anonymousTypes,
+                              List<Comment> trailingComments) {
         super(inspection.access(), inspection.comments(), inspection.source(), inspection.isSynthetic(),
                 inspection.annotations(), inspection.javaDoc());
         this.typeModifiers = typeModifiers;
@@ -71,6 +74,12 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         this.permittedWhenSealed = permittedWhenSealed;
         this.superTypesExcludingJavaLangObject = superTypesExcludingJavaLangObject;
         this.anonymousTypes = anonymousTypes;
+        this.trailingComments = trailingComments;
+    }
+
+    @Override
+    public List<Comment> trailingComments() {
+        return trailingComments;
     }
 
     @Override
@@ -157,6 +166,7 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         private final List<TypeInfo> subTypes = new ArrayList<>();
         private final List<TypeParameter> typeParameters = new ArrayList<>();
         private final List<TypeInfo> permittedWhenSealed = new ArrayList<>();
+        private final List<Comment> trailingComments = new ArrayList<>();
         private int anonymousTypes;
 
         private ParameterizedType parentClass;
@@ -302,14 +312,14 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
                     List.copyOf(constructors), List.copyOf(fields), parentClass, typeNature, singleAbstractMethod,
                     List.copyOf(interfacesImplemented), List.copyOf(typeParameters), sortedSubTypes,
                     fieldsAccessedInRestOfPrimaryType, enclosingMethod, List.copyOf(permittedWhenSealed),
-                    superTypesExcludingJavaLangObject(), anonymousTypes);
+                    superTypesExcludingJavaLangObject(), anonymousTypes, List.copyOf(trailingComments));
             if (ti.parentClass() == null
                 && !typeInfo.isJavaLangObject()
                 && typeNature != TypeNatureEnum.PRIMITIVE) {
                 throw new UnsupportedOperationException("Cannot commit. Type " + typeInfo + " has a null parent class, and it is not JLO. Its type nature is " + ti.typeNature());
             }
             assert !ti.typeNature().isEnum()
-                   || "java.lang.Enum".equals(ti.parentClass().typeInfo().fullyQualifiedName());
+                   || ti.parentClass() != null && "java.lang.Enum".equals(ti.parentClass().typeInfo().fullyQualifiedName());
             assert !ti.typeNature().isAnnotation()
                    || "java.lang.annotation.Annotation".equals(ti.interfacesImplemented().getFirst().typeInfo().fullyQualifiedName());
             typeInfo.commit(ti);
@@ -440,6 +450,17 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         @Override
         public boolean isFinal() {
             return modifiers().contains(TypeModifierEnum.FINAL);
+        }
+
+        @Override
+        public List<Comment> trailingComments() {
+            return trailingComments;
+        }
+
+        @Override
+        public TypeInfo.Builder addTrailingComments(List<Comment> comments) {
+            this.trailingComments.addAll(comments);
+            return this;
         }
     }
 

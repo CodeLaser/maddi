@@ -1001,4 +1001,9 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         }
         return true;
     }
+
+    @Override
+    public List<Comment> trailingComments() {
+        return inspection.get().trailingComments();
+    }
 }

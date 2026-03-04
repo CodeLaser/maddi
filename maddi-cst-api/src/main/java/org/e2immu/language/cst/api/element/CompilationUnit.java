@@ -31,6 +31,8 @@ public interface CompilationUnit extends Element {
 
     FingerPrint fingerPrintOrNull();
 
+    List<Comment> trailingComments();
+
     /**
      * Can be set only once! If set during building phase, this method may not be called.
      *
@@ -58,6 +60,9 @@ public interface CompilationUnit extends Element {
 
         @Fluent
         Builder setFingerPrint(FingerPrint fingerPrint);
+
+        @Fluent
+        Builder addTrailingComments(List<Comment> comments);
 
         CompilationUnit build();
     }
