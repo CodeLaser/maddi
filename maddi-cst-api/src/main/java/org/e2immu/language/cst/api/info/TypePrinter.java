@@ -24,4 +24,6 @@ public interface TypePrinter {
     List<TypeModifier> minimalModifiers(TypeInfo typeInfo);
 
     OutputBuilder print(ImportComputer importComputer, Qualification qualification, boolean doTypeDeclaration);
+
+    OutputBuilder print(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration);
 }

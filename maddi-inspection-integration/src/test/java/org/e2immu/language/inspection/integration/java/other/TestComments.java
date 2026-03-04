@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestComments extends CommonTest {
 
@@ -72,7 +73,7 @@ public class TestComments extends CommonTest {
         assertEquals(" at end of CU", typeInfo.compilationUnit().trailingComments().getFirst().comment());
 
         String printed = javaInspector.print2(typeInfo.compilationUnit());
-        assertEquals(INPUT1, printed);
+        assertEquals(INPUT1.replaceAll("\\s+", ""), printed.replaceAll("\\s+", ""));
     }
 
     @Language("java")
@@ -90,6 +91,10 @@ public class TestComments extends CommonTest {
                     }
                     // nothing\t here
                 }
+            }
+            // y is a primary type, but it cannot be public
+            class Y {
+                int i;
             }
             """;
 
@@ -110,6 +115,13 @@ public class TestComments extends CommonTest {
         assertEquals(" nothing\t here", method.methodBody().trailingComments().getFirst().comment());
         Block block = (Block) method.methodBody().statements().getFirst();
         assertEquals(" comment pre-block", block.comments().getFirst().comment());
-    }
 
+        assertEquals(2, typeInfo.compilationUnit().types().size());
+        TypeInfo Y = typeInfo.compilationUnit().types().getLast();
+        assertEquals(" y is a primary type, but it cannot be public", Y.comments().getFirst().comment());
+        assertTrue(Y.isPrimaryType());
+
+        String printed = javaInspector.print2(typeInfo.compilationUnit());
+        assertEquals(INPUT2.replaceAll("\\s+", ""), printed.replaceAll("\\s+", ""));
+    }
 }

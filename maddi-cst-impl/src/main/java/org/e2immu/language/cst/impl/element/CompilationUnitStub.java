@@ -16,10 +16,12 @@ package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.support.SetOnce;
 
 import java.net.URI;
 import java.util.List;
@@ -28,6 +30,7 @@ import java.util.stream.Stream;
 
 public class CompilationUnitStub implements CompilationUnit {
     private final String packageName;
+    private final SetOnce<List<TypeInfo>> types = new SetOnce<>();
 
     public CompilationUnitStub(String candidatePackageName) {
         packageName = candidatePackageName;
@@ -54,13 +57,22 @@ public class CompilationUnitStub implements CompilationUnit {
     }
 
     @Override
+    public List<TypeInfo> types() {
+        return types.get();
+    }
+
+    @Override
+    public void setTypes(List<TypeInfo> types) {
+        this.types.set(types);
+    }
+
+    @Override
     public Source source() {
         return null;
     }
 
     @Override
     public void visit(Predicate<Element> predicate) {
-
     }
 
     @Override

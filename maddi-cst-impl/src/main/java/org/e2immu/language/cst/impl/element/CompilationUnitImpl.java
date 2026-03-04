@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.variable.DescendMode;
@@ -42,6 +43,7 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     private final Source source;
     private final SourceSet sourceSet;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
+    private final SetOnce<List<TypeInfo>> types = new SetOnce<>();
 
     public CompilationUnitImpl(SourceSet sourceSet,
                                URI uri,
@@ -153,8 +155,21 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     }
 
     @Override
+    public List<TypeInfo> types() {
+        return types.get();
+    }
+
+    @Override
+    public void setTypes(List<TypeInfo> types) {
+        this.types.set(types);
+    }
+
+    @Override
     public Element rewire(InfoMap infoMap) {
-        return this;
+        CompilationUnitImpl copy = new CompilationUnitImpl(sourceSet, uri, comments,
+                source, importStatements, packageName, fingerPrint.getOrDefaultNull(), trailingComments);
+        copy.setTypes(types().stream().map(infoMap::typeInfo).toList());
+        return copy;
     }
 
     public static class Builder extends ElementImpl.Builder<CompilationUnit.Builder> implements CompilationUnit.Builder {

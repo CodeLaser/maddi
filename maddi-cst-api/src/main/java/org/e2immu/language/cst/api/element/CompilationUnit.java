@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.api.element;
 
 import org.e2immu.annotation.Fluent;
+import org.e2immu.language.cst.api.info.TypeInfo;
 
 import java.net.URI;
 import java.util.List;
@@ -32,6 +33,12 @@ public interface CompilationUnit extends Element {
     FingerPrint fingerPrintOrNull();
 
     List<Comment> trailingComments();
+
+    // important: set once
+    void setTypes(List<TypeInfo> types);
+
+    // must be set before calling this method
+    List<TypeInfo> types();
 
     /**
      * Can be set only once! If set during building phase, this method may not be called.

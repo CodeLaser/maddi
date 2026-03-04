@@ -24,6 +24,7 @@ import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.impl.info.CompilationUnitPrinterImpl;
 import org.e2immu.language.cst.impl.info.ImportComputerImpl;
 import org.e2immu.language.cst.impl.info.TypePrinterImpl;
 import org.e2immu.language.cst.print.FormatterImpl;
@@ -68,7 +69,8 @@ public class TestImport extends CommonTest {
     public void test0() {
         TypeInfo typeInfo = javaInspector.parse(INPUT0);
         Qualification qualification = javaInspector.runtime().qualificationQualifyFromPrimaryType();
-        OutputBuilder ob = new TypePrinterImpl(typeInfo, false).print(new ImportComputerImpl(), qualification, true);
+        OutputBuilder ob = new CompilationUnitPrinterImpl(typeInfo.compilationUnit(), false)
+                .print(new ImportComputerImpl(), qualification);
         Formatter formatter = new FormatterImpl(javaInspector.runtime(), FormattingOptionsImpl.DEFAULT);
         String s = formatter.write(ob);
 

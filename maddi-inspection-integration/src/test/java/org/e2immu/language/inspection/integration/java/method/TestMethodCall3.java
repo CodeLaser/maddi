@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.impl.info.CompilationUnitPrinterImpl;
 import org.e2immu.language.cst.impl.info.ImportComputerImpl;
 import org.e2immu.language.cst.impl.info.TypePrinterImpl;
 import org.e2immu.language.cst.print.FormatterImpl;
@@ -113,7 +114,8 @@ public class TestMethodCall3 extends CommonTest {
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1);
         Qualification qualification = javaInspector.runtime().qualificationQualifyFromPrimaryType();
-        OutputBuilder ob = new TypePrinterImpl(typeInfo, false).print(new ImportComputerImpl(), qualification, true);
+        OutputBuilder ob = new CompilationUnitPrinterImpl(typeInfo.compilationUnit(), false)
+                .print(new ImportComputerImpl(), qualification);
         Formatter formatter = new FormatterImpl(javaInspector.runtime(), FormattingOptionsImpl.DEFAULT);
         String s = formatter.write(ob);
 
