@@ -70,7 +70,7 @@ public class JavaLexer extends TokenSource {
     * usages this is 1.
     */
     public JavaLexer(String inputSource, CharSequence input, LexicalState lexState, int startingLine, int startingColumn) {
-        super(inputSource, input, startingLine, startingColumn, 4, false, false, true, "\n");
+        super(inputSource, input, startingLine, startingColumn, 1, true, false, true, "\n");
         if (lexicalState != null) switchTo(lexState);
     }
 

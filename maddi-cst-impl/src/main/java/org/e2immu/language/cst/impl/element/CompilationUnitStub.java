@@ -49,6 +49,11 @@ public class CompilationUnitStub implements CompilationUnit {
     }
 
     @Override
+    public List<Comment> trailingComments() {
+        return List.of();
+    }
+
+    @Override
     public Source source() {
         return null;
     }

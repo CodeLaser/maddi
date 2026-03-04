@@ -26,6 +26,7 @@ import org.e2immu.support.SetOnce;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
@@ -37,6 +38,7 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     private final String packageName;
     private final List<ImportStatement> importStatements;
     private final List<Comment> comments;
+    private final List<Comment> trailingComments;
     private final Source source;
     private final SourceSet sourceSet;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
@@ -47,7 +49,8 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
                                Source source,
                                List<ImportStatement> importStatements,
                                String packageName,
-                               FingerPrint fingerPrint) {
+                               FingerPrint fingerPrint,
+                               List<Comment> trailingComments) {
         this.sourceSet = sourceSet;
         this.uri = uri;
         this.packageName = packageName;
@@ -57,6 +60,7 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
         if (fingerPrint != null) {
             this.fingerPrint.set(fingerPrint);
         }
+        this.trailingComments = trailingComments;
     }
 
     @Override
@@ -68,6 +72,11 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     @Override
     public int hashCode() {
         return Objects.hash(uri, sourceSet);
+    }
+
+    @Override
+    public List<Comment> trailingComments() {
+        return trailingComments;
     }
 
     @Override
@@ -154,6 +163,13 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
         private final List<ImportStatement> importStatements = new LinkedList<>();
         private SourceSet sourceSet;
         private FingerPrint fingerPrint;
+        private final List<Comment> trailingComments = new ArrayList<>();
+
+        @Override
+        public CompilationUnit.Builder addTrailingComments(List<Comment> comments) {
+            this.trailingComments.addAll(comments);
+            return this;
+        }
 
         @Override
         public Builder setFingerPrint(FingerPrint fingerPrint) {
@@ -199,7 +215,7 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
         @Override
         public CompilationUnit build() {
             return new CompilationUnitImpl(sourceSet, uri, comments, source, List.copyOf(importStatements), packageName,
-                    fingerPrint);
+                    fingerPrint, List.copyOf(trailingComments));
         }
     }
 }

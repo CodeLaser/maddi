@@ -456,6 +456,13 @@ public class ParseTypeDeclaration extends CommonParse {
         newContext.resolver().add(builder);
 
         /*
+        trailing comments in the body
+         */
+        Node lastChild = body.getLastChild();
+        if(lastChild instanceof Delimiter) {
+            builder.addTrailingComments(comments(lastChild));
+        }
+        /*
         Ensure a constructor when the type is a record and there are no compact constructors.
         (those without arguments, as in 'public record SomeRecord(...) { public Record { this.field = } ... }' )
         and also no default constructor override.

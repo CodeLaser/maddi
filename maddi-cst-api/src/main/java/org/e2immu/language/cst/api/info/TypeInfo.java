@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.info;
 
 
 import org.e2immu.annotation.Fluent;
+import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -83,6 +84,9 @@ public interface TypeInfo extends NamedType, Info {
     Set<TypeModifier> typeModifiers();
 
     List<TypeParameter> typeParameters();
+
+    // comments trailing the last method or field in the type's body
+    List<Comment> trailingComments();
 
     MethodInfo findUniqueMethod(String methodName, int n);
 
@@ -209,6 +213,9 @@ public interface TypeInfo extends NamedType, Info {
 
     interface Builder extends Info.Builder<Builder> {
         Builder addPermittedType(TypeInfo typeInfo);
+
+        @Fluent
+        Builder addTrailingComments(List<Comment> comments);
 
         void clearInterfacesImplemented();
 
