@@ -47,7 +47,7 @@ dependencies {
 
     implementation("commons-cli:commons-cli")
     implementation("ch.qos.logback:logback-classic")
-    implementation("com.fasterxml.jackson.core:jackson-databind")
+    implementation("tools.jackson.core:jackson-databind")
 }
 
 application {
