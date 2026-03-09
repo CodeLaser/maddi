@@ -14,7 +14,7 @@
 
 package org.e2immu.analyzer.run.main;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.*;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;

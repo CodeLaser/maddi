@@ -14,18 +14,14 @@
 
 package org.e2immu.analyzer.run.config.util;
 
-import com.fasterxml.jackson.core.JacksonException;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import com.fasterxml.jackson.databind.module.SimpleAbstractTypeResolver;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.Version;
+import tools.jackson.databind.*;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleAbstractTypeResolver;
+import tools.jackson.databind.module.SimpleModule;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -37,8 +33,8 @@ import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.ser.std.StdSerializer;
 
-import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -64,17 +60,15 @@ public class JsonStreaming {
 
         // only because we want to get the order straight: a correct linearization of the dependencies between the
         // source sets
-        module.addSerializer(new InputConfigurationSerializer(InputConfigurationImpl.class));
-        module.addSerializer(new SourceSetSerializer(SourceSetImpl.class));
-        module.addDeserializer(SourceSetImpl.class, new SourceSetDeserializer(SourceSetImpl.class));
+        module.addSerializer(InputConfigurationImpl.class, new InputConfigurationSerializer());
+        module.addSerializer(SourceSetImpl.class, new SourceSetSerializer());
+        module.addDeserializer(SourceSetImpl.class, new SourceSetDeserializer());
         //FIXME at the moment, AAPIConfig does not have a @JsonProperty in Configuration, so it is skipped
         return module;
     }
 
     public static ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(configModule());
-        return mapper;
+        return JsonMapper.builder().addModule(configModule()).build();
     }
 
     private static boolean getBoolean(JsonNode node, String key) {
@@ -84,27 +78,23 @@ public class JsonStreaming {
 
     private static String getString(JsonNode node, String key, String defaultValue) {
         JsonNode value = node.get(key);
-        return value == null ? defaultValue : value.asText();
+        return value == null ? defaultValue : value.asString();
     }
 
-    static class SourceSetDeserializer extends StdDeserializer<SourceSetImpl> {
-
-        public SourceSetDeserializer(Class<?> vc) {
-            super(vc);
-        }
+    static class SourceSetDeserializer extends ValueDeserializer<SourceSetImpl> {
 
         @Override
-        public SourceSetImpl deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JacksonException {
-            JsonNode node = jp.getCodec().readTree(jp);
-            String name = node.get("name").asText();
+        public SourceSetImpl deserialize(JsonParser jp, DeserializationContext ctxt) throws JacksonException {
+            JsonNode node = ctxt.readTree(jp);
+            String name = node.get("name").asString();
             List<Path> sourceDirectories = new ArrayList<>();
             JsonNode sourceDirs = node.get("sourceDirectories");
             if (sourceDirs != null) {
                 for (JsonNode sourceDir : sourceDirs) {
-                    sourceDirectories.add(Path.of(sourceDir.asText()));
+                    sourceDirectories.add(Path.of(sourceDir.asString()));
                 }
             }
-            String uriString = node.get("uri").asText("");
+            String uriString = node.get("uri").asString("");
             URI uri = uriString.isBlank() ? null : URI.create(uriString);
             String sourceEncodingString = getString(node, "sourceEncoding", StandardCharsets.UTF_8.toString());
             Charset sourceEncoding = sourceEncodingString.isBlank() ? StandardCharsets.UTF_8 :
@@ -118,14 +108,14 @@ public class JsonStreaming {
             JsonNode restrictToPackagesNode = node.get("restrictToPackages");
             if (restrictToPackagesNode != null) {
                 for (JsonNode jsonNode : restrictToPackagesNode) {
-                    restrictToPackages.add(jsonNode.asText());
+                    restrictToPackages.add(jsonNode.asString());
                 }
             }
             Set<SourceSet> dependencies = new HashSet<>();
             JsonNode dependenciesNode = node.get("dependencies");
             if (dependenciesNode != null) {
                 for (JsonNode subNode : dependenciesNode) {
-                    String key = subNode.asText();
+                    String key = subNode.asString();
                     SourceSet dependency = (SourceSet) ctxt.getAttribute(key);
                     if (dependency != null) {
                         dependencies.add(dependency);
@@ -150,71 +140,64 @@ public class JsonStreaming {
         }
     }
 
-    static class SourceSetSerializer extends StdSerializer<SourceSetImpl> {
-
-        public SourceSetSerializer(Class<SourceSetImpl> t) {
-            super(t);
-        }
+    static class SourceSetSerializer extends ValueSerializer<SourceSetImpl> {
 
         @Override
-        public void serialize(SourceSetImpl value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+        public void serialize(SourceSetImpl value, JsonGenerator gen, SerializationContext provider) {
             gen.writeStartObject();
             if (value.sourceEncoding() != null) {
-                gen.writeStringField("sourceEncoding", value.sourceEncoding().name());
+                gen.writeStringProperty("sourceEncoding", value.sourceEncoding().name());
             }
-            gen.writeStringField("name", value.name());
+            gen.writeStringProperty("name", value.name());
             if (value.sourceDirectories() != null && !value.sourceDirectories().isEmpty()) {
-                gen.writeArrayFieldStart("sourceDirectories");
+                gen.writeArrayPropertyStart("sourceDirectories");
                 for (Path dir : value.sourceDirectories()) gen.writeString(dir.toString());
                 gen.writeEndArray();
             }
-            gen.writeStringField("uri", value.uri().toString());
-            if (value.test()) gen.writeBooleanField("test", value.test());
-            if (value.library()) gen.writeBooleanField("library", value.library());
-            if (value.externalLibrary()) gen.writeBooleanField("externalLibrary", value.externalLibrary());
-            if (value.partOfJdk()) gen.writeBooleanField("partOfJdk", value.partOfJdk());
-            if (value.runtimeOnly()) gen.writeBooleanField("runtimeOnly", value.runtimeOnly());
+            gen.writeStringProperty("uri", value.uri().toString());
+            if (value.test()) gen.writeBooleanProperty("test", value.test());
+            if (value.library()) gen.writeBooleanProperty("library", value.library());
+            if (value.externalLibrary()) gen.writeBooleanProperty("externalLibrary", value.externalLibrary());
+            if (value.partOfJdk()) gen.writeBooleanProperty("partOfJdk", value.partOfJdk());
+            if (value.runtimeOnly()) gen.writeBooleanProperty("runtimeOnly", value.runtimeOnly());
             if (value.restrictToPackages() != null) {
-                gen.writeArrayFieldStart("restrictToPackages");
+                gen.writeArrayPropertyStart("restrictToPackages");
                 for (String pkg : value.restrictToPackages()) gen.writeString(pkg);
                 gen.writeEndArray();
             }
             if (value.dependencies() != null && !value.dependencies().isEmpty()) {
-                gen.writeArrayFieldStart("dependencies");
+                gen.writeArrayPropertyStart("dependencies");
                 for (SourceSet d : value.dependencies()) gen.writeString(d.name());
                 gen.writeEndArray();
             }
             if (value.fingerPrintOrNull() != null && !value.fingerPrintOrNull().isNoFingerPrint()) {
-                gen.writeStringField("fingerPrint", value.fingerPrintOrNull().toString());
+                gen.writeStringProperty("fingerPrint", value.fingerPrintOrNull().toString());
             }
             if (value.analysisFingerPrintOrNull() != null && !value.analysisFingerPrintOrNull().isNoFingerPrint()) {
-                gen.writeStringField("analysisFingerPrint", value.analysisFingerPrintOrNull().toString());
+                gen.writeStringProperty("analysisFingerPrint", value.analysisFingerPrintOrNull().toString());
             }
             gen.writeEndObject();
         }
     }
 
-    static class InputConfigurationSerializer extends StdSerializer<InputConfigurationImpl> {
-        public InputConfigurationSerializer(Class<InputConfigurationImpl> t) {
-            super(t);
-        }
+    static class InputConfigurationSerializer extends ValueSerializer<InputConfigurationImpl> {
 
         @Override
-        public void serialize(InputConfigurationImpl value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+        public void serialize(InputConfigurationImpl value, JsonGenerator gen, SerializationContext provider) {
             gen.writeStartObject();
-            gen.writeStringField("workingDirectory", value.workingDirectory() == null ? null :
+            gen.writeStringProperty("workingDirectory", value.workingDirectory() == null ? null :
                     value.workingDirectory().toString());
-            gen.writeArrayFieldStart("classPathParts");
+            gen.writeArrayPropertyStart("classPathParts");
             for (SourceSet cpp : value.classPathParts()) {
-                gen.writeObject(cpp);
+                provider.writeValue(gen, cpp);
             }
             gen.writeEndArray();
-            gen.writeArrayFieldStart("sourceSets");
+            gen.writeArrayPropertyStart("sourceSets");
             for (SourceSet cpp : value.sourceSets()) {
-                gen.writeObject(cpp);
+                provider.writeValue(gen, cpp);
             }
             gen.writeEndArray();
-            gen.writeStringField("alternativeJREDirectory", value.alternativeJREDirectory() == null ? null
+            gen.writeStringProperty("alternativeJREDirectory", value.alternativeJREDirectory() == null ? null
                     : value.alternativeJREDirectory().toString());
             gen.writeEndObject();
         }
