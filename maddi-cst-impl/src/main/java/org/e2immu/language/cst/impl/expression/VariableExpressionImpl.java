@@ -21,23 +21,19 @@ import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.expression.VariableExpression;
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.InfoMap;
-import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.*;
+import org.e2immu.language.cst.api.variable.DescendMode;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.element.ElementImpl;
 import org.e2immu.language.cst.impl.expression.util.ExpressionComparator;
 import org.e2immu.language.cst.impl.expression.util.InternalCompareToException;
 import org.e2immu.language.cst.impl.expression.util.PrecedenceEnum;
 import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
 import org.e2immu.language.cst.impl.output.TextImpl;
-import org.e2immu.language.cst.impl.variable.DependentVariableImpl;
-import org.e2immu.language.cst.impl.variable.FieldReferenceImpl;
-import org.e2immu.language.cst.impl.variable.ThisImpl;
 
 import java.util.List;
 import java.util.Objects;
@@ -136,18 +132,7 @@ public class VariableExpressionImpl extends ExpressionImpl implements VariableEx
 
     @Override
     public OutputBuilder print(Qualification qualification) {
-        OutputBuilder outputBuilder = new OutputBuilderImpl();
-        // if (variable instanceof FieldReference fr && !fr.isStatic()) {
-        //    if (!fr.isDefaultScope()) {
-        // outputBuilder.add(outputInParenthesis(qualification, precedence(), scopeValue)).add(SymbolEnum.DOT);
-        //    }
-        //    outputBuilder.add(new TextImpl(fr.fieldInfo().name()));
-        //} else if (variable instanceof DependentVariable dv) { TODO NYI
-        //    outputBuilder.add(outputInParenthesis(qualification, precedence(), scopeValue))
-        //            .add(SymbolEnum.LEFT_BRACKET).add(indexValue.output(qualification)).add(Symbol.RIGHT_BRACKET);
-        //} else {
-        outputBuilder.add(variable.print(qualification));
-        // }
+        OutputBuilder outputBuilder = new OutputBuilderImpl().add(variable.print(qualification));
         if (suffix != null) outputBuilder.add(suffix.print());
         return outputBuilder;
     }

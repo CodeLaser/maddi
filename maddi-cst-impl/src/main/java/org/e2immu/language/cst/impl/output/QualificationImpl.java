@@ -106,6 +106,7 @@ public class QualificationImpl implements Qualification {
             return parent == null || parent.qualifierRequired(variable);
         }
         if (variable instanceof This thisVar) {
+            if (thisVar.typeInfo().isAnonymous()) return false;
             QualificationImpl levelWithData = this;
             while (levelWithData.unqualifiedThis.isEmpty()) {
                 levelWithData = levelWithData.parent;

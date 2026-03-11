@@ -28,8 +28,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestField2 extends CommonTest2 {
 
@@ -162,7 +161,9 @@ public class TestField2 extends CommonTest2 {
         ParseResult pr1 = init(sourcesByFqn);
         TypeInfo parent = pr1.findType("a.b.Parent");
         FieldInfo r = parent.getFieldByName("ROUNDABOUT", true);
-        assertEquals("\"x\"+Parent.FIELD", r.initializer().toString());
+        // important: the current code (20260311) keeps the original scope, even if the owner is Parent
+        assertSame(parent, r.owner());
+        assertEquals("\"x\"+Child.FIELD", r.initializer().toString());
     }
 
 }

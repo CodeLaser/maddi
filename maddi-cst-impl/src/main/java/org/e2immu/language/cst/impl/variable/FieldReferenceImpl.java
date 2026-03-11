@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.output.element.TypeName;
@@ -166,9 +167,10 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
         if (qualification.isSimpleOnly()) {
             return new OutputBuilderImpl().add(new QualifiedNameImpl(simpleName(), null, QualifiedNameImpl.Required.NEVER));
         }
-        if (isStatic() && isDefaultScope) {
-            TypeName typeName = TypeNameImpl.typeName(fieldInfo.typeInfo(),
-                    qualification.qualifierRequired(fieldInfo.typeInfo()), false);
+        if (isStatic()) {
+            TypeInfo scopeType = isDefaultScope ? fieldInfo.typeInfo() : scope.parameterizedType().typeInfo();
+            TypeName typeName = TypeNameImpl.typeName(scopeType, qualification.qualifierRequired(scopeType),
+                    false);
             QualifiedNameImpl.Required required = qualification.qualifierRequired(this)
                     ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_FIELD;
             return new OutputBuilderImpl().add(new QualifiedNameImpl(fieldInfo.name(), typeName, required));
