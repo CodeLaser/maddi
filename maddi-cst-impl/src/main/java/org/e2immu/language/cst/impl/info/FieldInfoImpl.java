@@ -206,7 +206,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         Stream<TypeReference> fromInitializer = initializer == null ? Stream.of() : initializer.typesReferenced();
         Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced();
         return Stream.concat(fromAnnotations,
-                Stream.concat(type.typesReferencedMadeExplicit(),
+                Stream.concat(type.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources()),
                         Stream.concat(fromJavaDoc, fromInitializer)));
     }
 

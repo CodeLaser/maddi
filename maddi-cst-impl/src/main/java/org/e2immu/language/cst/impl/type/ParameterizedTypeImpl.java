@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.type;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -34,8 +35,6 @@ import org.e2immu.language.cst.impl.output.QualificationImpl;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class ParameterizedTypeImpl implements ParameterizedType {
     public static final ParameterizedType NULL_CONSTANT = new ParameterizedTypeImpl();
@@ -187,26 +186,20 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferencedImplicitly() {
+    public Stream<Element.TypeReference> typesReferenced(Element.TypeReferenceNature typeReferenceNature,
+                                                         DetailedSources detailedSources,
+                                                         Set<TypeParameter> visited) {
         if (typeInfo != null) {
-            Stream<Element.TypeReference> s1 = Stream.of(new ElementImpl.TypeReference(typeInfo, IMPLICIT));
-            return Stream.concat(s1, parameters.stream().flatMap(ParameterizedType::typesReferencedImplicitly));
+            Element.TypeReferenceNature nature = typeReferenceNature.isExplicit()
+                    ? DetailedSources.isFullyQualified(detailedSources, typeInfo)
+                    : Element.TypeReferenceNature.IMPLICIT;
+            return Stream.concat(Stream.<Element.TypeReference>of(new ElementImpl.TypeReference(typeInfo, nature)),
+                    parameters.stream().flatMap(pt ->
+                            pt.typesReferenced(typeReferenceNature, detailedSources, visited)));
         }
         if (typeParameter != null) {
-            return typeParameter.typesReferenced(false, new HashSet<>());
-        }
-        return Stream.of();
-    }
-
-    @Override
-    public Stream<Element.TypeReference> typesReferenced(boolean explicit, Set<TypeParameter> visited) {
-        if (typeInfo != null) {
-            Stream<Element.TypeReference> s1 = Stream.of(new ElementImpl.TypeReference(typeInfo, explicit));
-            return Stream.concat(s1, parameters.stream()
-                    .flatMap(pt -> pt.typesReferenced(explicit, visited)));
-        }
-        if (typeParameter != null) {
-            return typeParameter.typesReferenced(false, visited);
+            return typeParameter.typesReferenced(typeReferenceNature, detailedSources,
+                    visited == null ? new HashSet<>() : visited);
         }
         return Stream.of();
     }
@@ -214,12 +207,6 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     @Override
     public Stream<ParameterizedType> components() {
         return Stream.concat(Stream.of(this), parameters.stream().flatMap(ParameterizedType::components));
-    }
-
-    @Override
-    public Stream<Element.TypeReference> typesReferencedMadeExplicit() {
-        return typesReferencedImplicitly().map(Element.TypeReference::typeInfo).filter(Objects::nonNull)
-                .map(ti -> new ElementImpl.TypeReference(ti, true));
     }
 
     @Override

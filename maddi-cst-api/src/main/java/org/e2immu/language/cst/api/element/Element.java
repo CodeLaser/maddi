@@ -119,7 +119,11 @@ public interface Element {
     Stream<Variable> variableStreamDescend();
 
     enum TypeReferenceNature {
-        IMPLICIT, EXPLICIT, FULLY_QUALIFIED
+        IMPLICIT, EXPLICIT, FULLY_QUALIFIED;
+
+        public boolean isExplicit() {
+            return this != IMPLICIT;
+        }
     }
 
     interface TypeReference {
@@ -137,6 +141,15 @@ public interface Element {
         TypeReference withNature(TypeReferenceNature typeReferenceNature);
     }
 
+    /**
+     * This method tries to find out whether the references are explicit or implicit, and, when explicit,
+     * whether they require an import or not.
+     * <p>
+     * To make the distinction between EXPLICIT and FQN for parameterized types contained in the element,
+     * the detailed sources of the element are inspected.
+     *
+     * @return a stream of type references; may contain duplicates
+     */
     @NotNull
     Stream<TypeReference> typesReferenced();
 

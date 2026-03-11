@@ -45,22 +45,6 @@ public abstract class ElementImpl implements Element {
         }
     }
 
-    protected TypeReferenceNature isFullyQualified(TypeInfo typeInfo) {
-        if(source() == null) return TypeReferenceNature.EXPLICIT;
-        DetailedSources ds = source().detailedSources();
-        if(ds == null) return TypeReferenceNature.EXPLICIT;
-        // look up in detailed sources
-        return TypeReferenceNature.EXPLICIT; // FIXME
-    }
-
-    protected TypeReferenceNature isFullyQualifiedIn(TypeInfo typeInfo, ParameterizedType parameterizedType) {
-        if(source() == null) return TypeReferenceNature.EXPLICIT;
-        DetailedSources ds = source().detailedSources();
-        if(ds == null) return TypeReferenceNature.EXPLICIT;
-        // look up in detailed sources
-        return TypeReferenceNature.EXPLICIT; // FIXME
-    }
-
     @Override
     public Stream<Variable> variableStreamDescend() {
         return variables(DescendModeEnum.YES);

@@ -234,7 +234,8 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(testType.typesReferencedExplicitly(), expression.typesReferenced());
+        return Stream.concat(testType.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources()),
+                expression.typesReferenced());
     }
 
     @Override

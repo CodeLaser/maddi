@@ -14,10 +14,7 @@
 
 package org.e2immu.language.cst.impl.expression;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.expression.TypeExpression;
@@ -116,11 +113,12 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
         if (typeInfo == null) {
             if (parameterizedType.typeParameter() != null) {
                 return parameterizedType.typeParameter().typeBounds()
-                        .stream().flatMap(ParameterizedType::typesReferencedImplicitly);
+                        .stream().flatMap(pt -> pt.typesReferenced(TypeReferenceNature.IMPLICIT,
+                                null));
             }
             return Stream.of();
         }
-        TypeReferenceNature trn = isFullyQualifiedIn(typeInfo, parameterizedType);
+        TypeReferenceNature trn = DetailedSources.isFullyQualified(source().detailedSources(), parameterizedType);
         return Stream.of(new ElementImpl.TypeReference(typeInfo, trn));
     }
 

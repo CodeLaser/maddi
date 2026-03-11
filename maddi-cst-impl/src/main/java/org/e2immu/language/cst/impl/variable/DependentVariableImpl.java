@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.variable;
 
 import org.e2immu.annotation.NotNull;
 import org.e2immu.annotation.Nullable;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;

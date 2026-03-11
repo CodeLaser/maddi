@@ -276,10 +276,15 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced(boolean explicit, Set<TypeParameter> visited) {
+    public Stream<TypeReference> typesReferenced(TypeReferenceNature typeReferenceNature,
+                                                 DetailedSources detailedSources,
+                                                 Set<TypeParameter> visited) {
+        assert visited != null : "Must be set in ParameterizedTypeImpl";
         if (visited.add(this)) {
             Stream<Element.TypeReference> s1 = annotations().stream().flatMap(Element::typesReferenced);
-            Stream<Element.TypeReference> s2 = typeBounds().stream().flatMap(pt -> pt.typesReferenced(explicit, visited));
+            Stream<Element.TypeReference> s2 = typeBounds().stream()
+                    .flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT,
+                            source().detailedSources(), visited));
             return Stream.concat(s1, s2);
         }
         return Stream.of();
@@ -287,7 +292,7 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return typesReferenced(true, new HashSet<>());
+        return typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources(), new HashSet<>());
     }
 
     @Override

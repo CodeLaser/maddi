@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.info;
 
 import org.e2immu.annotation.Fluent;
 import org.e2immu.annotation.NotNull;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
@@ -59,7 +60,9 @@ public interface TypeParameter extends NamedType, Info {
     TypeParameter withOwnerVariableTypeBounds(TypeInfo typeInfo);
 
     @NotNull
-    Stream<Element.TypeReference> typesReferenced(boolean explicit, Set<TypeParameter> visited);
+    Stream<Element.TypeReference> typesReferenced(TypeReferenceNature typeReferenceNature,
+                                                  DetailedSources detailedSources,
+                                                  Set<TypeParameter> visited);
 
     interface Builder extends Info.Builder<Builder> {
         List<ParameterizedType> typeBounds();

@@ -557,19 +557,21 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced() {
+        DetailedSources detailedSources = source().detailedSources();
         Stream<TypeReference> fromParent = parentClass() == null || parentClass().isJavaLangObject() ? Stream.empty()
-                : parentClass().typesReferencedMadeExplicit();
+                : parentClass().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         Stream<TypeReference> fromInterfaces = interfacesImplemented().stream()
-                .flatMap(ParameterizedType::typesReferencedMadeExplicit);
+                .flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
         Stream<TypeReference> fromPermits = permittedWhenSealed().stream()
-                .map(ti -> new ElementImpl.TypeReference(ti, true));
+                .map(ti -> new ElementImpl.TypeReference(ti,
+                        DetailedSources.isFullyQualified(detailedSources, ti)));
         Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
         Stream<TypeReference> fromMethods = methods().stream().flatMap(MethodInfo::typesReferenced);
         Stream<TypeReference> fromConstructors = constructors().stream().flatMap(MethodInfo::typesReferenced);
         Stream<TypeReference> fromFields = fields().stream().flatMap(FieldInfo::typesReferenced);
         Stream<TypeReference> fromSubTypes = subTypes().stream().flatMap(TypeInfo::typesReferenced);
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
-                .flatMap(tp -> tp.typesReferenced(true, new HashSet<>()));
+                .flatMap(Element::typesReferenced);
         Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced();
         return Stream.concat(fromParent,
                 Stream.concat(fromInterfaces,
