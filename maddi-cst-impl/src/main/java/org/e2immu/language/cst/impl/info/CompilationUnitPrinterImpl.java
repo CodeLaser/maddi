@@ -62,11 +62,16 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
             if (qualification.decorator() != null) {
                 qualification.decorator().comments(typeInfo).forEach(c -> outputBuilder.add(c.print(qualification)));
             }
+
+            // the order is important: we first print, and collect extra imports
+            TypePrinter typePrinter = new TypePrinterImpl(typeInfo, formatter2);
+            OutputBuilder ob = typePrinter.print(importData, true);
+
+            // then add the imports
             if (qualification.decorator() != null && typeInfo.isPrimaryType()) {
                 qualification.decorator().importStatements().forEach(is -> outputBuilder.add(is.print(qualification)));
             }
-            TypePrinter typePrinter = new TypePrinterImpl(typeInfo, formatter2);
-            OutputBuilder ob = typePrinter.print(importData, true);
+            // and the printed matter
             outputBuilder.add(ob);
         }
         compilationUnit.trailingComments().forEach(c -> outputBuilder.add(c.print(qualification)));

@@ -112,7 +112,8 @@ public class ThisImpl extends VariableImpl implements This {
         if (explicitlyWriteType == null) {
             return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT));
         }
-        TypeReferenceNature nature = detailedSources.isFullyQualified(parameterizedType()) ? FULLY_QUALIFIED : EXPLICIT;
+        TypeReferenceNature nature = detailedSources != null && detailedSources.isFullyQualified(parameterizedType())
+                ? FULLY_QUALIFIED : EXPLICIT;
         return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT),
                 new ElementImpl.TypeReference(explicitlyWriteType, nature));
     }
