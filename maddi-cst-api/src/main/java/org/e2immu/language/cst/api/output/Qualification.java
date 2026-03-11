@@ -24,6 +24,12 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.List;
 
+/**
+ * This type helps determine how variables and types are qualified.
+ * Its implementations are mutable.
+ * <p>
+ * Decorators can add comments or annotations to certain elements.
+ */
 public interface Qualification {
     boolean doNotQualifyImplicit();
 
