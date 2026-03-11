@@ -153,7 +153,7 @@ public class CodecImpl implements Codec {
             int index = Integer.parseInt(m.group(2));
             if (index >= typeInfo.fields().size()) {
                 throw new UnsupportedOperationException("Index " + index
-                                                        + " greater than the number of fields in " + typeInfo);
+                        + " greater than the number of fields in " + typeInfo);
             }
             FieldInfo fieldInfo = typeInfo.fields().get(index);
             assert fieldInfo.name().equals(m.group(1));
@@ -644,7 +644,7 @@ public class CodecImpl implements Codec {
         EncodedValue e0 = encodeString(context, s0);
         EncodedValue e1 = type.isTypeParameter() ? encodeOwnerOfTypeParameter(context, type.typeParameter()) : null;
         if (type.arrays() == 0 && type.parameters().isEmpty()
-            && e1 == null && (type.wildcard() == null || type.wildcard().isUnbound())) {
+                && e1 == null && (type.wildcard() == null || type.wildcard().isUnbound())) {
             return e0;
         }
         EncodedValue e2 = encodeInt(context, type.arrays());

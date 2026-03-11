@@ -14,7 +14,7 @@
 
 package org.e2immu.gradleplugin.task;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -44,19 +44,16 @@ public class WriteInputConfigurationTask extends ConventionTask {
         Map<String, String> properties = getProperties();
         String configurationJson = properties.get(E2IMMU_CONFIGURATION);
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
-        try {
-            Configuration configuration = objectMapper.readerFor(Configuration.class)
-                    .readValue(configurationJson);
-            InputConfiguration inputConfiguration = configuration.inputConfiguration();
-            if (getOutputFile().getParentFile().mkdirs()) {
-                LOGGER.debug("Created parent directories for output file {}", getOutputFile());
-            }
-            objectMapper.writerFor(InputConfigurationImpl.class)
-                    .withDefaultPrettyPrinter()
-                    .writeValue(getOutputFile(), inputConfiguration);
-        } catch (IOException ioException) {
-            LOGGER.error("Caught IOException", ioException);
+
+        Configuration configuration = objectMapper.readerFor(Configuration.class)
+                .readValue(configurationJson);
+        InputConfiguration inputConfiguration = configuration.inputConfiguration();
+        if (getOutputFile().getParentFile().mkdirs()) {
+            LOGGER.debug("Created parent directories for output file {}", getOutputFile());
         }
+        objectMapper.writerFor(InputConfigurationImpl.class)
+                .withDefaultPrettyPrinter()
+                .writeValue(getOutputFile(), inputConfiguration);
     }
 
     private File outputFile;
