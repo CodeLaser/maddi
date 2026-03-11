@@ -118,7 +118,8 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
             }
             return Stream.of();
         }
-        TypeReferenceNature trn = DetailedSources.isFullyQualified(source().detailedSources(), parameterizedType);
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
+        TypeReferenceNature trn = DetailedSources.isFullyQualified(detailedSources, parameterizedType);
         return Stream.of(new ElementImpl.TypeReference(typeInfo, trn));
     }
 

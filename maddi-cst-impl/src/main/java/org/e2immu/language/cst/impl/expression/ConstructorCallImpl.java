@@ -15,10 +15,7 @@
 package org.e2immu.language.cst.impl.expression;
 
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.ArrayInitializer;
 import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -323,8 +320,9 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(pt ->
-                pt.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources()));
+                pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
         Stream<Element.TypeReference> arrayInitStream = arrayInitializer == null ? Stream.of()
                 : arrayInitializer.typesReferenced();
         Stream<Element.TypeReference> anonStream = anonymousClass == null ? Stream.of()
@@ -332,7 +330,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
         Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced();
         Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(Expression::typesReferenced);
         Stream<Element.TypeReference> ccTypeStream = concreteReturnType
-                .typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources());
+                .typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         return Stream.concat(typeArgStream, Stream.concat(arrayInitStream, Stream.concat(anonStream,
                 Stream.concat(objectStream, Stream.concat(paramStream, ccTypeStream)))));
     }

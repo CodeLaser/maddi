@@ -166,7 +166,7 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
         if (qualification.isSimpleOnly()) {
             return new OutputBuilderImpl().add(new QualifiedNameImpl(simpleName(), null, QualifiedNameImpl.Required.NEVER));
         }
-        if (isStatic()) {
+        if (isStatic() && isDefaultScope) {
             TypeName typeName = TypeNameImpl.typeName(fieldInfo.typeInfo(),
                     qualification.qualifierRequired(fieldInfo.typeInfo()), false);
             QualifiedNameImpl.Required required = qualification.qualifierRequired(this)
