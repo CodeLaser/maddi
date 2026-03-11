@@ -25,6 +25,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
+import org.e2immu.language.cst.impl.element.ElementImpl;
 import org.e2immu.language.cst.impl.info.InfoImpl;
 import org.e2immu.language.cst.impl.info.TypeParameterInspection;
 import org.e2immu.language.cst.impl.info.TypeParameterInspectionImpl;
@@ -283,16 +284,19 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
         if (visited.add(this)) {
             Stream<Element.TypeReference> s1 = annotations().stream().flatMap(Element::typesReferenced);
             Stream<Element.TypeReference> s2 = typeBounds().stream()
-                    .flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT,
-                            source().detailedSources(), visited));
-            return Stream.concat(s1, s2);
+                    .flatMap(pt -> pt.typesReferenced(typeReferenceNature, detailedSources, visited));
+            Stream<Element.TypeReference> s3 = owner.isLeft()
+                    ? Stream.of(new ElementImpl.TypeReference(owner.getLeft(), TypeReferenceNature.IMPLICIT))
+                    : Stream.of();
+            return Stream.concat(s1, Stream.concat(s2, s3));
         }
         return Stream.of();
     }
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources(), new HashSet<>());
+        return typesReferenced(TypeReferenceNature.EXPLICIT, source() == null ? null :
+                source().detailedSources(), new HashSet<>());
     }
 
     @Override

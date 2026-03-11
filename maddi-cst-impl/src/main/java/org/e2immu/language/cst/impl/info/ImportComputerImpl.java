@@ -55,14 +55,6 @@ public class ImportComputerImpl implements ImportComputer {
     }
 
     public Result go(CompilationUnit compilationUnit, Qualification q) {
-        Set<TypeInfo> typesReferenced = compilationUnit.types().stream()
-                .flatMap(Element::typesReferenced)
-                .filter(Element.TypeReference::explicit)
-                .map(Element.TypeReference::typeInfo)
-                .map(TypeInfo::primaryType)
-                .filter(ImportComputerImpl::allowInImport)
-                .collect(Collectors.toUnmodifiableSet());
-        LOGGER.debug("Types referenced in {}: {}", compilationUnit, typesReferenced);
         QualificationImpl qualification;
         if (q == null) {
             qualification = new QualificationImpl(false,
@@ -70,6 +62,26 @@ public class ImportComputerImpl implements ImportComputer {
         } else {
             qualification = new QualificationImpl(q.doNotQualifyImplicit(), q.typeNameRequired(), q.decorator());
         }
+
+        /*
+        there are 2 mechanisms to determine imports: duplicate naming (addTypeReturnImport)
+        and TypeReferenceNature.FULLY_QUALIFIED.
+         */
+        Set<TypeInfo> typesReferenced = new HashSet<>();
+        compilationUnit.types().stream()
+                .flatMap(Element::typesReferenced)
+                .forEach(tr -> {
+                    TypeInfo primaryType = tr.typeInfo().primaryType();
+                    if (tr.requiresImport()) {
+                        if (allowInImport(primaryType)) {
+                            typesReferenced.add(primaryType);
+                        }
+                    } else if (tr.typeReferenceNature() == Element.TypeReferenceNature.FULLY_QUALIFIED) {
+                        qualification.addTypeNotImported(primaryType);
+                    }
+                });
+        LOGGER.debug("Types referenced in {}: {}", compilationUnit, typesReferenced);
+
         String myPackage = compilationUnit.packageName();
         Map<String, PerPackage> typesPerPackage = new HashMap<>();
         typesReferenced.forEach(ti -> {

@@ -139,6 +139,11 @@ public class QualificationImpl implements Qualification {
         }
     }
 
+    public void addTypeNotImported(TypeInfo typeInfo) {
+        assert typesNotImported != null;
+        typesNotImported.put(typeInfo, TypeNameImpl.Required.FQN);
+    }
+
     public boolean addTypeReturnImport(TypeInfo typeInfo) {
         assert parent == null; // only add these at the top level
         assert typesNotImported != null; // to keep IntelliJ happy

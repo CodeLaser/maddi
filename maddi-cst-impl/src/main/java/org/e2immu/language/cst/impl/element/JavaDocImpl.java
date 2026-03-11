@@ -222,7 +222,20 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     private static Element.TypeReference typeReference(Tag tag) {
         if (tag.resolvedReference() instanceof Info info) {
             TypeInfo typeInfo = info.typeInfo();
-            TypeReferenceNature trn = DetailedSources.isFullyQualified(tag.source().detailedSources(), typeInfo);
+            TypeReferenceNature trn;
+            if (tag.source() == null || tag.source().detailedSources() == null) {
+                trn = TypeReferenceNature.IMPLICIT;
+            } else {
+                DetailedSources ds = tag.source().detailedSources();
+                Source s = ds.detail(typeInfo);
+                if (s == null) {
+                    trn = TypeReferenceNature.IMPLICIT;
+                } else if (s.posDiff() >= typeInfo.fullyQualifiedName().length()) {
+                    trn = TypeReferenceNature.FULLY_QUALIFIED;
+                } else {
+                    trn = TypeReferenceNature.EXPLICIT;
+                }
+            }
             return new ElementImpl.TypeReference(typeInfo, trn);
         }
         return null;

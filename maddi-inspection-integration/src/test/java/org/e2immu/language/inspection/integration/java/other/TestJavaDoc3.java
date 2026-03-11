@@ -107,10 +107,10 @@ public class TestJavaDoc3 extends CommonTest2 {
 
             TypeInfo A = pr1.findType("a.A");
             assertEquals("""
-                            TypeReference[typeInfo=a.A, explicit=false], \
-                            TypeReference[typeInfo=b.B, explicit=true], \
-                            TypeReference[typeInfo=java.lang.Object, explicit=true], \
-                            TypeReference[typeInfo=void, explicit=true]\
+                            TypeReference[typeInfo=a.A, typeReferenceNature=IMPLICIT], \
+                            TypeReference[typeInfo=b.B, typeReferenceNature=EXPLICIT], \
+                            TypeReference[typeInfo=java.lang.Object, typeReferenceNature=EXPLICIT], \
+                            TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT]\
                             """,
                     A.typesReferenced().map(Object::toString).sorted().collect(Collectors.joining(", ")));
         }

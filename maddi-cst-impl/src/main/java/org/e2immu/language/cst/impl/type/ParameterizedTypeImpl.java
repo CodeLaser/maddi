@@ -198,7 +198,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                             pt.typesReferenced(typeReferenceNature, detailedSources, visited)));
         }
         if (typeParameter != null) {
-            return typeParameter.typesReferenced(typeReferenceNature, detailedSources,
+            return typeParameter.typesReferenced(Element.TypeReferenceNature.IMPLICIT, null,
                     visited == null ? new HashSet<>() : visited);
         }
         return Stream.of();

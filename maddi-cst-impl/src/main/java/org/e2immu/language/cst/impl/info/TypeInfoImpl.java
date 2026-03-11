@@ -557,7 +557,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced() {
-        DetailedSources detailedSources = source().detailedSources();
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<TypeReference> fromParent = parentClass() == null || parentClass().isJavaLangObject() ? Stream.empty()
                 : parentClass().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         Stream<TypeReference> fromInterfaces = interfacesImplemented().stream()
