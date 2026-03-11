@@ -14,10 +14,7 @@
 
 package org.e2immu.language.cst.impl.expression;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -226,7 +223,8 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo, isFullyQualified(typeInfo))),
+        return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo,
+                        DetailedSources.isFullyQualified(source().detailedSources(), typeInfo))),
                 keyValuePairs.stream().flatMap(kv -> kv.value().typesReferenced()));
     }
 

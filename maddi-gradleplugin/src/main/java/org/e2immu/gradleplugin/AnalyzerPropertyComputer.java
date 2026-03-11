@@ -14,6 +14,7 @@
 
 package org.e2immu.gradleplugin;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
 import org.e2immu.analyzer.run.config.GeneralConfiguration;
 import org.e2immu.analyzer.run.config.util.JavaModules;
@@ -68,13 +69,19 @@ public record AnalyzerPropertyComputer(
             return;
         }
         org.e2immu.analyzer.run.config.Configuration configuration = computeConfiguration(project, extension);
-        String json = JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter()
-                .writeValueAsString(configuration);
-        LOGGER.info("Configuration for project {}: {}", project.getDisplayName(), json);
-
-        String configurationJson = JsonStreaming.objectMapper().writeValueAsString(configuration);
-        properties.put(E2IMMU_CONFIGURATION, configurationJson);
-
+        try {
+            String json = JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(configuration);
+            LOGGER.info("Configuration for project {}: {}", project.getDisplayName(), json);
+        } catch (IOException io) {
+            throw new RuntimeException(io);
+        }
+        try {
+            String configurationJson = JsonStreaming.objectMapper().writeValueAsString(configuration);
+            properties.put(E2IMMU_CONFIGURATION, configurationJson);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
         ActionBroadcast<AnalyzerProperties> actionBroadcast = actionBroadcastMap.get(project.getPath());
         if (actionBroadcast != null) {
             AnalyzerProperties analyzerProperties = new AnalyzerProperties(properties);

@@ -25,5 +25,5 @@ dependencies {
     implementation(project(":maddi-cst-impl"))
     implementation(project(":maddi-inspection-resource"))
     implementation(project(":maddi-aapi-parser"))
-    implementation("tools.jackson.core:jackson-databind")
+    implementation("com.fasterxml.jackson.core:jackson-databind")
 }

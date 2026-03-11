@@ -161,4 +161,16 @@ public class DetailedSourcesImpl implements DetailedSources {
         copy.put(o, sources);
         return new DetailedSourcesImpl(copy, copyAssociation);
     }
+
+    @Override
+    public boolean isFullyQualified(TypeInfo typeInfo) {
+        Source s = detail(typeInfo);
+        // >= because the dots can be surrounded by spaces (highly unusual, but possible)
+        return s != null && s.posDiff() >= typeInfo.fullyQualifiedName().length();
+    }
+
+    @Override
+    public boolean isFullyQualified(ParameterizedType parameterizedType) {
+        return false;
+    }
 }

@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.variable;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.info.InfoMap;
@@ -31,6 +32,8 @@ import org.e2immu.language.cst.impl.output.TypeNameImpl;
 
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.*;
 
 public class ThisImpl extends VariableImpl implements This {
 
@@ -105,8 +108,13 @@ public class ThisImpl extends VariableImpl implements This {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        return Stream.of(new ElementImpl.TypeReference(typeInfo(), explicitlyWriteType != null));
+    public Stream<TypeReference> typesReferenced(DetailedSources detailedSources) {
+        if (explicitlyWriteType == null) {
+            return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT));
+        }
+        TypeReferenceNature nature = detailedSources.isFullyQualified(parameterizedType()) ? FULLY_QUALIFIED : EXPLICIT;
+        return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT),
+                new ElementImpl.TypeReference(explicitlyWriteType, nature));
     }
 
     @Override

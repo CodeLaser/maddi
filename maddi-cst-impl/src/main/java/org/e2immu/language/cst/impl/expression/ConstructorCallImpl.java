@@ -323,21 +323,18 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(ParameterizedType::typesReferencedMadeExplicit);
-        Stream<Element.TypeReference> arrayInitStream = arrayInitializer == null ? Stream.of() : arrayInitializer.typesReferenced();
-        Stream<Element.TypeReference> anonStream = anonymousClass == null ? Stream.of() : anonymousClass.typesReferenced();
+        Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(pt ->
+                pt.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources()));
+        Stream<Element.TypeReference> arrayInitStream = arrayInitializer == null ? Stream.of()
+                : arrayInitializer.typesReferenced();
+        Stream<Element.TypeReference> anonStream = anonymousClass == null ? Stream.of()
+                : anonymousClass.typesReferenced();
         Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced();
         Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(Expression::typesReferenced);
-        // FIXME here the CC may have diamond <>, or explicit <...> but concreteReturnType is fully defined
-        Stream<Element.TypeReference> ccTypeStream =
-                Stream.of(new ElementImpl.TypeReference(concreteReturnType.typeInfo(), TypeReferenceNature.EXPLICIT));
-        Stream<Element.TypeReference> ccTypeParametersStream = diamond.isNo()
-                ? Stream.of()
-                : concreteReturnType.parameters().stream().flatMap(pt -> diamond.isShowAll()
-                ? pt.typesReferencedMadeExplicit() : pt.typesReferencedImplicitly());
+        Stream<Element.TypeReference> ccTypeStream = concreteReturnType
+                .typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources());
         return Stream.concat(typeArgStream, Stream.concat(arrayInitStream, Stream.concat(anonStream,
-                Stream.concat(objectStream, Stream.concat(paramStream, Stream.concat(ccTypeParametersStream,
-                        ccTypeStream))))));
+                Stream.concat(objectStream, Stream.concat(paramStream, ccTypeStream)))));
     }
 
     @Override

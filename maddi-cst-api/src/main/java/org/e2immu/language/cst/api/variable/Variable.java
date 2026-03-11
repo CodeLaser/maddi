@@ -15,8 +15,8 @@
 package org.e2immu.language.cst.api.variable;
 
 import org.e2immu.annotation.NotNull;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.util.OneVariable;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -67,4 +67,13 @@ public interface Variable extends Comparable<Variable>, Element, OneVariable {
     }
 
     Variable rewire(InfoMap infoMap);
+
+    @Override
+    default Stream<TypeReference> typesReferenced() {
+        return typesReferenced(null);
+    }
+
+    default Stream<TypeReference> typesReferenced(DetailedSources detailedSources) {
+        return Stream.of();
+    }
 }

@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.variable;
 
 import org.e2immu.annotation.NotNull;
 import org.e2immu.annotation.Nullable;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -198,8 +199,8 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        Stream<TypeReference> fieldTypeStream = parameterizedType().typesReferencedImplicitly();
+    public Stream<TypeReference> typesReferenced(DetailedSources detailedSources) {
+        Stream<TypeReference> fieldTypeStream = parameterizedType().typesReferenced(IMPLICIT, detailedSources);
         if (scope != null) {
             Stream<TypeReference> implicitOwner = Stream.of(new ElementImpl.TypeReference(fieldInfo.owner(), IMPLICIT));
             // in the scope references, an explicit static scope type/field owner can show up

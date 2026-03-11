@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.variable;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -115,8 +116,8 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        return parameterizedType().typesReferencedImplicitly();
+    public Stream<TypeReference> typesReferenced(DetailedSources detailedSources) {
+        return parameterizedType().typesReferenced(TypeReferenceNature.IMPLICIT, detailedSources);
     }
 
     @Override

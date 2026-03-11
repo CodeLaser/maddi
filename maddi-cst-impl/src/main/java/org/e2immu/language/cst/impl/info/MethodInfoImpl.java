@@ -242,13 +242,14 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced(boolean includeBody) {
-        Stream<TypeReference> fromReturnType = returnType().typesReferencedMadeExplicit();
+        DetailedSources detailedSources = source().detailedSources();
+        Stream<TypeReference> fromReturnType = returnType().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         Stream<TypeReference> fromParameters = parameters().stream().flatMap(ParameterInfo::explicitTypesReferenced);
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
-                .flatMap(tp -> tp.typesReferenced(true, new HashSet<>()));
+                .flatMap(Element::typesReferenced);
         Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
         Stream<TypeReference> fromExceptionTypes = exceptionTypes()
-                .stream().flatMap(ParameterizedType::typesReferencedMadeExplicit);
+                .stream().flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
         Stream<TypeReference> fromBody = includeBody ? methodBody().typesReferenced() : Stream.of();
         Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced();
         return Stream.concat(fromReturnType, Stream.concat(fromParameters, Stream.concat(fromAnnotations,
@@ -541,7 +542,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     @Override
     public List<MethodInfo> translate(TranslationMap translationMap) {
         List<MethodInfo> direct = translationMap.translateMethod(this);
-        if (direct.size() != 1 || direct.get(0) != this) {
+        if (direct.size() != 1 || direct.getFirst() != this) {
             return direct;
         }
         ParameterizedType tReturnType = translationMap.translateType(returnType());
@@ -556,7 +557,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
             translationMap.methodTranslationInfo(this, true, true);
             List<Statement> tBody = methodBody().translate(translationMap);
             translationMap.methodTranslationInfo(this, false, true);
-            change = tBody.size() != 1 || tBody.get(0) != methodBody();
+            change = tBody.size() != 1 || tBody.getFirst() != methodBody();
         }
 
         List<ParameterizedType> exceptionTypeList = exceptionTypes();
@@ -611,7 +612,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
             List<Statement> tBody = methodBody().translate(tmWithParameters);
             translationMap.methodTranslationInfo(this, false, false);
 
-            builder.setMethodBody((Block) tBody.get(0));
+            builder.setMethodBody((Block) tBody.getFirst());
 
             newExceptionTypes.forEach(builder::addExceptionType);
             builder.setReturnType(tReturnType);
@@ -652,7 +653,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     public MethodInfo withMethodBody(Block newBody) {
         if (newBody == methodBody()) return this;
         TranslationMap tm = new TranslationMapImpl.Builder().put(methodBody(), newBody).build();
-        return translate(tm).get(0);
+        return translate(tm).getFirst();
     }
 
     @Override

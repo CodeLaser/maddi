@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.api.type;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -205,13 +206,25 @@ public interface ParameterizedType {
 
     Stream<ParameterizedType> components();
 
-    Stream<Element.TypeReference> typesReferencedExplicitly();
+    default Stream<Element.TypeReference> typesReferenced(Element.TypeReferenceNature typeReferenceNature,
+                                                          DetailedSources detailedSources) {
+        return typesReferenced(typeReferenceNature, detailedSources, null);
+    }
 
-    Stream<Element.TypeReference> typesReferencedImplicitly();
-
-    Stream<Element.TypeReference> typesReferenced(boolean explicit, Set<TypeParameter> visited);
-
-    Stream<Element.TypeReference> typesReferencedMadeExplicit();
+    /**
+     * list the types referenced in this parameterized type, potentially associated with a source object.
+     * when associated with a source, the type reference nature is either EXPLICIT or FQN, the latter
+     * implying that an import statement is not required.
+     *
+     * @param typeReferenceNature the target type reference nature
+     * @param detailedSources     Required to look up the difference between FQN and explicit.
+     *                            Nullable when type reference nature is IMPLICIT.
+     * @param visited             recursion protection for type parameters; this method simply passes on the value.
+     * @return a stream of type reference objects, which can contain duplicates
+     */
+    Stream<Element.TypeReference> typesReferenced(Element.TypeReferenceNature typeReferenceNature,
+                                                  DetailedSources detailedSources,
+                                                  Set<TypeParameter> visited);
 
     Wildcard wildcard();
 

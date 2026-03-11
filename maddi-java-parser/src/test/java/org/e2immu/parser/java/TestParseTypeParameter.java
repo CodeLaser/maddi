@@ -90,7 +90,7 @@ public class TestParseTypeParameter extends CommonTestParse {
                     VisibilityChecker<?> getDefaultVisibilityChecker();
                 }
             
-                // from tools.jackson.databind.introspect
+                // from com.fasterxml.jackson.databind.introspect
                 interface VisibilityChecker<T extends VisibilityChecker<T>> {
                     T withGetterVisibility(Visibility v);
             

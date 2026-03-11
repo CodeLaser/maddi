@@ -111,7 +111,8 @@ public class ObjectCreationVariableImpl implements ObjectCreationVariable {
 
     @Override
     public Stream<TypeReference> typesReferenced() {
-        return Stream.of(new ElementImpl.TypeReference(parameterizedType().typeInfo(), false));
+        return Stream.of(new ElementImpl.TypeReference(parameterizedType().typeInfo(),
+                TypeReferenceNature.IMPLICIT));
     }
 
     @Override
