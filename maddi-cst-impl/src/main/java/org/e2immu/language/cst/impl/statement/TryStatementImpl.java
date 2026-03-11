@@ -196,8 +196,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
 
         @Override
         public Stream<Element.TypeReference> typesReferenced() {
-            return Stream.concat(exceptionTypes.stream()
-                            .map(et -> new ElementImpl.TypeReference(et.typeInfo(), true)),
+            return Stream.concat(exceptionTypes.stream().flatMap(ParameterizedType::typesReferencedExplicitly),
                     block.typesReferenced());
         }
 

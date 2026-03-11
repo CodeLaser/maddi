@@ -226,7 +226,7 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo, true)),
+        return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo, isFullyQualified(typeInfo))),
                 keyValuePairs.stream().flatMap(kv -> kv.value().typesReferenced()));
     }
 

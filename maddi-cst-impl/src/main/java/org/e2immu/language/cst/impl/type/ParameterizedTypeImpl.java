@@ -35,6 +35,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
+
 public class ParameterizedTypeImpl implements ParameterizedType {
     public static final ParameterizedType NULL_CONSTANT = new ParameterizedTypeImpl();
     public static final ParameterizedType RETURN_TYPE_OF_CONSTRUCTOR = new ParameterizedTypeImpl();
@@ -185,10 +187,10 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferencedImplicitly() {
         if (typeInfo != null) {
-            Stream<Element.TypeReference> s1 = Stream.of(new ElementImpl.TypeReference(typeInfo, false));
-            return Stream.concat(s1, parameters.stream().flatMap(ParameterizedType::typesReferenced));
+            Stream<Element.TypeReference> s1 = Stream.of(new ElementImpl.TypeReference(typeInfo, IMPLICIT));
+            return Stream.concat(s1, parameters.stream().flatMap(ParameterizedType::typesReferencedImplicitly));
         }
         if (typeParameter != null) {
             return typeParameter.typesReferenced(false, new HashSet<>());
@@ -216,7 +218,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
 
     @Override
     public Stream<Element.TypeReference> typesReferencedMadeExplicit() {
-        return typesReferenced().map(Element.TypeReference::typeInfo).filter(Objects::nonNull)
+        return typesReferencedImplicitly().map(Element.TypeReference::typeInfo).filter(Objects::nonNull)
                 .map(ti -> new ElementImpl.TypeReference(ti, true));
     }
 

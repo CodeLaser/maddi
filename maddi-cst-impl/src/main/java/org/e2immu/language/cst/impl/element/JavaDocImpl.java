@@ -36,6 +36,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.FULLY_QUALIFIED;
+
 /**
  * Convention: the "comment" string in {@link MultiLineCommentImpl} has placeholders {\\d+}, one for each tag in this object.
  */
@@ -222,9 +225,14 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     private static Element.TypeReference typeReference(Tag tag) {
         if (tag.resolvedReference() instanceof Info info) {
             TypeInfo typeInfo = info.typeInfo();
-            boolean explicit = tag.source().detailedSources() != null &&
-                               tag.source().detailedSources().detail(typeInfo) != null;
-            return new ElementImpl.TypeReference(typeInfo, explicit);
+            TypeReferenceNature trn;
+            if (tag.source().detailedSources() != null) {
+                Source s = tag.source().detailedSources().detail(typeInfo);
+                trn = s != null && s.posDiff() == typeInfo.fullyQualifiedName().length() ? FULLY_QUALIFIED : EXPLICIT;
+            } else {
+                trn = EXPLICIT;
+            }
+            return new ElementImpl.TypeReference(typeInfo, trn);
         }
         return null;
     }

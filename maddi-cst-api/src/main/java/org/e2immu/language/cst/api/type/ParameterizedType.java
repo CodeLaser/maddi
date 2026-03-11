@@ -205,7 +205,9 @@ public interface ParameterizedType {
 
     Stream<ParameterizedType> components();
 
-    Stream<Element.TypeReference> typesReferenced();
+    Stream<Element.TypeReference> typesReferencedExplicitly();
+
+    Stream<Element.TypeReference> typesReferencedImplicitly();
 
     Stream<Element.TypeReference> typesReferenced(boolean explicit, Set<TypeParameter> visited);
 

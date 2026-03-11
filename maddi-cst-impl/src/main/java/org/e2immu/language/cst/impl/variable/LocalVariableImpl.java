@@ -116,7 +116,7 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
 
     @Override
     public Stream<TypeReference> typesReferenced() {
-        return parameterizedType().typesReferenced();
+        return parameterizedType().typesReferencedImplicitly();
     }
 
     @Override
