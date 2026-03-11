@@ -33,6 +33,10 @@ public interface Source extends Comparable<Source> {
 
     DetailedSources detailedSources();
 
+    default int posDiff() {
+        return endPos() - beginPos() + 1;
+    }
+
     Source withBeginPos(int beginPos);
 
     Source withEndPos(int endPos);

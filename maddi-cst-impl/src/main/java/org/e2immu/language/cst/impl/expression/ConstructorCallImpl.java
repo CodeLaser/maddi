@@ -328,11 +328,13 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
         Stream<Element.TypeReference> anonStream = anonymousClass == null ? Stream.of() : anonymousClass.typesReferenced();
         Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced();
         Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(Expression::typesReferenced);
-        Stream<Element.TypeReference> ccTypeStream = Stream.of(new ElementImpl.TypeReference(concreteReturnType.typeInfo(), true));
+        // FIXME here the CC may have diamond <>, or explicit <...> but concreteReturnType is fully defined
+        Stream<Element.TypeReference> ccTypeStream =
+                Stream.of(new ElementImpl.TypeReference(concreteReturnType.typeInfo(), TypeReferenceNature.EXPLICIT));
         Stream<Element.TypeReference> ccTypeParametersStream = diamond.isNo()
                 ? Stream.of()
                 : concreteReturnType.parameters().stream().flatMap(pt -> diamond.isShowAll()
-                ? pt.typesReferencedMadeExplicit() : pt.typesReferenced());
+                ? pt.typesReferencedMadeExplicit() : pt.typesReferencedImplicitly());
         return Stream.concat(typeArgStream, Stream.concat(arrayInitStream, Stream.concat(anonStream,
                 Stream.concat(objectStream, Stream.concat(paramStream, Stream.concat(ccTypeParametersStream,
                         ccTypeStream))))));

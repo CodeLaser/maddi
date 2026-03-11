@@ -15,11 +15,13 @@
 package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.Comment;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.output.QualificationImpl;
 import org.e2immu.language.cst.impl.variable.DescendModeEnum;
@@ -30,15 +32,33 @@ import java.util.stream.Stream;
 
 public abstract class ElementImpl implements Element {
 
-    public record TypeReference(TypeInfo typeInfo, boolean explicit) implements Element.TypeReference {
+    public record TypeReference(TypeInfo typeInfo, TypeReferenceNature typeReferenceNature)
+            implements Element.TypeReference {
         public TypeReference {
             assert typeInfo != null;
+            assert typeReferenceNature != null;
         }
 
         @Override
-        public Element.TypeReference withExplicit() {
-            return new TypeReference(typeInfo, true);
+        public Element.TypeReference withNature(TypeReferenceNature typeReferenceNature) {
+            return typeReferenceNature == this.typeReferenceNature ? this : new TypeReference(typeInfo, typeReferenceNature);
         }
+    }
+
+    protected TypeReferenceNature isFullyQualified(TypeInfo typeInfo) {
+        if(source() == null) return TypeReferenceNature.EXPLICIT;
+        DetailedSources ds = source().detailedSources();
+        if(ds == null) return TypeReferenceNature.EXPLICIT;
+        // look up in detailed sources
+        return TypeReferenceNature.EXPLICIT; // FIXME
+    }
+
+    protected TypeReferenceNature isFullyQualifiedIn(TypeInfo typeInfo, ParameterizedType parameterizedType) {
+        if(source() == null) return TypeReferenceNature.EXPLICIT;
+        DetailedSources ds = source().detailedSources();
+        if(ds == null) return TypeReferenceNature.EXPLICIT;
+        // look up in detailed sources
+        return TypeReferenceNature.EXPLICIT; // FIXME
     }
 
     @Override

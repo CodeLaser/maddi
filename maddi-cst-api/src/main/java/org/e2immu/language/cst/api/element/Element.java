@@ -118,15 +118,23 @@ public interface Element {
     @NotNull
     Stream<Variable> variableStreamDescend();
 
+    enum TypeReferenceNature {
+        IMPLICIT, EXPLICIT, FULLY_QUALIFIED
+    }
+
     interface TypeReference {
         /**
-         * @return true if the reference to the type is explicit, i.e., it must appear in an import statement
+         * @return true if the reference to the type is explicit, the type appears in the code.
          */
-        boolean explicit();
+        default boolean explicit() {
+            return typeReferenceNature() != TypeReferenceNature.IMPLICIT;
+        }
+
+        TypeReferenceNature typeReferenceNature();
 
         TypeInfo typeInfo();
 
-        TypeReference withExplicit();
+        TypeReference withNature(TypeReferenceNature typeReferenceNature);
     }
 
     @NotNull

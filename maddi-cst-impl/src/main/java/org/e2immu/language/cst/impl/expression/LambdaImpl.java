@@ -248,7 +248,7 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
         return Stream.concat(methodInfo.parameters().stream().flatMap(
                 pi -> outputVariants.get(pi.index()).isTyped()
                         ? pi.parameterizedType().typesReferenced(true, new HashSet<>())
-                        : pi.parameterizedType().typesReferenced()),
+                        : pi.parameterizedType().typesReferencedImplicitly()),
                 methodInfo.methodBody().typesReferenced());
     }
 

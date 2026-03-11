@@ -116,11 +116,12 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
         if (typeInfo == null) {
             if (parameterizedType.typeParameter() != null) {
                 return parameterizedType.typeParameter().typeBounds()
-                        .stream().flatMap(ParameterizedType::typesReferenced);
+                        .stream().flatMap(ParameterizedType::typesReferencedImplicitly);
             }
             return Stream.of();
         }
-        return Stream.of(new ElementImpl.TypeReference(typeInfo, true));
+        TypeReferenceNature trn = isFullyQualifiedIn(typeInfo, parameterizedType);
+        return Stream.of(new ElementImpl.TypeReference(typeInfo, trn));
     }
 
     @Override

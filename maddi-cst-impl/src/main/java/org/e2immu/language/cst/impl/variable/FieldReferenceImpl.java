@@ -19,7 +19,6 @@ import org.e2immu.annotation.Nullable;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.TypeExpression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.InfoMap;
@@ -43,6 +42,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class FieldReferenceImpl extends VariableImpl implements FieldReference {
     @NotNull
@@ -198,12 +199,14 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
 
     @Override
     public Stream<TypeReference> typesReferenced() {
+        Stream<TypeReference> fieldTypeStream = parameterizedType().typesReferencedImplicitly();
         if (scope != null) {
-            Stream<TypeReference> nonDefault = isDefaultScope ? Stream.of()
-                    : Stream.of(new ElementImpl.TypeReference(fieldInfo.owner(), true));
-            return Stream.concat(nonDefault, Stream.concat(scope.typesReferenced(), parameterizedType().typesReferenced()));
+            Stream<TypeReference> implicitOwner = Stream.of(new ElementImpl.TypeReference(fieldInfo.owner(), IMPLICIT));
+            // in the scope references, an explicit static scope type/field owner can show up
+            Stream<TypeReference> scopeReferences = scope.typesReferenced();
+            return Stream.concat(implicitOwner, Stream.concat(scopeReferences, fieldTypeStream));
         }
-        return parameterizedType().typesReferenced();
+        return fieldTypeStream;
     }
 
     @Override
