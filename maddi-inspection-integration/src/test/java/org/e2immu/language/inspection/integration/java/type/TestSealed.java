@@ -28,7 +28,7 @@ public class TestSealed extends CommonTest {
     public static final String INPUT1 = """
             package a.b;
             class X {
-                static sealed class P permits A, B, C {
+                static sealed class P permits A, B, a.b.X.C {
             
                 }
                 static final class A extends P {
@@ -56,9 +56,9 @@ public class TestSealed extends CommonTest {
         assertEquals("@3:27-3:33", P.source().detailedSources().detail(DetailedSources.PERMITS).toString());
         assertEquals(3, P.permittedWhenSealed().size());
         assertEquals("""
-                [TypeReference[typeInfo=a.b.X.A, explicit=true], \
-                TypeReference[typeInfo=a.b.X.B, explicit=true], \
-                TypeReference[typeInfo=a.b.X.C, explicit=true]]\
+                [TypeReference[typeInfo=a.b.X.A, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=a.b.X.B, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=a.b.X.C, typeReferenceNature=FULLY_QUALIFIED]]\
                 """, P.typesReferenced().toList().toString());
 
         TypeInfo A = X.findSubType("A", true);

@@ -129,10 +129,11 @@ public class TestJavaDoc2 extends CommonTest2 {
         {
             TypeInfo A = pr1.findType("a.A");
             assertEquals("""
-                    [TypeReference[typeInfo=void, explicit=true], \
-                    TypeReference[typeInfo=b.B, explicit=true], \
-                    TypeReference[typeInfo=a.A, explicit=false]]\
+                    [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
+                    TypeReference[typeInfo=b.B, typeReferenceNature=EXPLICIT], \
+                    TypeReference[typeInfo=a.A, typeReferenceNature=IMPLICIT]]\
                     """, A.typesReferenced().toList().toString());
+            // the 3rd is from the tag in the JavaDoc
 
             MethodInfo m = A.findUniqueMethod("m", 1);
             JavaDoc.Tag tag = m.javaDoc().tags().getFirst();
@@ -141,13 +142,13 @@ public class TestJavaDoc2 extends CommonTest2 {
         {
             TypeInfo A4 = pr1.findType("a.A4");
             assertEquals("""
-                    [TypeReference[typeInfo=void, explicit=true], \
-                    TypeReference[typeInfo=b.B, explicit=true], \
-                    TypeReference[typeInfo=a.A4, explicit=false]]\
+                    [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
+                    TypeReference[typeInfo=b.B, typeReferenceNature=EXPLICIT], \
+                    TypeReference[typeInfo=a.A4, typeReferenceNature=IMPLICIT]]\
                     """, A4.typesReferenced().toList().toString());
             JavaDoc.Tag tag = A4.javaDoc().tags().getFirst();
             assertEquals("""
-                    [TypeReference[typeInfo=a.A4, explicit=false]]\
+                    [TypeReference[typeInfo=a.A4, typeReferenceNature=IMPLICIT]]\
                     """, A4.javaDoc().typesReferenced().toList().toString());
             assertEquals("a.A4.m(b.B<T>)", tag.resolvedReference().toString());
         }

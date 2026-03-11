@@ -205,7 +205,8 @@ public class TestJavaDoc extends CommonTest {
         JavaDoc.Tag tag = methodInfo.javaDoc().tags().getFirst();
         assertEquals("java.util.LinkedList", tag.resolvedReference().toString());
         assertEquals("""
-                [TypeReference[typeInfo=void, explicit=true], TypeReference[typeInfo=java.util.LinkedList, explicit=true]]\
+                [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=java.util.LinkedList, typeReferenceNature=FULLY_QUALIFIED]]\
                 """, methodInfo.typesReferenced().toList().toString());
         DetailedSources detailedSources = tag.source().detailedSources();
         assertNotNull(detailedSources);
@@ -323,6 +324,8 @@ public class TestJavaDoc extends CommonTest {
                 /**
                  * @see java.util.LinkedList
                  * @link #field
+                 * @link X#field
+                 * @link a.b.X#field
                  */
                 public void method(){
                     // empty
@@ -336,16 +339,18 @@ public class TestJavaDoc extends CommonTest {
         TypeInfo typeInfo = javaInspector.parse(INPUT7, JavaInspectorImpl.DETAILED_SOURCES);
         assertNull(typeInfo.javaDoc());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
-        assertEquals(2, methodInfo.javaDoc().tags().size());
+        assertEquals(4, methodInfo.javaDoc().tags().size());
         {
             JavaDoc.Tag tag = methodInfo.javaDoc().tags().getFirst();
             assertSame(JavaDoc.TagIdentifier.SEE, tag.identifier());
             assertEquals("java.util.LinkedList", tag.content());
             assertEquals("java.util.LinkedList", tag.resolvedReference().toString());
             assertEquals("""
-                    [TypeReference[typeInfo=void, explicit=true], \
-                    TypeReference[typeInfo=java.util.LinkedList, explicit=true], \
-                    TypeReference[typeInfo=a.b.X, explicit=false]]\
+                    [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
+                    TypeReference[typeInfo=java.util.LinkedList, typeReferenceNature=FULLY_QUALIFIED], \
+                    TypeReference[typeInfo=a.b.X, typeReferenceNature=IMPLICIT], \
+                    TypeReference[typeInfo=a.b.X, typeReferenceNature=EXPLICIT], \
+                    TypeReference[typeInfo=a.b.X, typeReferenceNature=FULLY_QUALIFIED]]\
                     """, methodInfo.typesReferenced().toList().toString());
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);
@@ -353,13 +358,31 @@ public class TestJavaDoc extends CommonTest {
             assertEquals("4-13:4-21", detailedSources.detail(((TypeInfo) tag.resolvedReference()).packageName()).compact2());
         }
         {
-            JavaDoc.Tag tag = methodInfo.javaDoc().tags().getLast();
+            JavaDoc.Tag tag = methodInfo.javaDoc().tags().get(1);
             assertSame(JavaDoc.TagIdentifier.LINK, tag.identifier());
             assertEquals("#field", tag.content());
             assertEquals("a.b.X.field", tag.resolvedReference().toString());
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);
             assertEquals("5-15:5-19", detailedSources.detail(tag.resolvedReference()).compact2());
+        }
+        {
+            JavaDoc.Tag tag = methodInfo.javaDoc().tags().get(2);
+            assertSame(JavaDoc.TagIdentifier.LINK, tag.identifier());
+            assertEquals("X#field", tag.content());
+            assertEquals("a.b.X.field", tag.resolvedReference().toString());
+            DetailedSources detailedSources = tag.source().detailedSources();
+            assertNotNull(detailedSources);
+            assertEquals("6-16:6-20", detailedSources.detail(tag.resolvedReference()).compact2());
+        }
+        {
+            JavaDoc.Tag tag = methodInfo.javaDoc().tags().getLast();
+            assertSame(JavaDoc.TagIdentifier.LINK, tag.identifier());
+            assertEquals("a.b.X#field", tag.content());
+            assertEquals("a.b.X.field", tag.resolvedReference().toString());
+            DetailedSources detailedSources = tag.source().detailedSources();
+            assertNotNull(detailedSources);
+            assertEquals("7-20:7-24", detailedSources.detail(tag.resolvedReference()).compact2());
         }
     }
 

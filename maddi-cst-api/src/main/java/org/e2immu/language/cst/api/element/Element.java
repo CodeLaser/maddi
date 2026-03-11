@@ -127,11 +127,9 @@ public interface Element {
     }
 
     interface TypeReference {
-        /**
-         * @return true if the reference to the type is explicit, the type appears in the code.
-         */
-        default boolean explicit() {
-            return typeReferenceNature() != TypeReferenceNature.IMPLICIT;
+
+        default boolean requiresImport() {
+            return typeReferenceNature() == TypeReferenceNature.EXPLICIT;
         }
 
         TypeReferenceNature typeReferenceNature();

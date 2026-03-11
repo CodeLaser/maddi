@@ -223,8 +223,9 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
 
     @Override
     public Stream<Element.TypeReference> typesReferenced() {
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo,
-                        DetailedSources.isFullyQualified(source().detailedSources(), typeInfo))),
+                        DetailedSources.isFullyQualified(detailedSources, typeInfo))),
                 keyValuePairs.stream().flatMap(kv -> kv.value().typesReferenced()));
     }
 

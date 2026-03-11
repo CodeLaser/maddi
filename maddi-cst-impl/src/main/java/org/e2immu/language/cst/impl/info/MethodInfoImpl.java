@@ -31,7 +31,10 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.impl.translate.TranslationMapImpl;
 import org.e2immu.support.EventuallyFinal;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -242,7 +245,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced(boolean includeBody) {
-        DetailedSources detailedSources = source().detailedSources();
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<TypeReference> fromReturnType = returnType().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         Stream<TypeReference> fromParameters = parameters().stream().flatMap(ParameterInfo::explicitTypesReferenced);
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
