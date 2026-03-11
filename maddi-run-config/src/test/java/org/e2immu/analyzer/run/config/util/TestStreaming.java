@@ -14,8 +14,7 @@
 
 package org.e2immu.analyzer.run.config.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -35,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestStreaming {
     @Test
-    public void test() throws JsonProcessingException {
+    public void test() {
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
         SourceSet sourceSet = new SourceSetImpl("abc", List.of(Path.of("/home/x")), URI.create("file:/home/x"),
                 StandardCharsets.UTF_8, true, false, false, false, false,
@@ -51,7 +50,7 @@ public class TestStreaming {
         InputConfiguration inputConfiguration = new InputConfigurationImpl(Path.of("."),
                 List.of(sourceSet, sourceSet2), List.of(), Path.of("/"));
         String json = objectMapper.writeValueAsString(inputConfiguration);
-        System.out.println(json);
+        System.out.println("Input configuration = " + json);
 
         InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
         Assertions.assertEquals(2, copy.sourceSets().size());

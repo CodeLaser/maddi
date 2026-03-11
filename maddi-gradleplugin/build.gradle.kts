@@ -46,7 +46,7 @@ dependencies {
     implementation(project(":maddi-run-main"))
 
     implementation("ch.qos.logback:logback-classic")
-    implementation("com.fasterxml.jackson.core:jackson-databind")
+    implementation("tools.jackson.core:jackson-databind")
 
     // GRADLE PLUGIN
     implementation(gradleApi())
