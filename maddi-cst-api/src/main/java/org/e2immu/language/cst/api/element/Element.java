@@ -128,6 +128,10 @@ public interface Element {
 
     interface TypeReference {
 
+        default boolean explicit() {
+            return typeReferenceNature() != TypeReferenceNature.IMPLICIT;
+        }
+
         default boolean requiresImport() {
             return typeReferenceNature() == TypeReferenceNature.EXPLICIT;
         }
