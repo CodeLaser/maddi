@@ -247,9 +247,11 @@ public class TestSwitch extends CommonTest {
         SwitchStatementNewStyle ssns = (SwitchStatementNewStyle) method.methodBody().statements().getFirst();
         SwitchEntry se = ssns.entries().getFirst();
         // ensure E.A, and not X.A, while, at the same time, go(A) uses X.A
+        assertEquals("a.b.X.E.A", se.conditions().getFirst()
+                .print(javaInspector.runtime().qualificationFullyQualifiedNames()).toString());
         assertEquals("E.A", se.conditions().getFirst().toString());
         MethodCall mc = (MethodCall) se.statement().expression();
-        assertEquals("this.go(X.A)", mc.toString());
+        assertEquals("go(X.A)", mc.toString());
     }
 
     @Language("java")
@@ -283,7 +285,7 @@ public class TestSwitch extends CommonTest {
         // ensure E.A, and not X.A, while, at the same time, go(A) uses X.A
         assertEquals("E.A", sl.literal().toString());
         MethodCall mc = (MethodCall) ssos.block().statements().getFirst().expression();
-        assertEquals("this.go(X.A)", mc.toString());
+        assertEquals("go(X.A)", mc.toString());
     }
 
 
@@ -319,7 +321,7 @@ public class TestSwitch extends CommonTest {
         // ensure E.A, and not X.A, while, at the same time, go(A) uses X.A
         assertEquals("E.A", se.conditions().getFirst().toString());
         MethodCall mc = (MethodCall) se.statement().expression();
-        assertEquals("this.go(X.A)", mc.toString());
+        assertEquals("go(X.A)", mc.toString());
     }
 
     @Language("java")

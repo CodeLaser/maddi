@@ -69,7 +69,7 @@ public class TestTranslate extends CommonTestParse {
         } else fail();
         cc.builder().addMethod(ccPrint);
 
-        assertEquals("class CC{String print(){return s+S;}}",
+        assertEquals("class CC{String print(){return this.s+CC.S;}}",
                 cc.print(runtime.qualificationQualifyFromPrimaryType()).toString());
     }
 }

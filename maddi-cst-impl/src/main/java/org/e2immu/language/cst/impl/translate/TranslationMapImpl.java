@@ -447,6 +447,7 @@ public class TranslationMapImpl implements TranslationMap {
             Expression tScope = fr.scope().translate(tm);
             FieldInfo newField = tm.translateFieldInfo(fr.fieldInfo());
             if (tScope != fr.scope() || newField != fr.fieldInfo()) {
+                // FIXME should tScope be null here?
                 return new FieldReferenceImpl(newField, tScope, null, fr.parameterizedType());
             }
         } else if (variable instanceof DependentVariable dv) {

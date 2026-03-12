@@ -473,9 +473,9 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("""
-                [0:map.§$$s[-1]~this.map*.§$$s[-1],\
-                0:map.§$$s[-2]~this.map*.§$$s[-2],\
-                0:map.§$$s~this.map*.§$$s] --> -\
+                [0:map.§$$s[-1]~a.b.X.this.map*.§$$s[-1],\
+                0:map.§$$s[-2]~a.b.X.this.map*.§$$s[-2],\
+                0:map.§$$s~a.b.X.this.map*.§$$s] --> -\
                 """, mlvMethod.toString());
     }
 

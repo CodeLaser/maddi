@@ -1207,12 +1207,12 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
 
     @Override
     public Qualification qualificationQualifyFromPrimaryType() {
-        return new QualificationImpl(false, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
+        return new QualificationImpl(true, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
     }
 
     @Override
     public Qualification qualificationQualifyFromPrimaryType(Qualification.Decorator decorator) {
-        return new QualificationImpl(false, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, decorator);
+        return new QualificationImpl(true, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, decorator);
     }
 
     @Override

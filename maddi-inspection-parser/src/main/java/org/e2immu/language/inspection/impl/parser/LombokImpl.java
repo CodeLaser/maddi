@@ -16,16 +16,14 @@ package org.e2immu.language.inspection.impl.parser;
 
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.ClassExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.inspection.api.parser.Lombok;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.util.internal.util.GetSetNames;
@@ -343,7 +341,18 @@ public record LombokImpl(Runtime runtime, CompiledTypesManager compiledTypesMana
     }
 
     private Statement assignFieldToParameter(FieldInfo fieldInfo, Source source, ParameterInfo pi) {
-        FieldReference fr = runtime.newFieldReference(fieldInfo);
+        FieldReference fr;
+        if (fieldInfo.isStatic()) {
+            TypeExpression typeExpression = runtime.newTypeExpression(fieldInfo.owner().asParameterizedType(),
+                    runtime.diamondNo());
+            fr = runtime.newFieldReference(fieldInfo, typeExpression, fieldInfo.type());
+        } else {
+            This thisVar = runtime.newThis(fieldInfo.owner().asParameterizedType());
+            VariableExpression thisVe = runtime.newVariableExpressionBuilder()
+                    .setVariable(thisVar)
+                    .build();
+            fr = runtime.newFieldReference(fieldInfo, thisVe, fieldInfo.type());
+        }
         VariableExpression veFr = runtime.newVariableExpressionBuilder().setSource(source).setVariable(fr).build();
         VariableExpression vePi = runtime.newVariableExpressionBuilder().setSource(source).setVariable(pi).build();
         Expression assignment = runtime.newAssignmentBuilder().setTarget(veFr).setValue(vePi).setSource(source).build();

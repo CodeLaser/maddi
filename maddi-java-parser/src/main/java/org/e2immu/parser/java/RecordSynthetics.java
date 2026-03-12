@@ -16,11 +16,13 @@ package org.e2immu.parser.java;
 
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.This;
 
 import java.util.List;
 
@@ -37,6 +39,7 @@ class RecordSynthetics {
         MethodInfo cc = runtime.newConstructor(typeInfo, runtime.methodTypeSyntheticConstructor());
         Block.Builder methodBody = runtime.newBlockBuilder().setSource(source);
         Access publicAccess = runtime.accessPublic();
+        This thisVar = runtime.newThis(typeInfo.asParameterizedType());
         int count = 0;
         for (ParseTypeDeclaration.RecordField rf : recordFields) {
             FieldInfo fieldInfo = rf.fieldInfo();
@@ -45,11 +48,14 @@ class RecordSynthetics {
             Source fieldSource = fieldInfo.source();
             Source statementSource = runtime.newParserSource("" + count, fieldSource.beginLine(),
                     fieldSource.beginPos(), fieldSource.endLine(), fieldSource.endPos());
+            VariableExpression thisVe = runtime.newVariableExpressionBuilder()
+                    .setVariable(thisVar).setSource(statementSource)
+                    .build();
             Assignment assignment = runtime.newAssignmentBuilder()
                     .setSource(statementSource)
                     .setValue(runtime.newVariableExpressionBuilder().setVariable(pi).setSource(statementSource).build())
                     .setTarget(runtime.newVariableExpressionBuilder()
-                            .setVariable(runtime.newFieldReference(fieldInfo))
+                            .setVariable(runtime.newFieldReference(fieldInfo, thisVe, fieldInfo.type()))
                             .setSource(statementSource)
                             .build())
                     .build();
