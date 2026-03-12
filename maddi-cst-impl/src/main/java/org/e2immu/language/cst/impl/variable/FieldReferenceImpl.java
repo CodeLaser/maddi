@@ -213,12 +213,12 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced(DetailedSources detailedSources) {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> test, DetailedSources detailedSources) {
         Stream<TypeReference> fieldTypeStream = parameterizedType().typesReferenced(IMPLICIT, detailedSources);
         if (scope != null) {
             Stream<TypeReference> implicitOwner = Stream.of(new ElementImpl.TypeReference(fieldInfo.owner(), IMPLICIT));
             // in the scope references, an explicit static scope type/field owner can show up
-            Stream<TypeReference> scopeReferences = scope.typesReferenced();
+            Stream<TypeReference> scopeReferences = scope.typesReferenced(test);
             return Stream.concat(implicitOwner, Stream.concat(scopeReferences, fieldTypeStream));
         }
         return fieldTypeStream;

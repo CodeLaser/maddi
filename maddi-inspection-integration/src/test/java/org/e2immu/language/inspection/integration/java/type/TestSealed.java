@@ -59,7 +59,7 @@ public class TestSealed extends CommonTest {
                 [TypeReference[typeInfo=a.b.X.A, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=a.b.X.B, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=a.b.X.C, typeReferenceNature=FULLY_QUALIFIED]]\
-                """, P.typesReferenced().toList().toString());
+                """, P.typesReferenced(null).toList().toString());
 
         TypeInfo A = X.findSubType("A", true);
         assertEquals("@6:26-6:32", A.source().detailedSources().detail(DetailedSources.EXTENDS).toString());

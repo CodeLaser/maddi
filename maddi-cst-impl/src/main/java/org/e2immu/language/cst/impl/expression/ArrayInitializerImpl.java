@@ -159,8 +159,8 @@ public class ArrayInitializerImpl extends ExpressionImpl implements ArrayInitial
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return expressions.stream().flatMap(Expression::typesReferenced);
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return expressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
     }
 
     @Override

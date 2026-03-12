@@ -106,7 +106,7 @@ public class CompilationUnitStub implements CompilationUnit {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.empty();
     }
 

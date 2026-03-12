@@ -116,7 +116,7 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced(DetailedSources detailedSources) {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> test, DetailedSources detailedSources) {
         return parameterizedType().typesReferenced(TypeReferenceNature.IMPLICIT, detailedSources);
     }
 

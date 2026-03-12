@@ -150,10 +150,11 @@ public interface Element {
      * To make the distinction between EXPLICIT and FQN for parameterized types contained in the element,
      * the detailed sources of the element are inspected.
      *
+     * @param predicate when not null, acts as a filter for recursion into sub-elements
      * @return a stream of type references; may contain duplicates
      */
     @NotNull
-    Stream<TypeReference> typesReferenced();
+    Stream<TypeReference> typesReferenced(Predicate<Element> predicate);
 
     default List<AnnotationExpression> annotations() {
         return List.of();
@@ -180,4 +181,7 @@ public interface Element {
         throw new UnsupportedOperationException();
     }
 
+    default boolean test(Predicate<Element> predicate) {
+        return predicate == null || predicate.test(this);
+    }
 }

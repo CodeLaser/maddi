@@ -217,13 +217,13 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         if (localVariable != null) {
             return localVariable.parameterizedType().typesReferenced(TypeReferenceNature.EXPLICIT, source.detailedSources());
         }
         if (recordType != null) {
             return Stream.concat(recordType.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources()),
-                    patterns.stream().flatMap(Element::typesReferenced));
+                    patterns.stream().flatMap(recordPattern -> recordPattern.typesReferenced(predicate)));
         }
         return Stream.empty();
     }

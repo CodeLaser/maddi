@@ -239,22 +239,17 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        return typesReferenced(true);
-    }
-
-    @Override
-    public Stream<TypeReference> typesReferenced(boolean includeBody) {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<TypeReference> fromReturnType = returnType().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         Stream<TypeReference> fromParameters = parameters().stream().flatMap(ParameterInfo::explicitTypesReferenced);
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
-                .flatMap(Element::typesReferenced);
-        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
+                .flatMap(typeParameter -> typeParameter.typesReferenced(predicate));
+        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
         Stream<TypeReference> fromExceptionTypes = exceptionTypes()
                 .stream().flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
-        Stream<TypeReference> fromBody = includeBody ? methodBody().typesReferenced() : Stream.of();
-        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced();
+        Stream<TypeReference> fromBody = test(predicate) ? methodBody().typesReferenced(predicate) : Stream.of();
+        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced(predicate);
         return Stream.concat(fromReturnType, Stream.concat(fromParameters, Stream.concat(fromAnnotations,
                 Stream.concat(fromExceptionTypes, Stream.concat(fromTypeParameters, Stream.concat(fromJavaDoc, fromBody))))));
     }

@@ -69,7 +69,7 @@ public class ImportComputerImpl implements ImportComputer {
          */
         Set<TypeInfo> typesReferenced = new HashSet<>();
         compilationUnit.types().stream()
-                .flatMap(Element::typesReferenced)
+                .flatMap(typeInfo -> typeInfo.typesReferenced(null))
                 .forEach(tr -> {
                     TypeInfo primaryType = tr.typeInfo().primaryType();
                     if (tr.requiresImport()) {

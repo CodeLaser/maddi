@@ -195,10 +195,10 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
         }
 
         @Override
-        public Stream<Element.TypeReference> typesReferenced() {
+        public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
             return Stream.concat(exceptionTypes.stream().flatMap(et ->
                             et.typesReferenced(TypeReferenceNature.EXPLICIT, source.detailedSources())),
-                    block.typesReferenced());
+                    block.typesReferenced(predicate));
         }
 
         @Override
@@ -401,10 +401,10 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(resources.stream().flatMap(Element::typesReferenced),
-                Stream.concat(block.typesReferenced(), Stream.concat(catchClauses.stream().flatMap(CatchClause::typesReferenced),
-                        finallyBlock.typesReferenced())));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return Stream.concat(resources.stream().flatMap(statement -> statement.typesReferenced(predicate)),
+                Stream.concat(block.typesReferenced(predicate), Stream.concat(catchClauses.stream().flatMap(catchClause -> catchClause.typesReferenced(predicate)),
+                        finallyBlock.typesReferenced(predicate))));
     }
 
     @Override

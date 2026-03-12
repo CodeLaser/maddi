@@ -167,7 +167,7 @@ public class TestSwitch extends CommonTest {
         SwitchEntry s1 = ns.entries().get(1);
         assertEquals("S(String s,R(int i,int j))", s1.patternVariable().toString());
 
-        String collected = methodInfo.typesReferenced(true)
+        String collected = methodInfo.typesReferenced(null)
                 .map(Object::toString).sorted().collect(Collectors.joining(", "));
         assertEquals("""
                 TypeReference[typeInfo=a.b.X.R, typeReferenceNature=EXPLICIT], \
@@ -211,7 +211,7 @@ public class TestSwitch extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT7);
         MethodInfo method = X.findUniqueMethod("method", 1);
 
-        String collected = method.typesReferenced(true)
+        String collected = method.typesReferenced(null)
                 .map(Object::toString).sorted().collect(Collectors.joining(", "));
         assertTrue(collected.contains("TypeReference[typeInfo=a.b.X.R, typeReferenceNature=EXPLICIT]"));
         assertTrue(collected.contains("TypeReference[typeInfo=a.b.X.S, typeReferenceNature=EXPLICIT]"));
@@ -350,7 +350,7 @@ public class TestSwitch extends CommonTest {
                 TypeReference[typeInfo=java.lang.System, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=java.lang.System, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT]\
-                """, method.typesReferenced(true)
+                """, method.typesReferenced(null)
                 .map(Object::toString).sorted().collect(Collectors.joining(", ")));
     }
 }

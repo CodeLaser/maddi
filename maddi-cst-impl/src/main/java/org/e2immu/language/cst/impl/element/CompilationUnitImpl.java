@@ -150,7 +150,7 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         throw new UnsupportedOperationException();
     }
 

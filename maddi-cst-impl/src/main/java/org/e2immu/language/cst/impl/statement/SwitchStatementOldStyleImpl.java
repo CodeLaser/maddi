@@ -54,7 +54,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
     @Override
     public Statement withBlocks(List<Block> tSubBlocks, List<SwitchLabel> switchLabels) {
         return new SwitchStatementOldStyleImpl(comments(), source(), annotations(), label(), selector,
-                tSubBlocks.get(0), switchLabels);
+                tSubBlocks.getFirst(), switchLabels);
     }
 
     public static class SwitchLabelImpl implements SwitchLabel {
@@ -132,10 +132,10 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
         }
 
         @Override
-        public Stream<Element.TypeReference> typesReferenced() {
-            Stream<Element.TypeReference> s = literal == null ? Stream.of() : literal.typesReferenced();
-            if (patternVariable != null) s = Stream.concat(s, patternVariable.typesReferenced());
-            if (whenExpression != null) s = Stream.concat(s, whenExpression.typesReferenced());
+        public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+            Stream<Element.TypeReference> s = literal == null ? Stream.of() : literal.typesReferenced(predicate);
+            if (patternVariable != null) s = Stream.concat(s, patternVariable.typesReferenced(predicate));
+            if (whenExpression != null) s = Stream.concat(s, whenExpression.typesReferenced(predicate));
             return s;
         }
     }
@@ -268,7 +268,8 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
         int labelIndex = 0;
         for (Statement statement : block.statements()) {
             while (labelIndex < switchLabels.size() && switchLabels.get(labelIndex).startFromPosition() == i) {
-                res.computeIfAbsent(statement.source().index(), s -> new ArrayList<>()).add(switchLabels.get(labelIndex));
+                res.computeIfAbsent(statement.source().index(), _ -> new ArrayList<>())
+                        .add(switchLabels.get(labelIndex));
                 labelIndex++;
             }
             i++;
@@ -283,10 +284,10 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        Stream<Element.TypeReference> s1 = selector.typesReferenced();
-        Stream<Element.TypeReference> s2 = switchLabels.stream().flatMap(SwitchLabel::typesReferenced);
-        Stream<Element.TypeReference> s3 = block.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        Stream<Element.TypeReference> s1 = selector.typesReferenced(predicate);
+        Stream<Element.TypeReference> s2 = switchLabels.stream().flatMap(sl -> sl.typesReferenced(predicate));
+        Stream<Element.TypeReference> s3 = block.typesReferenced(predicate);
         return Stream.concat(s1, Stream.concat(s2, s3));
     }
 

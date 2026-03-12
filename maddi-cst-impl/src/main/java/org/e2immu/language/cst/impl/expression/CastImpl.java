@@ -148,9 +148,9 @@ public class CastImpl extends ExpressionImpl implements Cast {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.concat(parameterizedType.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources()),
-                expression.typesReferenced());
+                expression.typesReferenced(predicate));
     }
 
     @Override

@@ -200,11 +200,11 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         Expression initializer = inspection.get().initializer();
-        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(Element::typesReferenced);
-        Stream<TypeReference> fromInitializer = initializer == null ? Stream.of() : initializer.typesReferenced();
-        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced();
+        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
+        Stream<TypeReference> fromInitializer = initializer == null ? Stream.of() : initializer.typesReferenced(predicate);
+        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced(predicate);
         return Stream.concat(fromAnnotations,
                 Stream.concat(type.typesReferenced(TypeReferenceNature.EXPLICIT,
                                 source() == null ? null : source().detailedSources()),

@@ -239,8 +239,8 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(target.typesReferenced(), value.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return Stream.concat(target.typesReferenced(predicate), value.typesReferenced(predicate));
     }
 
     @Override

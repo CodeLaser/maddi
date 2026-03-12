@@ -231,11 +231,11 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         Stream<Element.TypeReference> trStream = localVariable.parameterizedType()
                 .typesReferenced(TypeReferenceNature.EXPLICIT, source() == null ? null : source().detailedSources());
-        return Stream.concat(trStream, Stream.concat(localVariable.assignmentExpression().typesReferenced(),
-                otherLocalVariables.stream().flatMap(lv -> lv.assignmentExpression().typesReferenced())));
+        return Stream.concat(trStream, Stream.concat(localVariable.assignmentExpression().typesReferenced(predicate),
+                otherLocalVariables.stream().flatMap(lv -> lv.assignmentExpression().typesReferenced(predicate))));
     }
 
     @Override

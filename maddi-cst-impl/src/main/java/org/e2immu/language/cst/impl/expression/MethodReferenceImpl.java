@@ -210,8 +210,8 @@ public class MethodReferenceImpl extends ExpressionImpl implements MethodReferen
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return scope.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return scope.typesReferenced(predicate);
     }
 
     @Override

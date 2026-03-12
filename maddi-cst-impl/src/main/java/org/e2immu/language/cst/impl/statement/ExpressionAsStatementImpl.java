@@ -76,8 +76,8 @@ public class ExpressionAsStatementImpl extends StatementImpl implements Expressi
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return expression.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return expression.typesReferenced(predicate);
     }
 
     @Override

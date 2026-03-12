@@ -204,8 +204,8 @@ public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpres
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(selector.typesReferenced(), entries.stream().flatMap(SwitchEntry::typesReferenced));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return Stream.concat(selector.typesReferenced(predicate), entries.stream().flatMap(switchEntry -> switchEntry.typesReferenced(predicate)));
     }
 
     @Override

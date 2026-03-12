@@ -59,8 +59,6 @@ public interface MethodInfo extends Info {
 
     boolean isVoid();
 
-    Stream<TypeReference> typesReferenced(boolean includeBody);
-
     boolean complexityGreaterThanCOMPLEXITY_METHOD_WITHOUT_CODE();
 
     default boolean hasReturnValue() {

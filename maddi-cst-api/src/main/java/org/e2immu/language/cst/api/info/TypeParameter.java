@@ -26,6 +26,7 @@ import org.e2immu.support.Either;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public interface TypeParameter extends NamedType, Info {

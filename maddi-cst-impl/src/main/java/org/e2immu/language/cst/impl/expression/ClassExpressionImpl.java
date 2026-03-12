@@ -33,6 +33,7 @@ import org.e2immu.language.cst.impl.type.DiamondEnum;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedType> implements ClassExpression {
@@ -105,7 +106,7 @@ public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedTyp
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         return parameterizedType.typesReferenced(TypeReferenceNature.EXPLICIT,
                 source() == null ? null : source().detailedSources());
     }

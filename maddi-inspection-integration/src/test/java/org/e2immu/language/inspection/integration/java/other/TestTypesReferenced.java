@@ -42,7 +42,7 @@ public class TestTypesReferenced extends CommonTest {
                 TypeReference[typeInfo=a.b.X.Y, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=java.lang.annotation.Annotation, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=a.b.X.Y, typeReferenceNature=IMPLICIT]]\
-                """, typeInfo.typesReferenced().toList().toString());
+                """, typeInfo.typesReferenced(null).toList().toString());
         // FIXME PRINT space in front of {A
         String expect = """
                 package a.b;

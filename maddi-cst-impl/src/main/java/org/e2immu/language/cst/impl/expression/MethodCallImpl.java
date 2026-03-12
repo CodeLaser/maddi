@@ -367,11 +367,11 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.concat(typeArguments.stream().flatMap(pt ->
                         pt.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources())),
-                Stream.concat(object.typesReferenced(),
-                        parameterExpressions.stream().flatMap(Expression::typesReferenced)));
+                Stream.concat(object.typesReferenced(predicate),
+                        parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate))));
     }
 
     @Override

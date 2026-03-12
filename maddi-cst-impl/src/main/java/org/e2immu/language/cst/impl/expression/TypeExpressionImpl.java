@@ -108,7 +108,7 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         TypeInfo typeInfo = parameterizedType().typeInfo();
         if (typeInfo == null) {
             if (parameterizedType.typeParameter() != null) {

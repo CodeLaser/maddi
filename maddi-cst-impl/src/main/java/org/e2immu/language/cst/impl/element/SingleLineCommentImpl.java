@@ -67,7 +67,7 @@ public class SingleLineCommentImpl implements SingleLineComment {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.empty();
     }
 

@@ -122,8 +122,8 @@ public class BlockImpl extends StatementImpl implements Block {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return statements.stream().flatMap(Statement::typesReferenced);
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return statements.stream().flatMap(statement -> statement.typesReferenced(predicate));
     }
 
     public static class Builder extends StatementImpl.Builder<Block.Builder> implements Block.Builder {

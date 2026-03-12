@@ -165,8 +165,8 @@ public class DependentVariableImpl extends VariableImpl implements DependentVari
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        return Stream.concat(arrayExpression.typesReferenced(), indexExpression.typesReferenced());
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate, DetailedSources detailedSources) {
+        return Stream.concat(arrayExpression.typesReferenced(predicate), indexExpression.typesReferenced(predicate));
     }
 
     @Override
