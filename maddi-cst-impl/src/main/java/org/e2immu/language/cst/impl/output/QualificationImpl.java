@@ -57,14 +57,14 @@ public class QualificationImpl implements Qualification {
         this.decorator = decorator;
     }
 
-    public QualificationImpl(boolean doNotQualifyImplicit, Qualification parent, TypeNameRequired typeNameRequired) {
+    public QualificationImpl(Qualification parent) {
         QualificationImpl pi = (QualificationImpl) parent;
         this.parent = pi;
         top = pi.top;
         typesNotImported = null;
         simpleTypeNames = null;
-        this.typeNameRequired = typeNameRequired;
-        this.doNotQualifyImplicit = doNotQualifyImplicit;
+        this.typeNameRequired = parent.typeNameRequired();
+        this.doNotQualifyImplicit = parent.doNotQualifyImplicit();
         this.decorator = pi.decorator;
     }
 

@@ -89,35 +89,6 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
         Qualification insideType = res.qualification();
         assert insideType != null;
 
-        // add the methods that we can call without having to qualify (method() instead of super.method())
-        if (insideType instanceof QualificationImpl qi) {
-            for (TypeInfo typeInfo : compilationUnit.types()) {
-                typeInfo.fields().forEach(qi::addField);
-                addMethodsToQualification(typeInfo, qi);
-                addThisToQualification(typeInfo, qi);
-            }
-        }
         return new ImportDataImpl(res.imports(), insideType, qualification);
     }
-
-    private static void addThisToQualification(TypeInfo typeInfo, QualificationImpl insideType) {
-        insideType.addThis(new ThisImpl(typeInfo.asSimpleParameterizedType()));
-        ParameterizedType parentClass = typeInfo.parentClass();
-        if (parentClass != null && !parentClass.isJavaLangObject()) {
-            insideType.addThis(new ThisImpl(parentClass.typeInfo().asSimpleParameterizedType(), null, true));
-        }
-    }
-
-    private static void addMethodsToQualification(TypeInfo typeInfo, QualificationImpl qImpl) {
-        typeInfo.methods().forEach(qImpl::addMethodUnlessOverride);
-        if (!typeInfo.isJavaLangObject()) {
-            addMethodsToQualification(typeInfo.parentClass().typeInfo(), qImpl);
-        }
-        for (ParameterizedType interfaceType : typeInfo.interfacesImplemented()) {
-            if (interfaceType.typeInfo() != typeInfo) {
-                addMethodsToQualification(interfaceType.typeInfo(), qImpl);
-            }
-        }
-    }
-
 }

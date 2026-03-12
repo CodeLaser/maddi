@@ -168,8 +168,7 @@ public record MethodPrinterImpl(TypeInfo typeInfo, MethodInfo methodInfo, boolea
                     .collect(Collectors.toUnmodifiableSet());
 
             List<FieldInfo> visibleFields = typeInfo.fields();
-            QualificationImpl res = new QualificationImpl(qi.doNotQualifyImplicit(), qi,
-                    TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE);
+            QualificationImpl res = new QualificationImpl(qi);
             visibleFields.stream().filter(fieldInfo -> localNames.contains(fieldInfo.name())).forEach(res::fieldMaskedByLocal);
 
             return res;

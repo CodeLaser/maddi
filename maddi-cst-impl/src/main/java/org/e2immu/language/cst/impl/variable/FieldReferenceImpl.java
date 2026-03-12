@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.expression.TypeExpression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.InfoMap;
@@ -96,6 +97,15 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
         assert !(scopeIsRecursivelyThis() && fieldInfo.isStatic());
         // know that: assert this.scope != null;
         // assert this.scope.source() != null;
+    }
+
+    // used by translation of field references, see TranslationMapImpl
+    public static boolean defaultScope(FieldInfo newField, Expression tScope) {
+        if (newField.isStatic()) {
+            return tScope instanceof TypeExpression te && newField.owner().equals(te.parameterizedType().typeInfo());
+        }
+        return tScope instanceof VariableExpression ve && ve.variable() instanceof This thisVar
+               && newField.owner().equals(thisVar.typeInfo()) && thisVar.explicitlyWriteType() == null;
     }
 
     @Override
