@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.translate;
 
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.expression.TypeExpression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -447,8 +448,13 @@ public class TranslationMapImpl implements TranslationMap {
             Expression tScope = fr.scope().translate(tm);
             FieldInfo newField = tm.translateFieldInfo(fr.fieldInfo());
             if (tScope != fr.scope() || newField != fr.fieldInfo()) {
-                // FIXME should tScope be null here?
-                return new FieldReferenceImpl(newField, tScope, null, fr.parameterizedType());
+                Expression finalScope;
+                if(fr.isDefaultScope() && FieldReferenceImpl.defaultScope(newField, tScope)) {
+                    finalScope = null;
+                } else {
+                    finalScope = tScope;
+                }
+                return new FieldReferenceImpl(newField, finalScope, null, fr.parameterizedType());
             }
         } else if (variable instanceof DependentVariable dv) {
             Expression translatedArray = dv.arrayExpression().translate(tm);

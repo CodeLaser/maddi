@@ -20,8 +20,10 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.output.*;
 import org.e2immu.language.cst.impl.type.DiamondEnum;
+import org.e2immu.language.cst.impl.variable.ThisImpl;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,12 +39,41 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         return print(importData, doTypeDeclaration);
     }
 
+
+    static void addThisToQualification(TypeInfo typeInfo, QualificationImpl insideType) {
+        insideType.addThis(new ThisImpl(typeInfo.asSimpleParameterizedType()));
+        ParameterizedType parentClass = typeInfo.parentClass();
+        if (parentClass != null && !parentClass.isJavaLangObject()) {
+            insideType.addThis(new ThisImpl(parentClass.typeInfo().asSimpleParameterizedType(), null, true));
+        }
+    }
+
+    static void addMethodsToQualification(TypeInfo typeInfo, QualificationImpl qImpl) {
+        typeInfo.methods().forEach(qImpl::addMethodUnlessOverride);
+        if (!typeInfo.isJavaLangObject()) {
+            addMethodsToQualification(typeInfo.parentClass().typeInfo(), qImpl);
+        }
+        for (ParameterizedType interfaceType : typeInfo.interfacesImplemented()) {
+            if (interfaceType.typeInfo() != typeInfo) {
+                addMethodsToQualification(interfaceType.typeInfo(), qImpl);
+            }
+        }
+    }
+
     @Override
     public OutputBuilder print(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration) {
 
+        // add the methods that we can call without having to qualify (method() instead of super.method())
+        Qualification insideType = new QualificationImpl(importData.insideType());
+
+        if (insideType instanceof QualificationImpl qi) {
+                typeInfo.fields().forEach(qi::addField);
+                addMethodsToQualification(typeInfo, qi);
+                addThisToQualification(typeInfo, qi);
+        }
+
         boolean isRecord = typeInfo.typeNature().isRecord();
         OutputBuilder afterAnnotations = new OutputBuilderImpl();
-        Qualification insideType = importData.insideType();
         Qualification qualification = importData.qualification();
 
         if (doTypeDeclaration) {
