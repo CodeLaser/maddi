@@ -39,7 +39,7 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
     private final Eval eval;
     private final E2ImmuAnnotationsImpl e2ImmuAnnotations = new E2ImmuAnnotationsImpl();
     private final LanguageConfiguration lc = new LanguageConfigurationImpl(true);
-    private final ComputeMethodOverrides computeMethodOverrides = new ComputeMethodOverridesImpl();
+    private final ComputeMethodOverrides computeMethodOverrides = new ComputeMethodOverridesImpl(this);
 
     public RuntimeImpl() {
         this(EvalOptions.DEFAULT);

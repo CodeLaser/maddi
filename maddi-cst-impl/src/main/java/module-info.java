@@ -4,6 +4,7 @@ module org.e2immu.language.cst.impl {
     requires org.e2immu.language.cst.analysis;
     requires org.e2immu.util.internal.util;
     requires org.slf4j;
+    requires org.jetbrains.annotations;
 
     exports org.e2immu.language.cst.impl.element;
     exports org.e2immu.language.cst.impl.expression;
