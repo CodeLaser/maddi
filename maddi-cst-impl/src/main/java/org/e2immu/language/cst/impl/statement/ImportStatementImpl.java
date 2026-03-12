@@ -110,7 +110,7 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.empty();
     }
 

@@ -126,8 +126,8 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return inner.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return inner.typesReferenced(predicate);
     }
 
     @Override

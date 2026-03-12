@@ -197,7 +197,8 @@ public class ParameterInfoImpl implements ParameterInfo {
 
     @Override
     public Stream<TypeReference> explicitTypesReferenced() {
-        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
+        Stream<TypeReference> fromAnnotations = annotations().stream()
+                .flatMap(annotationExpression -> annotationExpression.typesReferenced(null));
         return Stream.concat(fromAnnotations, parameterizedType.typesReferenced(TypeReferenceNature.EXPLICIT,
                 source() == null ? null : source().detailedSources()));
     }

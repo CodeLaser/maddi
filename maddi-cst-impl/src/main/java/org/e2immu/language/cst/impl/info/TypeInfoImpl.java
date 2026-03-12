@@ -556,7 +556,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<TypeReference> fromParent = parentClass() == null || parentClass().isJavaLangObject() ? Stream.empty()
                 : parentClass().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
@@ -565,14 +565,14 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         Stream<TypeReference> fromPermits = permittedWhenSealed().stream()
                 .map(ti -> new ElementImpl.TypeReference(ti,
                         DetailedSources.isFullyQualified(detailedSources, ti)));
-        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
-        Stream<TypeReference> fromMethods = methods().stream().flatMap(MethodInfo::typesReferenced);
-        Stream<TypeReference> fromConstructors = constructors().stream().flatMap(MethodInfo::typesReferenced);
-        Stream<TypeReference> fromFields = fields().stream().flatMap(FieldInfo::typesReferenced);
-        Stream<TypeReference> fromSubTypes = subTypes().stream().flatMap(TypeInfo::typesReferenced);
+        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
+        Stream<TypeReference> fromMethods = methods().stream().flatMap(methodInfo -> methodInfo.typesReferenced(predicate));
+        Stream<TypeReference> fromConstructors = constructors().stream().flatMap(methodInfo -> methodInfo.typesReferenced(predicate));
+        Stream<TypeReference> fromFields = fields().stream().flatMap(fieldInfo -> fieldInfo.typesReferenced(predicate));
+        Stream<TypeReference> fromSubTypes = subTypes().stream().flatMap(typeInfo -> typeInfo.typesReferenced(predicate));
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
-                .flatMap(Element::typesReferenced);
-        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced();
+                .flatMap(typeParameter -> typeParameter.typesReferenced(predicate));
+        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced(predicate);
         return Stream.concat(fromParent,
                 Stream.concat(fromInterfaces,
                         Stream.concat(fromPermits,

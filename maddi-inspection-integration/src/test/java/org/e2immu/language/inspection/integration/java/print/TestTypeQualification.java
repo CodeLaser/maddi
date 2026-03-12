@@ -56,7 +56,7 @@ public class TestTypeQualification extends CommonTest {
                 [TypeReference[typeInfo=java.sql.Date, typeReferenceNature=FULLY_QUALIFIED], \
                 TypeReference[typeInfo=java.util.Date, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=java.sql.Date, typeReferenceNature=FULLY_QUALIFIED]]\
-                """, X.typesReferenced().toList().toString());
+                """, X.typesReferenced(null).toList().toString());
 
         ImportComputer importComputer = javaInspector.importComputer(4, null);
         Qualification qualification = javaInspector.runtime().qualificationQualifyFromPrimaryType();

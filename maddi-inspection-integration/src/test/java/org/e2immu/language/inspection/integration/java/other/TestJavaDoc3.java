@@ -112,7 +112,7 @@ public class TestJavaDoc3 extends CommonTest2 {
                             TypeReference[typeInfo=java.lang.Object, typeReferenceNature=EXPLICIT], \
                             TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT]\
                             """,
-                    A.typesReferenced().map(Object::toString).sorted().collect(Collectors.joining(", ")));
+                    A.typesReferenced(null).map(Object::toString).sorted().collect(Collectors.joining(", ")));
         }
     }
 }

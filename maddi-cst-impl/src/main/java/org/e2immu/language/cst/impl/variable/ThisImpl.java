@@ -119,7 +119,7 @@ public class ThisImpl extends VariableImpl implements This {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced(DetailedSources detailedSources) {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> test, DetailedSources detailedSources) {
         if (explicitlyWriteType == null) {
             return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT));
         }

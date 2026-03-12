@@ -282,7 +282,8 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
                                                  Set<TypeParameter> visited) {
         assert visited != null : "Must be set in ParameterizedTypeImpl";
         if (visited.add(this)) {
-            Stream<Element.TypeReference> s1 = annotations().stream().flatMap(Element::typesReferenced);
+            Stream<Element.TypeReference> s1 = annotations().stream().
+                    flatMap(annotationExpression -> annotationExpression.typesReferenced(null));
             Stream<Element.TypeReference> s2 = typeBounds().stream()
                     .flatMap(pt -> pt.typesReferenced(typeReferenceNature, detailedSources, visited));
             Stream<Element.TypeReference> s3 = owner.isLeft()
@@ -294,7 +295,7 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         return typesReferenced(TypeReferenceNature.EXPLICIT, source() == null ? null :
                 source().detailedSources(), new HashSet<>());
     }

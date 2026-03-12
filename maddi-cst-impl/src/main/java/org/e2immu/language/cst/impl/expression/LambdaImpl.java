@@ -243,14 +243,14 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.concat(methodInfo.parameters().stream().flatMap(
                         pi -> outputVariants.get(pi.index()).isTyped()
                                 ? pi.parameterizedType().typesReferenced(TypeReferenceNature.EXPLICIT,
                                 source().detailedSources())
                                 : pi.parameterizedType().typesReferenced(TypeReferenceNature.IMPLICIT,
                                 null)),
-                methodInfo.methodBody().typesReferenced());
+                methodInfo.methodBody().typesReferenced(predicate));
     }
 
     @Override

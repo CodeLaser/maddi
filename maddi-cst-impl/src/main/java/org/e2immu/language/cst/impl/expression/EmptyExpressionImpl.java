@@ -136,7 +136,7 @@ public class EmptyExpressionImpl extends ExpressionImpl implements EmptyExpressi
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.empty();
     }
 

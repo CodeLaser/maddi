@@ -319,16 +319,16 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(pt ->
                 pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
         Stream<Element.TypeReference> arrayInitStream = arrayInitializer == null ? Stream.of()
-                : arrayInitializer.typesReferenced();
+                : arrayInitializer.typesReferenced(predicate);
         Stream<Element.TypeReference> anonStream = anonymousClass == null ? Stream.of()
-                : anonymousClass.typesReferenced();
-        Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced();
-        Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(Expression::typesReferenced);
+                : anonymousClass.typesReferenced(predicate);
+        Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced(predicate);
+        Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
         Stream<Element.TypeReference> ccTypeStream = concreteReturnType
                 .typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         return Stream.concat(typeArgStream, Stream.concat(arrayInitStream, Stream.concat(anonStream,

@@ -207,7 +207,7 @@ public class TestJavaDoc extends CommonTest {
         assertEquals("""
                 [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=java.util.LinkedList, typeReferenceNature=FULLY_QUALIFIED]]\
-                """, methodInfo.typesReferenced().toList().toString());
+                """, methodInfo.typesReferenced(null).toList().toString());
         DetailedSources detailedSources = tag.source().detailedSources();
         assertNotNull(detailedSources);
         assertEquals("4-15:4-34", detailedSources.detail(tag.resolvedReference()).compact2());
@@ -351,7 +351,7 @@ public class TestJavaDoc extends CommonTest {
                     TypeReference[typeInfo=a.b.X, typeReferenceNature=IMPLICIT], \
                     TypeReference[typeInfo=a.b.X, typeReferenceNature=EXPLICIT], \
                     TypeReference[typeInfo=a.b.X, typeReferenceNature=FULLY_QUALIFIED]]\
-                    """, methodInfo.typesReferenced().toList().toString());
+                    """, methodInfo.typesReferenced(null).toList().toString());
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);
             assertEquals("4-13:4-32", detailedSources.detail(tag.resolvedReference()).compact2());

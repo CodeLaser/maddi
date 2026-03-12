@@ -67,7 +67,7 @@ public abstract class BreakOrContinueStatementImpl extends StatementImpl impleme
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.empty();
     }
 

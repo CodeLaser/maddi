@@ -165,7 +165,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Stream<TypeReference> typesReferenced() {
+        public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
             return Stream.empty();
         }
     }
@@ -217,7 +217,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Stream<TypeReference> typesReferenced() {
+        public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
             return Stream.empty();
         }
     }
@@ -269,7 +269,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Stream<TypeReference> typesReferenced() {
+        public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
             return Stream.empty();
         }
     }
@@ -352,7 +352,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Stream<TypeReference> typesReferenced() {
+        public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
             TypeInfo resolved = apiResolved();
             return resolved == null ? Stream.empty() : Stream.of(new ElementImpl.TypeReference(resolved,
                     DetailedSources.isFullyQualified(source.detailedSources(), resolved)));
@@ -455,7 +455,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
         }
 
         @Override
-        public Stream<TypeReference> typesReferenced() {
+        public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
             TypeInfo a = apiResolved();
             DetailedSources detailedSources = source.detailedSources();
             Stream<ElementImpl.TypeReference> s1 = a == null ? Stream.empty()
@@ -591,9 +591,9 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(uses.stream().flatMap(Uses::typesReferenced),
-                provides.stream().flatMap(Provides::typesReferenced));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return Stream.concat(uses.stream().flatMap(uses1 -> uses1.typesReferenced(predicate)),
+                provides.stream().flatMap(provides1 -> provides1.typesReferenced(predicate)));
     }
 
     @Override

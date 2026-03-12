@@ -15,10 +15,7 @@
 package org.e2immu.analyzer.modification.prepwork.variable.impl;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -116,7 +113,7 @@ public class ReturnVariableImpl implements ReturnVariable {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate, DetailedSources detailedSources) {
         return Stream.of(new ElementImpl.TypeReference(parameterizedType().typeInfo(), TypeReferenceNature.IMPLICIT));
     }
 

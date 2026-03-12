@@ -215,7 +215,7 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         return tags.stream().map(JavaDocImpl::typeReference).filter(Objects::nonNull);
     }
 

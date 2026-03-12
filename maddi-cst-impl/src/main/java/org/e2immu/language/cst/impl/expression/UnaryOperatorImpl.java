@@ -111,8 +111,8 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return expression.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return expression.typesReferenced(predicate);
     }
 
     @Override

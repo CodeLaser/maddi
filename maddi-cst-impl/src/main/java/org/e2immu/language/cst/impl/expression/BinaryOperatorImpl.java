@@ -236,8 +236,8 @@ public class BinaryOperatorImpl extends ExpressionImpl implements BinaryOperator
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(lhs.typesReferenced(), rhs.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return Stream.concat(lhs.typesReferenced(predicate), rhs.typesReferenced(predicate));
     }
 
     @Override

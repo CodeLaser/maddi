@@ -99,8 +99,8 @@ public class OrImpl extends ExpressionImpl implements Or {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return expressions.stream().flatMap(Expression::typesReferenced);
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        return expressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
     }
 
     @Override
