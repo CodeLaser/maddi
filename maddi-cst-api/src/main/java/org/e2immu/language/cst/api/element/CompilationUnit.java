@@ -22,6 +22,8 @@ import java.util.List;
 
 public interface CompilationUnit extends Element {
 
+    CompilationUnit copy();
+
     URI uri();
 
     String packageName();

@@ -40,22 +40,23 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
     }
 
 
-    static void addThisToQualification(TypeInfo typeInfo, QualificationImpl insideType) {
+    private static void addThisToQualification(TypeInfo typeInfo, Qualification insideType) {
         insideType.addThis(new ThisImpl(typeInfo.asSimpleParameterizedType()));
         ParameterizedType parentClass = typeInfo.parentClass();
         if (parentClass != null && !parentClass.isJavaLangObject()) {
-            insideType.addThis(new ThisImpl(parentClass.typeInfo().asSimpleParameterizedType(), null, true));
+            insideType.addThis(new ThisImpl(parentClass.typeInfo().asSimpleParameterizedType(), null,
+                    true));
         }
     }
 
-    static void addMethodsToQualification(TypeInfo typeInfo, QualificationImpl qImpl) {
-        typeInfo.methods().forEach(qImpl::addMethodUnlessOverride);
+    private static void addMethodsToQualification(TypeInfo typeInfo, Qualification qualification) {
+        typeInfo.methods().forEach(qualification::addMethodUnlessOverride);
         if (!typeInfo.isJavaLangObject()) {
-            addMethodsToQualification(typeInfo.parentClass().typeInfo(), qImpl);
+            addMethodsToQualification(typeInfo.parentClass().typeInfo(), qualification);
         }
         for (ParameterizedType interfaceType : typeInfo.interfacesImplemented()) {
             if (interfaceType.typeInfo() != typeInfo) {
-                addMethodsToQualification(interfaceType.typeInfo(), qImpl);
+                addMethodsToQualification(interfaceType.typeInfo(), qualification);
             }
         }
     }
@@ -66,11 +67,9 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         // add the methods that we can call without having to qualify (method() instead of super.method())
         Qualification insideType = new QualificationImpl(importData.insideType());
 
-        if (insideType instanceof QualificationImpl qi) {
-                typeInfo.fields().forEach(qi::addField);
-                addMethodsToQualification(typeInfo, qi);
-                addThisToQualification(typeInfo, qi);
-        }
+        typeInfo.fields().forEach(insideType::addField);
+        addMethodsToQualification(typeInfo, insideType);
+        addThisToQualification(typeInfo, insideType);
 
         boolean isRecord = typeInfo.typeNature().isRecord();
         OutputBuilder afterAnnotations = new OutputBuilderImpl();

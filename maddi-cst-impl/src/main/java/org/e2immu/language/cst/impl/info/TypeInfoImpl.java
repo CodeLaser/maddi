@@ -975,7 +975,10 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
                     : translationMap.translateType(enclosing.asSimpleParameterizedType()).typeInfo();
             typeInfo = new TypeInfoImpl(tEnclosing, simpleName);
         } else {
-            typeInfo = new TypeInfoImpl(compilationUnitOrEnclosingType.getLeft(), simpleName);
+            CompilationUnit cu = compilationUnitOrEnclosingType.getLeft();
+            CompilationUnit newCu = cu.copy();
+            typeInfo = new TypeInfoImpl(newCu, simpleName);
+            newCu.setTypes(List.of(typeInfo));
         }
         TypeInfo.Builder b = typeInfo.builder();
         b.setAccess(access());

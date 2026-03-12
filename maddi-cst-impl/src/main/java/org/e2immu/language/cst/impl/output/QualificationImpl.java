@@ -128,6 +128,7 @@ public class QualificationImpl implements Qualification {
         qualifiedFields.add(fieldInfo);
     }
 
+    @Override
     public void addField(FieldInfo fieldInfo) {
         boolean newName = unqualifiedFields.stream().noneMatch(fi -> fi.name().equals(fieldInfo.name()));
         if (newName) {
@@ -135,10 +136,12 @@ public class QualificationImpl implements Qualification {
         } // else: we'll have to qualify, because the name has already been taken
     }
 
+    @Override
     public void addThis(This thisVar) {
         unqualifiedThis.add(thisVar);
     }
 
+    @Override
     public void addMethodUnlessOverride(MethodInfo methodInfo) {
         boolean newMethod = unqualifiedMethods.stream().noneMatch(mi -> mi.isOverloadOf(methodInfo));
         if (newMethod) {
