@@ -164,9 +164,16 @@ public class DetailedSourcesImpl implements DetailedSources {
 
     @Override
     public boolean isFullyQualified(TypeInfo typeInfo) {
-        Source s = detail(typeInfo);
-        // >= because the dots can be surrounded by spaces (highly unusual, but possible)
-        return s != null && s.posDiff() >= typeInfo.fullyQualifiedName().length();
+        Object o = identityHashMap.get(typeInfo);
+        if (o instanceof Source s) {
+            // >= because the dots can be surrounded by spaces (highly unusual, but possible)
+            return s.posDiff() >= typeInfo.fullyQualifiedName().length();
+        }
+        if (o instanceof List<?> list && !list.isEmpty()) {
+            return list.stream()
+                    .allMatch(obj -> ((Source) obj).posDiff() >= typeInfo.fullyQualifiedName().length());
+        }
+        return false;
     }
 
     @Override
