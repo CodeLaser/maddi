@@ -192,6 +192,7 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(
                 Stream.concat(initializers.stream().flatMap(element -> element.typesReferenced(predicate)),
                         expression.typesReferenced(predicate)),

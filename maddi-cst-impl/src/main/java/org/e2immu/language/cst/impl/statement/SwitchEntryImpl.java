@@ -200,7 +200,8 @@ public class SwitchEntryImpl implements SwitchEntry {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
-        Stream<Element.TypeReference>s1 = patternVariable == null ? Stream.of(): patternVariable.typesReferenced(predicate);
+        if (reject(predicate)) return Stream.of();
+        Stream<Element.TypeReference> s1 = patternVariable == null ? Stream.of() : patternVariable.typesReferenced(predicate);
         return Stream.concat(s1, Stream.concat(whenExpression.typesReferenced(predicate), statement.typesReferenced(predicate)));
     }
 

@@ -402,6 +402,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(resources.stream().flatMap(statement -> statement.typesReferenced(predicate)),
                 Stream.concat(block.typesReferenced(predicate), Stream.concat(catchClauses.stream().flatMap(catchClause -> catchClause.typesReferenced(predicate)),
                         finallyBlock.typesReferenced(predicate))));

@@ -296,6 +296,7 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return typesReferenced(TypeReferenceNature.EXPLICIT, source() == null ? null :
                 source().detailedSources(), new HashSet<>());
     }

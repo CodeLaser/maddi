@@ -211,6 +211,7 @@ public class MethodReferenceImpl extends ExpressionImpl implements MethodReferen
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return scope.typesReferenced(predicate);
     }
 

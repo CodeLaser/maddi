@@ -131,6 +131,7 @@ public class SynchronizedStatementImpl extends StatementImpl implements Synchron
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(expression.typesReferenced(predicate), block.typesReferenced(predicate));
     }
 

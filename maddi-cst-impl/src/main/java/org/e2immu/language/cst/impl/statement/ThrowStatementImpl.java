@@ -111,6 +111,7 @@ public class ThrowStatementImpl extends StatementImpl implements ThrowStatement 
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return expression.typesReferenced(predicate);
     }
 

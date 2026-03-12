@@ -129,6 +129,7 @@ public class AssertStatementImpl extends StatementImpl implements AssertStatemen
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(expression.typesReferenced(predicate), message.typesReferenced(predicate));
     }
 

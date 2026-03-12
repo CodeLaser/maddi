@@ -111,6 +111,7 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.empty();
     }
 

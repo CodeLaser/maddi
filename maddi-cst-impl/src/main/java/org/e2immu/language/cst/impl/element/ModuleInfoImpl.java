@@ -592,6 +592,7 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(uses.stream().flatMap(uses1 -> uses1.typesReferenced(predicate)),
                 provides.stream().flatMap(provides1 -> provides1.typesReferenced(predicate)));
     }

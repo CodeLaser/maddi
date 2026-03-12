@@ -127,6 +127,7 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return inner.typesReferenced(predicate);
     }
 

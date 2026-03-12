@@ -144,6 +144,7 @@ public class ArrayLengthImpl extends ExpressionImpl implements ArrayLength {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return scope.typesReferenced(predicate);
     }
 

@@ -107,6 +107,7 @@ public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedTyp
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return parameterizedType.typesReferenced(TypeReferenceNature.EXPLICIT,
                 source() == null ? null : source().detailedSources());
     }

@@ -84,6 +84,7 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return expression.typesReferenced(predicate);
     }
 

@@ -163,6 +163,7 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(initializer.typesReferenced(predicate),
                 Stream.concat(expression.typesReferenced(predicate), block.typesReferenced(predicate)));
     }

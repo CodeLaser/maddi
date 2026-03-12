@@ -136,6 +136,7 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(expression.typesReferenced(predicate), block.typesReferenced(predicate));
     }
 

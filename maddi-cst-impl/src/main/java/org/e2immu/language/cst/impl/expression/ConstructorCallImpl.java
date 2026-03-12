@@ -320,6 +320,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(pt ->
                 pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));

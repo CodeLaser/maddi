@@ -244,6 +244,7 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(methodInfo.parameters().stream().flatMap(
                         pi -> outputVariants.get(pi.index()).isTyped()
                                 ? pi.parameterizedType().typesReferenced(TypeReferenceNature.EXPLICIT,
