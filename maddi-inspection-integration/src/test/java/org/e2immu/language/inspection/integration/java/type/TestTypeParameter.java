@@ -237,7 +237,10 @@ public class TestTypeParameter extends CommonTest {
                 package a.b;
                 import org.e2immu.annotation.Container;
                 import org.e2immu.annotation.Independent;
-                class X { private static final String COMMENT = "comment"; class Class$<@Independent@Container(comment = COMMENT) T> { } }
+                class X {
+                    private static final String COMMENT = "comment";
+                    class Class$<@Independent@Container(comment = X.COMMENT) T> { }
+                }
                 """, javaInspector.print2(typeInfo.compilationUnit()));
     }
 

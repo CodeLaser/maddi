@@ -90,6 +90,7 @@ public class QualificationImpl implements Qualification {
     @Override
     public boolean qualifierRequired(MethodInfo methodInfo) {
         if (unqualifiedMethods.contains(methodInfo)) return false;
+        // we rely on the import computer to explicitly add methods that have been statically imported
         return parent == null || parent.qualifierRequired(methodInfo);
     }
 
@@ -103,7 +104,12 @@ public class QualificationImpl implements Qualification {
         if (variable instanceof FieldReference fieldReference) {
             if (qualifiedFields.contains(fieldReference.fieldInfo())) return true;
             if (unqualifiedFields.contains(fieldReference.fieldInfo())) return false;
-            return parent == null || parent.qualifierRequired(variable);
+            if (fieldReference.fieldInfo().isStatic()) {
+                // we rely on the import computer to explicitly state which static fields have been imported
+                return parent == null || parent.qualifierRequired(variable);
+            }
+            // instance fields, however, must be explicitly marked as "qualify"
+            return parent != null && parent.qualifierRequired(variable);
         }
         if (variable instanceof This thisVar) {
             if (thisVar.typeInfo().isAnonymous()) return false;
