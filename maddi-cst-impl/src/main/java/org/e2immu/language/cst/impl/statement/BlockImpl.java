@@ -123,6 +123,7 @@ public class BlockImpl extends StatementImpl implements Block {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return statements.stream().flatMap(statement -> statement.typesReferenced(predicate));
     }
 

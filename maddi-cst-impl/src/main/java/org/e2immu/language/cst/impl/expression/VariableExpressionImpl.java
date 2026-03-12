@@ -144,6 +144,7 @@ public class VariableExpressionImpl extends ExpressionImpl implements VariableEx
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return variable.typesReferenced(predicate);
     }
 

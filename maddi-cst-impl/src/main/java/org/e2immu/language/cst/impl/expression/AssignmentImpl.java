@@ -240,6 +240,7 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(target.typesReferenced(predicate), value.typesReferenced(predicate));
     }
 

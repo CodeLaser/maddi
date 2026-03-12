@@ -138,6 +138,7 @@ public class DoStatementImpl extends StatementImpl implements DoStatement {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(block.typesReferenced(predicate), expression.typesReferenced(predicate));
     }
 

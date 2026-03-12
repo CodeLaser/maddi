@@ -368,6 +368,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(typeArguments.stream().flatMap(pt ->
                         pt.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources())),
                 Stream.concat(object.typesReferenced(predicate),

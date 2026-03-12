@@ -157,6 +157,7 @@ public class CommaExpressionImpl extends ExpressionImpl implements CommaExpressi
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return expressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
     }
 

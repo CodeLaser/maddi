@@ -161,6 +161,7 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(expression.typesReferenced(predicate), Stream.concat(block.typesReferenced(predicate),
                 elseBlock.typesReferenced(predicate)));
     }

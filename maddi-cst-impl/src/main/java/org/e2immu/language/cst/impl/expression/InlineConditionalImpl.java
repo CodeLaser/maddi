@@ -197,6 +197,7 @@ public class InlineConditionalImpl extends ExpressionImpl implements InlineCondi
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(condition.typesReferenced(predicate),
                 Stream.concat(ifTrue.typesReferenced(predicate), ifFalse.typesReferenced(predicate)));
     }

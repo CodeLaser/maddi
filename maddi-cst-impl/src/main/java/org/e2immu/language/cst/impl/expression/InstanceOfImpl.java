@@ -234,6 +234,7 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(testType.typesReferenced(TypeReferenceNature.EXPLICIT,
                 source() == null ? null : source().detailedSources()), expression.typesReferenced(predicate));
     }

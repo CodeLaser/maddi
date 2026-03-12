@@ -156,6 +156,7 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
     }
 

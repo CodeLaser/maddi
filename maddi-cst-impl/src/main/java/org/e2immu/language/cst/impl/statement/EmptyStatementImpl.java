@@ -88,6 +88,7 @@ public class EmptyStatementImpl extends StatementImpl implements EmptyStatement 
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.of();
     }
 

@@ -115,6 +115,7 @@ public class LocalTypeDeclarationImpl extends StatementImpl implements LocalType
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return typeInfo.typesReferenced(predicate);
     }
 

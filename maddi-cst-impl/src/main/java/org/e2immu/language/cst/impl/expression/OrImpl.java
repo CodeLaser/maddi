@@ -100,6 +100,7 @@ public class OrImpl extends ExpressionImpl implements Or {
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return expressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
     }
 

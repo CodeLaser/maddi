@@ -59,6 +59,7 @@ public abstract class ConstantExpressionImpl<T> extends ExpressionImpl implement
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.empty();
     }
 
