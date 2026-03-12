@@ -181,7 +181,7 @@ public interface Element {
         throw new UnsupportedOperationException();
     }
 
-    default boolean test(Predicate<Element> predicate) {
-        return predicate == null || predicate.test(this);
+    default boolean reject(Predicate<Element> predicate) {
+        return predicate != null && !predicate.test(this);
     }
 }

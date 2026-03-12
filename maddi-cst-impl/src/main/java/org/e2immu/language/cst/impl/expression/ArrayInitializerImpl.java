@@ -160,6 +160,7 @@ public class ArrayInitializerImpl extends ExpressionImpl implements ArrayInitial
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return expressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
     }
 

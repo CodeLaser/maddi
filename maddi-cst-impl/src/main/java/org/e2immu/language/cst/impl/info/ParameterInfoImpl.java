@@ -276,4 +276,10 @@ public class ParameterInfoImpl implements ParameterInfo {
     public ParameterInfo with(String name, ParameterizedType parameterizedType) {
         return new ParameterInfoImpl(methodInfo, index, name, parameterizedType);
     }
+
+    // as variable, not as parameter declaration
+    @Override
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate, DetailedSources detailedSources) {
+        return parameterizedType.typesReferenced(TypeReferenceNature.IMPLICIT, detailedSources);
+    }
 }

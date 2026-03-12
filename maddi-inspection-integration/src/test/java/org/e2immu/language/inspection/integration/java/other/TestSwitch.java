@@ -182,6 +182,7 @@ public class TestSwitch extends CommonTest {
                 TypeReference[typeInfo=int, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=int, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=java.lang.Object, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=java.lang.Object, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=java.lang.String, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=java.lang.String, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=java.lang.UnsupportedOperationException, typeReferenceNature=EXPLICIT]\
@@ -346,6 +347,7 @@ public class TestSwitch extends CommonTest {
         assertEquals("""
                 TypeReference[typeInfo=java.io.PrintStream, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=java.lang.Object, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=java.lang.Object, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=java.lang.String, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=java.lang.System, typeReferenceNature=EXPLICIT], \
                 TypeReference[typeInfo=java.lang.System, typeReferenceNature=IMPLICIT], \

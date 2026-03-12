@@ -223,6 +223,7 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
 
     @Override
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo,
                         DetailedSources.isFullyQualified(detailedSources, typeInfo))),

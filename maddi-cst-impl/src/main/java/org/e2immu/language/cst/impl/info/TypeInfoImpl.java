@@ -557,6 +557,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<TypeReference> fromParent = parentClass() == null || parentClass().isJavaLangObject() ? Stream.empty()
                 : parentClass().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
