@@ -233,4 +233,10 @@ public class CompilationUnitImpl extends ElementImpl implements CompilationUnit 
                     fingerPrint, List.copyOf(trailingComments));
         }
     }
+
+    @Override
+    public CompilationUnit copy() {
+        return new CompilationUnitImpl(sourceSet, uri, comments, source, importStatements, packageName,
+                fingerPrint.getOrDefaultNull(), trailingComments);
+    }
 }

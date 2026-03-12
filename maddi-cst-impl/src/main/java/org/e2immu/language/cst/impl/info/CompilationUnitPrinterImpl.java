@@ -21,9 +21,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypePrinter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.impl.output.*;
-import org.e2immu.language.cst.impl.variable.ThisImpl;
 
 import java.util.List;
 

@@ -139,4 +139,9 @@ public class CompilationUnitStub implements CompilationUnit {
     public Element rewire(InfoMap infoMap) {
         return this;
     }
+
+    @Override
+    public CompilationUnit copy() {
+        return new CompilationUnitStub(packageName);
+    }
 }
