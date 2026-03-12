@@ -55,6 +55,7 @@ public class TestTypeQualification extends CommonTest {
         assertEquals("""
                 [TypeReference[typeInfo=java.sql.Date, typeReferenceNature=FULLY_QUALIFIED], \
                 TypeReference[typeInfo=java.util.Date, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=java.util.Date, typeReferenceNature=IMPLICIT], \
                 TypeReference[typeInfo=java.sql.Date, typeReferenceNature=FULLY_QUALIFIED]]\
                 """, X.typesReferenced(null).toList().toString());
 

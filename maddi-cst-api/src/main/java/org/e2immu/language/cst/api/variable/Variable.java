@@ -71,6 +71,7 @@ public interface Variable extends Comparable<Variable>, Element, OneVariable {
 
     @Override
     default Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return typesReferenced(predicate, null);
     }
 

@@ -201,6 +201,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         Expression initializer = inspection.get().initializer();
         Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
         Stream<TypeReference> fromInitializer = initializer == null ? Stream.of() : initializer.typesReferenced(predicate);

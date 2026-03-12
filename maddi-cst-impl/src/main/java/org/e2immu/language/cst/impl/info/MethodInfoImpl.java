@@ -240,6 +240,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
     @Override
     public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<TypeReference> fromReturnType = returnType().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         Stream<TypeReference> fromParameters = parameters().stream().flatMap(ParameterInfo::explicitTypesReferenced);
@@ -248,7 +249,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
         Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
         Stream<TypeReference> fromExceptionTypes = exceptionTypes()
                 .stream().flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
-        Stream<TypeReference> fromBody = test(predicate) ? methodBody().typesReferenced(predicate) : Stream.of();
+        Stream<TypeReference> fromBody = methodBody().typesReferenced(predicate);
         Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced(predicate);
         return Stream.concat(fromReturnType, Stream.concat(fromParameters, Stream.concat(fromAnnotations,
                 Stream.concat(fromExceptionTypes, Stream.concat(fromTypeParameters, Stream.concat(fromJavaDoc, fromBody))))));
