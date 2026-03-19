@@ -311,14 +311,14 @@ public interface TypeInfo extends NamedType, Info {
     default Stream<TypeInfo> typeHierarchyExcludingJLOStream() {
         Stream<TypeInfo> s2;
         if (parentClass() != null && !parentClass().typeInfo().isJavaLangObject()) {
-            TypeInfo parent = parentClass().bestTypeInfo();
-            s2 = Stream.concat(Stream.of(parent), parent.recursiveSuperTypeStream());
+            TypeInfo parent = parentClass().typeInfo();
+            s2 = Stream.concat(Stream.of(parent), parent.typeHierarchyExcludingJLOStream());
         } else {
             s2 = Stream.of();
         }
         Stream<TypeInfo> s3 = interfacesImplemented().stream().map(ParameterizedType::bestTypeInfo)
                 .filter(Objects::nonNull)
-                .flatMap(ti -> Stream.concat(Stream.of(ti), ti.recursiveSuperTypeStream()));
+                .flatMap(ti -> Stream.concat(Stream.of(ti), ti.typeHierarchyExcludingJLOStream()));
         return Stream.concat(s2, s3);
     }
 
@@ -384,7 +384,7 @@ public interface TypeInfo extends NamedType, Info {
     boolean hasImplicitParent();
 
     default boolean inHierarchyOf(TypeInfo typeInfo) {
-        return equals(typeInfo) || typeHierarchyExcludingJLOStream().anyMatch(this::equals);
+        return equals(typeInfo) || typeInfo.typeHierarchyExcludingJLOStream().anyMatch(this::equals);
     }
 
 }

@@ -182,7 +182,8 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
         }
 
         private Value.Independent computeIndependent(FieldInfo fieldInfo, Links links) {
-            Value.Independent independentOfType = analysisHelper.typeIndependentFromImmutableOrNull(fieldInfo.owner(),
+            TypeInfo owner = fieldInfo.owner();
+            Value.Independent independentOfType = analysisHelper.typeIndependentFromImmutableOrNull(owner,
                     fieldInfo.type());
             if (independentOfType == null) {
                 // wait
@@ -192,9 +193,9 @@ public class FieldAnalyzerImpl extends CommonAnalyzerImpl implements FieldAnalyz
             Value.Independent independent = INDEPENDENT;
             for (Link link : links) {
                 if (link.to() instanceof ParameterInfo pi && !pi.methodInfo().access().isPrivate()
-                    && pi.typeInfo().inHierarchyOf(fieldInfo.owner())
+                    && owner.inHierarchyOf(pi.typeInfo())
                     || link.to() instanceof ReturnVariable rv && !rv.methodInfo().access().isPrivate()
-                       && rv.methodInfo().typeInfo().inHierarchyOf(fieldInfo.owner())) {
+                       && owner.inHierarchyOf(rv.methodInfo().typeInfo())) {
                     Value.Independent toIndependent;
                     if (link.from().equals(links.primary()) && link.linkNature().isIdenticalToOrAssignedFromTo()) {
                         // direct link
