@@ -63,6 +63,10 @@ public class TestField2 extends CommonTest2 {
         BinaryOperator bo = (BinaryOperator) newString.methodBody().lastStatement().expression();
         if (bo.rhs() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
             assertEquals("a.b.Parent.FIELD", fr.fullyQualifiedName());
+            // these are weird names, but that is because we make a source set for each test-protocol class
+            // there is no problem outside test-protocal
+            assertEquals("test-protocol:a.b.Parent::a.b.Parent", fr.fieldInfo().owner().descriptor());
+            assertEquals("test-protocol:a.b.Parent::a.b.Parent:FIELD", fr.fieldInfo().descriptor());
         } else fail();
     }
 
@@ -72,7 +76,7 @@ public class TestField2 extends CommonTest2 {
             package a.b;
             public class Parent {
                 public static class Sub {
-                    
+            
                 }
             }
             """;
@@ -135,7 +139,6 @@ public class TestField2 extends CommonTest2 {
         MethodInfo method = use.findUniqueMethod("method", 0);
 
     }
-
 
 
     @Language("java")
