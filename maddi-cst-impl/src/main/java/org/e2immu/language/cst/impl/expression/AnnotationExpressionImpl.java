@@ -43,8 +43,8 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
 
     public AnnotationExpressionImpl(List<Comment> comments, Source source, TypeInfo typeInfo, List<KV> keyValuePairs) {
         super(comments, source, 1 + keyValuePairs.stream().mapToInt(kv -> kv.value().complexity()).sum());
-        this.typeInfo = typeInfo;
-        this.keyValuePairs = keyValuePairs;
+        this.typeInfo = Objects.requireNonNull(typeInfo);
+        this.keyValuePairs = Objects.requireNonNull(keyValuePairs);
     }
 
     @Override
