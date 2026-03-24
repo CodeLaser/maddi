@@ -133,6 +133,17 @@ public class ParseFieldDeclaration extends CommonParse {
             builder.addComments(comments(fd, context, fieldInfo, builder));
         } // else: comment is only on the first field in the sequence, see e.g. TestFieldComments in java-parser
         builder.addComments(comments(vd, context, fieldInfo, builder));
+        builder.comments().removeIf(c -> context.commentIsBlocked(c.source()));
+
+        Node nextSibling = fd.nextSibling();
+        if (nextSibling != null) {
+            List<Comment> comments = comments(nextSibling).stream()
+                    .filter(c -> c.source().endLine() == c.source().beginLine()
+                                 && c.source().beginLine() == source.endLine())
+                    .toList();
+            comments.forEach(c -> context.blockComment(c.source()));
+            builder.addComments(comments);
+        }
 
         // comments in front of the field
         if (detailedSourcesBuilder != null) {
