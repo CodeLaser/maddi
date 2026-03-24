@@ -247,6 +247,8 @@ public interface Factory {
 
     FieldInfo newFieldInfo(String name, boolean isStatic, ParameterizedType parameterizedType, TypeInfo owner);
 
+    FieldPrinter newFieldPrinter(FieldInfo fieldInfo, boolean formatter2);
+
     FieldReference newFieldReference(FieldInfo fieldInfo);
 
     FieldReference newFieldReference(FieldInfo fieldInfo, Expression scope, ParameterizedType concreteReturnType);

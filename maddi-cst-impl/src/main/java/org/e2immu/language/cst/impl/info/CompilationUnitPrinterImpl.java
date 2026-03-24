@@ -31,6 +31,17 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
 
     @Override
     public OutputBuilder print(ImportComputer importComputer, Qualification qualification) {
+        return print(importComputer, qualification, TypePrinterImpl::new,
+                MethodPrinterImpl::new, FieldPrinterImpl::new, TypePrinterImpl::new);
+    }
+
+    @Override
+    public OutputBuilder print(ImportComputer importComputer,
+                               Qualification qualification,
+                               TypePrinterFactory typePrinterFactory,
+                               TypePrinter.MethodPrinterFactory methodPrinterFactory,
+                               TypePrinter.FieldPrinterFactory fieldPrinterFactory,
+                               TypePrinter.EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
         ImportDataImpl importData = computeImportData(importComputer, qualification);
         OutputBuilder outputBuilder = new OutputBuilderImpl();
         compilationUnit.comments().forEach(c -> outputBuilder.add(c.print(qualification)));
@@ -58,16 +69,19 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
                 return annotationStream.add(SpaceEnum.NEWLINE).add(outputBuilder);
             }
             if (qualification.decorator() != null) {
-                qualification.decorator().comments(typeInfo).forEach(c -> outputBuilder.add(c.print(qualification)));
+                qualification.decorator().comments(typeInfo)
+                        .forEach(c -> outputBuilder.add(c.print(qualification)));
             }
 
             // the order is important: we first print, and collect extra imports
-            TypePrinter typePrinter = new TypePrinterImpl(typeInfo, formatter2);
-            OutputBuilder ob = typePrinter.print(importData, true);
+            TypePrinter typePrinter = typePrinterFactory.create(typeInfo, formatter2);
+            OutputBuilder ob = typePrinter.print(importData, true, methodPrinterFactory,
+                    fieldPrinterFactory, enclosedTypePrinterFactory);
 
             // then add the imports
             if (qualification.decorator() != null && typeInfo.isPrimaryType()) {
-                qualification.decorator().importStatements().forEach(is -> outputBuilder.add(is.print(qualification)));
+                qualification.decorator().importStatements().
+                        forEach(is -> outputBuilder.add(is.print(qualification)));
             }
             // and the printed matter
             outputBuilder.add(ob);
