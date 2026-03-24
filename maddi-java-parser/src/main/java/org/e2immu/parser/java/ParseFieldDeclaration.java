@@ -14,6 +14,7 @@
 
 package org.e2immu.parser.java;
 
+import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -125,15 +126,20 @@ public class ParseFieldDeclaration extends CommonParse {
         fieldModifiers.forEach(builder::addFieldModifier);
         builder.computeAccess();
         addPrecedingSucceedingComma(vd, detailedSourcesBuilder);
-        if (detailedSourcesBuilder != null) {
-            detailedSourcesBuilder.put(DetailedSources.FIELD_DECLARATION, source(fd));
-        }
+
         Source source = source(vd);
         builder.setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()));
         if (first) {
             builder.addComments(comments(fd, context, fieldInfo, builder));
         } // else: comment is only on the first field in the sequence, see e.g. TestFieldComments in java-parser
         builder.addComments(comments(vd, context, fieldInfo, builder));
+
+        // comments in front of the field
+        if (detailedSourcesBuilder != null) {
+            Source declarationSource = source(fd);
+            Source merged = builder.comments().stream().map(Comment::source).reduce(declarationSource, Source::max);
+            detailedSourcesBuilder.put(DetailedSources.FIELD_DECLARATION, merged);
+        }
 
         // now that there is a builder, we can parse the annotations
         parseAnnotations(context, builder, annotations);

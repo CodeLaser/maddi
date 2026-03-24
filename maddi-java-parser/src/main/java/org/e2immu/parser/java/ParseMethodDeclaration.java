@@ -14,6 +14,7 @@
 
 package org.e2immu.parser.java;
 
+import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Assignment;
@@ -241,7 +242,8 @@ public class ParseMethodDeclaration extends CommonParse {
         methodModifiers.forEach(builder::addMethodModifier);
         builder.computeAccess();
         builder.addComments(comments(md, context, methodInfo, builder));
-        Source source = source(md);
+        Source sourceWithoutComments = source(md);
+        Source source = builder.comments().stream().map(Comment::source).reduce(sourceWithoutComments, Source::max);
         builder.setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()));
         return methodInfo;
     }
