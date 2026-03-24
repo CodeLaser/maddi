@@ -19,7 +19,18 @@ import org.e2immu.language.cst.api.output.Qualification;
 
 public interface CompilationUnitPrinter {
 
+    interface TypePrinterFactory {
+
+        TypePrinter create(TypeInfo typeInfo, boolean formatter2);
+    }
+
     OutputBuilder print(ImportComputer importComputer, Qualification qualification);
+
+    OutputBuilder print(ImportComputer importComputer, Qualification qualification,
+                        TypePrinterFactory typePrinterFactory,
+                        TypePrinter.MethodPrinterFactory methodPrinterFactory,
+                        TypePrinter.FieldPrinterFactory fieldPrinterFactory,
+                        TypePrinter.EnclosedTypePrinterFactory enclosedTypePrinterFactory);
 
     // helper method for printing type content without the declaration (e.g. for lambdas), see TypePrinter
     interface ImportData {

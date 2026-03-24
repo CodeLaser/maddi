@@ -26,4 +26,22 @@ public interface TypePrinter {
     OutputBuilder print(ImportComputer importComputer, Qualification qualification, boolean doTypeDeclaration);
 
     OutputBuilder print(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration);
+
+    OutputBuilder print(CompilationUnitPrinter.ImportData importData,
+                        boolean doTypeDeclaration,
+                        MethodPrinterFactory methodPrinterFactory,
+                        FieldPrinterFactory fieldPrinterFactory,
+                        EnclosedTypePrinterFactory enclosedTypePrinterFactory);
+
+    interface MethodPrinterFactory {
+        MethodPrinter create(TypeInfo typeInfo, MethodInfo methodInfo, boolean formatter2);
+    }
+
+    interface FieldPrinterFactory {
+        FieldPrinter create(FieldInfo fieldInfo, boolean formatter2);
+    }
+
+    interface EnclosedTypePrinterFactory {
+        TypePrinter create(TypeInfo typeInfo, boolean formatter2);
+    }
 }

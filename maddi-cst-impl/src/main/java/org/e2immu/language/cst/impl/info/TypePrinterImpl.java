@@ -63,6 +63,15 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
 
     @Override
     public OutputBuilder print(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration) {
+        return print(importData, doTypeDeclaration, MethodPrinterImpl::new, FieldPrinterImpl::new, TypePrinterImpl::new);
+    }
+
+    @Override
+    public OutputBuilder print(CompilationUnitPrinter.ImportData importData,
+                               boolean doTypeDeclaration,
+                               MethodPrinterFactory methodPrinterFactory,
+                               FieldPrinterFactory fieldPrinterFactory,
+                               EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
 
         // add the methods that we can call without having to qualify (method() instead of super.method())
         Qualification insideType = new QualificationImpl(importData.insideType());
@@ -121,17 +130,18 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
          */
         Stream<OutputBuilder> fieldStream = typeInfo.fields().stream()
                 .filter(f -> !f.isSynthetic() && (!isRecord || f.isStatic()))
-                .map(f -> new FieldPrinterImpl(f, formatter2)
+                .map(f -> fieldPrinterFactory.create(f, formatter2)
                         .print(insideType, false));
         Stream<OutputBuilder> subTypeStream = typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
-                .map(ti -> new TypePrinterImpl(ti, formatter2).print(importData, true));
+                .map(ti -> enclosedTypePrinterFactory.create(ti, formatter2)
+                        .print(importData, true));
         Stream<OutputBuilder> constructorStream = typeInfo.constructors().stream()
                 .filter(c -> !c.isSynthetic())
-                .map(c -> new MethodPrinterImpl(typeInfo, c, formatter2).print(insideType));
+                .map(c -> methodPrinterFactory.create(typeInfo, c, formatter2).print(insideType));
         Stream<OutputBuilder> methodStream = typeInfo.methods().stream()
                 .filter(m -> !m.isSynthetic())
-                .map(m -> new MethodPrinterImpl(typeInfo, m, formatter2).print(insideType));
+                .map(m -> methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType));
         Stream<OutputBuilder> trailingCommentStream = typeInfo.trailingComments().stream()
                 .map(c -> c.print(qualification));
         OutputBuilder main = Stream.concat(Stream.concat(Stream.concat(Stream.concat(Stream.concat(

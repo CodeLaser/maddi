@@ -627,6 +627,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public FieldPrinter newFieldPrinter(FieldInfo fieldInfo, boolean formatter2) {
+        return new FieldPrinterImpl(fieldInfo, formatter2);
+    }
+
+    @Override
     public FieldReference newFieldReference(FieldInfo fieldInfo) {
         return new FieldReferenceImpl(fieldInfo);
     }
