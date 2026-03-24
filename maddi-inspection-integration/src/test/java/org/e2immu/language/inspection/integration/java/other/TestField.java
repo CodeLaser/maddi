@@ -125,4 +125,32 @@ public class TestField extends CommonTest {
         } else fail("Have " + s0.expression());
 
     }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            class B {
+                final int min = 5; // min with comment
+                final static int MAX = 3; // max with comment
+                public boolean m(int j) {
+                  return B.MAX < j;
+                }
+            }
+            """;
+
+    @Test
+    public void test4() {
+        TypeInfo typeInfo = javaInspector.parse(INPUT4, JavaInspectorImpl.DETAILED_SOURCES);
+        assertEquals("B", typeInfo.simpleName());
+
+        FieldInfo min = typeInfo.getFieldByName("min", true);
+        assertEquals(1, min.comments().size());
+        assertEquals(" min with comment", min.comments().getFirst().comment());
+        FieldInfo max = typeInfo.getFieldByName("MAX", true);
+        assertEquals(1, max.comments().size());
+        assertEquals(" max with comment", max.comments().getFirst().comment());
+        MethodInfo m = typeInfo.findUniqueMethod("m", 1);
+        assertTrue(m.comments().isEmpty());
+    }
 }

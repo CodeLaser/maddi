@@ -243,6 +243,7 @@ public class ParseMethodDeclaration extends CommonParse {
         builder.computeAccess();
         builder.addComments(comments(md, context, methodInfo, builder));
         Source sourceWithoutComments = source(md);
+        builder.comments().removeIf(c -> context.commentIsBlocked(c.source()));
         Source source = builder.comments().stream().map(Comment::source).reduce(sourceWithoutComments, Source::max);
         builder.setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()));
         return methodInfo;
