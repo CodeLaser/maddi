@@ -33,6 +33,8 @@ public interface Source extends Comparable<Source> {
 
     DetailedSources detailedSources();
 
+    Source max(Source other);
+
     default int posDiff() {
         if (beginLine() == endLine()) {
             return endPos() - beginPos() + 1;

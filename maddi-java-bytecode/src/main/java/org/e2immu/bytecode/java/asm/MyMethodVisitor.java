@@ -55,6 +55,11 @@ public class MyMethodVisitor extends MethodVisitor {
         }
 
         @Override
+        public List<Comment> comments() {
+            return List.of();
+        }
+
+        @Override
         public ParamBuilder setAccess(Access access) {
             throw new UnsupportedOperationException();
         }
