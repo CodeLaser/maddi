@@ -114,7 +114,7 @@ public class TestField extends CommonTest {
         assertEquals("4-22:4-28", max.source().compact2()); // MAX = 3
         Source declarationWithout = max.source().detailedSources().detail(DetailedSources.FIELD_DECLARATION);
         assertEquals("3-5:4-29", declarationWithout.compact2());
-        
+
         Statement s0 = typeInfo.findUniqueMethod("m", 1).methodBody().statements().getFirst();
         if (s0.expression() instanceof BinaryOperator bo) {
             assertEquals("B.MAX", bo.lhs().toString());
