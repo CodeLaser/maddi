@@ -45,9 +45,7 @@ class RecordSynthetics {
             FieldInfo fieldInfo = rf.fieldInfo();
             ParameterInfo pi = cc.builder().addParameter(fieldInfo.name(), fieldInfo.type());
             pi.builder().setSynthetic(true).setAccess(publicAccess).setVarArgs(rf.varargs()).commit();
-            Source fieldSource = fieldInfo.source();
-            Source statementSource = runtime.newParserSource("" + count, fieldSource.beginLine(),
-                    fieldSource.beginPos(), fieldSource.endLine(), fieldSource.endPos());
+            Source statementSource = runtime.newParserSource("" + count, 0, 0, 0, 0);
             VariableExpression thisVe = runtime.newVariableExpressionBuilder()
                     .setVariable(thisVar).setSource(statementSource)
                     .build();
@@ -84,9 +82,7 @@ class RecordSynthetics {
         MethodInfo methodInfo = runtime.newMethod(fieldInfo.owner(), fieldInfo.name(),
                 runtime.methodTypeMethod());
         FieldReference fr = runtime.newFieldReference(fieldInfo);
-        Source fieldSource = fieldInfo.source();
-        Source source = runtime.newParserSource("0", fieldSource.beginLine(),
-                fieldSource.beginPos(), fieldSource.endLine(), fieldSource.endPos());
+        Source source = runtime.newParserSource("0", 0, 0, 0, 0);
         ReturnStatement rs = runtime.newReturnBuilder()
                 .setExpression(runtime.newVariableExpressionBuilder().setVariable(fr).setSource(source).build())
                 .setSource(source).build();

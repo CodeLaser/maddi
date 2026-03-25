@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.translate;
 
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -55,9 +56,12 @@ public class TranslationMapImpl implements TranslationMap {
     private final boolean yieldIntoReturn;
     private final boolean translateAgain;
     private final boolean clearAnalysis;
+    private final boolean correctSources;
+
     private final ModificationTimesHandler modificationTimesHandler;
     private final TranslationMap delegate;
     private final PostTranslationHandler postTranslationHandler;
+    private final TranslationMap withoutDelegate;
 
     private TranslationMapImpl(Map<? extends Statement, List<Statement>> statements,
                                Map<? extends Expression, ? extends Expression> expressions,
@@ -75,6 +79,7 @@ public class TranslationMapImpl implements TranslationMap {
                                boolean yieldIntoReturn,
                                boolean translateAgain,
                                boolean clearAnalysis,
+                               boolean correctSources,
                                TranslationMap delegate,
                                PostTranslationHandler postTranslationHandler) {
         this.variables = variables;
@@ -98,6 +103,12 @@ public class TranslationMapImpl implements TranslationMap {
         this.typeInfoMap = typeInfoMap;
         this.fieldDeclarations = fieldDeclarations;
         this.postTranslationHandler = postTranslationHandler;
+        this.correctSources = correctSources;
+        this.withoutDelegate = delegate == null ? null : new TranslationMapImpl(statements, expressions,
+                variableExpressions, variables, methodDeclarations,
+                fieldDeclarations, types, typeInfoMap, methodInfoMap,
+                fieldInfoMap, typeParameterMap, modificationTimesHandler, expandDelayedWrappedExpressions,
+                yieldIntoReturn, translateAgain, clearAnalysis, correctSources, null, postTranslationHandler);
     }
 
     // also accessible via runtime
@@ -154,6 +165,27 @@ public class TranslationMapImpl implements TranslationMap {
     }
 
     @Override
+    public boolean correctSources() {
+        return correctSources;
+    }
+
+    @Override
+    public <T extends Element> T postTranslationHandler(T original, T translated) {
+        if (postTranslationHandler != null && original != translated) {
+            return postTranslationHandler.handle(original, translated);
+        }
+        return translated;
+    }
+
+    @Override
+    public <T extends Element> List<T> postTranslationHandler(T original, List<T> translated) {
+        if (postTranslationHandler != null && (translated.size() != 1 || translated.getFirst() != original)) {
+            return postTranslationHandler.handle(original, translated);
+        }
+        return translated;
+    }
+
+    @Override
     public boolean expandDelayedWrappedExpressions() {
         return expandDelayedWrappedExpressions;
     }
@@ -161,6 +193,11 @@ public class TranslationMapImpl implements TranslationMap {
     @Override
     public Map<? extends Expression, ? extends Expression> expressions() {
         return expressions;
+    }
+
+    @Override
+    public Map<FieldInfo, List<FieldInfo>> fieldDeclarations() {
+        return fieldDeclarations;
     }
 
     @Override
@@ -214,7 +251,12 @@ public class TranslationMapImpl implements TranslationMap {
     }
 
     @Override
-    public Map<MethodInfo, List<MethodInfo>> methods() {
+    public Map<MethodInfo, MethodInfo> methodInfoMap() {
+        return methodInfoMap;
+    }
+
+    @Override
+    public Map<MethodInfo, List<MethodInfo>> methodsDeclarations() {
         return methodDeclarations;
     }
 
@@ -249,63 +291,58 @@ public class TranslationMapImpl implements TranslationMap {
 
     @Override
     public Expression translateExpression(Expression expression) {
-        Expression e = delegate != null ? expression.translate(delegate) : expression;
-        Expression result = Objects.requireNonNullElse(expressions.get(e), e);
-        return postTranslationHandler == null || result == expression ? result
-                : postTranslationHandler.handle(expression, result);
+        if (delegate != null) {
+            Expression e = expression.translate(delegate);
+            if (e == null) return expression;
+            return e.translate(withoutDelegate);
+        }
+        Expression result = Objects.requireNonNullElse(expressions.get(expression), expression);
+        return postTranslationHandler(expression, result);
     }
 
     @Override
     public List<FieldInfo> translateFieldDeclaration(FieldInfo fieldInfo) {
         if (delegate != null) {
             List<FieldInfo> list = fieldInfo.translate(delegate);
-            TranslationMap withoutDelegate = withoutDelegate();
             return list.stream().flatMap(fi -> fi.translate(withoutDelegate).stream()).toList();
         }
         List<FieldInfo> result = fieldDeclarations.getOrDefault(fieldInfo, List.of(fieldInfo));
-        return postTranslationHandler == null || result.size() == 1 && result.getFirst() == fieldInfo ? result
-                : postTranslationHandler.handle(fieldInfo, result);
+        return postTranslationHandler(fieldInfo, result);
     }
 
     @Override
     public FieldInfo translateFieldInfo(FieldInfo fieldInfo) {
         FieldInfo fi = delegate != null ? delegate.translateFieldInfo(fieldInfo) : fieldInfo;
         FieldInfo result = fieldInfoMap.getOrDefault(fi, fi);
-        return postTranslationHandler == null || result == fieldInfo ? result
-                : postTranslationHandler.handle(fieldInfo, result);
+        return postTranslationHandler(fieldInfo, result);
     }
 
     @Override
     public List<MethodInfo> translateMethodDeclaration(MethodInfo methodInfo) {
         if (delegate != null) {
             List<MethodInfo> list = methodInfo.translate(delegate);
-            TranslationMap withoutDelegate = withoutDelegate();
             return list.stream().flatMap(mi -> mi.translate(withoutDelegate).stream()).toList();
         }
         List<MethodInfo> result = methodDeclarations.getOrDefault(methodInfo, List.of(methodInfo));
-        return postTranslationHandler == null || result.size() == 1 && result.getFirst() == methodInfo ? result
-                : postTranslationHandler.handle(methodInfo, result);
+        return postTranslationHandler(methodInfo, result);
     }
 
     @Override
     public MethodInfo translateMethodInfo(MethodInfo methodInfo) {
         MethodInfo mi = delegate != null ? delegate.translateMethodInfo(methodInfo) : methodInfo;
         MethodInfo result = methodInfoMap.getOrDefault(mi, mi);
-        return postTranslationHandler == null || result == methodInfo ? result
-                : postTranslationHandler.handle(methodInfo, result);
+        return postTranslationHandler(methodInfo, result);
     }
 
     @Override
     public List<Statement> translateStatement(Statement statement) {
         if (delegate != null) {
             List<Statement> translated = statement.translate(delegate);
-            TranslationMap withoutDelegate = withoutDelegate();
             return translated.stream().flatMap(s -> s.translate(withoutDelegate).stream()).toList();
         }
         List<Statement> list = statements.get(statement);
         List<Statement> result = list == null ? List.of(statement) : list;
-        return postTranslationHandler == null || result.size() == 1 && result.getFirst() == statement ? result
-                : postTranslationHandler.handle(statement, result);
+        return postTranslationHandler(statement, result);
     }
 
     public ParameterizedType translateType(ParameterizedType parameterizedType) {
@@ -319,8 +356,7 @@ public class TranslationMapImpl implements TranslationMap {
     public TypeInfo translateTypeInfo(TypeInfo typeInfo) {
         TypeInfo ti = delegate != null ? delegate.translateTypeInfo(typeInfo) : typeInfo;
         TypeInfo result = typeInfoMap.getOrDefault(ti, ti);
-        return postTranslationHandler == null || result == typeInfo ? result
-                : postTranslationHandler.handle(typeInfo, result);
+        return postTranslationHandler(typeInfo, result);
     }
 
     @Override
@@ -328,8 +364,7 @@ public class TranslationMapImpl implements TranslationMap {
         Variable v = delegate == null ? variable : delegate.translateVariable(variable);
         Variable vv = variables.get(v);
         Variable result = vv != null ? vv : variable;
-        return postTranslationHandler == null || result == variable ? result
-                : postTranslationHandler.handle(variable, result);
+        return postTranslationHandler(variable, result);
     }
 
     @Override
@@ -357,6 +392,11 @@ public class TranslationMapImpl implements TranslationMap {
     }
 
     @Override
+    public Map<TypeInfo, TypeInfo> typeInfoMap() {
+        return typeInfoMap;
+    }
+
+    @Override
     public Map<ParameterizedType, ParameterizedType> types() {
         return types;
     }
@@ -369,13 +409,6 @@ public class TranslationMapImpl implements TranslationMap {
     @Override
     public Map<? extends Variable, ? extends Variable> variables() {
         return variables;
-    }
-
-    private TranslationMap withoutDelegate() {
-        return new TranslationMapImpl(statements, expressions, variableExpressions, variables, methodDeclarations,
-                fieldDeclarations, types, typeInfoMap, methodInfoMap,
-                fieldInfoMap, typeParameterMap, modificationTimesHandler, expandDelayedWrappedExpressions,
-                yieldIntoReturn, translateAgain, clearAnalysis, null, postTranslationHandler);
     }
 
     public static class Builder implements TranslationMap.Builder {
@@ -396,6 +429,8 @@ public class TranslationMapImpl implements TranslationMap {
         private boolean yieldIntoReturn;
         private boolean translateAgain;
         private boolean clearAnalysis;
+        private boolean correctSources;
+
         private TranslationMap delegate;
         private PostTranslationHandler postTranslationHandler;
 
@@ -408,14 +443,18 @@ public class TranslationMapImpl implements TranslationMap {
             variables.putAll(other.variables());
             expressions.putAll(other.expressions());
             variableExpressions.putAll(other.variableExpressions());
-            methodDeclarations.putAll(other.methods());
+            methodDeclarations.putAll(other.methodsDeclarations());
+            fieldDeclarations.putAll(other.fieldDeclarations());
             statements.putAll(other.statements());
             types.putAll(other.types());
             fieldInfoMap.putAll(other.fieldInfoMap());
+            methodInfoMap.putAll(other.methodInfoMap());
+            typeInfoMap.putAll(other.typeInfoMap());
             expandDelayedWrappedExpressions = other.expandDelayedWrappedExpressions();
             yieldIntoReturn = other.translateYieldIntoReturn();
             translateAgain = other.translateAgain();
             delegate = other.delegate();
+            postTranslationHandler = other.postTranslationHandler;
         }
 
         @Override
@@ -429,7 +468,7 @@ public class TranslationMapImpl implements TranslationMap {
             return new TranslationMapImpl(statements, expressions, variableExpressions, variables, methodDeclarations,
                     fieldDeclarations, types, typeInfoMap, methodInfoMap, fieldInfoMap, typeParameterMap,
                     modificationTimesHandler, expandDelayedWrappedExpressions, yieldIntoReturn, translateAgain,
-                    clearAnalysis, delegate, postTranslationHandler);
+                    clearAnalysis, correctSources, delegate, postTranslationHandler);
         }
 
         @Override
@@ -553,6 +592,12 @@ public class TranslationMapImpl implements TranslationMap {
         @Override
         public Builder setYieldToReturn(boolean b) {
             this.yieldIntoReturn = b;
+            return this;
+        }
+
+        @Override
+        public Builder setCorrectSources(boolean correctSources) {
+            this.correctSources = correctSources;
             return this;
         }
 
