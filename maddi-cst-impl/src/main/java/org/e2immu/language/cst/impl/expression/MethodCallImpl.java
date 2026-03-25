@@ -393,8 +393,8 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
         String newModificationTimes = Objects.requireNonNullElse(
                 translationMap.modificationTimes(this, translatedObject, translatedParameters),
                 modificationTimes);
-        if ( translatedMethod == methodInfo
-             && translatedObject == object
+        if (translatedMethod == methodInfo
+            && translatedObject == object
             && translatedReturnType == concreteReturnType
             && translatedParameters == parameterExpressions
             && newModificationTimes.equals(modificationTimes)
@@ -405,10 +405,13 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
         MethodCall translatedMc = new MethodCallImpl(comments(), source(), translatedObject, objectIsImplicit,
                 translatedMethod, translatedParameters, translatedReturnType, trTypeArgs, newModificationTimes,
                 translationMap.isClearAnalysis() ? new PropertyValueMapImpl() : propertyValueMap);
+        Expression result;
         if (translationMap.translateAgain() && !this.equals(translatedMc)) {
-            return translatedMc.translate(translationMap);
+            result = translatedMc.translate(translationMap);
+        } else {
+            result = translatedMc;
         }
-        return translatedMc;
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

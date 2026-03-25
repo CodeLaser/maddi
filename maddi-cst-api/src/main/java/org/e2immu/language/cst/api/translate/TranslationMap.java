@@ -147,6 +147,22 @@ public interface TranslationMap {
         return false;
     }
 
+    default boolean correctSources() {
+        return false;
+    }
+
+    default Map<FieldInfo, List<FieldInfo>> fieldDeclarations() {
+        return Map.of();
+    }
+
+    default Map<MethodInfo, MethodInfo> methodInfoMap() {
+        return Map.of();
+    }
+
+    default Map<TypeInfo, TypeInfo> typeInfoMap() {
+        return Map.of();
+    }
+
     default Map<? extends Variable, ? extends Variable> variables() {
         return Map.of();
     }
@@ -159,7 +175,7 @@ public interface TranslationMap {
         return Map.of();
     }
 
-    default Map<MethodInfo, List<MethodInfo>> methods() {
+    default Map<MethodInfo, List<MethodInfo>> methodsDeclarations() {
         return Map.of();
     }
 
@@ -188,6 +204,14 @@ public interface TranslationMap {
 
     default TranslationMap delegate() {
         return null;
+    }
+
+    default <T extends Element> T postTranslationHandler(T original, T translated) {
+        return translated;
+    }
+
+    default <T extends Element> List<T> postTranslationHandler(T original, List<T> translated) {
+        return translated;
     }
 
     interface ModificationTimesHandler {
@@ -371,6 +395,8 @@ public interface TranslationMap {
         Builder setYieldToReturn(boolean b);
 
         Builder setExpandDelayedWrapperExpressions(boolean expandDelayedWrappedExpressions);
+
+        Builder setCorrectSources(boolean correctSources);
 
         boolean translateMethod(MethodInfo methodInfo);
 

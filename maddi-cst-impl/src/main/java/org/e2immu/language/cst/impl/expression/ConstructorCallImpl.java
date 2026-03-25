@@ -31,6 +31,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
+import org.e2immu.language.cst.impl.element.DetailedSourcesImpl;
 import org.e2immu.language.cst.impl.element.ElementImpl;
 import org.e2immu.language.cst.impl.expression.util.ExpressionComparator;
 import org.e2immu.language.cst.impl.expression.util.InternalCompareToException;
@@ -381,7 +382,18 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
             && (analysis.isEmpty() || !translationMap.isClearAnalysis())) {
             return this;
         }
-        return new ConstructorCallImpl(comments(), source(),
+        Source source = source();
+        if (source.detailedSources() != null && translationMap.correctSources()
+            && concreteReturnType != translatedType) {
+            Source rt = source().detailedSources().detail(concreteReturnType);
+            if (rt != null) {
+                source = source.withDetailedSources(new DetailedSourcesImpl.BuilderImpl()
+                        .addAll(source().detailedSources())
+                        .put(translatedType, rt)
+                        .build());
+            }
+        }
+        Expression result = new ConstructorCallImpl(comments(), source,
                 translatedConstructor,
                 translatedType,
                 guessDiamond(translatedConstructor),
@@ -390,6 +402,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
                 trTypeArgs,
                 translatedInitializer,
                 tAnonymous);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     private Diamond guessDiamond(MethodInfo translatedConstructor) {
