@@ -360,6 +360,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
         if (translated != this) return translated;
 
         Expression translatedObject = object == null ? null : translationMap.translateExpression(object);
+        MethodInfo translatedConstructor = constructor == null ? null : translationMap.translateMethodInfo(constructor);
         ParameterizedType translatedType = translationMap.translateType(this.parameterizedType());
         List<Expression> translatedParameterExpressions = parameterExpressions.isEmpty() ? parameterExpressions
                 : parameterExpressions.stream().map(e -> e.translate(translationMap))
@@ -371,6 +372,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
                 (ArrayInitializer) arrayInitializer.translate(translationMap);
         TypeInfo tAnonymous = anonymousClass == null ? null : anonymousClass.translate(translationMap).getFirst();
         if (translatedObject == object
+            && translatedConstructor == constructor
             && translatedType == this.parameterizedType()
             && translatedParameterExpressions == this.parameterExpressions
             && trTypeArgs == typeArguments
@@ -380,14 +382,21 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
             return this;
         }
         return new ConstructorCallImpl(comments(), source(),
-                constructor,
+                translatedConstructor,
                 translatedType,
-                diamond,
-                object,
+                guessDiamond(translatedConstructor),
+                translatedObject,
                 translatedParameterExpressions,
                 trTypeArgs,
                 translatedInitializer,
                 tAnonymous);
+    }
+
+    private Diamond guessDiamond(MethodInfo translatedConstructor) {
+        if (translatedConstructor == null || translatedConstructor == this.constructor) return diamond;
+        return translatedConstructor.typeParameters().isEmpty()
+               && translatedConstructor.typeInfo().typeParameters().isEmpty()
+                ? DiamondEnum.NO : diamond;
     }
 
     @Override
