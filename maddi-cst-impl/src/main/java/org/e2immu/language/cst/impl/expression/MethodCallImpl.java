@@ -380,7 +380,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
         Expression asExpression = translationMap.translateExpression(this);
         if (asExpression != this) return asExpression;
 
-        List<MethodInfo> translatedMethod = translationMap.translateMethod(methodInfo);
+        MethodInfo translatedMethod = translationMap.translateMethodInfo(methodInfo);
         Expression translatedObject = object.translate(translationMap);
         ParameterizedType translatedReturnType = translationMap.translateType(concreteReturnType);
         List<Expression> translatedParameters = parameterExpressions.isEmpty() ? parameterExpressions :
@@ -393,7 +393,8 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
         String newModificationTimes = Objects.requireNonNullElse(
                 translationMap.modificationTimes(this, translatedObject, translatedParameters),
                 modificationTimes);
-        if (translatedMethod.size() == 1 && translatedMethod.getFirst() == methodInfo && translatedObject == object
+        if ( translatedMethod == methodInfo
+             && translatedObject == object
             && translatedReturnType == concreteReturnType
             && translatedParameters == parameterExpressions
             && newModificationTimes.equals(modificationTimes)
@@ -402,7 +403,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
             return this;
         }
         MethodCall translatedMc = new MethodCallImpl(comments(), source(), translatedObject, objectIsImplicit,
-                translatedMethod.getFirst(), translatedParameters, translatedReturnType, trTypeArgs, newModificationTimes,
+                translatedMethod, translatedParameters, translatedReturnType, trTypeArgs, newModificationTimes,
                 translationMap.isClearAnalysis() ? new PropertyValueMapImpl() : propertyValueMap);
         if (translationMap.translateAgain() && !this.equals(translatedMc)) {
             return translatedMc.translate(translationMap);

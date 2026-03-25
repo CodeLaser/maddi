@@ -540,7 +540,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
     @Override
     public List<MethodInfo> translate(TranslationMap translationMap) {
-        List<MethodInfo> direct = translationMap.translateMethod(this);
+        List<MethodInfo> direct = translationMap.translateMethodDeclaration(this);
         if (direct.size() != 1 || direct.getFirst() != this) {
             return direct;
         }
