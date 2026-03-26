@@ -199,9 +199,10 @@ public class MethodReferenceImpl extends ExpressionImpl implements MethodReferen
         Expression translatedScope = scope.translate(translationMap);
         ParameterizedType transType = translationMap.translateType(parameterizedType);
         if (translatedScope == scope && transType == parameterizedType) return this;
-        return new MethodReferenceImpl(comments(), source(), transType, methodInfo, translatedScope,
+        Expression result = new MethodReferenceImpl(comments(), source(), transType, methodInfo, translatedScope,
                 concreteParameterTypes.stream().map(translationMap::translateType).toList(),
                 translationMap.translateType(concreteReturnType));
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

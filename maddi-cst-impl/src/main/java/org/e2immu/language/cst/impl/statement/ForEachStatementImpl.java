@@ -186,7 +186,7 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
             ForEachStatementImpl fs = new ForEachStatementImpl(comments(), source(), tAnnotations, label(),
                     translatedLvc, translated, ensureBlock(translatedBlock));
             if (!translationMap.isClearAnalysis()) fs.analysis().setAll(analysis());
-            return List.of(fs);
+            return translationMap.postTranslationHandler(this, List.of(fs));
         }
         return List.of(this);
     }

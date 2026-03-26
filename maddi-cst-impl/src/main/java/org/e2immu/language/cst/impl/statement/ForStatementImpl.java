@@ -221,7 +221,7 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
         ForStatementImpl fs = new ForStatementImpl(comments(), source(), tAnnotations, label(), initializers,
                 tex, updaters, ensureBlock(translatedBlock));
         if (!translationMap.isClearAnalysis()) fs.analysis().setAll(analysis());
-        return List.of(fs);
+        return translationMap.postTranslationHandler(this, List.of(fs));
     }
 
     @Override

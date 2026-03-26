@@ -963,7 +963,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
             if (!translationMap.isClearAnalysis()) {
                 typeInfo.analysis().setAll(analysis());
             }
-            return List.of(typeInfo);
+            return translationMap.postTranslationHandler(this, List.of(typeInfo));
         }
         return List.of(this);
     }

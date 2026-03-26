@@ -231,7 +231,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
             if (list != exceptionTypes || tBlock != block || translationMap.isClearAnalysis()) {
                 CatchClause cc = new CatchClauseImpl(comments, source, annotations, list, isFinal, catchVariable, tBlock);
                 if (!translationMap.isClearAnalysis()) cc.analysis().setAll(analysis());
-                return cc;
+                return translationMap.postTranslationHandler(this, cc);
             }
             return this;
         }
@@ -441,7 +441,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
             TryStatementImpl ts = new TryStatementImpl(comments(), source(), tAnnotations, label(), tResources,
                     tMain, tCatch, tFinally);
             if (!translationMap.isClearAnalysis()) ts.analysis().setAll(analysis());
-            return List.of(ts);
+            return translationMap.postTranslationHandler(this, List.of(ts));
         }
         return List.of(this);
     }

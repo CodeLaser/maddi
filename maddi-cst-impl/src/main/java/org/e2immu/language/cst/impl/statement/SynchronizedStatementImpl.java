@@ -150,7 +150,7 @@ public class SynchronizedStatementImpl extends StatementImpl implements Synchron
                 SynchronizedStatementImpl sync = new SynchronizedStatementImpl(comments(), source(),
                         tAnnotations, label(), tex, b);
                 if (!translationMap.isClearAnalysis()) sync.analysis().setAll(analysis());
-                return List.of(sync);
+                return translationMap.postTranslationHandler(this, List.of(sync));
             }
             throw new UnsupportedOperationException();
         }

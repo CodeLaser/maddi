@@ -264,7 +264,8 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
         List<KV> newKv = keyValuePairs.stream()
                 .map(kv -> kv.translate(translationMap)).collect(translationMap.toList(keyValuePairs));
         if (pt != tpt || newKv != keyValuePairs) {
-            return new AnnotationExpressionImpl(comments(), source(), tpt.typeInfo(), newKv);
+            AnnotationExpression result = new AnnotationExpressionImpl(comments(), source(), tpt.typeInfo(), newKv);
+            return translationMap.postTranslationHandler(this, result);
         }
         return this;
     }

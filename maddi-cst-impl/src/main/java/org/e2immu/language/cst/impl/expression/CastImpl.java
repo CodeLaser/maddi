@@ -162,7 +162,8 @@ public class CastImpl extends ExpressionImpl implements Cast {
         Expression translatedExpression = expression.translate(translationMap);
         ParameterizedType translatedType = translationMap.translateType(this.parameterizedType);
         if (translatedExpression == this.expression && translatedType == this.parameterizedType) return this;
-        return new CastImpl(comments(), source(), translatedType, translatedExpression);
+        Expression result = new CastImpl(comments(), source(), translatedType, translatedExpression);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

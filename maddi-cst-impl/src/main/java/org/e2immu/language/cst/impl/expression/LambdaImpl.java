@@ -260,12 +260,11 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
         if (tLambda == null) return this;
         if (tLambda != this) return tLambda;
         TypeInfo tTypeInfo = methodInfo.typeInfo().translate(translationMap).getFirst();
-        if (tTypeInfo != methodInfo.typeInfo()) {
-            assert tTypeInfo.methods().size() == 1;
-            MethodInfo implementationOfSam = tTypeInfo.methods().getFirst();
-            return new LambdaImpl(comments(), source(), implementationOfSam, outputVariants);
-        }
-        return this;
+        if (tTypeInfo == methodInfo.typeInfo()) return this;
+        assert tTypeInfo.methods().size() == 1;
+        MethodInfo implementationOfSam = tTypeInfo.methods().getFirst();
+        Expression result = new LambdaImpl(comments(), source(), implementationOfSam, outputVariants);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

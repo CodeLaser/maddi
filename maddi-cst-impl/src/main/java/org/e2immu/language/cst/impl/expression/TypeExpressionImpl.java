@@ -159,7 +159,8 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
 
         ParameterizedType translatedType = translationMap.translateType(parameterizedType);
         if (translatedType == parameterizedType) return this;
-        return new TypeExpressionImpl(comments(), source(), translatedType, diamond);
+        Expression result = new TypeExpressionImpl(comments(), source(), translatedType, diamond);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

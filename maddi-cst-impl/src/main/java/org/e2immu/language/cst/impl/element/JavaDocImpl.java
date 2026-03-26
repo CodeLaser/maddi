@@ -180,7 +180,8 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         if (translatedTags == tags) {
             return this;
         }
-        return new JavaDocImpl(source(), super.comment(), translatedTags);
+        JavaDoc result = new JavaDocImpl(source(), super.comment(), translatedTags);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

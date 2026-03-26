@@ -150,7 +150,8 @@ public class SwitchEntryImpl implements SwitchEntry {
             return this;
         }
         if (tStatement == null) return null; // a way for the entry to disappear
-        return new SwitchEntryImpl(comments, source, tConditions, tPattern, tWhen, tStatement);
+        SwitchEntry result = new SwitchEntryImpl(comments, source, tConditions, tPattern, tWhen, tStatement);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

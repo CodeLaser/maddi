@@ -188,13 +188,12 @@ public class VariableExpressionImpl extends ExpressionImpl implements VariableEx
         }
         Expression translated2 = translationMap.translateVariableExpressionNullIfNotTranslated(variable);
         if (translated2 != null) {
-            return translated2;
+            return translationMap.postTranslationHandler(this, translated2);
         }
         Variable translated3 = translationMap.translateVariableRecursively(variable);
-        if (translated3 != variable) {
-            return new VariableExpressionImpl(comments(), source(), translated3, suffix);
-        }
-        return this;
+        if (translated3 == variable) return this;
+        Expression result = new VariableExpressionImpl(comments(), source(), translated3, suffix);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

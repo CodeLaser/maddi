@@ -177,7 +177,7 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
             ExplicitConstructorInvocation eci = new ExplicitConstructorInvocationImpl(comments(),
                     source(), tAnnotations, label(), isSuper, methodInfo, parameterExpressions);
             if (!translationMap.isClearAnalysis()) eci.analysis().setAll(analysis());
-            return List.of(eci);
+            return translationMap.postTranslationHandler(this, List.of(eci));
         }
         return List.of(this);
     }

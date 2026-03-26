@@ -66,7 +66,8 @@ public class NegationImpl extends UnaryOperatorImpl implements Negation {
         if (translatedExpression instanceof Negation negation) {
             return negation.expression(); // double negation gets cancelled
         }
-        return new NegationImpl(comments(), source(), operator, precedence, translatedExpression);
+        Expression result = new NegationImpl(comments(), source(), operator, precedence, translatedExpression);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

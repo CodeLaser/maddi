@@ -213,7 +213,7 @@ public class BlockImpl extends StatementImpl implements Block {
         if (change) {
             Block newB = new BlockImpl(comments(), source(), tAnnotations, label(), tStatements, trailingComments);
             if (!translationMap.isClearAnalysis()) newB.analysis().setAll(analysis());
-            return List.of(newB);
+            return translationMap.postTranslationHandler(this, List.of(newB));
         }
         return List.of(this);
     }

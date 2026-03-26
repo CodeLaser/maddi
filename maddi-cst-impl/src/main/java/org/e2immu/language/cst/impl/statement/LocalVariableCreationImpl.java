@@ -258,7 +258,7 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
             LocalVariableCreationImpl newLvc = new LocalVariableCreationImpl(comments(), source(), tAnnotations,
                     label(), tlv, tList, modifiers);
             if (!translationMap.isClearAnalysis()) newLvc.analysis().setAll(analysis());
-            return List.of(newLvc);
+            return translationMap.postTranslationHandler(this, List.of(newLvc));
         }
         return List.of(this);
     }

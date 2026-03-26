@@ -134,7 +134,7 @@ public class ExpressionAsStatementImpl extends StatementImpl implements Expressi
             ExpressionAsStatement newEas
                     = new ExpressionAsStatementImpl(comments(), source(), tAnnotations, label(), tex);
             if (!translationMap.isClearAnalysis()) newEas.analysis().setAll(analysis());
-            return List.of(newEas);
+            return translationMap.postTranslationHandler(this, List.of(newEas));
         }
         return List.of(this);
     }

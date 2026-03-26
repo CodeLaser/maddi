@@ -145,7 +145,7 @@ public class AssertStatementImpl extends StatementImpl implements AssertStatemen
             || tAnnotations != annotations()) {
             AssertStatement as = new AssertStatementImpl(comments(), source(), tAnnotations, label(), tex, msg);
             if (!translationMap.isClearAnalysis()) as.analysis().setAll(analysis());
-            return List.of(as);
+            return translationMap.postTranslationHandler(this, List.of(as));
         }
         return List.of(this);
     }

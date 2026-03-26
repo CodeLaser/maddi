@@ -262,10 +262,8 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
 
         Assignment a = new AssignmentImpl(comments(), source(), translatedTarget,
                 translatedValue, assignmentOperator, assignmentOperatorIsPlus, binaryOperator, prefixPrimitiveOperator);
-        if (translationMap.translateAgain()) {
-            return a.translate(translationMap);
-        }
-        return a;
+        Expression result = translationMap.translateAgain() ? a.translate(translationMap) : a;
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override
