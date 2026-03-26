@@ -287,6 +287,10 @@ public interface TypeInfo extends NamedType, Info {
         return Stream.concat(Stream.of(this), subTypes().stream().flatMap(TypeInfo::recursiveSubTypeStream));
     }
 
+    default Stream<TypeInfo> meAndMyRecursiveSuperTypeStream() {
+        return Stream.concat(Stream.of(typeInfo()), typeInfo().recursiveSuperTypeStream());
+    }
+
     default Stream<TypeInfo> recursiveSuperTypeStream() {
         Stream<TypeInfo> s1;
         if (compilationUnitOrEnclosingType().isRight() && !isStatic()) {
