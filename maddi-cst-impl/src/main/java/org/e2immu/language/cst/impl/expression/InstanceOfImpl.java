@@ -183,8 +183,9 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
             && translatedLv == patternVariable) {
             return this;
         }
-        return new InstanceOfImpl(comments(), source(), translatedExpression, translatedType, translatedLv,
+        Expression result = new InstanceOfImpl(comments(), source(), translatedExpression, translatedType, translatedLv,
                 booleanParameterizedType, propertyValueMap);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

@@ -132,7 +132,8 @@ public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedTyp
         ParameterizedType translatedType = translationMap.translateType(this.parameterizedType);
         if (this.parameterizedType == translatedType) return this;
         ParameterizedType translatedClassType = translationMap.translateType(classType);
-        return new ClassExpressionImpl(comments(), source(), translatedType, translatedClassType);
+        Expression result = new ClassExpressionImpl(comments(), source(), translatedType, translatedClassType);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

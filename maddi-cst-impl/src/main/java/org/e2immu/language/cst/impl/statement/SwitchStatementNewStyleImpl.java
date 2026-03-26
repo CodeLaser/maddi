@@ -158,7 +158,7 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
             SwitchStatementNewStyleImpl ssns = new SwitchStatementNewStyleImpl(comments(), source(),
                     tAnnotations, label(), tSelector, tEntries);
             if (!translationMap.isClearAnalysis()) ssns.analysis().setAll(analysis());
-            return List.of(ssns);
+            return translationMap.postTranslationHandler(this, List.of(ssns));
         }
         return List.of(this);
     }

@@ -145,7 +145,8 @@ public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpres
         if (trSelector == selector && translatedSwitchEntries == entries && trType == parameterizedType) {
             return this;
         }
-        return new SwitchExpressionImpl(comments(), source(), trSelector, translatedSwitchEntries, trType);
+        Expression result = new SwitchExpressionImpl(comments(), source(), trSelector, translatedSwitchEntries, trType);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

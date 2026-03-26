@@ -138,7 +138,7 @@ public class ReturnStatementImpl extends StatementImpl implements ReturnStatemen
             || tAnnotations != annotations()) {
             ReturnStatementImpl rs = new ReturnStatementImpl(comments(), source(), tAnnotations, label(), tex);
             if (!translationMap.isClearAnalysis()) rs.analysis().setAll(analysis());
-            return List.of(rs);
+            return translationMap.postTranslationHandler(this,  List.of(rs));
         }
         return List.of(this);
     }

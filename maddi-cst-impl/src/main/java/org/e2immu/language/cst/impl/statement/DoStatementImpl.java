@@ -156,7 +156,7 @@ public class DoStatementImpl extends StatementImpl implements DoStatement {
             DoStatement newDo = new DoStatementImpl(comments(), source(), tAnnotations, label(), tex,
                     ensureBlock(translatedBlock));
             if (!translationMap.isClearAnalysis()) newDo.analysis().setAll(analysis());
-            return List.of(newDo);
+            return translationMap.postTranslationHandler(this, List.of(newDo));
         }
         return List.of(this);
     }

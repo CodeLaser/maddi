@@ -135,7 +135,9 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
         if (localVariable != null) {
             LocalVariable tVar = localVariable.translate(translationMap);
             if (tVar != localVariable || tComments != comments) {
-                return new RecordPatternImpl(tComments, source, false, tVar, null, null);
+                RecordPattern result = new RecordPatternImpl(tComments, source, false, tVar,
+                        null, null);
+                return translationMap.postTranslationHandler(this, result);
             }
             return this;
         }
@@ -144,12 +146,16 @@ public class RecordPatternImpl extends ElementImpl implements RecordPattern {
             List<RecordPattern> tPatterns = patterns.stream().map(rp -> rp.translate(translationMap))
                     .collect(translationMap.toList(patterns));
             if (recordType != tRecordType || tPatterns != patterns || tComments != comments) {
-                return new RecordPatternImpl(tComments, source, false, null, tRecordType, tPatterns);
+                RecordPattern result = new RecordPatternImpl(tComments, source, false,
+                        null, tRecordType, tPatterns);
+                return translationMap.postTranslationHandler(this, result);
             }
             return this;
         }
         if (tComments != comments) {
-            return new RecordPatternImpl(tComments, source, true, null, null, null);
+            RecordPattern result = new RecordPatternImpl(tComments, source, true, null,
+                    null, null);
+            return translationMap.postTranslationHandler(this, result);
         }
         return this;
     }

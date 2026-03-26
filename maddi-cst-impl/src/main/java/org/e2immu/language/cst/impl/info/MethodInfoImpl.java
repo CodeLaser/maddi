@@ -619,7 +619,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
             if (!translationMap.isClearAnalysis()) {
                 methodInfo.analysis().setAll(analysis());
             }
-            return List.of(methodInfo);
+            return translationMap.postTranslationHandler(this, List.of(methodInfo));
         }
         return List.of(this);
     }

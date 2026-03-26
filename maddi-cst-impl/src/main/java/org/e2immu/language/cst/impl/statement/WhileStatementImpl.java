@@ -154,7 +154,7 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
             WhileStatement newWhile = new WhileStatementImpl(comments(), source(), tAnnotations, label(), tex,
                     ensureBlock(translatedBlock));
             if (!translationMap.isClearAnalysis()) newWhile.analysis().setAll(analysis());
-            return List.of(newWhile);
+            return translationMap.postTranslationHandler(this, List.of(newWhile));
         }
         return List.of(this);
     }

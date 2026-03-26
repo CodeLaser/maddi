@@ -218,6 +218,12 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
 
     @Override
     public MethodCall withObject(Expression object) {
+        return new MethodCallImpl(comments(), source(), object, object == null, methodInfo, parameterExpressions,
+                concreteReturnType, typeArguments, modificationTimes, propertyValueMap);
+    }
+
+    @Override
+    public MethodCall withObject(Expression object, boolean objectIsImplicit) {
         return new MethodCallImpl(comments(), source(), object, objectIsImplicit, methodInfo, parameterExpressions,
                 concreteReturnType, typeArguments, modificationTimes, propertyValueMap);
     }

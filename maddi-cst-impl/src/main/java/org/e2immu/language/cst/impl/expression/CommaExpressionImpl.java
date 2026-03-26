@@ -98,7 +98,8 @@ public class CommaExpressionImpl extends ExpressionImpl implements CommaExpressi
                 .map(e -> e.translate(translationMap))
                 .collect(translationMap.toList(expressions));
         if (translatedExpressions == expressions) return this;
-        return new CommaExpressionImpl(comments(), source(), translatedExpressions);
+        Expression result = new CommaExpressionImpl(comments(), source(), translatedExpressions);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

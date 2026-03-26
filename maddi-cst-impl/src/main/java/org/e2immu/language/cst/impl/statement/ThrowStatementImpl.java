@@ -127,7 +127,7 @@ public class ThrowStatementImpl extends StatementImpl implements ThrowStatement 
             || tAnnotations != annotations()) {
             ThrowStatementImpl ts = new ThrowStatementImpl(comments(), source(), annotations(), label(), tex);
             if (!translationMap.isClearAnalysis()) ts.analysis().setAll(analysis());
-            return List.of(ts);
+            return translationMap.postTranslationHandler(this, List.of(ts));
         }
         return List.of(this);
     }

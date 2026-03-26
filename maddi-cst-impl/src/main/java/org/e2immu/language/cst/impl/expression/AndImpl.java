@@ -153,7 +153,8 @@ public class AndImpl extends ExpressionImpl implements And {
                 .map(e -> e.translate(translationMap))
                 .collect(translationMap.toList(expressions));
         if (expressions == translatedExpressions) return this;
-        return new AndImpl(comments(), source(), booleanPt, translatedExpressions);
+        Expression result = new AndImpl(comments(), source(), booleanPt, translatedExpressions);
+        return translationMap.postTranslationHandler(this, result);
     }
 
 

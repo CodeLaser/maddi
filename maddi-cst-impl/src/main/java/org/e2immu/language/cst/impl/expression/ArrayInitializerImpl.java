@@ -173,7 +173,8 @@ public class ArrayInitializerImpl extends ExpressionImpl implements ArrayInitial
                 .collect(translationMap.toList(expressions));
         ParameterizedType translatedType = translationMap.translateType(commonType);
         if (translatedType == commonType && translatedExpressions == expressions) return this;
-        return new ArrayInitializerImpl(comments(), source(), translatedExpressions, translatedType);
+        ArrayInitializer result = new ArrayInitializerImpl(comments(), source(), translatedExpressions, translatedType);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

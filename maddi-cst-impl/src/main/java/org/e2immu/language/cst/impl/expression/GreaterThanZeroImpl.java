@@ -168,7 +168,8 @@ public class GreaterThanZeroImpl extends ExpressionImpl implements GreaterThanZe
 
         Expression translatedExpression = expression.translate(translationMap);
         if (translatedExpression == expression) return this;
-        return new GreaterThanZeroImpl(comments(), source(), booleanPt, translatedExpression, allowEquals);
+        Expression result = new GreaterThanZeroImpl(comments(), source(), booleanPt, translatedExpression, allowEquals);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

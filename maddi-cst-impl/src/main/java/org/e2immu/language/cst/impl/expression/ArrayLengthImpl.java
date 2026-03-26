@@ -155,7 +155,8 @@ public class ArrayLengthImpl extends ExpressionImpl implements ArrayLength {
 
         Expression translatedScope = scope.translate(translationMap);
         if (translatedScope == scope) return this;
-        return new ArrayLengthImpl(comments(), source(), intPt, translatedScope);
+        ArrayLength result = new ArrayLengthImpl(comments(), source(), intPt, translatedScope);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

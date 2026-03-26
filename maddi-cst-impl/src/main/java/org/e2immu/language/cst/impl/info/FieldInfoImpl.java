@@ -275,7 +275,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
             if (!translationMap.isClearAnalysis()) {
                 newField.analysis().setAll(analysis());
             }
-            return List.of(newField);
+            return translationMap.postTranslationHandler(this, List.of(newField));
         }
         return List.of(this);
     }

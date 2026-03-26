@@ -79,9 +79,10 @@ public class LocalTypeDeclarationImpl extends StatementImpl implements LocalType
         List<Statement> direct = translationMap.translateStatement(this);
         if (hasBeenTranslated(direct, this)) return direct;
         List<TypeInfo> translated = typeInfo.translate(translationMap);
-        return translated.stream().map(tt -> tt == typeInfo ? this :
+        List<Statement> result = translated.stream().map(tt -> tt == typeInfo ? this :
                         (Statement) new LocalTypeDeclarationImpl(comments(), source(), annotations(), label(), tt))
                 .toList();
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

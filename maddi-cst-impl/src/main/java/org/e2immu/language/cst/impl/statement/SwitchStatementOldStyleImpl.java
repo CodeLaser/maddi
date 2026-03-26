@@ -308,7 +308,7 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
             SwitchStatementOldStyleImpl ssos = new SwitchStatementOldStyleImpl(comments(), source(),
                     tAnnotations, label(), tSelector, (Block) tBlock, translatedLabels);
             if (!translationMap.isClearAnalysis()) ssos.analysis().setAll(analysis());
-            return List.of(ssos);
+            return translationMap.postTranslationHandler(this, List.of(ssos));
         }
         return List.of(this);
     }

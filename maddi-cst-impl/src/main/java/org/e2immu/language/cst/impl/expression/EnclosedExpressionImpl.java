@@ -138,7 +138,8 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
 
         Expression translatedInner = inner.translate(translationMap);
         if (translatedInner == inner) return this;
-        return new EnclosedExpressionImpl(comments(), source(), translatedInner);
+        Expression result = new EnclosedExpressionImpl(comments(), source(), translatedInner);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     public static class Builder extends ElementImpl.Builder<EnclosedExpression.Builder> implements EnclosedExpression.Builder {
