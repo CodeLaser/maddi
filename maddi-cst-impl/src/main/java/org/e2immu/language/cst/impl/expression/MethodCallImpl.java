@@ -297,6 +297,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
 
         if (objectIsImplicit && qualification.doNotQualifyImplicit()) {
             outputBuilder.add(new TextImpl(methodName));
+            if (guideGenerator != null) start = true;
         } else {
             VariableExpression ve;
             MethodCall methodCall;
