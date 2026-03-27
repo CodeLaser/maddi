@@ -27,10 +27,7 @@ import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.impl.element.ElementImpl;
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.SpaceEnum;
-import org.e2immu.language.cst.impl.output.SymbolEnum;
-import org.e2immu.language.cst.impl.output.TextImpl;
+import org.e2immu.language.cst.impl.output.*;
 
 import java.util.List;
 
@@ -62,7 +59,8 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
     protected OutputBuilder outputBuilder(Qualification qualification) {
         OutputBuilder ob = new OutputBuilderImpl();
         if (!comments.isEmpty()) {
-            ob.add(comments.stream().map(c -> c.print(qualification)).collect(OutputBuilderImpl.joining()));
+            ob.add(comments.stream().map(c -> c.print(qualification)).collect(OutputBuilderImpl
+                    .joining(SpaceEnum.NONE, GuideImpl.multipleComments())));
         }
         if (!annotations.isEmpty()) {
             ob.add(annotations().stream()

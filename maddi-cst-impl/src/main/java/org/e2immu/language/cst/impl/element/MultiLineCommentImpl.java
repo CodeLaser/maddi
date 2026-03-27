@@ -52,7 +52,7 @@ public class MultiLineCommentImpl implements MultiLineComment {
         OutputBuilder ob = Arrays.stream(comment.split("\n"))
                 .filter(line -> !line.isBlank())
                 .map(line -> new OutputBuilderImpl().add(new TextImpl(line)))
-                .collect(OutputBuilderImpl.joining(SpaceEnum.ONE_IS_NICE_EASY_SPLIT,
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
                         SymbolEnum.LEFT_BLOCK_COMMENT,
                         SymbolEnum.RIGHT_BLOCK_COMMENT,
                         gg));

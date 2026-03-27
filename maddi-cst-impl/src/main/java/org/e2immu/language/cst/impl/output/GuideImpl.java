@@ -70,6 +70,10 @@ public record GuideImpl(String name,
         return new GuideGenerator("default", 1, false, false, false, false);
     }
 
+    public static GuideGenerator multipleComments() {
+        return new GuideGenerator("comments", 0, false, false, true, false);
+    }
+
     public static GuideGenerator generatorForMultilineComment() {
         // EXPLAIN prioritySplit must be false, otherwise empty stack exception in Formatter; see TestFormatter5
         return new GuideGenerator("multiLineComment", 0, false, true, true, true);
