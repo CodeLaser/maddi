@@ -3,12 +3,11 @@ package org.e2immu.language.inspection.integration.java.print;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Disabled
 public class TestVariousPrint2Issues extends CommonTest {
 
     @Language("java")
@@ -64,6 +63,7 @@ public class TestVariousPrint2Issues extends CommonTest {
             }
             """;
 
+    @DisplayName("newlines in multiline comments")
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
@@ -90,6 +90,7 @@ public class TestVariousPrint2Issues extends CommonTest {
             }
             """;
 
+    @DisplayName("static import issue")
     @Test
     public void test3() {
         TypeInfo X = javaInspector.parse(INPUT3);
