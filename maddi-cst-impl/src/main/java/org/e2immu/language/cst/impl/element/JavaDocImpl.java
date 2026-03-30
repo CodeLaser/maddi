@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -245,17 +246,5 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     @Override
     public String toString() {
         return "javaDoc@" + source().compact2();
-    }
-
-    // IMPROVE spacing! See TestJavaDoc,1
-    @Override
-    public OutputBuilder print(Qualification qualification) {
-        GuideImpl.GuideGenerator gg = GuideImpl.generatorForMultilineComment();
-        String text = "/*" + comment() + "*/";
-        OutputBuilder joinedText = Arrays.stream(text.split("\n"))
-                .filter(line -> !line.isBlank())
-                .map(line -> new OutputBuilderImpl().add(new TextImpl(line.trim())))
-                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, gg));
-        return new OutputBuilderImpl().add(joinedText);
     }
 }
