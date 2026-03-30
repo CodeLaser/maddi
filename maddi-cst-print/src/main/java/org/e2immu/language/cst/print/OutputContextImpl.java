@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.output.FormattingOptions;
 import org.e2immu.language.cst.api.output.OutputContext;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 
 public record OutputContextImpl(Runtime runtime) implements OutputContext {
 
@@ -29,6 +30,6 @@ public record OutputContextImpl(Runtime runtime) implements OutputContext {
 
     @Override
     public Formatter newFormatter(FormattingOptions formattingOptions) {
-        return new FormatterImpl(runtime, formattingOptions);
+        return new Formatter2Impl(runtime, formattingOptions);
     }
 }

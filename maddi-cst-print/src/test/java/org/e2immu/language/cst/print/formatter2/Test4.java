@@ -18,9 +18,9 @@ import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.FormattingOptions;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.impl.output.*;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
-import org.e2immu.language.cst.print.formatter.TestFormatter4;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,9 +28,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class Test4 {
     private final Runtime runtime = new RuntimeImpl();
 
+    static OutputBuilder createExample0() {
+
+        GuideImpl.GuideGenerator gg2044 = GuideImpl.defaultGuideGenerator();
+
+        return new OutputBuilderImpl().add(new TypeNameImpl("EnumMap"))
+                .add(SymbolEnum.LEFT_ANGLE_BRACKET)
+                .add(gg2044.start()) // priority=false, startNL=false, endNL=false
+                .add(new TextImpl("K"))
+                .add(SpaceEnum.ONE)
+                .add(new TextImpl("extends"))
+                .add(SpaceEnum.ONE)
+                .add(new TypeNameImpl("Enum"))
+                .add(SymbolEnum.LEFT_ANGLE_BRACKET)
+                .add(new TextImpl("K"))
+                .add(SymbolEnum.RIGHT_ANGLE_BRACKET)
+                .add(SymbolEnum.COMMA)
+                .add(gg2044.mid()) // priority=false, startNL=false, endNL=false
+                .add(new TextImpl("V"))
+                .add(gg2044.end()) // priority=false, startNL=false, endNL=false
+                .add(SymbolEnum.RIGHT_ANGLE_BRACKET);
+    }
+
     @Test
     public void test1() {
-        OutputBuilder outputBuilder = TestFormatter4.createExample0();
+        OutputBuilder outputBuilder = createExample0();
         FormattingOptions options = new FormattingOptionsImpl.Builder().setLengthOfLine(120).setSpacesInTab(4).build();
         Formatter formatter = new Formatter2Impl(runtime, options);
         String string = formatter.write(outputBuilder);

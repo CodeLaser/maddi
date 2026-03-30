@@ -18,17 +18,9 @@ import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.impl.info.CompilationUnitPrinterImpl;
-import org.e2immu.language.cst.impl.info.ImportComputerImpl;
-import org.e2immu.language.cst.impl.info.TypePrinterImpl;
-import org.e2immu.language.cst.print.FormatterImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -62,19 +54,13 @@ public class TestImport extends CommonTest {
             package org.e2immu.analyser.resolver.testexample;
             import org.e2immu.language.inspection.integration.java.importhelper.RLevel;
             import org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel;
-            public class Import_0 { public void method() { System.out.println(RLevel.LEVEL + ": " + RMultiLevel.Effective.E1); } }
+            public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + RMultiLevel.Effective.E1); } }
             """;
 
     @Test
     public void test0() {
         TypeInfo typeInfo = javaInspector.parse(INPUT0);
-        Qualification qualification = javaInspector.runtime().qualificationQualifyFromPrimaryType();
-        OutputBuilder ob = new CompilationUnitPrinterImpl(typeInfo.compilationUnit(), false)
-                .print(new ImportComputerImpl(), qualification);
-        Formatter formatter = new FormatterImpl(javaInspector.runtime(), FormattingOptionsImpl.DEFAULT);
-        String s = formatter.write(ob);
-
-        assertEquals(OUTPUT1, s);
+        assertEquals(OUTPUT1, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
     @Language("java")

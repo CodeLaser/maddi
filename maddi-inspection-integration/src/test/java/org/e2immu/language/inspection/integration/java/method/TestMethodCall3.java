@@ -20,8 +20,6 @@ import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.impl.info.CompilationUnitPrinterImpl;
 import org.e2immu.language.cst.impl.info.ImportComputerImpl;
-import org.e2immu.language.cst.impl.info.TypePrinterImpl;
-import org.e2immu.language.cst.print.FormatterImpl;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -113,13 +111,7 @@ public class TestMethodCall3 extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1);
-        Qualification qualification = javaInspector.runtime().qualificationQualifyFromPrimaryType();
-        OutputBuilder ob = new CompilationUnitPrinterImpl(typeInfo.compilationUnit(), false)
-                .print(new ImportComputerImpl(), qualification);
-        Formatter formatter = new FormatterImpl(javaInspector.runtime(), FormattingOptionsImpl.DEFAULT);
-        String s = formatter.write(ob);
-
-        assertEquals(OUTPUT1, s);
+         assertEquals(OUTPUT1, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
     @Language("java")
