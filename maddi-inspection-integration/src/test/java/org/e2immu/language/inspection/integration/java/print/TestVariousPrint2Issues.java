@@ -1,6 +1,9 @@
 package org.e2immu.language.inspection.integration.java.print;
 
+import org.e2immu.language.cst.api.element.MultiLineComment;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +37,15 @@ public class TestVariousPrint2Issues extends CommonTest {
             import java.nio.charset.Charset;
             import java.nio.charset.StandardCharsets;
             class ConfigUtil {
+                /**
+                 * line 1
+                 * line 2
+                 * 
+                 * line 4
+                 * 
+                 * @return a new char set
+                 */
+                
                 private static Charset getCharset() {
                     /* one */
                     System.out.println("*");
@@ -43,7 +55,7 @@ public class TestVariousPrint2Issues extends CommonTest {
                     System.out.println("#");
             
                     /* one
-                       on two lines
+                     on two lines
                      */
                     // followed by another
                     System.out.println("#");
@@ -67,6 +79,10 @@ public class TestVariousPrint2Issues extends CommonTest {
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(INPUT2);
+        MethodInfo getCharset = X.findUniqueMethod("getCharset", 0);
+        Statement s2 = getCharset.methodBody().statements().get(2);
+        MultiLineComment mlc = (MultiLineComment) s2.comments().getFirst();
+        assertEquals(" one\n         on two lines\n         ", mlc.comment());
         String reprint = javaInspector.print2(X.compilationUnit());
         assertEquals(INPUT2, reprint);
     }
