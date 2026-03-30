@@ -295,7 +295,8 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
             methodName = methodInfo.name();
         }
 
-        if (objectIsImplicit && qualification.doNotQualifyImplicit()) {
+        // TODO ideally we use static imports in implicit static cases
+        if (objectIsImplicit && qualification.doNotQualifyImplicit() && !methodInfo.isStatic()) {
             outputBuilder.add(new TextImpl(methodName));
             if (guideGenerator != null) start = true;
         } else {
