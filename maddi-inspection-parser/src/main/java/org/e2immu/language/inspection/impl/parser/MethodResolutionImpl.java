@@ -167,13 +167,15 @@ public class MethodResolutionImpl implements MethodResolution {
         }
 
         ParameterizedType finalParameterizedType1;
-        if (formalType.hasTypeParameters()) {
+        if (formalType.hasTypeParameters() && !diamond.isShowAll()) {
             // there's only one method left, so we can derive the parameterized type from the parameters
             Set<ParameterizedType> typeParametersResolved = new HashSet<>(formalType.parameters());
             finalParameterizedType1 = resolveConstructorTypeParameters(formalType, candidate.method(),
                     typeParametersResolved, candidate.newParameterExpressions(), useObjectForUndefinedTypeParameters,
                     typeMap);
         } else {
+            // we're not correcting when there are type parameters, and they're explicit (diamond == show all)
+            // see e.g. TestTypeParameter,9
             finalParameterizedType1 = expectedConcreteType;
         }
         ParameterizedType finalParameterizedType = Objects.requireNonNullElseGet(finalParameterizedType1,
