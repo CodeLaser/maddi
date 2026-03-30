@@ -1,6 +1,7 @@
 package org.e2immu.language.inspection.integration.java.print;
 
 import org.e2immu.language.cst.api.element.MultiLineComment;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestVariousPrint2Issues extends CommonTest {
 
@@ -45,7 +47,7 @@ public class TestVariousPrint2Issues extends CommonTest {
                  * 
                  * @return a new char set
                  */
-                
+            
                 private static Charset getCharset() {
                     /* one */
                     System.out.println("*");
@@ -90,27 +92,31 @@ public class TestVariousPrint2Issues extends CommonTest {
     @Language("java")
     private static final String INPUT3 = """
             import java.io.File;
-            import java.io.FileWriter;
-            import java.io.IOException;
             import static java.lang.String.format;
             
             class AgentLauncher {
-                private void method(File file) {
-                    try (final FileWriter fw = new FileWriter(file, true)) {
-                        fw.append(format("%s",file.getName()));
-                        fw.flush();
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
+                private String method(File file) {
+                    return format("%s",file.getName());
                 }
             }
+            """;
+
+    @Language("java")
+    private static final String OUTPUT3 = """
+            import java.io.File;
+            class AgentLauncher {private String method(File file) { return String.format("%s",file.getName()); } }
             """;
 
     @DisplayName("static import issue")
     @Test
     public void test3() {
         TypeInfo X = javaInspector.parse(INPUT3);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodCall mc = (MethodCall) method.methodBody().statements().getFirst().expression();
+        assertTrue(mc.objectIsImplicit());
+        assertEquals("Type String", mc.object().parameterizedType().toString());
+
         String reprint = javaInspector.print2(X.compilationUnit());
-        assertEquals(INPUT3, reprint);
+        assertEquals(OUTPUT3, reprint);
     }
 }
