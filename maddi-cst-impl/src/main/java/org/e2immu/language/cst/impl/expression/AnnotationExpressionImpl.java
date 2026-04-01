@@ -48,6 +48,17 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
     }
 
     @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof AnnotationExpression that)) return false;
+        return Objects.equals(typeInfo, that.typeInfo()) && Objects.equals(keyValuePairs, that.keyValuePairs());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(typeInfo, keyValuePairs);
+    }
+
+    @Override
     public AnnotationExpression withKeyValuePair(String key, Expression value) {
         return new AnnotationExpressionImpl(comments(), source(), typeInfo,
                 Stream.concat(Stream.of(new KVI(key, value)), keyValuePairs.stream()).toList());
