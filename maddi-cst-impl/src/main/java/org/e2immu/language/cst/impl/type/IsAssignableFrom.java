@@ -349,6 +349,12 @@ public class IsAssignableFrom {
             return NOT_ASSIGNABLE;
         }
         if (targetMi.parameters().size() != fromMi.parameters().size()) return NOT_ASSIGNABLE;
+
+        // FIXME new attempt
+        int erasedReturnType = new IsAssignableFrom(runtime, targetMi.returnType(), fromMi.returnType())
+                .execute(false, false, mode);
+        if(erasedReturnType == NOT_ASSIGNABLE) return NOT_ASSIGNABLE;
+
         boolean targetIsVoid = targetMi.returnType().isVoid();
         boolean fromIsVoid = fromMi.returnType().isVoid();
         // target void -> fromIsVoid is unimportant, we can assign a function to a consumer
