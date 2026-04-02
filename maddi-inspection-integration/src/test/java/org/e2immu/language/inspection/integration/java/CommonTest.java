@@ -16,6 +16,7 @@ package org.e2immu.language.inspection.integration.java;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
@@ -31,6 +32,7 @@ import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_W
 
 public abstract class CommonTest {
     protected JavaInspector javaInspector;
+    protected Runtime runtime;
     protected final boolean allowCreationOfStubTypes;
 
     protected CommonTest() {
@@ -74,5 +76,6 @@ public abstract class CommonTest {
                 .setLombok(false)
                 .setDetailedSources(true).build());
         javaInspector.javaBase().computePriorityDependencies();
+        runtime = javaInspector.runtime();
     }
 }
