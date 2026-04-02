@@ -219,4 +219,60 @@ public class TestMethodCall13 extends CommonTest {
         // definitely not 'println(double)'
         assertEquals("java.io.PrintStream.println(Object)", println.methodInfo().fullyQualifiedName());
     }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            import org.assertj.core.api.SoftAssertions;
+            public class C {
+                public void test(String input) {
+                    SoftAssertions.assertSoftly(softly -> {
+                            softly.assertThat(input)
+                                    .withFailMessage("fail1")
+                                    .startsWith("abc");
+                            softly.assertThat(input)
+                                    .withFailMessage("fail2")
+                                    .endsWith("def");
+                        });
+                }
+            }
+            """;
+
+    /*
+    problem seems to be the passing on of method return values? all variable combinations run green.
+     */
+    @DisplayName("SoftAssertions")
+    @Test
+    public void test5() {
+        javaInspector.parse(INPUT5);
+    }
+
+    @Language("java")
+    private static final String INPUT5b = """
+            package a.b;
+            import org.assertj.core.api.SoftAssertions;
+            import org.assertj.core.api.StringAssert;
+            public class C {
+                public void test(String input) {
+                    SoftAssertions.assertSoftly(softly -> {
+                        StringAssert stringAssert = softly.assertThat(input);
+                        StringAssert sa = stringAssert.withFailMessage("fail");
+                        sa.startsWith("abc");
+            
+                        StringAssert sa2 = softly.assertThat(input).withFailMessage("fail");
+                        sa2.startsWith("abc");
+            
+                        StringAssert sa3 = softly.assertThat(input);
+                        sa3.withFailMessage("fail").startsWith("abc");
+                    });
+                }
+            }
+            """;
+
+    @DisplayName("SoftAssertions, explicit intermediate variable")
+    @Test
+    public void test5b() {
+        javaInspector.parse(INPUT5b);
+    }
 }

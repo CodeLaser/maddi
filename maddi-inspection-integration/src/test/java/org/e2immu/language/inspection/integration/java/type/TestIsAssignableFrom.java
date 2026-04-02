@@ -17,6 +17,7 @@ package org.e2immu.language.inspection.integration.java.type;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.impl.type.IsAssignableFrom;
 import org.e2immu.language.inspection.api.resource.MD5FingerPrint;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.function.LongPredicate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -71,4 +73,22 @@ public class TestIsAssignableFrom extends CommonTest {
         assertSame(MD5FingerPrint.NO_FINGERPRINT, list.compilationUnit().fingerPrintOrNull());
         assertSame(MD5FingerPrint.NO_FINGERPRINT, list.compilationUnit().sourceSet().fingerPrintOrNull());
     }
+
+    @Test
+    public void test3() {
+        ParameterizedType stringPt = javaInspector.runtime().stringParameterizedType();
+        TypeInfo longPredicate = javaInspector.compiledTypesManager().get(LongPredicate.class);
+        assertNotNull(longPredicate);
+        ParameterizedType longPredicatePt = longPredicate.asParameterizedType();
+        assertFalse(longPredicatePt.isAssignableFrom(javaInspector.runtime(), stringPt));
+        assertFalse(stringPt.isAssignableFrom(javaInspector.runtime(), longPredicatePt));
+
+        TypeInfo comparable = javaInspector.compiledTypesManager().get(Comparable.class);
+        ParameterizedType erasedComparable = comparable.asSimpleParameterizedType();
+        assertEquals(-1, new IsAssignableFrom(javaInspector.runtime(), erasedComparable, longPredicatePt)
+                .execute(true, false, IsAssignableFrom.Mode.COVARIANT_ERASURE));
+        assertEquals(-1, new IsAssignableFrom(javaInspector.runtime(), longPredicatePt, erasedComparable)
+                .execute(true, false, IsAssignableFrom.Mode.COVARIANT_ERASURE));
+    }
+
 }
