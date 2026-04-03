@@ -124,7 +124,8 @@ public class TestMethodCall8 extends CommonTest {
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
         Statement statement = methodInfo.methodBody().lastStatement();
         if (statement.expression() instanceof MethodCall mc) {
-            assertEquals("Type param T extends B", mc.object().parameterizedType().toString());
+            assertEquals("Type ? extends org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder",
+                    mc.object().parameterizedType().toString());
         }
     }
 

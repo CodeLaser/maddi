@@ -614,7 +614,18 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     @Override
     public ParameterizedType applyTranslation(PredefinedWithoutParameterizedType predefined,
                                               Map<NamedType, ParameterizedType> translate) {
-        return applyTranslation(predefined, translate, new HashSet<>());
+        ParameterizedType translated = applyTranslation(predefined, translate, new HashSet<>());
+        TypeParameter ttp = translated.typeParameter();
+        // S extends T, and we can translate T into a concrete type V then we map to ? extends V
+        // see TestMethodCall13,6; TestMethodCall8,2
+        if (ttp != null && !ttp.typeBounds().isEmpty() && ttp.typeBounds().getFirst().typeParameter() != null) {
+            List<ParameterizedType> translatedTypeBounds = ttp.typeBounds()
+                    .stream().map(tb -> tb.applyTranslation(predefined, translate)).toList();
+            if (translatedTypeBounds.getFirst().typeInfo() != null) {
+                return new ParameterizedTypeImpl(translatedTypeBounds.getFirst().typeInfo(), WildcardEnum.EXTENDS);
+            }
+        }
+        return translated;
     }
 
     /*
