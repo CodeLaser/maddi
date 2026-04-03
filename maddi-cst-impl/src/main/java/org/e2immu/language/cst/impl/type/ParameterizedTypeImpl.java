@@ -614,7 +614,8 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     @Override
     public ParameterizedType applyTranslation(PredefinedWithoutParameterizedType predefined,
                                               Map<NamedType, ParameterizedType> translate) {
-        ParameterizedType translated = applyTranslation(predefined, translate, new HashSet<>());
+        Map<NamedType, ParameterizedType> translateExpanded = expandSToU(translate);
+        ParameterizedType translated = applyTranslation(predefined, translateExpanded, new HashSet<>());
         TypeParameter ttp = translated.typeParameter();
         // S extends T, and we can translate T into a concrete type V then we map to ? extends V
         // see TestMethodCall13,6; TestMethodCall8,2
@@ -626,6 +627,29 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             }
         }
         return translated;
+    }
+
+    /*
+    when we must translate type parameter U, and we know that S extends U has a value,
+    we assign this value to U as well. See TestMethodCall3,7
+     */
+    private Map<NamedType, ParameterizedType> expandSToU(Map<NamedType, ParameterizedType> translate) {
+        if (translate.isEmpty()) return translate; // short-cut
+        Map<NamedType, ParameterizedType> res = new HashMap<>(translate);
+        while (true) {
+            Map<NamedType, ParameterizedType> add = new HashMap<>();
+            res.forEach((nt, pt) -> {
+                if (nt instanceof TypeParameter s && !s.typeBounds().isEmpty()
+                    && s.typeBounds().stream().noneMatch(stb -> stb.typeParameter() != null && res.containsKey(stb.typeParameter()))) {
+                    s.typeBounds().stream().filter(stb -> stb.typeParameter() != null).forEach(stb -> {
+                        add.put(stb.typeParameter(), pt);
+                    });
+                }
+            });
+            if (add.isEmpty()) break;
+            res.putAll(add);
+        }
+        return res;
     }
 
     /*
