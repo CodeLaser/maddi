@@ -364,4 +364,27 @@ public class TestMethodCall13 extends CommonTest {
     public void test7() {
         javaInspector.parse(INPUT7);
     }
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            import java.util.Set;
+            import static org.junit.jupiter.api.Assertions.*;
+            import static org.mockito.Mockito.*;
+            class C {
+                static String contains(String substring) { return substring; }
+                interface Constants {
+                    String C = "user";
+                }
+                void method(Set<String> set) {
+                    assertTrue(set.contains(Constants.C), "message");
+                }
+            }
+            """;
+
+    @DisplayName("mockito makes another contains() method available, one that returns a String...")
+    @Test
+    public void test8() {
+        javaInspector.parse(INPUT8);
+    }
 }

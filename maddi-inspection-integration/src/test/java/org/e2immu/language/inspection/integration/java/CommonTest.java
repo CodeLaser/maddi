@@ -69,6 +69,7 @@ public abstract class CommonTest {
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/springframework/core")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/springframework/test")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "lombok")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "org/mockito")
                 .build();
         javaInspector.initialize(inputConfiguration);
         javaInspector.parse(new JavaInspectorImpl.ParseOptionsBuilder()
