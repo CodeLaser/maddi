@@ -633,8 +633,10 @@ public class ParseTypeDeclaration extends CommonParse {
         // scan phase
 
         for (TypeDeclaration typeDeclaration : typeDeclarations) {
-            TypeInfo subTypeInfo = parse(newContext, Either.right(typeInfo), typeDeclaration,
-                    false).getLeft();
+            Either<TypeInfo, DelayedParsingInformation> parsed = parse(newContext, Either.right(typeInfo),
+                    typeDeclaration, false);
+            assert parsed.isLeft();
+            TypeInfo subTypeInfo = parsed.getLeft();
             // for the rest of the body
             newContext.typeContext().addToContext(subTypeInfo, SUBTYPE_PRIORITY);
         }

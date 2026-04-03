@@ -275,4 +275,57 @@ public class TestMethodCall13 extends CommonTest {
     public void test5b() {
         javaInspector.parse(INPUT5b);
     }
+
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            import java.io.Serializable;
+            public class C {
+                @FunctionalInterface
+                interface ArgumentMatcher <T> {
+                    boolean matches(T t);
+                }
+                static <T> T argThat(ArgumentMatcher<T> matcher) { return null; }
+                static <T> T verify(T mock) { return mock; } // from Mockito
+                interface CrudRepository<T, ID> {
+                    <S extends T> S save(S entity);
+                }
+                interface JpaRepository <T, ID> extends CrudRepository<T, ID> {
+                }
+                enum ListStatus { STATUS }
+                class ListEntry extends Serializable {
+                    private ListStatus status;
+                    public ListStatus getStatus() {
+                        return status;
+                    }
+                }
+                interface ListEntryRepository extends JpaRepository<ListEntry, Long> {}
+            
+                void test(ListEntryRepository listEntryRepository) {
+                    ListEntryRepository repository = verify(listEntryRepository);
+                    repository.save(argThat(e -> e.getStatus() == ListStatus.STATUS));
+            
+                    // also fails: verify(listEntryRepository).save(argThat(e -> e.getStatus() == listStatus.STATUS));
+                }
+            
+                void testGreen1(ListEntryRepository listEntryRepository) {
+                    ListEntryRepository repository = verify(listEntryRepository);
+                    ArgumentMatcher<ListEntry> am = e -> e.getStatus() == ListStatus.STATUS;
+                    repository.save(argThat(am));
+                }
+            
+                void testGreen2(ListEntryRepository listEntryRepository) {
+                    ListEntryRepository repository = verify(listEntryRepository);
+                    ListEntry entry = argThat(e -> e.getStatus() == ListStatus.STATUS);
+                    repository.save(entry);
+                }
+            }
+            """;
+
+    @DisplayName("Mockito ArgumentMatcher")
+    @Test
+    public void test6() {
+        javaInspector.parse(INPUT6);
+    }
 }
