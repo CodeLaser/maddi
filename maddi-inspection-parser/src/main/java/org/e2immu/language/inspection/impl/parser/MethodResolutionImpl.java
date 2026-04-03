@@ -959,12 +959,23 @@ public class MethodResolutionImpl implements MethodResolution {
 
     private void trimMethodsWithBestScore(Map<MethodTypeParameterMap, Integer> methodCandidates,
                                           Map<MethodInfo, Integer> compatibilityScore) {
-        int min = methodCandidates.keySet().stream()
-                .mapToInt(mc -> compatibilityScore.getOrDefault(mc.methodInfo(), 0))
+        int min = methodCandidates.entrySet().stream()
+                .mapToInt(e -> score(compatibilityScore, e))
                 .min().orElseThrow();
         if (min == notAssignable) throw new UnsupportedOperationException();
-        methodCandidates.keySet().removeIf(e ->
-                compatibilityScore.getOrDefault(e.methodInfo(), 0) > min);
+        methodCandidates.entrySet()
+                .removeIf(e -> score(compatibilityScore, e) > min);
+    }
+
+    /*
+    TestMethodCall13,8 shows the necessity of taking 'e.getValue' into account, next to the compatibility score.
+    Multiplication turns out to work but is not necessarily the best choice?
+     */
+    private static int score(Map<MethodInfo, Integer> compatibilityScore, Map.Entry<MethodTypeParameterMap, Integer> e) {
+        int c = compatibilityScore.getOrDefault(e.getKey().methodInfo(), 0);
+        int value = e.getValue();
+        if (c < 0 || value < 0) return -1;
+        return Math.max(1, c) * Math.max(1, value);
     }
 
     // remove varargs if there's also non-varargs solutions

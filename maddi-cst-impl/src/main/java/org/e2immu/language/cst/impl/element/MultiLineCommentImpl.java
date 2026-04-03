@@ -24,6 +24,7 @@ import org.e2immu.language.cst.impl.output.*;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -43,6 +44,17 @@ public class MultiLineCommentImpl implements MultiLineComment {
         String s1 = s.startsWith(leading) ? s.substring(leading.length()) : s;
         String trailing = SymbolEnum.RIGHT_BLOCK_COMMENT.symbol();
         return s1.endsWith(trailing) ? s1.substring(0, s1.length() - trailing.length()) : s1;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof MultiLineCommentImpl that)) return false;
+        return addNewline == that.addNewline && Objects.equals(comment, that.comment) && Objects.equals(source, that.source);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(comment, source, addNewline);
     }
 
     @Override

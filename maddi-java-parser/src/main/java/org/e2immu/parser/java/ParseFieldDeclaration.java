@@ -75,12 +75,10 @@ public class ParseFieldDeclaration extends CommonParse {
             typeNode = type;
         } else throw new UnsupportedOperationException();
         List<FieldInfo> fields = new ArrayList<>();
-        boolean first = true;
         while (i < fd.size() && fd.get(i) instanceof VariableDeclarator vd) {
             fields.add(makeField(context, fd, vd, typeNode, isStatic, parameterizedType, owner, detailedSourcesBuilder,
-                    fieldModifiers, annotations, lombokData, first));
+                    fieldModifiers, annotations, lombokData));
             i += 2;
-            first = false;
         }
         return fields;
     }
@@ -95,8 +93,7 @@ public class ParseFieldDeclaration extends CommonParse {
                                 DetailedSources.Builder detailedSourcesBuilderMaster,
                                 List<FieldModifier> fieldModifiers,
                                 List<Annotation> annotations,
-                                Lombok.Data lombokData,
-                                boolean first) {
+                                Lombok.Data lombokData) {
         ParameterizedType type;
         Node vd0 = vd.getFirst();
         Identifier identifier;
@@ -129,9 +126,9 @@ public class ParseFieldDeclaration extends CommonParse {
 
         Source source = source(vd);
         builder.setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()));
-        if (first) {
-            builder.addComments(comments(fd, context, fieldInfo, builder));
-        } // else: comment is only on the first field in the sequence, see e.g. TestFieldComments in java-parser
+
+        // the fd comments are copied onto all fields!
+        builder.addComments(comments(fd, context, fieldInfo, builder));
         builder.addComments(comments(vd, context, fieldInfo, builder));
         builder.comments().removeIf(c -> context.commentIsBlocked(c.source()));
 
