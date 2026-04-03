@@ -331,52 +331,37 @@ public class TestMethodCall13 extends CommonTest {
 
 
     @Language("java")
-    private static final String INPUT6b = """
+    private static final String INPUT7 = """
             package a.b;
             import java.io.Serializable;
-            public class C {
-                @FunctionalInterface
-                interface ArgumentMatcher <T> {
-                    boolean matches(T t);
+            class C {
+                interface Assert <SELF extends Assert<SELF,ACTUAL>, ACTUAL> { }
+                abstract class AbstractAssert<SELF extends AbstractAssert<SELF,ACTUAL>, ACTUAL> implements Assert<SELF,ACTUAL>{ }
+                abstract class AbstractBooleanAssert <SELF extends AbstractBooleanAssert<SELF>> extends AbstractAssert<SELF,Boolean> {
+                    SELF isFalse();
                 }
-                static <T> T argThat(ArgumentMatcher<T> matcher) { return null; }
-                static <T> T verify(T mock) { return mock; } // from Mockito
-                interface JpaRepository <T, ID>  {
-                    <S extends T> S save(S entity);
+                static AbstractBooleanAssert<?> assertThat(Boolean actual) { return null; }
+                class SessionType implements Serializable {
+                    Boolean getCountInQuota() { return false; }
                 }
-                enum ListStatus { STATUS }
-                class ListEntry extends Serializable {
-                    private ListStatus status;
-                    public ListStatus getStatus() {
-                        return status;
-                    }
+                class ArgumentCaptor<T> {
+                    T getValue();
+                    static <U, S extends U> ArgumentCaptor<U> forClass(Class<S> clazz) { return null; }
                 }
-                interface ListEntryRepository extends JpaRepository<ListEntry, Long> {}
-            
-                void test(ListEntryRepository listEntryRepository) {
-                    ListEntryRepository repository = verify(listEntryRepository);
-                    repository.save(argThat(e -> e.getStatus() == ListStatus.STATUS));
-            
-                    // also fails: verify(listEntryRepository).save(argThat(e -> e.getStatus() == listStatus.STATUS));
+                void test() {
+                    var captor = ArgumentCaptor.forClass(SessionType.class);
+                    assertThat(captor.getValue().getCountInQuota()).isFalse();
                 }
-            
-                void testGreen1(ListEntryRepository listEntryRepository) {
-                    ListEntryRepository repository = verify(listEntryRepository);
-                    ArgumentMatcher<ListEntry> am = e -> e.getStatus() == ListStatus.STATUS;
-                    repository.save(argThat(am));
-                }
-            
-                void testGreen2(ListEntryRepository listEntryRepository) {
-                    ListEntryRepository repository = verify(listEntryRepository);
-                    ListEntry entry = argThat(e -> e.getStatus() == ListStatus.STATUS);
-                    repository.save(entry);
+                void testGreen() {
+                    ArgumentCaptor<SessionType> captor = ArgumentCaptor.forClass(SessionType.class);
+                    assertThat(captor.getValue().getCountInQuota()).isFalse();
                 }
             }
             """;
 
-    @DisplayName("Mockito ArgumentMatcher, single level interface")
+    @DisplayName("var LVC does not receive correct type")
     @Test
-    public void test6b() {
-        javaInspector.parse(INPUT6b);
+    public void test7() {
+        javaInspector.parse(INPUT7);
     }
 }
