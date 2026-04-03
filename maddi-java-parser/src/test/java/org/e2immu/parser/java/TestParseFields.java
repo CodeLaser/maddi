@@ -138,7 +138,8 @@ public class TestParseFields extends CommonTestParse {
         assertEquals("@15:12-15:12", t.source().detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS)
                 .toString());
         FieldInfo s = typeInfo.getFieldByName("s", true);
-        assertTrue(s.comments().isEmpty());
+        assertEquals(1, s.comments().size());
+        assertEquals(t.comments().getFirst(), s.comments().getFirst());
         assertEquals("@15:21-15:21", s.source().detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS)
                 .toString());
         FieldInfo u = typeInfo.getFieldByName("u", false);
