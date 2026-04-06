@@ -33,12 +33,25 @@ import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.link.impl.graph.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
-record WriteLinksAndModification(JavaInspector javaInspector,
-                                 Runtime runtime,
-                                 VirtualFieldComputer virtualFieldComputer,
-                                 Timer timer,
-                                 FollowGraph followGraph) {
+class WriteLinksAndModification {
+    private final JavaInspector javaInspector;
+    private final Runtime runtime;
+    private final VirtualFieldComputer virtualFieldComputer;
+    private final Timer timer;
+    private final FollowGraph followGraph;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(WriteLinksAndModification.class);
+
+    WriteLinksAndModification(JavaInspector javaInspector,
+                              VirtualFieldComputer virtualFieldComputer,
+                              Timer timer,
+                              FollowGraph followGraph) {
+        this.javaInspector = javaInspector;
+        this.runtime = javaInspector.runtime();
+        this.virtualFieldComputer = virtualFieldComputer;
+        this.timer = timer;
+        this.followGraph = followGraph;
+    }
 
     record WriteResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData, int newLinksSize) {
     }
@@ -100,13 +113,10 @@ record WriteLinksAndModification(JavaInspector javaInspector,
         // the purpose of this map is to make sure that we don't add unnecessary virtual modification links (a.§m ≡ b.§m)
         // this system depends on always processing the variables in the same order (linked hash map in VD, order of occurrence)
         // this should reduce the modification links to something below quadratic
-        Map<Variable, Set<Variable>> modificationCompletionGuard = new LinkedHashMap<>();
-        Map<LinkNature, Map<Variable, Set<Variable>>> completionGuard = new HashMap<>();
-
+        RedundantLinks redundantLinks = new RedundantLinks(timer);
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
             toRemove.addAll(doVariableReturnRecompute(statement, lastStatement, graph, vi, unmarkedModifications,
-                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables, modificationCompletionGuard,
-                    completionGuard));
+                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables, redundantLinks));
         }
         for (Link link : toRemove) {
             Variable primary = Util.primary(link.from());
@@ -131,8 +141,7 @@ record WriteLinksAndModification(JavaInspector javaInspector,
                                                  Set<Variable> previouslyModified,
                                                  Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
                                                  Map<Variable, Links.Builder> newLinkedVariables,
-                                                 Map<Variable, Set<Variable>> modificationCompletionGuard,
-                                                 Map<LinkNature, Map<Variable, Set<Variable>>> completionGuard) {
+                                                 RedundantLinks redundantLinks) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
@@ -145,13 +154,8 @@ record WriteLinksAndModification(JavaInspector javaInspector,
             // in the very last statement, we want the parameters to be complete
             Set<Variable> completion;
             if (!lastStatement || !(variable instanceof ParameterInfo)) {
-                timer.start("vredundant1");
-                RedundantLinks.computeRedundantLinks(builder, completionGuard);
-                timer.end("vredundant1");
-                timer.start("vredundant2");
-                completion = RedundantLinks.computeRedundantModificationLinks(builder, modificationCompletionGuard,
-                        modifiedInThisEvaluation);
-                timer.end("vredundant2");
+                redundantLinks.redundantLinks(builder);
+                completion = redundantLinks.modificationLinks(builder, modifiedInThisEvaluation);
             } else {
                 completion = Set.of();
             }

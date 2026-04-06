@@ -120,8 +120,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.followGraph = new FollowGraph(timer);
         this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), timer,
                 followGraph);
-        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, javaInspector.runtime(),
-                virtualFieldComputer, timer, followGraph);
+        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer, timer,
+                followGraph);
         this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
         this.propertiesChanged = propertiesChanged;
     }

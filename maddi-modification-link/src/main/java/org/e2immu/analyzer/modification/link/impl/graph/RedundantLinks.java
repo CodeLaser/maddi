@@ -14,10 +14,18 @@ import java.util.stream.Collectors;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 
 public class RedundantLinks {
+    // the guards are filled up as more calls to redundant(Modification)Links follow
+    private final Map<Variable, Set<Variable>> modificationCompletionGuard = new LinkedHashMap<>();
+    private final Map<LinkNature, Map<Variable, Set<Variable>>> completionGuard = new HashMap<>();
+    private final Timer timer;
+
+    public RedundantLinks(Timer timer) {
+        this.timer = timer;
+    }
 
     // concept copied from computeRedundantModificationLinks, but now for groups of links
-    public static void computeRedundantLinks(Links.Builder builder,
-                                             Map<LinkNature, Map<Variable, Set<Variable>>> completionGuard) {
+    public void redundantLinks(Links.Builder builder) {
+        timer.start("redundant1");
         Map<Variable, Set<Variable>> completions = new HashMap<>();
         builder.forEach(link -> {
             LinkNature key = key(link.linkNature());
@@ -27,6 +35,7 @@ public class RedundantLinks {
                 completions.put(link.to(), completion(completionGuardForLn, link.to()));
             }
         });
+        timer.end("redundant1");
         Set<Variable> redundantTo = new HashSet<>();
         for (Map.Entry<Variable, Set<Variable>> entry : completions.entrySet()) {
             redundantTo.addAll(entry.getValue());
@@ -54,9 +63,8 @@ public class RedundantLinks {
     // we already have v2.§m -> {v1.§m}, v3.§m->{v1.§m, v2.§m}, and now we want to add
     // v4.§m -> v3.§m, -> v1.§m, -> v2.§m.
     // we only need keep add the first link.
-    public static Set<Variable> computeRedundantModificationLinks(Links.Builder builder,
-                                                                  Map<Variable, Set<Variable>> modificationCompletionGuard,
-                                                                  Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
+    public Set<Variable> modificationLinks(Links.Builder builder,
+                                           Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
         Map<Variable, Set<Variable>> completions = new HashMap<>();
         builder.forEach(link -> {
             LinkNature ln = link.linkNature();
