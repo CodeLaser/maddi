@@ -1,27 +1,41 @@
 package org.e2immu.analyzer.modification.link.impl.graph2;
 
-import java.util.*;
+
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 
 public class ClosureIndex<V, L> {
-    private final Map<V, Map<V, Set<L>>> reachable = new HashMap<>();
-    private final Map<V, Map<V, Set<L>>> reverseReachable = new HashMap<>();
+    private final Map<V, Map<V, L>> reachable = new HashMap<>();
+    private final Map<V, Map<V, L>> reverseReachable = new HashMap<>();
+    private final BinaryOperator<L> best;
+
+    public ClosureIndex(BinaryOperator<L> best) {
+        this.best = best;
+    }
 
     public boolean add(V from, V to, L label) {
+        assert !from.equals(to);
         reverseReachable.computeIfAbsent(to, _ -> new HashMap<>())
-                .computeIfAbsent(from, _ -> new HashSet<>())
-                .add(label);
-        return reachable
-                .computeIfAbsent(from, _ -> new HashMap<>())
-                .computeIfAbsent(to, _ -> new HashSet<>())
-                .add(label);
+                .merge(from, label, best);
+        Map<V, L> map = reachable.computeIfAbsent(from, _ -> new HashMap<>());
+        L current = map.get(to);
+        if (current == null) {
+            map.put(to, label);
+            return true;
+        }
+        L newLabel = best.apply(current, label);
+        map.put(to, newLabel);
+        return !current.equals(newLabel);
     }
 
-    public Set<L> labels(V from, V to) {
-        return reachable.getOrDefault(from, Map.of()).getOrDefault(to, Set.of());
+    public L label(V from, V to) {
+        return reachable.getOrDefault(from, Map.of()).get(to);
     }
 
-    public Map<V, Set<L>> predecessors(V target) {
+    public Map<V, L> predecessors(V target) {
         return reverseReachable.getOrDefault(target, Map.of());
     }
 
@@ -29,11 +43,7 @@ public class ClosureIndex<V, L> {
         return reachable.entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))
                 .flatMap(e ->
                         e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))
-                                .map(e2 ->
-                                        e.getKey() + " "
-                                        + e2.getValue().stream().sorted(lComparator).map(Object::toString)
-                                                .collect(Collectors.joining())
-                                        + " " + e2.getKey()))
+                                .map(e2 -> e.getKey() + " " + e2.getValue() + " " + e2.getKey()))
                 .collect(Collectors.joining(" / "));
     }
 
