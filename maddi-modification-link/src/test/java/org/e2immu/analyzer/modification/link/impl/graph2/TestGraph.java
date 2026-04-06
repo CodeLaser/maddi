@@ -13,8 +13,9 @@ public class TestGraph {
     LinkNature IS_IDENTICAL_TO = LinkNatureImpl.makeIdenticalTo(null);
 
     @Test
-    public void test() {
-        IncrementalFixpointEngine<String, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine);
+    public void testUniDirectional() {
+        IncrementalFixpointEngine<String, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
+                LinkNature::best);
         UpdateResult<String> ur0 = engine.addEdge("a", "b", IS_IDENTICAL_TO);
         assertEquals("UpdateResult[affectedVertices=[a, b], newFacts=1, removedEdges=0]", ur0.toString());
         assertEquals("a ≡ b", printEdges(engine));
@@ -31,8 +32,9 @@ public class TestGraph {
     }
 
     @Test
-    public void test2() {
-        IncrementalFixpointEngine<String, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine);
+    public void testBidirectional() {
+        IncrementalFixpointEngine<String, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
+                LinkNature::best);
         engine.addEdge("a", "b", IS_IDENTICAL_TO);
         engine.addEdge("b", "a", IS_IDENTICAL_TO);
 
@@ -41,13 +43,19 @@ public class TestGraph {
         engine.addEdge("b", "c", IS_IDENTICAL_TO);
         engine.addEdge("c", "b", IS_IDENTICAL_TO);
         assertEquals("a ≡ b / b ≡ a / b ≡ c / c ≡ b", printEdges(engine));
-        assertEquals("a ≡ a / a ≡ b / a ≡ c / b ≡ a / b ≡ b / b ≡ c / c ≡ a / c ≡ b / c ≡ c",
-                printClosure(engine));
+        assertEquals("a ≡ b / a ≡ c / b ≡ a / b ≡ c / c ≡ a / c ≡ b", printClosure(engine));
 
         engine.addEdge("a", "d", IS_ELEMENT_OF);
         engine.addEdge("d", "a", CONTAINS_AS_MEMBER);
         assertEquals("a ≡ b / a ∈ d / b ≡ a / b ≡ c / c ≡ b / d ∋ a", printEdges(engine));
-        assertEquals("a ≡ b / a ≡ c / a ∈ d / b ≡ c", printClosure(engine));
+        assertEquals("""
+                a ≡ b / a ≡ c / a ∈ d / b ≡ a / b ≡ c / b ∈ d / c ≡ a / c ≡ b / c ∈ d / d ∋ a / d ∋ b / d ∋ c\
+                """, printClosure(engine));
+
+        // adding this edge should not have any effect
+        UpdateResult<String> ur = engine.addEdge("c", "d", IS_ELEMENT_OF);
+        assertEquals("UpdateResult[affectedVertices=[], newFacts=0, removedEdges=0]", ur.toString());
+        assertEquals("should not contain c ∈ d", printEdges(engine));
     }
 
     private static String printEdges(IncrementalFixpointEngine<String, LinkNature> engine) {

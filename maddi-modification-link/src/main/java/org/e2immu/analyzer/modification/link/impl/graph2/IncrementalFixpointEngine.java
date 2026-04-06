@@ -10,9 +10,9 @@ public final class IncrementalFixpointEngine<V, L> {
     private final WitnessIndex<V, L> witnessIndex;
     private final BinaryOperator<L> combine;
 
-    public IncrementalFixpointEngine(BinaryOperator<L> combine) {
+    public IncrementalFixpointEngine(BinaryOperator<L> combine, BinaryOperator<L> best) {
         this.graph = new LabeledGraph<>();
-        this.closureIndex = new ClosureIndex<>();
+        this.closureIndex = new ClosureIndex<>(best);
         this.witnessIndex = new WitnessIndex<>();
         this.combine = combine;
     }
@@ -36,6 +36,7 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     private UpdateResult<V> incrementalUpdate(V from, V to, L label) {
+        assert !from.equals(to);
 
         Deque<Fact<V, L>> queue = new ArrayDeque<>();
         Set<V> affected = new HashSet<>();
@@ -72,11 +73,13 @@ public final class IncrementalFixpointEngine<V, L> {
 
         for (Map.Entry<V, L> edge : graph.successors(v).entrySet()) {
             V w = edge.getKey();
-            L edgeLabel = edge.getValue();
-            L newLabel = combine.apply(currentLabel, edgeLabel);
-            Fact<V, L> newFact = new Fact<>(u, w, newLabel);
-            witnessIndex.put(newFact, new Witness.CompositeWitness<>(fact, new Fact<>(v, w, edgeLabel)));
-            queue.addLast(newFact);
+            if (!v.equals(w) && !u.equals(w)) {
+                L edgeLabel = edge.getValue();
+                L newLabel = combine.apply(currentLabel, edgeLabel);
+                Fact<V, L> newFact = new Fact<>(u, w, newLabel);
+                witnessIndex.put(newFact, new Witness.CompositeWitness<>(fact, new Fact<>(v, w, edgeLabel)));
+                queue.addLast(newFact);
+            }
         }
     }
 
@@ -86,10 +89,11 @@ public final class IncrementalFixpointEngine<V, L> {
         V v = fact.target();
         L currentLabel = fact.label();
 
-        for (Map.Entry<V, Set<L>> predEntry : closureIndex.predecessors(u).entrySet()) {
+        for (Map.Entry<V, L> predEntry : closureIndex.predecessors(u).entrySet()) {
             V p = predEntry.getKey();
+            if (!p.equals(v) && !p.equals(u)) {
+                L predLabel = predEntry.getValue();
 
-            for (L predLabel : predEntry.getValue()) {
                 L newLabel = combine.apply(predLabel, currentLabel);
                 Fact<V, L> newFact = new Fact<>(p, v, newLabel);
 
@@ -114,7 +118,7 @@ public final class IncrementalFixpointEngine<V, L> {
                 // Temporarily remove edge
                 graph.removeEdge(u, v);
 
-                boolean reconstructable = closureIndex.labels(u, v).contains(directLabel)
+                boolean reconstructable = directLabel.equals(closureIndex.label(u, v))
                                           // without the 2nd clause: too aggressive; with the 2nd clause: too weak?
                                           && witnessIndex.get(new Fact<>(u, v, directLabel))
                                                   instanceof Witness.CompositeWitness<V, L>;
@@ -130,8 +134,8 @@ public final class IncrementalFixpointEngine<V, L> {
         return removed;
     }
 
-    public Set<L> query(V from, V to) {
-        return closureIndex.labels(from, to);
+    public L query(V from, V to) {
+        return closureIndex.label(from, to);
     }
 
     public LabeledGraph<V, L> reducedGraph() {
