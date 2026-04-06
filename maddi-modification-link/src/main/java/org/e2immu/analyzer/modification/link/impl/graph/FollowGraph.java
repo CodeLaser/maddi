@@ -22,7 +22,7 @@ public record FollowGraph(Timer timer) {
     public Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer,
                                      Map<Variable, Map<Variable, LinkNature>> graph,
                                      Variable primary) {
-        timer.start("follow");
+        timer.start("follow1");
         Links.Builder builder = new LinksImpl.Builder(primary);
         List<Variable> fromList = primary instanceof This ? (graph.containsKey(primary) ? List.of(primary) : List.of())
                 : graph.keySet().stream()
@@ -38,11 +38,12 @@ public record FollowGraph(Timer timer) {
 
         // stream.§$s⊆0:in.§$s
         Set<Edge> block = new HashSet<>();
-
+        timer.end("follow1");
         for (Variable from : fromList) {
             timer.start("fixpoint");
             Map<Variable, LinkNature> all = bestPath(graph, from);
             timer.end("fixpoint");
+            timer.start("follow2");
             List<Map.Entry<Variable, LinkNature>> entries = all.entrySet().stream()
                     .sorted((e1, e2) -> {
                         int c = e2.getValue().rank() - e1.getValue().rank();
@@ -55,65 +56,69 @@ public record FollowGraph(Timer timer) {
                         return e1.getKey().fullyQualifiedName().compareTo(e2.getKey().fullyQualifiedName());
                     })
                     .toList();
+            timer.end("follow2");
+
             Variable primaryFrom = Util.primary(from);
-            if (primaryFrom == null) continue; //array expression not a variable
-            Variable firstRealFrom = Util.firstRealVariable(from);
+            if (primaryFrom != null) {
+                timer.start("follow3");
+                Variable firstRealFrom = Util.firstRealVariable(from);
 
-            //LOGGER.debug("Entries of {}: {}", from, entries);
+                //LOGGER.debug("Entries of {}: {}", from, entries);
 
-            for (Map.Entry<Variable, LinkNature> entry : entries) {
-                LinkNature linkNature = entry.getValue();
-                Variable to = entry.getKey();
-                Variable primaryTo = Util.primary(to);
-                if (primaryTo == null) continue;//array expression not a variable
-                Variable firstRealTo = Util.firstRealVariable(to);
-                // remove internal references (field inside primary to primary or other field in primary)
-                // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
-                if (linkNature.known()
-                    && (!primaryTo.equals(primaryFrom) ||
-                        !firstRealFrom.equals(primaryFrom) &&
-                        !firstRealTo.equals(primaryTo) &&
-                        !firstRealFrom.equals(firstRealTo))
-                    && Util.acceptModificationLink(from, to)
-                    && block.add(new Edge(from, linkNature, to))) {
-                    builder.add(from, linkNature, to);
-                    if (linkNature.isIdenticalToOrAssignedFromTo()
-                        && !(primaryTo instanceof ReturnVariable) && !(primaryFrom instanceof ReturnVariable)
-                        && !Util.virtual(from)
-                        && !Util.virtual(to)
-                        && virtualFieldComputer != null) {
-                        VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(from, to);
-                        LinkNature id = LinkNatureImpl.makeIdenticalTo(null);
-                        if (m2 != null && !builder.contains(m2.m1(), id, m2.m2())) {
-                            builder.add(m2.m1(), id, m2.m2());
+                for (Map.Entry<Variable, LinkNature> entry : entries) {
+                    LinkNature linkNature = entry.getValue();
+                    Variable to = entry.getKey();
+                    Variable primaryTo = Util.primary(to);
+                    if (primaryTo == null) continue;//array expression not a variable
+                    Variable firstRealTo = Util.firstRealVariable(to);
+                    // remove internal references (field inside primary to primary or other field in primary)
+                    // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
+                    if (linkNature.known()
+                        && (!primaryTo.equals(primaryFrom) ||
+                            !firstRealFrom.equals(primaryFrom) &&
+                            !firstRealTo.equals(primaryTo) &&
+                            !firstRealFrom.equals(firstRealTo))
+                        && Util.acceptModificationLink(from, to)
+                        && block.add(new Edge(from, linkNature, to))) {
+                        builder.add(from, linkNature, to);
+                        if (linkNature.isIdenticalToOrAssignedFromTo()
+                            && !(primaryTo instanceof ReturnVariable) && !(primaryFrom instanceof ReturnVariable)
+                            && !Util.virtual(from)
+                            && !Util.virtual(to)
+                            && virtualFieldComputer != null) {
+                            VirtualFieldComputer.M2 m2 = virtualFieldComputer.addModificationFieldEquivalence(from, to);
+                            LinkNature id = LinkNatureImpl.makeIdenticalTo(null);
+                            if (m2 != null && !builder.contains(m2.m1(), id, m2.m2())) {
+                                builder.add(m2.m1(), id, m2.m2());
+                            }
                         }
-                    }
-                    // don't add if the reverse is already present in this builder
-                    block.add(new Edge(to, linkNature.reverse(), from));
-                    // when adding p.sub < q.sub, don't add p < q.sub, p.sub < q
-                    Set<Variable> scopeFrom = Util.scopeVariables(from);
-                    for (LinkNature lnUp : linkNature.redundantFromUp()) {
-                        for (Variable sv : scopeFrom) {
-                            block.add(new Edge(sv, lnUp, to));
+                        // don't add if the reverse is already present in this builder
+                        block.add(new Edge(to, linkNature.reverse(), from));
+                        // when adding p.sub < q.sub, don't add p < q.sub, p.sub < q
+                        Set<Variable> scopeFrom = Util.scopeVariables(from);
+                        for (LinkNature lnUp : linkNature.redundantFromUp()) {
+                            for (Variable sv : scopeFrom) {
+                                block.add(new Edge(sv, lnUp, to));
+                            }
                         }
-                    }
-                    Set<Variable> scopeTo = Util.scopeVariables(to);
-                    for (LinkNature lnUp : linkNature.redundantToUp()) {
-                        for (Variable sv : scopeTo) {
-                            block.add(new Edge(from, lnUp, sv));
+                        Set<Variable> scopeTo = Util.scopeVariables(to);
+                        for (LinkNature lnUp : linkNature.redundantToUp()) {
+                            for (Variable sv : scopeTo) {
+                                block.add(new Edge(from, lnUp, sv));
+                            }
                         }
-                    }
-                    for (LinkNature lnBoth : linkNature.redundantUp()) {
-                        for (Variable fromUp : scopeFrom) {
-                            for (Variable toUp : scopeTo) {
-                                block.add(new Edge(fromUp, lnBoth, toUp));
+                        for (LinkNature lnBoth : linkNature.redundantUp()) {
+                            for (Variable fromUp : scopeFrom) {
+                                for (Variable toUp : scopeTo) {
+                                    block.add(new Edge(fromUp, lnBoth, toUp));
+                                }
                             }
                         }
                     }
                 }
+                timer.end("follow3");
             }
         }
-        timer.end("follow");
         return builder;
     }
 
