@@ -17,8 +17,17 @@ public final class IncrementalFixpointEngine<V, L> {
         this.combine = combine;
     }
 
+    public String print(Comparator<V> comparator) {
+        return graph.print(comparator);
+    }
+
+    public String printClosure(Comparator<V> vertexComparator, Comparator<L> labelComparator) {
+        return closureIndex.print(vertexComparator, labelComparator);
+    }
+
+
     public void addVertex(V v) {
-        graph.successors(v);
+        graph.addVertex(v);
     }
 
     public UpdateResult<V> addEdge(V from, V to, L label) {
@@ -105,7 +114,10 @@ public final class IncrementalFixpointEngine<V, L> {
                 // Temporarily remove edge
                 graph.removeEdge(u, v);
 
-                boolean reconstructable = closureIndex.labels(u, v).contains(directLabel);
+                boolean reconstructable = closureIndex.labels(u, v).contains(directLabel)
+                                          // without the 2nd clause: too aggressive; with the 2nd clause: too weak?
+                                          && witnessIndex.get(new Fact<>(u, v, directLabel))
+                                                  instanceof Witness.CompositeWitness<V, L>;
 
                 if (reconstructable) {
                     removed++;

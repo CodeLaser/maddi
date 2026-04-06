@@ -1,9 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl.graph2;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class ClosureIndex<V, L> {
     private final Map<V, Map<V, Set<L>>> reachable = new HashMap<>();
@@ -26,4 +24,17 @@ public class ClosureIndex<V, L> {
     public Map<V, Set<L>> predecessors(V target) {
         return reverseReachable.getOrDefault(target, Map.of());
     }
+
+    public String print(Comparator<V> vComparator, Comparator<L> lComparator) {
+        return reachable.entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))
+                .flatMap(e ->
+                        e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))
+                                .map(e2 ->
+                                        e.getKey() + " "
+                                        + e2.getValue().stream().sorted(lComparator).map(Object::toString)
+                                                .collect(Collectors.joining())
+                                        + " " + e2.getKey()))
+                .collect(Collectors.joining(" / "));
+    }
+
 }

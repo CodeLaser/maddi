@@ -1,20 +1,31 @@
 package org.e2immu.analyzer.modification.link.impl.graph2;
 
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class LabeledGraph<V, L> {
     private final Map<V, Map<V, L>> out = new HashMap<>();
     private final Map<V, Map<V, L>> in = new HashMap<>();
 
-    public void addEdge(V from, V to, L label) {
-        out.computeIfAbsent(from, k -> new HashMap<>())
-                .put(to, label);
+    public String print(Comparator<V> comparator) {
+        return out.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
+                .flatMap(e ->
+                        e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
+                                .map(e2 ->
+                                        e.getKey() + " " + e2.getValue() + " " + e2.getKey()))
+                .collect(Collectors.joining(" / "));
+    }
 
-        in.computeIfAbsent(to, k -> new HashMap<>())
-                .put(from, label);
+    public void addEdge(V from, V to, L label) {
+        out.computeIfAbsent(from, k -> new HashMap<>()).put(to, label);
+        in.computeIfAbsent(to, k -> new HashMap<>()).put(from, label);
+    }
+
+    public void addVertex(V v) {
+        in.computeIfAbsent(v, _ -> new HashMap<>());
+        out.computeIfAbsent(v, _ -> new HashMap<>());
     }
 
     public void removeEdge(V from, V to) {
