@@ -1,5 +1,6 @@
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.link.impl.graph;
 
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.junit.jupiter.api.Test;
 

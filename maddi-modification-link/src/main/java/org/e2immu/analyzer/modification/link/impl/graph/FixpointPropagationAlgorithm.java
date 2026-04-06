@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl;
+package org.e2immu.analyzer.modification.link.impl.graph;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,10 +7,10 @@ import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-public class FixpointPropagationAlgorithm {
+class FixpointPropagationAlgorithm {
     private static final Logger LOGGER = LoggerFactory.getLogger(FixpointPropagationAlgorithm.class);
 
-    public static <V, L> Map<V, Set<L>> computePathLabels(
+    static <V, L> Map<V, Set<L>> computePathLabels(
             Function<V, Map<V, L>> graph,
             Set<V> keySet,
             V start,
