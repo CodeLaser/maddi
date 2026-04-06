@@ -236,8 +236,9 @@ public class BinaryOperatorImpl extends ExpressionImpl implements BinaryOperator
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(lhs.typesReferenced(), rhs.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(lhs.typesReferenced(predicate), rhs.typesReferenced(predicate));
     }
 
     @Override
@@ -248,8 +249,9 @@ public class BinaryOperatorImpl extends ExpressionImpl implements BinaryOperator
         Expression translatedLhs = lhs.translate(translationMap);
         Expression translatedRhs = rhs.translate(translationMap);
         if (translatedRhs == this.rhs && translatedLhs == this.lhs) return this;
-        return new BinaryOperatorImpl(comments(), source(), operator, precedence, translatedLhs, translatedRhs,
-                parameterizedType);
+        Expression result = new BinaryOperatorImpl(comments(), source(), operator, precedence, translatedLhs,
+                translatedRhs, parameterizedType);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

@@ -162,4 +162,43 @@ public class TestParseDetailedSources extends CommonTestParse {
         assertEquals("20-52:20-52",
                 cc.source().detailedSources().detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
     }
+
+    @Language("java")
+    String INPUT2 = """
+            package a;
+            
+            public class A {
+                // Useless comment
+                private String deadField, aliveField = null;
+            
+                public void process() {
+                    System.out.println("Processing" + aliveField);
+                }
+            }
+            """;
+
+    /*
+    - the normal source of the field is the name and its initializer
+    - the declaration of the field contains the comment all the way to the semi-colon
+    - aliveField has a preceding comma, in the same location of deadField's succeeding comma
+     */
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = parse(INPUT2, true);
+        FieldInfo deadField = typeInfo.getFieldByName("deadField", true);
+
+        assertEquals("5-20:5-28", deadField.source().compact2());
+        DetailedSources deadDs = deadField.source().detailedSources();
+        assertNotNull(deadDs);
+        assertEquals("4-5:5-48", deadDs.detail(DetailedSources.FIELD_DECLARATION).compact2());
+        assertEquals("5-29:5-29", deadDs.detail(SUCCEEDING_COMMA).compact2());
+
+        FieldInfo aliveField = typeInfo.getFieldByName("aliveField", true);
+        assertEquals("5-31:5-47", aliveField.source().compact2());
+        DetailedSources aliveDs = aliveField.source().detailedSources();
+        assertNotNull(aliveDs);
+        assertEquals("5-29:5-29", aliveDs.detail(PRECEDING_COMMA).compact2());
+
+        assertEquals("4-5:5-48", aliveDs.detail(DetailedSources.FIELD_DECLARATION).compact2());
+    }
 }

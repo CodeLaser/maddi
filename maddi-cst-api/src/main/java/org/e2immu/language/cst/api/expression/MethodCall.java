@@ -37,6 +37,8 @@ public interface MethodCall extends Expression, OneVariable {
 
     List<ParameterizedType> typeArguments();
 
+    MethodCall withObject(Expression object, boolean objectIsImplicit);
+
     MethodCall withObject(Expression object);
 
     // make a copy, with different parameters

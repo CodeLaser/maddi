@@ -16,11 +16,13 @@ package org.e2immu.parser.java;
 
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.This;
 
 import java.util.List;
 
@@ -37,19 +39,21 @@ class RecordSynthetics {
         MethodInfo cc = runtime.newConstructor(typeInfo, runtime.methodTypeSyntheticConstructor());
         Block.Builder methodBody = runtime.newBlockBuilder().setSource(source);
         Access publicAccess = runtime.accessPublic();
+        This thisVar = runtime.newThis(typeInfo.asParameterizedType());
         int count = 0;
         for (ParseTypeDeclaration.RecordField rf : recordFields) {
             FieldInfo fieldInfo = rf.fieldInfo();
             ParameterInfo pi = cc.builder().addParameter(fieldInfo.name(), fieldInfo.type());
             pi.builder().setSynthetic(true).setAccess(publicAccess).setVarArgs(rf.varargs()).commit();
-            Source fieldSource = fieldInfo.source();
-            Source statementSource = runtime.newParserSource("" + count, fieldSource.beginLine(),
-                    fieldSource.beginPos(), fieldSource.endLine(), fieldSource.endPos());
+            Source statementSource = runtime.newParserSource("" + count, 0, 0, 0, 0);
+            VariableExpression thisVe = runtime.newVariableExpressionBuilder()
+                    .setVariable(thisVar).setSource(statementSource)
+                    .build();
             Assignment assignment = runtime.newAssignmentBuilder()
                     .setSource(statementSource)
                     .setValue(runtime.newVariableExpressionBuilder().setVariable(pi).setSource(statementSource).build())
                     .setTarget(runtime.newVariableExpressionBuilder()
-                            .setVariable(runtime.newFieldReference(fieldInfo))
+                            .setVariable(runtime.newFieldReference(fieldInfo, thisVe, fieldInfo.type()))
                             .setSource(statementSource)
                             .build())
                     .build();
@@ -78,9 +82,7 @@ class RecordSynthetics {
         MethodInfo methodInfo = runtime.newMethod(fieldInfo.owner(), fieldInfo.name(),
                 runtime.methodTypeMethod());
         FieldReference fr = runtime.newFieldReference(fieldInfo);
-        Source fieldSource = fieldInfo.source();
-        Source source = runtime.newParserSource("0", fieldSource.beginLine(),
-                fieldSource.beginPos(), fieldSource.endLine(), fieldSource.endPos());
+        Source source = runtime.newParserSource("0", 0, 0, 0, 0);
         ReturnStatement rs = runtime.newReturnBuilder()
                 .setExpression(runtime.newVariableExpressionBuilder().setVariable(fr).setSource(source).build())
                 .setSource(source).build();

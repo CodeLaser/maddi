@@ -31,7 +31,6 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.cst.impl.element.ElementImpl;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.ImmutableGraph;
@@ -98,6 +97,10 @@ public class ComputeCallGraph {
 
     public static boolean isReference(long value) {
         return (value & (TYPES_IN_DECLARATION - 1)) >= REFERENCES;
+    }
+
+    public static int referenceCount(long value) {
+        return (int) ((value & (TYPES_IN_DECLARATION - 1)) >> REFERENCES_BITS);
     }
 
     public static String print(G<Info> graph) {

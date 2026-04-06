@@ -87,7 +87,8 @@ public class EmptyStatementImpl extends StatementImpl implements EmptyStatement 
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.of();
     }
 
@@ -97,8 +98,10 @@ public class EmptyStatementImpl extends StatementImpl implements EmptyStatement 
         if (hasBeenTranslated(direct, this)) return direct;
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         if (!analysis().isEmpty() && translationMap.isClearAnalysis()
-            || tAnnotations != annotations())
-            return List.of(new EmptyStatementImpl(comments(), source(), tAnnotations, label()));
+            || tAnnotations != annotations()) {
+            EmptyStatement es = new EmptyStatementImpl(comments(), source(), tAnnotations, label());
+            return translationMap.postTranslationHandler(this, List.of(es));
+        }
         return List.of(this);
     }
 

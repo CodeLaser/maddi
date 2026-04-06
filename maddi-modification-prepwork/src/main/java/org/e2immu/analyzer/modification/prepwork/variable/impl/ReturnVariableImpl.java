@@ -15,10 +15,7 @@
 package org.e2immu.analyzer.modification.prepwork.variable.impl;
 
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -27,6 +24,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.element.ElementImpl;
+import org.e2immu.language.cst.impl.element.SourceImpl;
 import org.e2immu.language.cst.impl.output.KeywordImpl;
 import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
 import org.e2immu.language.cst.impl.output.SpaceEnum;
@@ -115,8 +113,8 @@ public class ReturnVariableImpl implements ReturnVariable {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        return Stream.of(new ElementImpl.TypeReference(parameterizedType().typeInfo(), false));
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate, DetailedSources detailedSources) {
+        return Stream.of(new ElementImpl.TypeReference(parameterizedType().typeInfo(), TypeReferenceNature.IMPLICIT));
     }
 
     @Override
@@ -140,7 +138,7 @@ public class ReturnVariableImpl implements ReturnVariable {
 
     @Override
     public Source source() {
-        return null;
+        return SourceImpl.NO_SOURCE;
     }
 
     @Override

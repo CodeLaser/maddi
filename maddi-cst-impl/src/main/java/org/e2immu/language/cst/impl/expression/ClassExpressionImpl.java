@@ -17,19 +17,15 @@ package org.e2immu.language.cst.impl.expression;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
-import org.e2immu.language.cst.api.expression.*;
+import org.e2immu.language.cst.api.expression.ClassExpression;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.type.Diamond;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.variable.DescendMode;
-import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.element.ElementImpl;
 import org.e2immu.language.cst.impl.expression.util.ExpressionComparator;
 import org.e2immu.language.cst.impl.expression.util.InternalCompareToException;
-import org.e2immu.language.cst.impl.expression.util.PrecedenceEnum;
 import org.e2immu.language.cst.impl.output.KeywordImpl;
 import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
 import org.e2immu.language.cst.impl.output.SymbolEnum;
@@ -110,8 +106,10 @@ public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedTyp
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return parameterizedType.typesReferencedMadeExplicit();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return parameterizedType.typesReferenced(TypeReferenceNature.EXPLICIT,
+                source() == null ? null : source().detailedSources());
     }
 
     @Override
@@ -134,7 +132,8 @@ public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedTyp
         ParameterizedType translatedType = translationMap.translateType(this.parameterizedType);
         if (this.parameterizedType == translatedType) return this;
         ParameterizedType translatedClassType = translationMap.translateType(classType);
-        return new ClassExpressionImpl(comments(), source(), translatedType, translatedClassType);
+        Expression result = new ClassExpressionImpl(comments(), source(), translatedType, translatedClassType);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

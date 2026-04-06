@@ -41,7 +41,6 @@ import org.e2immu.language.cst.impl.output.SpaceEnum;
 import org.e2immu.language.cst.impl.output.SymbolEnum;
 import org.e2immu.language.cst.impl.type.DiamondEnum;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -244,12 +243,15 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(methodInfo.parameters().stream().flatMap(
-                pi -> outputVariants.get(pi.index()).isTyped()
-                        ? pi.parameterizedType().typesReferenced(true, new HashSet<>())
-                        : pi.parameterizedType().typesReferenced()),
-                methodInfo.methodBody().typesReferenced());
+                        pi -> outputVariants.get(pi.index()).isTyped()
+                                ? pi.parameterizedType().typesReferenced(TypeReferenceNature.EXPLICIT,
+                                source().detailedSources())
+                                : pi.parameterizedType().typesReferenced(TypeReferenceNature.IMPLICIT,
+                                null)),
+                methodInfo.methodBody().typesReferenced(predicate));
     }
 
     @Override
@@ -258,12 +260,11 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
         if (tLambda == null) return this;
         if (tLambda != this) return tLambda;
         TypeInfo tTypeInfo = methodInfo.typeInfo().translate(translationMap).getFirst();
-        if (tTypeInfo != methodInfo.typeInfo()) {
-            assert tTypeInfo.methods().size() == 1;
-            MethodInfo implementationOfSam = tTypeInfo.methods().getFirst();
-            return new LambdaImpl(comments(), source(), implementationOfSam, outputVariants);
-        }
-        return this;
+        if (tTypeInfo == methodInfo.typeInfo()) return this;
+        assert tTypeInfo.methods().size() == 1;
+        MethodInfo implementationOfSam = tTypeInfo.methods().getFirst();
+        Expression result = new LambdaImpl(comments(), source(), implementationOfSam, outputVariants);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

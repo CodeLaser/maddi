@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.api.info;
 
 import org.e2immu.annotation.Fluent;
+import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.JavaDoc;
@@ -58,6 +59,8 @@ public interface Info extends Element {
 
     interface Builder<B extends Builder<?>> extends Element.Builder<B> {
         Stream<AnnotationExpression> annotationStream();
+
+        List<Comment> comments();
 
         @Fluent
         B setAccess(Access access);

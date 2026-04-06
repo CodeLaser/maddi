@@ -14,10 +14,7 @@
 
 package org.e2immu.language.cst.impl.expression;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -46,8 +43,19 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
 
     public AnnotationExpressionImpl(List<Comment> comments, Source source, TypeInfo typeInfo, List<KV> keyValuePairs) {
         super(comments, source, 1 + keyValuePairs.stream().mapToInt(kv -> kv.value().complexity()).sum());
-        this.typeInfo = typeInfo;
-        this.keyValuePairs = keyValuePairs;
+        this.typeInfo = Objects.requireNonNull(typeInfo);
+        this.keyValuePairs = Objects.requireNonNull(keyValuePairs);
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof AnnotationExpression that)) return false;
+        return Objects.equals(typeInfo, that.typeInfo()) && Objects.equals(keyValuePairs, that.keyValuePairs());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(typeInfo, keyValuePairs);
     }
 
     @Override
@@ -225,9 +233,12 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo, true)),
-                keyValuePairs.stream().flatMap(kv -> kv.value().typesReferenced()));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
+        return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo,
+                        DetailedSources.isFullyQualified(detailedSources, typeInfo))),
+                keyValuePairs.stream().flatMap(kv -> kv.value().typesReferenced(predicate)));
     }
 
     @Override
@@ -264,7 +275,8 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
         List<KV> newKv = keyValuePairs.stream()
                 .map(kv -> kv.translate(translationMap)).collect(translationMap.toList(keyValuePairs));
         if (pt != tpt || newKv != keyValuePairs) {
-            return new AnnotationExpressionImpl(comments(), source(), tpt.typeInfo(), newKv);
+            AnnotationExpression result = new AnnotationExpressionImpl(comments(), source(), tpt.typeInfo(), newKv);
+            return translationMap.postTranslationHandler(this, result);
         }
         return this;
     }

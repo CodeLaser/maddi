@@ -148,8 +148,10 @@ public class CastImpl extends ExpressionImpl implements Cast {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(parameterizedType.typesReferencedMadeExplicit(), expression.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(parameterizedType.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources()),
+                expression.typesReferenced(predicate));
     }
 
     @Override
@@ -160,7 +162,8 @@ public class CastImpl extends ExpressionImpl implements Cast {
         Expression translatedExpression = expression.translate(translationMap);
         ParameterizedType translatedType = translationMap.translateType(this.parameterizedType);
         if (translatedExpression == this.expression && translatedType == this.parameterizedType) return this;
-        return new CastImpl(comments(), source(), translatedType, translatedExpression);
+        Expression result = new CastImpl(comments(), source(), translatedType, translatedExpression);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

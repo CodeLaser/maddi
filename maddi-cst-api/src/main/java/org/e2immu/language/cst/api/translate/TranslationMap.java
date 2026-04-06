@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.translate;
 
 import org.e2immu.annotation.Fluent;
 import org.e2immu.annotation.NotNull;
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -35,6 +36,21 @@ import java.util.stream.Collector;
 
 public interface TranslationMap {
 
+    // only called upon change
+    interface PostTranslationHandler {
+        default <T extends Element> T handle(T original, T translation) {
+            return translation;
+        }
+
+        default <T extends Element> List<T> handle(T original, List<T> translation) {
+            return translation;
+        }
+
+        default ParameterizedType handle(ParameterizedType original, ParameterizedType translation) {
+            return translation;
+        }
+    }
+
     /*
     The method body is translated 2x during the translation of a whole method, see MethodInfoImpl.translate(..).
     The result of the first iteration is discarded except for the knowledge whether translation is needed or not.
@@ -43,30 +59,41 @@ public interface TranslationMap {
     default void methodTranslationInfo(MethodInfo methodInfo, boolean startEnd, boolean test) {
     }
 
+    // used for the single purpose of replacing references; NOT used to replace the declaration
     @NotNull
     default FieldInfo translateFieldInfo(FieldInfo fieldInfo) {
         return fieldInfo;
     }
 
+    // used for the single purpose of replacing references; NOT used to replace the declaration
     @NotNull
-    default Expression translateExpression(Expression expression) {
-        return expression;
+    default MethodInfo translateMethodInfo(MethodInfo methodInfo) {
+        return methodInfo;
     }
 
+    // used for the single purpose of replacing the declaration; NOT used to replace references
+
     @NotNull
-    default List<MethodInfo> translateMethod(MethodInfo methodInfo) {
+    default List<MethodInfo> translateMethodDeclaration(MethodInfo methodInfo) {
         return List.of(methodInfo);
     }
+    // used for the single purpose of replacing the declaration; NOT used to replace references
 
     @NotNull
-    default List<FieldInfo> translateField(FieldInfo fieldInfo) {
+    default List<FieldInfo> translateFieldDeclaration(FieldInfo fieldInfo) {
         return List.of(fieldInfo);
     }
-
+    // used for the dual purpose of declaration and references
     // contrary to methods and fields, you can always add extra types as subtypes; that's why we're not returning a list
+
     @NotNull
     default TypeInfo translateTypeInfo(TypeInfo typeInfo) {
         return typeInfo;
+    }
+
+    @NotNull
+    default Expression translateExpression(Expression expression) {
+        return expression;
     }
 
     @NotNull
@@ -120,6 +147,22 @@ public interface TranslationMap {
         return false;
     }
 
+    default boolean correctSources() {
+        return false;
+    }
+
+    default Map<FieldInfo, List<FieldInfo>> fieldDeclarations() {
+        return Map.of();
+    }
+
+    default Map<MethodInfo, MethodInfo> methodInfoMap() {
+        return Map.of();
+    }
+
+    default Map<TypeInfo, TypeInfo> typeInfoMap() {
+        return Map.of();
+    }
+
     default Map<? extends Variable, ? extends Variable> variables() {
         return Map.of();
     }
@@ -132,7 +175,7 @@ public interface TranslationMap {
         return Map.of();
     }
 
-    default Map<MethodInfo, List<MethodInfo>> methods() {
+    default Map<MethodInfo, List<MethodInfo>> methodsDeclarations() {
         return Map.of();
     }
 
@@ -161,6 +204,14 @@ public interface TranslationMap {
 
     default TranslationMap delegate() {
         return null;
+    }
+
+    default <T extends Element> T postTranslationHandler(T original, T translated) {
+        return translated;
+    }
+
+    default <T extends Element> List<T> postTranslationHandler(T original, List<T> translated) {
+        return translated;
     }
 
     interface ModificationTimesHandler {
@@ -319,13 +370,19 @@ public interface TranslationMap {
 
         Builder put(Statement template, Statement actual);
 
-        Builder put(MethodInfo template, List<MethodInfo> actual);
+        Builder put(TypeInfo template, TypeInfo actual);
+
+        Builder putDeclaration(MethodInfo template, List<MethodInfo> actual);
+
+        Builder put(MethodInfo template, MethodInfo actual);
+
+        Builder putDeclaration(FieldInfo template, List<FieldInfo> actual);
+
+        Builder put(FieldInfo template, FieldInfo actual);
 
         Builder put(Statement template, List<Statement> statements);
 
         Builder put(Expression template, Expression actual);
-
-        Builder put(FieldInfo template, FieldInfo actual);
 
         Builder addVariableExpression(Variable variable, Expression actual);
 
@@ -339,6 +396,8 @@ public interface TranslationMap {
 
         Builder setExpandDelayedWrapperExpressions(boolean expandDelayedWrappedExpressions);
 
+        Builder setCorrectSources(boolean correctSources);
+
         boolean translateMethod(MethodInfo methodInfo);
 
         Builder setModificationTimesHandler(ModificationTimesHandler modificationTimesHandler);
@@ -346,6 +405,8 @@ public interface TranslationMap {
         Builder setClearAnalysis(boolean clearAnalysis);
 
         Builder setDelegate(TranslationMap delegate);
+
+        Builder setPostTranslationHandler(PostTranslationHandler postTranslationHandler);
 
         boolean isEmpty();
     }

@@ -219,4 +219,172 @@ public class TestMethodCall13 extends CommonTest {
         // definitely not 'println(double)'
         assertEquals("java.io.PrintStream.println(Object)", println.methodInfo().fullyQualifiedName());
     }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            import org.assertj.core.api.SoftAssertions;
+            public class C {
+                public void test(String input) {
+                    SoftAssertions.assertSoftly(softly -> {
+                            softly.assertThat(input)
+                                    .withFailMessage("fail1")
+                                    .startsWith("abc");
+                            softly.assertThat(input)
+                                    .withFailMessage("fail2")
+                                    .endsWith("def");
+                        });
+                }
+            }
+            """;
+
+    /*
+    problem seems to be the passing on of method return values? all variable combinations run green.
+     */
+    @DisplayName("SoftAssertions")
+    @Test
+    public void test5() {
+        javaInspector.parse(INPUT5);
+    }
+
+    @Language("java")
+    private static final String INPUT5b = """
+            package a.b;
+            import org.assertj.core.api.SoftAssertions;
+            import org.assertj.core.api.StringAssert;
+            public class C {
+                public void test(String input) {
+                    SoftAssertions.assertSoftly(softly -> {
+                        StringAssert stringAssert = softly.assertThat(input);
+                        StringAssert sa = stringAssert.withFailMessage("fail");
+                        sa.startsWith("abc");
+            
+                        StringAssert sa2 = softly.assertThat(input).withFailMessage("fail");
+                        sa2.startsWith("abc");
+            
+                        StringAssert sa3 = softly.assertThat(input);
+                        sa3.withFailMessage("fail").startsWith("abc");
+                    });
+                }
+            }
+            """;
+
+    @DisplayName("SoftAssertions, explicit intermediate variable")
+    @Test
+    public void test5b() {
+        javaInspector.parse(INPUT5b);
+    }
+
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            import java.io.Serializable;
+            public class C {
+                @FunctionalInterface
+                interface ArgumentMatcher <T> {
+                    boolean matches(T t);
+                }
+                static <T> T argThat(ArgumentMatcher<T> matcher) { return null; }
+                static <T> T verify(T mock) { return mock; } // from Mockito
+                interface CrudRepository<T, ID> {
+                    <S extends T> S save(S entity);
+                }
+                interface JpaRepository <T, ID> extends CrudRepository<T, ID> {
+                }
+                enum ListStatus { STATUS }
+                class ListEntry extends Serializable {
+                    private ListStatus status;
+                    public ListStatus getStatus() {
+                        return status;
+                    }
+                }
+                interface ListEntryRepository extends JpaRepository<ListEntry, Long> {}
+            
+                void test(ListEntryRepository listEntryRepository) {
+                    ListEntryRepository repository = verify(listEntryRepository);
+                    repository.save(argThat(e -> e.getStatus() == ListStatus.STATUS));
+            
+                    // also fails: verify(listEntryRepository).save(argThat(e -> e.getStatus() == listStatus.STATUS));
+                }
+            
+                void testGreen1(ListEntryRepository listEntryRepository) {
+                    ListEntryRepository repository = verify(listEntryRepository);
+                    ArgumentMatcher<ListEntry> am = e -> e.getStatus() == ListStatus.STATUS;
+                    repository.save(argThat(am));
+                }
+            
+                void testGreen2(ListEntryRepository listEntryRepository) {
+                    ListEntryRepository repository = verify(listEntryRepository);
+                    ListEntry entry = argThat(e -> e.getStatus() == ListStatus.STATUS);
+                    repository.save(entry);
+                }
+            }
+            """;
+
+    @DisplayName("Mockito ArgumentMatcher")
+    @Test
+    public void test6() {
+        javaInspector.parse(INPUT6);
+    }
+
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            import java.io.Serializable;
+            class C {
+                interface Assert <SELF extends Assert<SELF,ACTUAL>, ACTUAL> { }
+                abstract class AbstractAssert<SELF extends AbstractAssert<SELF,ACTUAL>, ACTUAL> implements Assert<SELF,ACTUAL>{ }
+                abstract class AbstractBooleanAssert <SELF extends AbstractBooleanAssert<SELF>> extends AbstractAssert<SELF,Boolean> {
+                    SELF isFalse();
+                }
+                static AbstractBooleanAssert<?> assertThat(Boolean actual) { return null; }
+                class SessionType implements Serializable {
+                    Boolean getCountInQuota() { return false; }
+                }
+                class ArgumentCaptor<T> {
+                    T getValue();
+                    static <U, S extends U> ArgumentCaptor<U> forClass(Class<S> clazz) { return null; }
+                }
+                void test() {
+                    var captor = ArgumentCaptor.forClass(SessionType.class);
+                    assertThat(captor.getValue().getCountInQuota()).isFalse();
+                }
+                void testGreen() {
+                    ArgumentCaptor<SessionType> captor = ArgumentCaptor.forClass(SessionType.class);
+                    assertThat(captor.getValue().getCountInQuota()).isFalse();
+                }
+            }
+            """;
+
+    @DisplayName("var LVC does not receive correct type")
+    @Test
+    public void test7() {
+        javaInspector.parse(INPUT7);
+    }
+
+    @Language("java")
+    private static final String INPUT8 = """
+            package a.b;
+            import java.util.Set;
+            import static org.junit.jupiter.api.Assertions.*;
+            import static org.mockito.Mockito.*;
+            class C {
+                static String contains(String substring) { return substring; }
+                interface Constants {
+                    String C = "user";
+                }
+                void method(Set<String> set) {
+                    assertTrue(set.contains(Constants.C), "message");
+                }
+            }
+            """;
+
+    @DisplayName("mockito makes another contains() method available, one that returns a String...")
+    @Test
+    public void test8() {
+        javaInspector.parse(INPUT8);
+    }
 }

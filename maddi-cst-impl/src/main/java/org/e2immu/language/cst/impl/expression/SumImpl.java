@@ -115,7 +115,8 @@ public class SumImpl extends BinaryOperatorImpl implements Sum {
         Expression tl = lhs.translate(translationMap);
         Expression tr = rhs.translate(translationMap);
         if (tl == lhs && tr == rhs) return this;
-        return new SumImpl(comments(), source(), operator, precedence, tl, tr, parameterizedType);
+        Expression result = new SumImpl(comments(), source(), operator, precedence, tl, tr, parameterizedType);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

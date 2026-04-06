@@ -53,7 +53,8 @@ public class EqualsImpl extends BinaryOperatorImpl implements Equals {
         Expression tl = lhs.translate(translationMap);
         Expression tr = rhs.translate(translationMap);
         if (tl == lhs && tr == rhs) return this;
-        return new EqualsImpl(comments(), source(), operator, precedence, tl, tr, parameterizedType);
+        Expression result = new EqualsImpl(comments(), source(), operator, precedence, tl, tr, parameterizedType);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

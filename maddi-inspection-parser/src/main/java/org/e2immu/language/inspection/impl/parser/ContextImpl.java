@@ -16,6 +16,7 @@ package org.e2immu.language.inspection.impl.parser;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -27,7 +28,9 @@ import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 
 public class ContextImpl implements Context {
@@ -44,6 +47,7 @@ public class ContextImpl implements Context {
     private final TypeContext typeContext;
     private final VariableContext variableContext;
     private final ForwardType typeOfEnclosingSwitchExpression;
+    private final Set<Source> blockedComments;
 
     public static Context create(Runtime runtime,
                                  CompiledTypesManager compiledTypesManager,
@@ -56,7 +60,7 @@ public class ContextImpl implements Context {
         Lombok lombok = isLombok ? new LombokImpl(runtime, compiledTypesManager) : null;
         Data d = new Data(runtime, summary, methodResolution, detailedSources, lombok);
         return new ContextImpl(d, null, null, resolver,
-                typeContext, new VariableContextImpl(), null);
+                typeContext, new VariableContextImpl(), null, new HashSet<>());
     }
 
     private ContextImpl(Data data, TypeInfo enclosingType,
@@ -64,7 +68,8 @@ public class ContextImpl implements Context {
                         Resolver resolver,
                         TypeContext typeContext,
                         VariableContext variableContext,
-                        ForwardType typeOfEnclosingSwitchExpression) {
+                        ForwardType typeOfEnclosingSwitchExpression,
+                        Set<Source> blockedComments) {
         this.data = data;
         this.enclosingType = enclosingType;
         this.enclosingMethod = enclosingMethod;
@@ -72,6 +77,7 @@ public class ContextImpl implements Context {
         this.variableContext = variableContext;
         this.typeOfEnclosingSwitchExpression = typeOfEnclosingSwitchExpression;
         this.resolver = resolver;
+        this.blockedComments = blockedComments;
     }
 
     public Info info() {
@@ -128,7 +134,7 @@ public class ContextImpl implements Context {
     public ContextImpl newCompilationUnit(CompilationUnit compilationUnit) {
         TypeContext typeContext = typeContext().newCompilationUnit(compilationUnit);
         return new ContextImpl(data, null, null, resolver,
-                typeContext, variableContext.newEmpty(), null);
+                typeContext, variableContext.newEmpty(), null, new HashSet<>());
     }
 
     @Override
@@ -136,20 +142,20 @@ public class ContextImpl implements Context {
         LOGGER.debug("Creating a new variable context for {}", reason);
         VariableContext newVariableContext = variableContext.newVariableContext();
         return new ContextImpl(data, enclosingType, enclosingMethod, resolver,
-                typeContext, newVariableContext, typeOfEnclosingSwitchExpression);
+                typeContext, newVariableContext, typeOfEnclosingSwitchExpression, blockedComments);
     }
 
     @Override
     public Context newVariableContextForMethodBlock(MethodInfo methodInfo, ForwardType forwardType) {
         return new ContextImpl(data, methodInfo.typeInfo(), methodInfo, resolver,
-                typeContext, dependentVariableContext(), forwardType);
+                typeContext, dependentVariableContext(), forwardType, blockedComments);
     }
 
     public ContextImpl newAnonymousClassBody(TypeInfo baseType) {
         TypeContext newTypeContext = typeContext.newAnonymousClassBody(baseType);
         VariableContext newVariableContext = variableContext.newVariableContext();
         return new ContextImpl(data, baseType, null, resolver.newEmpty(), newTypeContext,
-                newVariableContext, typeOfEnclosingSwitchExpression);
+                newVariableContext, typeOfEnclosingSwitchExpression, blockedComments);
     }
 
     @Override
@@ -159,12 +165,12 @@ public class ContextImpl implements Context {
         TypeContext newTypeContext = typeContext.newAnonymousClassBody(enclosingType);
         VariableContext newVariableContext = variableContext.newVariableContext();
         return new ContextImpl(data, enclosingType, enclosingMethod, resolver.newEmpty(), newTypeContext,
-                newVariableContext, typeOfEnclosingSwitchExpression);
+                newVariableContext, typeOfEnclosingSwitchExpression, blockedComments);
     }
 
     public ContextImpl newSubType(TypeInfo subType) {
         return new ContextImpl(data, subType, null, resolver,
-                typeContext.newTypeContext(), variableContext, null);
+                typeContext.newTypeContext(), variableContext, null, blockedComments);
     }
 
     @Override
@@ -183,20 +189,20 @@ public class ContextImpl implements Context {
     public Context newTypeBody() {
         VariableContext newVariableContext = variableContext.newVariableContext();
         return new ContextImpl(data, enclosingType, enclosingMethod, resolver, typeContext,
-                newVariableContext, typeOfEnclosingSwitchExpression);
+                newVariableContext, typeOfEnclosingSwitchExpression, blockedComments);
     }
 
     @Override
     public Context newTypeContext() {
         TypeContext newTypeContext = typeContext.newTypeContext();
         return new ContextImpl(data, enclosingType, enclosingMethod, resolver, newTypeContext,
-                variableContext, typeOfEnclosingSwitchExpression);
+                variableContext, typeOfEnclosingSwitchExpression, blockedComments);
     }
 
     @Override
     public Context withEnclosingMethod(MethodInfo methodInfo) {
         return new ContextImpl(data, enclosingType, methodInfo, resolver, typeContext, variableContext,
-                typeOfEnclosingSwitchExpression);
+                typeOfEnclosingSwitchExpression, blockedComments);
     }
 
     @Override
@@ -237,5 +243,15 @@ public class ContextImpl implements Context {
     @Override
     public Lombok lombok() {
         return data.lombok;
+    }
+
+    @Override
+    public boolean commentIsBlocked(Source source) {
+        return blockedComments.contains(source);
+    }
+
+    @Override
+    public void blockComment(Source source) {
+        blockedComments.add(source);
     }
 }

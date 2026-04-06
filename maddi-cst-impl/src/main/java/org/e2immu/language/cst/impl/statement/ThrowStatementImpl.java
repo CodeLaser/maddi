@@ -110,8 +110,9 @@ public class ThrowStatementImpl extends StatementImpl implements ThrowStatement 
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return expression.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return expression.typesReferenced(predicate);
     }
 
     @Override
@@ -126,7 +127,7 @@ public class ThrowStatementImpl extends StatementImpl implements ThrowStatement 
             || tAnnotations != annotations()) {
             ThrowStatementImpl ts = new ThrowStatementImpl(comments(), source(), annotations(), label(), tex);
             if (!translationMap.isClearAnalysis()) ts.analysis().setAll(analysis());
-            return List.of(ts);
+            return translationMap.postTranslationHandler(this, List.of(ts));
         }
         return List.of(this);
     }

@@ -14,18 +14,25 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.language.cst.api.element.Comment;
+import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.impl.output.QualificationImpl;
 import org.e2immu.language.cst.impl.output.TypeNameImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ImportComputerImpl implements ImportComputer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ImportComputerImpl.class);
+
     private final int minStar;
     private final Function<String, Collection<TypeInfo>> typesPerPackage;
 
@@ -40,46 +47,77 @@ public class ImportComputerImpl implements ImportComputer {
 
     private static class PerPackage {
         final List<TypeInfo> types = new LinkedList<>();
+
+        @Override
+        public String toString() {
+            return types.toString();
+        }
     }
 
-    public Result go(TypeInfo typeInfo, Qualification q) {
-        Set<TypeInfo> typesReferenced = typeInfo.typesReferenced()
-                .filter(Element.TypeReference::explicit)
-                .map(Element.TypeReference::typeInfo)
-                .map(TypeInfo::primaryType)
-                .filter(ImportComputerImpl::allowInImport)
-                .collect(Collectors.toSet());
-        Map<String, PerPackage> typesPerPackage = new HashMap<>();
+    public Result go(CompilationUnit compilationUnit, Qualification q) {
         QualificationImpl qualification;
         if (q == null) {
-            qualification = new QualificationImpl(false, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
+            qualification = new QualificationImpl(false,
+                    TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
         } else {
             qualification = new QualificationImpl(q.doNotQualifyImplicit(), q.typeNameRequired(), q.decorator());
         }
-        String myPackage = typeInfo.packageName();
+
+        /*
+        there are 2 mechanisms to determine imports: duplicate naming (addTypeReturnImport)
+        and TypeReferenceNature.FULLY_QUALIFIED.
+         */
+        Set<TypeInfo> typesReferenced = new HashSet<>();
+        compilationUnit.types().stream()
+                .flatMap(typeInfo -> typeInfo.typesReferenced(null))
+                .forEach(tr -> {
+                    TypeInfo primaryType = tr.typeInfo().primaryType();
+                    if (tr.requiresImport()) {
+                        if (allowInImport(primaryType)) {
+                            typesReferenced.add(primaryType);
+                        }
+                    } else if (tr.typeReferenceNature() == Element.TypeReferenceNature.FULLY_QUALIFIED) {
+                        qualification.addTypeNotImported(primaryType);
+                    }
+                });
+        LOGGER.debug("Types referenced in {}: {}", compilationUnit, typesReferenced);
+
+        String myPackage = compilationUnit.packageName();
+        Map<String, PerPackage> typesPerPackage = new HashMap<>();
         typesReferenced.forEach(ti -> {
             String packageName = ti.packageName();
             if (packageName != null && !myPackage.equals(packageName)) {
                 boolean doImport = qualification.addTypeReturnImport(ti);
+                LOGGER.debug("Do import of {}? {}", ti, doImport);
                 if (doImport) {
                     PerPackage perPackage = typesPerPackage.computeIfAbsent(packageName, p -> new PerPackage());
                     perPackage.types.add(ti);
                 }
             }
         });
+        LOGGER.debug("Types per package: {}", typesPerPackage);
+        Map<String, List<Comment>> originalComments = compilationUnit
+                .importStatements().stream()
+                .collect(Collectors.toUnmodifiableMap(ImportStatement::importString, Element::comments));
+
         // IMPROVE static fields and methods
         // IMPROVE order of imports: for now, we simply do alphabetic, and ensure there are no conflicts
-        Set<String> imports = new TreeSet<>();
+        List<ImportDetails> imports = new ArrayList<>();
         for (Map.Entry<String, PerPackage> e : typesPerPackage.entrySet()) {
             PerPackage perPackage = e.getValue();
             if (perPackage.types.size() < minStar || conflict(e.getKey(), typesReferenced)) {
                 for (TypeInfo ti : perPackage.types) {
-                    imports.add(ti.fullyQualifiedName());
+                    String importString = ti.fullyQualifiedName();
+                    imports.add(new ImportDetails(importString, originalComments.getOrDefault(importString, List.of())));
                 }
             } else {
-                imports.add(perPackage.types.getFirst().packageName() + ".*");
+                List<Comment> comments = perPackage.types.stream().flatMap(ti ->
+                                originalComments.getOrDefault(ti.fullyQualifiedName(), List.of()).stream())
+                        .toList();
+                imports.add(new ImportDetails(perPackage.types.getFirst().packageName() + ".*", comments));
             }
         }
+        imports.sort(Comparator.comparing(ImportDetails::importString));
         return new Result(imports, qualification);
     }
 

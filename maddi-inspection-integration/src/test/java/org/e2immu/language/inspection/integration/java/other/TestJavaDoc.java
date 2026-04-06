@@ -40,8 +40,9 @@ public class TestJavaDoc extends CommonTest {
                  * @return 
                  * @throws IndexOutOfBoundsException
                  */
+            
                 public String method(String in, int len) {
-                    if(len < 0 || len >= in.length()) throw new IndexOutOfBoundsException();
+                    if(len < 0 ||len >= in.length()) { throw new IndexOutOfBoundsException(); }
                     return in.substring(len);
                 }
             }
@@ -61,25 +62,7 @@ public class TestJavaDoc extends CommonTest {
         assertEquals("a.b.X.method(String,int):1:len", t1.resolvedReference().toString());
         assertEquals("6-15:6-17", t1.sourceOfReference().compact2());
 
-        @Language("java")
-        String expected = """
-                package a.b;
-                class X {
-                    /**
-                    *
-                    * @param in
-                    * @param len length of in
-                    * @return
-                    * @throws IndexOutOfBoundsException
-                    */
-                
-                    public String method(String in, int len) {
-                        if(len < 0 ||len >= in.length()) { throw new IndexOutOfBoundsException(); }
-                        return in.substring(len);
-                    }
-                }
-                """;
-        assertEquals(expected, javaInspector.print2(typeInfo));
+        assertEquals(INPUT1, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
     @Language("java")
@@ -93,8 +76,9 @@ public class TestJavaDoc extends CommonTest {
                  * @return 
                  * @throws IndexOutOfBoundsException
                  */
+                
                 public String method(String in, int len) {
-                    if(len < 0 || len >= in.length()) throw new IndexOutOfBoundsException();
+                    if(len < 0 ||len >= in.length()) { throw new IndexOutOfBoundsException(); }
                     return in.substring(len);
                 }
             }
@@ -110,6 +94,8 @@ public class TestJavaDoc extends CommonTest {
         JavaDoc.Tag link = javaDoc.tags().getFirst();
         assertEquals("X#method(String,int", link.content());
         assertNull(link.resolvedReference());
+
+        assertEquals(INPUT2, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
 
@@ -190,7 +176,8 @@ public class TestJavaDoc extends CommonTest {
                 /**
                  * {@link java.util.LinkedList}
                  */
-                public void method(){
+                
+                public void method() {
                     // empty
                 }
             }
@@ -202,15 +189,19 @@ public class TestJavaDoc extends CommonTest {
         assertNull(typeInfo.javaDoc());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
         assertEquals(1, methodInfo.javaDoc().tags().size());
+        assertEquals("*\n     * {@link java.util.LinkedList}", methodInfo.javaDoc().comment());
         JavaDoc.Tag tag = methodInfo.javaDoc().tags().getFirst();
         assertEquals("java.util.LinkedList", tag.resolvedReference().toString());
         assertEquals("""
-                [TypeReference[typeInfo=void, explicit=true], TypeReference[typeInfo=java.util.LinkedList, explicit=true]]\
-                """, methodInfo.typesReferenced().toList().toString());
+                [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=java.util.LinkedList, typeReferenceNature=FULLY_QUALIFIED]]\
+                """, methodInfo.typesReferenced(null).toList().toString());
         DetailedSources detailedSources = tag.source().detailedSources();
         assertNotNull(detailedSources);
         assertEquals("4-15:4-34", detailedSources.detail(tag.resolvedReference()).compact2());
         assertEquals("4-15:4-23", detailedSources.detail(((TypeInfo) tag.resolvedReference()).packageName()).compact2());
+
+        assertEquals(INPUT4, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
 
@@ -226,9 +217,7 @@ public class TestJavaDoc extends CommonTest {
                  * @return
                  */
                 @Override
-                int method(String s) {
-                   return s.length() + 10;
-                }
+                int method(String s) { return s.length() + 10; }
             }
             """;
 
@@ -270,6 +259,8 @@ public class TestJavaDoc extends CommonTest {
             assertEquals("6-34:6-47", detailedSources.detail(element).compact2());
             assertEquals("6-34:6-39", detailedSources.detail(element.name()).compact2());
         }
+
+        assertEquals(INPUT5, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
 
@@ -314,6 +305,7 @@ public class TestJavaDoc extends CommonTest {
             assertEquals("5-30:5-34", detailedSources.detail(object).compact2());
             assertEquals("5-30:5-34", detailedSources.detail(object.name()).compact2());
         }
+        assertEquals(INPUT6, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
     @Language("java")
@@ -323,6 +315,8 @@ public class TestJavaDoc extends CommonTest {
                 /**
                  * @see java.util.LinkedList
                  * @link #field
+                 * @link X#field
+                 * @link a.b.X#field
                  */
                 public void method(){
                     // empty
@@ -336,30 +330,50 @@ public class TestJavaDoc extends CommonTest {
         TypeInfo typeInfo = javaInspector.parse(INPUT7, JavaInspectorImpl.DETAILED_SOURCES);
         assertNull(typeInfo.javaDoc());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
-        assertEquals(2, methodInfo.javaDoc().tags().size());
+        assertEquals(4, methodInfo.javaDoc().tags().size());
         {
             JavaDoc.Tag tag = methodInfo.javaDoc().tags().getFirst();
             assertSame(JavaDoc.TagIdentifier.SEE, tag.identifier());
             assertEquals("java.util.LinkedList", tag.content());
             assertEquals("java.util.LinkedList", tag.resolvedReference().toString());
             assertEquals("""
-                    [TypeReference[typeInfo=void, explicit=true], \
-                    TypeReference[typeInfo=java.util.LinkedList, explicit=true], \
-                    TypeReference[typeInfo=a.b.X, explicit=false]]\
-                    """, methodInfo.typesReferenced().toList().toString());
+                    [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
+                    TypeReference[typeInfo=java.util.LinkedList, typeReferenceNature=FULLY_QUALIFIED], \
+                    TypeReference[typeInfo=a.b.X, typeReferenceNature=IMPLICIT], \
+                    TypeReference[typeInfo=a.b.X, typeReferenceNature=EXPLICIT], \
+                    TypeReference[typeInfo=a.b.X, typeReferenceNature=FULLY_QUALIFIED]]\
+                    """, methodInfo.typesReferenced(null).toList().toString());
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);
             assertEquals("4-13:4-32", detailedSources.detail(tag.resolvedReference()).compact2());
             assertEquals("4-13:4-21", detailedSources.detail(((TypeInfo) tag.resolvedReference()).packageName()).compact2());
         }
         {
-            JavaDoc.Tag tag = methodInfo.javaDoc().tags().getLast();
+            JavaDoc.Tag tag = methodInfo.javaDoc().tags().get(1);
             assertSame(JavaDoc.TagIdentifier.LINK, tag.identifier());
             assertEquals("#field", tag.content());
             assertEquals("a.b.X.field", tag.resolvedReference().toString());
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);
             assertEquals("5-15:5-19", detailedSources.detail(tag.resolvedReference()).compact2());
+        }
+        {
+            JavaDoc.Tag tag = methodInfo.javaDoc().tags().get(2);
+            assertSame(JavaDoc.TagIdentifier.LINK, tag.identifier());
+            assertEquals("X#field", tag.content());
+            assertEquals("a.b.X.field", tag.resolvedReference().toString());
+            DetailedSources detailedSources = tag.source().detailedSources();
+            assertNotNull(detailedSources);
+            assertEquals("6-16:6-20", detailedSources.detail(tag.resolvedReference()).compact2());
+        }
+        {
+            JavaDoc.Tag tag = methodInfo.javaDoc().tags().getLast();
+            assertSame(JavaDoc.TagIdentifier.LINK, tag.identifier());
+            assertEquals("a.b.X#field", tag.content());
+            assertEquals("a.b.X.field", tag.resolvedReference().toString());
+            DetailedSources detailedSources = tag.source().detailedSources();
+            assertNotNull(detailedSources);
+            assertEquals("7-20:7-24", detailedSources.detail(tag.resolvedReference()).compact2());
         }
     }
 

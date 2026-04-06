@@ -45,7 +45,7 @@ public class TestPackageInfo {
                 .findType("org.e2immu.language.inspection.integration.java.importhelper.package-info");
         assertNotNull(packageInfo);
         assertTrue(packageInfo.typeNature().isPackageInfo());
-        String printed = javaInspector.print2(packageInfo);
+        String printed = javaInspector.print2(packageInfo.compilationUnit());
 
         assertTrue(printed.startsWith("@Docstrings( {"));
     }

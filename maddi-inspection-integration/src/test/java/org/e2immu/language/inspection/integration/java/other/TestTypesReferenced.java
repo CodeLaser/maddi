@@ -38,15 +38,17 @@ public class TestTypesReferenced extends CommonTest {
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1);
         assertEquals("""
-                [TypeReference[typeInfo=java.lang.annotation.Annotation, explicit=true], \
-                TypeReference[typeInfo=java.lang.annotation.Annotation, explicit=true]]\
-                """, typeInfo.typesReferenced().toList().toString());
+                [TypeReference[typeInfo=java.lang.annotation.Annotation, typeReferenceNature=IMPLICIT], \
+                TypeReference[typeInfo=a.b.X.Y, typeReferenceNature=IMPLICIT], \
+                TypeReference[typeInfo=java.lang.annotation.Annotation, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=a.b.X.Y, typeReferenceNature=IMPLICIT]]\
+                """, typeInfo.typesReferenced(null).toList().toString());
         // FIXME PRINT space in front of {A
         String expect = """
                 package a.b;
                 import java.lang.annotation.Annotation;
                 class X { interface Y<A extends Annotation> {A supply(); } }
                 """;
-        assertEquals(expect, javaInspector.print2(typeInfo));
+        assertEquals(expect, javaInspector.print2(typeInfo.compilationUnit()));
     }
 }

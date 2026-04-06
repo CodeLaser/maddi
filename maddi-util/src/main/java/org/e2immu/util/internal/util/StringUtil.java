@@ -97,6 +97,11 @@ public class StringUtil {
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
+    public static String decapitalize(String name) {
+        assert name != null && !name.isEmpty();
+        return Character.toLowerCase(name.charAt(0)) + name.substring(1);
+    }
+
     public static String replaceLastDigitsBy(String s, String by) {
         StringBuilder sb = new StringBuilder(s);
         while (!sb.isEmpty() && Character.isDigit(sb.charAt(sb.length() - 1))) {

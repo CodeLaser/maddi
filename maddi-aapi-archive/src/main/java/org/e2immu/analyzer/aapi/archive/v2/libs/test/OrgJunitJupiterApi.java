@@ -844,11 +844,11 @@ public class OrgJunitJupiterApi {
             /*@IgnoreModifications[T]*/ Supplier<String> messageSupplier) { return null; }
 
         //@Independent[T]
-        static <T, E extends Throwable> T assertTimeoutPreemptively(
-            /*@Immutable[T] @Independent[T] @NotModified[T]*/ Duration timeout,
-            ThrowingSupplier<T> supplier,
-            /*@IgnoreModifications[T]*/ Supplier<String> messageSupplier,
-            Assertions.TimeoutFailureFactory<E> failureFactory) { return null; }
+       // static <T, E extends Throwable> T assertTimeoutPreemptively(
+       //     /*@Immutable[T] @Independent[T] @NotModified[T]*/ Duration timeout,
+       //     ThrowingSupplier<T> supplier,
+       //     /*@IgnoreModifications[T]*/ Supplier<String> messageSupplier,
+       //     Assertions.TimeoutFailureFactory<E> failureFactory) { return null; }
 
         //@Independent[T]
         static <T> T assertInstanceOf(

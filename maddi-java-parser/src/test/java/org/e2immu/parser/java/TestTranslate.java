@@ -51,8 +51,8 @@ public class TestTranslate extends CommonTestParse {
         TranslationMap tm = runtime.newTranslationMapBuilder()
                 .put(typeInfo.asSimpleParameterizedType(), cc.asSimpleParameterizedType())
                 .build();
-        MethodInfo ccPrint = print.translate(tm).get(0);
-        if (ccPrint.methodBody().statements().get(0) instanceof ReturnStatement rs) {
+        MethodInfo ccPrint = print.translate(tm).getFirst();
+        if (ccPrint.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
             if (rs.expression() instanceof BinaryOperator bo) {
                 if (bo.rhs() instanceof VariableExpression ve
                     && ve.variable() instanceof FieldReference fr
@@ -69,6 +69,7 @@ public class TestTranslate extends CommonTestParse {
         } else fail();
         cc.builder().addMethod(ccPrint);
 
-        assertEquals("class CC{String print(){return this.s+C.S;}}", cc.print(runtime.qualificationQualifyFromPrimaryType()).toString());
+        assertEquals("class CC{String print(){return this.s+CC.S;}}",
+                cc.print(runtime.qualificationQualifyFromPrimaryType()).toString());
     }
 }

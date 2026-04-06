@@ -16,6 +16,7 @@ package org.e2immu.language.inspection.api.parser;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -52,7 +53,7 @@ public interface Context {
 
     ForwardType newForwardType(ParameterizedType parameterizedType,
                                boolean erasure, Map<NamedType,
-            ParameterizedType> typeParameterMap);
+                    ParameterizedType> typeParameterMap);
 
     Context newAnonymousClassBody(TypeInfo anonymousType);
 
@@ -85,4 +86,11 @@ public interface Context {
     DetailedSources.Builder newDetailedSourcesBuilder();
 
     Context withEnclosingMethod(MethodInfo methodInfo);
+
+    // to transfer trailing comments to the correct field
+
+    void blockComment(Source source);
+
+    boolean commentIsBlocked(Source source);
+
 }

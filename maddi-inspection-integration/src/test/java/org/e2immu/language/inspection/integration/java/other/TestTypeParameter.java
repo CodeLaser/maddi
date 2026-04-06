@@ -397,7 +397,7 @@ public class TestTypeParameter extends CommonTest {
             ParameterizedType tb = tp0.typeBounds().getFirst();
             assertEquals("Type a.b.X<T extends a.b.X<T>>", tb.toString());
 
-            String print = javaInspector.print2(typeInfo);
+            String print = javaInspector.print2(typeInfo.compilationUnit());
             String expect = """
                     package a.b;
                     class X<T extends X<T>> {

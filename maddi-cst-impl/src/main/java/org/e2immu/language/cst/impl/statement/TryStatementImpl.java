@@ -78,8 +78,8 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
                     .map(z -> z.x().withBlock(z.y()))
                     .collect(TranslationMap.staticToList(catchClauses));
         }
-        return new TryStatementImpl(comments(), source(), annotations(), label(), resources, tSubBlocks.get(0),
-                tCatchClauses, tSubBlocks.get(tSubBlocks.size() - 1));
+        return new TryStatementImpl(comments(), source(), annotations(), label(), resources, tSubBlocks.getFirst(),
+                tCatchClauses, tSubBlocks.getLast());
     }
 
     public static class CatchClauseImpl extends ElementImpl implements CatchClause {
@@ -195,10 +195,10 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
         }
 
         @Override
-        public Stream<Element.TypeReference> typesReferenced() {
-            return Stream.concat(exceptionTypes.stream()
-                            .map(et -> new ElementImpl.TypeReference(et.typeInfo(), true)),
-                    block.typesReferenced());
+        public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+            return Stream.concat(exceptionTypes.stream().flatMap(et ->
+                            et.typesReferenced(TypeReferenceNature.EXPLICIT, source.detailedSources())),
+                    block.typesReferenced(predicate));
         }
 
         @Override
@@ -227,11 +227,11 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
         public CatchClause translate(TranslationMap translationMap) {
             List<ParameterizedType> list = exceptionTypes.stream()
                     .map(translationMap::translateType).collect(translationMap.toList(exceptionTypes));
-            Block tBlock = (Block) block.translate(translationMap).get(0);
+            Block tBlock = (Block) block.translate(translationMap).getFirst();
             if (list != exceptionTypes || tBlock != block || translationMap.isClearAnalysis()) {
                 CatchClause cc = new CatchClauseImpl(comments, source, annotations, list, isFinal, catchVariable, tBlock);
                 if (!translationMap.isClearAnalysis()) cc.analysis().setAll(analysis());
-                return cc;
+                return translationMap.postTranslationHandler(this, cc);
             }
             return this;
         }
@@ -356,7 +356,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
     public OutputBuilder print(Qualification qualification) {
         OutputBuilder outputBuilder = outputBuilder(qualification).add(KeywordImpl.TRY);
         if (!resources.isEmpty()) {
-            Statement last = resources.get(resources.size() - 1);
+            Statement last = resources.getLast();
             outputBuilder.add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(resources.stream().map(st -> {
                                 OutputBuilder ob = st.print(qualification);
@@ -401,10 +401,11 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(resources.stream().flatMap(Element::typesReferenced),
-                Stream.concat(block.typesReferenced(), Stream.concat(catchClauses.stream().flatMap(CatchClause::typesReferenced),
-                        finallyBlock.typesReferenced())));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(resources.stream().flatMap(statement -> statement.typesReferenced(predicate)),
+                Stream.concat(block.typesReferenced(predicate), Stream.concat(catchClauses.stream().flatMap(catchClause -> catchClause.typesReferenced(predicate)),
+                        finallyBlock.typesReferenced(predicate))));
     }
 
     @Override
@@ -421,12 +422,12 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
     public List<Statement> translate(TranslationMap translationMap) {
         List<Statement> direct = translationMap.translateStatement(this);
         if (hasBeenTranslated(direct, this)) return direct;
-        Block tMain = (Block) block.translate(translationMap).get(0);
-        Block tFinally = (Block) finallyBlock.translate(translationMap).get(0);
+        Block tMain = (Block) block.translate(translationMap).getFirst();
+        Block tFinally = (Block) finallyBlock.translate(translationMap).getFirst();
         List<Statement> tResources = resources.stream()
                 .map(st -> {
                     List<Statement> translated = st.translate(translationMap);
-                    return translated.isEmpty() ? null : translated.get(0);
+                    return translated.isEmpty() ? null : translated.getFirst();
                 })
                 .filter(Objects::nonNull)
                 .collect(translationMap.toList(resources));
@@ -440,7 +441,7 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
             TryStatementImpl ts = new TryStatementImpl(comments(), source(), tAnnotations, label(), tResources,
                     tMain, tCatch, tFinally);
             if (!translationMap.isClearAnalysis()) ts.analysis().setAll(analysis());
-            return List.of(ts);
+            return translationMap.postTranslationHandler(this, List.of(ts));
         }
         return List.of(this);
     }

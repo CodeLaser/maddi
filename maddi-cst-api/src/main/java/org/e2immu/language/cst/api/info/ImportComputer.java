@@ -14,13 +14,30 @@
 
 package org.e2immu.language.cst.api.info;
 
+import org.e2immu.language.cst.api.element.Comment;
+import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.output.Qualification;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public interface ImportComputer {
-    record Result(Set<String> imports, Qualification qualification) {
+    record ImportDetails(String importString, List<Comment> comments) {
+        @Override
+        public boolean equals(Object object) {
+            if (!(object instanceof ImportDetails that)) return false;
+            return Objects.equals(importString(), that.importString());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(importString());
+        }
     }
 
-    Result go(TypeInfo typeInfo, Qualification qualification);
+    record Result(List<ImportDetails> imports, Qualification qualification) {
+    }
+
+    Result go(CompilationUnit compilationUnit, Qualification qualification);
 }

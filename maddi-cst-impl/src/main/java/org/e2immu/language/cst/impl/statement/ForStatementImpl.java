@@ -191,12 +191,13 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.concat(
-                Stream.concat(initializers.stream().flatMap(Element::typesReferenced),
-                        expression.typesReferenced()),
-                Stream.concat(updaters.stream().flatMap(Expression::typesReferenced),
-                        block.typesReferenced()));
+                Stream.concat(initializers.stream().flatMap(element -> element.typesReferenced(predicate)),
+                        expression.typesReferenced(predicate)),
+                Stream.concat(updaters.stream().flatMap(expression1 -> expression1.typesReferenced(predicate)),
+                        block.typesReferenced(predicate)));
     }
 
     @Override
@@ -220,7 +221,7 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
         ForStatementImpl fs = new ForStatementImpl(comments(), source(), tAnnotations, label(), initializers,
                 tex, updaters, ensureBlock(translatedBlock));
         if (!translationMap.isClearAnalysis()) fs.analysis().setAll(analysis());
-        return List.of(fs);
+        return translationMap.postTranslationHandler(this, List.of(fs));
     }
 
     @Override

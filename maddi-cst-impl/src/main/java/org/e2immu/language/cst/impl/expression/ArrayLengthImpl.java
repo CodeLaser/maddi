@@ -143,8 +143,9 @@ public class ArrayLengthImpl extends ExpressionImpl implements ArrayLength {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return scope.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return scope.typesReferenced(predicate);
     }
 
     @Override
@@ -154,7 +155,8 @@ public class ArrayLengthImpl extends ExpressionImpl implements ArrayLength {
 
         Expression translatedScope = scope.translate(translationMap);
         if (translatedScope == scope) return this;
-        return new ArrayLengthImpl(comments(), source(), intPt, translatedScope);
+        ArrayLength result = new ArrayLengthImpl(comments(), source(), intPt, translatedScope);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

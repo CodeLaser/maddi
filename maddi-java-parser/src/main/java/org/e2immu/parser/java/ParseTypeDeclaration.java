@@ -456,6 +456,13 @@ public class ParseTypeDeclaration extends CommonParse {
         newContext.resolver().add(builder);
 
         /*
+        trailing comments in the body
+         */
+        Node lastChild = body.getLastChild();
+        if (lastChild instanceof Delimiter) {
+            builder.addTrailingComments(comments(lastChild));
+        }
+        /*
         Ensure a constructor when the type is a record and there are no compact constructors.
         (those without arguments, as in 'public record SomeRecord(...) { public Record { this.field = } ... }' )
         and also no default constructor override.
@@ -610,7 +617,6 @@ public class ParseTypeDeclaration extends CommonParse {
                    List<RecordField> recordFields,
                    Lombok.Data lombokData) {
         List<TypeDeclaration> typeDeclarations = new ArrayList<>();
-        List<FieldDeclaration> fieldDeclarations = new ArrayList<>();
         int countNormalConstructors = 0;
         int countInitializers = 0;
 
@@ -619,7 +625,7 @@ public class ParseTypeDeclaration extends CommonParse {
                 if (child instanceof TypeDeclaration cid) typeDeclarations.add(cid);
                 else if (child instanceof ConstructorDeclaration) {
                     ++countNormalConstructors;
-                } else if (child instanceof FieldDeclaration fd) fieldDeclarations.add(fd);
+                }
             }
         }
 
@@ -627,17 +633,22 @@ public class ParseTypeDeclaration extends CommonParse {
         // scan phase
 
         for (TypeDeclaration typeDeclaration : typeDeclarations) {
-            TypeInfo subTypeInfo = parse(newContext, Either.right(typeInfo), typeDeclaration,
-                    false).getLeft();
+            Either<TypeInfo, DelayedParsingInformation> parsed = parse(newContext, Either.right(typeInfo),
+                    typeDeclaration, false);
+            assert parsed.isLeft();
+            TypeInfo subTypeInfo = parsed.getLeft();
             // for the rest of the body
             newContext.typeContext().addToContext(subTypeInfo, SUBTYPE_PRIORITY);
         }
 
-        // THEN, all sorts of methods and constructors
+        // THEN, fields, methods and constructors, in order of appearance
+        // the order helps to move trailing single line comments to the correct field (see integration.TestField)
 
         for (Node child : body.children()) {
             if (!(child instanceof EmptyDeclaration)) {
-                if (child instanceof MethodDeclaration md) {
+                if (child instanceof FieldDeclaration fd) {
+                    parsers.parseFieldDeclaration().parse(newContext, fd, lombokData).forEach(builder::addField);
+                } else if (child instanceof MethodDeclaration md) {
                     MethodInfo methodInfo = parsers.parseMethodDeclaration().parse(newContext, md, null);
                     if (methodInfo != null) {
                         builder.addMethod(methodInfo);
@@ -680,15 +691,9 @@ public class ParseTypeDeclaration extends CommonParse {
                 }
             }
         }
-
         if (countNormalConstructors == 0 && (typeNature.isClass() || typeNature.isEnum())) {
             boolean privateEmptyConstructor = typeNature.isEnum();
             builder.addConstructor(createEmptyConstructor(typeInfo, privateEmptyConstructor));
-        }
-
-        // FINALLY, do the fields
-        for (FieldDeclaration fieldDeclaration : fieldDeclarations) {
-            parsers.parseFieldDeclaration().parse(newContext, fieldDeclaration, lombokData).forEach(builder::addField);
         }
     }
 

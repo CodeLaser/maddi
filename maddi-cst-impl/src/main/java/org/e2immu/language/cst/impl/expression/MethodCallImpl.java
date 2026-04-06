@@ -218,6 +218,12 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
 
     @Override
     public MethodCall withObject(Expression object) {
+        return new MethodCallImpl(comments(), source(), object, object == null, methodInfo, parameterExpressions,
+                concreteReturnType, typeArguments, modificationTimes, propertyValueMap);
+    }
+
+    @Override
+    public MethodCall withObject(Expression object, boolean objectIsImplicit) {
         return new MethodCallImpl(comments(), source(), object, objectIsImplicit, methodInfo, parameterExpressions,
                 concreteReturnType, typeArguments, modificationTimes, propertyValueMap);
     }
@@ -289,8 +295,10 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
             methodName = methodInfo.name();
         }
 
-        if (objectIsImplicit && qualification.doNotQualifyImplicit()) {
+        // TODO ideally we use static imports in implicit static cases
+        if (objectIsImplicit && qualification.doNotQualifyImplicit() && !methodInfo.isStatic()) {
             outputBuilder.add(new TextImpl(methodName));
+            if (guideGenerator != null) start = true;
         } else {
             VariableExpression ve;
             MethodCall methodCall;
@@ -327,10 +335,10 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
                 TypeName typeName = TypeNameImpl.typeName(thisVar.typeInfo(),
                         qualification.qualifierRequired(thisVar.typeInfo()), false);
                 ThisName thisName = new ThisNameImpl(thisVar.writeSuper(), typeName,
-                        qualification.qualifierRequired(thisVar));
-                boolean qualifierRequired = qualification.qualifierRequired(methodInfo);
+                        qualification.qualifierRequired(thisVar) && thisVar.explicitlyWriteType() != null);
+                boolean qualifierRequired = qualification.qualifierRequired(methodInfo) && !objectIsImplicit;
                 outputBuilder.add(new QualifiedNameImpl(methodName, thisName,
-                        qualifierRequired ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
+                        qualifierRequired || thisVar.writeSuper() ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
                 if (guideGenerator != null) start = true;
             } else {
                 // next level is NOT a gg; if gg != null we're at the start of the chain
@@ -367,10 +375,12 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(typeArguments.stream().flatMap(ParameterizedType::typesReferencedMadeExplicit),
-                Stream.concat(object.typesReferenced(),
-                        parameterExpressions.stream().flatMap(Expression::typesReferenced)));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(typeArguments.stream().flatMap(pt ->
+                        pt.typesReferenced(TypeReferenceNature.EXPLICIT, source().detailedSources())),
+                Stream.concat(object.typesReferenced(predicate),
+                        parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate))));
     }
 
     @Override
@@ -378,7 +388,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
         Expression asExpression = translationMap.translateExpression(this);
         if (asExpression != this) return asExpression;
 
-        List<MethodInfo> translatedMethod = translationMap.translateMethod(methodInfo);
+        MethodInfo translatedMethod = translationMap.translateMethodInfo(methodInfo);
         Expression translatedObject = object.translate(translationMap);
         ParameterizedType translatedReturnType = translationMap.translateType(concreteReturnType);
         List<Expression> translatedParameters = parameterExpressions.isEmpty() ? parameterExpressions :
@@ -391,7 +401,8 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
         String newModificationTimes = Objects.requireNonNullElse(
                 translationMap.modificationTimes(this, translatedObject, translatedParameters),
                 modificationTimes);
-        if (translatedMethod.size() == 1 && translatedMethod.getFirst() == methodInfo && translatedObject == object
+        if (translatedMethod == methodInfo
+            && translatedObject == object
             && translatedReturnType == concreteReturnType
             && translatedParameters == parameterExpressions
             && newModificationTimes.equals(modificationTimes)
@@ -400,12 +411,15 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
             return this;
         }
         MethodCall translatedMc = new MethodCallImpl(comments(), source(), translatedObject, objectIsImplicit,
-                translatedMethod.getFirst(), translatedParameters, translatedReturnType, trTypeArgs, newModificationTimes,
+                translatedMethod, translatedParameters, translatedReturnType, trTypeArgs, newModificationTimes,
                 translationMap.isClearAnalysis() ? new PropertyValueMapImpl() : propertyValueMap);
+        Expression result;
         if (translationMap.translateAgain() && !this.equals(translatedMc)) {
-            return translatedMc.translate(translationMap);
+            result = translatedMc.translate(translationMap);
+        } else {
+            result = translatedMc;
         }
-        return translatedMc;
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

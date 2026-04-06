@@ -231,10 +231,12 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        Stream<Element.TypeReference> trStream = localVariable.parameterizedType().typesReferencedMadeExplicit();
-        return Stream.concat(trStream, Stream.concat(localVariable.assignmentExpression().typesReferenced(),
-                otherLocalVariables.stream().flatMap(lv -> lv.assignmentExpression().typesReferenced())));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        Stream<Element.TypeReference> trStream = localVariable.parameterizedType()
+                .typesReferenced(TypeReferenceNature.EXPLICIT, source() == null ? null : source().detailedSources());
+        return Stream.concat(trStream, Stream.concat(localVariable.assignmentExpression().typesReferenced(predicate),
+                otherLocalVariables.stream().flatMap(lv -> lv.assignmentExpression().typesReferenced(predicate))));
     }
 
     @Override
@@ -256,7 +258,7 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
             LocalVariableCreationImpl newLvc = new LocalVariableCreationImpl(comments(), source(), tAnnotations,
                     label(), tlv, tList, modifiers);
             if (!translationMap.isClearAnalysis()) newLvc.analysis().setAll(analysis());
-            return List.of(newLvc);
+            return translationMap.postTranslationHandler(this, List.of(newLvc));
         }
         return List.of(this);
     }

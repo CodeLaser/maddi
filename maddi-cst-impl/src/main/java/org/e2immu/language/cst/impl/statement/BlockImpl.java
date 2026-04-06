@@ -122,8 +122,9 @@ public class BlockImpl extends StatementImpl implements Block {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return statements.stream().flatMap(Statement::typesReferenced);
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return statements.stream().flatMap(statement -> statement.typesReferenced(predicate));
     }
 
     public static class Builder extends StatementImpl.Builder<Block.Builder> implements Block.Builder {
@@ -185,7 +186,7 @@ public class BlockImpl extends StatementImpl implements Block {
 
     @Override
     public Statement withBlocks(List<Block> tSubBlocks) {
-        return tSubBlocks.get(0);
+        return tSubBlocks.getFirst();
     }
 
     @Override
@@ -197,7 +198,7 @@ public class BlockImpl extends StatementImpl implements Block {
     public List<Statement> translate(TranslationMap translationMap) {
         List<Statement> direct = translationMap.translateStatement(this);
         if (hasBeenTranslated(direct, this)) {
-            assert direct.size() == 1 && direct.get(0) instanceof Block;
+            assert direct.size() == 1 && direct.getFirst() instanceof Block;
             return direct;
         }
         boolean change = !analysis().isEmpty() && translationMap.isClearAnalysis();
@@ -205,14 +206,14 @@ public class BlockImpl extends StatementImpl implements Block {
         for (Statement statement : statements) {
             List<Statement> tStatement = statement.translate(translationMap);
             tStatements.addAll(tStatement);
-            change |= tStatement.size() != 1 || tStatement.get(0) != statement;
+            change |= tStatement.size() != 1 || tStatement.getFirst() != statement;
         }
         List<AnnotationExpression> tAnnotations = translateAnnotations(translationMap);
         change |= tAnnotations != annotations();
         if (change) {
             Block newB = new BlockImpl(comments(), source(), tAnnotations, label(), tStatements, trailingComments);
             if (!translationMap.isClearAnalysis()) newB.analysis().setAll(analysis());
-            return List.of(newB);
+            return translationMap.postTranslationHandler(this, List.of(newB));
         }
         return List.of(this);
     }

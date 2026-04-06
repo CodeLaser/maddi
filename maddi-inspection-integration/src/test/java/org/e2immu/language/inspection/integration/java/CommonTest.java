@@ -16,6 +16,7 @@ package org.e2immu.language.inspection.integration.java;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
@@ -31,6 +32,7 @@ import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_W
 
 public abstract class CommonTest {
     protected JavaInspector javaInspector;
+    protected Runtime runtime;
     protected final boolean allowCreationOfStubTypes;
 
     protected CommonTest() {
@@ -44,6 +46,7 @@ public abstract class CommonTest {
     @BeforeAll
     public static void beforeAll() {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
+        ((Logger) LoggerFactory.getLogger("org.e2immu.language.cst.impl")).setLevel(Level.DEBUG);
     }
 
     @BeforeEach
@@ -66,6 +69,7 @@ public abstract class CommonTest {
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/springframework/core")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/springframework/test")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "lombok")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "org/mockito")
                 .build();
         javaInspector.initialize(inputConfiguration);
         javaInspector.parse(new JavaInspectorImpl.ParseOptionsBuilder()
@@ -73,5 +77,6 @@ public abstract class CommonTest {
                 .setLombok(false)
                 .setDetailedSources(true).build());
         javaInspector.javaBase().computePriorityDependencies();
+        runtime = javaInspector.runtime();
     }
 }

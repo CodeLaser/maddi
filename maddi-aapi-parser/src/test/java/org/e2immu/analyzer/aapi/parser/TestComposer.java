@@ -136,7 +136,7 @@ public class TestComposer {
                     }
                 }
                 """;
-        assertEquals(expected, javaInspector.print2(res.stream().findFirst().orElseThrow()));
+        assertEquals(expected, javaInspector.print2(res.stream().findFirst().orElseThrow().compilationUnit()));
     }
 
 
@@ -164,7 +164,7 @@ public class TestComposer {
         assertEquals(1, res.size());
 
         TypeInfo typeInfo = res.stream().findFirst().orElseThrow();
-        String printed = javaInspector.print2(typeInfo);
+        String printed = javaInspector.print2(typeInfo.compilationUnit());
 
         TypeInfo arraysDollar = typeInfo.findSubType("Arrays$");
         MethodInfo parallelSortCopy = arraysDollar.methodStream()
@@ -216,7 +216,7 @@ public class TestComposer {
         assertEquals(1, res.size());
 
         TypeInfo typeInfo = res.stream().findFirst().orElseThrow();
-        String printed = javaInspector.print2(typeInfo);
+        String printed = javaInspector.print2(typeInfo.compilationUnit());
 
         TypeInfo commandLineDollar = typeInfo.findSubType("CommandLine$");
         MethodInfo callCopy = commandLineDollar.findUniqueMethod("call", 2);
@@ -272,7 +272,7 @@ public class TestComposer {
                 }
                 """;
         TypeInfo typeInfo = res.stream().findFirst().orElseThrow();
-        assertEquals(expected, javaInspector.print2(typeInfo));
+        assertEquals(expected, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
     @Test
@@ -319,6 +319,6 @@ public class TestComposer {
                 }
                 """;
         TypeInfo newType = res.stream().findFirst().orElseThrow();
-        assertEquals(expected, javaInspector.print2(newType));
+        assertEquals(expected, javaInspector.print2(newType.compilationUnit()));
     }
 }

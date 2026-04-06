@@ -118,19 +118,43 @@ public interface Element {
     @NotNull
     Stream<Variable> variableStreamDescend();
 
+    enum TypeReferenceNature {
+        IMPLICIT, EXPLICIT, FULLY_QUALIFIED;
+
+        public boolean isExplicit() {
+            return this != IMPLICIT;
+        }
+    }
+
     interface TypeReference {
-        /**
-         * @return true if the reference to the type is explicit, i.e., it must appear in an import statement
-         */
-        boolean explicit();
+
+        default boolean explicit() {
+            return typeReferenceNature() != TypeReferenceNature.IMPLICIT;
+        }
+
+        default boolean requiresImport() {
+            return typeReferenceNature() == TypeReferenceNature.EXPLICIT;
+        }
+
+        TypeReferenceNature typeReferenceNature();
 
         TypeInfo typeInfo();
 
-        TypeReference withExplicit();
+        TypeReference withNature(TypeReferenceNature typeReferenceNature);
     }
 
+    /**
+     * This method tries to find out whether the references are explicit or implicit, and, when explicit,
+     * whether they require an import or not.
+     * <p>
+     * To make the distinction between EXPLICIT and FQN for parameterized types contained in the element,
+     * the detailed sources of the element are inspected.
+     *
+     * @param predicate when not null, acts as a filter for recursion into sub-elements
+     * @return a stream of type references; may contain duplicates
+     */
     @NotNull
-    Stream<TypeReference> typesReferenced();
+    Stream<TypeReference> typesReferenced(Predicate<Element> predicate);
 
     default List<AnnotationExpression> annotations() {
         return List.of();
@@ -157,4 +181,7 @@ public interface Element {
         throw new UnsupportedOperationException();
     }
 
+    default boolean reject(Predicate<Element> predicate) {
+        return predicate != null && !predicate.test(this);
+    }
 }

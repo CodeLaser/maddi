@@ -31,7 +31,10 @@ import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.cst.impl.translate.TranslationMapImpl;
 import org.e2immu.support.EventuallyFinal;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -236,21 +239,18 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        return typesReferenced(true);
-    }
-
-    @Override
-    public Stream<TypeReference> typesReferenced(boolean includeBody) {
-        Stream<TypeReference> fromReturnType = returnType().typesReferencedMadeExplicit();
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
+        Stream<TypeReference> fromReturnType = returnType().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         Stream<TypeReference> fromParameters = parameters().stream().flatMap(ParameterInfo::explicitTypesReferenced);
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
-                .flatMap(tp -> tp.typesReferenced(true, new HashSet<>()));
-        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
+                .flatMap(typeParameter -> typeParameter.typesReferenced(predicate));
+        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
         Stream<TypeReference> fromExceptionTypes = exceptionTypes()
-                .stream().flatMap(ParameterizedType::typesReferencedMadeExplicit);
-        Stream<TypeReference> fromBody = includeBody ? methodBody().typesReferenced() : Stream.of();
-        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced();
+                .stream().flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
+        Stream<TypeReference> fromBody = methodBody().typesReferenced(predicate);
+        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced(predicate);
         return Stream.concat(fromReturnType, Stream.concat(fromParameters, Stream.concat(fromAnnotations,
                 Stream.concat(fromExceptionTypes, Stream.concat(fromTypeParameters, Stream.concat(fromJavaDoc, fromBody))))));
     }
@@ -540,8 +540,8 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
 
     @Override
     public List<MethodInfo> translate(TranslationMap translationMap) {
-        List<MethodInfo> direct = translationMap.translateMethod(this);
-        if (direct.size() != 1 || direct.get(0) != this) {
+        List<MethodInfo> direct = translationMap.translateMethodDeclaration(this);
+        if (direct.size() != 1 || direct.getFirst() != this) {
             return direct;
         }
         ParameterizedType tReturnType = translationMap.translateType(returnType());
@@ -556,7 +556,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
             translationMap.methodTranslationInfo(this, true, true);
             List<Statement> tBody = methodBody().translate(translationMap);
             translationMap.methodTranslationInfo(this, false, true);
-            change = tBody.size() != 1 || tBody.get(0) != methodBody();
+            change = tBody.size() != 1 || tBody.getFirst() != methodBody();
         }
 
         List<ParameterizedType> exceptionTypeList = exceptionTypes();
@@ -611,7 +611,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
             List<Statement> tBody = methodBody().translate(tmWithParameters);
             translationMap.methodTranslationInfo(this, false, false);
 
-            builder.setMethodBody((Block) tBody.get(0));
+            builder.setMethodBody((Block) tBody.getFirst());
 
             newExceptionTypes.forEach(builder::addExceptionType);
             builder.setReturnType(tReturnType);
@@ -619,7 +619,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
             if (!translationMap.isClearAnalysis()) {
                 methodInfo.analysis().setAll(analysis());
             }
-            return List.of(methodInfo);
+            return translationMap.postTranslationHandler(this, List.of(methodInfo));
         }
         return List.of(this);
     }
@@ -652,7 +652,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     public MethodInfo withMethodBody(Block newBody) {
         if (newBody == methodBody()) return this;
         TranslationMap tm = new TranslationMapImpl.Builder().put(methodBody(), newBody).build();
-        return translate(tm).get(0);
+        return translate(tm).getFirst();
     }
 
     @Override

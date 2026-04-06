@@ -16,6 +16,7 @@ package org.e2immu.language.inspection.integration.java.type;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -25,6 +26,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -210,7 +212,7 @@ public class TestTypeParameter extends CommonTest {
                 import org.e2immu.annotation.Container;
                 import org.e2immu.annotation.Independent;
                 class X { class Class$<@Independent @Container T> { } }
-                """, javaInspector.print2(typeInfo));
+                """, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
     @Language("java")
@@ -237,8 +239,11 @@ public class TestTypeParameter extends CommonTest {
                 package a.b;
                 import org.e2immu.annotation.Container;
                 import org.e2immu.annotation.Independent;
-                class X { private static final String COMMENT = "comment"; class Class$<@Independent@Container(comment = COMMENT) T> { } }
-                """, javaInspector.print2(typeInfo));
+                class X {
+                    private static final String COMMENT = "comment";
+                    class Class$<@Independent@Container(comment = X.COMMENT) T> { }
+                }
+                """, javaInspector.print2(typeInfo.compilationUnit()));
     }
 
 
@@ -298,5 +303,90 @@ public class TestTypeParameter extends CommonTest {
     @Test
     public void test7() {
         javaInspector.parse(INPUT7);
+    }
+
+
+    @Language("java")
+    public static final String INPUT8 = """
+            package a.b;
+            public class C {
+                interface A { }
+                interface B { }
+                class K { }
+                <T extends K & A & B> T method(T t) {
+                    return t;
+                }
+            }
+            """;
+
+    @Test
+    public void test8() {
+        TypeInfo C = javaInspector.parse(INPUT8, JavaInspectorImpl.DETAILED_SOURCES);
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        assertEquals("T extends a.b.C.K&a.b.C.A&a.b.C.B", method.returnType().detailedString());
+        List<ParameterizedType> bounds = method.returnType().typeParameter().typeBounds();
+        assertEquals(3, bounds.size());
+        assertEquals("6-6:6-24", method.typeParameters().getFirst().source().compact2());
+        DetailedSources ds = method.typeParameters().getFirst().source().detailedSources();
+        assertEquals("6-16:6-16", ds.detail(bounds.getFirst()).compact2());
+        assertEquals("6-20:6-20", ds.detail(bounds.get(1)).compact2());
+        assertEquals("6-24:6-24", ds.detail(bounds.getLast()).compact2());
+        assertEquals("[@6:18-6:18, @6:22-6:22]", ds.details(DetailedSources.TYPE_BOUND_AMPERSANDS).toString());
+    }
+
+
+    @Language("java")
+    public static final String INPUT9 = """
+            import java.util.Map;
+            import java.util.SortedMap;
+            import java.util.TreeMap;
+            
+            public class Function2414123_file1778122 {
+              public static double[][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
+                double[][] returnValue = new double[pairMap.size()][2];
+                SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number>(pairMap);
+                int i = 0;
+                for (Map.Entry<? extends Number, ? extends Number> entry : sortedMap.entrySet()) {
+                  returnValue[i] = new double[] {entry.getKey().doubleValue(), entry.getValue().doubleValue()};
+                  i++;
+                }
+                return returnValue;
+              }
+            }
+            """;
+
+
+    @Language("java")
+    public static final String OUTPUT9 = """
+            import java.util.Map;
+            import java.util.SortedMap;
+            import java.util.TreeMap;
+            public class Function2414123_file1778122 {
+                public static double [][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
+                    double [][] returnValue = new double[pairMap.size()][2];
+                    SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number> (pairMap);
+                    int i = 0;
+                    for(Map.Entry<? extends Number, ? extends Number> entry : sortedMap.entrySet()) {
+                        returnValue[i] = new double[] { entry.getKey().doubleValue(), entry.getValue().doubleValue() };
+                        i++;
+                    }
+                    return returnValue;
+                }
+            }
+            """;
+
+    @DisplayName("Cannot print ? extends Number in constructor type arguments")
+    @Test
+    public void test9() {
+        TypeInfo C = javaInspector.parse(INPUT9, JavaInspectorImpl.DETAILED_SOURCES);
+        MethodInfo method = C.findUniqueMethod("toDoubleArray", 1);
+        assertEquals("java.util.Map<? extends Number,? extends Number>",
+                method.parameters().getFirst().parameterizedType().detailedString());
+        LocalVariableCreation lvc1 = (LocalVariableCreation) method.methodBody().statements().get(1);
+        assertEquals("java.util.SortedMap<Number,Number>",
+                lvc1.localVariable().parameterizedType().detailedString());
+        ConstructorCall cc = (ConstructorCall) lvc1.localVariable().assignmentExpression();
+        assertEquals("java.util.TreeMap<Number,Number>", cc.parameterizedType().detailedString());
+        assertEquals(OUTPUT9, javaInspector.print2(C.compilationUnit()));
     }
 }

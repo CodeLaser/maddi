@@ -137,8 +137,9 @@ public class DoStatementImpl extends StatementImpl implements DoStatement {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(block.typesReferenced(), expression.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(block.typesReferenced(predicate), expression.typesReferenced(predicate));
     }
 
     @Override
@@ -155,7 +156,7 @@ public class DoStatementImpl extends StatementImpl implements DoStatement {
             DoStatement newDo = new DoStatementImpl(comments(), source(), tAnnotations, label(), tex,
                     ensureBlock(translatedBlock));
             if (!translationMap.isClearAnalysis()) newDo.analysis().setAll(analysis());
-            return List.of(newDo);
+            return translationMap.postTranslationHandler(this, List.of(newDo));
         }
         return List.of(this);
     }

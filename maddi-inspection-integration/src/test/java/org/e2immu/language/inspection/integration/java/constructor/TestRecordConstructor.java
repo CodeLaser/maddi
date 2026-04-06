@@ -51,7 +51,7 @@ public class TestRecordConstructor extends CommonTest {
         assertEquals(1, typeInfo.constructors().size());
         MethodInfo constructor = typeInfo.constructors().getFirst();
         ParameterInfo pi0 = constructor.parameters().getFirst();
-        assertEquals("3-14:3-22", pi0.source().compact2());
+        assertEquals("3-11:3-19", pi0.source().compact2());
     }
 
     @Language("java")

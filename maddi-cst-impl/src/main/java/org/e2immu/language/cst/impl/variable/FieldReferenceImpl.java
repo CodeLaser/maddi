@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.variable;
 
 import org.e2immu.annotation.NotNull;
 import org.e2immu.annotation.Nullable;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Visitor;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -23,6 +24,7 @@ import org.e2immu.language.cst.api.expression.TypeExpression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.InfoMap;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.output.element.TypeName;
@@ -43,6 +45,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class FieldReferenceImpl extends VariableImpl implements FieldReference {
     @NotNull
@@ -93,6 +97,15 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
         assert !(scopeIsRecursivelyThis() && fieldInfo.isStatic());
         // know that: assert this.scope != null;
         // assert this.scope.source() != null;
+    }
+
+    // used by translation of field references, see TranslationMapImpl
+    public static boolean defaultScope(FieldInfo newField, Expression tScope) {
+        if (newField.isStatic()) {
+            return tScope instanceof TypeExpression te && newField.owner().equals(te.parameterizedType().typeInfo());
+        }
+        return tScope instanceof VariableExpression ve && ve.variable() instanceof This thisVar
+               && newField.owner().equals(thisVar.typeInfo()) && thisVar.explicitlyWriteType() == null;
     }
 
     @Override
@@ -152,23 +165,26 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
 
     @Override
     public OutputBuilder print(Qualification qualification) {
+        QualifiedNameImpl.Required required = !isDefaultScope
+                                              || !qualification.doNotQualifyImplicit()
+                                              || qualification.qualifierRequired(this)
+                ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_FIELD;
+
         if (scope instanceof VariableExpression ve && ve.variable() instanceof This thisVar) {
             TypeName typeName = TypeNameImpl.typeName(thisVar.typeInfo(),
                     qualification.qualifierRequired(thisVar.typeInfo()), false);
             ThisNameImpl thisName = new ThisNameImpl(thisVar.writeSuper(),
                     typeName,
-                    qualification.qualifierRequired(thisVar));
-            return new OutputBuilderImpl().add(new QualifiedNameImpl(fieldInfo.name(), thisName,
-                    qualification.qualifierRequired(this) ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_FIELD));
+                    thisVar.explicitlyWriteType() != null && qualification.qualifierRequired(thisVar));
+            return new OutputBuilderImpl().add(new QualifiedNameImpl(fieldInfo.name(), thisName, required));
         }
         if (qualification.isSimpleOnly()) {
             return new OutputBuilderImpl().add(new QualifiedNameImpl(simpleName(), null, QualifiedNameImpl.Required.NEVER));
         }
         if (isStatic()) {
-            TypeName typeName = TypeNameImpl.typeName(fieldInfo.typeInfo(),
-                    qualification.qualifierRequired(fieldInfo.typeInfo()), false);
-            QualifiedNameImpl.Required required = qualification.qualifierRequired(this)
-                    ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_FIELD;
+            TypeInfo scopeType = isDefaultScope ? fieldInfo.typeInfo() : scope.parameterizedType().typeInfo();
+            TypeName typeName = TypeNameImpl.typeName(scopeType, qualification.qualifierRequired(scopeType),
+                    false);
             return new OutputBuilderImpl().add(new QualifiedNameImpl(fieldInfo.name(), typeName, required));
         }
         // real variable
@@ -197,13 +213,15 @@ public class FieldReferenceImpl extends VariableImpl implements FieldReference {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> test, DetailedSources detailedSources) {
+        Stream<TypeReference> fieldTypeStream = parameterizedType().typesReferenced(IMPLICIT, detailedSources);
         if (scope != null) {
-            Stream<TypeReference> nonDefault = isDefaultScope ? Stream.of()
-                    : Stream.of(new ElementImpl.TypeReference(fieldInfo.owner(), true));
-            return Stream.concat(nonDefault, Stream.concat(scope.typesReferenced(), parameterizedType().typesReferenced()));
+            Stream<TypeReference> implicitOwner = Stream.of(new ElementImpl.TypeReference(fieldInfo.owner(), IMPLICIT));
+            // in the scope references, an explicit static scope type/field owner can show up
+            Stream<TypeReference> scopeReferences = scope.typesReferenced(test);
+            return Stream.concat(implicitOwner, Stream.concat(scopeReferences, fieldTypeStream));
         }
-        return parameterizedType().typesReferenced();
+        return fieldTypeStream;
     }
 
     @Override

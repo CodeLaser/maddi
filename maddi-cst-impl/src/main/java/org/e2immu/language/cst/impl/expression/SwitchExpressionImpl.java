@@ -145,7 +145,8 @@ public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpres
         if (trSelector == selector && translatedSwitchEntries == entries && trType == parameterizedType) {
             return this;
         }
-        return new SwitchExpressionImpl(comments(), source(), trSelector, translatedSwitchEntries, trType);
+        Expression result = new SwitchExpressionImpl(comments(), source(), trSelector, translatedSwitchEntries, trType);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override
@@ -204,8 +205,9 @@ public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpres
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(selector.typesReferenced(), entries.stream().flatMap(SwitchEntry::typesReferenced));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(selector.typesReferenced(predicate), entries.stream().flatMap(switchEntry -> switchEntry.typesReferenced(predicate)));
     }
 
     @Override

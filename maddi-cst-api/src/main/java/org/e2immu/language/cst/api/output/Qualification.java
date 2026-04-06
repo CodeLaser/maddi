@@ -18,12 +18,20 @@ import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.List;
 
+/**
+ * This type helps determine how variables and types are qualified.
+ * Its implementations are mutable.
+ * <p>
+ * Decorators can add comments or annotations to certain elements.
+ */
 public interface Qualification {
     boolean doNotQualifyImplicit();
 
@@ -48,4 +56,12 @@ public interface Qualification {
     }
 
     Decorator decorator();
+
+    // write actions
+
+    void addField(FieldInfo fieldInfo);
+
+    void addThis(This thisVar);
+
+    void addMethodUnlessOverride(MethodInfo methodInfo);
 }
