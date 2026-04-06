@@ -2,7 +2,9 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
+import org.e2immu.analyzer.modification.link.impl.graph.Timer;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.translate.TranslateConstants;
@@ -42,7 +44,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.ExpressionVisitor.EMPTY;
-import static org.e2immu.analyzer.modification.link.impl.graph.FolllowGraph.followGraph;
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.DOWNCAST_VARIABLE;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
@@ -97,6 +98,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final AtomicInteger variableCounter = new AtomicInteger();
     private final AtomicInteger countSourceMethods = new AtomicInteger();
     private final VirtualFieldComputer virtualFieldComputer;
+    private final FollowGraph followGraph;
+    private final Timer timer = new Timer();
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -114,8 +117,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.options = options;
         this.virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames());
-        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, javaInspector.runtime(), virtualFieldComputer);
+        this.followGraph = new FollowGraph(timer);
+        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), timer,
+                followGraph);
+        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, javaInspector.runtime(),
+                virtualFieldComputer, timer, followGraph);
         this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
         this.propertiesChanged = propertiesChanged;
     }
@@ -542,10 +548,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
-            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}",
+            int numberOfLinks = wr.newLinksSize();
+            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}; timer {}",
                     countSourceMethods.get(),
                     methodInfo.fullyQualifiedName(),
-                    statement.source().index(), graph.size(), wr.newLinksSize());
+                    statement.source().index(), graph.size(), numberOfLinks, timer);
            /* if (wr.newLinksSize() > 1000) {
                 double fraction = (double) wr.newLinksSize() / (graph.size() * graph.size());
                 if (fraction > 0.4) {
@@ -645,7 +652,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);
-                Links links = followGraph(virtualFieldComputer, graph, viPrimary.variable()).build();
+                Links links = followGraph.followGraph(virtualFieldComputer, graph, viPrimary.variable()).build();
                 for (Link link : links) {
                     if (!link.linkNature().isIdenticalTo()) {
                         for (Variable v : Util.goUp(link.from())) {

@@ -1,36 +1,24 @@
 package org.e2immu.analyzer.modification.link.impl.graph;
 
-import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
-import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
-import org.e2immu.language.cst.api.analysis.Value;
-import org.e2immu.language.cst.api.expression.IntConstant;
-import org.e2immu.language.cst.api.expression.NullConstant;
-import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.DependentVariable;
-import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
-public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean checkDuplicateNames) {
+public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean checkDuplicateNames,
+                        Timer timer, FollowGraph followGraph) {
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkGraph.class);
 
     // see TestModificationParameter, a return variable with the same name as a local variable
@@ -52,7 +40,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
                 // NOTE: there is a class that requires more than 10 cycles in the maddi code base...
                 throw new UnsupportedOperationException("cycle protection");
             }
-            change = new MakeGraph(javaInspector, runtime).doOneMakeGraphCycle(graph, modifiedInThisEvaluation);
+            change = new MakeGraph(javaInspector, runtime, timer).doOneMakeGraphCycle(graph, modifiedInThisEvaluation);
         }
         assert !checkDuplicateNames ||
                graph.size() == graph.keySet().stream().map(LinkGraph::stringForDuplicate).distinct().count();
@@ -136,7 +124,7 @@ public record LinkGraph(JavaInspector javaInspector, Runtime runtime, boolean ch
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Indirection graph, primary {}:\n{}", links.primary(), printGraph(graph));
         }
-        Links.Builder builder = FolllowGraph.followGraph(null, graph, links.primary());
+        Links.Builder builder = followGraph.followGraph(null, graph, links.primary());
         builder.removeIf(l -> l.to().variableStreamDescend().anyMatch(vv -> vv instanceof ParameterInfo));
         return builder.build();
     }

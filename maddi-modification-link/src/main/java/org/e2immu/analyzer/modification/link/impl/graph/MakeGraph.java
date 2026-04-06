@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.stream.Collectors;
 
-record MakeGraph(JavaInspector javaInspector, Runtime runtime) {
+record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
 
     private Variable makeComparableSub(Variable base, Variable sub, Variable target) {
         TranslationMap tm = new VariableTranslationMap(runtime).put(base, target);
@@ -94,8 +94,11 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime) {
     }
 
     boolean doOneMakeGraphCycle(Map<Variable, Map<Variable, LinkNature>> graph, Set<Variable> modifiedInThisEvaluation) {
+        timer.start("computeSubs");
         Map<Variable, Set<Variable>> subs = computeSubs(graph, modifiedInThisEvaluation);
+        timer.end("computeSubs");
         List<Edge> newLinks = new ArrayList<>();
+        timer.start("postProcess");
         for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.entrySet()) {
             Variable vFrom = entry.getKey();
             for (Map.Entry<Variable, LinkNature> entry2 : entry.getValue().entrySet()) {
@@ -154,6 +157,7 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime) {
         for (Edge edge : extra) {
             change |= AddEdge.simpleAddToGraph(graph, edge);
         }
+        timer.end("postProcess");
         return change;
     }
 }
