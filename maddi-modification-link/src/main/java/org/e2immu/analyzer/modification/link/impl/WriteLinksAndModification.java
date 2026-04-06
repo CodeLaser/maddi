@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
@@ -27,8 +28,8 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.link.impl.LinkGraph.followGraph;
-import static org.e2immu.analyzer.modification.link.impl.LinkGraph.printGraph;
+import static org.e2immu.analyzer.modification.link.impl.graph.FolllowGraph.followGraph;
+import static org.e2immu.analyzer.modification.link.impl.graph.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
