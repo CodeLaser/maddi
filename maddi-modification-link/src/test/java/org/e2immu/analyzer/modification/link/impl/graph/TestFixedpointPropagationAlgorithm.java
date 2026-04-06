@@ -10,7 +10,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.e2immu.analyzer.modification.link.impl.graph.FixpointPropagationAlgorithm.canReconstructLabel;
+import static org.e2immu.analyzer.modification.link.impl.graph.FixpointPropagationAlgorithm.reduceLabelPreserving;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestFixedpointPropagationAlgorithm {
 
@@ -106,5 +108,28 @@ public class TestFixedpointPropagationAlgorithm {
                 .filter(e -> !START.equals(e.getKey()))
                 .map(e -> e.getKey() + ": " + e.getValue()).sorted()
                 .collect(Collectors.joining(", "));
+    }
+
+
+    private static String printGraph(Map<String, Map<String, LinkNature>> graph) {
+        return graph.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .flatMap(e ->
+                        e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey())
+                                .map(e2 ->
+                                        e.getKey() + " " + e2.getValue() + " " + e2.getKey()))
+                .collect(Collectors.joining(" / "));
+    }
+
+    @Test
+    public void testReduction() {
+        Map<String, Map<String, LinkNature>> graph = new HashMap<>();
+        graph.put("a", Map.of("b", IS_ASSIGNED_FROM, "c", IS_ASSIGNED_FROM));
+        graph.put("b", Map.of("c", IS_ASSIGNED_FROM, "d", IS_ASSIGNED_FROM));
+        graph.put("c", Map.of("d", IS_ASSIGNED_FROM));
+        assertEquals("a ← b / a ← c / b ← c / b ← d / c ← d", printGraph(graph));
+        assertTrue(canReconstructLabel(graph, "a", "c", IS_ASSIGNED_FROM, LinkNature::combine));
+        assertFalse(canReconstructLabel(graph, "a", "c", IS_ASSIGNED_TO, LinkNature::combine));
+        Map<String, Map<String, LinkNature>> reduced = reduceLabelPreserving(graph, graph.keySet(), LinkNature::combine);
+        assertEquals("a ← b / b ← c / c ← d", printGraph(reduced));
     }
 }

@@ -7,6 +7,8 @@ import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -14,6 +16,8 @@ import java.util.stream.Collectors;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 
 public class RedundantLinks {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RedundantLinks.class);
+
     // the guards are filled up as more calls to redundant(Modification)Links follow
     private final Map<Variable, Set<Variable>> modificationCompletionGuard = new LinkedHashMap<>();
     private final Map<LinkNature, Map<Variable, Set<Variable>>> completionGuard = new HashMap<>();
@@ -23,6 +27,12 @@ public class RedundantLinks {
         this.timer = timer;
     }
 
+    /*
+    FIXME
+        this algorithm is not "stable" in the sense that the 'completions' map is overwritten for certain
+        variables. Removing this overwrite (change it into a merge) produces wrong results (too many redundant vars)
+        see TestStream,1
+     */
     // concept copied from computeRedundantModificationLinks, but now for groups of links
     public void redundantLinks(Links.Builder builder) {
         timer.start("redundant1");
@@ -32,7 +42,11 @@ public class RedundantLinks {
             if (key != null) {
                 Map<Variable, Set<Variable>> completionGuardForLn
                         = completionGuard.computeIfAbsent(key, _ -> new LinkedHashMap<>());
-                completions.put(link.to(), completion(completionGuardForLn, link.to()));
+                Set<Variable> completion = completion(completionGuardForLn, link.to());
+                Set<Variable> prev = completions.put(link.to(), completion);
+                if (prev != null && !prev.isEmpty()) {
+                    LOGGER.warn("Overwrite value of {}: {} -> {}", link.to(), prev, completion);
+                }
             }
         });
         timer.end("redundant1");

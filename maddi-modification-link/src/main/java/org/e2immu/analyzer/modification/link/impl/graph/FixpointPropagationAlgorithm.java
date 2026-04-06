@@ -67,4 +67,83 @@ class FixpointPropagationAlgorithm {
         return labels;
     }
 
+    static <V, L> Map<V, Map<V, L>> reduceLabelPreserving(
+            Map<V, Map<V, L>> graph,
+            Set<V> vertices,
+            BiFunction<L, L, L> combine) {
+
+        Map<V, Map<V, L>> reduced = new HashMap<>();
+
+        // Deep copy
+        for (V u : vertices) {
+            reduced.put(u, new HashMap<>(graph.getOrDefault(u, Map.of())));
+        }
+
+        for (V u : vertices) {
+            Map<V, L> outgoing = new HashMap<>(reduced.getOrDefault(u, Map.of()));
+
+            for (Map.Entry<V, L> edge : outgoing.entrySet()) {
+                V v = edge.getKey();
+                L directLabel = edge.getValue();
+
+                // Temporarily remove edge
+                reduced.get(u).remove(v);
+
+                boolean reconstructable =
+                        canReconstructLabel(
+                                reduced,
+                                u,
+                                v,
+                                directLabel,
+                                combine);
+
+                if (!reconstructable) {
+                    reduced.get(u).put(v, directLabel);
+                }
+            }
+        }
+
+        return reduced;
+    }
+
+    private record VL<V, L>(V vertex, L label) {
+    }
+
+    static <V, L> boolean canReconstructLabel(
+            Map<V, Map<V, L>> graph,
+            V source,
+            V target,
+            L expected,
+            BiFunction<L, L, L> combine) {
+
+        Deque<VL<V, L>> q = new ArrayDeque<>();
+        Set<V> visited = new HashSet<>();
+
+        q.add(new VL<>(source, null));
+
+        while (!q.isEmpty()) {
+            var current = q.removeFirst();
+            V u = current.vertex();
+            L currentLabel = current.label();
+
+            if (!visited.add(u)) continue;
+
+            for (var e : graph.getOrDefault(u, Map.of()).entrySet()) {
+                V w = e.getKey();
+
+                L nextLabel = currentLabel == null
+                        ? e.getValue()
+                        : combine.apply(currentLabel, e.getValue());
+
+                if (w.equals(target) &&
+                    Objects.equals(nextLabel, expected)) {
+                    return true;
+                }
+
+                q.add(new VL<>(w, nextLabel));
+            }
+        }
+
+        return false;
+    }
 }
