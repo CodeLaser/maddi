@@ -151,4 +151,17 @@ public class SourceImpl implements Source {
     public Source withIndex(String newIndex) {
         return new SourceImpl(newIndex, beginLine, beginPos, endLine, endPos, detailedSources);
     }
+
+    @Override
+    public Source max(Source other) {
+        String minIndex = index.compareTo(other.index()) <= 0 ? index : other.index();
+        int min = Math.min(beginLine, other.beginLine());
+        int max = Math.max(endLine, other.endLine());
+        return new SourceImpl(minIndex, min,
+                beginLine == other.beginLine() ? Math.min(beginPos, other.beginPos()) : min == beginLine
+                        ? beginPos : other.beginPos(),
+                max,
+                endLine == other.endLine() ? Math.max(endPos, other.endPos()) : max == endLine
+                        ? endPos : other.endPos());
+    }
 }

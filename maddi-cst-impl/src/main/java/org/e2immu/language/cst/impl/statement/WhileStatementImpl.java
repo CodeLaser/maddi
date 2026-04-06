@@ -135,8 +135,9 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(expression.typesReferenced(), block.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(expression.typesReferenced(predicate), block.typesReferenced(predicate));
     }
 
     @Override
@@ -153,7 +154,7 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
             WhileStatement newWhile = new WhileStatementImpl(comments(), source(), tAnnotations, label(), tex,
                     ensureBlock(translatedBlock));
             if (!translationMap.isClearAnalysis()) newWhile.analysis().setAll(analysis());
-            return List.of(newWhile);
+            return translationMap.postTranslationHandler(this, List.of(newWhile));
         }
         return List.of(this);
     }

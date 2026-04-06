@@ -15,6 +15,7 @@
 package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.*;
+import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.variable.DescendMode;
@@ -23,6 +24,7 @@ import org.e2immu.language.cst.impl.output.*;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -45,19 +47,44 @@ public class MultiLineCommentImpl implements MultiLineComment {
     }
 
     @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof MultiLineCommentImpl that)) return false;
+        return addNewline == that.addNewline && Objects.equals(comment, that.comment) && Objects.equals(source, that.source);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(comment, source, addNewline);
+    }
+
+    @Override
     public OutputBuilder print(Qualification qualification) {
         boolean multiLine = comment.contains("\n");
-        GuideImpl.GuideGenerator gg = multiLine ? GuideImpl.generatorForMultilineComment()
-                : GuideImpl.defaultGuideGenerator();
+        if(multiLine) {
+            return multilinePrint();
+        }
         OutputBuilder ob = Arrays.stream(comment.split("\n"))
                 .filter(line -> !line.isBlank())
                 .map(line -> new OutputBuilderImpl().add(new TextImpl(line)))
-                .collect(OutputBuilderImpl.joining(SpaceEnum.ONE_IS_NICE_EASY_SPLIT,
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
                         SymbolEnum.LEFT_BLOCK_COMMENT,
                         SymbolEnum.RIGHT_BLOCK_COMMENT,
-                        gg));
+                        GuideImpl.defaultGuideGenerator()));
         if (addNewline) ob.add(SpaceEnum.NEWLINE);
         return ob;
+    }
+
+    protected OutputBuilder multilinePrint() {
+        GuideImpl.GuideGenerator gg = GuideImpl.generatorForMultilineComment();
+        String text = "/*" + comment() + "*/";
+        String[] split = text.split("\n");
+        OutputBuilder firstLine = new OutputBuilderImpl().add(new TextImpl(split[0]));
+        OutputBuilder joinedText = Stream.concat(Stream.of(firstLine), Arrays.stream(split).skip(1)
+                        .filter(line -> !line.isBlank())
+                        .map(line -> new OutputBuilderImpl()
+                                .add(new TextImpl(Formatter.HARD_SPACE + line.trim()))))
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, gg));
+        return new OutputBuilderImpl().add(joinedText);
     }
 
     @Override
@@ -76,7 +103,7 @@ public class MultiLineCommentImpl implements MultiLineComment {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.empty();
     }
 

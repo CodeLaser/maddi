@@ -15,6 +15,7 @@
 package org.e2immu.language.inspection.integration.java.other;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.expression.BinaryOperator;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -24,6 +25,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -96,6 +98,7 @@ public class TestField extends CommonTest {
     private static final String INPUT3 = """
             package a.b;
             class B {
+                // max with comment
                 final static int MAX = 3;
                 public boolean m(int j) {
                   return B.MAX < j;
@@ -105,16 +108,49 @@ public class TestField extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT3);
+        TypeInfo typeInfo = javaInspector.parse(INPUT3, JavaInspectorImpl.DETAILED_SOURCES);
         assertEquals("B", typeInfo.simpleName());
+        FieldInfo max = typeInfo.getFieldByName("MAX", true);
+        assertEquals("4-22:4-28", max.source().compact2()); // MAX = 3
+        Source declarationWithout = max.source().detailedSources().detail(DetailedSources.FIELD_DECLARATION);
+        assertEquals("3-5:4-29", declarationWithout.compact2());
+
         Statement s0 = typeInfo.findUniqueMethod("m", 1).methodBody().statements().getFirst();
         if (s0.expression() instanceof BinaryOperator bo) {
             assertEquals("B.MAX", bo.lhs().toString());
             if (bo.lhs() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
                 assertEquals("B", fr.scope().toString());
-                assertEquals("5-14:5-14", fr.scope().source().compact2());
+                assertEquals("6-14:6-14", fr.scope().source().compact2());
             } else fail();
         } else fail("Have " + s0.expression());
 
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            class B {
+                final int min = 5; // min with comment
+                final static int MAX = 3; // max with comment
+                public boolean m(int j) {
+                  return B.MAX < j;
+                }
+            }
+            """;
+
+    @Test
+    public void test4() {
+        TypeInfo typeInfo = javaInspector.parse(INPUT4, JavaInspectorImpl.DETAILED_SOURCES);
+        assertEquals("B", typeInfo.simpleName());
+
+        FieldInfo min = typeInfo.getFieldByName("min", true);
+        assertEquals(1, min.comments().size());
+        assertEquals(" min with comment", min.comments().getFirst().comment());
+        FieldInfo max = typeInfo.getFieldByName("MAX", true);
+        assertEquals(1, max.comments().size());
+        assertEquals(" max with comment", max.comments().getFirst().comment());
+        MethodInfo m = typeInfo.findUniqueMethod("m", 1);
+        assertTrue(m.comments().isEmpty());
     }
 }

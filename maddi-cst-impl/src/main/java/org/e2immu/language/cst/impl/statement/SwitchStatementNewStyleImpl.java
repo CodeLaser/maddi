@@ -136,8 +136,9 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(selector.typesReferenced(), entries.stream().flatMap(SwitchEntry::typesReferenced));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(selector.typesReferenced(predicate), entries.stream().flatMap(switchEntry -> switchEntry.typesReferenced(predicate)));
     }
 
     @Override
@@ -157,7 +158,7 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
             SwitchStatementNewStyleImpl ssns = new SwitchStatementNewStyleImpl(comments(), source(),
                     tAnnotations, label(), tSelector, tEntries);
             if (!translationMap.isClearAnalysis()) ssns.analysis().setAll(analysis());
-            return List.of(ssns);
+            return translationMap.postTranslationHandler(this, List.of(ssns));
         }
         return List.of(this);
     }

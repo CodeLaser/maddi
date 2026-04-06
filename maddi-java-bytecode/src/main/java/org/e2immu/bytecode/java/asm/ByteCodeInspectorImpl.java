@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -230,6 +231,7 @@ public class ByteCodeInspectorImpl implements ByteCodeInspector, LocalTypeMap {
                     .setFingerPrint(source.fingerPrint())
                     .build();
             typeInfo = runtime.newTypeInfo(cu, simpleName);
+            cu.setTypes(List.of(typeInfo));
         }
         return typeInfo;
     }

@@ -15,10 +15,7 @@
 package org.e2immu.language.cst.impl.expression;
 
 import org.e2immu.language.cst.api.analysis.PropertyValueMap;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.ArrayInitializer;
 import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -34,6 +31,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.analysis.PropertyValueMapImpl;
+import org.e2immu.language.cst.impl.element.DetailedSourcesImpl;
 import org.e2immu.language.cst.impl.element.ElementImpl;
 import org.e2immu.language.cst.impl.expression.util.ExpressionComparator;
 import org.e2immu.language.cst.impl.expression.util.InternalCompareToException;
@@ -322,20 +320,21 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(ParameterizedType::typesReferencedMadeExplicit);
-        Stream<Element.TypeReference> arrayInitStream = arrayInitializer == null ? Stream.of() : arrayInitializer.typesReferenced();
-        Stream<Element.TypeReference> anonStream = anonymousClass == null ? Stream.of() : anonymousClass.typesReferenced();
-        Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced();
-        Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(Expression::typesReferenced);
-        Stream<Element.TypeReference> ccTypeStream = Stream.of(new ElementImpl.TypeReference(concreteReturnType.typeInfo(), true));
-        Stream<Element.TypeReference> ccTypeParametersStream = diamond.isNo()
-                ? Stream.of()
-                : concreteReturnType.parameters().stream().flatMap(pt -> diamond.isShowAll()
-                ? pt.typesReferencedMadeExplicit() : pt.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
+        Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(pt ->
+                pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
+        Stream<Element.TypeReference> arrayInitStream = arrayInitializer == null ? Stream.of()
+                : arrayInitializer.typesReferenced(predicate);
+        Stream<Element.TypeReference> anonStream = anonymousClass == null ? Stream.of()
+                : anonymousClass.typesReferenced(predicate);
+        Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced(predicate);
+        Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
+        Stream<Element.TypeReference> ccTypeStream = concreteReturnType
+                .typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         return Stream.concat(typeArgStream, Stream.concat(arrayInitStream, Stream.concat(anonStream,
-                Stream.concat(objectStream, Stream.concat(paramStream, Stream.concat(ccTypeParametersStream,
-                        ccTypeStream))))));
+                Stream.concat(objectStream, Stream.concat(paramStream, ccTypeStream)))));
     }
 
     @Override
@@ -362,6 +361,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
         if (translated != this) return translated;
 
         Expression translatedObject = object == null ? null : translationMap.translateExpression(object);
+        MethodInfo translatedConstructor = constructor == null ? null : translationMap.translateMethodInfo(constructor);
         ParameterizedType translatedType = translationMap.translateType(this.parameterizedType());
         List<Expression> translatedParameterExpressions = parameterExpressions.isEmpty() ? parameterExpressions
                 : parameterExpressions.stream().map(e -> e.translate(translationMap))
@@ -373,6 +373,7 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
                 (ArrayInitializer) arrayInitializer.translate(translationMap);
         TypeInfo tAnonymous = anonymousClass == null ? null : anonymousClass.translate(translationMap).getFirst();
         if (translatedObject == object
+            && translatedConstructor == constructor
             && translatedType == this.parameterizedType()
             && translatedParameterExpressions == this.parameterExpressions
             && trTypeArgs == typeArguments
@@ -381,15 +382,34 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
             && (analysis.isEmpty() || !translationMap.isClearAnalysis())) {
             return this;
         }
-        return new ConstructorCallImpl(comments(), source(),
-                constructor,
+        Source source = source();
+        if (source.detailedSources() != null && translationMap.correctSources()
+            && concreteReturnType != translatedType) {
+            Source rt = source().detailedSources().detail(concreteReturnType);
+            if (rt != null) {
+                source = source.withDetailedSources(new DetailedSourcesImpl.BuilderImpl()
+                        .addAll(source().detailedSources())
+                        .put(translatedType, rt)
+                        .build());
+            }
+        }
+        Expression result = new ConstructorCallImpl(comments(), source,
+                translatedConstructor,
                 translatedType,
-                diamond,
-                object,
+                guessDiamond(translatedConstructor),
+                translatedObject,
                 translatedParameterExpressions,
                 trTypeArgs,
                 translatedInitializer,
                 tAnonymous);
+        return translationMap.postTranslationHandler(this, result);
+    }
+
+    private Diamond guessDiamond(MethodInfo translatedConstructor) {
+        if (translatedConstructor == null || translatedConstructor == this.constructor) return diamond;
+        return translatedConstructor.typeParameters().isEmpty()
+               && translatedConstructor.typeInfo().typeParameters().isEmpty()
+                ? DiamondEnum.NO : diamond;
     }
 
     @Override

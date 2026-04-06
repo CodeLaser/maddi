@@ -48,7 +48,7 @@ public interface SwitchStatementOldStyle extends Statement {
         // null when absent
         RecordPattern patternVariable();
 
-        Stream<TypeReference> typesReferenced();
+        Stream<TypeReference> typesReferenced(Predicate<Element> predicate);
 
         // EmptyExpression when absent (Java 21)
         Expression whenExpression();

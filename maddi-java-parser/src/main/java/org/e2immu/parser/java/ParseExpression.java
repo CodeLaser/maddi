@@ -298,7 +298,8 @@ public class ParseExpression extends CommonParse {
         assert endIncl > 0 && endIncl < name.children().size();
         String trimmedAfterDot = name.get(endIncl).getSource();
         if (LENGTH.equals(trimmedAfterDot)) {
-            Expression arrayExpression = parseDottedVariable(context, comments, source, name, endIncl - 2,
+            Source correctedSource = source(name, 0, endIncl - 2);
+            Expression arrayExpression = parseDottedVariable(context, comments, correctedSource, name, endIncl - 2,
                     detailedSourcesBuilder);
             if (arrayExpression.parameterizedType().arrays() > 0) {
                 return runtime.newArrayLengthBuilder()

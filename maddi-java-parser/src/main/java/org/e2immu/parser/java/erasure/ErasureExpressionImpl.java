@@ -91,7 +91,7 @@ public abstract class ErasureExpressionImpl implements ErasedExpression, Express
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         throw new UnsupportedOperationException();
     }
 

@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.translate;
 
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -39,28 +40,38 @@ import java.util.stream.Collectors;
 public class TranslationMapImpl implements TranslationMap {
 
     private final Map<? extends Variable, ? extends Variable> variables;
-    private final Map<MethodInfo, List<MethodInfo>> methods;
+    private final Map<TypeInfo, TypeInfo> typeInfoMap;
+    private final Map<MethodInfo, MethodInfo> methodInfoMap;
+    private final Map<MethodInfo, List<MethodInfo>> methodDeclarations;
     private final Map<? extends Expression, ? extends Expression> expressions;
     private final Map<? extends Statement, List<Statement>> statements;
     private final Map<ParameterizedType, ParameterizedType> types;
     private final Map<LocalVariable, LocalVariable> localVariables;
     private final Map<? extends Variable, ? extends Expression> variableExpressions;
     private final Map<FieldInfo, FieldInfo> fieldInfoMap;
+    private final Map<FieldInfo, List<FieldInfo>> fieldDeclarations;
     private final Map<TypeParameter, TypeParameter> typeParameterMap;
 
     private final boolean expandDelayedWrappedExpressions;
     private final boolean yieldIntoReturn;
     private final boolean translateAgain;
     private final boolean clearAnalysis;
+    private final boolean correctSources;
+
     private final ModificationTimesHandler modificationTimesHandler;
     private final TranslationMap delegate;
+    private final PostTranslationHandler postTranslationHandler;
+    private final TranslationMap withoutDelegate;
 
     private TranslationMapImpl(Map<? extends Statement, List<Statement>> statements,
                                Map<? extends Expression, ? extends Expression> expressions,
                                Map<? extends Variable, ? extends Expression> variableExpressions,
                                Map<? extends Variable, ? extends Variable> variables,
-                               Map<MethodInfo, List<MethodInfo>> methods,
+                               Map<MethodInfo, List<MethodInfo>> methodDeclarations,
+                               Map<FieldInfo, List<FieldInfo>> fieldDeclarations,
                                Map<ParameterizedType, ParameterizedType> types,
+                               Map<TypeInfo, TypeInfo> typeInfoMap,
+                               Map<MethodInfo, MethodInfo> methodInfoMap,
                                Map<FieldInfo, FieldInfo> fieldInfoMap,
                                Map<TypeParameter, TypeParameter> typeParameterMap,
                                ModificationTimesHandler modificationTimesHandler,
@@ -68,12 +79,14 @@ public class TranslationMapImpl implements TranslationMap {
                                boolean yieldIntoReturn,
                                boolean translateAgain,
                                boolean clearAnalysis,
-                               TranslationMap delegate) {
+                               boolean correctSources,
+                               TranslationMap delegate,
+                               PostTranslationHandler postTranslationHandler) {
         this.variables = variables;
         this.expressions = expressions;
         this.variableExpressions = variableExpressions;
         this.statements = statements;
-        this.methods = methods;
+        this.methodDeclarations = methodDeclarations;
         this.types = types;//checkForCycles(types);
         this.fieldInfoMap = fieldInfoMap;
         this.typeParameterMap = typeParameterMap;
@@ -86,350 +99,16 @@ public class TranslationMapImpl implements TranslationMap {
         this.modificationTimesHandler = modificationTimesHandler;
         this.clearAnalysis = clearAnalysis;
         this.delegate = delegate;
-    }
-
-    public static class Builder implements TranslationMap.Builder {
-
-        private final Map<Variable, Variable> variables = new HashMap<>();
-        private final Map<Expression, Expression> expressions = new HashMap<>();
-        private final Map<Variable, Expression> variableExpressions = new HashMap<>();
-        private final Map<MethodInfo, List<MethodInfo>> methods = new HashMap<>();
-        private final Map<Statement, List<Statement>> statements = new HashMap<>();
-        private final Map<ParameterizedType, ParameterizedType> types = new HashMap<>();
-        private final Map<FieldInfo, FieldInfo> fieldInfoMap = new HashMap<>();
-        private final Map<TypeParameter, TypeParameter> typeParameterMap = new HashMap<>();
-        private ModificationTimesHandler modificationTimesHandler;
-        private boolean expandDelayedWrappedExpressions;
-        private boolean doNotRecurseIntoScopeVariables;
-        private boolean yieldIntoReturn;
-        private boolean translateAgain;
-        private boolean clearAnalysis;
-        private TranslationMap delegate;
-
-        public Builder() {
-        }
-
-        // IMPORTANT: we explicitly write TMI here rather than TM, because otherwise functionality might get lost:
-        // it looks like you make a wrapper, but you don't.
-        public Builder(TranslationMapImpl other) {
-            variables.putAll(other.variables());
-            expressions.putAll(other.expressions());
-            variableExpressions.putAll(other.variableExpressions());
-            methods.putAll(other.methods());
-            statements.putAll(other.statements());
-            types.putAll(other.types());
-            fieldInfoMap.putAll(other.fieldInfoMap());
-            expandDelayedWrappedExpressions = other.expandDelayedWrappedExpressions();
-            yieldIntoReturn = other.translateYieldIntoReturn();
-            translateAgain = other.translateAgain();
-            delegate = other.delegate();
-        }
-
-        @Override
-        public TranslationMap build() {
-            return new TranslationMapImpl(statements, expressions, variableExpressions, variables, methods, types,
-                    Map.copyOf(fieldInfoMap), Map.copyOf(typeParameterMap), modificationTimesHandler,
-                    expandDelayedWrappedExpressions, yieldIntoReturn, translateAgain, clearAnalysis, delegate);
-        }
-
-        @Override
-        public Builder setDelegate(TranslationMap delegate) {
-            this.delegate = delegate;
-            return this;
-        }
-
-        @Override
-        public Builder setTranslateAgain(boolean translateAgain) {
-            this.translateAgain = translateAgain;
-            return this;
-        }
-
-        @Override
-        public Builder put(FieldInfo template, FieldInfo actual) {
-            fieldInfoMap.put(template, actual);
-            return this;
-        }
-
-        @Override
-        public Builder put(TypeParameter template, TypeParameter actual) {
-            typeParameterMap.put(template, actual);
-            return this;
-        }
-
-        @Override
-        public Builder put(Statement template, Statement actual) {
-            statements.put(template, List.of(actual));
-            return this;
-        }
-
-        @Override
-        public Builder put(MethodInfo template, List<MethodInfo> actual) {
-            methods.put(template, actual);
-            return this;
-        }
-
-        @Override
-        public Builder put(Statement template, List<Statement> statements) {
-            this.statements.put(template, statements);
-            return this;
-        }
-
-        @Override
-        public Builder put(Expression template, Expression actual) {
-            this.expressions.put(template, actual);
-            return this;
-        }
-
-        @Override
-        public Builder addVariableExpression(Variable variable, Expression actual) {
-            variableExpressions.put(variable, actual);
-            return this;
-        }
-
-        @Override
-        public Builder renameVariable(Variable variable, Expression actual) {
-            variableExpressions.put(variable, actual);
-            return this;
-        }
-
-        @Override
-        public Builder put(ParameterizedType template, ParameterizedType actual) {
-            types.put(template, actual);
-            return this;
-        }
-
-        @Override
-        public TranslationMap.Builder put(Variable template, Variable actual) {
-            variables.put(template, actual);
-            return this;
-        }
-
-        @Override
-        public Builder setYieldToReturn(boolean b) {
-            this.yieldIntoReturn = b;
-            return this;
-        }
-
-        @Override
-        public Builder setExpandDelayedWrapperExpressions(boolean expandDelayedWrappedExpressions) {
-            this.expandDelayedWrappedExpressions = expandDelayedWrappedExpressions;
-            return this;
-        }
-
-        @Override
-        public boolean translateMethod(MethodInfo methodInfo) {
-            return methods.containsKey(methodInfo);
-        }
-
-        @Override
-        public Builder setModificationTimesHandler(ModificationTimesHandler modificationTimesHandler) {
-            this.modificationTimesHandler = modificationTimesHandler;
-            return this;
-        }
-
-        @Override
-        public TranslationMap.Builder setClearAnalysis(boolean clearAnalysis) {
-            this.clearAnalysis = clearAnalysis;
-            return this;
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return statements.isEmpty()
-                   && expressions.isEmpty()
-                   && variables.isEmpty()
-                   && methods.isEmpty()
-                   && types.isEmpty()
-                   && variableExpressions.isEmpty();
-        }
-    }
-
-    @Override
-    public boolean expandDelayedWrappedExpressions() {
-        return expandDelayedWrappedExpressions;
-    }
-
-    @Override
-    public String toString() {
-        return "TM{" + variables.size() + "," + methods.size() + "," + expressions.size() + "," + statements.size()
-               + "," + types.size() + "," + localVariables.size() + "," + variableExpressions.size() +
-               (expandDelayedWrappedExpressions ? ",expand" : "") + "}";
-    }
-
-    @Override
-    public FieldInfo translateFieldInfo(FieldInfo fieldInfo) {
-        return fieldInfoMap.getOrDefault(fieldInfo, fieldInfo);
-    }
-
-    @Override
-    public boolean translateYieldIntoReturn() {
-        return yieldIntoReturn;
-    }
-
-    @Override
-    public boolean hasVariableTranslations() {
-        return !variables.isEmpty();
-    }
-
-    private TranslationMap withoutDelegate() {
-        return new TranslationMapImpl(statements, expressions, variableExpressions, variables, methods, types,
+        this.methodInfoMap = methodInfoMap;
+        this.typeInfoMap = typeInfoMap;
+        this.fieldDeclarations = fieldDeclarations;
+        this.postTranslationHandler = postTranslationHandler;
+        this.correctSources = correctSources;
+        this.withoutDelegate = delegate == null ? null : new TranslationMapImpl(statements, expressions,
+                variableExpressions, variables, methodDeclarations,
+                fieldDeclarations, types, typeInfoMap, methodInfoMap,
                 fieldInfoMap, typeParameterMap, modificationTimesHandler, expandDelayedWrappedExpressions,
-                yieldIntoReturn, translateAgain, clearAnalysis, null);
-    }
-
-    @Override
-    public Expression translateExpression(Expression expression) {
-        if (delegate != null) {
-            Expression translatedExpression = expression.translate(delegate);
-            return translatedExpression.translate(withoutDelegate());
-        }
-        return Objects.requireNonNullElse(expressions.get(expression), expression);
-    }
-
-    @Override
-    public Variable translateVariable(Variable variable) {
-        Variable v = delegate == null ? variable : delegate.translateVariable(variable);
-        Variable vv = variables.get(v);
-        return vv != null ? vv : variable;
-    }
-
-
-    @Override
-    public Expression translateVariableExpressionNullIfNotTranslated(Variable variable) {
-        if (delegate != null) {
-            Expression e = delegate.translateVariableExpressionNullIfNotTranslated(variable);
-            if (e instanceof VariableExpression ve) {
-                return variableExpressions.get(ve.variable());
-            }
-            if (e != null) {
-                return e; // not a variable expression, so we cannot delegate easily
-            }
-        }
-        return variableExpressions.get(variable);
-    }
-
-    @Override
-    public List<MethodInfo> translateMethod(MethodInfo methodInfo) {
-        if (delegate != null) {
-            List<MethodInfo> list = methodInfo.translate(delegate);
-            TranslationMap withoutDelegate = withoutDelegate();
-            return list.stream().flatMap(mi -> mi.translate(withoutDelegate).stream()).toList();
-        }
-        return methods.getOrDefault(methodInfo, List.of(methodInfo));
-    }
-
-    @Override
-    public List<Statement> translateStatement(Statement statement) {
-        if (delegate != null) {
-            List<Statement> translated = statement.translate(delegate);
-            TranslationMap withoutDelegate = withoutDelegate();
-            return translated.stream().flatMap(s -> s.translate(withoutDelegate).stream()).toList();
-        }
-        List<Statement> list = statements.get(statement);
-        return list == null ? List.of(statement) : list;
-    }
-
-    public ParameterizedType translateType(ParameterizedType parameterizedType) {
-        ParameterizedType pt = delegate == null ? parameterizedType : delegate.translateType(parameterizedType);
-        return internalTranslateType(pt);
-    }
-
-    private ParameterizedType internalTranslateType(ParameterizedType parameterizedType) {
-        assert parameterizedType != null;
-        ParameterizedType inMap = types.get(parameterizedType);
-        if (inMap != null) return inMap;
-        TypeParameter typeParameter = parameterizedType.typeParameter();
-        if (typeParameter != null) {
-            TypeParameter tTypeParameter = typeParameterMap.get(typeParameter);
-            if (tTypeParameter != null) {
-                return new ParameterizedTypeImpl(null, tTypeParameter, List.of(), parameterizedType.arrays(), parameterizedType.wildcard());
-            }
-        }
-        List<ParameterizedType> params = parameterizedType.parameters();
-        List<ParameterizedType> translatedTypes = params.isEmpty() ? params :
-                params.stream().map(this::translateType).collect(toList(params));
-        if (params == translatedTypes) return parameterizedType;
-        return new ParameterizedTypeImpl(parameterizedType.typeInfo(), null, translatedTypes,
-                parameterizedType.arrays(), parameterizedType.wildcard());
-    }
-
-    @Override
-    public boolean isEmpty() {
-        return statements.isEmpty()
-               && expressions.isEmpty()
-               && methods.isEmpty()
-               && types.isEmpty()
-               && variables.isEmpty()
-               && localVariables.isEmpty()
-               && fieldInfoMap.isEmpty()
-               && variableExpressions.isEmpty();
-    }
-
-    @Override
-    public Map<? extends Variable, ? extends Variable> variables() {
-        return variables;
-    }
-
-    @Override
-    public Map<? extends Expression, ? extends Expression> expressions() {
-        return expressions;
-    }
-
-    @Override
-    public Map<? extends Variable, ? extends Expression> variableExpressions() {
-        return variableExpressions;
-    }
-
-    @Override
-    public Map<MethodInfo, List<MethodInfo>> methods() {
-        return methods;
-    }
-
-    @Override
-    public Map<ParameterizedType, ParameterizedType> types() {
-        return types;
-    }
-
-    @Override
-    public Map<? extends Statement, List<Statement>> statements() {
-        return statements;
-    }
-
-    @Override
-    public Map<FieldInfo, FieldInfo> fieldInfoMap() {
-        return fieldInfoMap;
-    }
-
-    @Override
-    public boolean translateAgain() {
-        return translateAgain;
-    }
-
-    @Override
-    public TranslationMap delegate() {
-        return delegate;
-    }
-
-    @Override
-    public String modificationTimes(Expression methodCallBeforeTranslation,
-                                    Expression translatedObject, List<Expression> translatedParameters) {
-        if (modificationTimesHandler == null) return null;
-        // type cast: see interface spec: methodCallBeforeTranslation is of type Expression to avoid cyclic type dependencies
-        MethodCall beforeTranslation;
-        if ((beforeTranslation = methodCallBeforeTranslation.asInstanceOf(MethodCall.class)) != null) {
-            return modificationTimesHandler.modificationTimes(beforeTranslation, translatedObject, translatedParameters);
-        }
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isClearAnalysis() {
-        return clearAnalysis;
-    }
-
-    @Override
-    public Variable translateVariableRecursively(Variable variable) {
-        return translateVariableRecursively(this, variable);
+                yieldIntoReturn, translateAgain, clearAnalysis, correctSources, null, postTranslationHandler);
     }
 
     // also accessible via runtime
@@ -447,7 +126,13 @@ public class TranslationMapImpl implements TranslationMap {
             Expression tScope = fr.scope().translate(tm);
             FieldInfo newField = tm.translateFieldInfo(fr.fieldInfo());
             if (tScope != fr.scope() || newField != fr.fieldInfo()) {
-                return new FieldReferenceImpl(newField, tScope, null, fr.parameterizedType());
+                Expression finalScope;
+                if (fr.isDefaultScope() && FieldReferenceImpl.defaultScope(newField, tScope)) {
+                    finalScope = null;
+                } else {
+                    finalScope = tScope;
+                }
+                return new FieldReferenceImpl(newField, finalScope, null, fr.parameterizedType());
             }
         } else if (variable instanceof DependentVariable dv) {
             Expression translatedArray = dv.arrayExpression().translate(tm);
@@ -472,5 +157,453 @@ public class TranslationMapImpl implements TranslationMap {
         }
 
         return variable;
+    }
+
+    @Override
+    public TranslationMap delegate() {
+        return delegate;
+    }
+
+    @Override
+    public boolean correctSources() {
+        return correctSources;
+    }
+
+    @Override
+    public <T extends Element> T postTranslationHandler(T original, T translated) {
+        if (postTranslationHandler != null && original != translated) {
+            return postTranslationHandler.handle(original, translated);
+        }
+        return translated;
+    }
+
+    @Override
+    public <T extends Element> List<T> postTranslationHandler(T original, List<T> translated) {
+        if (postTranslationHandler != null && (translated.size() != 1 || translated.getFirst() != original)) {
+            return postTranslationHandler.handle(original, translated);
+        }
+        return translated;
+    }
+
+    @Override
+    public boolean expandDelayedWrappedExpressions() {
+        return expandDelayedWrappedExpressions;
+    }
+
+    @Override
+    public Map<? extends Expression, ? extends Expression> expressions() {
+        return expressions;
+    }
+
+    @Override
+    public Map<FieldInfo, List<FieldInfo>> fieldDeclarations() {
+        return fieldDeclarations;
+    }
+
+    @Override
+    public Map<FieldInfo, FieldInfo> fieldInfoMap() {
+        return fieldInfoMap;
+    }
+
+    @Override
+    public boolean hasVariableTranslations() {
+        return !variables.isEmpty();
+    }
+
+    private ParameterizedType internalTranslateType(ParameterizedType parameterizedType) {
+        assert parameterizedType != null;
+        ParameterizedType inMap = types.get(parameterizedType);
+        if (inMap != null) return inMap;
+        TypeParameter typeParameter = parameterizedType.typeParameter();
+        if (typeParameter != null) {
+            TypeParameter tTypeParameter = typeParameterMap.get(typeParameter);
+            if (tTypeParameter != null) {
+                return new ParameterizedTypeImpl(null, tTypeParameter, List.of(), parameterizedType.arrays(), parameterizedType.wildcard());
+            }
+        }
+        List<ParameterizedType> params = parameterizedType.parameters();
+        List<ParameterizedType> translatedTypes = params.isEmpty() ? params :
+                params.stream().map(this::translateType).collect(toList(params));
+        if (params == translatedTypes) return parameterizedType;
+        return new ParameterizedTypeImpl(parameterizedType.typeInfo(), null, translatedTypes,
+                parameterizedType.arrays(), parameterizedType.wildcard());
+    }
+
+    @Override
+    public boolean isClearAnalysis() {
+        return clearAnalysis;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return statements.isEmpty()
+               && expressions.isEmpty()
+               && methodDeclarations.isEmpty()
+               && fieldDeclarations.isEmpty()
+               && types.isEmpty()
+               && variables.isEmpty()
+               && localVariables.isEmpty()
+               && fieldInfoMap.isEmpty()
+               && variableExpressions.isEmpty()
+               && methodInfoMap.isEmpty()
+               && typeInfoMap.isEmpty()
+               && typeParameterMap.isEmpty();
+    }
+
+    @Override
+    public Map<MethodInfo, MethodInfo> methodInfoMap() {
+        return methodInfoMap;
+    }
+
+    @Override
+    public Map<MethodInfo, List<MethodInfo>> methodsDeclarations() {
+        return methodDeclarations;
+    }
+
+    @Override
+    public String modificationTimes(Expression methodCallBeforeTranslation,
+                                    Expression translatedObject, List<Expression> translatedParameters) {
+        if (modificationTimesHandler == null) return null;
+        // type cast: see interface spec: methodCallBeforeTranslation is of type Expression to avoid cyclic type dependencies
+        MethodCall beforeTranslation;
+        if ((beforeTranslation = methodCallBeforeTranslation.asInstanceOf(MethodCall.class)) != null) {
+            return modificationTimesHandler.modificationTimes(beforeTranslation, translatedObject, translatedParameters);
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<? extends Statement, List<Statement>> statements() {
+        return statements;
+    }
+
+    @Override
+    public String toString() {
+        return "TM{" + variables.size() + "," + methodDeclarations.size() + "," + expressions.size() + "," + statements.size()
+               + "," + types.size() + "," + localVariables.size() + "," + variableExpressions.size() +
+               (expandDelayedWrappedExpressions ? ",expand" : "") + "}";
+    }
+
+    @Override
+    public boolean translateAgain() {
+        return translateAgain;
+    }
+
+    @Override
+    public Expression translateExpression(Expression expression) {
+        if (delegate != null) {
+            Expression e = expression.translate(delegate);
+            if (e == null) return expression;
+            return e.translate(withoutDelegate);
+        }
+        Expression result = Objects.requireNonNullElse(expressions.get(expression), expression);
+        return postTranslationHandler(expression, result);
+    }
+
+    @Override
+    public List<FieldInfo> translateFieldDeclaration(FieldInfo fieldInfo) {
+        if (delegate != null) {
+            List<FieldInfo> list = fieldInfo.translate(delegate);
+            return list.stream().flatMap(fi -> fi.translate(withoutDelegate).stream()).toList();
+        }
+        List<FieldInfo> result = fieldDeclarations.getOrDefault(fieldInfo, List.of(fieldInfo));
+        return postTranslationHandler(fieldInfo, result);
+    }
+
+    @Override
+    public FieldInfo translateFieldInfo(FieldInfo fieldInfo) {
+        FieldInfo fi = delegate != null ? delegate.translateFieldInfo(fieldInfo) : fieldInfo;
+        FieldInfo result = fieldInfoMap.getOrDefault(fi, fi);
+        return postTranslationHandler(fieldInfo, result);
+    }
+
+    @Override
+    public List<MethodInfo> translateMethodDeclaration(MethodInfo methodInfo) {
+        if (delegate != null) {
+            List<MethodInfo> list = methodInfo.translate(delegate);
+            return list.stream().flatMap(mi -> mi.translate(withoutDelegate).stream()).toList();
+        }
+        List<MethodInfo> result = methodDeclarations.getOrDefault(methodInfo, List.of(methodInfo));
+        return postTranslationHandler(methodInfo, result);
+    }
+
+    @Override
+    public MethodInfo translateMethodInfo(MethodInfo methodInfo) {
+        MethodInfo mi = delegate != null ? delegate.translateMethodInfo(methodInfo) : methodInfo;
+        MethodInfo result = methodInfoMap.getOrDefault(mi, mi);
+        return postTranslationHandler(methodInfo, result);
+    }
+
+    @Override
+    public List<Statement> translateStatement(Statement statement) {
+        if (delegate != null) {
+            List<Statement> translated = statement.translate(delegate);
+            return translated.stream().flatMap(s -> s.translate(withoutDelegate).stream()).toList();
+        }
+        List<Statement> list = statements.get(statement);
+        List<Statement> result = list == null ? List.of(statement) : list;
+        return postTranslationHandler(statement, result);
+    }
+
+    public ParameterizedType translateType(ParameterizedType parameterizedType) {
+        ParameterizedType pt = delegate == null ? parameterizedType : delegate.translateType(parameterizedType);
+        ParameterizedType result = internalTranslateType(pt);
+        return postTranslationHandler == null || result == pt ? result
+                : postTranslationHandler.handle(parameterizedType, result);
+    }
+
+    @Override
+    public TypeInfo translateTypeInfo(TypeInfo typeInfo) {
+        TypeInfo ti = delegate != null ? delegate.translateTypeInfo(typeInfo) : typeInfo;
+        TypeInfo result = typeInfoMap.getOrDefault(ti, ti);
+        return postTranslationHandler(typeInfo, result);
+    }
+
+    @Override
+    public Variable translateVariable(Variable variable) {
+        Variable v = delegate == null ? variable : delegate.translateVariable(variable);
+        Variable vv = variables.get(v);
+        Variable result = vv != null ? vv : variable;
+        return postTranslationHandler(variable, result);
+    }
+
+    @Override
+    public Expression translateVariableExpressionNullIfNotTranslated(Variable variable) {
+        if (delegate != null) {
+            Expression e = delegate.translateVariableExpressionNullIfNotTranslated(variable);
+            if (e instanceof VariableExpression ve) {
+                return variableExpressions.get(ve.variable());
+            }
+            if (e != null) {
+                return e; // not a variable expression, so we cannot delegate easily
+            }
+        }
+        return variableExpressions.get(variable);
+    }
+
+    @Override
+    public Variable translateVariableRecursively(Variable variable) {
+        return translateVariableRecursively(this, variable);
+    }
+
+    @Override
+    public boolean translateYieldIntoReturn() {
+        return yieldIntoReturn;
+    }
+
+    @Override
+    public Map<TypeInfo, TypeInfo> typeInfoMap() {
+        return typeInfoMap;
+    }
+
+    @Override
+    public Map<ParameterizedType, ParameterizedType> types() {
+        return types;
+    }
+
+    @Override
+    public Map<? extends Variable, ? extends Expression> variableExpressions() {
+        return variableExpressions;
+    }
+
+    @Override
+    public Map<? extends Variable, ? extends Variable> variables() {
+        return variables;
+    }
+
+    public static class Builder implements TranslationMap.Builder {
+
+        private final Map<Variable, Variable> variables = new HashMap<>();
+        private final Map<Expression, Expression> expressions = new HashMap<>();
+        private final Map<Variable, Expression> variableExpressions = new HashMap<>();
+        private final Map<MethodInfo, List<MethodInfo>> methodDeclarations = new HashMap<>();
+        private final Map<FieldInfo, List<FieldInfo>> fieldDeclarations = new HashMap<>();
+        private final Map<Statement, List<Statement>> statements = new HashMap<>();
+        private final Map<ParameterizedType, ParameterizedType> types = new HashMap<>();
+        private final Map<TypeInfo, TypeInfo> typeInfoMap = new HashMap<>();
+        private final Map<MethodInfo, MethodInfo> methodInfoMap = new HashMap<>();
+        private final Map<FieldInfo, FieldInfo> fieldInfoMap = new HashMap<>();
+        private final Map<TypeParameter, TypeParameter> typeParameterMap = new HashMap<>();
+        private ModificationTimesHandler modificationTimesHandler;
+        private boolean expandDelayedWrappedExpressions;
+        private boolean yieldIntoReturn;
+        private boolean translateAgain;
+        private boolean clearAnalysis;
+        private boolean correctSources;
+
+        private TranslationMap delegate;
+        private PostTranslationHandler postTranslationHandler;
+
+        public Builder() {
+        }
+
+        // IMPORTANT: we explicitly write TMI here rather than TM, because otherwise functionality might get lost:
+        // it looks like you make a wrapper, but you don't.
+        public Builder(TranslationMapImpl other) {
+            variables.putAll(other.variables());
+            expressions.putAll(other.expressions());
+            variableExpressions.putAll(other.variableExpressions());
+            methodDeclarations.putAll(other.methodsDeclarations());
+            fieldDeclarations.putAll(other.fieldDeclarations());
+            statements.putAll(other.statements());
+            types.putAll(other.types());
+            fieldInfoMap.putAll(other.fieldInfoMap());
+            methodInfoMap.putAll(other.methodInfoMap());
+            typeInfoMap.putAll(other.typeInfoMap());
+            expandDelayedWrappedExpressions = other.expandDelayedWrappedExpressions();
+            yieldIntoReturn = other.translateYieldIntoReturn();
+            translateAgain = other.translateAgain();
+            delegate = other.delegate();
+            postTranslationHandler = other.postTranslationHandler;
+        }
+
+        @Override
+        public Builder addVariableExpression(Variable variable, Expression actual) {
+            variableExpressions.put(variable, actual);
+            return this;
+        }
+
+        @Override
+        public TranslationMap build() {
+            return new TranslationMapImpl(statements, expressions, variableExpressions, variables, methodDeclarations,
+                    fieldDeclarations, types, typeInfoMap, methodInfoMap, fieldInfoMap, typeParameterMap,
+                    modificationTimesHandler, expandDelayedWrappedExpressions, yieldIntoReturn, translateAgain,
+                    clearAnalysis, correctSources, delegate, postTranslationHandler);
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return statements.isEmpty()
+                   && expressions.isEmpty()
+                   && variables.isEmpty()
+                   && methodDeclarations.isEmpty()
+                   && types.isEmpty()
+                   && variableExpressions.isEmpty();
+        }
+
+        @Override
+        public Builder put(FieldInfo template, FieldInfo actual) {
+            fieldInfoMap.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public TranslationMap.Builder put(TypeInfo template, TypeInfo actual) {
+            typeInfoMap.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public TranslationMap.Builder put(MethodInfo template, MethodInfo actual) {
+            methodInfoMap.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public Builder put(TypeParameter template, TypeParameter actual) {
+            typeParameterMap.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public Builder put(Statement template, Statement actual) {
+            statements.put(template, List.of(actual));
+            return this;
+        }
+
+        @Override
+        public Builder put(Statement template, List<Statement> statements) {
+            this.statements.put(template, statements);
+            return this;
+        }
+
+        @Override
+        public Builder put(Expression template, Expression actual) {
+            this.expressions.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public Builder put(ParameterizedType template, ParameterizedType actual) {
+            types.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public TranslationMap.Builder put(Variable template, Variable actual) {
+            variables.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public Builder putDeclaration(MethodInfo template, List<MethodInfo> actual) {
+            methodDeclarations.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public TranslationMap.Builder putDeclaration(FieldInfo template, List<FieldInfo> actual) {
+            fieldDeclarations.put(template, actual);
+            return this;
+        }
+
+        @Override
+        public Builder renameVariable(Variable variable, Expression actual) {
+            variableExpressions.put(variable, actual);
+            return this;
+        }
+
+        @Override
+        public TranslationMap.Builder setClearAnalysis(boolean clearAnalysis) {
+            this.clearAnalysis = clearAnalysis;
+            return this;
+        }
+
+        @Override
+        public Builder setDelegate(TranslationMap delegate) {
+            this.delegate = delegate;
+            return this;
+        }
+
+        @Override
+        public Builder setExpandDelayedWrapperExpressions(boolean expandDelayedWrappedExpressions) {
+            this.expandDelayedWrappedExpressions = expandDelayedWrappedExpressions;
+            return this;
+        }
+
+        @Override
+        public Builder setModificationTimesHandler(ModificationTimesHandler modificationTimesHandler) {
+            this.modificationTimesHandler = modificationTimesHandler;
+            return this;
+        }
+
+        @Override
+        public Builder setPostTranslationHandler(PostTranslationHandler postTranslationHandler) {
+            this.postTranslationHandler = postTranslationHandler;
+            return this;
+        }
+
+        @Override
+        public Builder setTranslateAgain(boolean translateAgain) {
+            this.translateAgain = translateAgain;
+            return this;
+        }
+
+        @Override
+        public Builder setYieldToReturn(boolean b) {
+            this.yieldIntoReturn = b;
+            return this;
+        }
+
+        @Override
+        public Builder setCorrectSources(boolean correctSources) {
+            this.correctSources = correctSources;
+            return this;
+        }
+
+        @Override
+        public boolean translateMethod(MethodInfo methodInfo) {
+            return methodDeclarations.containsKey(methodInfo);
+        }
     }
 }

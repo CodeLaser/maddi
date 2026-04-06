@@ -1,0 +1,122 @@
+package org.e2immu.language.inspection.integration.java.print;
+
+import org.e2immu.language.cst.api.element.MultiLineComment;
+import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.inspection.integration.java.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class TestVariousPrint2Issues extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT1 = """
+            public class ExceptionHolder_t {
+                private Exception exception;
+                private void getExceptionStackBody() {
+                    System.out.println("this is a prettly long line");
+                    getException().printStackTrace(null);
+                }
+                public Exception getException() { return this.exception; }
+            }
+            """;
+
+    @Test
+    public void test1() {
+        TypeInfo X = javaInspector.parse(INPUT1);
+        String reprint = javaInspector.print2(X.compilationUnit());
+        assertEquals(INPUT1, reprint);
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            import java.nio.charset.Charset;
+            import java.nio.charset.StandardCharsets;
+            class ConfigUtil {
+                /**
+                 * line 1
+                 * line 2
+                 * 
+                 * line 4
+                 * 
+                 * @return a new char set
+                 */
+            
+                private static Charset getCharset() {
+                    /* one */
+                    System.out.println("*");
+            
+                    /* one */
+                    // followed by another
+                    System.out.println("#");
+            
+                    /* one
+                     on two lines
+                     */
+                    // followed by another
+                    System.out.println("#");
+            
+                    // one line
+                    System.out.println("?");
+            
+                    // one
+                    // two
+                    // three
+                    System.out.println("!");
+            
+                    // SentinelConfig
+                    // so not use SentinelConfig.charset()
+                    return Charset.forName(System.getProperty("csp.sentinel.charset",StandardCharsets.UTF_8.name()));
+                }
+            }
+            """;
+
+    @DisplayName("newlines in multiline comments")
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(INPUT2);
+        MethodInfo getCharset = X.findUniqueMethod("getCharset", 0);
+        Statement s2 = getCharset.methodBody().statements().get(2);
+        MultiLineComment mlc = (MultiLineComment) s2.comments().getFirst();
+        assertEquals(" one\n         on two lines\n         ", mlc.comment());
+        String reprint = javaInspector.print2(X.compilationUnit());
+        assertEquals(INPUT2, reprint);
+    }
+
+    @Language("java")
+    private static final String INPUT3 = """
+            import java.io.File;
+            import static java.lang.String.format;
+            
+            class AgentLauncher {
+                private String method(File file) {
+                    return format("%s",file.getName());
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String OUTPUT3 = """
+            import java.io.File;
+            class AgentLauncher {private String method(File file) { return String.format("%s",file.getName()); } }
+            """;
+
+    @DisplayName("static import issue")
+    @Test
+    public void test3() {
+        TypeInfo X = javaInspector.parse(INPUT3);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodCall mc = (MethodCall) method.methodBody().statements().getFirst().expression();
+        assertTrue(mc.objectIsImplicit());
+        assertEquals("Type String", mc.object().parameterizedType().toString());
+
+        String reprint = javaInspector.print2(X.compilationUnit());
+        assertEquals(OUTPUT3, reprint);
+    }
+}

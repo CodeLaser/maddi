@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.type;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -185,26 +186,20 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Element.TypeReferenceNature typeReferenceNature,
+                                                         DetailedSources detailedSources,
+                                                         Set<TypeParameter> visited) {
         if (typeInfo != null) {
-            Stream<Element.TypeReference> s1 = Stream.of(new ElementImpl.TypeReference(typeInfo, false));
-            return Stream.concat(s1, parameters.stream().flatMap(ParameterizedType::typesReferenced));
+            Element.TypeReferenceNature nature = typeReferenceNature.isExplicit()
+                    ? DetailedSources.isFullyQualified(detailedSources, typeInfo)
+                    : Element.TypeReferenceNature.IMPLICIT;
+            return Stream.concat(Stream.<Element.TypeReference>of(new ElementImpl.TypeReference(typeInfo, nature)),
+                    parameters.stream().flatMap(pt ->
+                            pt.typesReferenced(typeReferenceNature, detailedSources, visited)));
         }
         if (typeParameter != null) {
-            return typeParameter.typesReferenced(false, new HashSet<>());
-        }
-        return Stream.of();
-    }
-
-    @Override
-    public Stream<Element.TypeReference> typesReferenced(boolean explicit, Set<TypeParameter> visited) {
-        if (typeInfo != null) {
-            Stream<Element.TypeReference> s1 = Stream.of(new ElementImpl.TypeReference(typeInfo, explicit));
-            return Stream.concat(s1, parameters.stream()
-                    .flatMap(pt -> pt.typesReferenced(explicit, visited)));
-        }
-        if (typeParameter != null) {
-            return typeParameter.typesReferenced(false, visited);
+            return typeParameter.typesReferenced(Element.TypeReferenceNature.IMPLICIT, null,
+                    visited == null ? new HashSet<>() : visited);
         }
         return Stream.of();
     }
@@ -212,12 +207,6 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     @Override
     public Stream<ParameterizedType> components() {
         return Stream.concat(Stream.of(this), parameters.stream().flatMap(ParameterizedType::components));
-    }
-
-    @Override
-    public Stream<Element.TypeReference> typesReferencedMadeExplicit() {
-        return typesReferenced().map(Element.TypeReference::typeInfo).filter(Objects::nonNull)
-                .map(ti -> new ElementImpl.TypeReference(ti, true));
     }
 
     @Override
@@ -625,7 +614,42 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     @Override
     public ParameterizedType applyTranslation(PredefinedWithoutParameterizedType predefined,
                                               Map<NamedType, ParameterizedType> translate) {
-        return applyTranslation(predefined, translate, new HashSet<>());
+        Map<NamedType, ParameterizedType> translateExpanded = expandSToU(translate);
+        ParameterizedType translated = applyTranslation(predefined, translateExpanded, new HashSet<>());
+        TypeParameter ttp = translated.typeParameter();
+        // S extends T, and we can translate T into a concrete type V then we map to ? extends V
+        // see TestMethodCall13,6; TestMethodCall8,2
+        if (ttp != null && !ttp.typeBounds().isEmpty() && ttp.typeBounds().getFirst().typeParameter() != null) {
+            List<ParameterizedType> translatedTypeBounds = ttp.typeBounds()
+                    .stream().map(tb -> tb.applyTranslation(predefined, translate)).toList();
+            if (translatedTypeBounds.getFirst().typeInfo() != null) {
+                return new ParameterizedTypeImpl(translatedTypeBounds.getFirst().typeInfo(), WildcardEnum.EXTENDS);
+            }
+        }
+        return translated;
+    }
+
+    /*
+    when we must translate type parameter U, and we know that S extends U has a value,
+    we assign this value to U as well. See TestMethodCall3,7
+     */
+    private Map<NamedType, ParameterizedType> expandSToU(Map<NamedType, ParameterizedType> translate) {
+        if (translate.isEmpty()) return translate; // short-cut
+        Map<NamedType, ParameterizedType> res = new HashMap<>(translate);
+        while (true) {
+            Map<NamedType, ParameterizedType> add = new HashMap<>();
+            res.forEach((nt, pt) -> {
+                if (nt instanceof TypeParameter s && !s.typeBounds().isEmpty()
+                    && s.typeBounds().stream().noneMatch(stb -> stb.typeParameter() != null && res.containsKey(stb.typeParameter()))) {
+                    s.typeBounds().stream().filter(stb -> stb.typeParameter() != null).forEach(stb -> {
+                        add.put(stb.typeParameter(), pt);
+                    });
+                }
+            });
+            if (add.isEmpty()) break;
+            res.putAll(add);
+        }
+        return res;
     }
 
     /*
@@ -639,16 +663,29 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         ParameterizedType pt = this;
         if (pt.isTypeParameter()) {
             boolean add = false;
-            // we must have some form of cycle protection; when K->V and V->K;; // TestTypeParameter,7 as an example
+            // we must have some form of cycle protection; when K->V and V->K;; TestTypeParameter,7 as an example
             Set<ParameterizedType> reached = new HashSet<>();
             while (pt.isTypeParameter() && translate.containsKey(pt.typeParameter())) {
                 ParameterizedType newPt = translate.get(pt.typeParameter());
-                if (newPt.equals(pt) || newPt.isTypeParameter() && pt.typeParameter().equals(newPt.typeParameter()))
+                if (newPt.equals(pt) || newPt.isTypeParameter() && pt.typeParameter().equals(newPt.typeParameter())) {
                     break;
+                }
+                // see TestApplyTranslation,1: SELF references; see also TestMethodCall8,4
+                if (newPt.typeInfo() != null && pt.typeParameter().getOwner().isLeft()
+                    && newPt.typeInfo().equals(pt.typeParameter().getOwner().getLeft())
+                    && pt.typeParameter().typeBounds().size() > pt.typeParameter().getIndex()
+                    && pt.typeParameter().getOwner().getLeft().equals(pt.typeParameter().typeBounds()
+                        .get(pt.typeParameter().getIndex()).typeInfo())) {
+
+                    pt = selfReference(primitives, translate, pt, newPt);
+                    break;
+                }
                 if (reached.add(newPt)) {
                     pt = newPt;
                     add = true;
-                } else break;
+                } else {
+                    break;
+                }
             }
             // we want to add this.arrays only once, and only when there was a translation (MethodCall_61)
             if (add) {
@@ -672,6 +709,32 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             throw new UnsupportedOperationException("? input " + stablePt + " has no type");
         }
         return new ParameterizedTypeImpl(stablePt.typeInfo(), null, recursivelyMappedParameters, arrays, wildcard);
+    }
+
+    private static ParameterizedType selfReference(PredefinedWithoutParameterizedType primitives, Map<NamedType, ParameterizedType> translate, ParameterizedType pt, ParameterizedType newPt) {
+        List<ParameterizedType> allTypeParams = new ArrayList<>();
+        ParameterizedType formal = pt.typeParameter().getOwner().getLeft().asParameterizedType();
+        for (ParameterizedType fpt : formal.parameters()) {
+            if (fpt.isTypeParameter()) {
+                ParameterizedType add;
+                if (fpt.typeParameter().equals(pt.typeParameter())) {
+                    if (newPt.wildcard() != null && newPt.wildcard().isExtends()) {
+                        add = primitives.parameterizedTypeWildcard();
+                    } else if (newPt.parameters().size() > fpt.typeParameter().getIndex()) {
+                        add = newPt.parameters().get(fpt.typeParameter().getIndex());
+                    } else {
+                        throw new UnsupportedOperationException("NYI");
+                    }
+                } else {
+                    add = translate.get(fpt.typeParameter());
+                }
+                allTypeParams.add(add);
+            } else {
+                throw new UnsupportedOperationException("?");
+            }
+        }
+        pt = formal.withParameters(allTypeParams);
+        return pt;
     }
 
     @Override

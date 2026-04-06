@@ -155,8 +155,9 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return parameterExpressions.stream().flatMap(Expression::typesReferenced);
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
     }
 
     @Override
@@ -176,7 +177,7 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
             ExplicitConstructorInvocation eci = new ExplicitConstructorInvocationImpl(comments(),
                     source(), tAnnotations, label(), isSuper, methodInfo, parameterExpressions);
             if (!translationMap.isClearAnalysis()) eci.analysis().setAll(analysis());
-            return List.of(eci);
+            return translationMap.postTranslationHandler(this, List.of(eci));
         }
         return List.of(this);
     }

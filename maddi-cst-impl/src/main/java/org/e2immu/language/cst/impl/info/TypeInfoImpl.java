@@ -556,21 +556,24 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        Stream<TypeReference> fromParent = parentClass().isJavaLangObject() ? Stream.empty()
-                : parentClass().typesReferencedMadeExplicit();
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
+        Stream<TypeReference> fromParent = parentClass() == null || parentClass().isJavaLangObject() ? Stream.empty()
+                : parentClass().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
         Stream<TypeReference> fromInterfaces = interfacesImplemented().stream()
-                .flatMap(ParameterizedType::typesReferencedMadeExplicit);
+                .flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
         Stream<TypeReference> fromPermits = permittedWhenSealed().stream()
-                .map(ti -> new ElementImpl.TypeReference(ti, true));
-        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(AnnotationExpression::typesReferenced);
-        Stream<TypeReference> fromMethods = methods().stream().flatMap(MethodInfo::typesReferenced);
-        Stream<TypeReference> fromConstructors = constructors().stream().flatMap(MethodInfo::typesReferenced);
-        Stream<TypeReference> fromFields = fields().stream().flatMap(FieldInfo::typesReferenced);
-        Stream<TypeReference> fromSubTypes = subTypes().stream().flatMap(TypeInfo::typesReferenced);
+                .map(ti -> new ElementImpl.TypeReference(ti,
+                        DetailedSources.isFullyQualified(detailedSources, ti)));
+        Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
+        Stream<TypeReference> fromMethods = methods().stream().flatMap(methodInfo -> methodInfo.typesReferenced(predicate));
+        Stream<TypeReference> fromConstructors = constructors().stream().flatMap(methodInfo -> methodInfo.typesReferenced(predicate));
+        Stream<TypeReference> fromFields = fields().stream().flatMap(fieldInfo -> fieldInfo.typesReferenced(predicate));
+        Stream<TypeReference> fromSubTypes = subTypes().stream().flatMap(typeInfo -> typeInfo.typesReferenced(predicate));
         Stream<TypeReference> fromTypeParameters = typeParameters().stream()
-                .flatMap(tp -> tp.typesReferenced(true, new HashSet<>()));
-        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced();
+                .flatMap(typeParameter -> typeParameter.typesReferenced(predicate));
+        Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced(predicate);
         return Stream.concat(fromParent,
                 Stream.concat(fromInterfaces,
                         Stream.concat(fromPermits,
@@ -960,7 +963,7 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
             if (!translationMap.isClearAnalysis()) {
                 typeInfo.analysis().setAll(analysis());
             }
-            return List.of(typeInfo);
+            return translationMap.postTranslationHandler(this, List.of(typeInfo));
         }
         return List.of(this);
     }
@@ -973,7 +976,10 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
                     : translationMap.translateType(enclosing.asSimpleParameterizedType()).typeInfo();
             typeInfo = new TypeInfoImpl(tEnclosing, simpleName);
         } else {
-            typeInfo = new TypeInfoImpl(compilationUnitOrEnclosingType.getLeft(), simpleName);
+            CompilationUnit cu = compilationUnitOrEnclosingType.getLeft();
+            CompilationUnit newCu = cu.copy();
+            typeInfo = new TypeInfoImpl(newCu, simpleName);
+            newCu.setTypes(List.of(typeInfo));
         }
         TypeInfo.Builder b = typeInfo.builder();
         b.setAccess(access());
@@ -1000,5 +1006,10 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
             return parentClass() != null && parentClass().isJavaLangObject();
         }
         return true;
+    }
+
+    @Override
+    public List<Comment> trailingComments() {
+        return inspection.get().trailingComments();
     }
 }

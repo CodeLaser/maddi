@@ -373,7 +373,6 @@ public class TestVariableData extends CommonTest {
         TypeInfo t2 = typeInfo.translate(tm).getFirst();
         assertNotSame(typeInfo, t2);
         assertEquals("""
-                package a.b;
                 public class X{public String method(String in){{String s=in.toLowerCase();{System.out.println(s);}}{String s=in.toUpperCase();{System.out.println(s);}}}}\
                 """, t2.print(runtime.qualificationQualifyFromPrimaryType()).toString());
         analyzer.doPrimaryType(t2);

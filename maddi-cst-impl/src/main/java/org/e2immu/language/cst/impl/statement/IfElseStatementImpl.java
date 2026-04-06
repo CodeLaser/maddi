@@ -160,9 +160,10 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(expression.typesReferenced(), Stream.concat(block.typesReferenced(),
-                elseBlock.typesReferenced()));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(expression.typesReferenced(predicate), Stream.concat(block.typesReferenced(predicate),
+                elseBlock.typesReferenced(predicate)));
     }
 
     @Override
@@ -189,7 +190,7 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
             IfElseStatement ie = new IfElseStatementImpl(comments(), source(), tAnnotations, label(), tex,
                     tIf, tElse);
             if (!translationMap.isClearAnalysis()) ie.analysis().setAll(analysis());
-            return List.of(ie);
+            return translationMap.postTranslationHandler(this, List.of(ie));
         }
         return List.of(this);
     }

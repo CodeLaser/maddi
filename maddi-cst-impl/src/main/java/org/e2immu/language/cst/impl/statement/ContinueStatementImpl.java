@@ -77,7 +77,7 @@ public class ContinueStatementImpl extends BreakOrContinueStatementImpl implemen
         if (!analysis().isEmpty() && translationMap.isClearAnalysis() || tAnnotations != annotations()) {
             ContinueStatement cs = new ContinueStatementImpl(comments(), source(), tAnnotations, label(),
                     goToLabel());
-            return List.of(cs);
+            return translationMap.postTranslationHandler(this, List.of(cs));
         }
         return List.of(this);
     }

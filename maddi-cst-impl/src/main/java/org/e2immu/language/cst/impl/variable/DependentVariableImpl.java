@@ -16,6 +16,7 @@ package org.e2immu.language.cst.impl.variable;
 
 import org.e2immu.annotation.NotNull;
 import org.e2immu.annotation.Nullable;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.Visitor;
@@ -164,8 +165,8 @@ public class DependentVariableImpl extends VariableImpl implements DependentVari
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
-        return Stream.concat(arrayExpression.typesReferenced(), indexExpression.typesReferenced());
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate, DetailedSources detailedSources) {
+        return Stream.concat(arrayExpression.typesReferenced(predicate), indexExpression.typesReferenced(predicate));
     }
 
     @Override

@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.impl.info;
 
+import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -66,4 +67,6 @@ public interface TypeInspection extends Inspection {
     int anonymousTypes();
 
     boolean isFinal();
+
+    List<Comment> trailingComments();
 }

@@ -14,17 +14,16 @@
 
 package org.e2immu.language.inspection.integration.java.print;
 
+import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
-import org.e2immu.language.cst.print.FormatterImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestTypeQualification extends CommonTest {
 
@@ -48,7 +47,21 @@ public class TestTypeQualification extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
-        assertEquals(OUTPUT1, javaInspector.print2(X));
+        TypeInfo X = javaInspector.parse(INPUT1, JavaInspectorImpl.DETAILED_SOURCES);
+        assertEquals("""
+                [TypeReference[typeInfo=java.sql.Date, typeReferenceNature=FULLY_QUALIFIED], \
+                TypeReference[typeInfo=java.util.Date, typeReferenceNature=EXPLICIT], \
+                TypeReference[typeInfo=java.util.Date, typeReferenceNature=IMPLICIT], \
+                TypeReference[typeInfo=java.sql.Date, typeReferenceNature=FULLY_QUALIFIED]]\
+                """, X.typesReferenced(null).toList().toString());
+
+        ImportComputer importComputer = javaInspector.importComputer(4, null);
+        Qualification qualification = javaInspector.runtime().qualificationQualifyFromPrimaryType();
+        assertNotNull(qualification);
+        ImportComputer.Result result = importComputer.go(X.compilationUnit(), qualification);
+        assertEquals(1, result.imports().size());
+        assertEquals("java.util.Date", result.imports().getFirst().importString());
+
+        assertEquals(OUTPUT1, javaInspector.print2(X.compilationUnit()));
     }
 }

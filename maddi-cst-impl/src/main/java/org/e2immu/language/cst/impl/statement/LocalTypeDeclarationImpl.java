@@ -79,9 +79,10 @@ public class LocalTypeDeclarationImpl extends StatementImpl implements LocalType
         List<Statement> direct = translationMap.translateStatement(this);
         if (hasBeenTranslated(direct, this)) return direct;
         List<TypeInfo> translated = typeInfo.translate(translationMap);
-        return translated.stream().map(tt -> tt == typeInfo ? this :
+        List<Statement> result = translated.stream().map(tt -> tt == typeInfo ? this :
                         (Statement) new LocalTypeDeclarationImpl(comments(), source(), annotations(), label(), tt))
                 .toList();
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override
@@ -114,8 +115,9 @@ public class LocalTypeDeclarationImpl extends StatementImpl implements LocalType
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return typeInfo.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return typeInfo.typesReferenced(predicate);
     }
 
     @Override

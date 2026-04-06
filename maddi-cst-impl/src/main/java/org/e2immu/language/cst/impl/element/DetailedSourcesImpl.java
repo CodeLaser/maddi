@@ -161,4 +161,23 @@ public class DetailedSourcesImpl implements DetailedSources {
         copy.put(o, sources);
         return new DetailedSourcesImpl(copy, copyAssociation);
     }
+
+    @Override
+    public boolean isFullyQualified(TypeInfo typeInfo) {
+        Object o = identityHashMap.get(typeInfo);
+        if (o instanceof Source s) {
+            // >= because the dots can be surrounded by spaces (highly unusual, but possible)
+            return s.posDiff() >= typeInfo.fullyQualifiedName().length();
+        }
+        if (o instanceof List<?> list && !list.isEmpty()) {
+            return list.stream()
+                    .allMatch(obj -> ((Source) obj).posDiff() >= typeInfo.fullyQualifiedName().length());
+        }
+        return false;
+    }
+
+    @Override
+    public boolean isFullyQualified(ParameterizedType parameterizedType) {
+        return false;
+    }
 }

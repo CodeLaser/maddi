@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.info;
 
 
 import org.e2immu.annotation.Fluent;
+import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -83,6 +84,9 @@ public interface TypeInfo extends NamedType, Info {
     Set<TypeModifier> typeModifiers();
 
     List<TypeParameter> typeParameters();
+
+    // comments trailing the last method or field in the type's body
+    List<Comment> trailingComments();
 
     MethodInfo findUniqueMethod(String methodName, int n);
 
@@ -210,6 +214,9 @@ public interface TypeInfo extends NamedType, Info {
     interface Builder extends Info.Builder<Builder> {
         Builder addPermittedType(TypeInfo typeInfo);
 
+        @Fluent
+        Builder addTrailingComments(List<Comment> comments);
+
         void clearInterfacesImplemented();
 
         List<MethodInfo> constructors();
@@ -280,6 +287,10 @@ public interface TypeInfo extends NamedType, Info {
         return Stream.concat(Stream.of(this), subTypes().stream().flatMap(TypeInfo::recursiveSubTypeStream));
     }
 
+    default Stream<TypeInfo> meAndMyRecursiveSuperTypeStream() {
+        return Stream.concat(Stream.of(typeInfo()), typeInfo().recursiveSuperTypeStream());
+    }
+
     default Stream<TypeInfo> recursiveSuperTypeStream() {
         Stream<TypeInfo> s1;
         if (compilationUnitOrEnclosingType().isRight() && !isStatic()) {
@@ -304,14 +315,14 @@ public interface TypeInfo extends NamedType, Info {
     default Stream<TypeInfo> typeHierarchyExcludingJLOStream() {
         Stream<TypeInfo> s2;
         if (parentClass() != null && !parentClass().typeInfo().isJavaLangObject()) {
-            TypeInfo parent = parentClass().bestTypeInfo();
-            s2 = Stream.concat(Stream.of(parent), parent.recursiveSuperTypeStream());
+            TypeInfo parent = parentClass().typeInfo();
+            s2 = Stream.concat(Stream.of(parent), parent.typeHierarchyExcludingJLOStream());
         } else {
             s2 = Stream.of();
         }
         Stream<TypeInfo> s3 = interfacesImplemented().stream().map(ParameterizedType::bestTypeInfo)
                 .filter(Objects::nonNull)
-                .flatMap(ti -> Stream.concat(Stream.of(ti), ti.recursiveSuperTypeStream()));
+                .flatMap(ti -> Stream.concat(Stream.of(ti), ti.typeHierarchyExcludingJLOStream()));
         return Stream.concat(s2, s3);
     }
 
@@ -377,7 +388,7 @@ public interface TypeInfo extends NamedType, Info {
     boolean hasImplicitParent();
 
     default boolean inHierarchyOf(TypeInfo typeInfo) {
-        return equals(typeInfo) || typeHierarchyExcludingJLOStream().anyMatch(this::equals);
+        return equals(typeInfo) || typeInfo.typeHierarchyExcludingJLOStream().anyMatch(this::equals);
     }
 
 }

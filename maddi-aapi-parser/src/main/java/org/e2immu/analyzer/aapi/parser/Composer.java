@@ -315,6 +315,7 @@ public class Composer {
                 .setSourceSet(sourceSet)
                 .build();
         TypeInfo typeInfo = runtime.newTypeInfo(compilationUnit, camelCasePackageName);
+        compilationUnit.setTypes(List.of(typeInfo));
         TypeInfo.Builder builder = typeInfo.builder();
         builder.setTypeNature(runtime.typeNatureClass())
                 .setParentClass(runtime.objectParameterizedType())
@@ -369,7 +370,7 @@ public class Composer {
                     SourceSet sourceSetOfRequest = Objects.requireNonNull(apiType.compilationUnit().sourceSet());
                     ImportComputer importComputer = javaInspector.importComputer(4,
                             sourceSetOfRequest);
-                    outputStreamWriter.write(javaInspector.print2(apiType, decorator, importComputer));
+                    outputStreamWriter.write(javaInspector.print2(apiType.compilationUnit(), decorator, importComputer));
                 }
                 LOGGER.info("Wrote {}", apiType);
                 ++count;

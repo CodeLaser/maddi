@@ -14,10 +14,7 @@
 
 package org.e2immu.language.cst.impl.expression;
 
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.Visitor;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.expression.TypeExpression;
@@ -111,16 +108,20 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         TypeInfo typeInfo = parameterizedType().typeInfo();
         if (typeInfo == null) {
             if (parameterizedType.typeParameter() != null) {
                 return parameterizedType.typeParameter().typeBounds()
-                        .stream().flatMap(ParameterizedType::typesReferenced);
+                        .stream().flatMap(pt -> pt.typesReferenced(TypeReferenceNature.IMPLICIT,
+                                null));
             }
             return Stream.of();
         }
-        return Stream.of(new ElementImpl.TypeReference(typeInfo, true));
+        DetailedSources detailedSources = source() == null ? null : source().detailedSources();
+        TypeReferenceNature trn = DetailedSources.isFullyQualified(detailedSources, parameterizedType);
+        return Stream.of(new ElementImpl.TypeReference(typeInfo, trn));
     }
 
     @Override
@@ -158,7 +159,8 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
 
         ParameterizedType translatedType = translationMap.translateType(parameterizedType);
         if (translatedType == parameterizedType) return this;
-        return new TypeExpressionImpl(comments(), source(), translatedType, diamond);
+        Expression result = new TypeExpressionImpl(comments(), source(), translatedType, diamond);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

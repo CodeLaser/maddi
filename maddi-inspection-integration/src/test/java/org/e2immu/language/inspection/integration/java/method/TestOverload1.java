@@ -193,7 +193,7 @@ public class TestOverload1 extends CommonTest {
         TypeInfo typeInfo = javaInspector.parse(INPUT4);
 
 
-        String s = javaInspector.print2(typeInfo);
+        String s = javaInspector.print2(typeInfo.compilationUnit());
         @Language("java")
         String expect = """
                 package a.b;

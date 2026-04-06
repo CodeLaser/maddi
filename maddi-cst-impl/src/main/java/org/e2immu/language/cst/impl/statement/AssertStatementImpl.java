@@ -128,8 +128,9 @@ public class AssertStatementImpl extends StatementImpl implements AssertStatemen
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(expression.typesReferenced(), message.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(expression.typesReferenced(predicate), message.typesReferenced(predicate));
     }
 
     @Override
@@ -144,7 +145,7 @@ public class AssertStatementImpl extends StatementImpl implements AssertStatemen
             || tAnnotations != annotations()) {
             AssertStatement as = new AssertStatementImpl(comments(), source(), tAnnotations, label(), tex, msg);
             if (!translationMap.isClearAnalysis()) as.analysis().setAll(analysis());
-            return List.of(as);
+            return translationMap.postTranslationHandler(this, List.of(as));
         }
         return List.of(this);
     }

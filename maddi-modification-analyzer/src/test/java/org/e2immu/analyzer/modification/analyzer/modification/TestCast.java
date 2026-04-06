@@ -212,7 +212,8 @@ public class TestCast extends CommonTest {
                 }
                 """;
         SourceSet sourceSetOfRequest = javaInspector.mainSources();
-        assertEquals(expected, javaInspector.print2(B, new DecoratorImpl(runtime, sourceSetOfRequest),
+        assertEquals(expected, javaInspector.print2(B.compilationUnit(),
+                new DecoratorImpl(runtime, sourceSetOfRequest),
                 javaInspector.importComputer(4, sourceSetOfRequest)));
     }
 }

@@ -183,8 +183,9 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
             && translatedLv == patternVariable) {
             return this;
         }
-        return new InstanceOfImpl(comments(), source(), translatedExpression, translatedType, translatedLv,
+        Expression result = new InstanceOfImpl(comments(), source(), translatedExpression, translatedType, translatedLv,
                 booleanParameterizedType, propertyValueMap);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override
@@ -233,9 +234,10 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(Stream.of(new ElementImpl.TypeReference(testType.typeInfo(), true)),
-                expression.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(testType.typesReferenced(TypeReferenceNature.EXPLICIT,
+                source() == null ? null : source().detailedSources()), expression.typesReferenced(predicate));
     }
 
     @Override

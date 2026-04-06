@@ -54,7 +54,8 @@ public class TestParseRecord extends CommonTestParse {
         Statement s0 = cc.methodBody().statements().getFirst();
         assertEquals("this.s=s;", s0.toString());
         assertEquals("0", s0.source().index());
-
+        assertEquals("public C(String s,int i){this.s=s;this.i=i;}",
+                cc.print(runtime.qualificationQualifyFromPrimaryType()).toString());
         MethodInfo accessor0 = typeInfo.findUniqueMethod("s", 0);
         Statement a0 = accessor0.methodBody().statements().getFirst();
         assertEquals("0", a0.source().index());

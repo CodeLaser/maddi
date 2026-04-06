@@ -110,7 +110,8 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
         return Stream.empty();
     }
 
@@ -129,7 +130,8 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
         List<Statement> direct = translationMap.translateStatement(this);
         if (hasBeenTranslated(direct, this)) return direct;
         if (translationMap.isClearAnalysis()) {
-            return List.of(new ImportStatementImpl(comments(), source(), importString, isStatic));
+            Statement is = new ImportStatementImpl(comments(), source(), importString, isStatic);
+            return translationMap.postTranslationHandler(this, List.of(is));
         }
         return List.of(this);
     }

@@ -14,9 +14,9 @@
 
 package org.e2immu.analyzer.modification.prepwork.variable;
 
+import org.e2immu.analyzer.modification.common.getset.ApplyGetSetTranslation;
 import org.e2immu.analyzer.modification.prepwork.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.common.getset.ApplyGetSetTranslation;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
@@ -76,7 +76,7 @@ public class TestGetSet2 extends CommonTest {
                 get.getSetField().toString());
 
         Expression getE = get.methodBody().lastStatement().expression();
-        if(getE instanceof MethodCall mc) {
+        if (getE instanceof MethodCall mc) {
             assertEquals("GetSetValueImpl[field=null, setter=false, parameterIndexOfIndex=-1, list=false]",
                     mc.methodInfo().getSetField().toString());
         } else fail();
@@ -96,7 +96,9 @@ public class TestGetSet2 extends CommonTest {
         if (expression instanceof MethodCall mc) {
             Expression get1 = mc.object();
             assertEquals("this.myList.get(pos)", get1.toString());
-            assertEquals("this.get(pos)", mc.parameterExpressions().getFirst().toString());
+            assertEquals("myList.get(pos)",
+                    get1.print(runtime.qualificationQualifyFromPrimaryType()).toString());
+            assertEquals("get(pos)", mc.parameterExpressions().getFirst().toString());
         } else fail();
     }
 

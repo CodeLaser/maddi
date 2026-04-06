@@ -162,9 +162,10 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(initializer.typesReferenced(),
-                Stream.concat(expression.typesReferenced(), block.typesReferenced()));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(initializer.typesReferenced(predicate),
+                Stream.concat(expression.typesReferenced(predicate), block.typesReferenced(predicate)));
     }
 
     @Override
@@ -185,7 +186,7 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
             ForEachStatementImpl fs = new ForEachStatementImpl(comments(), source(), tAnnotations, label(),
                     translatedLvc, translated, ensureBlock(translatedBlock));
             if (!translationMap.isClearAnalysis()) fs.analysis().setAll(analysis());
-            return List.of(fs);
+            return translationMap.postTranslationHandler(this, List.of(fs));
         }
         return List.of(this);
     }

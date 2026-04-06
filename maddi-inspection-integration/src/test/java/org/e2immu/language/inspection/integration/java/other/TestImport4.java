@@ -14,6 +14,8 @@
 
 package org.e2immu.language.inspection.integration.java.other;
 
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.integration.java.CommonTest2;
 import org.intellij.lang.annotations.Language;
@@ -130,4 +132,66 @@ public class TestImport4 extends CommonTest2 {
                 "c.Use", USE_FAIL_3);
         assertThrows(Summary.FailFastException.class, () -> init(sourcesByFqn));
     }
+
+
+    @Language("java")
+    String INTERFACE_4 = """
+            package a.b
+            .c .d;
+            public interface Value {
+                void common();
+            
+                interface Bool extends Value {
+                    void boolMethod();
+                }
+                interface Immutable extends Value {
+                    void immutableMethod();
+                }
+                interface Independent extends Value {
+                    void independentMethod();
+                }
+            }
+            """;
+
+    @Language("java")
+    String IMPLEMENTATION_4 = """
+            package a .b.c.d. i ;
+            import a.b.c.
+              d.Value;
+            public class ValueImpl implements Value {
+                public void common() { }
+                static class BoolImpl extends ValueImpl implements Bool {
+                    public void boolMethod() { }
+                }
+                static class ImmutableImpl extends ValueImpl implements Immutable {
+                    public void immutableMethod() { }
+                }
+                static class IndependentImpl extends ValueImpl implements Independent {
+                    public static final Independent INDEPENDENT = new IndependentImpl();
+                    public void independentMethod() { }
+                }
+            }
+            """;
+
+    @Language("java")
+    String USE_4 = """
+            package c;
+            import static a. b.c.d .i.ValueImpl.IndependentImpl.*;
+            public class Use {
+                interface BB extends Bool { }
+                Bool bool;
+            }
+            """;
+
+    @Test
+    public void testImport4() throws IOException {
+        Map<String, String> sourcesByFqn = Map.of("a.b.c.d.Value", INTERFACE_4, "a.b.c.d.i.ValueImpl", IMPLEMENTATION_4,
+                "c.Use", USE_4);
+        ParseResult parseResult = init(sourcesByFqn);
+        TypeInfo value = parseResult.findType("a.b.c.d.Value");
+        assertNotNull(value);
+        TypeInfo valueImpl = parseResult.findType("a.b.c.d.i.ValueImpl");
+        assertNotNull(valueImpl);
+    }
+
 }

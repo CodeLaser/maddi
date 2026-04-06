@@ -405,6 +405,10 @@ public class CommonTestParse {
                 = parseCompilationUnit.parse(cu, parser.get().CompilationUnit());
         computeSingleAbstractMethods(types.stream().map(Either::getLeft).toList());
         rootContext.resolver().resolve(true);
+        List<TypeInfo> typeInfoList = types.stream()
+                .map(e -> e.isLeft()
+                        ? e.getLeft() : e.getRight().typeInfo()).toList();
+        cu.setTypes(typeInfoList);
         return new ParseResult(rootContext, types.stream().map(Either::getLeft).toList());
     }
 

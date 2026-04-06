@@ -57,14 +57,14 @@ public class QualificationImpl implements Qualification {
         this.decorator = decorator;
     }
 
-    public QualificationImpl(boolean doNotQualifyImplicit, Qualification parent, TypeNameRequired typeNameRequired) {
+    public QualificationImpl(Qualification parent) {
         QualificationImpl pi = (QualificationImpl) parent;
         this.parent = pi;
         top = pi.top;
         typesNotImported = null;
         simpleTypeNames = null;
-        this.typeNameRequired = typeNameRequired;
-        this.doNotQualifyImplicit = doNotQualifyImplicit;
+        this.typeNameRequired = parent.typeNameRequired();
+        this.doNotQualifyImplicit = parent.doNotQualifyImplicit();
         this.decorator = pi.decorator;
     }
 
@@ -90,6 +90,7 @@ public class QualificationImpl implements Qualification {
     @Override
     public boolean qualifierRequired(MethodInfo methodInfo) {
         if (unqualifiedMethods.contains(methodInfo)) return false;
+        // we rely on the import computer to explicitly add methods that have been statically imported
         return parent == null || parent.qualifierRequired(methodInfo);
     }
 
@@ -103,9 +104,15 @@ public class QualificationImpl implements Qualification {
         if (variable instanceof FieldReference fieldReference) {
             if (qualifiedFields.contains(fieldReference.fieldInfo())) return true;
             if (unqualifiedFields.contains(fieldReference.fieldInfo())) return false;
-            return parent == null || parent.qualifierRequired(variable);
+            if (fieldReference.fieldInfo().isStatic()) {
+                // we rely on the import computer to explicitly state which static fields have been imported
+                return parent == null || parent.qualifierRequired(variable);
+            }
+            // instance fields, however, must be explicitly marked as "qualify"
+            return parent != null && parent.qualifierRequired(variable);
         }
         if (variable instanceof This thisVar) {
+            if (thisVar.typeInfo().isAnonymous()) return false;
             QualificationImpl levelWithData = this;
             while (levelWithData.unqualifiedThis.isEmpty()) {
                 levelWithData = levelWithData.parent;
@@ -121,6 +128,7 @@ public class QualificationImpl implements Qualification {
         qualifiedFields.add(fieldInfo);
     }
 
+    @Override
     public void addField(FieldInfo fieldInfo) {
         boolean newName = unqualifiedFields.stream().noneMatch(fi -> fi.name().equals(fieldInfo.name()));
         if (newName) {
@@ -128,15 +136,22 @@ public class QualificationImpl implements Qualification {
         } // else: we'll have to qualify, because the name has already been taken
     }
 
+    @Override
     public void addThis(This thisVar) {
         unqualifiedThis.add(thisVar);
     }
 
+    @Override
     public void addMethodUnlessOverride(MethodInfo methodInfo) {
         boolean newMethod = unqualifiedMethods.stream().noneMatch(mi -> mi.isOverloadOf(methodInfo));
         if (newMethod) {
             unqualifiedMethods.add(methodInfo);
         }
+    }
+
+    public void addTypeNotImported(TypeInfo typeInfo) {
+        assert typesNotImported != null;
+        typesNotImported.put(typeInfo, TypeNameImpl.Required.FQN);
     }
 
     public boolean addTypeReturnImport(TypeInfo typeInfo) {

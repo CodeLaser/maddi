@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
@@ -99,8 +98,9 @@ public class OrImpl extends ExpressionImpl implements Or {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return expressions.stream().flatMap(Expression::typesReferenced);
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return expressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
     }
 
     @Override
@@ -154,7 +154,8 @@ public class OrImpl extends ExpressionImpl implements Or {
                 expressions.stream().map(e -> e.translate(translationMap))
                         .collect(translationMap.toList(expressions));
         if (expressions == translatedExpressions) return this;
-        return new OrImpl(comments(), source(), booleanPt, translatedExpressions);
+        Expression result = new OrImpl(comments(), source(), booleanPt, translatedExpressions);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     public static class Builder extends ElementImpl.Builder<Or.Builder> implements Or.Builder {

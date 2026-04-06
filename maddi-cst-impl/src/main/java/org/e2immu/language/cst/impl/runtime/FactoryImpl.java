@@ -513,6 +513,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public CompilationUnitPrinter newCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2) {
+        return new CompilationUnitPrinterImpl(compilationUnit, formatter2);
+    }
+
+    @Override
     public CompilationUnit newCompilationUnitStub(String candidatePackageName) {
         return new CompilationUnitStub(candidatePackageName);
     }
@@ -619,6 +624,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     @Override
     public FieldInfo newFieldInfo(String name, boolean isStatic, ParameterizedType parameterizedType, TypeInfo owner) {
         return new FieldInfoImpl(name, isStatic, parameterizedType, owner);
+    }
+
+    @Override
+    public FieldPrinter newFieldPrinter(FieldInfo fieldInfo, boolean formatter2) {
+        return new FieldPrinterImpl(fieldInfo, formatter2);
     }
 
     @Override
@@ -1101,11 +1111,6 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
         return ParameterizedTypeImpl.RETURN_TYPE_OF_CONSTRUCTOR;
     }
 
-    @Override
-    public ParameterizedType parameterizedTypeWildcard() {
-        return ParameterizedTypeImpl.WILDCARD_PARAMETERIZED_TYPE;
-    }
-
     private static final Pattern COMPACT2_PATTERN = Pattern.compile("(\\d+)-(\\d+):(\\d+)-(\\d+)");
 
     @Override
@@ -1207,12 +1212,12 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
 
     @Override
     public Qualification qualificationQualifyFromPrimaryType() {
-        return new QualificationImpl(false, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
+        return new QualificationImpl(true, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
     }
 
     @Override
     public Qualification qualificationQualifyFromPrimaryType(Qualification.Decorator decorator) {
-        return new QualificationImpl(false, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, decorator);
+        return new QualificationImpl(true, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, decorator);
     }
 
     @Override

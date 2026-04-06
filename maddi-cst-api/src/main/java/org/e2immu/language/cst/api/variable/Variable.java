@@ -15,11 +15,13 @@
 package org.e2immu.language.cst.api.variable;
 
 import org.e2immu.annotation.NotNull;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.util.OneVariable;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
@@ -66,4 +68,14 @@ public interface Variable extends Comparable<Variable>, Element, OneVariable {
     }
 
     Variable rewire(InfoMap infoMap);
+
+    @Override
+    default Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return typesReferenced(predicate, null);
+    }
+
+    default Stream<TypeReference> typesReferenced(Predicate<Element> predicate, DetailedSources detailedSources) {
+        return Stream.of();
+    }
 }

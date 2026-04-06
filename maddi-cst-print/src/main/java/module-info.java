@@ -4,6 +4,5 @@ module org.e2immu.language.cst.print {
     requires org.slf4j;
 
     exports org.e2immu.language.cst.print;
-    exports org.e2immu.language.cst.print.formatter;
     exports org.e2immu.language.cst.print.formatter2;
 }

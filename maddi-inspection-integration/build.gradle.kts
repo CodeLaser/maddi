@@ -44,6 +44,7 @@ dependencies {
     testImplementation("org.springframework:spring-test:6.1.19")
     testImplementation("org.springframework:spring-core:6.1.19")
     testImplementation("org.projectlombok:lombok:1.18.42")
+    testImplementation("org.mockito:mockito-core:5.23.0")
 }
 tasks.withType<Test> {
     maxParallelForks = 4

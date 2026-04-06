@@ -83,8 +83,9 @@ public class YieldStatementImpl extends StatementImpl implements YieldStatement 
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return expression.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return expression.typesReferenced(predicate);
     }
 
     @Override
@@ -137,7 +138,7 @@ public class YieldStatementImpl extends StatementImpl implements YieldStatement 
             || tAnnotations != annotations()) {
             YieldStatementImpl ys = new YieldStatementImpl(comments(), source(), tAnnotations, label(), tex);
             if (!translationMap.isClearAnalysis()) ys.analysis().setAll(analysis());
-            return List.of(ys);
+            return translationMap.postTranslationHandler(this, List.of(ys));
         }
         return List.of(this);
     }

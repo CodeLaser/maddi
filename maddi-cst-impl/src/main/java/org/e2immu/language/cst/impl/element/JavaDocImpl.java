@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
@@ -180,7 +181,8 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         if (translatedTags == tags) {
             return this;
         }
-        return new JavaDocImpl(source(), super.comment(), translatedTags);
+        JavaDoc result = new JavaDocImpl(source(), super.comment(), translatedTags);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override
@@ -215,16 +217,28 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         return tags.stream().map(JavaDocImpl::typeReference).filter(Objects::nonNull);
     }
 
     private static Element.TypeReference typeReference(Tag tag) {
         if (tag.resolvedReference() instanceof Info info) {
             TypeInfo typeInfo = info.typeInfo();
-            boolean explicit = tag.source().detailedSources() != null &&
-                               tag.source().detailedSources().detail(typeInfo) != null;
-            return new ElementImpl.TypeReference(typeInfo, explicit);
+            TypeReferenceNature trn;
+            if (tag.source() == null || tag.source().detailedSources() == null) {
+                trn = TypeReferenceNature.IMPLICIT;
+            } else {
+                DetailedSources ds = tag.source().detailedSources();
+                Source s = ds.detail(typeInfo);
+                if (s == null) {
+                    trn = TypeReferenceNature.IMPLICIT;
+                } else if (s.posDiff() >= typeInfo.fullyQualifiedName().length()) {
+                    trn = TypeReferenceNature.FULLY_QUALIFIED;
+                } else {
+                    trn = TypeReferenceNature.EXPLICIT;
+                }
+            }
+            return new ElementImpl.TypeReference(typeInfo, trn);
         }
         return null;
     }
@@ -232,17 +246,5 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
     @Override
     public String toString() {
         return "javaDoc@" + source().compact2();
-    }
-
-    // IMPROVE spacing! See TestJavaDoc,1
-    @Override
-    public OutputBuilder print(Qualification qualification) {
-        GuideImpl.GuideGenerator gg = GuideImpl.generatorForMultilineComment();
-        String text = "/*" + comment() + "*/";
-        OutputBuilder joinedText = Arrays.stream(text.split("\n"))
-                .filter(line -> !line.isBlank())
-                .map(line -> new OutputBuilderImpl().add(new TextImpl(line.trim())))
-                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, gg));
-        return new OutputBuilderImpl().add(joinedText);
     }
 }

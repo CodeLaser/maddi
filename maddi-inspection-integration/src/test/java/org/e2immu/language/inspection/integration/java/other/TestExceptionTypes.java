@@ -17,11 +17,7 @@ package org.e2immu.language.inspection.integration.java.other;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.MethodPrinter;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.impl.info.MethodPrinterImpl;
-import org.e2immu.language.cst.print.FormatterImpl;
-import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -80,6 +76,6 @@ public class TestExceptionTypes extends CommonTest {
                     }
                 }
                 """;
-        assertEquals(expected, javaInspector.print2(x));
+        assertEquals(expected, javaInspector.print2(x.compilationUnit()));
     }
 }

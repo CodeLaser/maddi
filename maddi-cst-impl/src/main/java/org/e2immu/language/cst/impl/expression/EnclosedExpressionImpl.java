@@ -126,8 +126,9 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return inner.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return inner.typesReferenced(predicate);
     }
 
     @Override
@@ -137,7 +138,8 @@ public class EnclosedExpressionImpl extends ExpressionImpl implements EnclosedEx
 
         Expression translatedInner = inner.translate(translationMap);
         if (translatedInner == inner) return this;
-        return new EnclosedExpressionImpl(comments(), source(), translatedInner);
+        Expression result = new EnclosedExpressionImpl(comments(), source(), translatedInner);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     public static class Builder extends ElementImpl.Builder<EnclosedExpression.Builder> implements EnclosedExpression.Builder {

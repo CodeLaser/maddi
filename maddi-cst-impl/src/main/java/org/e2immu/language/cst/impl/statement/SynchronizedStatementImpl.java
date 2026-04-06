@@ -130,8 +130,9 @@ public class SynchronizedStatementImpl extends StatementImpl implements Synchron
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(expression.typesReferenced(), block.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(expression.typesReferenced(predicate), block.typesReferenced(predicate));
     }
 
     @Override
@@ -149,7 +150,7 @@ public class SynchronizedStatementImpl extends StatementImpl implements Synchron
                 SynchronizedStatementImpl sync = new SynchronizedStatementImpl(comments(), source(),
                         tAnnotations, label(), tex, b);
                 if (!translationMap.isClearAnalysis()) sync.analysis().setAll(analysis());
-                return List.of(sync);
+                return translationMap.postTranslationHandler(this, List.of(sync));
             }
             throw new UnsupportedOperationException();
         }

@@ -111,8 +111,9 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return expression.typesReferenced();
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return expression.typesReferenced(predicate);
     }
 
     @Override
@@ -147,7 +148,8 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
 
         Expression translatedExpression = expression.translate(translationMap);
         if (translatedExpression == expression) return this;
-        return new UnaryOperatorImpl(comments(), source(), operator, translatedExpression, precedence);
+        Expression result = new UnaryOperatorImpl(comments(), source(), operator, translatedExpression, precedence);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

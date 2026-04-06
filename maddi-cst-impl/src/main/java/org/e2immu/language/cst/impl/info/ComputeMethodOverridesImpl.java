@@ -15,8 +15,10 @@
 package org.e2immu.language.cst.impl.info;
 
 import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +29,11 @@ import java.util.stream.Stream;
 public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
     private static final Logger LOGGER = LoggerFactory.getLogger(ComputeMethodOverridesImpl.class);
     private final Map<String, Integer> duplication = new ConcurrentHashMap<>();
+    private final Runtime runtime;
+
+    public ComputeMethodOverridesImpl(Runtime runtime) {
+        this.runtime = runtime;
+    }
 
     @Override
     public MethodInfo computeFunctionalInterface(TypeInfo typeInfo) {
@@ -114,8 +121,9 @@ public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
         return result;
     }
 
-    private MethodInfo findUniqueMethod(TypeInfo typeInfo, MethodInfo targetMethod,
-                                        Map<NamedType, ParameterizedType> translationMap) {
+    // hint for IntelliJ
+    private @Nullable MethodInfo findUniqueMethod(TypeInfo typeInfo, MethodInfo targetMethod,
+                                                  Map<NamedType, ParameterizedType> translationMap) {
         return Stream.concat(typeInfo.methods().stream(), typeInfo.constructors().stream())
                 .filter(mi -> sameMethod(mi, targetMethod, translationMap))
                 .findFirst().orElse(null);
@@ -123,8 +131,22 @@ public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
 
     private boolean sameMethod(MethodInfo base, MethodInfo targetMethod,
                                Map<NamedType, ParameterizedType> translationMap) {
-        if (!base.name().equals(targetMethod.name())) return false;
-        return sameParameters(base.parameters(), targetMethod.parameters(), translationMap);
+        if (!base.name().equals(targetMethod.name())
+            // we'll check again in sameParameters, as that is an independent method
+            // however, the translation of method type parameters is expensive, so we test here
+            || base.parameters().size() != targetMethod.parameters().size()) return false;
+        Map<NamedType, ParameterizedType> tm;
+        if (base.typeParameters().isEmpty()) {
+            tm = translationMap;
+        } else {
+            tm = new HashMap<>(translationMap);
+            for (TypeParameter mtp : base.typeParameters()) {
+                tm.put(mtp, mtp.typeBounds().isEmpty() ? runtime.objectParameterizedType()
+                        : mtp.typeBounds().getFirst());
+                // FIXME what with multiple type bounds? we'd need a proper & parameterized type
+            }
+        }
+        return sameParameters(base.parameters(), targetMethod.parameters(), tm);
     }
 
     @Override

@@ -150,7 +150,8 @@ public class SwitchEntryImpl implements SwitchEntry {
             return this;
         }
         if (tStatement == null) return null; // a way for the entry to disappear
-        return new SwitchEntryImpl(comments, source, tConditions, tPattern, tWhen, tStatement);
+        SwitchEntry result = new SwitchEntryImpl(comments, source, tConditions, tPattern, tWhen, tStatement);
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override
@@ -199,9 +200,10 @@ public class SwitchEntryImpl implements SwitchEntry {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        Stream<Element.TypeReference>s1 = patternVariable == null ? Stream.of(): patternVariable.typesReferenced();
-        return Stream.concat(s1, Stream.concat(whenExpression.typesReferenced(), statement.typesReferenced()));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        Stream<Element.TypeReference> s1 = patternVariable == null ? Stream.of() : patternVariable.typesReferenced(predicate);
+        return Stream.concat(s1, Stream.concat(whenExpression.typesReferenced(predicate), statement.typesReferenced(predicate)));
     }
 
     public static class EntryBuilderImpl extends ElementImpl.Builder<Builder> implements Builder {

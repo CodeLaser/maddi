@@ -48,6 +48,7 @@ public interface DetailedSources {
     Object THROWS_COMMAS = new Object();
     Object LOCAL_VARIABLE_COMMAS = new Object();
     Object LOCAL_VARIABLE_ASSIGNMENT_OPERATORS = new Object();
+    Object TYPE_BOUND_AMPERSANDS = new Object();
 
     Source detail(Object object);
 
@@ -87,5 +88,24 @@ public interface DetailedSources {
         }
 
         Builder putTypeQualification(TypeInfo typeInfo, List<TypeInfoSource> associatedList);
+    }
+
+    // helper methods
+
+    boolean isFullyQualified(TypeInfo typeInfo);
+
+    boolean isFullyQualified(ParameterizedType parameterizedType);
+
+    static Element.TypeReferenceNature isFullyQualified(DetailedSources detailedSources, TypeInfo typeInfo) {
+        if (typeInfo == null) return Element.TypeReferenceNature.IMPLICIT;
+        return detailedSources != null && detailedSources.isFullyQualified(typeInfo)
+                ? Element.TypeReferenceNature.FULLY_QUALIFIED : Element.TypeReferenceNature.EXPLICIT;
+    }
+
+    static Element.TypeReferenceNature isFullyQualified(DetailedSources detailedSources,
+                                                        ParameterizedType parameterizedType) {
+        if (parameterizedType == null) return Element.TypeReferenceNature.IMPLICIT;
+        return detailedSources != null && detailedSources.isFullyQualified(parameterizedType)
+                ? Element.TypeReferenceNature.FULLY_QUALIFIED : Element.TypeReferenceNature.EXPLICIT;
     }
 }

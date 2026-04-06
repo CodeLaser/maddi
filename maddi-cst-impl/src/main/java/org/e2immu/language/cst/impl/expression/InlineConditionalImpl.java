@@ -196,9 +196,10 @@ public class InlineConditionalImpl extends ExpressionImpl implements InlineCondi
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(condition.typesReferenced(),
-                Stream.concat(ifTrue.typesReferenced(), ifFalse.typesReferenced()));
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(condition.typesReferenced(predicate),
+                Stream.concat(ifTrue.typesReferenced(predicate), ifFalse.typesReferenced(predicate)));
     }
 
     @Override
@@ -213,10 +214,8 @@ public class InlineConditionalImpl extends ExpressionImpl implements InlineCondi
         InlineConditional result = tc instanceof Negation negation
                 ? new InlineConditionalImpl(comments(), source(), negation.expression(), tf, tt, commonType)
                 : new InlineConditionalImpl(comments(), source(), tc, tt, tf, commonType);
-        if (translationMap.translateAgain()) {
-            return result.translate(translationMap);
-        }
-        return result;
+        Expression result2 = translationMap.translateAgain() ? result.translate(translationMap) : result;
+        return translationMap.postTranslationHandler(this, result2);
     }
 
     @Override

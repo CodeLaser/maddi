@@ -204,8 +204,8 @@ public class TestFieldAccess extends CommonTest {
     @Test
     public void test4() {
         TypeInfo X = javaInspector.parse(INPUT4);
-        Set<Element.TypeReference> typeReferences = X.typesReferenced()
-                .filter(Element.TypeReference::explicit)
+        Set<Element.TypeReference> typeReferences = X.typesReferenced(null)
+                .filter(Element.TypeReference::requiresImport)
                 .filter(tr -> "java.text".equals(tr.typeInfo().packageName()))
                 .collect(Collectors.toUnmodifiableSet());
         assertEquals(2, typeReferences.size());

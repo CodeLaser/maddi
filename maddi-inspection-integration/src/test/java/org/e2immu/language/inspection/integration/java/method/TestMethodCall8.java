@@ -124,7 +124,8 @@ public class TestMethodCall8 extends CommonTest {
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
         Statement statement = methodInfo.methodBody().lastStatement();
         if (statement.expression() instanceof MethodCall mc) {
-            assertEquals("Type param T extends B", mc.object().parameterizedType().toString());
+            assertEquals("Type ? extends org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder",
+                    mc.object().parameterizedType().toString());
         }
     }
 
@@ -188,7 +189,7 @@ public class TestMethodCall8 extends CommonTest {
         javaInspector.parse(INPUT3);
         TypeInfo aca = javaInspector.compiledTypesManager()
                 .getOrLoad("org.assertj.core.api.AbstractCollectionAssert", null);
-        String print = javaInspector.print2(aca);
+        String print = javaInspector.print2(aca.compilationUnit());
         @Language("java")
         String expected = """
                 package org.assertj.core.api;

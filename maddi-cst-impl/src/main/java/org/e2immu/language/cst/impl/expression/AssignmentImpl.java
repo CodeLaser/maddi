@@ -227,9 +227,10 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
         }
         //  != null && primitiveOperator != primitives.assignOperatorInt ? "=" + primitiveOperator.name : "=";
         String operator = assignmentOperator == null ? "=" : assignmentOperator.name();
+        OutputBuilder valueOutput = outputInParenthesis(qualification, precedence(), value);
         return new OutputBuilderImpl().add(outputInParenthesis(qualification, precedence(), target))
                 .add(SymbolEnum.assignment(operator))
-                .add(outputInParenthesis(qualification, precedence(), value));
+                .add(valueOutput);
     }
 
     @Override
@@ -238,8 +239,9 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
     }
 
     @Override
-    public Stream<Element.TypeReference> typesReferenced() {
-        return Stream.concat(target.typesReferenced(), value.typesReferenced());
+    public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
+        if (reject(predicate)) return Stream.of();
+        return Stream.concat(target.typesReferenced(predicate), value.typesReferenced(predicate));
     }
 
     @Override
@@ -260,10 +262,8 @@ public class AssignmentImpl extends ExpressionImpl implements Assignment {
 
         Assignment a = new AssignmentImpl(comments(), source(), translatedTarget,
                 translatedValue, assignmentOperator, assignmentOperatorIsPlus, binaryOperator, prefixPrimitiveOperator);
-        if (translationMap.translateAgain()) {
-            return a.translate(translationMap);
-        }
-        return a;
+        Expression result = translationMap.translateAgain() ? a.translate(translationMap) : a;
+        return translationMap.postTranslationHandler(this, result);
     }
 
     @Override

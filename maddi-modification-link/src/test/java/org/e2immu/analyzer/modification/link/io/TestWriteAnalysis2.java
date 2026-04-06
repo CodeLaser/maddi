@@ -93,7 +93,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         LinkComputer lc = new LinkComputerImpl(javaInspector);
         lc.doPrimaryType(X);
 
-        String s = javaInspector.print2(X, new DecoratorImpl(runtime, javaInspector.mainSources()),
+        String s = javaInspector.print2(X.compilationUnit(), new DecoratorImpl(runtime, javaInspector.mainSources()),
                 javaInspector.importComputer(4, javaInspector.mainSources()));
         assertEquals(OUTPUT1, s);
         Trie<TypeInfo> typeTrie = new Trie<>();
@@ -159,7 +159,7 @@ public class TestWriteAnalysis2 extends CommonTest {
               {"name": "Fset(0)", "data":{"finalField":1}},
               {"name": "Fi(1)", "data":{"finalField":1}},
               {"name": "Flist(2)", "data":{"finalField":1}},
-              {"name": "C<init>(0)", "data":{"methodLinks":[[],[[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],[["F",["Tjava.util.Set","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]]]],"≡",["F",["Tjava.util.Set","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Fset(0)"]]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],"→",["F",["Ta.b.X","SR(0)","Fset(0)"]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],"→",["F",["Ta.b.X","SR(0)","Fi(1)"]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],"→",["F",["Ta.b.X","SR(0)","Flist(2)"]]],[["F",["Tjava.util.List","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]]]],"≡",["F",["Tjava.util.List","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Flist(2)"]]]]]]],["T",["Ta.b.X","SR(0)"]]]}},
+              {"name": "C<init>(0)", "data":{"methodLinks":[[],[[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],[["F",["Tjava.util.Set","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]]]],"≡",["F",["Tjava.util.Set","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Fset(0)"],["variableExpression","0-0:0-0",["T",["Ta.b.X","SR(0)"]]]]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pset(0)"]],"→",["F",["Ta.b.X","SR(0)","Fset(0)"],["variableExpression","0-0:0-0",["T",["Ta.b.X","SR(0)"]]]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Pi(1)"]],"→",["F",["Ta.b.X","SR(0)","Fi(1)"],["variableExpression","0-0:0-0",["T",["Ta.b.X","SR(0)"]]]]]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],[["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]],"→",["F",["Ta.b.X","SR(0)","Flist(2)"],["variableExpression","0-0:0-0",["T",["Ta.b.X","SR(0)"]]]]],[["F",["Tjava.util.List","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["P",["Ta.b.X","SR(0)","C<init>(0)","Plist(2)"]]]],"≡",["F",["Tjava.util.List","V§m","Tjava.util.concurrent.atomic.AtomicBoolean"],["variableExpression","0-0:0-0",["F",["Ta.b.X","SR(0)","Flist(2)"],["variableExpression","0-0:0-0",["T",["Ta.b.X","SR(0)"]]]]]]]]],["T",["Ta.b.X","SR(0)"]]]}},
               {"name": "Mset(0)", "data":{"getSetField":["Fset(0)",false,false]}},
               {"name": "Mi(1)", "data":{"getSetField":["Fi(1)",false,false]}},
               {"name": "Mlist(2)", "data":{"getSetField":["Flist(2)",false,false]}}]},
@@ -184,7 +184,7 @@ public class TestWriteAnalysis2 extends CommonTest {
         assertEquals("a.b.X.setAdd(a.b.X.R):0:r, r.set", mlvMethod.sortedModifiedString());
         assertTrue(method.isNonModifying());
 
-        String s = javaInspector.print2(X, new DecoratorImpl(runtime, javaInspector.mainSources()),
+        String s = javaInspector.print2(X.compilationUnit(), new DecoratorImpl(runtime, javaInspector.mainSources()),
                 javaInspector.importComputer(4, javaInspector.mainSources()));
         assertEquals(OUTPUT2, s);
         Trie<TypeInfo> typeTrie = new Trie<>();

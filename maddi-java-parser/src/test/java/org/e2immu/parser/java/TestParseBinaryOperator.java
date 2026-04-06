@@ -58,24 +58,24 @@ public class TestParseBinaryOperator extends CommonTestParse {
     public void test() {
         TypeInfo typeInfo = parse(INPUT);
 
-        MethodInfo methodInfo = typeInfo.methods().get(0);
+        MethodInfo methodInfo = typeInfo.methods().getFirst();
         assertEquals("times", methodInfo.name());
         assertEquals("a.b.C.times(int,int)", methodInfo.fullyQualifiedName());
         Block block = methodInfo.methodBody();
-        ReturnStatement returnStatement = (ReturnStatement) block.statements().get(0);
+        ReturnStatement returnStatement = (ReturnStatement) block.statements().getFirst();
         assertEquals("i*j", returnStatement.expression().toString());
 
         MethodInfo and = typeInfo.findUniqueMethod("and", 2);
-        if (and.methodBody().statements().get(0) instanceof ReturnStatement rs) {
+        if (and.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
             assertEquals("a&&b&&this.c", rs.expression().toString());
         } else fail();
         MethodInfo or = typeInfo.findUniqueMethod("or", 2);
-        if (or.methodBody().statements().get(0) instanceof ReturnStatement rs) {
+        if (or.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
             assertEquals("b||this.c||!a", rs.expression().toString());
             assertEquals("this.c||!a||b", runtime.sortAndSimplify(true, rs.expression()).toString());
         } else fail();
         MethodInfo subtract = typeInfo.findUniqueMethod("subtract", 2);
-        if (subtract.methodBody().statements().get(0) instanceof ReturnStatement rs) {
+        if (subtract.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
             assertEquals("return i-j;", rs.toString());
             assertInstanceOf(BinaryOperator.class, rs.expression());
             Expression ss = runtime.sortAndSimplify(true, rs.expression());
@@ -89,7 +89,7 @@ public class TestParseBinaryOperator extends CommonTestParse {
         } else fail();
 
         MethodInfo div = typeInfo.findUniqueMethod("div", 2);
-        if (div.methodBody().statements().get(0) instanceof ReturnStatement rs) {
+        if (div.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
             assertEquals("return i/j;", rs.toString());
         } else fail();
     }

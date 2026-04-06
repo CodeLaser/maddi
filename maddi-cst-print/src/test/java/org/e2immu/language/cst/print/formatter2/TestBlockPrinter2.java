@@ -21,7 +21,6 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.output.*;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
-import org.e2immu.language.cst.print.formatter.TestFormatter1;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,9 +29,29 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 public class TestBlockPrinter2 {
     private final Runtime runtime = new RuntimeImpl();
 
+    static OutputBuilder createExample1() {
+        GuideImpl.GuideGenerator gg = GuideImpl.generatorForParameterDeclaration();
+        GuideImpl.GuideGenerator gg2 = GuideImpl.generatorForBlock();
+
+        return new OutputBuilderImpl()
+                .add(KeywordImpl.PUBLIC).add(SpaceEnum.ONE)
+                .add(new TextImpl("int")).add(SpaceEnum.ONE)
+                .add(new TextImpl("method"))
+                .add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(gg.start()).add(new TextImpl("int")).add(SpaceEnum.ONE).add(new TextImpl("p1")).add(SymbolEnum.COMMA)
+                .add(gg.mid()).add(new TextImpl("int")).add(SpaceEnum.ONE).add(new TextImpl("p2"))
+                .add(gg.end())
+                .add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(SymbolEnum.LEFT_BRACE)
+                .add(gg2.start()).add(KeywordImpl.RETURN).add(SpaceEnum.ONE)
+                .add(new TextImpl("p1")).add(SymbolEnum.binaryOperator("+")).add(new TextImpl("p2")).add(SymbolEnum.SEMICOLON)
+                .add(gg2.end())
+                .add(SymbolEnum.RIGHT_BRACE);
+    }
+
     @Test
     public void test1a() {
-        OutputBuilder outputBuilder = TestFormatter1.createExample1();
+        OutputBuilder outputBuilder = createExample1();
         FormattingOptions options = new FormattingOptionsImpl.Builder().setLengthOfLine(70).setSpacesInTab(4).build();
         assertFalse(options.compact());
         Formatter formatter = new Formatter2Impl(runtime, options);
@@ -43,7 +62,7 @@ public class TestBlockPrinter2 {
 
     @Test
     public void test1b() {
-        OutputBuilder outputBuilder = TestFormatter1.createExample1();
+        OutputBuilder outputBuilder = createExample1();
         FormattingOptions options = new FormattingOptionsImpl.Builder().setLengthOfLine(30).setSpacesInTab(4).build();
         Formatter formatter = new Formatter2Impl(runtime, options);
         String string = formatter.write(outputBuilder);
@@ -57,7 +76,7 @@ public class TestBlockPrinter2 {
 
     @Test
     public void test1c() {
-        OutputBuilder outputBuilder = TestFormatter1.createExample1();
+        OutputBuilder outputBuilder = createExample1();
         FormattingOptions options = new FormattingOptionsImpl.Builder().setLengthOfLine(25).setSpacesInTab(4).build();
         Formatter formatter = new Formatter2Impl(runtime, options);
         String string = formatter.write(outputBuilder);
@@ -71,9 +90,35 @@ public class TestBlockPrinter2 {
         assertEquals(expect, string);
     }
 
+    static OutputBuilder createExample2() {
+        GuideImpl.GuideGenerator gg = GuideImpl.generatorForParameterDeclaration();
+        GuideImpl.GuideGenerator gg1 = GuideImpl.generatorForBlock();
+        GuideImpl.GuideGenerator gg2 = GuideImpl.defaultGuideGenerator();
+
+        return new OutputBuilderImpl()
+                .add(new TextImpl("public")).add(SpaceEnum.ONE)
+                .add(new TextImpl("int")).add(SpaceEnum.ONE)
+                .add(new TextImpl("method"))
+                .add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(gg.start()).add(new TextImpl("int")).add(SpaceEnum.ONE).add(new TextImpl("p1")).add(SymbolEnum.COMMA)
+                .add(gg.mid()).add(new TextImpl("int")).add(SpaceEnum.ONE).add(new TextImpl("p2")).add(SymbolEnum.COMMA)
+                .add(gg.mid()).add(new TextImpl("double")).add(SpaceEnum.ONE).add(new TextImpl("somewhatLonger")).add(SymbolEnum.COMMA)
+                .add(gg.mid()).add(new TextImpl("double")).add(SpaceEnum.ONE).add(new TextImpl("d"))
+                .add(gg.end())
+                .add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(SymbolEnum.LEFT_BRACE)
+                .add(gg1.start()).add(new TextImpl("log")).add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(gg2.start()).add(new TextImpl("p1")).add(SymbolEnum.COMMA)
+                .add(gg2.mid()).add(new TextImpl("p2")).add(gg2.end()).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.SEMICOLON)
+                .add(gg1.mid()).add(new TextImpl("return")).add(SpaceEnum.ONE)
+                .add(new TextImpl("p1")).add(SymbolEnum.binaryOperator("+")).add(new TextImpl("p2")).add(SymbolEnum.SEMICOLON)
+                .add(gg1.end())
+                .add(SymbolEnum.RIGHT_BRACE);
+    }
+
     @Test
     public void test2a() {
-        OutputBuilder outputBuilder = TestFormatter1.createExample2();
+        OutputBuilder outputBuilder = createExample2();
         FormattingOptions options = new FormattingOptionsImpl.Builder().setLengthOfLine(20).setSpacesInTab(2).build();
         Formatter formatter = new Formatter2Impl(runtime, options);
         String string = formatter.write(outputBuilder);

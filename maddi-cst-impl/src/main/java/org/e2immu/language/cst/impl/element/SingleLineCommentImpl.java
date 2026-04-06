@@ -26,6 +26,7 @@ import org.e2immu.language.cst.impl.output.SymbolEnum;
 import org.e2immu.language.cst.impl.output.TextImpl;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -42,6 +43,17 @@ public class SingleLineCommentImpl implements SingleLineComment {
         String leading = SymbolEnum.SINGLE_LINE_COMMENT.symbol();
         if (s.startsWith(leading)) return s.substring(leading.length());
         return s;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (!(object instanceof SingleLineCommentImpl that)) return false;
+        return Objects.equals(comment, that.comment) && Objects.equals(source, that.source);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(comment, source);
     }
 
     @Override
@@ -67,7 +79,7 @@ public class SingleLineCommentImpl implements SingleLineComment {
     }
 
     @Override
-    public Stream<TypeReference> typesReferenced() {
+    public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
         return Stream.empty();
     }
 

@@ -508,7 +508,9 @@ public class JavaInspectorImpl implements JavaInspector {
                 = parseCompilationUnit.parse(cu, parser.get().CompilationUnit());
         computeSingleAbstractMethods(sr.sourceTypes().values(), parseOptions.parallel());
         rootContext.resolver().resolve(true);
-        return types.stream().map(Either::getLeft).toList();
+        List<TypeInfo> typeInfoList = types.stream().map(Either::getLeft).toList();
+        cu.setTypes(typeInfoList);
+        return typeInfoList;
     }
 
     @Override
@@ -644,15 +646,19 @@ public class JavaInspectorImpl implements JavaInspector {
                 List<Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation>> types
                         = parseCompilationUnit.parse(sfCu.parsedCu, sfCu.cu);
                 DelayedCU delayedCU = null;
+                List<TypeInfo> typeInfoList = new ArrayList<>();
                 for (Either<TypeInfo, ParseTypeDeclaration.DelayedParsingInformation> either : types) {
                     if (either.isLeft()) {
                         TypeInfo ti = either.getLeft();
                         summary.addType(ti);
+                        typeInfoList.add(ti);
                     } else {
                         if (delayedCU == null) delayedCU = new DelayedCU(sfCu, new LinkedList<>());
                         delayedCU.delayed.add(either.getRight());
+                        typeInfoList.add(either.getRight().typeInfo());
                     }
                 }
+                sfCu.parsedCu.setTypes(List.copyOf(typeInfoList));
                 count.incrementAndGet();
                 TIMED_LOGGER.info("Phase 3: parsing type/method/field declarations, done {}", count);
                 if (delayedCU == null) {
@@ -836,14 +842,16 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public String print2(TypeInfo typeInfo) {
-        return print2(typeInfo, null, importComputer(4, typeInfo.compilationUnit().sourceSet()));
+    public String print2(CompilationUnit compilationUnit) {
+        return print2(compilationUnit, null, importComputer(4, compilationUnit.sourceSet()));
     }
 
     @Override
-    public String print2(TypeInfo typeInfo, Qualification.Decorator decorator, ImportComputer importComputer) {
-        OutputBuilder ob = runtime.newTypePrinter(typeInfo, true).print(importComputer,
-                runtime.qualificationQualifyFromPrimaryType(decorator), true);
+    public String print2(CompilationUnit compilationUnit,
+                         Qualification.Decorator decorator,
+                         ImportComputer importComputer) {
+        OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
+                .print(importComputer, runtime.qualificationQualifyFromPrimaryType(decorator));
         Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         return formatter.write(ob);
     }

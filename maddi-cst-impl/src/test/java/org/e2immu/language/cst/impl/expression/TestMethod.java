@@ -24,6 +24,8 @@ import org.e2immu.language.cst.impl.info.TypePrinterImpl;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethod {
@@ -33,6 +35,7 @@ public class TestMethod {
         Runtime runtime = new RuntimeImpl();
         CompilationUnit cu = runtime.newCompilationUnitBuilder().setPackageName("com.foo").build();
         TypeInfo ti = runtime.newTypeInfo(cu, "Test");
+        cu.setTypes(List.of(ti));
         MethodInfo mi = runtime.newMethod(ti, "toString", runtime.methodTypeMethod());
         mi.builder()
                 .setReturnType(runtime.stringParameterizedType())
@@ -45,7 +48,6 @@ public class TestMethod {
                 .setParentClass(runtime.objectParameterizedType()).computeAccess().commit();
         TypePrinter tp = new TypePrinterImpl(ti, false);
         String src = """
-                package com.foo;
                 class Test{public String toString(){}}\
                 """;
         assertEquals(src, tp.print(new ImportComputerImpl(), runtime.qualificationFullyQualifiedNames(),

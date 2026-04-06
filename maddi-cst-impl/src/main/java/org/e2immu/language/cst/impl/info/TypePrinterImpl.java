@@ -34,52 +34,57 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
 
     @Override
     public OutputBuilder print(ImportComputer importComputer, Qualification qualification, boolean doTypeDeclaration) {
-        Set<String> imports;
-        Qualification insideType;
-        if (typeInfo.isPrimaryType() && typeInfo.hasBeenInspected()) {
-            ImportComputer.Result res = importComputer.go(typeInfo, qualification);
-            imports = res.imports();
-            insideType = res.qualification();
-        } else {
-            imports = Set.of();
-            insideType = typeInfo.primaryType().hasBeenInspected() && qualification instanceof QualificationImpl
-                    ? new QualificationImpl(false, qualification, qualification.typeNameRequired())
-                    : qualification;
+        CompilationUnitPrinterImpl printer = new CompilationUnitPrinterImpl(typeInfo.compilationUnit(), formatter2);
+        CompilationUnitPrinter.ImportData importData = printer.computeImportData(importComputer, qualification);
+        return print(importData, doTypeDeclaration);
+    }
+
+
+    private static void addThisToQualification(TypeInfo typeInfo, Qualification insideType) {
+        insideType.addThis(new ThisImpl(typeInfo.asSimpleParameterizedType()));
+        ParameterizedType parentClass = typeInfo.parentClass();
+        if (parentClass != null && !parentClass.isJavaLangObject()) {
+            insideType.addThis(new ThisImpl(parentClass.typeInfo().asSimpleParameterizedType(), null,
+                    true));
         }
-        assert insideType != null;
+    }
+
+    private static void addMethodsToQualification(TypeInfo typeInfo, Qualification qualification) {
+        typeInfo.methods().forEach(qualification::addMethodUnlessOverride);
+        if (!typeInfo.isJavaLangObject()) {
+            addMethodsToQualification(typeInfo.parentClass().typeInfo(), qualification);
+        }
+        for (ParameterizedType interfaceType : typeInfo.interfacesImplemented()) {
+            if (interfaceType.typeInfo() != typeInfo) {
+                addMethodsToQualification(interfaceType.typeInfo(), qualification);
+            }
+        }
+    }
+
+    @Override
+    public OutputBuilder print(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration) {
+        return print(importData, doTypeDeclaration, MethodPrinterImpl::new, FieldPrinterImpl::new, TypePrinterImpl::new);
+    }
+
+    @Override
+    public OutputBuilder print(CompilationUnitPrinter.ImportData importData,
+                               boolean doTypeDeclaration,
+                               MethodPrinterFactory methodPrinterFactory,
+                               FieldPrinterFactory fieldPrinterFactory,
+                               EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
 
         // add the methods that we can call without having to qualify (method() instead of super.method())
-        if (insideType instanceof QualificationImpl qi) {
-            typeInfo.fields().forEach(qi::addField);
-            addMethodsToQualification(typeInfo, qi);
-            addThisToQualification(typeInfo, qi);
-        }
+        Qualification insideType = new QualificationImpl(importData.insideType());
 
-        // PACKAGE AND IMPORTS
+        typeInfo.fields().forEach(insideType::addField);
+        addMethodsToQualification(typeInfo, insideType);
+        addThisToQualification(typeInfo, insideType);
 
-        OutputBuilder packageAndImports = new OutputBuilderImpl();
         boolean isRecord = typeInfo.typeNature().isRecord();
         OutputBuilder afterAnnotations = new OutputBuilderImpl();
+        Qualification qualification = importData.qualification();
+
         if (doTypeDeclaration) {
-            if (typeInfo.isPrimaryType()) {
-                String packageName = typeInfo.packageName();
-                if (!packageName.isEmpty()) {
-                    packageAndImports.add(KeywordImpl.PACKAGE).add(SpaceEnum.ONE).add(new TextImpl(packageName))
-                            .add(SymbolEnum.SEMICOLON)
-                            .add(SpaceEnum.NEWLINE);
-                }
-                imports.stream().sorted().forEach(i -> packageAndImports.add(KeywordImpl.IMPORT).add(SpaceEnum.ONE)
-                        .add(new TextImpl(i)).add(SymbolEnum.SEMICOLON).add(SpaceEnum.NEWLINE));
-            }
-
-            // special case: the package-info.java file
-            if (typeInfo.typeNature().isPackageInfo()) {
-                OutputBuilder annotationStream = typeInfo.annotations().stream()
-                        .map(ae -> ae.print(qualification))
-                        .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE));
-                return annotationStream.add(SpaceEnum.NEWLINE).add(packageAndImports);
-            }
-
             // the modifiers
             OutputBuilder minimalModifiers = minimalModifiers(typeInfo).stream()
                     .map(mod -> new OutputBuilderImpl().add(mod.keyword()))
@@ -123,42 +128,41 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         we allow for a different type when translating types, see TypeInfoImpl.translate()... where
         method ownership is not changed correctly.
          */
-        OutputBuilder main = Stream.concat(Stream.concat(Stream.concat(Stream.concat(
-                                                enumConstantStream(typeInfo, insideType),
-                                                typeInfo.fields().stream()
-                                                        .filter(f -> !f.isSynthetic() && (!isRecord || f.isStatic()))
-                                                        .map(f -> new FieldPrinterImpl(f, formatter2)
-                                                                .print(insideType, false))),
-                                        typeInfo.subTypes().stream()
-                                                .filter(st -> !st.isSynthetic())
-                                                .map(ti -> new TypePrinterImpl(ti, formatter2)
-                                                        .print(importComputer, insideType, true))),
-                                typeInfo.constructors().stream()
-                                        .filter(c -> !c.isSynthetic())
-                                        .map(c -> new MethodPrinterImpl(typeInfo, c, formatter2).print(insideType))),
-                        typeInfo.methods().stream()
-                                .filter(m -> !m.isSynthetic())
-                                .map(m -> new MethodPrinterImpl(typeInfo, m, formatter2).print(insideType)))
+        Stream<OutputBuilder> fieldStream = typeInfo.fields().stream()
+                .filter(f -> !f.isSynthetic() && (!isRecord || f.isStatic()))
+                .map(f -> fieldPrinterFactory.create(f, formatter2)
+                        .print(insideType, false));
+        Stream<OutputBuilder> subTypeStream = typeInfo.subTypes().stream()
+                .filter(st -> !st.isSynthetic())
+                .map(ti -> enclosedTypePrinterFactory.create(ti, formatter2)
+                        .print(importData, true));
+        Stream<OutputBuilder> constructorStream = typeInfo.constructors().stream()
+                .filter(c -> !c.isSynthetic())
+                .map(c -> methodPrinterFactory.create(typeInfo, c, formatter2).print(insideType));
+        Stream<OutputBuilder> methodStream = typeInfo.methods().stream()
+                .filter(m -> !m.isSynthetic())
+                .map(m -> methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType));
+        Stream<OutputBuilder> trailingCommentStream = typeInfo.trailingComments().stream()
+                .map(c -> c.print(qualification));
+        OutputBuilder main = Stream.concat(Stream.concat(Stream.concat(Stream.concat(Stream.concat(
+                                enumConstantStream(typeInfo, insideType), fieldStream), subTypeStream),
+                        constructorStream), methodStream), trailingCommentStream)
                 .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
                         GuideImpl.generatorForBlock()));
         afterAnnotations.add(main);
 
         // annotations and the rest of the type are at the same level
+        OutputBuilder outputBuilder = new OutputBuilderImpl();
+        if (typeInfo.comments() != null) {
+            typeInfo.comments().forEach(c -> outputBuilder.add(c.print(qualification)));
+        }
         Stream<AnnotationExpression> allAnnots = Stream.concat(typeInfo.annotations().stream(),
                 qualification.decorator() == null ? Stream.of() : qualification.decorator().annotations(typeInfo).stream());
         Stream<OutputBuilder> annotationStream = doTypeDeclaration
                 ? allAnnots.map(ae -> ae.print(qualification))
                 : Stream.of();
-        if (typeInfo().comments() != null) {
-            typeInfo.comments().forEach(c -> packageAndImports.add(c.print(qualification)));
-        }
-        if (qualification.decorator() != null) {
-            qualification.decorator().comments(typeInfo).forEach(c -> packageAndImports.add(c.print(qualification)));
-        }
-        if (qualification.decorator() != null && typeInfo.isPrimaryType()) {
-            qualification.decorator().importStatements().forEach(is -> packageAndImports.add(is.print(qualification)));
-        }
-        return packageAndImports.add(Stream.concat(annotationStream, Stream.of(afterAnnotations))
+
+        return outputBuilder.add(Stream.concat(annotationStream, Stream.of(afterAnnotations))
                 .collect(OutputBuilderImpl.joining(SpaceEnum.ONE_REQUIRED_EASY_SPLIT,
                         GuideImpl.generatorForAnnotationList())));
     }
@@ -218,26 +222,6 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
                 .map(fieldInfo -> fieldInfo.print(qualification, true))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS, SymbolEnum.RIGHT_PARENTHESIS,
                         GuideImpl.generatorForParameterDeclaration()));
-    }
-
-    private static void addThisToQualification(TypeInfo typeInfo, QualificationImpl insideType) {
-        insideType.addThis(new ThisImpl(typeInfo.asSimpleParameterizedType()));
-        ParameterizedType parentClass = typeInfo.parentClass();
-        if (parentClass != null && !parentClass.isJavaLangObject()) {
-            insideType.addThis(new ThisImpl(parentClass.typeInfo().asSimpleParameterizedType(), null, true));
-        }
-    }
-
-    private static void addMethodsToQualification(TypeInfo typeInfo, QualificationImpl qImpl) {
-        typeInfo.methods().forEach(qImpl::addMethodUnlessOverride);
-        if (!typeInfo.isJavaLangObject()) {
-            addMethodsToQualification(typeInfo.parentClass().typeInfo(), qImpl);
-        }
-        for (ParameterizedType interfaceType : typeInfo.interfacesImplemented()) {
-            if (interfaceType.typeInfo() != typeInfo) {
-                addMethodsToQualification(interfaceType.typeInfo(), qImpl);
-            }
-        }
     }
 
     private static Stream<OutputBuilder> enumConstantStream(TypeInfo typeInfo, Qualification qualification) {
