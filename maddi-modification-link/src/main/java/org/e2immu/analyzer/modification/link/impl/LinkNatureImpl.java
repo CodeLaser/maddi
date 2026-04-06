@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -112,6 +113,11 @@ public class LinkNatureImpl implements LinkNature {
     public int hashCode() {
         if (pass == null) return hashCode[rank];
         return Objects.hash(symbol, rank, pass);
+    }
+
+    @Override
+    public int compareTo(@NotNull LinkNature o) {
+        return rank - o.rank();
     }
 
     public static LinkNature makeIdenticalTo(Collection<MethodInfo> exceptionsToPass) {

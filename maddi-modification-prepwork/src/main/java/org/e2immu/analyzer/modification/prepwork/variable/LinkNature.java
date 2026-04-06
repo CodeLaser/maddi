@@ -5,7 +5,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import java.util.List;
 import java.util.Set;
 
-public interface LinkNature {
+public interface LinkNature extends Comparable<LinkNature> {
 
     boolean isAssignedFrom();
 
