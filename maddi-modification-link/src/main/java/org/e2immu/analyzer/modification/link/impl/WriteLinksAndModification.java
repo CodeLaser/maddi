@@ -1,7 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
+import org.e2immu.analyzer.modification.link.impl.graph.Timer;
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
@@ -28,13 +30,15 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.link.impl.graph.FolllowGraph.followGraph;
-import static org.e2immu.analyzer.modification.link.impl.graph.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
+import static org.e2immu.analyzer.modification.link.impl.graph.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
-record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
-                                 VirtualFieldComputer virtualFieldComputer) {
+record WriteLinksAndModification(JavaInspector javaInspector,
+                                 Runtime runtime,
+                                 VirtualFieldComputer virtualFieldComputer,
+                                 Timer timer,
+                                 FollowGraph followGraph) {
     private static final Logger LOGGER = LoggerFactory.getLogger(WriteLinksAndModification.class);
 
     record WriteResult(Map<Variable, Links> newLinks, Set<Variable> modifiedOutsideVariableData, int newLinksSize) {
@@ -55,7 +59,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
 
         // do a second iteration, we have changed some of the operations because of a modification
         // (⊆ becomes ~ after List.add(...) e.g. See TestConstructor,1)
-        LinkGraph linkGraph = new LinkGraph(javaInspector, runtime, false);
+        LinkGraph linkGraph = new LinkGraph(javaInspector, runtime, false, timer, followGraph);
         Map<Variable, Map<Variable, LinkNature>> graph2 = linkGraph.makeGraph(lr.newLinkedVariables, Set.of());
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Recomputed bi-directional graph for local:\n{}", printGraph(graph2));
@@ -70,7 +74,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         LOGGER.debug("Variables to recompute: {}", recompute);
         Map<Variable, Links> newLinkedVariables = new HashMap<>(lr.newLinkedVariables);
         for (Variable variable : recompute) {
-            Links.Builder builder = followGraph(virtualFieldComputer, graph2, variable);
+            Links.Builder builder = followGraph.followGraph(virtualFieldComputer, graph2, variable);
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
             newLinkedVariables.put(variable, builder.build());
         }
@@ -132,7 +136,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph(virtualFieldComputer, graph, variable);
+        Links.Builder builder = followGraph.followGraph(virtualFieldComputer, graph, variable);
         List<Link> toRemove = new ArrayList<>();
 
         if (variable instanceof ReturnVariable rv) {
@@ -158,8 +162,8 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                            && Collections.disjoint(modifiedInThisEvaluation.keySet(), completion)
                            && notLinkedToModified(builder, modifiedInThisEvaluation));
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable
-                                  || l.to() instanceof MarkerVariable mv && mv.isConstant() && !(l.linkNature().equals(IS_ASSIGNED_FROM)||l.linkNature().equals(CONTAINS_AS_MEMBER))
-                                  || l.from() instanceof MarkerVariable mvf && mvf.isConstant() && !(l.linkNature().equals(IS_ASSIGNED_TO)||l.linkNature().equals(IS_ELEMENT_OF)));
+                                  || l.to() instanceof MarkerVariable mv && mv.isConstant() && !(l.linkNature().equals(IS_ASSIGNED_FROM) || l.linkNature().equals(CONTAINS_AS_MEMBER))
+                                  || l.from() instanceof MarkerVariable mvf && mvf.isConstant() && !(l.linkNature().equals(IS_ASSIGNED_TO) || l.linkNature().equals(IS_ELEMENT_OF)));
 
             if (variable instanceof This) {
                 // only keep direct links for "this", the others are replicated in its fields

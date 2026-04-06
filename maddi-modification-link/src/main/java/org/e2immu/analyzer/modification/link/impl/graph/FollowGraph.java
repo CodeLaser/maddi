@@ -16,11 +16,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class FolllowGraph {
+public record FollowGraph(Timer timer) {
 
     // sorting is needed to consistently take the same direction for tests
-    public static Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer,
-                                            Map<Variable, Map<Variable, LinkNature>> graph, Variable primary) {
+    public Links.Builder followGraph(VirtualFieldComputer virtualFieldComputer,
+                                     Map<Variable, Map<Variable, LinkNature>> graph,
+                                     Variable primary) {
+        timer.start("follow");
         Links.Builder builder = new LinksImpl.Builder(primary);
         List<Variable> fromList = primary instanceof This ? (graph.containsKey(primary) ? List.of(primary) : List.of())
                 : graph.keySet().stream()
@@ -38,7 +40,9 @@ public class FolllowGraph {
         Set<Edge> block = new HashSet<>();
 
         for (Variable from : fromList) {
+            timer.start("fixpoint");
             Map<Variable, LinkNature> all = bestPath(graph, from);
+            timer.end("fixpoint");
             List<Map.Entry<Variable, LinkNature>> entries = all.entrySet().stream()
                     .sorted((e1, e2) -> {
                         int c = e2.getValue().rank() - e1.getValue().rank();
@@ -109,6 +113,7 @@ public class FolllowGraph {
                 }
             }
         }
+        timer.end("follow");
         return builder;
     }
 

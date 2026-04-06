@@ -1,7 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
+import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
+import org.e2immu.analyzer.modification.link.impl.graph.Timer;
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -158,7 +160,10 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
                     // see TestStaticBiFunction,6: no direct mapping
 
                     // this is the old "join" of previous implementations; we should call expand now
-                    Links ls = new LinkGraph(javaInspector, runtime, linkComputerOptions.checkDuplicateNames())
+                    // FIXME
+                    Timer timer = new Timer();
+                    Links ls = new LinkGraph(javaInspector, runtime, linkComputerOptions.checkDuplicateNames(),
+                            timer, new FollowGraph(timer))
                             .indirect(links.primary(), link, result.links());
                     if (ls != null) builder.addAllDistinct(ls);
 

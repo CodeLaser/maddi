@@ -1,14 +1,10 @@
 package org.e2immu.analyzer.modification.link.impl.graph;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 class FixpointPropagationAlgorithm {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FixpointPropagationAlgorithm.class);
 
     static <V, L> Map<V, Set<L>> computePathLabels(
             Function<V, Map<V, L>> graph,
@@ -16,36 +12,53 @@ class FixpointPropagationAlgorithm {
             V start,
             L emptyLabel,
             BiFunction<L, L, L> combine) {
-        // Map from vertex to all reachable labels
+
+        // All labels known per vertex
         Map<V, Set<L>> labels = new HashMap<>();
+
+        // Only labels not yet propagated
+        Map<V, Deque<L>> delta = new HashMap<>();
+
         for (V v : keySet) {
             labels.put(v, new HashSet<>());
+            delta.put(v, new ArrayDeque<>());
         }
 
-        // Start node has the "empty path" label
-        labels.get(start).add(emptyLabel);
+        labels.computeIfAbsent(start, k -> new HashSet<>()).add(emptyLabel);
+        delta.computeIfAbsent(start, k -> new ArrayDeque<>()).add(emptyLabel);
 
-        // Worklist BFS/DFS-style queue
         Deque<V> worklist = new ArrayDeque<>();
+        Set<V> inQueue = new HashSet<>();
+
         worklist.add(start);
+        inQueue.add(start);
 
         while (!worklist.isEmpty()) {
             V u = worklist.removeFirst();
+            inQueue.remove(u);
 
-            for (Map.Entry<V, L> e : graph.apply(u).entrySet()) {
-                V w = e.getKey();
+            Deque<L> pending = delta.get(u);
 
-                // NOTE: concurrent modification exceptions are caused by u equals v
-                // but that should not be possible see Expand.mergeEdgeSingle()
+            // Process only newly added labels
+            while (!pending.isEmpty()) {
+                L lbl = pending.removeFirst();
 
-                Set<L> uLabels = labels.get(u);
-                for (L lbl : uLabels) {
-                    L newLabel = combine.apply(lbl, e.getValue());
+                for (Map.Entry<V, L> e : graph.apply(u).entrySet()) {
+                    V w = e.getKey();
+                    L edgeLabel = e.getValue();
 
-                    // If this label is new for w, add & propagate
-                    if (labels.computeIfAbsent(w, _ -> new HashSet<>()).add(newLabel)) {
-                        worklist.add(w);
-                        //LOGGER.debug("Start {}: {} -> {} add {}", start, u, w, newLabel);
+                    L newLabel = combine.apply(lbl, edgeLabel);
+
+                    Set<L> wLabels =
+                            labels.computeIfAbsent(w, k -> new HashSet<>());
+
+                    if (wLabels.add(newLabel)) {
+                        delta.computeIfAbsent(w, k -> new ArrayDeque<>())
+                                .addLast(newLabel);
+
+                        if (inQueue.add(w)) {
+                            worklist.addLast(w);
+                        }
                     }
                 }
             }
