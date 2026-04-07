@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.impl.graph2;
 
 import java.util.*;
 import java.util.function.BinaryOperator;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ClosureIndex<V, L> {
@@ -36,17 +37,20 @@ public class ClosureIndex<V, L> {
     public Map<V, L> predecessors(V target) {
         return reverseReachable.getOrDefault(target, Map.of());
     }
+
     public Map<V, L> successors(V target) {
         return reachable.getOrDefault(target, Map.of());
     }
 
-    public String print(Comparator<V> vComparator, WitnessIndex<V, L> witnessIndex) {
+    public String print(Function<V, String> vertexPrinter,
+                        Comparator<V> vComparator, WitnessIndex<V, L> witnessIndex) {
         return reachable.entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))
                 .flatMap(e ->
                         e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))
-                                .map(e2 -> e.getKey() + " " + e2.getValue()
-                                           + " " + e2.getKey() + "   "
-                                           + witnessIndex.print(new Fact<>(e.getKey(), e2.getKey(), e2.getValue()))))
+                                .map(e2 -> vertexPrinter.apply(e.getKey()) + " " + e2.getValue()
+                                           + " " + vertexPrinter.apply(e2.getKey()) + "   "
+                                           + witnessIndex.print(vertexPrinter,
+                                        new Fact<>(e.getKey(), e2.getKey(), e2.getValue()))))
                 .collect(Collectors.joining("\n"));
     }
 

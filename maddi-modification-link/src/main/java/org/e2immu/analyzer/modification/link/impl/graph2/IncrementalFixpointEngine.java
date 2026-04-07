@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl.graph2;
 
 import java.util.*;
 import java.util.function.BinaryOperator;
+import java.util.function.Function;
 
 public final class IncrementalFixpointEngine<V, L> {
 
@@ -34,7 +35,10 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public String printClosure(Comparator<V> vertexComparator) {
-        return closureIndex.print(vertexComparator, witnessIndex);
+        return closureIndex.print(Object::toString, vertexComparator, witnessIndex);
+    }
+    public String printClosure(Function<V, String> vertexPrinter, Comparator<V> vertexComparator) {
+        return closureIndex.print(vertexPrinter, vertexComparator, witnessIndex);
     }
 
     public boolean addVertex(V v) {

@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.This;
@@ -64,8 +65,16 @@ public record LinkGraph(JavaInspector javaInspector,
         assert !checkDuplicateNames ||
                graph.size() == graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count();
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Bi-directional graph for local:\n{}", graph.engine().printClosure(Variable::compareTo));
+            LOGGER.debug("Bi-directional graph for local:\n{}", graph.engine()
+                    .printClosure(LinkGraph::vertexPrinter, Variable::compareTo));
         }
+    }
+
+    private static String vertexPrinter(Variable variable) {
+        if (variable instanceof ParameterInfo pi) {
+            return pi.isUnnamed() ? "_" : pi.index() + ":" + pi.name();
+        }
+        return variable.simpleName();
     }
 
     // indirection in applied functional interface variable
