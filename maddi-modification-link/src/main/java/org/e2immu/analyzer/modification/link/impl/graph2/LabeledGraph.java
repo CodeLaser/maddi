@@ -7,6 +7,10 @@ public final class LabeledGraph<V, L> {
     private final Map<V, Map<V, L>> out = new HashMap<>();
     private final Map<V, Map<V, L>> in = new HashMap<>();
 
+    public Iterable<Map.Entry<V, Map<V, L>>> edges() {
+        return out.entrySet();
+    }
+
     public String printEdges(Comparator<V> comparator) {
         return out.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                 .flatMap(e ->
@@ -65,5 +69,9 @@ public final class LabeledGraph<V, L> {
 
     public Map<V, L> predecessors(V v) {
         return in.getOrDefault(v, Map.of());
+    }
+
+    public Set<V> vertices() {
+        return out.keySet();
     }
 }
