@@ -9,6 +9,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -31,6 +32,13 @@ public record LinkGraph(JavaInspector javaInspector,
     // see TestModificationParameter, a return variable with the same name as a local variable
     private static String stringForDuplicate(Variable v) {
         if (v instanceof ReturnVariable) return "rv " + v;
+        if (v instanceof ParameterInfo pi) return pi.methodInfo().name() + ":" + pi.index();
+        if (v instanceof DependentVariable dv && dv.indexVariable() != null) {
+            return stringForDuplicate(dv.arrayVariable()) + "[" + stringForDuplicate(dv.indexVariable()) + "]";
+        }
+        if (v instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return stringForDuplicate(fr.scopeVariable()) + "." + fr.fieldInfo().name();
+        }
         return v.toString();
     }
 
@@ -68,12 +76,12 @@ public record LinkGraph(JavaInspector javaInspector,
             }
             change = makeGraph.doOneMakeGraphCycle(statementIndex, modifiedInThisEvaluation.keySet());
         }
-        assert !checkDuplicateNames ||
-               graph.size() == graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count();
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Bi-directional graph for local:\n{}", graph.engine()
                     .printClosure(LinkGraph::vertexPrinter, Variable::compareTo));
         }
+        assert !checkDuplicateNames ||
+               graph.size() == graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count();
     }
 
     private static String vertexPrinter(Variable variable) {
