@@ -729,11 +729,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             vd.variableInfoContainerStream().forEach(vic -> {
                 VariableInfo vi = vic.getPreviousOrInitial();
                 Links links;
-                if (this.erase.contains(vi.variable())
-                    || !Collections.disjoint(Util.scopeVariables(vi.variable()), this.erase)) {
+                Links inExpanded = expanded.get(vi.variable());
+                if (inExpanded != null) {
+                    links = inExpanded;
+                } else if (this.erase.contains(vi.variable())
+                           || !Collections.disjoint(Util.scopeVariables(vi.variable()), this.erase)) {
                     links = new LinksImpl(vi.variable());
                 } else {
-                    links = expanded.getOrDefault(vi.variable(), LinksImpl.EMPTY);
+                    links = LinksImpl.EMPTY;
                 }
                 if (vic.hasEvaluation()) {
                     VariableInfoImpl eval = (VariableInfoImpl) vic.best(Stage.EVALUATION);
