@@ -1,10 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
-import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.RedundantLinks;
-import org.e2immu.analyzer.modification.link.impl.graph.Timer;
+import org.e2immu.analyzer.modification.link.impl.linkgraph2.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -13,7 +10,6 @@ import org.e2immu.analyzer.modification.prepwork.variable.*;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -27,29 +23,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
-import static org.e2immu.analyzer.modification.link.impl.graph.LinkGraph.printGraph;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
 
 class WriteLinksAndModification {
     private final JavaInspector javaInspector;
     private final Runtime runtime;
     private final VirtualFieldComputer virtualFieldComputer;
-    private final Timer timer;
     private final FollowGraph followGraph;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WriteLinksAndModification.class);
 
     WriteLinksAndModification(JavaInspector javaInspector,
                               VirtualFieldComputer virtualFieldComputer,
-                              Timer timer,
                               FollowGraph followGraph) {
         this.javaInspector = javaInspector;
         this.runtime = javaInspector.runtime();
         this.virtualFieldComputer = virtualFieldComputer;
-        this.timer = timer;
         this.followGraph = followGraph;
     }
 
@@ -60,15 +51,14 @@ class WriteLinksAndModification {
                             boolean lastStatement,
                             VariableData vd,
                             Set<Variable> previouslyModified,
-                            Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation,
-                            Map<Variable, Map<Variable, LinkNature>> graph) {
+                            Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
 
         // do the first iteration
-        LoopResult lr = loopOverVd(vd, statement, lastStatement, graph, previouslyModified, modifiedDuringEvaluation);
-        if (!lr.redo) {
-            return new WriteResult(lr.newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
-        }
+        LoopResult lr = loopOverVd(vd, statement, lastStatement, previouslyModified, modifiedDuringEvaluation);
+        assert !lr.redo;
+        return new WriteResult(lr.newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
 
+        /* TODO
         // do a second iteration, we have changed some of the operations because of a modification
         // (⊆ becomes ~ after List.add(...) e.g. See TestConstructor,1)
         LinkGraph linkGraph = new LinkGraph(javaInspector, runtime, false, timer, followGraph);
@@ -90,7 +80,7 @@ class WriteLinksAndModification {
             builder.removeIf(l -> Util.lvPrimaryOrNull(l.to()) instanceof IntermediateVariable);
             newLinkedVariables.put(variable, builder.build());
         }
-        return new WriteResult(newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
+        return new WriteResult(newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);*/
     }
 
     private record LoopResult(boolean redo,
@@ -102,7 +92,6 @@ class WriteLinksAndModification {
     private LoopResult loopOverVd(VariableData vd,
                                   Statement statement,
                                   boolean lastStatement,
-                                  Map<Variable, Map<Variable, LinkNature>> graph,
                                   Set<Variable> previouslyModified,
                                   Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
 
@@ -113,10 +102,9 @@ class WriteLinksAndModification {
         // the purpose of this map is to make sure that we don't add unnecessary virtual modification links (a.§m ≡ b.§m)
         // this system depends on always processing the variables in the same order (linked hash map in VD, order of occurrence)
         // this should reduce the modification links to something below quadratic
-        RedundantLinks redundantLinks = new RedundantLinks(timer);
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
-            toRemove.addAll(doVariableReturnRecompute(statement, lastStatement, graph, vi, unmarkedModifications,
-                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables, redundantLinks));
+            toRemove.addAll(doVariableReturnRecompute(statement, lastStatement, vi, unmarkedModifications,
+                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables));
         }
         for (Link link : toRemove) {
             Variable primary = Util.primary(link.from());
@@ -135,17 +123,15 @@ class WriteLinksAndModification {
 
     private List<Link> doVariableReturnRecompute(Statement statement,
                                                  boolean lastStatement,
-                                                 Map<Variable, Map<Variable, LinkNature>> graph,
                                                  VariableInfo vi,
                                                  Set<Variable> unmarkedModifications,
                                                  Set<Variable> previouslyModified,
                                                  Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation,
-                                                 Map<Variable, Links.Builder> newLinkedVariables,
-                                                 RedundantLinks redundantLinks) {
+                                                 Map<Variable, Links.Builder> newLinkedVariables) {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph.followGraph(virtualFieldComputer, graph, variable);
+        Links.Builder builder = followGraph.followGraph(virtualFieldComputer, variable);
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
             // return variables will always be complete
@@ -153,12 +139,13 @@ class WriteLinksAndModification {
         } else {
             // in the very last statement, we want the parameters to be complete
             Set<Variable> completion;
-            if (!lastStatement || !(variable instanceof ParameterInfo)) {
-                redundantLinks.redundantLinks(builder);
-                completion = redundantLinks.modificationLinks(builder, modifiedInThisEvaluation);
-            } else {
-                completion = Set.of();
-            }
+            // FIXME
+            // if (!lastStatement || !(variable instanceof ParameterInfo)) {
+            //     redundantLinks.redundantLinks(builder);
+            //      completion = redundantLinks.modificationLinks(builder, modifiedInThisEvaluation);
+            // } else {
+            completion = Set.of();
+            //  }
             boolean unmodified =
                     variable.isIgnoreModifications()
                     ||

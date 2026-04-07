@@ -38,7 +38,8 @@ public record LinkGraph(JavaInspector javaInspector,
      Ensure that v1 == v2 also means that v1.ts == v2.ts, v1.$m == v2.$m, so that these connections can be made.
      Filtering out ? links is done in followGraph.
      */
-    public void compute(Map<Variable, Links> newLinks,
+    public void compute(String statementIndex,
+                        Map<Variable, Links> newLinks,
                         Set<Variable> toRemove,
                         TranslationMap replaceConstants,
                         Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation) {
@@ -46,8 +47,8 @@ public record LinkGraph(JavaInspector javaInspector,
         newLinks.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .filter(e -> e.getValue().primary() != null)
-                .forEach(e ->  e.getValue().translate(replaceConstants).forEach(link -> {
-                    graph.simpleAddToGraph(link.from(), link.linkNature(), link.to());
+                .forEach(e -> e.getValue().translate(replaceConstants).forEach(link -> {
+                    graph.simpleAddToGraph(link.from(), link.linkNature(), link.to(), statementIndex);
                 }));
 
         boolean change = true;
@@ -58,7 +59,7 @@ public record LinkGraph(JavaInspector javaInspector,
                 // NOTE: there is a class that requires more than 10 cycles in the maddi code base...
                 throw new UnsupportedOperationException("cycle protection");
             }
-            change = makeGraph.doOneMakeGraphCycle(modifiedInThisEvaluation.keySet());
+            change = makeGraph.doOneMakeGraphCycle(statementIndex, modifiedInThisEvaluation.keySet());
         }
         assert !checkDuplicateNames ||
                graph.size() == graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count();

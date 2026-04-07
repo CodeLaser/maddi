@@ -2,9 +2,11 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.Timer;
+import org.e2immu.analyzer.modification.link.impl.graph2.IncrementalFixpointEngine;
+import org.e2immu.analyzer.modification.link.impl.linkgraph2.FollowGraph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph2.Graph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph2.LinkGraph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph2.MakeGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.translate.TranslateConstants;
@@ -99,7 +101,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final AtomicInteger countSourceMethods = new AtomicInteger();
     private final VirtualFieldComputer virtualFieldComputer;
     private final FollowGraph followGraph;
-    private final Timer timer = new Timer();
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -117,10 +118,14 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.options = options;
         this.virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        this.followGraph = new FollowGraph(timer);
-        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), timer,
-                followGraph);
-        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer, timer,
+        IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
+                LinkNature::best);
+        Graph graph = new Graph(engine);
+        this.followGraph = new FollowGraph(graph);
+        MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);
+        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), graph,
+                makeGraph, followGraph);
+        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer,
                 followGraph);
         this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
         this.propertiesChanged = propertiesChanged;
@@ -534,43 +539,31 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links.Builder current = yieldStack.peek();
                 current.add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
             }
-            Map<Variable, Map<Variable, LinkNature>> graph;
+            Set<Variable> toRemove = Set.of(); // FIXME
             if (r != null) {
                 this.erase.addAll(r.erase());
-                graph = linkGraph.compute(r.extra().map(), previousVd, stageOfPrevious, vd, replaceConstants,
+                linkGraph.compute(statement.source().index(), r.extra().map(), toRemove, replaceConstants,
                         r.modified());
-            } else {
-                graph = Map.of();
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
             WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, lastStatement, vd, previouslyModified,
-                    r == null ? Map.of() : r.modified(), graph);
+                    r == null ? Map.of() : r.modified());
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
             int numberOfLinks = wr.newLinksSize();
-            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}; timer {}",
+            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}",
                     countSourceMethods.get(),
                     methodInfo.fullyQualifiedName(),
-                    statement.source().index(), graph.size(), numberOfLinks, timer);
-           /* if (wr.newLinksSize() > 1000) {
-                double fraction = (double) wr.newLinksSize() / (graph.size() * graph.size());
-                if (fraction > 0.4) {
-                    LOGGER.error("Do statement {} {} graph size {}, sum of links {}\n\n", methodInfo.fullyQualifiedName(),
-                            statement.source().index(), graph.size(), wr.newLinksSize());
-                    for (Map.Entry<Variable, Links> entry : wr.newLinks().entrySet()) {
-                        LOGGER.error("{} -> {}", entry.getKey(), entry.getValue());
-                    }
-                    throw new UnsupportedOperationException();
-                }
-            }*/
+                    statement.source().index(), linkGraph.graph().size(), numberOfLinks);
+
             writeCasts(r == null ? new HashMap<>() : r.casts(), previousVd, stageOfPrevious, vd);
 
             if (statement.hasSubBlocks()) {
                 handleSubBlocks(statement, vd);
             }
             if (r != null) {
-                writeOutMethodCallAnalysis(r.writeMethodCalls(), vd, graph);
+                writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
             }
             return vd;
         }
@@ -619,16 +612,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void writeOutMethodCallAnalysis(List<ExpressionVisitor.WriteMethodCall> writeMethodCalls,
-                                                VariableData vd,
-                                                Map<Variable, Map<Variable, LinkNature>> graph) {
+                                                VariableData vd) {
             for (ExpressionVisitor.WriteMethodCall wmc : writeMethodCalls) {
                 // rather than taking the links in wmc, we want the fully expanded links
                 // (after running copyEvalIntoVariableData)
                 Map<Variable, Boolean> variablesLinkedToObject = new HashMap<>();
                 for (Link l : wmc.linksFromObject()) {
-                    addToVariablesLinkedToObject(vd, graph, l.to(), variablesLinkedToObject);
+                    addToVariablesLinkedToObject(vd, l.to(), variablesLinkedToObject);
                 }
-                addToVariablesLinkedToObject(vd, graph, wmc.linksFromObject().primary(), variablesLinkedToObject);
+                addToVariablesLinkedToObject(vd, wmc.linksFromObject().primary(), variablesLinkedToObject);
                 if (!variablesLinkedToObject.isEmpty()
                     // only write once, no point because actual variables in links will not change
                     && !wmc.methodCall().analysis().haveAnalyzedValueFor(VARIABLES_LINKED_TO_OBJECT)) {
@@ -645,14 +637,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private void addToVariablesLinkedToObject(VariableData vd,
-                                                  Map<Variable, Map<Variable, LinkNature>> graph,
                                                   Variable sub,
                                                   Map<Variable, Boolean> variablesLinkedToObject) {
             Variable primary = Util.primary(sub);
             if (primary != null && vd.isKnown(primary.fullyQualifiedName())) {
                 variablesLinkedToObject.put(primary, true);
                 VariableInfo viPrimary = vd.variableInfo(primary);
-                Links links = followGraph.followGraph(virtualFieldComputer, graph, viPrimary.variable()).build();
+                Links links = followGraph.followGraph(virtualFieldComputer, viPrimary.variable()).build();
                 for (Link link : links) {
                     if (!link.linkNature().isIdenticalTo()) {
                         for (Variable v : Util.goUp(link.from())) {
