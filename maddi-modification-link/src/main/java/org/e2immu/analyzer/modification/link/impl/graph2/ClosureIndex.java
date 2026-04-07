@@ -36,6 +36,9 @@ public class ClosureIndex<V, L> {
     public Map<V, L> predecessors(V target) {
         return reverseReachable.getOrDefault(target, Map.of());
     }
+    public Map<V, L> successors(V target) {
+        return reachable.getOrDefault(target, Map.of());
+    }
 
     public String print(Comparator<V> vComparator, WitnessIndex<V, L> witnessIndex) {
         return reachable.entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))

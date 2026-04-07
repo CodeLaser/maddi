@@ -17,6 +17,14 @@ public final class IncrementalFixpointEngine<V, L> {
         this.combine = combine;
     }
 
+    public Map<V, L> closure(V variable) {
+        return closureIndex.successors(variable);
+    }
+
+    public Iterable<Map.Entry<V, Map<V, L>>> edges() {
+        return graph.edges();
+    }
+
     public String print(Comparator<V> comparator) {
         return graph.print(comparator);
     }
@@ -159,5 +167,9 @@ public final class IncrementalFixpointEngine<V, L> {
 
     public LabeledGraph<V, L> reducedGraph() {
         return graph;
+    }
+
+    public Set<V> vertices() {
+        return graph.vertices();
     }
 }
