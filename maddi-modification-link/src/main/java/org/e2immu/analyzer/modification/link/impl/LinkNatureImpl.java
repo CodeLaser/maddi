@@ -146,11 +146,6 @@ public class LinkNatureImpl implements LinkNature {
     }
 
     @Override
-    public boolean known() {
-        return rank >= IS_FIELD_OF.rank();
-    }
-
-    @Override
     public boolean isDecoration() {
         return this == IS_DECORATED_WITH || this == CONTAINS_DECORATION;
     }
@@ -167,7 +162,7 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public boolean valid() {
-        return rank >= SHARES_FIELDS.rank();
+        return rank >= IS_FIELD_OF.rank();
     }
 
     @Override

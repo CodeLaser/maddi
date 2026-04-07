@@ -3,6 +3,7 @@ package org.e2immu.analyzer.modification.link.impl.graph2;
 import java.util.*;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public final class IncrementalFixpointEngine<V, L> {
 
@@ -10,12 +11,15 @@ public final class IncrementalFixpointEngine<V, L> {
     private final ClosureIndex<V, L> closureIndex;
     private final WitnessIndex<V, L> witnessIndex;
     private final BinaryOperator<L> combine;
+    private final Predicate<L> valid;
 
-    public IncrementalFixpointEngine(BinaryOperator<L> combine, BinaryOperator<L> best) {
+    public IncrementalFixpointEngine(BinaryOperator<L> combine, BinaryOperator<L> best,
+                                     Predicate<L> valid) {
         this.graph = new LabeledGraph<>();
         this.closureIndex = new ClosureIndex<>(best);
         this.witnessIndex = new WitnessIndex<>();
         this.combine = combine;
+        this.valid = valid;
     }
 
     public Map<V, L> closure(V variable) {
@@ -37,6 +41,7 @@ public final class IncrementalFixpointEngine<V, L> {
     public String printClosure(Comparator<V> vertexComparator) {
         return closureIndex.print(Object::toString, vertexComparator, witnessIndex);
     }
+
     public String printClosure(Function<V, String> vertexPrinter, Comparator<V> vertexComparator) {
         return closureIndex.print(vertexPrinter, vertexComparator, witnessIndex);
     }
@@ -60,6 +65,7 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public UpdateResult<V> addEdge(V from, V to, L label, String statementIndex) {
+        assert valid.test(label);
         graph.addEdge(from, to, label);
         return incrementalUpdate(from, to, label, statementIndex);
     }
@@ -106,9 +112,11 @@ public final class IncrementalFixpointEngine<V, L> {
             if (!v.equals(w) && !u.equals(w)) {
                 L edgeLabel = edge.getValue();
                 L newLabel = combine.apply(currentLabel, edgeLabel);
-                Fact<V, L> newFact = new Fact<>(u, w, newLabel);
-                witnessIndex.put(newFact, new Witness.CompositeWitness<>(fact, new Fact<>(v, w, edgeLabel)));
-                queue.addLast(newFact);
+                if (valid.test(newLabel)) {
+                    Fact<V, L> newFact = new Fact<>(u, w, newLabel);
+                    witnessIndex.put(newFact, new Witness.CompositeWitness<>(fact, new Fact<>(v, w, edgeLabel)));
+                    queue.addLast(newFact);
+                }
             }
         }
     }
@@ -125,11 +133,11 @@ public final class IncrementalFixpointEngine<V, L> {
                 L predLabel = predEntry.getValue();
 
                 L newLabel = combine.apply(predLabel, currentLabel);
-                Fact<V, L> newFact = new Fact<>(p, v, newLabel);
-
-                witnessIndex.put(newFact, new Witness.CompositeWitness<>(new Fact<>(p, u, predLabel), fact));
-
-                queue.addLast(newFact);
+                if (valid.test(newLabel)) {
+                    Fact<V, L> newFact = new Fact<>(p, v, newLabel);
+                    witnessIndex.put(newFact, new Witness.CompositeWitness<>(new Fact<>(p, u, predLabel), fact));
+                    queue.addLast(newFact);
+                }
             }
         }
     }

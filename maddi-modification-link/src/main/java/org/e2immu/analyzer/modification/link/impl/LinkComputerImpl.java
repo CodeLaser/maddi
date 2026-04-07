@@ -119,7 +119,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
         IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
-                LinkNature::best);
+                LinkNature::best, LinkNature::valid);
         Graph graph = new Graph(engine);
         this.followGraph = new FollowGraph(graph);
         MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);
