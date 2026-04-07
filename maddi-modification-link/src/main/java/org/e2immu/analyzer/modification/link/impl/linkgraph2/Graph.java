@@ -14,6 +14,10 @@ import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.IS_FIELD_OF;
 
 public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
+    public boolean containsVariable(Variable primary) {
+        return engine.vertices().contains(primary);
+    }
+
     public Iterable<Map.Entry<Variable, Map<Variable, LinkNature>>> edges() {
         return engine.edges();
     }
@@ -56,6 +60,10 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return false;
     }
 
+    public void remove(Set<Variable> toRemove) {
+        engine.removeVertices(toRemove);
+    }
+
     boolean simpleAddToGraph(Edge edge) {
         return simpleAddToGraph(edge.from(), edge.linkNature(), edge.to());
     }
@@ -70,6 +78,10 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         Variable toPrimary = Util.primary(lTo);
         change |= addField(lTo, toPrimary);
         return change;
+    }
+
+    public int size() {
+        return variables().size();
     }
 
     Set<Variable> variables() {
