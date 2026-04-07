@@ -46,12 +46,16 @@ public class TestReassignment extends CommonTest {
         MethodLinkedVariables mlvListAdd = method.analysis().getOrCreate(METHOD_LINKS,
                 () -> linkComputer.doMethod(method));
 
-        VariableData vd2 = VariableDataImpl.of(method.methodBody().statements().get(3));
+        VariableData vd2 = VariableDataImpl.of(method.methodBody().statements().get(2));
         VariableInfo field2 = vd2.variableInfo("a.b.X.field");
         assertEquals("this.field∈0:in.§$s", field2.linkedVariables().toString());
         VariableInfo copy2 = vd2.variableInfo("copy");
         // '-' because we're not tracking the intermediary variable
         assertEquals("-", copy2.linkedVariables().toString());
+
+        VariableData vd3 = VariableDataImpl.of(method.methodBody().statements().get(3));
+        VariableInfo copy3 = vd3.variableInfo("copy");
+        assertEquals("copy.§$s∋this.second", copy3.linkedVariables().toString());
 
         // important that this.second not part of 0:in
         assertEquals("[0:in*.§$s∋this.field] --> method.§$s∋this.second", mlvListAdd.toString());

@@ -27,10 +27,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.translate.TranslationMap;
-import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.api.variable.This;
-import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.api.variable.*;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -275,7 +272,11 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 Expression constant = tc.get(l.to());
                                 if (constant != null && !(constant instanceof NullConstant)) {
                                     assert vi.variable().parameterizedType().arrays() == 0;
-                                    tc.put(vi.variable(), constant);
+                                    Expression prev = tc.put(vi.variable(), constant);
+                                    if (prev != null && !constant.equals(prev)){
+                                        // multiple values...
+                                        tc.remove(vi.variable());
+                                    }
                                 }
                             }
                         }
@@ -548,8 +549,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         r.modified());
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
-            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, lastStatement, vd, previouslyModified,
-                    r == null ? Map.of() : r.modified());
+            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, lastStatement, vd,
+                    previouslyModified, r == null ? Map.of() : r.modified());
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
@@ -664,6 +665,13 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private static boolean acceptForVL2O(Variable v) {
+            if (v instanceof FieldReference fr) {
+                return fr.scopeVariable() == null || acceptForVL2O(fr.scopeVariable());
+            }
+            if (v instanceof DependentVariable dv) {
+                return acceptForVL2O(dv.arrayVariable())
+                       && (dv.indexVariable() == null || acceptForVL2O(dv.indexVariable()));
+            }
             return !Util.virtual(v) && !(v instanceof MarkerVariable) && !(v instanceof IntermediateVariable);
         }
 
