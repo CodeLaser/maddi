@@ -15,8 +15,6 @@ public interface LinkNature extends Comparable<LinkNature> {
 
     boolean isIdenticalTo();
 
-    boolean known();
-
     boolean multiplySymbols();
 
     int rank();

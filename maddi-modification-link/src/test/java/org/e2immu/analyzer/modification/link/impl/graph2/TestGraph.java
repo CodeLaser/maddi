@@ -15,7 +15,7 @@ public class TestGraph {
     @Test
     public void testUniDirectional() {
         IncrementalFixpointEngine<String, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
-                LinkNature::best);
+                LinkNature::best, LinkNature::valid);
         UpdateResult<String> ur0 = engine.addEdge("a", "b", IS_IDENTICAL_TO);
         assertEquals("UpdateResult[affectedVertices=[a, b], newFacts=1, removedEdges=0]", ur0.toString());
         assertEquals("a ≡ b", printEdges(engine));
@@ -43,7 +43,7 @@ public class TestGraph {
     @Test
     public void testBidirectional() {
         IncrementalFixpointEngine<String, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
-                LinkNature::best);
+                LinkNature::best, LinkNature::valid);
         engine.addEdge("a", "b", IS_IDENTICAL_TO, "0");
         engine.addEdge("b", "a", IS_IDENTICAL_TO, "0");
 

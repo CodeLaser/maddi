@@ -73,7 +73,7 @@ public record FollowGraph(Timer timer) {
                     Variable firstRealTo = Util.firstRealVariable(to);
                     // remove internal references (field inside primary to primary or other field in primary)
                     // see TestStaticValues1,5 for an example where s.k ← s.r.i, which requires the 2nd clause
-                    if (linkNature.known()
+                    if (linkNature.valid()
                         && (!primaryTo.equals(primaryFrom) ||
                             !firstRealFrom.equals(primaryFrom) &&
                             !firstRealTo.equals(primaryTo) &&
