@@ -93,14 +93,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final JavaInspector javaInspector;
     private final RecursionPrevention recursionPrevention;
     private final ShallowMethodLinkComputer shallowMethodLinkComputer;
-    private final LinkGraph linkGraph;
-    private final WriteLinksAndModification writeLinksAndModification;
+
     private final ShallowMethodAnalyzer shallowMethodAnalyzer;
     private final AtomicInteger propertiesChanged;
     private final AtomicInteger variableCounter = new AtomicInteger();
     private final AtomicInteger countSourceMethods = new AtomicInteger();
     private final VirtualFieldComputer virtualFieldComputer;
-    private final FollowGraph followGraph;
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
@@ -118,15 +116,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         this.options = options;
         this.virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-        IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
-                LinkNature::best, LinkNature::valid);
-        Graph graph = new Graph(engine);
-        this.followGraph = new FollowGraph(graph);
-        MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);
-        this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), graph,
-                makeGraph, followGraph);
-        this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer,
-                followGraph);
+
         this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
         this.propertiesChanged = propertiesChanged;
     }
@@ -235,6 +225,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         final Variable returnVariable;
         final Set<Variable> modificationsOutsideVariableData = new HashSet<>();
         final Stack<Links.Builder> yieldStack = new Stack<>();
+        final LinkGraph linkGraph;
+        final WriteLinksAndModification writeLinksAndModification;
+        final FollowGraph followGraph;
 
         public SourceMethodComputer(MethodInfo methodInfo) {
             this.methodInfo = methodInfo;
@@ -243,6 +236,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     LinkComputerImpl.this, this, methodInfo, recursionPrevention,
                     variableCounter);
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;
+
+            IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
+                    LinkNature::best, LinkNature::valid);
+            Graph graph = new Graph(engine);
+            this.followGraph = new FollowGraph(graph);
+            MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);
+            this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), graph,
+                    makeGraph, followGraph);
+            this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer,
+                    followGraph);
         }
 
         // both methods called from ExpressionVisitor.evaluateSwitchEntry
