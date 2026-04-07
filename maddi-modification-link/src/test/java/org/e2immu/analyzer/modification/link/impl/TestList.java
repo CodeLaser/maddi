@@ -12,6 +12,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -286,6 +287,12 @@ public class TestList extends CommonTest {
         MethodInfo listAdd = X.findUniqueMethod("listAdd", 1);
         MethodLinkedVariables mlvListAdd = listAdd.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(listAdd));
         assertEquals("[0:t∈this.list*.§ts] --> -", mlvListAdd.toString());
+
+        VariableData vd0 = VariableDataImpl.of(listAdd.methodBody().statements().getFirst());
+        VariableInfo list0 =  vd0.variableInfo("a.b.X.list");
+        assertEquals("this.list.§ts∋0:t", list0.linkedVariables().toString());
+        VariableInfo t0 =  vd0.variableInfo(listAdd.parameters().getFirst());
+        assertEquals("0:t∈this.list.§ts", t0.linkedVariables().toString());
     }
 
     @Language("java")

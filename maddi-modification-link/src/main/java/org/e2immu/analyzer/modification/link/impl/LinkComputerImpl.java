@@ -539,10 +539,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links.Builder current = yieldStack.peek();
                 current.add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
             }
-            Set<Variable> toRemove = Set.of(); // FIXME
             if (r != null) {
                 this.erase.addAll(r.erase());
-                linkGraph.compute(statement.source().index(), r.extra().map(), toRemove, replaceConstants,
+                linkGraph.compute(statement.source().index(), r.extra().map(), r.erase(), replaceConstants,
                         r.modified());
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
@@ -552,7 +551,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
             int numberOfLinks = wr.newLinksSize();
-            TIMED.info("Done {} methods; do statement {} {} graph size {}, sum of links {}",
+            LOGGER.info("Done {} methods; do statement {} {} graph size {}, sum of links {}",
                     countSourceMethods.get(),
                     methodInfo.fullyQualifiedName(),
                     statement.source().index(), linkGraph.graph().size(), numberOfLinks);
