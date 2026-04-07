@@ -1,15 +1,13 @@
 package org.e2immu.analyzer.modification.link.impl.graph2;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public final class LabeledGraph<V, L> {
     private final Map<V, Map<V, L>> out = new HashMap<>();
     private final Map<V, Map<V, L>> in = new HashMap<>();
 
-    public String print(Comparator<V> comparator) {
+    public String printEdges(Comparator<V> comparator) {
         return out.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                 .flatMap(e ->
                         e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
@@ -18,14 +16,25 @@ public final class LabeledGraph<V, L> {
                 .collect(Collectors.joining(" / "));
     }
 
+    public String print(Comparator<V> comparator) {
+        return out.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
+                .map(e -> e.getKey() + ":" + (e.getValue().isEmpty() ? "" : " ")
+                          + e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
+                                  .map(e2 -> " " + e2.getValue() + " " + e2.getKey())
+                                  .collect(Collectors.joining(", ")))
+                .collect(Collectors.joining("\n"));
+    }
+
     public void addEdge(V from, V to, L label) {
         out.computeIfAbsent(from, k -> new HashMap<>()).put(to, label);
         in.computeIfAbsent(to, k -> new HashMap<>()).put(from, label);
     }
 
-    public void addVertex(V v) {
-        in.computeIfAbsent(v, _ -> new HashMap<>());
-        out.computeIfAbsent(v, _ -> new HashMap<>());
+    public boolean addVertex(V v) {
+        if (in.containsKey(v)) return false;
+        in.put(v, new HashMap<>());
+        out.put(v, new HashMap<>());
+        return true;
     }
 
     public void removeEdge(V from, V to) {
@@ -38,6 +47,16 @@ public final class LabeledGraph<V, L> {
         if (inMap != null) {
             inMap.remove(from);
         }
+    }
+
+    public void removeFacts(List<Fact<V, L>> factsToRemove) {
+    }
+
+    public void removeVertices(Set<V> vertices) {
+        in.keySet().removeAll(vertices);
+        out.keySet().removeAll(vertices);
+        in.values().forEach(map -> map.keySet().removeAll(vertices));
+        out.values().forEach(map -> map.keySet().removeAll(vertices));
     }
 
     public Map<V, L> successors(V v) {

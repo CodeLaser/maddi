@@ -1,9 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl.graph2;
 
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 
@@ -39,12 +37,23 @@ public class ClosureIndex<V, L> {
         return reverseReachable.getOrDefault(target, Map.of());
     }
 
-    public String print(Comparator<V> vComparator, Comparator<L> lComparator) {
+    public String print(Comparator<V> vComparator, WitnessIndex<V, L> witnessIndex) {
         return reachable.entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))
                 .flatMap(e ->
                         e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(vComparator))
-                                .map(e2 -> e.getKey() + " " + e2.getValue() + " " + e2.getKey()))
-                .collect(Collectors.joining(" / "));
+                                .map(e2 -> e.getKey() + " " + e2.getValue()
+                                           + " " + e2.getKey() + "   "
+                                           + witnessIndex.print(new Fact<>(e.getKey(), e2.getKey(), e2.getValue()))))
+                .collect(Collectors.joining("\n"));
     }
 
+    public void removeFacts(List<Fact<V, L>> factsToRemove) {
+    }
+
+    public void removeVertices(Set<V> vertices) {
+        reachable.keySet().removeAll(vertices);
+        reverseReachable.keySet().removeAll(vertices);
+        reachable.values().forEach(map -> map.keySet().removeAll(vertices));
+        reverseReachable.values().forEach(map -> map.keySet().removeAll(vertices));
+    }
 }

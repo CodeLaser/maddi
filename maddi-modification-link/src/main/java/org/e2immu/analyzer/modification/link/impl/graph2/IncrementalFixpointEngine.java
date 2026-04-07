@@ -21,21 +21,38 @@ public final class IncrementalFixpointEngine<V, L> {
         return graph.print(comparator);
     }
 
-    public String printClosure(Comparator<V> vertexComparator, Comparator<L> labelComparator) {
-        return closureIndex.print(vertexComparator, labelComparator);
+    public String printEdges(Comparator<V> comparator) {
+        return graph.printEdges(comparator);
     }
 
-
-    public void addVertex(V v) {
-        graph.addVertex(v);
+    public String printClosure(Comparator<V> vertexComparator) {
+        return closureIndex.print(vertexComparator, witnessIndex);
     }
 
+    public boolean addVertex(V v) {
+        return graph.addVertex(v);
+    }
+
+    public void removeVertex(V v) {
+        removeVertices(Set.of(v));
+    }
+
+    public void removeVertices(Set<V> vertices) {
+        graph.removeVertices(vertices);
+        closureIndex.removeVertices(vertices);
+    }
+
+    // for testing only
     public UpdateResult<V> addEdge(V from, V to, L label) {
-        graph.addEdge(from, to, label);
-        return incrementalUpdate(from, to, label);
+        return addEdge(from, to, label, "0");
     }
 
-    private UpdateResult<V> incrementalUpdate(V from, V to, L label) {
+    public UpdateResult<V> addEdge(V from, V to, L label, String statementIndex) {
+        graph.addEdge(from, to, label);
+        return incrementalUpdate(from, to, label, statementIndex);
+    }
+
+    private UpdateResult<V> incrementalUpdate(V from, V to, L label, String statementIndex) {
         assert !from.equals(to);
 
         Deque<Fact<V, L>> queue = new ArrayDeque<>();
@@ -54,14 +71,15 @@ public final class IncrementalFixpointEngine<V, L> {
                 affected.add(fact.source());
                 affected.add(fact.target());
 
-                witnessIndex.put(fact, new Witness.DirectWitness<>(fact.source(), fact.target(), fact.label()));
+                witnessIndex.put(fact, new Witness.DirectWitness<>(fact.source(), fact.target(), fact.label(),
+                        statementIndex));
 
                 propagateForward(fact, queue);
                 propagateBackward(fact, queue);
             }
         }
 
-        int removed = reduceLocally(affected);
+        int removed = 0;//reduceLocally(affected);
 
         return new UpdateResult<>(affected, newFacts, removed);
     }
@@ -104,6 +122,7 @@ public final class IncrementalFixpointEngine<V, L> {
         }
     }
 
+    /*
     private int reduceLocally(Set<V> affected) {
         int removed = 0;
 
@@ -132,7 +151,7 @@ public final class IncrementalFixpointEngine<V, L> {
         }
 
         return removed;
-    }
+    }*/
 
     public L query(V from, V to) {
         return closureIndex.label(from, to);
