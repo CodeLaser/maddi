@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.stream.Collectors;
 
-record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph graph) {
+public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph graph) {
 
     private Variable makeComparableSub(Variable base, Variable sub, Variable target) {
         TranslationMap tm = new VariableTranslationMap(runtime).put(base, target);
@@ -40,7 +40,7 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph graph) {
 
     private @NotNull Map<Variable, Set<Variable>> computeSubs(Set<Variable> modifiedInThisEvaluation) {
         Map<Variable, Set<Variable>> subs = new HashMap<>();
-        for (Map.Entry<Variable,Map<Variable, LinkNature>> entry: graph.edges()) {
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
             Variable from = entry.getKey();
             Set<Variable> scopeVariablesFrom = Util.scopeVariables(from);
             for (Variable scopeVariableFrom : scopeVariablesFrom) {
@@ -92,7 +92,7 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph graph) {
                || !(mv.assignmentExpression() instanceof NullConstant);
     }
 
-    boolean doOneMakeGraphCycle(Set<Variable> modifiedInThisEvaluation) {
+    boolean doOneMakeGraphCycle(String statementIndex, Set<Variable> modifiedInThisEvaluation) {
         Map<Variable, Set<Variable>> subs = computeSubs(modifiedInThisEvaluation);
         List<Edge> newLinks = new ArrayList<>();
         for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
@@ -151,7 +151,7 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph graph) {
         }
         List<Edge> extra = new ExpandSlice(graph).completeSliceInformation();
         for (Edge edge : extra) {
-            change |= graph.simpleAddToGraph(edge);
+            change |= graph.simpleAddToGraph(edge, statementIndex);
         }
         return change;
     }

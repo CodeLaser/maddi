@@ -22,11 +22,11 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return engine.edges();
     }
 
-    private boolean mergeEdgeSingle(Variable from, LinkNature linkNature, Variable to) {
+    private boolean mergeEdgeSingle(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
         if (from.equals(to)) {
             return engine.addVertex(from); // safety measure, is technically possible
         }
-        return engine.addEdge(from, to, linkNature).newFacts() > 0;
+        return engine.addEdge(from, to, linkNature, statementIndex).newFacts() > 0;
     }
 
     boolean mergeEdgeBi(Edge edge) {
@@ -50,11 +50,11 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return v;
     }
 
-    boolean addField(Variable from, Variable primary) {
+    boolean addField(Variable from, Variable primary, String statementIndex) {
         if (!from.equals(primary) && !(primary instanceof This)
             && from instanceof FieldReference && primary.equals(fieldScopeRoot(from))) {
-            boolean change = mergeEdgeSingle(primary, CONTAINS_AS_FIELD, from);
-            change |= mergeEdgeSingle(from, IS_FIELD_OF, primary);
+            boolean change = mergeEdgeSingle(primary, CONTAINS_AS_FIELD, from, statementIndex);
+            change |= mergeEdgeSingle(from, IS_FIELD_OF, primary, statementIndex);
             return change;
         }
         return false;
@@ -64,19 +64,19 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         engine.removeVertices(toRemove);
     }
 
-    boolean simpleAddToGraph(Edge edge) {
-        return simpleAddToGraph(edge.from(), edge.linkNature(), edge.to());
+    boolean simpleAddToGraph(Edge edge, String statementIndex) {
+        return simpleAddToGraph(edge.from(), edge.linkNature(), edge.to(), statementIndex);
     }
 
-    boolean simpleAddToGraph(Variable lFrom, LinkNature linkNature, Variable lTo) {
-        boolean change = mergeEdgeSingle(lFrom, linkNature, lTo);
+    boolean simpleAddToGraph(Variable lFrom, LinkNature linkNature, Variable lTo, String statementIndex) {
+        boolean change = mergeEdgeSingle(lFrom, linkNature, lTo, statementIndex);
         Variable primary = Util.primary(lFrom);
-        change |= addField(lFrom, primary);
+        change |= addField(lFrom, primary, statementIndex);
 
         // other direction
-        change |= mergeEdgeSingle(lTo, linkNature.reverse(), lFrom);
+        change |= mergeEdgeSingle(lTo, linkNature.reverse(), lFrom, statementIndex);
         Variable toPrimary = Util.primary(lTo);
-        change |= addField(lTo, toPrimary);
+        change |= addField(lTo, toPrimary, statementIndex);
         return change;
     }
 
