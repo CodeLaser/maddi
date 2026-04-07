@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph2;
 
+import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
 import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
@@ -8,6 +9,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -16,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public record LinkGraph(JavaInspector javaInspector,
                         Runtime runtime,
@@ -44,7 +47,10 @@ public record LinkGraph(JavaInspector javaInspector,
                         Set<Variable> toRemove,
                         TranslationMap replaceConstants,
                         Map<Variable, Set<MethodInfo>> modifiedInThisEvaluation) {
-        graph.remove(toRemove);
+        Set<Variable> allToRemove = graph.variables().stream()
+                .filter(v -> toRemove.contains(Util.firstRealVariable(v)))
+                .collect(Collectors.toUnmodifiableSet());
+        graph.remove(allToRemove);
         newLinks.entrySet().stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .filter(e -> e.getValue().primary() != null)
@@ -73,6 +79,9 @@ public record LinkGraph(JavaInspector javaInspector,
     private static String vertexPrinter(Variable variable) {
         if (variable instanceof ParameterInfo pi) {
             return pi.isUnnamed() ? "_" : pi.index() + ":" + pi.name();
+        }
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return vertexPrinter(fr.scopeVariable()) + "." + fr.fieldInfo().name();
         }
         return variable.simpleName();
     }

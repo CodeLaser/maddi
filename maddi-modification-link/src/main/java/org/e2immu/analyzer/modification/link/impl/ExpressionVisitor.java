@@ -395,9 +395,9 @@ public record ExpressionVisitor(Runtime runtime,
             builder.add(LinkNatureImpl.IS_ASSIGNED_FROM, rValue.links().primary());
         }
         Result result = new Result(builder.build(), LinkedVariablesImpl.EMPTY);
-        if (a.assignmentOperator() != null || rValue.links() == null || rValue.links().primary() == null) {
+        //if (a.assignmentOperator() != null || rValue.links() == null || rValue.links().primary() == null) {
             result.addErase(a.variableTarget());
-        }
+        //}
         Set<Variable> scopeVariables = Util.scopeVariables(a.variableTarget());
         return result
                 .merge(rValue)
