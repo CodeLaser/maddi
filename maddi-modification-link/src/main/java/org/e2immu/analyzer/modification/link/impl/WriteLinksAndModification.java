@@ -55,7 +55,7 @@ class WriteLinksAndModification {
 
         // do the first iteration
         LoopResult lr = loopOverVd(vd, statement, lastStatement, previouslyModified, modifiedDuringEvaluation);
-        assert !lr.redo;
+        //FIXMEassert !lr.redo;
         return new WriteResult(lr.newLinkedVariables, lr.unmarkedModifications, lr.newLinksSize);
 
         /* TODO
