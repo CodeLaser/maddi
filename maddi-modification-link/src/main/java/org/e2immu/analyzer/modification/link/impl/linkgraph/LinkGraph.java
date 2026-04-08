@@ -59,9 +59,11 @@ public record LinkGraph(JavaInspector javaInspector,
                 .filter(v -> toRemove.contains(Util.firstRealVariable(v)))
                 .collect(Collectors.toUnmodifiableSet());
         graph.remove(allToRemove);
-        newLinks.entrySet().stream()
+        newLinks.entrySet()
+                .stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .filter(e -> e.getValue().primary() != null)
+                .sorted(Map.Entry.comparingByKey(Variable::compareTo))
                 .forEach(e -> e.getValue().translate(replaceConstants).forEach(link -> {
                     graph.simpleAddToGraph(link.from(), link.linkNature(), link.to(), statementIndex);
                 }));
@@ -77,8 +79,8 @@ public record LinkGraph(JavaInspector javaInspector,
             change = makeGraph.doOneMakeGraphCycle(statementIndex, modifiedInThisEvaluation.keySet());
         }
         if (LOGGER.isDebugEnabled()) {
-        //    LOGGER.debug("Bi-directional graph for local:\n{}", graph.engine()
-        //            .printClosure(LinkGraph::vertexPrinter, Variable::compareTo));
+            LOGGER.debug("Bi-directional graph for local:\n{}", graph.engine()
+                    .printClosure(LinkGraph::vertexPrinter, Variable::compareTo));
         }
         assert !checkDuplicateNames ||
                graph.size() == graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count();

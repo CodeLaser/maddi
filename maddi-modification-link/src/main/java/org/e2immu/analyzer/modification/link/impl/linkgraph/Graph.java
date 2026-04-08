@@ -62,6 +62,10 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return false;
     }
 
+    public String print() {
+        return engine.print(Graph::printForTesting, Variable::compareTo);
+    }
+
     public String printClosure() {
         return engine.printClosure(Graph::printForTesting, Variable::compareTo);
     }
