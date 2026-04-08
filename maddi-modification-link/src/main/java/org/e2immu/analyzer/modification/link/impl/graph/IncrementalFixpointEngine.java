@@ -30,6 +30,10 @@ public final class IncrementalFixpointEngine<V, L> {
         return graph.successors(from).get(to);
     }
 
+    public int sizeOfClosure() {
+        return closureIndex.countFacts();
+    }
+
     public Stream<Map.Entry<V, L>> successorStream(V variable) {
         return closureIndex.successorStream(variable);
     }

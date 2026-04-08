@@ -34,6 +34,10 @@ public class ClosureIndex<V, L> {
         return !current.equals(newLabel);
     }
 
+    public int countFacts() {
+        return reachable.values().stream().mapToInt(Map::size).sum();
+    }
+
     public L label(V from, V to) {
         return reachable.getOrDefault(from, Map.of()).get(to);
     }

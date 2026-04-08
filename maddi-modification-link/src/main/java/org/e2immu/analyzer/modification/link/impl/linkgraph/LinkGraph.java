@@ -117,5 +117,4 @@ public record LinkGraph(JavaInspector javaInspector,
         return builder.build();*/
         return LinksImpl.EMPTY; // FIXME
     }
-
 }
