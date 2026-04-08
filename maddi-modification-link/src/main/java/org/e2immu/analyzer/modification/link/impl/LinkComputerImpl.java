@@ -552,9 +552,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 Links.Builder current = yieldStack.peek();
                 current.add(LinkNatureImpl.IS_ASSIGNED_FROM, r.links().primary());
             }
+            String statementIndex = statement.source().index();
             if (r != null) {
                 this.erase.addAll(r.erase());
-                linkGraph.compute(statement.source().index(), r.extra().map(), r.erase(), replaceConstants,
+                linkGraph.compute(statementIndex, r.extra().map(), r.erase(), replaceConstants,
                         r.modified());
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
@@ -562,12 +563,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     r == null ? Map.of() : r.modified());
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
-
-            int numberOfLinks = wr.newLinksSize();
-            LOGGER.info("Done {} methods; do statement {} {} graph size {}, sum of links {}",
-                    countSourceMethods.get(),
-                    methodInfo.fullyQualifiedName(),
-                    statement.source().index(), linkGraph.graph().size(), numberOfLinks);
 
             writeCasts(r == null ? new HashMap<>() : r.casts(), previousVd, stageOfPrevious, vd);
 
@@ -578,8 +573,12 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
             }
             if (testVisitor != null) {
-                testVisitor.visit(statement.source().index(), linkGraph.graph());
+                testVisitor.visit(statementIndex, linkGraph.graph());
             }
+
+            int numberOfLinks = wr.newLinksSize();
+            LOGGER.info("End of statement {} of {} graph size {}, sum of links {}",
+                    statementIndex, methodInfo.fullyQualifiedName(), linkGraph.graph().size(), numberOfLinks);
             return vd;
         }
 

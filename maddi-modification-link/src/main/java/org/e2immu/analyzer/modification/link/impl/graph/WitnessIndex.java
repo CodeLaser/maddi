@@ -21,11 +21,15 @@ public final class WitnessIndex<V, L> {
     }
 
     public void put(Fact<V, L> fact, Witness<V, L> witness) {
-        witnesses.putIfAbsent(fact, witness);
+        witnesses.put(fact, witness);
     }
 
     public Witness<V, L> get(Fact<V, L> fact) {
         return witnesses.get(fact);
+    }
+
+    public void removeFact(Fact<V, L> fact) {
+        witnesses.remove(fact);
     }
 
     //NOTE: we leave intermediates (CompositeWitness) in place

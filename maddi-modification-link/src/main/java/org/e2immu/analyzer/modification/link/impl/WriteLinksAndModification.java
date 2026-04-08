@@ -45,6 +45,7 @@ class WriteLinksAndModification {
                             VariableData vd,
                             Set<Variable> previouslyModified,
                             Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
+        int infiniteLoopProtection = 0;
         while (true) {
             Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
             Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
@@ -69,13 +70,18 @@ class WriteLinksAndModification {
             // see e.g. TestConstructor,1
             Set<Variable> affected = new HashSet<>();
             for (Link link : toRemove) {
-                Set<Variable> set = followGraph.graph().replaceReturnAffected(link.from(), link.to(), link.linkNature(),
-                        SHARES_ELEMENTS);
+                // not only convert ⊆ to ~
+                Set<Variable> set = followGraph.graph()
+                        .replaceReturnAffected(link.from(), link.to(), link.linkNature(), SHARES_ELEMENTS);
                 affected.addAll(set);
+                // but also the reverse link ⊇ to ~
+                Set<Variable> set2 = followGraph.graph()
+                        .replaceReturnAffected(link.to(), link.from(), link.linkNature().reverse(), SHARES_ELEMENTS);
+                assert set.equals(set2);
             }
-            if (!affected.isEmpty()) {
-                followGraph.graph().recompute(affected, statement.source().index());
-            }
+            assert !affected.isEmpty();
+            followGraph.graph().recompute(affected, statement.source().index());
+            if (infiniteLoopProtection++ > 5) throw new UnsupportedOperationException();
         }
     }
 
