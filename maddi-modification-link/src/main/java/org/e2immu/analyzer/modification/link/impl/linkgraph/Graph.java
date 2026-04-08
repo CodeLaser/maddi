@@ -67,7 +67,7 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
     }
 
     private static String printForTesting(Variable v) {
-        if (v instanceof ParameterInfo pi) return pi.methodInfo().name() + ":" + pi.index();
+        if (v instanceof ParameterInfo pi) return pi.index()+":"+pi.name();
         if (v instanceof DependentVariable dv && dv.indexVariable() != null) {
             return printForTesting(dv.arrayVariable()) + "[" + printForTesting(dv.indexVariable()) + "]";
         }
