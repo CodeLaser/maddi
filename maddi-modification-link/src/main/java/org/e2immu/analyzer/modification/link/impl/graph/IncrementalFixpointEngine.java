@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph2;
+package org.e2immu.analyzer.modification.link.impl.graph;
 
 import java.util.*;
 import java.util.function.BinaryOperator;

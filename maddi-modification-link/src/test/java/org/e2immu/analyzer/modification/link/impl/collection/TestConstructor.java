@@ -56,11 +56,46 @@ public class TestConstructor extends CommonTest {
     @Test
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         {
+            LinkComputer tlc = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
+                if ("0".equals(statementIndex)) {
+                    assertEquals("""
+                            $__c0 ∩ methodB:0   [$__c0 ∩ $__c0.§$s, $__c0.§$s ≤ methodB:0]
+                            $__c0 → iis   0($__c0 → iis)
+                            $__c0 ∩ $__c0.§$s   [$__c0 ∩ methodB:0.§$s, methodB:0.§$s ⊇ $__c0.§$s]
+                            $__c0 ∩ methodB:0.§$s   [$__c0 ≻ $__c0.§$s, $__c0.§$s ⊆ methodB:0.§$s]
+                            $__c0 ∩ iis.§$s   [$__c0 ∩ $__c0.§$s, $__c0.§$s → iis.§$s]
+                            methodB:0 ∩ $__c0   [methodB:0 ≥ $__c0.§$s, $__c0.§$s ≺ $__c0]
+                            methodB:0 ∩ iis   [methodB:0 ∩ $__c0, $__c0 → iis]
+                            methodB:0 ≥ $__c0.§$s   [methodB:0 ≻ methodB:0.§$s, methodB:0.§$s ⊇ $__c0.§$s]
+                            methodB:0 ∩ methodB:0.§$s   [methodB:0 ≥ $__c0.§$s, $__c0.§$s ⊆ methodB:0.§$s]
+                            methodB:0 ≥ iis.§$s   [methodB:0 ≥ $__c0.§$s, $__c0.§$s → iis.§$s]
+                            iis ← $__c0   0(iis ← $__c0)
+                            iis ∩ $__c0.§$s   [iis ∩ methodB:0.§$s, methodB:0.§$s ⊇ $__c0.§$s]
+                            iis ∩ methodB:0.§$s   [iis ≻ $__c0.§$s, $__c0.§$s ⊆ methodB:0.§$s]
+                            iis ∩ iis.§$s   [iis ∩ $__c0.§$s, $__c0.§$s → iis.§$s]
+                            $__c0.§$s ∩ $__c0   [$__c0.§$s ⊆ methodB:0.§$s, methodB:0.§$s ∩ $__c0]
+                            $__c0.§$s ≤ methodB:0   [$__c0.§$s ⊆ methodB:0.§$s, methodB:0.§$s ≺ methodB:0]
+                            $__c0.§$s ∩ iis   [$__c0.§$s ∩ $__c0, $__c0 → iis]
+                            $__c0.§$s ⊆ methodB:0.§$s   0($__c0.§$s ⊆ methodB:0.§$s)
+                            $__c0.§$s → iis.§$s   0($__c0.§$s → iis.§$s)
+                            methodB:0.§$s ∩ $__c0   [methodB:0.§$s ⊇ $__c0.§$s, $__c0.§$s ≺ $__c0]
+                            methodB:0.§$s ∩ methodB:0   [methodB:0.§$s ⊇ $__c0.§$s, $__c0.§$s ≤ methodB:0]
+                            methodB:0.§$s ∩ iis   [methodB:0.§$s ∩ $__c0, $__c0 → iis]
+                            methodB:0.§$s ⊇ $__c0.§$s   0(methodB:0.§$s ⊇ $__c0.§$s)
+                            methodB:0.§$s ⊇ iis.§$s   [methodB:0.§$s ⊇ $__c0.§$s, $__c0.§$s → iis.§$s]
+                            iis.§$s ≺ $__c0   [iis.§$s ← $__c0.§$s, $__c0.§$s ≺ $__c0]
+                            iis.§$s ≤ methodB:0   [iis.§$s ⊆ methodB:0.§$s, methodB:0.§$s ≺ methodB:0]
+                            iis.§$s ≺ iis   [iis.§$s ≺ $__c0, $__c0 → iis]
+                            iis.§$s ← $__c0.§$s   0(iis.§$s ← $__c0.§$s)
+                            iis.§$s ⊆ methodB:0.§$s   [iis.§$s ← $__c0.§$s, $__c0.§$s ⊆ methodB:0.§$s]\
+                            """, graph.printClosure());
+                }
+            });
+
             MethodInfo methodB = X.findUniqueMethod("methodB", 1);
             MethodLinkedVariables mlvB = methodB.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(methodB));
 
@@ -96,6 +131,8 @@ public class TestConstructor extends CommonTest {
             assertEquals("[-] --> -", mlvB.toString());
         }
         {
+            LinkComputer tlc = new LinkComputerImpl(javaInspector);
+
             MethodInfo methodA = X.findUniqueMethod("methodA", 1);
             MethodLinkedVariables mlvA = methodA.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(methodA));
 

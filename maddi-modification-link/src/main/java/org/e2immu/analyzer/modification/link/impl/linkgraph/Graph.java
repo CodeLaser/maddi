@@ -1,8 +1,10 @@
-package org.e2immu.analyzer.modification.link.impl.linkgraph2;
+package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
-import org.e2immu.analyzer.modification.link.impl.graph2.IncrementalFixpointEngine;
+import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -58,6 +60,21 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
             return change;
         }
         return false;
+    }
+
+    public String printClosure() {
+        return engine.printClosure(Graph::printForTesting, Variable::compareTo);
+    }
+
+    private static String printForTesting(Variable v) {
+        if (v instanceof ParameterInfo pi) return pi.methodInfo().name() + ":" + pi.index();
+        if (v instanceof DependentVariable dv && dv.indexVariable() != null) {
+            return printForTesting(dv.arrayVariable()) + "[" + printForTesting(dv.indexVariable()) + "]";
+        }
+        if (v instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return printForTesting(fr.scopeVariable()) + "." + fr.fieldInfo().name();
+        }
+        return v.toString();
     }
 
     public void recompute(Set<Variable> affected, String statementIndex) {

@@ -2,11 +2,11 @@ package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowMethodAnalyzer;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.graph2.IncrementalFixpointEngine;
-import org.e2immu.analyzer.modification.link.impl.linkgraph2.FollowGraph;
-import org.e2immu.analyzer.modification.link.impl.linkgraph2.Graph;
-import org.e2immu.analyzer.modification.link.impl.linkgraph2.LinkGraph;
-import org.e2immu.analyzer.modification.link.impl.linkgraph2.MakeGraph;
+import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.Graph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.LinkGraph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.MakeGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.translate.TranslateConstants;
@@ -86,6 +86,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
     }
 
+    public interface TestVisitor {
+        void visit(String statementIndex, Graph graph);
+    }
+
     private final Options options;
     private final JavaInspector javaInspector;
     private final RecursionPrevention recursionPrevention;
@@ -96,26 +100,33 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
     private final AtomicInteger variableCounter = new AtomicInteger();
     private final AtomicInteger countSourceMethods = new AtomicInteger();
     private final VirtualFieldComputer virtualFieldComputer;
+    private final TestVisitor testVisitor;
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector) {
-        this(javaInspector, Options.TEST, new AtomicInteger());
+        this(javaInspector, Options.TEST, new AtomicInteger(), null);
+    }
+
+    // for testing
+    public LinkComputerImpl(JavaInspector javaInspector, TestVisitor testVisitor) {
+        this(javaInspector, Options.TEST, new AtomicInteger(), testVisitor);
     }
 
     // for testing
     public LinkComputerImpl(JavaInspector javaInspector, Options options) {
-        this(javaInspector, options, new AtomicInteger());
+        this(javaInspector, options, new AtomicInteger(), null);
     }
 
-    public LinkComputerImpl(JavaInspector javaInspector, Options options, AtomicInteger propertiesChanged) {
+    public LinkComputerImpl(JavaInspector javaInspector, Options options, AtomicInteger propertiesChanged,
+                            TestVisitor testVisitor) {
         this.recursionPrevention = new RecursionPrevention(options.recurse());
         this.javaInspector = javaInspector;
         this.options = options;
         this.virtualFieldComputer = new VirtualFieldComputer(javaInspector);
         this.shallowMethodLinkComputer = new ShallowMethodLinkComputer(javaInspector.runtime(), virtualFieldComputer);
-
         this.shallowMethodAnalyzer = new ShallowMethodAnalyzer(javaInspector.runtime(), Element::annotations);
         this.propertiesChanged = propertiesChanged;
+        this.testVisitor = testVisitor;
     }
 
     @Override
@@ -565,6 +576,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             }
             if (r != null) {
                 writeOutMethodCallAnalysis(r.writeMethodCalls(), vd);
+            }
+            if (testVisitor != null) {
+                testVisitor.visit(statement.source().index(), linkGraph.graph());
             }
             return vd;
         }

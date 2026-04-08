@@ -1,9 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.link.impl.graph.FollowGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.LinkGraph;
-import org.e2immu.analyzer.modification.link.impl.graph.Timer;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.Graph;
+import org.e2immu.analyzer.modification.link.impl.linkgraph.LinkGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.AppliedFunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.FunctionalInterfaceVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
@@ -161,12 +161,13 @@ public record LinkAppliedFunctionalInterface(JavaInspector javaInspector,
 
                     // this is the old "join" of previous implementations; we should call expand now
                     // FIXME
-                    Timer timer = new Timer();
+                  /*  Timer timer = new Timer();
+                    Graph graph = new Graph(engine);
                     Links ls = new LinkGraph(javaInspector, runtime, linkComputerOptions.checkDuplicateNames(),
-                            timer, new FollowGraph(timer))
+                            graph, new FollowGraph(graph))
                             .indirect(links.primary(), link, result.links());
                     if (ls != null) builder.addAllDistinct(ls);
-
+                    */
                 } else {
                     builder.add(link.from(), link.linkNature(), runtime.newFieldReference(fr.fieldInfo(),
                             runtime.newVariableExpression(primary), fr.fieldInfo().type()));

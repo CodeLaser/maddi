@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph2;
+package org.e2immu.analyzer.modification.link.impl.graph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
@@ -9,7 +9,6 @@ import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.IS_ELEME
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestGraph {
-    public static final String START = "a";
     LinkNature IS_IDENTICAL_TO = LinkNatureImpl.makeIdenticalTo(null);
 
     @Test
