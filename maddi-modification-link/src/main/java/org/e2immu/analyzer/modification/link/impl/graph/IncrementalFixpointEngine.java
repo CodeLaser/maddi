@@ -242,9 +242,13 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public void recompute(Set<V> affected, String statementIndex) {
-        closureIndex.removeVertices(affected);
-        witnessIndex.removeVertices(affected);
-        rebuildAffectedRegion(affected, statementIndex);
+        Set<V> remove = new HashSet<>(affected);
+        while (true) {
+            closureIndex.removeVertices(remove);
+            Set<V> extra = witnessIndex.removeVertices(remove);
+            if (!remove.addAll(extra)) break;
+        }
+        rebuildAffectedRegion(remove, statementIndex);
         assert allEdgesOfLabelGraphAreInClosure();
     }
 
