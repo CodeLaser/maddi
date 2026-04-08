@@ -25,8 +25,6 @@ public interface LinkNature extends Comparable<LinkNature> {
 
     List<LinkNature> redundantUp();
 
-    LinkNature replaceSubsetSuperset();
-
     LinkNature reverse();
 
     boolean valid();

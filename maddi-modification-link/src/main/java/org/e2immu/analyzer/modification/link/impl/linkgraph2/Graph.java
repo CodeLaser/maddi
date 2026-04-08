@@ -60,8 +60,18 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return false;
     }
 
+    public void recompute(Set<Variable> affected, String statementIndex) {
+        engine.recompute(affected, statementIndex);
+    }
+
     public void remove(Set<Variable> toRemove) {
         engine.removeVertices(toRemove);
+    }
+
+    public Set<Variable> replaceReturnAffected(Variable from, Variable to,
+                                               LinkNature currentLinkNature,
+                                               LinkNature newLinkNature) {
+        return engine.replaceReturnAffected(from, to, currentLinkNature, newLinkNature);
     }
 
     boolean simpleAddToGraph(Edge edge, String statementIndex) {

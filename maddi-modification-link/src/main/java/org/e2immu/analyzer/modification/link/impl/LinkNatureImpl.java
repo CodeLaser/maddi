@@ -47,8 +47,6 @@ public class LinkNatureImpl implements LinkNature {
 
     private static final LinkNature LN_THIS = new LinkNatureImpl("this", -1);
     private static final LinkNature LN_OTHER = new LinkNatureImpl("other", -2);
-    private static final LinkNature LN_INTERSECT = new LinkNatureImpl("other", -3);
-
 
     // ← → are more important than ≡
     // they follow the flow of assignments
@@ -163,12 +161,6 @@ public class LinkNatureImpl implements LinkNature {
     @Override
     public boolean valid() {
         return rank >= IS_FIELD_OF.rank();
-    }
-
-    @Override
-    public LinkNature replaceSubsetSuperset() {
-        if (this == IS_SUBSET_OF || this == IS_SUPERSET_OF) return SHARES_ELEMENTS;
-        return this;
     }
 
     @Override
