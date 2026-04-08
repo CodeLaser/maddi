@@ -15,11 +15,11 @@ public class TestGraph {
     public void testUniDirectional() {
         IncrementalFixpointEngine<String, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
                 LinkNature::best, LinkNature::valid);
-        UpdateResult<String> ur0 = engine.addEdge("a", "b", IS_IDENTICAL_TO);
+        UpdateResult<String> ur0 = engine.addEdge("a", "b", IS_IDENTICAL_TO, "0");
         assertEquals("UpdateResult[affectedVertices=[a, b], newFacts=1, removedEdges=0]", ur0.toString());
         assertEquals("a ≡ b", printEdges(engine));
 
-        UpdateResult<String> ur1 = engine.addEdge("b", "c", IS_IDENTICAL_TO);
+        UpdateResult<String> ur1 = engine.addEdge("b", "c", IS_IDENTICAL_TO, "0");
         assertEquals("UpdateResult[affectedVertices=[a, b, c], newFacts=2, removedEdges=0]", ur1.toString());
         assertEquals("a ≡ b / b ≡ c", printEdges(engine));
         assertEquals("""
@@ -28,7 +28,7 @@ public class TestGraph {
                 b ≡ c   0(b ≡ c)
                 """, printClosure(engine));
 
-        UpdateResult<String> ur2 = engine.addEdge("a", "d", IS_ELEMENT_OF);
+        UpdateResult<String> ur2 = engine.addEdge("a", "d", IS_ELEMENT_OF, "0");
         assertEquals("UpdateResult[affectedVertices=[a, d], newFacts=1, removedEdges=0]", ur2.toString());
         assertEquals("a ≡ b / a ∈ d / b ≡ c", printEdges(engine));
         assertEquals("""
@@ -90,20 +90,20 @@ public class TestGraph {
         assertTrue(engine.addVertex("e"));
         assertEquals(edges3, printEdges(engine));
         assertEquals("""
-                a:  ≡ b,  ∈ d
-                b:  ≡ a,  ≡ c
-                c:  ≡ b,  ∈ d
-                d:  ∋ a
-                e:
+                a ≡ b / a ∈ d
+                b ≡ a / b ≡ c
+                c ≡ b / c ∈ d
+                d ∋ a
+                e
                 """, print(engine));
 
         // remove 'b'; important that 'c ∈ d' is kept
         engine.removeVertex("b");
         assertEquals("""
-                a:  ∈ d
-                c:  ∈ d
-                d:  ∋ a
-                e:
+                a ∈ d
+                c ∈ d
+                d ∋ a
+                e
                 """, print(engine));
         assertEquals("""
                 a ≡ c   [a ≡ b, b ≡ c]

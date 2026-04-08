@@ -28,7 +28,9 @@ public final class LabeledGraph<V, L> {
     public String print(Function<V, String> vertexPrinter, Comparator<V> comparator) {
         return out.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                 .map(e ->
-                        e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
+                        e.getValue().isEmpty()
+                                ? vertexPrinter.apply(e.getKey())
+                                : e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                                 .map(e2 -> vertexPrinter.apply(e.getKey()) + " " + e2.getValue() + " " + vertexPrinter.apply(e2.getKey()))
                                 .collect(Collectors.joining(" / ")))
                 .collect(Collectors.joining("\n"));

@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 public record FollowGraph(Graph graph) {
     // sorting is needed to consistently take the same direction for tests
@@ -34,9 +35,9 @@ public record FollowGraph(Graph graph) {
         // stream.§$s⊆0:in.§$s
         Set<Edge> block = new HashSet<>();
         for (Variable from : fromList) {
-            Map<Variable, LinkNature> all = graph.closure(from);
+            Stream<Map.Entry<Variable, LinkNature>> all = graph.closureStream(from);
 
-            List<Map.Entry<Variable, LinkNature>> entries = all.entrySet().stream()
+            List<Map.Entry<Variable, LinkNature>> entries = all
                     .sorted((e1, e2) -> {
                         int c = e2.getValue().rank() - e1.getValue().rank();
                         if (c != 0) return c;

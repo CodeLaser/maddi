@@ -11,6 +11,7 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_FIELD;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.IS_FIELD_OF;
@@ -31,7 +32,7 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return engine.addEdge(from, to, linkNature, statementIndex).newFacts() > 0;
     }
 
-    boolean mergeEdgeBi(Edge edge) {
+    boolean mergeEdgeBi(Edge edge, String statementIndex) {
         Variable from = edge.from();
         Variable to = edge.to();
         if (from.equals(to)) {
@@ -39,8 +40,8 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         }
         LinkNature ln = edge.linkNature();
         LinkNature rev = edge.linkNature().reverse();
-        int newFacts1 = engine.addEdge(from, to, ln).newFacts();
-        int newFacts2 = engine.addEdge(to, from, rev).newFacts();
+        int newFacts1 = engine.addEdge(from, to, ln, statementIndex).newFacts();
+        int newFacts2 = engine.addEdge(to, from, rev, statementIndex).newFacts();
         return newFacts1 + newFacts2 > 0;
     }
 
@@ -71,7 +72,7 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
     }
 
     private static String printForTesting(Variable v) {
-        if (v instanceof ParameterInfo pi) return pi.index()+":"+pi.name();
+        if (v instanceof ParameterInfo pi) return pi.index() + ":" + pi.name();
         if (v instanceof DependentVariable dv && dv.indexVariable() != null) {
             return printForTesting(dv.arrayVariable()) + "[" + printForTesting(dv.indexVariable()) + "]";
         }
@@ -99,15 +100,15 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return simpleAddToGraph(edge.from(), edge.linkNature(), edge.to(), statementIndex);
     }
 
-    boolean simpleAddToGraph(Variable lFrom, LinkNature linkNature, Variable lTo, String statementIndex) {
-        boolean change = mergeEdgeSingle(lFrom, linkNature, lTo, statementIndex);
-        Variable primary = Util.primary(lFrom);
-        change |= addField(lFrom, primary, statementIndex);
+    boolean simpleAddToGraph(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
+        boolean change = mergeEdgeSingle(from, linkNature, to, statementIndex);
+        Variable primary = Util.primary(from);
+        change |= addField(from, primary, statementIndex);
 
         // other direction
-        change |= mergeEdgeSingle(lTo, linkNature.reverse(), lFrom, statementIndex);
-        Variable toPrimary = Util.primary(lTo);
-        change |= addField(lTo, toPrimary, statementIndex);
+        change |= mergeEdgeSingle(to, linkNature.reverse(), from, statementIndex);
+        Variable toPrimary = Util.primary(to);
+        change |= addField(to, toPrimary, statementIndex);
         return change;
     }
 
@@ -119,7 +120,11 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return engine.vertices();
     }
 
-    Map<Variable, LinkNature> closure(Variable variable) {
-        return engine.closure(variable);
+    Stream<Map.Entry<Variable, LinkNature>> closureStream(Variable variable) {
+        return engine.successorStream(variable);
+    }
+
+    Iterable<Map.Entry<Variable, LinkNature>> closure(Variable variable) {
+        return engine.successors(variable);
     }
 }
