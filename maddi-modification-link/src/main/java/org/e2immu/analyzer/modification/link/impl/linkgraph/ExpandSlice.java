@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.prepwork.Util;
@@ -15,8 +15,8 @@ import java.util.stream.Collectors;
 
 import static org.e2immu.analyzer.modification.prepwork.Util.virtual;
 
-class ExpandSlice {
-
+record ExpandSlice(Graph graph) {
+    
     private record F2(FieldInfo kv, FieldInfo k) {
     }
 
@@ -30,12 +30,12 @@ class ExpandSlice {
     (3) TestForEachLambda,7
     if 0:map.§$$s[-1]~this.map.§$$s[-2] and 0:map.§$$s[-2]~this.map.§$$s[-1]] then 0:map.§$$s ~ this.map.§$$s
      */
-    List<Edge> completeSliceInformation(Map<Variable , Map<Variable , LinkNature>> graph) {
+    List<Edge> completeSliceInformation() {
         Map<Edge, List<List<F2>>> map = new HashMap<>();
-        for (Map.Entry<Variable , Map<Variable , LinkNature>> entry : graph.entrySet()) {
-            if (entry.getKey() instanceof FieldReference frK && virtual(frK)
+        for (Variable variable: graph.variables()) {
+            if (variable instanceof FieldReference frK && virtual(frK)
                 && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv)) {
-                Map<Variable , LinkNature> expanded = FollowGraph.bestPath(graph, entry.getKey());
+                Map<Variable , LinkNature> expanded = graph.closure(variable);
                 // FIXME cause of mod
                 for (Map.Entry<Variable , LinkNature> entry2 : expanded.entrySet()) {
                     // (1)
@@ -66,8 +66,8 @@ class ExpandSlice {
                 }
             }
             int index;
-            if (entry.getKey() instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
-                Map<Variable , LinkNature> expanded = FollowGraph.bestPath(graph, entry.getKey());
+            if (variable instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
+                Map<Variable , LinkNature> expanded = graph.closure(variable);
                 for (Map.Entry<Variable , LinkNature> entry2 : expanded.entrySet()) {
                     int index1;
                     // (3)

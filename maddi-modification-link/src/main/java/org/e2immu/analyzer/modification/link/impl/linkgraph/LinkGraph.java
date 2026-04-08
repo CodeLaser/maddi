@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.linkgraph2;
+package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;

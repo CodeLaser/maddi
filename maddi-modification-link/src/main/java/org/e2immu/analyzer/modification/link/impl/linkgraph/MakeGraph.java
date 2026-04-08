@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.stream.Collectors;
 
-record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
+public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph graph) {
 
     private Variable makeComparableSub(Variable base, Variable sub, Variable target) {
         TranslationMap tm = new VariableTranslationMap(runtime).put(base, target);
@@ -38,10 +38,9 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
                 ? translated : null;
     }
 
-    private @NotNull Map<Variable, Set<Variable>> computeSubs(Map<Variable, Map<Variable, LinkNature>> graph,
-                                                              Set<Variable> modifiedInThisEvaluation) {
+    private @NotNull Map<Variable, Set<Variable>> computeSubs(Set<Variable> modifiedInThisEvaluation) {
         Map<Variable, Set<Variable>> subs = new HashMap<>();
-        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.entrySet()) {
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
             Variable from = entry.getKey();
             Set<Variable> scopeVariablesFrom = Util.scopeVariables(from);
             for (Variable scopeVariableFrom : scopeVariablesFrom) {
@@ -93,13 +92,10 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
                || !(mv.assignmentExpression() instanceof NullConstant);
     }
 
-    boolean doOneMakeGraphCycle(Map<Variable, Map<Variable, LinkNature>> graph, Set<Variable> modifiedInThisEvaluation) {
-        timer.start("computeSubs");
-        Map<Variable, Set<Variable>> subs = computeSubs(graph, modifiedInThisEvaluation);
-        timer.end("computeSubs");
+    boolean doOneMakeGraphCycle(String statementIndex, Set<Variable> modifiedInThisEvaluation) {
+        Map<Variable, Set<Variable>> subs = computeSubs(modifiedInThisEvaluation);
         List<Edge> newLinks = new ArrayList<>();
-        timer.start("postProcess");
-        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.entrySet()) {
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
             Variable vFrom = entry.getKey();
             for (Map.Entry<Variable, LinkNature> entry2 : entry.getValue().entrySet()) {
                 Variable vTo = entry2.getKey();
@@ -151,13 +147,12 @@ record MakeGraph(JavaInspector javaInspector, Runtime runtime, Timer timer) {
         }
         boolean change = false;
         for (Edge edge : newLinks) {
-            change |= AddEdge.mergeEdgeBi(graph, edge);
+            change |= graph.mergeEdgeBi(edge);
         }
-        List<Edge> extra = new ExpandSlice().completeSliceInformation(graph);
+        List<Edge> extra = new ExpandSlice(graph).completeSliceInformation();
         for (Edge edge : extra) {
-            change |= AddEdge.simpleAddToGraph(graph, edge);
+            change |= graph.simpleAddToGraph(edge, statementIndex);
         }
-        timer.end("postProcess");
         return change;
     }
 }

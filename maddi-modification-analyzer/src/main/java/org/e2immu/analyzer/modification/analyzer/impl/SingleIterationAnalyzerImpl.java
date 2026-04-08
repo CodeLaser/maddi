@@ -52,7 +52,8 @@ public class SingleIterationAnalyzerImpl implements SingleIterationAnalyzer, Mod
 
     public SingleIterationAnalyzerImpl(JavaInspector javaInspector, IteratingAnalyzer.Configuration configuration) {
         this.propertiesChanged = new AtomicInteger();
-        linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions(), propertiesChanged);
+        linkComputer = new LinkComputerImpl(javaInspector, configuration.linkComputerOptions(), propertiesChanged,
+                null);
         Runtime runtime = javaInspector.runtime();
         fieldAnalyzer = new FieldAnalyzerImpl(runtime, configuration, propertiesChanged);
         typeModIndyAnalyzer = new TypeModIndyAnalyzerImpl(configuration, propertiesChanged);

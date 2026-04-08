@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph2;
+package org.e2immu.analyzer.modification.link.impl.graph;
 
 import org.jetbrains.annotations.NotNull;
 
