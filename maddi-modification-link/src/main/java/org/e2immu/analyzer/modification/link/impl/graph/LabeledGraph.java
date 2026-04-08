@@ -71,11 +71,9 @@ public final class LabeledGraph<V, L> {
     }
 
     public boolean replace(V from, V to, L label) {
-        Map<V, L> outMap = out.get(from);
-        if (outMap == null || !outMap.containsKey(to)) return false;
+        Map<V, L> outMap = out.computeIfAbsent(from, _ -> new LinkedHashMap<>());
         L prev = outMap.put(to, label);
-        Map<V, L> inMap = in.get(to);
-        assert inMap != null && inMap.containsKey(from);
+        Map<V, L> inMap = in.computeIfAbsent(to, _ -> new LinkedHashMap<>());
         inMap.put(from, label);
         return !label.equals(prev);
     }

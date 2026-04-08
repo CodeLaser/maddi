@@ -42,6 +42,17 @@ public class ClosureIndex<V, L> {
         return reverseReachable.getOrDefault(target, Map.of()).entrySet();
     }
 
+    public void removeFact(Fact<V, L> fact) {
+        Map<V, L> map = reachable.get(fact.source());
+        if (map != null) {
+            map.remove(fact.target());
+        }
+        Map<V, L> map2 = reverseReachable.get(fact.target());
+        if (map2 != null) {
+            map2.remove(fact.source());
+        }
+    }
+
     public Stream<Map.Entry<V, L>> successorStream(V target) {
         return reachable.getOrDefault(target, Map.of()).entrySet().stream();
     }

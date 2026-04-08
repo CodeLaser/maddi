@@ -25,11 +25,15 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return engine.edges();
     }
 
+    public LinkNature label(Variable from, Variable to) {
+        return engine.label(from, to);
+    }
+
     private boolean mergeEdgeSingle(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
         if (from.equals(to)) {
             return engine.addVertex(from); // safety measure, is technically possible
         }
-        return engine.addEdge(from, to, linkNature, statementIndex).newFacts() > 0;
+        return engine.addEdge(from, to, linkNature, statementIndex) > 0;
     }
 
     boolean mergeEdgeBi(Edge edge, String statementIndex) {
@@ -40,8 +44,8 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         }
         LinkNature ln = edge.linkNature();
         LinkNature rev = edge.linkNature().reverse();
-        int newFacts1 = engine.addEdge(from, to, ln, statementIndex).newFacts();
-        int newFacts2 = engine.addEdge(to, from, rev, statementIndex).newFacts();
+        int newFacts1 = engine.addEdge(from, to, ln, statementIndex);
+        int newFacts2 = engine.addEdge(to, from, rev, statementIndex);
         return newFacts1 + newFacts2 > 0;
     }
 
@@ -124,7 +128,10 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return engine.successorStream(variable);
     }
 
-    Iterable<Map.Entry<Variable, LinkNature>> closure(Variable variable) {
+    public Iterable<Map.Entry<Variable, LinkNature>> closure(Variable variable) {
         return engine.successors(variable);
+    }
+    public Iterable<Map.Entry<Variable, LinkNature>> successorsInGraph(Variable variable) {
+        return engine.successorsInGraph(variable);
     }
 }

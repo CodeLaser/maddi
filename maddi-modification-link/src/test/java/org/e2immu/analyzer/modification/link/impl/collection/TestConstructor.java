@@ -61,7 +61,7 @@ public class TestConstructor extends CommonTest {
         analyzer.doPrimaryType(X);
         {
             LinkComputer tlc = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
-                if ("0".equals(statementIndex)) {
+                if ("09".equals(statementIndex)) {
                     assertEquals("""
                             $__c0 → iis / $__c0 ≻ $__c0.§$s
                             0:input ≻ 0:input.§$s
@@ -71,56 +71,79 @@ public class TestConstructor extends CommonTest {
                             iis.§$s ← $__c0.§$s\
                             """, graph.print());
                     assertEquals("""
-                            $__c0 ∩ 0:input   [$__c0 ∩ $__c0.§$s, $__c0.§$s ≤ 0:input]
+                            $__c0 ∩ 0:input   [$__c0 → iis, iis ∩ 0:input]
                             $__c0 → iis   0($__c0 → iis)
-                            $__c0 ∩ $__c0.§$s   [$__c0 ∩ 0:input.§$s, 0:input.§$s ⊇ $__c0.§$s]
-                            $__c0 ∩ 0:input.§$s   [$__c0 ≻ $__c0.§$s, $__c0.§$s ⊆ 0:input.§$s]
-                            $__c0 ∩ iis.§$s   [$__c0 ∩ $__c0.§$s, $__c0.§$s → iis.§$s]
-                            0:input ∩ $__c0   [0:input ≥ $__c0.§$s, $__c0.§$s ≺ $__c0]
-                            0:input ∩ iis   [0:input ∩ $__c0, $__c0 → iis]
-                            0:input ≥ $__c0.§$s   [0:input ≻ 0:input.§$s, 0:input.§$s ⊇ $__c0.§$s]
-                            0:input ∩ 0:input.§$s   [0:input ≥ $__c0.§$s, $__c0.§$s ⊆ 0:input.§$s]
-                            0:input ≥ iis.§$s   [0:input ≥ $__c0.§$s, $__c0.§$s → iis.§$s]
+                            $__c0 ∩ $__c0.§$s   [$__c0 ∩ iis.§$s, iis.§$s ← $__c0.§$s]
+                            $__c0 ∩ 0:input.§$s   [$__c0 ∩ iis.§$s, iis.§$s ⊆ 0:input.§$s]
+                            $__c0 ∩ iis.§$s   [$__c0 ∩ 0:input.§$s, 0:input.§$s ⊇ iis.§$s]
+                            0:input ∩ $__c0   [0:input ≥ iis.§$s, iis.§$s ≺ $__c0]
+                            0:input ∩ iis   [0:input ≥ iis.§$s, iis.§$s ≺ iis]
+                            0:input ≥ $__c0.§$s   [0:input ≥ iis.§$s, iis.§$s ← $__c0.§$s]
+                            0:input ∩ 0:input.§$s   [0:input ≥ iis.§$s, iis.§$s ⊆ 0:input.§$s]
+                            0:input ≥ iis.§$s   0(0:input ≥ iis.§$s)
                             iis ← $__c0   0(iis ← $__c0)
-                            iis ∩ 0:input   [iis ∩ iis.§$s, iis.§$s ≤ 0:input]
-                            iis ∩ $__c0.§$s   [iis ∩ 0:input.§$s, 0:input.§$s ⊇ $__c0.§$s]
-                            iis ∩ 0:input.§$s   [iis ≻ $__c0.§$s, $__c0.§$s ⊆ 0:input.§$s]
-                            iis ∩ iis.§$s   [iis ∩ $__c0.§$s, $__c0.§$s → iis.§$s]
-                            $__c0.§$s ∩ $__c0   [$__c0.§$s ⊆ 0:input.§$s, 0:input.§$s ∩ $__c0]
-                            $__c0.§$s ≤ 0:input   [$__c0.§$s ⊆ 0:input.§$s, 0:input.§$s ≺ 0:input]
-                            $__c0.§$s ∩ iis   [$__c0.§$s ∩ $__c0, $__c0 → iis]
-                            $__c0.§$s ⊆ 0:input.§$s   0($__c0.§$s ⊆ 0:input.§$s)
+                            iis ∩ 0:input   0(iis ∩ 0:input)
+                            iis ∩ $__c0.§$s   [iis ∩ iis.§$s, iis.§$s ← $__c0.§$s]
+                            iis ∩ 0:input.§$s   [iis ∩ iis.§$s, iis.§$s ⊆ 0:input.§$s]
+                            iis ∩ iis.§$s   [iis ∩ 0:input.§$s, 0:input.§$s ⊇ iis.§$s]
+                            $__c0.§$s ∩ $__c0   [$__c0.§$s ∩ iis, iis ← $__c0]
+                            $__c0.§$s ≤ 0:input   [$__c0.§$s → iis.§$s, iis.§$s ≤ 0:input]
+                            $__c0.§$s ∩ iis   [$__c0.§$s ⊆ 0:input.§$s, 0:input.§$s ∩ iis]
+                            $__c0.§$s ⊆ 0:input.§$s   [$__c0.§$s → iis.§$s, iis.§$s ⊆ 0:input.§$s]
                             $__c0.§$s → iis.§$s   0($__c0.§$s → iis.§$s)
-                            0:input.§$s ∩ $__c0   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s ≺ $__c0]
-                            0:input.§$s ∩ 0:input   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s ≤ 0:input]
-                            0:input.§$s ∩ iis   [0:input.§$s ∩ $__c0, $__c0 → iis]
-                            0:input.§$s ⊇ $__c0.§$s   0(0:input.§$s ⊇ $__c0.§$s)
-                            0:input.§$s ⊇ iis.§$s   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s → iis.§$s]
-                            iis.§$s ≺ $__c0   [iis.§$s ← $__c0.§$s, $__c0.§$s ≺ $__c0]
-                            iis.§$s ≤ 0:input   [iis.§$s ⊆ 0:input.§$s, 0:input.§$s ≺ 0:input]
-                            iis.§$s ≺ iis   [iis.§$s ≺ $__c0, $__c0 → iis]
+                            0:input.§$s ∩ $__c0   [0:input.§$s ⊇ iis.§$s, iis.§$s ≺ $__c0]
+                            0:input.§$s ∩ 0:input   [0:input.§$s ∩ iis, iis ∩ 0:input]
+                            0:input.§$s ∩ iis   [0:input.§$s ⊇ iis.§$s, iis.§$s ≺ iis]
+                            0:input.§$s ⊇ $__c0.§$s   [0:input.§$s ⊇ iis.§$s, iis.§$s ← $__c0.§$s]
+                            0:input.§$s ⊇ iis.§$s   0(0:input.§$s ⊇ iis.§$s)
+                            iis.§$s ≺ $__c0   [iis.§$s ≺ iis, iis ← $__c0]
+                            iis.§$s ≤ 0:input   0(iis.§$s ≤ 0:input)
+                            iis.§$s ≺ iis   0(iis.§$s ≺ iis)
                             iis.§$s ← $__c0.§$s   0(iis.§$s ← $__c0.§$s)
-                            iis.§$s ⊆ 0:input.§$s   [iis.§$s ← $__c0.§$s, $__c0.§$s ⊆ 0:input.§$s]\
+                            iis.§$s ⊆ 0:input.§$s   0(iis.§$s ⊆ 0:input.§$s)\
                             """, graph.printClosure());
                 }
                 if("1".equals(statementIndex)) {
                     assertEquals("""
-                            $__c0 ∩ $__rv1   [$__c0 ∩ iis.§$s, iis.§$s ∋ $__rv1]
+                            $__c0 → iis / $__c0 ≻ $__c0.§$s
+                            $__rv1 ∈ iis.§$s / $__rv1 → removed
+                            0:input ≻ 0:input.§$s
+                            iis ← $__c0 / iis ≻ iis.§$s
+                            $__c0.§$s ≺ $__c0 / $__c0.§$s ~ 0:input.§$s / $__c0.§$s → iis.§$s
+                            $__c0.§m ≡ iis.§m
+                            0:input.§$s ≺ 0:input / 0:input.§$s ~ $__c0.§$s
+                            iis.§$s ∋ $__rv1 / iis.§$s ≺ iis / iis.§$s ← $__c0.§$s
+                            iis.§m ≡ $__c0.§m
+                            removed ← $__rv1\
+                            """, graph.print());
+                    assertEquals("""
+                            $__c0 ≥ $__rv1   [$__c0 → iis, iis ≥ $__rv1]
                             $__c0 ∩ 0:input   [$__c0 ∩ $__c0.§$s, $__c0.§$s ≤ 0:input]
                             $__c0 → iis   0($__c0 → iis)
-                            $__c0 ∩ removed   [$__c0 ∩ $__rv1, $__rv1 → removed]
+                            $__c0 ∩ $__c0.§$s   [$__c0 ∩ 0:input.§$s, 0:input.§$s ~ $__c0.§$s]
+                            $__c0 ∩ 0:input.§$s   [$__c0 ≻ $__c0.§$s, $__c0.§$s ~ 0:input.§$s]
+                            $__c0 ∩ iis.§$s   [$__c0 ≥ $__rv1, $__rv1 ∈ iis.§$s]
+                            $__c0 ≥ removed   [$__c0 ≥ $__rv1, $__rv1 → removed]
                             $__rv1 ≤ $__c0   [$__rv1 ∈ $__c0.§$s, $__c0.§$s ≺ $__c0]
                             $__rv1 ≤ 0:input   [$__rv1 ∈ 0:input.§$s, 0:input.§$s ≺ 0:input]
                             $__rv1 ≤ iis   [$__rv1 ≤ $__c0, $__c0 → iis]
+                            $__rv1 ∈ $__c0.§$s   [$__rv1 ∈ iis.§$s, iis.§$s ← $__c0.§$s]
+                            $__rv1 ∈ iis.§$s   1($__rv1 ∈ iis.§$s)
                             $__rv1 → removed   1($__rv1 → removed)
                             0:input ∩ $__c0   [0:input ≥ $__c0.§$s, $__c0.§$s ≺ $__c0]
                             0:input ≥ $__rv1   [0:input ≥ iis.§$s, iis.§$s ∋ $__rv1]
                             0:input ∩ iis   [0:input ∩ $__c0, $__c0 → iis]
+                            0:input ∩ $__c0.§$s   [0:input ≻ 0:input.§$s, 0:input.§$s ~ $__c0.§$s]
+                            0:input ∩ 0:input.§$s   [0:input ∩ $__c0, $__c0 ∩ 0:input.§$s]
+                            0:input ∩ iis.§$s   [0:input ≥ $__rv1, $__rv1 ∈ iis.§$s]
                             0:input ≥ removed   [0:input ≥ $__rv1, $__rv1 → removed]
                             iis ← $__c0   0(iis ← $__c0)
-                            iis ∩ $__rv1   [iis ∩ iis.§$s, iis.§$s ∋ $__rv1]
+                            iis ≥ $__rv1   [iis ≻ iis.§$s, iis.§$s ∋ $__rv1]
                             iis ∩ 0:input   [iis ∩ iis.§$s, iis.§$s ≤ 0:input]
-                            iis ∩ removed   [iis ∩ $__rv1, $__rv1 → removed]
+                            iis ∩ $__c0.§$s   [iis ∩ 0:input, 0:input ∩ $__c0.§$s]
+                            iis ∩ 0:input.§$s   [iis ← $__c0, $__c0 ∩ 0:input.§$s]
+                            iis ∩ iis.§$s   [iis ≥ $__rv1, $__rv1 ∈ iis.§$s]
+                            iis ≥ removed   [iis ≥ $__rv1, $__rv1 → removed]
                             $__c0.§$s ∩ $__c0   [$__c0.§$s ~ 0:input.§$s, 0:input.§$s ∩ $__c0]
                             $__c0.§$s ∋ $__rv1   [$__c0.§$s → iis.§$s, iis.§$s ∋ $__rv1]
                             $__c0.§$s ∩ 0:input   [$__c0.§$s ~ 0:input.§$s, 0:input.§$s ≺ 0:input]
@@ -129,13 +152,11 @@ public class TestConstructor extends CommonTest {
                             $__c0.§$s → iis.§$s   1($__c0.§$s → iis.§$s)
                             $__c0.§$s ∋ removed   [$__c0.§$s ∋ $__rv1, $__rv1 → removed]
                             $__c0.§m ≡ iis.§m   1($__c0.§m ≡ iis.§m)
-                            0:input.§$s ∩ $__c0   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s ≺ $__c0]
-                            0:input.§$s ∋ $__rv1   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s ∋ $__rv1]
-                            0:input.§$s ∩ 0:input   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s ∩ 0:input]
-                            0:input.§$s ∩ iis   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s ≺ iis]
-                            0:input.§$s ⊇ $__c0.§$s   1(0:input.§$s ⊇ $__c0.§$s)
-                            0:input.§$s ⊇ iis.§$s   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s → iis.§$s]
-                            0:input.§$s ∋ removed   [0:input.§$s ⊇ iis.§$s, iis.§$s ∋ removed]
+                            0:input.§$s ∩ $__c0   [0:input.§$s ~ $__c0.§$s, $__c0.§$s ≺ $__c0]
+                            0:input.§$s ∩ 0:input   [0:input.§$s ~ $__c0.§$s, $__c0.§$s ∩ 0:input]
+                            0:input.§$s ∩ iis   [0:input.§$s ~ $__c0.§$s, $__c0.§$s ≺ iis]
+                            0:input.§$s ~ $__c0.§$s   1(0:input.§$s ~ $__c0.§$s)
+                            0:input.§$s ~ iis.§$s   [0:input.§$s ~ $__c0.§$s, $__c0.§$s → iis.§$s]
                             iis.§$s ∩ $__c0   [iis.§$s ← $__c0.§$s, $__c0.§$s ∩ $__c0]
                             iis.§$s ∋ $__rv1   1(iis.§$s ∋ $__rv1)
                             iis.§$s ∩ 0:input   [iis.§$s ← $__c0.§$s, $__c0.§$s ∩ 0:input]
@@ -147,7 +168,9 @@ public class TestConstructor extends CommonTest {
                             removed ≤ $__c0   [removed ∈ $__c0.§$s, $__c0.§$s ≺ $__c0]
                             removed ← $__rv1   1(removed ← $__rv1)
                             removed ≤ 0:input   [removed ∈ 0:input.§$s, 0:input.§$s ≺ 0:input]
-                            removed ≤ iis   [removed ∈ iis.§$s, iis.§$s ≺ iis]\
+                            removed ≤ iis   [removed ∈ iis.§$s, iis.§$s ≺ iis]
+                            removed ∈ $__c0.§$s   [removed ← $__rv1, $__rv1 ∈ $__c0.§$s]
+                            removed ∈ iis.§$s   [removed ← $__rv1, $__rv1 ∈ iis.§$s]\
                             """, graph.printClosure());
                 }
             });
