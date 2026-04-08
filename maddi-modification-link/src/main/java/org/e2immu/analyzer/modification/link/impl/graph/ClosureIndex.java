@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class ClosureIndex<V, L> {
     private final Map<V, Map<V, L>> reachable = new HashMap<>();
@@ -17,16 +18,19 @@ public class ClosureIndex<V, L> {
 
     public boolean add(V from, V to, L label) {
         assert !from.equals(to);
-        reverseReachable.computeIfAbsent(to, _ -> new HashMap<>())
-                .merge(from, label, best);
+
         Map<V, L> map = reachable.computeIfAbsent(from, _ -> new HashMap<>());
+        Map<V, L> rMap = reverseReachable.computeIfAbsent(to, _ -> new HashMap<>());
+
         L current = map.get(to);
         if (current == null) {
             map.put(to, label);
+            rMap.put(from, label);
             return true;
         }
         L newLabel = best.apply(current, label);
         map.put(to, newLabel);
+        rMap.put(from, newLabel);
         return !current.equals(newLabel);
     }
 
@@ -34,12 +38,16 @@ public class ClosureIndex<V, L> {
         return reachable.getOrDefault(from, Map.of()).get(to);
     }
 
-    public Map<V, L> predecessors(V target) {
-        return reverseReachable.getOrDefault(target, Map.of());
+    public Iterable<Map.Entry<V, L>> predecessors(V target) {
+        return reverseReachable.getOrDefault(target, Map.of()).entrySet();
     }
 
-    public Map<V, L> successors(V target) {
-        return reachable.getOrDefault(target, Map.of());
+    public Stream<Map.Entry<V, L>> successorStream(V target) {
+        return reachable.getOrDefault(target, Map.of()).entrySet().stream();
+    }
+
+    public Iterable<Map.Entry<V, L>> successors(V target) {
+        return reachable.getOrDefault(target, Map.of()).entrySet();
     }
 
     public String print(Function<V, String> vertexPrinter,

@@ -147,7 +147,7 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
         }
         boolean change = false;
         for (Edge edge : newLinks) {
-            change |= graph.mergeEdgeBi(edge);
+            change |= graph.mergeEdgeBi(edge, statementIndex);
         }
         List<Edge> extra = new ExpandSlice(graph).completeSliceInformation();
         for (Edge edge : extra) {

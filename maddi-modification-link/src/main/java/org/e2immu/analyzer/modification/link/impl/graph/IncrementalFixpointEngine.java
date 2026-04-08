@@ -13,6 +13,7 @@ public final class IncrementalFixpointEngine<V, L> {
     private final ClosureIndex<V, L> closureIndex;
     private final WitnessIndex<V, L> witnessIndex;
     private final BinaryOperator<L> combine;
+    private final BinaryOperator<L> best;
     private final Predicate<L> valid;
 
     public IncrementalFixpointEngine(BinaryOperator<L> combine, BinaryOperator<L> best,
@@ -22,9 +23,14 @@ public final class IncrementalFixpointEngine<V, L> {
         this.witnessIndex = new WitnessIndex<>();
         this.combine = combine;
         this.valid = valid;
+        this.best = best;
     }
 
-    public Map<V, L> closure(V variable) {
+    public Stream<Map.Entry<V, L>> successorStream(V variable) {
+        return closureIndex.successorStream(variable);
+    }
+
+    public Iterable<Map.Entry<V, L>> successors(V variable) {
         return closureIndex.successors(variable);
     }
 
@@ -36,7 +42,7 @@ public final class IncrementalFixpointEngine<V, L> {
         return graph.print(comparator);
     }
 
-    public String print(Function<V, String> vertexPrinter,Comparator<V> comparator) {
+    public String print(Function<V, String> vertexPrinter, Comparator<V> comparator) {
         return graph.print(vertexPrinter, comparator);
     }
 
@@ -63,11 +69,6 @@ public final class IncrementalFixpointEngine<V, L> {
     public void removeVertices(Set<V> vertices) {
         graph.removeVertices(vertices);
         closureIndex.removeVertices(vertices);
-    }
-
-    // for testing only
-    public UpdateResult<V> addEdge(V from, V to, L label) {
-        return addEdge(from, to, label, "0");
     }
 
     public UpdateResult<V> addEdge(V from, V to, L label, String statementIndex) {
@@ -102,10 +103,22 @@ public final class IncrementalFixpointEngine<V, L> {
                 propagateBackward(fact, queue);
             }
         }
+        // TODO this would be the place to remove redundant edges in the labelGraph
+        //  (redundant with respect to the overall result in closureIndex)
 
-        int removed = 0;//reduceLocally(affected);
+        assert betterThanOrEqual(closureIndex.label(from, to), label);
+        graph.edges().forEach(e ->
+                e.getValue().forEach((to2, label2) -> {
+                    assert betterThanOrEqual(closureIndex.label(e.getKey(), to2), label2);
+                }));
 
-        return new UpdateResult<>(affected, newFacts, removed);
+        return new UpdateResult<>(affected, newFacts, 0);
+    }
+
+    private boolean betterThanOrEqual(L l1, L l2) {
+        assert l1 != null;
+        assert l2 != null;
+        return l1.equals(best.apply(l1, l2));
     }
 
     private void propagateForward(Fact<V, L> fact, Deque<Fact<V, L>> queue) {
@@ -133,7 +146,7 @@ public final class IncrementalFixpointEngine<V, L> {
         V v = fact.target();
         L currentLabel = fact.label();
 
-        for (Map.Entry<V, L> predEntry : closureIndex.predecessors(u).entrySet()) {
+        for (Map.Entry<V, L> predEntry : closureIndex.predecessors(u)) {
             V p = predEntry.getKey();
             if (!p.equals(v) && !p.equals(u)) {
                 L predLabel = predEntry.getValue();

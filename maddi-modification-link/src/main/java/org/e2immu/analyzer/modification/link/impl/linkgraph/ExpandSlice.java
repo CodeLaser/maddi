@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 import static org.e2immu.analyzer.modification.prepwork.Util.virtual;
 
 record ExpandSlice(Graph graph) {
-    
+
     private record F2(FieldInfo kv, FieldInfo k) {
     }
 
@@ -32,12 +32,12 @@ record ExpandSlice(Graph graph) {
      */
     List<Edge> completeSliceInformation() {
         Map<Edge, List<List<F2>>> map = new HashMap<>();
-        for (Variable variable: graph.variables()) {
+        for (Variable variable : graph.variables()) {
             if (variable instanceof FieldReference frK && virtual(frK)
                 && frK.scopeVariable() instanceof FieldReference frKv && virtual(frKv)) {
-                Map<Variable , LinkNature> expanded = graph.closure(variable);
+                Iterable<Map.Entry<Variable, LinkNature>> expanded = graph.closure(variable);
                 // FIXME cause of mod
-                for (Map.Entry<Variable , LinkNature> entry2 : expanded.entrySet()) {
+                for (Map.Entry<Variable, LinkNature> entry2 : expanded) {
                     // (1)
                     if (LinkNatureImpl.IS_ELEMENT_OF.equals(entry2.getValue())
                         && entry2.getKey() instanceof DependentVariable dv
@@ -67,8 +67,8 @@ record ExpandSlice(Graph graph) {
             }
             int index;
             if (variable instanceof DependentVariable dvK && (index = negative(dvK.indexExpression())) >= 0) {
-                Map<Variable , LinkNature> expanded = graph.closure(variable);
-                for (Map.Entry<Variable , LinkNature> entry2 : expanded.entrySet()) {
+                Iterable<Map.Entry<Variable, LinkNature>> expanded = graph.closure(variable);
+                for (Map.Entry<Variable, LinkNature> entry2 : expanded) {
                     int index1;
                     // (3)
                     if ((LinkNatureImpl.SHARES_ELEMENTS.equals(entry2.getValue()) || entry2.getValue().isIdenticalToOrAssignedFromTo())
