@@ -16,8 +16,6 @@ public interface Link extends Comparable<Link> {
 
     LinkNature linkNature();
 
-    Link replaceSubsetSuperset(Variable modified);
-
     Variable to();
 
     @NotNull String toString(Set<Variable> modified);

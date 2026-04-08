@@ -273,7 +273,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                                 if (constant != null && !(constant instanceof NullConstant)) {
                                     assert vi.variable().parameterizedType().arrays() == 0;
                                     Expression prev = tc.put(vi.variable(), constant);
-                                    if (prev != null && !constant.equals(prev)){
+                                    if (prev != null && !constant.equals(prev)) {
                                         // multiple values...
                                         tc.remove(vi.variable());
                                     }
@@ -288,7 +288,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
 
         // TODO: copy linked variables of a variable in closure to others in the closure, to that closure
         public MethodLinkedVariables go() {
-            VariableData vd = doBlock(true, methodInfo.methodBody(), null);
+            VariableData vd = doBlock(methodInfo.methodBody(), null);
             Links ofReturnValue = vd == null || returnVariable == null
                                   || !vd.isKnown(returnVariable.fullyQualifiedName())
                     ? LinksImpl.EMPTY
@@ -429,17 +429,16 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             return pi != null && pi.methodInfo().typeInfo().isStrictlyEnclosedIn(methodInfo.typeInfo());
         }
 
-        VariableData doBlock(boolean topBlock, Block block, VariableData previousVd) {
+        VariableData doBlock(Block block, VariableData previousVd) {
             VariableData vd = previousVd;
             boolean firstStatementOfBlock = true;
             for (Statement statement : block.statements()) {
                 if (statement instanceof Block b) {
                     // a block among the statements
-                    vd = doBlock(false, b, vd);
+                    vd = doBlock(b, vd);
                 } else {
                     try {
-                        boolean lastStatement = topBlock && statement == block.statements().getLast();
-                        vd = doStatement(statement, lastStatement, vd, firstStatementOfBlock);
+                        vd = doStatement(statement, vd, firstStatementOfBlock);
                     } catch (RuntimeException | AssertionError re) {
                         LOGGER.error("Caught exception in statement {} of {}: {}", statement.source(), methodInfo,
                                 re.getMessage());
@@ -452,7 +451,6 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         public VariableData doStatement(Statement statement,
-                                        boolean lastStatement,
                                         VariableData previousVd,
                                         boolean firstStatementOfBlock) {
             Stage stageOfPrevious = firstStatementOfBlock ? Stage.EVALUATION : Stage.MERGE;
@@ -549,8 +547,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                         r.modified());
             }
             Set<Variable> previouslyModified = computePreviouslyModified(vd, previousVd, stageOfPrevious);
-            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, lastStatement, vd,
-                    previouslyModified, r == null ? Map.of() : r.modified());
+            WriteLinksAndModification.WriteResult wr = writeLinksAndModification.go(statement, vd, previouslyModified,
+                    r == null ? Map.of() : r.modified());
             copyEvalIntoVariableData(wr.newLinks(), vd);
             modificationsOutsideVariableData.addAll(wr.modifiedOutsideVariableData());
 
@@ -678,7 +676,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         private void handleSubBlocks(Statement statement, VariableData vd) {
             List<VariableData> vds = statement.subBlockStream()
                     .filter(block -> !block.isEmpty())
-                    .map(block -> doBlock(false, block, vd))
+                    .map(block -> doBlock(block, vd))
                     .filter(Objects::nonNull)
                     .toList();
             handleSubBlocks(vds, vd);

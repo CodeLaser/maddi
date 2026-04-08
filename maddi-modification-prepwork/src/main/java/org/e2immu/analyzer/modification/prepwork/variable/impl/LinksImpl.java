@@ -208,19 +208,8 @@ public class LinksImpl implements Links {
         }
 
         @Override
-        public List<Link> replaceSubsetSuperset(Variable modified) {
-            if (links.isEmpty()) return List.of(); // shortcut
-            List<Link> reverseReplaced = new ArrayList<>();
-            final ListIterator<Link> li = links.listIterator();
-            while (li.hasNext()) {
-                Link link = li.next();
-                Link newLink = link.replaceSubsetSuperset(modified);
-                if (link != newLink) {
-                    li.set(newLink);
-                    reverseReplaced.add(new LinkImpl(link.to(), link.linkNature().reverse(), link.from()));
-                }
-            }
-            return reverseReplaced;
+        public Iterable<Link> linkSet() {
+            return links;
         }
 
         @Override
@@ -302,16 +291,6 @@ public class LinksImpl implements Links {
         public Link translateFrom(TranslationMap translationMap) {
             Variable tFrom = translationMap.translateVariableRecursively(from);
             return new LinkImpl(tFrom, linkNature, to);
-        }
-
-        @Override
-        public Link replaceSubsetSuperset(Variable modified) {
-            LinkNature ln2 = linkNature.replaceSubsetSuperset();
-            if (ln2 != linkNature && (Util.primary(from).equals(modified) || Util.primary(to).equals(modified))) {
-                LOGGER.debug("Change {} -> {} for {} because of modification on {}", linkNature, ln2, this, modified);
-                return new LinkImpl(from, ln2, to);
-            }
-            return this;
         }
 
         @Override

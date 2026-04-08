@@ -70,8 +70,7 @@ public interface Links extends Iterable<Link>, Value {
 
         void removeIfFromTo(Predicate<Variable> predicate);
 
-        // return the reverse links of those replaced
-        List<Link> replaceSubsetSuperset(Variable modified);
+        Iterable<Link> linkSet();
 
         int size();
     }

@@ -63,6 +63,16 @@ public final class LabeledGraph<V, L> {
         out.values().forEach(map -> map.keySet().removeAll(vertices));
     }
 
+    public boolean replace(V from, V to, L label) {
+        Map<V, L> outMap = out.get(from);
+        if (outMap == null || !outMap.containsKey(to)) return false;
+        L prev = outMap.put(to, label);
+        Map<V, L> inMap = in.get(to);
+        assert inMap != null && inMap.containsKey(from);
+        inMap.put(from, label);
+        return !label.equals(prev);
+    }
+
     public Map<V, L> successors(V v) {
         return out.getOrDefault(v, Map.of());
     }

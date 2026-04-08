@@ -4,6 +4,8 @@ import java.util.*;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class IncrementalFixpointEngine<V, L> {
 
@@ -173,12 +175,51 @@ public final class IncrementalFixpointEngine<V, L> {
         return removed;
     }*/
 
-    public L query(V from, V to) {
-        return closureIndex.label(from, to);
+    public Set<V> replaceReturnAffected(V from, V to, L currentLabel, L newLabel) {
+        return replaceReturnAffected(new Fact<>(from, to, currentLabel), newLabel);
     }
 
-    public LabeledGraph<V, L> reducedGraph() {
-        return graph;
+    private Set<V> replaceReturnAffected(Fact<V, L> fact, L newLabel) {
+        Witness<V, L> witness = witnessIndex.get(fact);
+        if (witness instanceof Witness.DirectWitness<V, L>) {
+            return graph.replace(fact.source(), fact.target(), newLabel)
+                    ? Set.of(fact.source(), fact.target()) : Set.of();
+        }
+        if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right)) {
+            Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel) : Set.of();
+            Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel) : Set.of();
+            return Stream.concat(Stream.concat(Stream.of(fact.source(), fact.target()), set1.stream()), set2.stream())
+                    .collect(Collectors.toUnmodifiableSet());
+        }
+        return Set.of();
+    }
+
+    public void recompute(Set<V> affected, String statementIndex) {
+        closureIndex.removeVertices(affected);
+        // TODO for now ignoring witnesses
+        rebuildAffectedRegion(affected, statementIndex);
+    }
+
+    // TODO the core 'while' loop is identical to that in 'incrementalUpdate'
+    private void rebuildAffectedRegion(Set<V> affected, String statementIndex) {
+        Deque<Fact<V, L>> queue = new ArrayDeque<>();
+
+        for (V u : affected) {
+            for (var edge : graph.successors(u).entrySet()) {
+                queue.add(new Fact<>(u, edge.getKey(), edge.getValue()));
+            }
+        }
+
+        while (!queue.isEmpty()) {
+            Fact<V, L> fact = queue.removeFirst();
+
+            if (closureIndex.add(fact.source(), fact.target(), fact.label())) {
+                witnessIndex.put(fact,
+                        new Witness.DirectWitness<>(fact.source(), fact.target(), fact.label(), statementIndex));
+                propagateForward(fact, queue);
+                propagateBackward(fact, queue);
+            }
+        }
     }
 
     public Set<V> vertices() {
