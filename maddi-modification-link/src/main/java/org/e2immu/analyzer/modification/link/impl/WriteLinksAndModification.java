@@ -77,7 +77,7 @@ class WriteLinksAndModification {
                 // but also the reverse link ⊇ to ~
                 Set<Variable> set2 = followGraph.graph()
                         .replaceReturnAffected(link.to(), link.from(), link.linkNature().reverse(), SHARES_ELEMENTS);
-                assert set.equals(set2);
+                affected.addAll(set2);
             }
             assert !affected.isEmpty();
             followGraph.graph().recompute(affected, statement.source().index());

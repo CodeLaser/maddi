@@ -576,9 +576,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 testVisitor.visit(statementIndex, linkGraph.graph());
             }
 
-            int numberOfLinks = wr.newLinksSize();
-            LOGGER.info("End of statement {} of {} graph size {}, sum of links {}",
-                    statementIndex, methodInfo.fullyQualifiedName(), linkGraph.graph().size(), numberOfLinks);
+            TIMED.info("Done {} methods. End of statement {} of {} graph size {}, facts in closure {}",
+                    countSourceMethods,
+                    statementIndex, methodInfo.fullyQualifiedName(), linkGraph.graph().size(),
+                    linkGraph.graph().sizeOfClosure());
             return vd;
         }
 
@@ -676,6 +677,9 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
         }
 
         private static boolean acceptForVL2O(Variable v) {
+            if (Util.virtual(v) || v instanceof MarkerVariable || v instanceof IntermediateVariable) {
+                return false;
+            }
             if (v instanceof FieldReference fr) {
                 return fr.scopeVariable() == null || acceptForVL2O(fr.scopeVariable());
             }
@@ -683,7 +687,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 return acceptForVL2O(dv.arrayVariable())
                        && (dv.indexVariable() == null || acceptForVL2O(dv.indexVariable()));
             }
-            return !Util.virtual(v) && !(v instanceof MarkerVariable) && !(v instanceof IntermediateVariable);
+            return true;
         }
 
         private void handleSubBlocks(Statement statement, VariableData vd) {
@@ -692,56 +696,68 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                     .map(block -> doBlock(block, vd))
                     .filter(Objects::nonNull)
                     .toList();
-            handleSubBlocks(vds, vd);
+            Set<Variable> toRemove = new HashSet<>();
+            for (VariableData subVd : vds) {
+                subVd.variableInfoContainerStream()
+                        .map(VariableInfoContainer::variable)
+                        .filter(variable ->
+                                vd.variableInfoContainerOrNull(variable.fullyQualifiedName()) == null)
+                        .forEach(toRemove::add);
+            }
+            handleSubBlocks(vds, vd, toRemove);
+            LOGGER.debug("Removing {}", toRemove);
+            linkGraph.graph().remove(toRemove);
         }
 
         // also called from ExpressionVisitor.switchExpression
-        void handleSubBlocks(List<VariableData> vds, VariableData vd) {
-            vd.variableInfoContainerStream()
-                    .filter(VariableInfoContainer::hasMerge)
-                    .forEach(vic -> {
-                        VariableInfo viEval = vic.best(Stage.EVALUATION);
-                        Variable variable = viEval.variable();
-                        Links eval = viEval.linkedVariables();
-                        String fqn = variable.fullyQualifiedName();
-                        Links.Builder collect = eval == null || eval.primary() == null
-                                ? new LinksImpl.Builder(variable)
-                                : new LinksImpl.Builder(eval);
-                        AtomicBoolean unmodified = new AtomicBoolean(viEval.isUnmodified());
-                        Set<TypeInfo> downcasts = new HashSet<>(viEval.analysis().getOrDefault(DOWNCAST_VARIABLE,
-                                ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet());
-                        vds.forEach(subVd -> {
-                            VariableInfoContainer subVic = subVd.variableInfoContainerOrNull(fqn);
-                            if (subVic != null) {
-                                VariableInfo subVi = subVic.best();
-                                Links subTlv = subVi.linkedVariables();
-                                if (subTlv != null && subTlv.primary() != null) {
-                                    collect.addAllDistinct(subTlv);
-                                }
-                                if (subVi.isModified()) unmodified.set(false);
+        void handleSubBlocks(List<VariableData> vds, VariableData vd, Set<Variable> toRemove) {
+            vd.variableInfoContainerStream().forEach(vic -> {
+                if (vic.hasMerge()) {
+                    VariableInfo viEval = vic.best(Stage.EVALUATION);
+                    Variable variable = viEval.variable();
+                    Links eval = viEval.linkedVariables();
+                    String fqn = variable.fullyQualifiedName();
+                    Links.Builder collect = eval == null || eval.primary() == null
+                            ? new LinksImpl.Builder(variable)
+                            : new LinksImpl.Builder(eval);
+                    AtomicBoolean unmodified = new AtomicBoolean(viEval.isUnmodified());
+                    Set<TypeInfo> downcasts = new HashSet<>(viEval.analysis().getOrDefault(DOWNCAST_VARIABLE,
+                            ValueImpl.SetOfTypeInfoImpl.EMPTY).typeInfoSet());
+                    vds.forEach(subVd -> {
+                        VariableInfoContainer subVic = subVd.variableInfoContainerOrNull(fqn);
+                        if (subVic != null) {
+                            VariableInfo subVi = subVic.best();
+                            Links subTlv = subVi.linkedVariables();
+                            if (subTlv != null && subTlv.primary() != null) {
+                                collect.addAllDistinct(subTlv);
+                            }
+                            if (subVi.isModified()) unmodified.set(false);
 
-                                Value.SetOfTypeInfo subDowncasts = subVi.analysis().getOrDefault(DOWNCAST_VARIABLE,
-                                        ValueImpl.SetOfTypeInfoImpl.EMPTY);
-                                downcasts.addAll(subDowncasts.typeInfoSet());
-                            }
-                        });
-                        assert vic.hasMerge();
-                        VariableInfoImpl merge = (VariableInfoImpl) vic.best();
-                        Links collected = collect.build();
-                        if (!collected.isEmpty()) {
-                            merge.setLinkedVariables(collected);
-                        }
-                        if (merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
-                                ValueImpl.BoolImpl.from(unmodified.get()))) {
-                            propertiesChanged.incrementAndGet();
-                        }
-                        if (!downcasts.isEmpty()) {
-                            if (merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
-                                    new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)))) {
-                                propertiesChanged.incrementAndGet();
-                            }
+                            Value.SetOfTypeInfo subDowncasts = subVi.analysis().getOrDefault(DOWNCAST_VARIABLE,
+                                    ValueImpl.SetOfTypeInfoImpl.EMPTY);
+                            downcasts.addAll(subDowncasts.typeInfoSet());
                         }
                     });
+                    assert vic.hasMerge();
+                    VariableInfoImpl merge = (VariableInfoImpl) vic.best();
+                    Links collected = collect.build();
+                    if (!collected.isEmpty()) {
+                        merge.setLinkedVariables(collected);
+                    }
+                    if (merge.analysis().setAllowControlledOverwrite(UNMODIFIED_VARIABLE,
+                            ValueImpl.BoolImpl.from(unmodified.get()))) {
+                        propertiesChanged.incrementAndGet();
+                    }
+                    if (!downcasts.isEmpty()) {
+                        if (merge.analysis().setAllowControlledOverwrite(DOWNCAST_VARIABLE,
+                                new ValueImpl.SetOfTypeInfoImpl(Set.copyOf(downcasts)))) {
+                            propertiesChanged.incrementAndGet();
+                        }
+                    }
+                } else if (vic.hasEvaluation()) {
+                    toRemove.add(vic.variable());
+                }
+            });
         }
 
         private void copyEvalIntoVariableData(Map<Variable, Links> expanded, VariableData vd) {

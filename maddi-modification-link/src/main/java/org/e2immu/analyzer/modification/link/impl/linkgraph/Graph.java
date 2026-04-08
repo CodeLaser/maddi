@@ -120,6 +120,10 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return variables().size();
     }
 
+    public int sizeOfClosure() {
+        return engine.sizeOfClosure();
+    }
+
     Set<Variable> variables() {
         return engine.vertices();
     }
