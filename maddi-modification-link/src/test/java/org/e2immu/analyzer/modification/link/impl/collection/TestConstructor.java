@@ -63,6 +63,14 @@ public class TestConstructor extends CommonTest {
             LinkComputer tlc = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
                 if ("0".equals(statementIndex)) {
                     assertEquals("""
+                            $__c0 → iis / $__c0 ≻ $__c0.§$s
+                            0:input ≻ 0:input.§$s
+                            iis ← $__c0
+                            $__c0.§$s ≺ $__c0 / $__c0.§$s ⊆ 0:input.§$s / $__c0.§$s → iis.§$s
+                            0:input.§$s ≺ 0:input / 0:input.§$s ⊇ $__c0.§$s
+                            iis.§$s ← $__c0.§$s\
+                            """, graph.print());
+                    assertEquals("""
                             $__c0 ∩ 0:input   [$__c0 ∩ $__c0.§$s, $__c0.§$s ≤ 0:input]
                             $__c0 → iis   0($__c0 → iis)
                             $__c0 ∩ $__c0.§$s   [$__c0 ∩ 0:input.§$s, 0:input.§$s ⊇ $__c0.§$s]
@@ -74,13 +82,13 @@ public class TestConstructor extends CommonTest {
                             0:input ∩ 0:input.§$s   [0:input ≥ $__c0.§$s, $__c0.§$s ⊆ 0:input.§$s]
                             0:input ≥ iis.§$s   [0:input ≥ $__c0.§$s, $__c0.§$s → iis.§$s]
                             iis ← $__c0   0(iis ← $__c0)
-                            iis ∩ 0:input   [iis ∩ $__c0.§$s, $__c0.§$s ≤ 0:input]
+                            iis ∩ 0:input   [iis ∩ iis.§$s, iis.§$s ≤ 0:input]
                             iis ∩ $__c0.§$s   [iis ∩ 0:input.§$s, 0:input.§$s ⊇ $__c0.§$s]
-                            iis ∩ 0:input.§$s   [iis ← $__c0, $__c0 ∩ 0:input.§$s]
+                            iis ∩ 0:input.§$s   [iis ≻ $__c0.§$s, $__c0.§$s ⊆ 0:input.§$s]
                             iis ∩ iis.§$s   [iis ∩ $__c0.§$s, $__c0.§$s → iis.§$s]
                             $__c0.§$s ∩ $__c0   [$__c0.§$s ⊆ 0:input.§$s, 0:input.§$s ∩ $__c0]
                             $__c0.§$s ≤ 0:input   [$__c0.§$s ⊆ 0:input.§$s, 0:input.§$s ≺ 0:input]
-                            $__c0.§$s ∩ iis   [$__c0.§$s ⊆ 0:input.§$s, 0:input.§$s ∩ iis]
+                            $__c0.§$s ∩ iis   [$__c0.§$s ∩ $__c0, $__c0 → iis]
                             $__c0.§$s ⊆ 0:input.§$s   0($__c0.§$s ⊆ 0:input.§$s)
                             $__c0.§$s → iis.§$s   0($__c0.§$s → iis.§$s)
                             0:input.§$s ∩ $__c0   [0:input.§$s ⊇ $__c0.§$s, $__c0.§$s ≺ $__c0]

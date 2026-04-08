@@ -36,6 +36,10 @@ public final class IncrementalFixpointEngine<V, L> {
         return graph.print(comparator);
     }
 
+    public String print(Function<V, String> vertexPrinter,Comparator<V> comparator) {
+        return graph.print(vertexPrinter, comparator);
+    }
+
     public String printEdges(Comparator<V> comparator) {
         return graph.printEdges(comparator);
     }
@@ -196,7 +200,7 @@ public final class IncrementalFixpointEngine<V, L> {
 
     public void recompute(Set<V> affected, String statementIndex) {
         closureIndex.removeVertices(affected);
-        // TODO for now ignoring witnesses
+        witnessIndex.removeVertices(affected);
         rebuildAffectedRegion(affected, statementIndex);
     }
 

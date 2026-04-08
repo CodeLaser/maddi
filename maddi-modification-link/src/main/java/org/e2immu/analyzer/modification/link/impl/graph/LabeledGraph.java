@@ -1,11 +1,12 @@
 package org.e2immu.analyzer.modification.link.impl.graph;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public final class LabeledGraph<V, L> {
-    private final Map<V, Map<V, L>> out = new HashMap<>();
-    private final Map<V, Map<V, L>> in = new HashMap<>();
+    private final Map<V, Map<V, L>> out = new LinkedHashMap<>();
+    private final Map<V, Map<V, L>> in = new LinkedHashMap<>();
 
     public Iterable<Map.Entry<V, Map<V, L>>> edges() {
         return out.entrySet();
@@ -21,23 +22,27 @@ public final class LabeledGraph<V, L> {
     }
 
     public String print(Comparator<V> comparator) {
+        return print(Object::toString, comparator);
+    }
+
+    public String print(Function<V, String> vertexPrinter, Comparator<V> comparator) {
         return out.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
-                .map(e -> e.getKey() + ":" + (e.getValue().isEmpty() ? "" : " ")
-                          + e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
-                                  .map(e2 -> " " + e2.getValue() + " " + e2.getKey())
-                                  .collect(Collectors.joining(", ")))
+                .map(e ->
+                        e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
+                                .map(e2 -> vertexPrinter.apply(e.getKey()) + " " + e2.getValue() + " " + vertexPrinter.apply(e2.getKey()))
+                                .collect(Collectors.joining(" / ")))
                 .collect(Collectors.joining("\n"));
     }
 
     public void addEdge(V from, V to, L label) {
-        out.computeIfAbsent(from, k -> new HashMap<>()).put(to, label);
-        in.computeIfAbsent(to, k -> new HashMap<>()).put(from, label);
+        out.computeIfAbsent(from, k -> new LinkedHashMap<>()).put(to, label);
+        in.computeIfAbsent(to, k -> new LinkedHashMap<>()).put(from, label);
     }
 
     public boolean addVertex(V v) {
         if (in.containsKey(v)) return false;
-        in.put(v, new HashMap<>());
-        out.put(v, new HashMap<>());
+        in.put(v, new LinkedHashMap<>());
+        out.put(v, new LinkedHashMap<>());
         return true;
     }
 

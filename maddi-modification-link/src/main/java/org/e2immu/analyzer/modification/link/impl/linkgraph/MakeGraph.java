@@ -39,18 +39,18 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
     }
 
     private @NotNull Map<Variable, Set<Variable>> computeSubs(Set<Variable> modifiedInThisEvaluation) {
-        Map<Variable, Set<Variable>> subs = new HashMap<>();
+        Map<Variable, Set<Variable>> subs = new LinkedHashMap<>();
         for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
             Variable from = entry.getKey();
             Set<Variable> scopeVariablesFrom = Util.scopeVariables(from);
             for (Variable scopeVariableFrom : scopeVariablesFrom) {
-                subs.computeIfAbsent(scopeVariableFrom, _ -> new HashSet<>()).add(from);
+                subs.computeIfAbsent(scopeVariableFrom, _ -> new LinkedHashSet<>()).add(from);
             }
             for (Map.Entry<Variable, LinkNature> entry2 : entry.getValue().entrySet()) {
                 Variable vTo = entry2.getKey();
                 Set<Variable> scopeVariablesTo = Util.scopeVariables(vTo);
                 for (Variable scopeVariableTo : scopeVariablesTo) {
-                    subs.computeIfAbsent(scopeVariableTo, _ -> new HashSet<>()).add(vTo);
+                    subs.computeIfAbsent(scopeVariableTo, _ -> new LinkedHashSet<>()).add(vTo);
                 }
             }
             if (modifiedInThisEvaluation.contains(from)
@@ -64,7 +64,7 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
                             .newMField(VariableTranslationMap.owner(runtime, from.parameterizedType()));
                     FieldReference mutationFr = runtime().newFieldReference(vf, runtime.newVariableExpression(from),
                             vf.type());
-                    subs.computeIfAbsent(from, _ -> new HashSet<>()).add(mutationFr);
+                    subs.computeIfAbsent(from, _ -> new LinkedHashSet<>()).add(mutationFr);
                 }
             }
         }

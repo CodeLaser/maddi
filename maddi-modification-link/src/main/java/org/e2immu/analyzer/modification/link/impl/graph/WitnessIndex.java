@@ -1,7 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl.graph;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -29,8 +28,10 @@ public final class WitnessIndex<V, L> {
         return witnesses.get(fact);
     }
 
-    // returns a list of facts that rely on these vertices; these facts must be removed as well
-    public List<Fact<V, L>> removeVertices(Set<V> vertices) {
-        return List.of(); // FIXME
+    //NOTE: we leave intermediates (CompositeWitness) in place
+    public void removeVertices(Set<V> vertices) {
+        witnesses.entrySet()
+                .removeIf(e -> vertices.contains(e.getKey().source())
+                               || vertices.contains(e.getKey().target()));
     }
 }
