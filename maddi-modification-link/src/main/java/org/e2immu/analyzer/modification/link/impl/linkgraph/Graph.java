@@ -13,8 +13,8 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -36,8 +36,21 @@ public class Graph {
         return engine.vertices().contains(primary);
     }
 
-    public Iterable<Map.Entry<Variable, Map<Variable, LinkNature>>> edges() {
-        return engine.edges();
+    // FIXME this does not seem to be the solution
+    public Iterable<Map.Entry<Variable, Map<Variable, LinkNature>>> edgesWithEquivalence() {
+        List<Map.Entry<Variable, Map<Variable, LinkNature>>> res = new LinkedList<>();
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : engine.edges()) {
+            EquivalenceGroup.Group group = equivalenceGroup.members(entry.getKey());
+            if (group.members().isEmpty()) {
+                res.add(entry);
+            } else {
+                // augment!
+                Map<Variable, LinkNature> map = new HashMap<>(entry.getValue());
+                group.members().forEach(v -> map.merge(v, group.linkNature(), LinkNature::best));
+                res.add(new AbstractMap.SimpleEntry<>(entry.getKey(), map));
+            }
+        }
+        return res;
     }
 
     private boolean invalidEdge(Variable from, LinkNature label, Variable to) {
@@ -49,20 +62,19 @@ public class Graph {
 
     public Stream<Link> equivalentEdgesStream(Variable primary) {
         Set<Variable> variables = equivalenceGroup.variablesPartOf(primary);
-        Map<Variable, Set<Variable>> groups = variables.stream()
+        Map<Variable, EquivalenceGroup.Group> groups = variables.stream()
                 .collect(Collectors.toUnmodifiableMap(v -> v, equivalenceGroup::members));
         return groups.entrySet().stream()
                 .flatMap(e -> expand(Set.of(e.getKey()), e.getValue()));
     }
 
 
-    private static Stream<Link> expand(Set<Variable> set1, Set<Variable> set2) {
+    private static Stream<Link> expand(Set<Variable> set1, EquivalenceGroup.Group group) {
         Stream.Builder<Link> links = Stream.builder();
-        LinkNature identicalTo = LinkNatureImpl.makeIdenticalTo(Set.of());
         for (Variable v1 : set1) {
-            for (Variable v2 : set2) {
+            for (Variable v2 : group.members()) {
                 if (v1 != v2) {
-                    links.accept(new LinksImpl.LinkImpl(v1, identicalTo, v2));
+                    links.accept(new LinksImpl.LinkImpl(v1, group.linkNature(), v2));
                 }
             }
         }
@@ -75,7 +87,7 @@ public class Graph {
         }
         if (invalidEdge(from, linkNature, to)) return false;
         if (linkNature.isIdenticalTo()) {
-            EquivalenceGroup.AddResult result = equivalenceGroup.add(from, to);
+            EquivalenceGroup.AddResult result = equivalenceGroup.add(from, linkNature, to);
             if (result.isMerge()) {
                 throw new UnsupportedOperationException("NYI");
             }
@@ -88,6 +100,10 @@ public class Graph {
         int newFacts1 = engine.addEdge(eqFrom, eqTo, linkNature, statementIndex);
         int newFacts2 = engine.addEdge(eqTo, eqFrom, rev, statementIndex);
         return newFacts1 + newFacts2 > 0;
+    }
+
+    public String printEquivalence(Function<Variable, String> variablePrinter) {
+        return equivalenceGroup.print(variablePrinter);
     }
 
     boolean simpleAddToGraph(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
