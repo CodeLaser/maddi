@@ -95,6 +95,8 @@ class WriteLinksAndModification {
         unmarkedModifications.remove(variable);
 
         Links.Builder builder = followGraph.followGraph(virtualFieldComputer, variable);
+        followGraph.graph().equivalentEdgesStream(variable).forEach(link ->
+                builder.add(link.from(), link.linkNature(), link.to()));
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
             // return variables will always be complete
