@@ -40,7 +40,7 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
 
     private @NotNull Map<Variable, Set<Variable>> computeSubs(Set<Variable> modifiedInThisEvaluation) {
         Map<Variable, Set<Variable>> subs = new LinkedHashMap<>();
-        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edgesWithEquivalence()) {
             Variable from = entry.getKey();
             Set<Variable> scopeVariablesFrom = Util.scopeVariables(from);
             for (Variable scopeVariableFrom : scopeVariablesFrom) {
@@ -95,7 +95,7 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
     boolean doOneMakeGraphCycle(String statementIndex, Set<Variable> modifiedInThisEvaluation) {
         Map<Variable, Set<Variable>> subs = computeSubs(modifiedInThisEvaluation);
         List<Edge> newLinks = new ArrayList<>();
-        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edgesWithEquivalence()) {
             Variable vFrom = entry.getKey();
             for (Map.Entry<Variable, LinkNature> entry2 : entry.getValue().entrySet()) {
                 Variable vTo = entry2.getKey();

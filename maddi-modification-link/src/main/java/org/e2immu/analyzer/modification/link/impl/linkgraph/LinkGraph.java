@@ -105,8 +105,9 @@ public class LinkGraph {
             change = makeGraph.doOneMakeGraphCycle(statementIndex, modifiedInThisEvaluation.keySet());
         }
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Bi-directional graph for local:\n{}", graph.engine()
-                    .printClosure(LinkGraph::vertexPrinter, Variable::compareTo));
+            LOGGER.debug("Bi-directional graph for local:\n{}\n{}", graph.engine()
+                            .printClosure(LinkGraph::vertexPrinter, Variable::compareTo),
+                    graph.printEquivalence(LinkGraph::vertexPrinter));
         }
         assert !checkDuplicateNames ||
                graph.size() == graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count();
