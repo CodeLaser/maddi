@@ -576,10 +576,15 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 testVisitor.visit(statementIndex, linkGraph.graph());
             }
 
-            TIMED.info("Done {} methods. End of statement {} of {} graph size {}, facts in closure {}",
+            TIMED.info("Done {} methods. End of statement {} of {} graph size {}, facts in closure {}, witnesses {}",
                     countSourceMethods,
                     statementIndex, methodInfo.fullyQualifiedName(), linkGraph.graph().size(),
-                    linkGraph.graph().sizeOfClosure());
+                    linkGraph.graph().sizeOfClosure(), linkGraph.graph().sizeOfWitnesses());
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("End of statement {} of {} graph size {}, facts in closure {}, witnesses {}",
+                        statementIndex, methodInfo.fullyQualifiedName(), linkGraph.graph().size(),
+                        linkGraph.graph().sizeOfClosure(), linkGraph.graph().sizeOfWitnesses());
+            }
             return vd;
         }
 

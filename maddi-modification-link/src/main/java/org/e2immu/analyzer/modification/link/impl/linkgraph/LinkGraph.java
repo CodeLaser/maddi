@@ -1,5 +1,8 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.Links;
@@ -17,16 +20,36 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public record LinkGraph(JavaInspector javaInspector,
-                        Runtime runtime,
-                        boolean checkDuplicateNames,
-                        Graph graph,
-                        MakeGraph makeGraph,
-                        FollowGraph followGraph) {
+public class LinkGraph {
+    //JavaInspector javaInspector;
+    Runtime runtime;
+    boolean checkDuplicateNames;
+    Graph graph;
+    MakeGraph makeGraph;
+    //FollowGraph followGraph;
+
+    public LinkGraph(JavaInspector javaInspector,
+                     Runtime runtime,
+                     boolean checkDuplicateNames,
+                     Graph graph,
+                     MakeGraph makeGraph,
+                     FollowGraph followGraph) {
+        this.checkDuplicateNames = checkDuplicateNames;
+        this.graph = graph;
+        this.makeGraph = makeGraph;
+        this.runtime = runtime;
+    }
+
+    public Graph graph() {
+        return graph;
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(LinkGraph.class);
 
     // see TestModificationParameter, a return variable with the same name as a local variable
@@ -59,7 +82,10 @@ public record LinkGraph(JavaInspector javaInspector,
                 .filter(v -> toRemove.contains(Util.firstRealVariable(v)))
                 .collect(Collectors.toUnmodifiableSet());
         graph.remove(allToRemove);
-        newLinks.entrySet()
+
+        Map<Variable, Links> newLinks2 = reduceLinks(newLinks);
+
+        newLinks2.entrySet()
                 .stream()
                 .filter(e -> !(e.getKey() instanceof This))
                 .filter(e -> e.getValue().primary() != null)
@@ -84,6 +110,40 @@ public record LinkGraph(JavaInspector javaInspector,
         }
         assert !checkDuplicateNames ||
                graph.size() == graph.variables().stream().map(LinkGraph::stringForDuplicate).distinct().count();
+    }
+
+    private final Set<IntermediateVariable> intermediateVariablesRemoved = new HashSet<>();
+
+    private Map<Variable, Links> reduceLinks(Map<Variable, Links> newLinks) {
+        Variable source = null; // iis ← $__c0  == target ← source
+        Variable target = null;
+        Links skip = null;
+        VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+        for (Map.Entry<Variable, Links> entry : newLinks.entrySet()) {
+            Links links = entry.getValue();
+            if (links.size() == 1) {
+                Link link = links.link(0);
+                if (link.linkNature() == LinkNatureImpl.IS_ASSIGNED_FROM
+                    && link.to() instanceof IntermediateVariable iv
+                    && intermediateVariablesRemoved.add(iv)) {
+                    source = iv;
+                    target = link.from();
+                    skip = links;
+                    vtm.put(source, target);
+                    break;
+                }
+            }
+        }
+        if (source == null) return newLinks;
+        Map<Variable, Links> res = new HashMap<>();
+        for (Map.Entry<Variable, Links> entry : newLinks.entrySet()) {
+            if (skip != entry.getValue()) {
+                Variable v = entry.getKey() == source ? target : entry.getKey();
+                Links links = entry.getValue().translate(vtm);
+                res.put(v, links);
+            }
+        }
+        return res;
     }
 
     private static String vertexPrinter(Variable variable) {

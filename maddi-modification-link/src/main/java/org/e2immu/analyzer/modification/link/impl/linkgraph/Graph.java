@@ -1,5 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
+import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
@@ -25,14 +26,18 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return engine.edges();
     }
 
-    public LinkNature label(Variable from, Variable to) {
-        return engine.label(from, to);
+    private boolean invalidEdge(Variable from, LinkNature label, Variable to) {
+        if (Util.isVirtualModification(from) != Util.isVirtualModification(to)) return true;
+        return Util.virtual(from) != Util.virtual(to)
+               && label != LinkNatureImpl.CONTAINS_AS_MEMBER
+               && label != LinkNatureImpl.IS_ELEMENT_OF;
     }
 
     private boolean mergeEdgeSingle(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
         if (from.equals(to)) {
             return engine.addVertex(from); // safety measure, is technically possible
         }
+        if (invalidEdge(from, linkNature, to)) return false;
         return engine.addEdge(from, to, linkNature, statementIndex) > 0;
     }
 
@@ -43,6 +48,7 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
             return engine.addVertex(from); // safety measure, is technically possible
         }
         LinkNature ln = edge.linkNature();
+        if (invalidEdge(from, ln, to)) return false;
         LinkNature rev = edge.linkNature().reverse();
         int newFacts1 = engine.addEdge(from, to, ln, statementIndex);
         int newFacts2 = engine.addEdge(to, from, rev, statementIndex);
@@ -123,6 +129,9 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
     public int sizeOfClosure() {
         return engine.sizeOfClosure();
     }
+    public int sizeOfWitnesses() {
+        return engine.sizeOfWitnesses();
+    }
 
     Set<Variable> variables() {
         return engine.vertices();
@@ -135,6 +144,7 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
     public Iterable<Map.Entry<Variable, LinkNature>> closure(Variable variable) {
         return engine.successors(variable);
     }
+
     public Iterable<Map.Entry<Variable, LinkNature>> successorsInGraph(Variable variable) {
         return engine.successorsInGraph(variable);
     }
