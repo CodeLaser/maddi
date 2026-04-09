@@ -29,8 +29,8 @@ public final class WitnessIndex<V, L> {
         return witnesses.get(fact);
     }
 
-    public void removeFact(Fact<V, L> fact) {
-        witnesses.remove(fact);
+    public int size() {
+        return witnesses.size();
     }
 
     //NOTE: we leave intermediates (CompositeWitness) in place
