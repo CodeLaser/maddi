@@ -1,9 +1,12 @@
 package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
+import org.e2immu.analyzer.modification.link.impl.graph.EquivalenceGroup;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -12,12 +15,23 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_FIELD;
-import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.IS_FIELD_OF;
 
-public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
+public class Graph {
+    private final IncrementalFixpointEngine<Variable, LinkNature> engine;
+    private final EquivalenceGroup equivalenceGroup = new EquivalenceGroup();
+
+    public Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
+        this.engine = engine;
+    }
+
+    public IncrementalFixpointEngine<Variable, LinkNature> engine() {
+        return engine;
+    }
+
     public boolean containsVariable(Variable primary) {
         return engine.vertices().contains(primary);
     }
@@ -33,26 +47,54 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
                && label != LinkNatureImpl.IS_ELEMENT_OF;
     }
 
-    private boolean mergeEdgeSingle(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
+    public Stream<Link> equivalentEdgesStream(Variable primary) {
+        Set<Variable> variables = equivalenceGroup.variablesPartOf(primary);
+        Map<Variable, Set<Variable>> groups = variables.stream()
+                .collect(Collectors.toUnmodifiableMap(v -> v, equivalenceGroup::members));
+        return groups.entrySet().stream()
+                .flatMap(e -> expand(Set.of(e.getKey()), e.getValue()));
+    }
+
+
+    private static Stream<Link> expand(Set<Variable> set1, Set<Variable> set2) {
+        Stream.Builder<Link> links = Stream.builder();
+        LinkNature identicalTo = LinkNatureImpl.makeIdenticalTo(Set.of());
+        for (Variable v1 : set1) {
+            for (Variable v2 : set2) {
+                if (v1 != v2) {
+                    links.accept(new LinksImpl.LinkImpl(v1, identicalTo, v2));
+                }
+            }
+        }
+        return links.build();
+    }
+
+    boolean mergeEdgeBi(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
         if (from.equals(to)) {
             return engine.addVertex(from); // safety measure, is technically possible
         }
         if (invalidEdge(from, linkNature, to)) return false;
-        return engine.addEdge(from, to, linkNature, statementIndex) > 0;
+        if (linkNature.isIdenticalTo()) {
+            EquivalenceGroup.AddResult result = equivalenceGroup.add(from, to);
+            if (result.isMerge()) {
+                throw new UnsupportedOperationException("NYI");
+            }
+            return result.isAddOrNew();
+        }
+        Variable eqFrom = equivalenceGroup.representative(from);
+        Variable eqTo = equivalenceGroup.representative(to);
+
+        LinkNature rev = linkNature.reverse();
+        int newFacts1 = engine.addEdge(eqFrom, eqTo, linkNature, statementIndex);
+        int newFacts2 = engine.addEdge(eqTo, eqFrom, rev, statementIndex);
+        return newFacts1 + newFacts2 > 0;
     }
 
-    boolean mergeEdgeBi(Edge edge, String statementIndex) {
-        Variable from = edge.from();
-        Variable to = edge.to();
-        if (from.equals(to)) {
-            return engine.addVertex(from); // safety measure, is technically possible
-        }
-        LinkNature ln = edge.linkNature();
-        if (invalidEdge(from, ln, to)) return false;
-        LinkNature rev = edge.linkNature().reverse();
-        int newFacts1 = engine.addEdge(from, to, ln, statementIndex);
-        int newFacts2 = engine.addEdge(to, from, rev, statementIndex);
-        return newFacts1 + newFacts2 > 0;
+    boolean simpleAddToGraph(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
+        boolean change = mergeEdgeBi(from, linkNature, to, statementIndex);
+        change |= addField(from, Util.primary(from), statementIndex);
+        change |= addField(to, Util.primary(to), statementIndex);
+        return change;
     }
 
     static Variable fieldScopeRoot(Variable v) {
@@ -66,9 +108,7 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
     boolean addField(Variable from, Variable primary, String statementIndex) {
         if (!from.equals(primary) && !(primary instanceof This)
             && from instanceof FieldReference && primary.equals(fieldScopeRoot(from))) {
-            boolean change = mergeEdgeSingle(primary, CONTAINS_AS_FIELD, from, statementIndex);
-            change |= mergeEdgeSingle(from, IS_FIELD_OF, primary, statementIndex);
-            return change;
+            return mergeEdgeBi(primary, CONTAINS_AS_FIELD, from, statementIndex);
         }
         return false;
     }
@@ -106,22 +146,6 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
         return engine.replaceReturnAffected(from, to, currentLinkNature, newLinkNature);
     }
 
-    boolean simpleAddToGraph(Edge edge, String statementIndex) {
-        return simpleAddToGraph(edge.from(), edge.linkNature(), edge.to(), statementIndex);
-    }
-
-    boolean simpleAddToGraph(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
-        boolean change = mergeEdgeSingle(from, linkNature, to, statementIndex);
-        Variable primary = Util.primary(from);
-        change |= addField(from, primary, statementIndex);
-
-        // other direction
-        change |= mergeEdgeSingle(to, linkNature.reverse(), from, statementIndex);
-        Variable toPrimary = Util.primary(to);
-        change |= addField(to, toPrimary, statementIndex);
-        return change;
-    }
-
     public int size() {
         return variables().size();
     }
@@ -129,6 +153,7 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
     public int sizeOfClosure() {
         return engine.sizeOfClosure();
     }
+
     public int sizeOfWitnesses() {
         return engine.sizeOfWitnesses();
     }
@@ -143,9 +168,5 @@ public record Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
 
     public Iterable<Map.Entry<Variable, LinkNature>> closure(Variable variable) {
         return engine.successors(variable);
-    }
-
-    public Iterable<Map.Entry<Variable, LinkNature>> successorsInGraph(Variable variable) {
-        return engine.successorsInGraph(variable);
     }
 }

@@ -147,11 +147,11 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
         }
         boolean change = false;
         for (Edge edge : newLinks) {
-            change |= graph.mergeEdgeBi(edge, statementIndex);
+            change |= graph.mergeEdgeBi(edge.from(), edge.linkNature(), edge.to(), statementIndex);
         }
         List<Edge> extra = new ExpandSlice(graph).completeSliceInformation();
         for (Edge edge : extra) {
-            change |= graph.simpleAddToGraph(edge, statementIndex);
+            change |= graph.simpleAddToGraph(edge.from(), edge.linkNature(), edge.to(), statementIndex);
         }
         return change;
     }
