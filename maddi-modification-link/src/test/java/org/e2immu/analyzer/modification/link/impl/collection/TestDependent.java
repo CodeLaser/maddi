@@ -15,7 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestDependent extends CommonTest {
 
@@ -118,10 +118,17 @@ public class TestDependent extends CommonTest {
         VariableData add0 = VariableDataImpl.of(add.methodBody().statements().getFirst());
         VariableInfo viIterator0 = add0.variableInfo("iterator");
         assertEquals("iterator.§m☷0:list.§m,iterator.§ts⊆0:list.§ts", viIterator0.linkedVariables().toString());
-        // make sure that list is not modified!
+
+        VariableData add1 = VariableDataImpl.of(add.methodBody().statements().get(1));
+        VariableInfo viIterator1 = add1.variableInfo("iterator");
+        assertEquals("iterator.§m☷0:list.§m,iterator.§ts~0:list.§ts,iterator.§ts∋next",
+                viIterator1.linkedVariables().toString());
+        VariableInfo viNext1 = add1.variableInfo("next");
+        assertEquals("next∈iterator.§ts,next∈0:list.§ts", viNext1.linkedVariables().toString());
+
+        // make sure that list is not modified, and that method ∈, not ∈?
         assertEquals("[-] --> method∈0:list.§ts", mlvAdd.toString());
     }
-
 
 
     @Language("java")

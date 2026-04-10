@@ -102,7 +102,7 @@ public class LinkGraph {
                 // NOTE: there is a class that requires more than 10 cycles in the maddi code base...
                 throw new UnsupportedOperationException("cycle protection");
             }
-            change = makeGraph.doOneMakeGraphCycle(statementIndex, modifiedInThisEvaluation.keySet());
+            change = makeGraph.expandGraph(statementIndex, modifiedInThisEvaluation.keySet());
         }
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Bi-directional graph for local:\n{}\n{}", graph.engine()

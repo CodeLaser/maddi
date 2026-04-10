@@ -45,44 +45,47 @@ class WriteLinksAndModification {
                             VariableData vd,
                             Set<Variable> previouslyModified,
                             Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation) {
-        int infiniteLoopProtection = 0;
-        while (true) {
-            Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
-            Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
-            List<Link> toRemove = new ArrayList<>();
+        Set<Variable> unmarkedModifications = new HashSet<>(modifiedDuringEvaluation.keySet());
+        Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
+        List<Link> toRemove = new ArrayList<>();
 
-            for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
-                toRemove.addAll(doVariableReturnRecompute(statement, vi, unmarkedModifications,
-                        previouslyModified, modifiedDuringEvaluation, newLinkedVariables));
-            }
-            // toRemove now contains links that should change from ⊆, ⊇ to ~
-            // when empty, we can complete the building process, and return a result
-            if (toRemove.isEmpty()) {
-                Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
-                int sum = newLinkedVariables.entrySet().stream().mapToInt(e -> {
-                    Links links = e.getValue().sort().build();
-                    builtNewLinkedVariables.put(e.getKey(), links);
-                    return links.size();
-                }).sum();
-                return new WriteResult(builtNewLinkedVariables, unmarkedModifications, sum);
-            }
-            // when not empty, we should remove and recompute the links, and try again
-            // see e.g. TestConstructor,1
+        for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
+            toRemove.addAll(doVariableReturnRecompute(statement, vi, unmarkedModifications,
+                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables));
+        }
+        /*
+         toRemove now contains links that should change from ⊆, ⊇ to ~, see e.g. TestConstructor,1; TestDependent,1
+
+         The complication is that we must update the graph, and some of the results, but not all, because some results
+         are "before the modification", such as ∈ in a removeFirst() operation on a list (TestDependent,1),
+         and the ⊆ to ~ is an "after the modification" operation.
+
+         Aaargh!
+         */
+        if (!toRemove.isEmpty()) {
             Set<Variable> affected = new HashSet<>();
             for (Link link : toRemove) {
-                // not only convert ⊆ to ~
                 Set<Variable> set = followGraph.graph()
                         .replaceReturnAffected(link.from(), link.to(), link.linkNature(), SHARES_ELEMENTS);
                 affected.addAll(set);
-                // but also the reverse link ⊇ to ~
-                Set<Variable> set2 = followGraph.graph()
-                        .replaceReturnAffected(link.to(), link.from(), link.linkNature().reverse(), SHARES_ELEMENTS);
-                affected.addAll(set2);
+                updateNewLinks(newLinkedVariables, link);
             }
             assert !affected.isEmpty();
             followGraph.graph().recompute(affected, statement.source().index());
-            if (infiniteLoopProtection++ > 5) throw new UnsupportedOperationException();
         }
+        Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
+        int sum = newLinkedVariables.entrySet().stream().mapToInt(e -> {
+            Links links = e.getValue().sort().build();
+            builtNewLinkedVariables.put(e.getKey(), links);
+            return links.size();
+        }).sum();
+        return new WriteResult(builtNewLinkedVariables, unmarkedModifications, sum);
+    }
+
+    private void updateNewLinks(Map<Variable, Links.Builder> newLinkedVariables, Link toUpdate) {
+        Variable primary = Util.primary(toUpdate.from());
+        Links.Builder builder = newLinkedVariables.computeIfAbsent(primary, _ -> new LinksImpl.Builder(primary));
+        builder.replace(toUpdate, SHARES_ELEMENTS);
     }
 
     private List<Link> doVariableReturnRecompute(Statement statement,
@@ -124,6 +127,7 @@ class WriteLinksAndModification {
                 builder.linkSet().forEach(link -> {
                     if (link.linkNature() == IS_SUBSET_OF || link.linkNature() == IS_SUPERSET_OF) {
                         toRemove.add(link);
+                        toRemove.add(new LinksImpl.LinkImpl(link.to(), link.linkNature().reverse(), link.from()));
                     }
                 });
             }

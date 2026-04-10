@@ -158,6 +158,14 @@ public class LinksImpl implements Links {
         }
 
         @Override
+        public void replace(Link link, LinkNature newLinkNature) {
+            links.replaceAll(l -> {
+                if (l.equals(link)) return new LinkImpl(l.from(), newLinkNature, l.to());
+                return l;
+            });
+        }
+
+        @Override
         public Variable primary() {
             return primary;
         }
