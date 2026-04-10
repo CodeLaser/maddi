@@ -81,10 +81,7 @@ public class Graph {
         Variable eqFrom = equivalenceGroup.representative(from);
         Variable eqTo = equivalenceGroup.representative(to);
 
-        LinkNature rev = linkNature.reverse();
-        int newFacts1 = engine.addEdge(eqFrom, eqTo, linkNature, statementIndex);
-        int newFacts2 = engine.addEdge(eqTo, eqFrom, rev, statementIndex);
-        return newFacts1 + newFacts2 > 0;
+        return engine.addSymmetricEdge(eqFrom, eqTo, linkNature, statementIndex) > 0;
     }
 
     public String printEquivalence(Function<Variable, String> variablePrinter) {

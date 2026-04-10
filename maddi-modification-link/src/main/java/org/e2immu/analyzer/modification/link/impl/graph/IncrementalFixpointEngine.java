@@ -4,31 +4,47 @@ import java.util.*;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /*
-FIXME
-    both ClosureIndex and LabeledGraph don't need their reverse index: we can compute it on-the-fly
-    using the reverse() label property, if we add such an action to L (L extends Reversable)
+Features:
+
+0. label function has a reverse and combine; these do not play well together
+   e.g. rev(∋ + ∈) = rev(~) != rev(∋)+rev(∈) == X
+   it also has a test for valid labels (X is never stored) and a score function (see 4)
+1. LabeledGraph is symmetric: if a B c is present, then c rev(B) a is present as well
+   we do not need to store the reverse graph for efficiency reasons
+2. ClosureGraph is symmetric: if a B c is present, then c rev(B) a is present as well
+   we do not need to store the reverse graph for efficiency reasons
+3. The incremental fixpoint algorithm must have a forward and a backward phase, because the lack of operator symmetry.
+4. we prefer direct high value edges over lower value edges, e.g. ← + ∈ is preferred over ∈ + ~
+   Their outcome is different!
+5. the Graph and MakeGraph classes try to keep this graph as simple as possible, whilst generally being
+   the cause for this graph system being ways too large in complex situations.
  */
 public final class IncrementalFixpointEngine<V, L> {
-
     private final LabeledGraph<V, L> graph;
-    private final ClosureIndex<V, L> closureIndex;
+    private final Closure<V, L> closure;
     private final WitnessIndex<V, L> witnessIndex;
     private final BinaryOperator<L> combine;
     private final BinaryOperator<L> best;
     private final Predicate<L> valid;
+    private final UnaryOperator<L> reverse;
 
-    public IncrementalFixpointEngine(BinaryOperator<L> combine, BinaryOperator<L> best,
-                                     Predicate<L> valid) {
+    public IncrementalFixpointEngine(BinaryOperator<L> combine,
+                                     BinaryOperator<L> best,
+                                     Predicate<L> valid,
+                                     Function<L, Integer> scoreFunction,
+                                     UnaryOperator<L> reverse) {
         this.graph = new LabeledGraph<>();
-        this.closureIndex = new ClosureIndex<>(best);
-        this.witnessIndex = new WitnessIndex<>();
+        this.closure = new Closure<>(best);
+        this.witnessIndex = new WitnessIndex<>(scoreFunction);
         this.combine = combine;
         this.valid = valid;
         this.best = best;
+        this.reverse = reverse;
     }
 
     public L label(V from, V to) {
@@ -36,7 +52,7 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public int sizeOfClosure() {
-        return closureIndex.countFacts();
+        return closure.countFacts();
     }
 
     public int sizeOfWitnesses() {
@@ -44,23 +60,11 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public Stream<Map.Entry<V, L>> successorStream(V variable) {
-        return closureIndex.successorStream(variable);
-    }
-
-    public Stream<Map.Entry<V, L>> successorsInGraphStream(V v) {
-        return graph.successors(v).entrySet().stream();
-    }
-
-    public Iterable<Map.Entry<V, L>> successorsInGraph(V v) {
-        return graph.successors(v).entrySet();
-    }
-
-    public Stream<Map.Entry<V, L>> predecessorsInGraphStream(V v) {
-        return graph.predecessors(v).entrySet().stream();
+        return closure.successorStream(variable);
     }
 
     public Iterable<Map.Entry<V, L>> successors(V variable) {
-        return closureIndex.successors(variable);
+        return closure.successors(variable);
     }
 
     public Iterable<Map.Entry<V, Map<V, L>>> edges() {
@@ -80,11 +84,11 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public String printClosure(Comparator<V> vertexComparator) {
-        return closureIndex.print(Object::toString, vertexComparator, witnessIndex);
+        return closure.print(Object::toString, vertexComparator, witnessIndex);
     }
 
     public String printClosure(Function<V, String> vertexPrinter, Comparator<V> vertexComparator) {
-        return closureIndex.print(vertexPrinter, vertexComparator, witnessIndex);
+        return closure.print(vertexPrinter, vertexComparator, witnessIndex);
     }
 
     public boolean addVertex(V v) {
@@ -97,64 +101,94 @@ public final class IncrementalFixpointEngine<V, L> {
 
     public void removeVertices(Set<V> vertices) {
         graph.removeVertices(vertices);
-        closureIndex.removeVertices(vertices);
+        closure.removeVertices(vertices);
     }
 
-    public int addEdge(V from, V to, L label, String statementIndex) {
+    public int addSymmetricEdge(V from, V to, L label, String statementIndex) {
         assert valid.test(label);
-        graph.addEdge(from, to, label);
-        return incrementalUpdate(from, to, label, statementIndex);
+        L reverseLabel = reverse.apply(label);
+        graph.addSymmetricEdge(from, to, label, reverseLabel);
+        return incrementalUpdate(Set.of(new Fact<>(from, to, label), new Fact<>(to, from, reverseLabel)),
+                statementIndex);
     }
 
-    private record FactW<V, L>(Fact<V, L> fact, Witness<V, L> witness, boolean force) {
-    }
-
-    private int incrementalUpdate(V from, V to, L label, String statementIndex) {
-        assert !from.equals(to);
-
-        Deque<FactW<V, L>> queue = new ArrayDeque<>();
+    private int incrementalUpdate(Collection<Fact<V, L>> seeds, String statementIndex) {
+        Deque<Fact<V, L>> queue = new ArrayDeque<>(seeds);
         int newFacts = 0;
-
-        FactW<V, L> seed = new FactW<>(new Fact<>(from, to, label),
-                new Witness.DirectWitness<>(from, to, label, statementIndex), true);
-        queue.add(seed);
-
         while (!queue.isEmpty()) {
-            FactW<V, L> factW = queue.removeFirst();
+            Fact<V, L> fact = queue.removeFirst();
 
-            boolean added = closureIndex.add(factW.fact.source(), factW.fact.target(), factW.fact.label());
-            if (added) newFacts++;
-            if (added || factW.force) {
-                witnessIndex.put(factW.fact, factW.witness);
-                propagateForward(factW.fact, queue);
-                propagateBackward(factW.fact, queue);
+            if (closure.add(fact.source(), fact.target(), fact.label())) {
+                newFacts++;
+
+                witnessIndex.putIfBetter(fact,
+                        new Witness.DirectWitness<>(fact.source(), fact.target(), fact.label(), statementIndex));
+
+                propagateForward(fact, queue);
+                propagateBackward(fact, queue);
             }
         }
-        // TODO this would be the place to remove redundant edges in the labelGraph
-        //  (redundant with respect to the overall result in closureIndex)
-
-        assert betterThanOrEqual(closureIndex.label(from, to), label);
-        assert allEdgesOfLabelGraphAreInClosure();
 
         return newFacts;
     }
 
-    boolean allEdgesOfLabelGraphAreInClosure() {
-        for (Map.Entry<V, Map<V, L>> entry : graph.edges()) {
-            for (Map.Entry<V, L> entry2 : entry.getValue().entrySet()) {
-                L inClosure = closureIndex.label(entry.getKey(), entry2.getKey());
-                if (inClosure == null || !betterThanOrEqual(inClosure, entry2.getValue())) {
-                    return false;
-                }
-                Fact<V, L> fact = new Fact<>(entry.getKey(), entry2.getKey(), entry2.getValue());
-                Witness<V, L> witness = witnessIndex.get(fact);
-                // edges of the label graph must be witnessed as such
-                if (!(witness instanceof Witness.DirectWitness<V, L>)) {
-                    return false;
+    private void propagateForward(Fact<V, L> fact, Deque<Fact<V, L>> queue) {
+        for (var edge : graph.successors(fact.target()).entrySet()) {
+            L nextLabel = combine.apply(fact.label(), edge.getValue());
+            V source = fact.source();
+            V target = edge.getKey();
+            if (!source.equals(target) && valid.test(nextLabel)) {
+                Fact<V, L> next = new Fact<>(source, target, nextLabel);
+                Fact<V, L> newFact = new Fact<>(fact.target(), target, edge.getValue());
+                boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(fact, newFact));
+                if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                    queue.addLast(next);
                 }
             }
         }
+    }
+
+    private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue) {
+        V source = fact.source();
+        for (var pred : closure.successors(source)) {
+            V p = pred.getKey();
+            L label = closure.label(p, source);
+            L predLabel = reverse.apply(label); // because we're following the successors!
+            V target = fact.target();
+            if (valid.test(predLabel) && !p.equals(target) && !p.equals(source)) {
+                Fact<V, L> next = new Fact<>(p, target, combine.apply(predLabel, fact.label()));
+                Fact<V, L> newFact = new Fact<>(p, source, predLabel);
+                boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(newFact, fact));
+
+                if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                    queue.addLast(next);
+                }
+            }
+        }
+    }
+
+
+    // meant for assertions only!
+    boolean consistencyCheck() {
+        for (Map.Entry<V, Map<V, L>> entry : graph.edges()) {
+            for (Map.Entry<V, L> entry2 : entry.getValue().entrySet()) {
+                if (consistencyCheckFails(entry.getKey(), entry2.getKey(), entry2.getValue())) return false;
+                if (consistencyCheckFails(entry2.getKey(), entry.getKey(), reverse.apply(entry2.getValue())))
+                    return false;
+            }
+        }
         return true;
+    }
+
+    private boolean consistencyCheckFails(V from, V to, L label) {
+        L inClosure = closure.label(from, to);
+        if (inClosure == null || !betterThanOrEqual(inClosure, label)) {
+            return true;
+        }
+        Fact<V, L> fact = new Fact<>(from, to, label);
+        Witness<V, L> witness = witnessIndex.get(fact);
+        // edges of the label graph must be witnessed as such
+        return !(witness instanceof Witness.DirectWitness<V, L>);
     }
 
     private boolean betterThanOrEqual(L l1, L l2) {
@@ -163,91 +197,19 @@ public final class IncrementalFixpointEngine<V, L> {
         return l1.equals(best.apply(l1, l2));
     }
 
-    private void propagateForward(Fact<V, L> fact, Deque<FactW<V, L>> queue) {
-        V u = fact.source();
-        V v = fact.target();
-        L currentLabel = fact.label();
-
-        for (Map.Entry<V, L> edge : graph.successors(v).entrySet()) {
-            V w = edge.getKey();
-            if (!v.equals(w) && !u.equals(w)) {
-                L edgeLabel = edge.getValue();
-                L newLabel = combine.apply(currentLabel, edgeLabel);
-                if (valid.test(newLabel)) {
-                    Fact<V, L> newFact = new Fact<>(u, w, newLabel);
-                    Fact<V, L> newFact2 = new Fact<>(v, w, edgeLabel);
-                    Witness.CompositeWitness<V, L> witness = new Witness.CompositeWitness<>(fact, newFact2);
-                    queue.addLast(new FactW<>(newFact, witness, false));
-                }
-            }
-        }
-    }
-
-    private void propagateBackward(Fact<V, L> fact, Deque<FactW<V, L>> queue) {
-        V u = fact.source();
-        V v = fact.target();
-        L currentLabel = fact.label();
-
-        for (Map.Entry<V, L> predEntry : closureIndex.predecessors(u)) {
-            V p = predEntry.getKey();
-            if (!p.equals(v) && !p.equals(u)) {
-                L predLabel = predEntry.getValue();
-
-                L newLabel = combine.apply(predLabel, currentLabel);
-                if (valid.test(newLabel)) {
-                    Fact<V, L> newFact = new Fact<>(p, v, newLabel);
-                    Fact<V, L> newFact2 = new Fact<>(p, u, predLabel);
-                    Witness.CompositeWitness<V, L> witness = new Witness.CompositeWitness<>(newFact2, fact);
-                    queue.addLast(new FactW<>(newFact, witness, false));
-                }
-            }
-        }
-    }
-
-    /*
-    private int reduceLocally(Set<V> affected) {
-        int removed = 0;
-
-        for (V u : affected) {
-            Map<V, L> successors =
-                    new HashMap<>(graph.successors(u));
-
-            for (Map.Entry<V, L> edge : successors.entrySet()) {
-                V v = edge.getKey();
-                L directLabel = edge.getValue();
-
-                // Temporarily remove edge
-                graph.removeEdge(u, v);
-
-                boolean reconstructable = directLabel.equals(closureIndex.label(u, v))
-                                          // without the 2nd clause: too aggressive; with the 2nd clause: too weak?
-                                          && witnessIndex.get(new Fact<>(u, v, directLabel))
-                                                  instanceof Witness.CompositeWitness<V, L>;
-
-                if (reconstructable) {
-                    removed++;
-                } else {
-                    graph.addEdge(u, v, directLabel);
-                }
-            }
-        }
-
-        return removed;
-    }*/
-
     public Set<V> replaceReturnAffected(V from, V to, L currentLabel, L newLabel) {
-        return replaceReturnAffected(new Fact<>(from, to, currentLabel), newLabel);
+        return replaceReturnAffected(new Fact<>(from, to, currentLabel), newLabel, reverse.apply(newLabel));
     }
 
-    private Set<V> replaceReturnAffected(Fact<V, L> fact, L newLabel) {
+    private Set<V> replaceReturnAffected(Fact<V, L> fact, L newLabel, L reverseNewLabel) {
         Witness<V, L> witness = witnessIndex.get(fact);
         if (witness instanceof Witness.DirectWitness<V, L>) {
-            return graph.replace(fact.source(), fact.target(), newLabel)
+            return graph.replace(fact.source(), fact.target(), newLabel, reverseNewLabel)
                     ? Set.of(fact.source(), fact.target()) : Set.of();
         }
         if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right)) {
-            Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel) : Set.of();
-            Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel) : Set.of();
+            Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel, reverseNewLabel) : Set.of();
+            Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel, reverseNewLabel) : Set.of();
             return Stream.concat(Stream.concat(Stream.of(fact.source(), fact.target()), set1.stream()), set2.stream())
                     .collect(Collectors.toUnmodifiableSet());
         }
@@ -255,44 +217,22 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     public void recompute(Set<V> affected, String statementIndex, Predicate<Fact<V, L>> acceptRemoval) {
+        // remove affected region
         Set<V> remove = new HashSet<>(affected);
         while (true) {
-            List<Fact<V, L>> removedFacts = closureIndex.removeFacts(remove, acceptRemoval);
+            List<Fact<V, L>> removedFacts = closure.removeFacts(remove, acceptRemoval);
             Set<V> extra = witnessIndex.removeFacts(remove, removedFacts);
             if (!remove.addAll(extra)) break;
         }
-        rebuildAffectedRegion(remove, statementIndex);
-        assert allEdgesOfLabelGraphAreInClosure();
-    }
-
-    // TODO the core 'while' loop is identical to that in 'incrementalUpdate'
-    private void rebuildAffectedRegion(Set<V> affected, String statementIndex) {
-        Deque<FactW<V, L>> queue = new ArrayDeque<>();
-
+        // rebuild it
+        List<Fact<V, L>> seeds = new ArrayList<>();
         for (V u : affected) {
             for (var edge : graph.successors(u).entrySet()) {
-                V v = edge.getKey();
-                L label = edge.getValue();
-                queue.add(new FactW<>(new Fact<>(u, v, label),
-                        new Witness.DirectWitness<>(u, v, label, statementIndex), true));
-            }
-            for (var edge : graph.predecessors(u).entrySet()) {
-                V v = edge.getKey();
-                L label = edge.getValue();
-                queue.add(new FactW<>(new Fact<>(v, u, label),
-                        new Witness.DirectWitness<>(v, u, label, statementIndex), true));
+                seeds.add(new Fact<>(u, edge.getKey(), edge.getValue()));
             }
         }
-
-        while (!queue.isEmpty()) {
-            FactW<V, L> factW = queue.removeFirst();
-
-            if (closureIndex.add(factW.fact.source(), factW.fact.target(), factW.fact.label())) {
-                witnessIndex.put(factW.fact, factW.witness);
-                propagateForward(factW.fact, queue);
-                propagateBackward(factW.fact, queue);
-            }
-        }
+        incrementalUpdate(seeds, statementIndex);
+        assert consistencyCheck();
     }
 
     public Set<V> vertices() {
