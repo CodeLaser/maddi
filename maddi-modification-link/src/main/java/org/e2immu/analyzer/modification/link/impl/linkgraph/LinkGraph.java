@@ -81,7 +81,15 @@ public class LinkGraph {
         Set<Variable> allToRemove = graph.variables().stream()
                 .filter(v -> toRemove.contains(Util.firstRealVariable(v)))
                 .collect(Collectors.toUnmodifiableSet());
-        graph.remove(allToRemove);
+        if(!allToRemove.isEmpty()) {
+            graph.remove(allToRemove);
+        }
+        Set<Variable> allToRemove2 = graph.eqVariables()
+                .filter(v -> toRemove.contains(Util.firstRealVariable(v)))
+                .collect(Collectors.toUnmodifiableSet());
+        if(!allToRemove2.isEmpty()) {
+            graph.removeEquivalence(allToRemove2);
+        }
 
         Map<Variable, Links> newLinks2 = reduceLinks(newLinks);
 

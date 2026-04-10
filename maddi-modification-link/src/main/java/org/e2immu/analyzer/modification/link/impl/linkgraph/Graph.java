@@ -51,6 +51,14 @@ public class Graph {
         return res;
     }
 
+    public Stream<Variable> eqVariables() {
+        return equivalenceGroup.variables();
+    }
+
+    public void removeEquivalence(Set<Variable> allToRemove2) {
+        equivalenceGroup.remove(allToRemove2);
+    }
+
     private boolean invalidEdge(Variable from, LinkNature label, Variable to) {
         if (Util.isVirtualModification(from) != Util.isVirtualModification(to)) return true;
         return Util.virtual(from) != Util.virtual(to)
@@ -87,6 +95,7 @@ public class Graph {
     public String printEquivalence(Function<Variable, String> variablePrinter) {
         return equivalenceGroup.print(variablePrinter);
     }
+
 
     boolean simpleAddToGraph(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
         boolean change = mergeEdgeBi(from, linkNature, to, statementIndex);
