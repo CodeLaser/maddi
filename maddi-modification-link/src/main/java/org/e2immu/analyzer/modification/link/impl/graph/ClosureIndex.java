@@ -74,7 +74,7 @@ public class ClosureIndex<V, L> {
                                            + " " + vertexPrinter.apply(e2.getKey()) + "   "
                                            + witnessIndex.print(vertexPrinter,
                                         new Fact<>(e.getKey(), e2.getKey(), e2.getValue()))))
-                .collect(Collectors.joining("\n"));
+                .collect(Collectors.joining("\n", "", "\n"));
     }
 
     public void removeFacts(List<Fact<V, L>> factsToRemove) {
