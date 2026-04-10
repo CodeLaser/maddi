@@ -53,13 +53,13 @@ public class TestArrayAccess extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(assign);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
-        assertEquals("t←0:array[i],t∈0:array", tlvT1.toString());
+        assertEquals("t∈0:array,t←0:array[i]", tlvT1.toString());
 
         Statement append = forStmt.block().statements().getLast();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.linkedVariablesOrEmpty();
-        assertEquals("t←0:array[i],t∈0:array", tlvT100.toString());
+        assertEquals("t∈0:array,t←0:array[i]", tlvT100.toString());
     }
 
     @Language("java")
@@ -94,13 +94,13 @@ public class TestArrayAccess extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(assign);
         VariableInfo t1 = vd1.variableInfoContainerOrNull("t").best(Stage.EVALUATION);
         Links tlvT1 = t1.linkedVariablesOrEmpty();
-        assertEquals("t←0:array[i],t∈0:array", tlvT1.toString());
+        assertEquals("t∈0:array,t←0:array[i]", tlvT1.toString());
 
         Statement append = forStmt.block().statements().getLast();
         VariableData vd100 = VariableDataImpl.of(append);
         VariableInfo t100 = vd100.variableInfo("t");
         Links tlvT100 = t100.linkedVariablesOrEmpty();
-        assertEquals("t←0:array[i],t∈0:array", tlvT100.toString());
+        assertEquals("t∈0:array,t←0:array[i]", tlvT100.toString());
     }
 
     @Language("java")
@@ -151,7 +151,6 @@ public class TestArrayAccess extends CommonTest {
         MethodCall mc2 = (MethodCall) callMc2.expression();
         Value.VariableBooleanMap tlvMc = mc2.analysis().getOrNull(LinkComputerImpl.VARIABLES_LINKED_TO_OBJECT,
                 ValueImpl.VariableBooleanMapImpl.class);
-        // assertEquals("ii=true", tlvMc.toString()); // NOT: ii=false, ii[3]=true
-        assertEquals("ii=true, ii[3]=true, ii[j]=true", tlvMc.toString()); // 202604 can live with this for now
+        assertEquals("ii=true", tlvMc.toString());
     }
 }

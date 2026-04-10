@@ -63,13 +63,13 @@ public class TestAssignmentIdentityMethod extends CommonTest {
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo tt1 = vd1.variableInfo("tt");
         Links tlvTt1 = tt1.linkedVariablesOrEmpty();
-        assertEquals("tt→ttt,tt←0:t", tlvTt1.toString());
+        assertEquals("tt←0:t,tt→ttt", tlvTt1.toString());
 
         // now look at ttt, result of @Identity
 
         VariableInfo ttt1 = vd1.variableInfo("ttt");
         Links tlvTtt1 = ttt1.linkedVariablesOrEmpty();
-        assertEquals("ttt←tt", tlvTtt1.toString()); // ttt←0:t dropped
+        assertEquals("ttt←0:t,ttt←tt", tlvTtt1.toString());
 
         // NOTE: this is different from the shallow one; but has the same meaning
         assertEquals("[-] --> method←0:t", tlvMethod.toString());

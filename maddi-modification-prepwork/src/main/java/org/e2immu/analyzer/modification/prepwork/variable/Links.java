@@ -50,6 +50,8 @@ public interface Links extends Iterable<Link>, Value {
     @NotNull String toString(Set<Variable> modified);
 
     interface Builder extends Iterable<Link> {
+        boolean containsPrimaryOf(Variable variable);
+
         void replaceAll(List<Link> newLinks);
 
         Links build();

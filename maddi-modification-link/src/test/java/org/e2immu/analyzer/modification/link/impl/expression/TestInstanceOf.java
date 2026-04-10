@@ -65,7 +65,7 @@ public class TestInstanceOf extends CommonTest {
             assertEquals("1:s∈0:object.§es,1:s∈set.§es", viS000.linkedVariables().toString());
             assertFalse(viS000.isModified());
             VariableInfo viObject000 = vd000.variableInfo(object);
-            assertEquals("0:object.§es→set.§es,0:object.§es∋1:s,0:object.§m≡set.§m,0:object→set",
+            assertEquals("0:object→set,0:object.§es∋1:s,0:object.§es→set.§es,0:object.§m≡set.§m",
                     viObject000.linkedVariables().toString());
             assertTrue(viObject000.isModified());
         }
@@ -112,7 +112,7 @@ public class TestInstanceOf extends CommonTest {
         assertEquals("[a.b.X.R]", viI0E.downcast().toString());
 
         VariableInfo viSet0E = vd0.variableInfo("set", Stage.EVALUATION);
-        assertEquals("set←o,set≺0:i", viSet0E.linkedVariables().toString());
+        assertEquals("set≺0:i,set←o", viSet0E.linkedVariables().toString());
         assertFalse(viI0E.isModified());
 
         VariableInfo viO0E = vd0.variableInfo("o", Stage.EVALUATION);
@@ -123,25 +123,24 @@ public class TestInstanceOf extends CommonTest {
 
         VariableInfo vi000Set = vd000.variableInfo("set");
         assertTrue(vi000Set.isModified());
-        assertEquals("set.§es←o.§es,set.§es∋1:s,set.§es≺0:i,set.§m≡o.§m",
+        assertEquals("set.§es∋1:s,set.§es←o.§es,set.§m≡o.§m,set≺0:i,set←o",
                 vi000Set.linkedVariables().toString()); // set←o dropped
 
         VariableInfo vi000O = vd000.variableInfo("o");
-        assertEquals("o.§es→set.§es,o.§es∋1:s,o.§m≡set.§m,o→set,o∩0:i", vi000O.linkedVariables().toString());
-        // o ≺ 0:i is not visible
+        assertEquals("o.§es∋1:s,o.§es→set.§es,o.§m≡set.§m,o≺0:i,o→set", vi000O.linkedVariables().toString());
         assertTrue(vi000O.isModified());
 
         VariableInfo vi000I = vd000.variableInfo(i);
-        assertEquals("0:i≥1:s,0:i∩o.§es,0:i∩set.§es,0:i≈o,0:i≈set", vi000I.linkedVariables().toString());
-        // o ≺ 0:i is not visible
+        assertEquals("0:i≻o,0:i≻set", vi000I.linkedVariables().toString());
         assertTrue(vi000I.isModified());
         assertEquals("[a.b.X.R]", vi000I.downcast().toString());
 
         VariableInfo viI0M = vd0.variableInfo(i, Stage.MERGE);
-        assertEquals("0:i≻o,0:i≻set,0:i≥1:s,0:i∩o.§es,0:i∩set.§es", viI0M.linkedVariables().toString());
+        assertEquals("0:i≻o,0:i≻set,0:i≥1:s", viI0M.linkedVariables().toString());
         assertTrue(viI0M.isModified());
         assertEquals("[a.b.X.R]", viI0M.downcast().toString());
 
+        assertEquals("a.b.X.method(a.b.X.I,String):0:i", mlv.sortedModifiedString());
         assertTrue(i.isModified());
         assertEquals("[0:i*≥1:s, 1:s≤0:i*] --> -", mlv.toString());
         // NOTE: there are no modified components, they are hidden by the downcast

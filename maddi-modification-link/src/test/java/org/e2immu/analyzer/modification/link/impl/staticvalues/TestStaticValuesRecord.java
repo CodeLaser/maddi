@@ -715,8 +715,7 @@ public class TestStaticValuesRecord extends CommonTest {
         MethodInfo build = B.findUniqueMethod("build", 0);
         MethodLinkedVariables mlvBuild = build.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(build));
         assertEquals("""
-                [] --> build.function←Λthis.function,build.variables.§m≡this.variables.§m,\
-                build.variables←this.variables\
+                [] --> build.function←Λthis.function,build.variables←this.variables,build.variables.§m≡this.variables.§m\
                 """, mlvBuild.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 1);
