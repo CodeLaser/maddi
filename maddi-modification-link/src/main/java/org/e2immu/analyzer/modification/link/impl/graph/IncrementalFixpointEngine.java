@@ -7,6 +7,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/*
+FIXME
+    both ClosureIndex and LabeledGraph don't need their reverse index: we can compute it on-the-fly
+    using the reverse() label property, if we add such an action to L (L extends Reversable)
+ */
 public final class IncrementalFixpointEngine<V, L> {
 
     private final LabeledGraph<V, L> graph;
@@ -249,11 +254,11 @@ public final class IncrementalFixpointEngine<V, L> {
         return Set.of();
     }
 
-    public void recompute(Set<V> affected, String statementIndex) {
+    public void recompute(Set<V> affected, String statementIndex, Predicate<Fact<V, L>> acceptRemoval) {
         Set<V> remove = new HashSet<>(affected);
         while (true) {
-            closureIndex.removeVertices(remove);
-            Set<V> extra = witnessIndex.removeVertices(remove);
+            List<Fact<V, L>> removedFacts = closureIndex.removeFacts(remove, acceptRemoval);
+            Set<V> extra = witnessIndex.removeFacts(remove, removedFacts);
             if (!remove.addAll(extra)) break;
         }
         rebuildAffectedRegion(remove, statementIndex);

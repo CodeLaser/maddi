@@ -1,6 +1,7 @@
 package org.e2immu.analyzer.modification.link.impl;
 
 import org.e2immu.analyzer.modification.common.AnalysisHelper;
+import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
@@ -67,11 +68,12 @@ class WriteLinksAndModification {
             for (Link link : toRemove) {
                 Set<Variable> set = followGraph.graph()
                         .replaceReturnAffected(link.from(), link.to(), link.linkNature(), SHARES_ELEMENTS);
-                affected.addAll(set);
+                affected.add(link.from());
+                affected.add(link.to());
                 updateNewLinks(newLinkedVariables, link);
             }
-            assert !affected.isEmpty();
-            followGraph.graph().recompute(affected, statement.source().index());
+           // assert !affected.isEmpty();
+            followGraph.graph().recompute(affected, statement.source().index(), this::acceptRemoval);
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
         int sum = newLinkedVariables.entrySet().stream().mapToInt(e -> {
@@ -80,6 +82,10 @@ class WriteLinksAndModification {
             return links.size();
         }).sum();
         return new WriteResult(builtNewLinkedVariables, unmarkedModifications, sum);
+    }
+
+    private boolean acceptRemoval(Fact<Variable, LinkNature> fact) {
+        return fact.label() == IS_SUBSET_OF || fact.label() == IS_SUPERSET_OF;
     }
 
     private void updateNewLinks(Map<Variable, Links.Builder> newLinkedVariables, Link toUpdate) {

@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.graph.EquivalenceGroup;
+import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -131,8 +133,10 @@ public class Graph {
         return v.toString();
     }
 
-    public void recompute(Set<Variable> affected, String statementIndex) {
-        engine.recompute(affected, statementIndex);
+    public void recompute(Set<Variable> affected,
+                          String statementIndex,
+                          Predicate<Fact<Variable, LinkNature>> acceptRemoval) {
+        engine.recompute(affected, statementIndex, acceptRemoval);
     }
 
     public void remove(Set<Variable> toRemove) {
