@@ -74,7 +74,7 @@ public class TestBoundTypeParameter extends CommonTest {
         MethodInfo get = X.findUniqueMethod("get", 1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         MethodLinkedVariables mlv = tlc.doMethod(get);
-        assertEquals("get←this.ts[0:index],get∈this.ts", mlv.ofReturnValue().toString());
+        assertEquals("get∈this.ts,get←this.ts[0:index]", mlv.ofReturnValue().toString());
     }
 
     @DisplayName("Analyze 'method', given method links for 'get'")
@@ -90,7 +90,7 @@ public class TestBoundTypeParameter extends CommonTest {
         LinkComputer tlc = new LinkComputerImpl(javaInspector, doNotRecurse);
         // first, do get()
         MethodLinkedVariables lvGet = get.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(get));
-        assertEquals("get←this.ts[0:index],get∈this.ts", lvGet.ofReturnValue().toString());
+        assertEquals("get∈this.ts,get←this.ts[0:index]", lvGet.ofReturnValue().toString());
 
         // then, do method
         MethodLinkedVariables lvMethod = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
@@ -98,9 +98,9 @@ public class TestBoundTypeParameter extends CommonTest {
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo k0 = vd0.variableInfo("k");
         Links linksK = k0.linkedVariablesOrEmpty();
-        assertEquals("k←1:x.ts[0:i],k∈1:x.ts", linksK.toString());
+        assertEquals("k∈1:x.ts,k←1:x.ts[0:i]", linksK.toString());
 
-        assertEquals("[-, 1:x.ts[0:i]∈1:x.ts] --> method←1:x.ts[0:i],method∈1:x.ts", lvMethod.toString());
+        assertEquals("[-, 1:x.ts[0:i]∈1:x.ts] --> method∈1:x.ts,method←1:x.ts[0:i]", lvMethod.toString());
     }
 
     @DisplayName("Analyze 'asShortList'")
@@ -119,7 +119,7 @@ public class TestBoundTypeParameter extends CommonTest {
                 () -> tlc.doMethod(asShortList));
 
         assertEquals("""
-                asShortList.§ts∋this.ts[0],asShortList.§ts~this.ts\
+                asShortList.§ts~this.ts,asShortList.§ts∋this.ts[0]\
                 """, lvAsShortList.ofReturnValue().toString());
     }
 
@@ -153,9 +153,9 @@ public class TestBoundTypeParameter extends CommonTest {
 
         // now the same, but as a statement; then, the data will be saved
         VariableData vd = VariableDataImpl.of(set.methodBody().statements().getFirst());
-        assertEquals("0:t→this.ts[1:index],0:t∈this.ts",
+        assertEquals("0:t∈this.ts,0:t→this.ts[1:index]",
                 vd.variableInfo(set.parameters().getFirst()).linkedVariables().toString());
-        assertEquals("[0:t→this.ts*[1:index],0:t∈this.ts*, -] --> -", mlv.toString());
+        assertEquals("[0:t∈this.ts*,0:t→this.ts*[1:index], -] --> -", mlv.toString());
     }
 
     @DisplayName("Analyze 'compareFirst'")

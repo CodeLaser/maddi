@@ -33,7 +33,7 @@ public final class LabeledGraph<V, L> {
                                 : e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                                 .map(e2 -> vertexPrinter.apply(e.getKey()) + " " + e2.getValue() + " " + vertexPrinter.apply(e2.getKey()))
                                 .collect(Collectors.joining(" / ")))
-                .collect(Collectors.joining("\n"));
+                .collect(Collectors.joining("\n", "", "\n"));
     }
 
     public void addEdge(V from, V to, L label) {
