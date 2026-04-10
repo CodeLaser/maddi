@@ -189,7 +189,7 @@ public class TestGraph {
         assertFalse(engine.allEdgesOfLabelGraphAreInClosure());
         assertEquals(closureBeforeReplace, printClosure(engine));
 
-        engine.recompute(set1, "2");
+        engine.recompute(set1, "2", _ -> true);
         assertEquals("""
                 a ~ b   2(a ~ b)
                 a ∋ x   2(a ∋ x)

@@ -4,6 +4,7 @@ package org.e2immu.analyzer.modification.link.impl.graph;
 import java.util.*;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -77,7 +78,23 @@ public class ClosureIndex<V, L> {
                 .collect(Collectors.joining("\n", "", "\n"));
     }
 
-    public void removeFacts(List<Fact<V, L>> factsToRemove) {
+    public List<Fact<V, L>> removeFacts(Set<V> vertices, Predicate<Fact<V, L>> acceptForRemoval) {
+        List<Fact<V, L>> result = new LinkedList<>();
+        for (V v : vertices) {
+            Map<V, L> map = reachable.get(v);
+            if (map != null) {
+                map.entrySet().removeIf(entry -> {
+                    Fact<V, L> fact = new Fact<>(v, entry.getKey(), entry.getValue());
+                    if (acceptForRemoval.test(fact)) {
+                        result.add(fact);
+                        reverseReachable.get(entry.getKey()).remove(v);
+                        return true;
+                    }
+                    return false;
+                });
+            }
+        }
+        return result;
     }
 
     public void removeVertices(Set<V> vertices) {
