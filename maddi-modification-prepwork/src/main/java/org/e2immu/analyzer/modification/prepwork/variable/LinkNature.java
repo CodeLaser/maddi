@@ -33,5 +33,7 @@ public interface LinkNature extends Comparable<LinkNature> {
 
     LinkNature best(LinkNature other);
 
+    int score();
+
     Set<MethodInfo> pass();
 }

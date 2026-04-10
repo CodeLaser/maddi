@@ -1,19 +1,21 @@
 package org.e2immu.analyzer.modification.link.impl.graph;
 
-import java.util.*;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public final class LabeledGraph<V, L> {
-    private final Map<V, Map<V, L>> out = new LinkedHashMap<>();
-    private final Map<V, Map<V, L>> in = new LinkedHashMap<>();
+    private final Map<V, Map<V, L>> map = new LinkedHashMap<>();
 
     public Iterable<Map.Entry<V, Map<V, L>>> edges() {
-        return out.entrySet();
+        return map.entrySet();
     }
 
     public String printEdges(Comparator<V> comparator) {
-        return out.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
+        return map.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                 .flatMap(e ->
                         e.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                                 .map(e2 ->
@@ -26,7 +28,7 @@ public final class LabeledGraph<V, L> {
     }
 
     public String print(Function<V, String> vertexPrinter, Comparator<V> comparator) {
-        return out.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
+        return map.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                 .map(e ->
                         e.getValue().isEmpty()
                                 ? vertexPrinter.apply(e.getKey())
@@ -36,57 +38,34 @@ public final class LabeledGraph<V, L> {
                 .collect(Collectors.joining("\n", "", "\n"));
     }
 
-    public void addEdge(V from, V to, L label) {
-        out.computeIfAbsent(from, k -> new LinkedHashMap<>()).put(to, label);
-        in.computeIfAbsent(to, k -> new LinkedHashMap<>()).put(from, label);
+    public void addSymmetricEdge(V from, V to, L label, L reverseLabel) {
+        map.computeIfAbsent(from, _ -> new LinkedHashMap<>()).put(to, label);
+        map.computeIfAbsent(to, _ -> new LinkedHashMap<>()).put(from, reverseLabel);
     }
 
     public boolean addVertex(V v) {
-        if (in.containsKey(v)) return false;
-        in.put(v, new LinkedHashMap<>());
-        out.put(v, new LinkedHashMap<>());
+        map.put(v, new LinkedHashMap<>());
         return true;
     }
 
-    public void removeEdge(V from, V to) {
-        Map<V, L> outMap = out.get(from);
-        if (outMap != null) {
-            outMap.remove(to);
-        }
-
-        Map<V, L> inMap = in.get(to);
-        if (inMap != null) {
-            inMap.remove(from);
-        }
-    }
-
-    public void removeFacts(List<Fact<V, L>> factsToRemove) {
-    }
-
     public void removeVertices(Set<V> vertices) {
-        in.keySet().removeAll(vertices);
-        out.keySet().removeAll(vertices);
-        in.values().forEach(map -> map.keySet().removeAll(vertices));
-        out.values().forEach(map -> map.keySet().removeAll(vertices));
+        map.keySet().removeAll(vertices);
+        map.values().forEach(map -> map.keySet().removeAll(vertices));
     }
 
-    public boolean replace(V from, V to, L label) {
-        Map<V, L> outMap = out.computeIfAbsent(from, _ -> new LinkedHashMap<>());
+    public boolean replace(V from, V to, L label, L reverseLabel) {
+        Map<V, L> outMap = map.computeIfAbsent(from, _ -> new LinkedHashMap<>());
         L prev = outMap.put(to, label);
-        Map<V, L> inMap = in.computeIfAbsent(to, _ -> new LinkedHashMap<>());
-        inMap.put(from, label);
+        Map<V, L> inMap = map.computeIfAbsent(to, _ -> new LinkedHashMap<>());
+        inMap.put(from, reverseLabel);
         return !label.equals(prev);
     }
 
     public Map<V, L> successors(V v) {
-        return out.getOrDefault(v, Map.of());
-    }
-
-    public Map<V, L> predecessors(V v) {
-        return in.getOrDefault(v, Map.of());
+        return map.getOrDefault(v, Map.of());
     }
 
     public Set<V> vertices() {
-        return out.keySet();
+        return map.keySet();
     }
 }

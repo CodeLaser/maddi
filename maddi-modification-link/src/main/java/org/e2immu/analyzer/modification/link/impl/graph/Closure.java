@@ -8,12 +8,13 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class ClosureIndex<V, L> {
+// not symmetric by design!
+
+public class Closure<V, L> {
     private final Map<V, Map<V, L>> reachable = new HashMap<>();
-    private final Map<V, Map<V, L>> reverseReachable = new HashMap<>();
     private final BinaryOperator<L> best;
 
-    public ClosureIndex(BinaryOperator<L> best) {
+    public Closure(BinaryOperator<L> best) {
         this.best = best;
     }
 
@@ -21,17 +22,14 @@ public class ClosureIndex<V, L> {
         assert !from.equals(to);
 
         Map<V, L> map = reachable.computeIfAbsent(from, _ -> new HashMap<>());
-        Map<V, L> rMap = reverseReachable.computeIfAbsent(to, _ -> new HashMap<>());
 
         L current = map.get(to);
         if (current == null) {
             map.put(to, label);
-            rMap.put(from, label);
             return true;
         }
         L newLabel = best.apply(current, label);
         map.put(to, newLabel);
-        rMap.put(from, newLabel);
         return !current.equals(newLabel);
     }
 
@@ -41,21 +39,6 @@ public class ClosureIndex<V, L> {
 
     public L label(V from, V to) {
         return reachable.getOrDefault(from, Map.of()).get(to);
-    }
-
-    public Iterable<Map.Entry<V, L>> predecessors(V target) {
-        return reverseReachable.getOrDefault(target, Map.of()).entrySet();
-    }
-
-    public void removeFact(Fact<V, L> fact) {
-        Map<V, L> map = reachable.get(fact.source());
-        if (map != null) {
-            map.remove(fact.target());
-        }
-        Map<V, L> map2 = reverseReachable.get(fact.target());
-        if (map2 != null) {
-            map2.remove(fact.source());
-        }
     }
 
     public Stream<Map.Entry<V, L>> successorStream(V target) {
@@ -87,7 +70,6 @@ public class ClosureIndex<V, L> {
                     Fact<V, L> fact = new Fact<>(v, entry.getKey(), entry.getValue());
                     if (acceptForRemoval.test(fact)) {
                         result.add(fact);
-                        reverseReachable.get(entry.getKey()).remove(v);
                         return true;
                     }
                     return false;
@@ -99,8 +81,6 @@ public class ClosureIndex<V, L> {
 
     public void removeVertices(Set<V> vertices) {
         reachable.keySet().removeAll(vertices);
-        reverseReachable.keySet().removeAll(vertices);
         reachable.values().forEach(map -> map.keySet().removeAll(vertices));
-        reverseReachable.values().forEach(map -> map.keySet().removeAll(vertices));
     }
 }

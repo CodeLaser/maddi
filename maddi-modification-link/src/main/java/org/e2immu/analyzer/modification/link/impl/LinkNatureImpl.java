@@ -135,6 +135,11 @@ public class LinkNatureImpl implements LinkNature {
     }
 
     @Override
+    public int score() {
+        return N - rank;
+    }
+
+    @Override
     public Set<MethodInfo> pass() {
         return pass;
     }
