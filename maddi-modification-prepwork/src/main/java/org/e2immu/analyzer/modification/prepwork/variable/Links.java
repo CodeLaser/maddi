@@ -73,6 +73,8 @@ public interface Links extends Iterable<Link>, Value {
         Iterable<Link> linkSet();
 
         int size();
+
+        Builder sort();
     }
 
     // methods that do something

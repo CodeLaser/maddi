@@ -1,7 +1,9 @@
 package org.e2immu.analyzer.modification.link.impl.graph;
 
 import org.e2immu.analyzer.modification.prepwork.Util;
+import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.HashMap;
@@ -19,12 +21,21 @@ public class EquivalenceGroup {
                 .map(e -> e.getKey() + ": "
                           + e.getValue().linkNature + " "
                           + e.getValue().members.stream().sorted(Variable::compareTo)
-                                  .map(variablePrinter::apply)
+                                  .map(variablePrinter)
                                   .collect(Collectors.joining(", ")))
                 .collect(Collectors.joining("\n"));
     }
 
     public record Group(LinkNature linkNature, Set<Variable> members) {
+        public Stream<Link> expand(Variable v1) {
+            Stream.Builder<Link> links = Stream.builder();
+            for (Variable v2 : members) {
+                if (v1 != v2) {
+                    links.accept(new LinksImpl.LinkImpl(v1, linkNature, v2));
+                }
+            }
+            return links.build();
+        }
     }
 
     private static final Group EMPTY = new Group(null, Set.of());
@@ -32,6 +43,20 @@ public class EquivalenceGroup {
     private final AtomicInteger groupIdProvider = new AtomicInteger();
     private final Map<Integer, Group> groups = new HashMap<>();
     private final Map<Variable, Integer> memberToGroup = new HashMap<>();
+
+    public Iterable<Map.Entry<Variable, Map<Variable, LinkNature>>> edges() {
+        Map<Variable, Map<Variable, LinkNature>> map = new HashMap<>();
+        for (Group group : groups.values()) {
+            for (Variable v1 : group.members) {
+                Map<Variable, LinkNature> sub = new HashMap<>();
+                for (Variable v2 : group.members) {
+                    if (v1 != v2) sub.put(v2, group.linkNature);
+                }
+                map.put(v1, sub);
+            }
+        }
+        return map.entrySet();
+    }
 
     public Group members(Variable variable) {
         Integer groupId = memberToGroup.get(variable);

@@ -95,7 +95,8 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
     boolean doOneMakeGraphCycle(String statementIndex, Set<Variable> modifiedInThisEvaluation) {
         Map<Variable, Set<Variable>> subs = computeSubs(modifiedInThisEvaluation);
         List<Edge> newLinks = new ArrayList<>();
-        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edgesWithEquivalence()) {
+        // TODO should we use graph.edges() here, or graph.edgesWithEquivalence() ? if so, we'll need to cache the result
+        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : graph.edges()) {
             Variable vFrom = entry.getKey();
             for (Map.Entry<Variable, LinkNature> entry2 : entry.getValue().entrySet()) {
                 Variable vTo = entry2.getKey();
