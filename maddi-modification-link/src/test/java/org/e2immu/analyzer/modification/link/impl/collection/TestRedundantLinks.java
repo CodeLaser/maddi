@@ -56,25 +56,30 @@ public class TestRedundantLinks extends CommonTest {
         assertEquals("[l1, a.b.X.method(java.util.List<String>):0:list, l2]",
                 vd1.knownVariableNames().toString());
         VariableInfo vi1L1 = vd1.variableInfo("l1");
-        assertEquals("l1.§$s⊇l2.§$s,l1.§$s⊆0:list.§$s",
+        assertEquals("l1.§$s⊆0:list.§$s,l1.§$s⊇l2.§$s",
                 vi1L1.linkedVariables().toString());
         VariableInfo vi1List = vd1.variableInfo(list);
         // only points to l1
-        assertEquals("0:list.§$s⊇l1.§$s", vi1List.linkedVariables().toString()); // 0:list.§$s⊇l2.§$s dropped
+        assertEquals("0:list.§$s⊇l1.§$s,0:list.§$s⊇l2.§$s", vi1List.linkedVariables().toString());
+        // TODO: 0:list.§$s⊇l2.§$s used to be ignored, now, we keep it 202604
         VariableInfo vi1L2 = vd1.variableInfo("l2");
-        assertEquals("l2.§$s⊆l1.§$s", vi1L2.linkedVariables().toString()); // l2.§$s⊆0:list.§$s dropped
+        assertEquals("l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s", vi1L2.linkedVariables().toString());
+        // TODO l2.§$s⊆0:list.§$s used to be ignored, now, we keep it 202604
 
         VariableData vd3 = VariableDataImpl.of(method.methodBody().statements().getLast());
         VariableInfo vi3L1 = vd3.variableInfo("l1");
         assertEquals("""
-                l1.§$s⊇method.§$s,l1.§$s⊇l2.§$s,l1.§$s⊇l3.§$s,l1.§$s⊆0:list.§$s\
+                l1.§$s⊇method.§$s,l1.§$s⊆0:list.§$s,l1.§$s⊇l2.§$s,l1.§$s⊇l3.§$s\
                 """, vi3L1.linkedVariables().toString());
         VariableInfo vi3L2 = vd3.variableInfo("l2");
-        assertEquals("l2.§$s⊆l1.§$s", vi3L2.linkedVariables().toString());
+        assertEquals("l2.§$s⊇method.§$s,l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,l2.§$s⊇l3.§$s",
+                vi3L2.linkedVariables().toString());
+        // TODO used to be "l2.§$s⊆l1.§$s" only
         VariableInfo vi3L3 = vd3.variableInfo("l3");
         assertFalse(vi3L3.isModified());
-        assertEquals("l3.§$s⊆l1.§$s,l3→method", vi3L3.linkedVariables().toString());
-        // l3.§$s⊆0:list.§$s andl3.§$s⊆l1.§$s dropped
+        assertEquals("l3.§$s→method.§$s,l3.§$s⊆0:list.§$s,l3.§$s⊆l1.§$s,l3.§$s⊆l2.§$s,l3→method",
+                vi3L3.linkedVariables().toString());
+        // TODO l3.§$s⊆0:list.§$s andl3.§$s⊆l1.§$s dropped
         assertTrue(mlvSet.modified().isEmpty());
 
         assertEquals("[-] --> method.§$s⊆0:list.§$s", mlvSet.toString());

@@ -61,7 +61,9 @@ class WriteLinksAndModification {
          are "before the modification", such as ∈ in a removeFirst() operation on a list (TestDependent,1),
          and the ⊆ to ~ is an "after the modification" operation.
 
-         Aaargh!
+         The solution here is to selectively remove the correct edges from the graph, and to rely
+         on the 'best path' to solve the problem. TestDependent,2 shows the way. TestList2,2 shows a variant
+         of the problem, with assignment order.
          */
         if (!toRemove.isEmpty()) {
             Set<Variable> affected = new HashSet<>();
@@ -72,7 +74,7 @@ class WriteLinksAndModification {
                 affected.add(link.to());
                 updateNewLinks(newLinkedVariables, link);
             }
-           // assert !affected.isEmpty();
+            // assert !affected.isEmpty();
             followGraph.graph().recompute(affected, statement.source().index(), this::acceptRemoval);
         }
         Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
@@ -84,6 +86,8 @@ class WriteLinksAndModification {
         return new WriteResult(builtNewLinkedVariables, unmarkedModifications, sum);
     }
 
+    // FIXME should be replaced by real code that goes as far as §m equivalence: anything @Dependent
+    //  should be removed
     private boolean acceptRemoval(Fact<Variable, LinkNature> fact) {
         return fact.label() == IS_SUBSET_OF || fact.label() == IS_SUPERSET_OF;
     }

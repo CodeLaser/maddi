@@ -16,14 +16,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class EquivalenceGroup {
-    public String print(Function<Variable, String> variablePrinter) {
-        return groups.entrySet().stream()
-                .map(e -> e.getKey() + ": "
-                          + e.getValue().linkNature + " "
-                          + e.getValue().members.stream().sorted(Variable::compareTo)
-                                  .map(variablePrinter)
-                                  .collect(Collectors.joining(", ")))
-                .collect(Collectors.joining("\n"));
+    public Stream<Variable> variables() {
+        return memberToGroup.keySet().stream();
     }
 
     public record Group(LinkNature linkNature, Set<Variable> members) {
@@ -43,6 +37,22 @@ public class EquivalenceGroup {
     private final AtomicInteger groupIdProvider = new AtomicInteger();
     private final Map<Integer, Group> groups = new HashMap<>();
     private final Map<Variable, Integer> memberToGroup = new HashMap<>();
+
+    public String print(Function<Variable, String> variablePrinter) {
+        return groups.entrySet().stream()
+                .map(e -> e.getKey() + ": "
+                          + e.getValue().linkNature + " "
+                          + e.getValue().members.stream().sorted(Variable::compareTo)
+                                  .map(variablePrinter)
+                                  .collect(Collectors.joining(", ")))
+                .collect(Collectors.joining("\n"));
+    }
+
+
+    public void remove(Set<Variable> variables) {
+        memberToGroup.keySet().removeAll(variables);
+        groups.values().forEach(g -> g.members.removeAll(variables));
+    }
 
     public Iterable<Map.Entry<Variable, Map<Variable, LinkNature>>> edges() {
         Map<Variable, Map<Variable, LinkNature>> map = new HashMap<>();
