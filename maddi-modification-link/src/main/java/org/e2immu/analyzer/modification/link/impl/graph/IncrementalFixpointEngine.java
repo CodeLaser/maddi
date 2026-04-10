@@ -1,5 +1,8 @@
 package org.e2immu.analyzer.modification.link.impl.graph;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.*;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
@@ -19,14 +22,23 @@ Features:
 2. ClosureGraph is symmetric: if a B c is present, then c rev(B) a is present as well
    we do not need to store the reverse graph for efficiency reasons
 3. The incremental fixpoint algorithm must have a forward and a backward phase, because the lack of operator symmetry.
+   Each phase must do one direction at a time!
 4. we prefer direct high value edges over lower value edges, e.g. ← + ∈ is preferred over ∈ + ~
    Their outcome is different!
+   As a consequence, the forward propagation must go over the closure rather
+   than the graph, because otherwise it cannot find the best combination (it will find 'a' combination).
+   See TestDependent,2 for an example, where ∈? finally gets replaced by ∈ because of an already existing combination
+   in the closure.
 5. the Graph and MakeGraph classes try to keep this graph as simple as possible, whilst generally being
    the cause for this graph system being ways too large in complex situations.
 6. modifications on certain variables can cause a selection of edges to be removed. This class provides a
    'repair' function to recompute the closure.
+
+
  */
 public final class IncrementalFixpointEngine<V, L> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(IncrementalFixpointEngine.class);
+
     private final LabeledGraph<V, L> graph;
     private final Closure<V, L> closure;
     private final WitnessIndex<V, L> witnessIndex;
@@ -126,6 +138,7 @@ public final class IncrementalFixpointEngine<V, L> {
         Deque<Fact<V, L>> queue = new ArrayDeque<>(seeds);
         while (!queue.isEmpty()) {
             Fact<V, L> fact = queue.removeFirst();
+            LOGGER.debug("Process {}", fact);
             propagateForward(fact, queue);
             propagateBackward(fact, queue);
         }
@@ -134,7 +147,7 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     private void propagateForward(Fact<V, L> fact, Deque<Fact<V, L>> queue) {
-        for (Map.Entry<V, L> edge : graph.successors(fact.target()).entrySet()) {
+        for (Map.Entry<V, L> edge : closure.successors(fact.target())) {
             L nextLabel = combine.apply(fact.label(), edge.getValue());
             V source = fact.source();
             V target = edge.getKey();
