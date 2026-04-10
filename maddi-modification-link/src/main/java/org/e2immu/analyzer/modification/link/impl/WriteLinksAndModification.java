@@ -60,7 +60,7 @@ class WriteLinksAndModification {
             if (toRemove.isEmpty()) {
                 Map<Variable, Links> builtNewLinkedVariables = new HashMap<>();
                 int sum = newLinkedVariables.entrySet().stream().mapToInt(e -> {
-                    Links links = e.getValue().build();
+                    Links links = e.getValue().sort().build();
                     builtNewLinkedVariables.put(e.getKey(), links);
                     return links.size();
                 }).sum();
@@ -96,7 +96,6 @@ class WriteLinksAndModification {
 
         Links.Builder builder = followGraph.followGraph(virtualFieldComputer, variable);
         followGraph.graph().equivalentEdgesStream(variable)
-                .sorted(Link::compareTo)
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {

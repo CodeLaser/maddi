@@ -231,6 +231,12 @@ public class LinksImpl implements Links {
         public int size() {
             return links.size();
         }
+
+        @Override
+        public Builder sort() {
+            links.sort(Link::compareTo);
+            return this;
+        }
     }
 
     // private so that we can ensure that only the links builder can make link objects

@@ -153,7 +153,7 @@ public class TestDependent extends CommonTest {
 
         VariableData add0 = VariableDataImpl.of(add.methodBody().statements().getFirst());
         VariableInfo viIterator0 = add0.variableInfo("iterator");
-        assertEquals("iterator.§ts⊆0:list.§ts,iterator.§m☷0:list.§m", viIterator0.linkedVariables().toString());
+        assertEquals("iterator.§m☷0:list.§m,iterator.§ts⊆0:list.§ts", viIterator0.linkedVariables().toString());
         // make sure that list is modified! we must pass the .remove() method
         assertEquals("[-] --> method∈0:list*.§ts", mlvAdd.toString());
     }

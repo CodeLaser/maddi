@@ -6,14 +6,16 @@ import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngin
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -36,20 +38,14 @@ public class Graph {
         return engine.vertices().contains(primary);
     }
 
-    // FIXME this does not seem to be the solution
+    public Iterable<Map.Entry<Variable, Map<Variable, LinkNature>>> edges() {
+        return engine.edges();
+    }
+
     public Iterable<Map.Entry<Variable, Map<Variable, LinkNature>>> edgesWithEquivalence() {
         List<Map.Entry<Variable, Map<Variable, LinkNature>>> res = new LinkedList<>();
-        for (Map.Entry<Variable, Map<Variable, LinkNature>> entry : engine.edges()) {
-            EquivalenceGroup.Group group = equivalenceGroup.members(entry.getKey());
-            if (group.members().isEmpty()) {
-                res.add(entry);
-            } else {
-                // augment!
-                Map<Variable, LinkNature> map = new HashMap<>(entry.getValue());
-                group.members().forEach(v -> map.merge(v, group.linkNature(), LinkNature::best));
-                res.add(new AbstractMap.SimpleEntry<>(entry.getKey(), map));
-            }
-        }
+        engine.edges().forEach(res::add);
+        equivalenceGroup.edges().forEach(res::add);
         return res;
     }
 
@@ -64,22 +60,9 @@ public class Graph {
         Set<Variable> variables = equivalenceGroup.variablesPartOf(primary);
         Map<Variable, EquivalenceGroup.Group> groups = variables.stream()
                 .collect(Collectors.toUnmodifiableMap(v -> v, equivalenceGroup::members));
-        return groups.entrySet().stream()
-                .flatMap(e -> expand(Set.of(e.getKey()), e.getValue()));
+        return groups.entrySet().stream().flatMap(e -> e.getValue().expand(e.getKey()));
     }
 
-
-    private static Stream<Link> expand(Set<Variable> set1, EquivalenceGroup.Group group) {
-        Stream.Builder<Link> links = Stream.builder();
-        for (Variable v1 : set1) {
-            for (Variable v2 : group.members()) {
-                if (v1 != v2) {
-                    links.accept(new LinksImpl.LinkImpl(v1, group.linkNature(), v2));
-                }
-            }
-        }
-        return links.build();
-    }
 
     boolean mergeEdgeBi(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
         if (from.equals(to)) {
