@@ -245,6 +245,12 @@ public class LinksImpl implements Links {
             links.sort(Link::compareTo);
             return this;
         }
+
+        @Override
+        public boolean containsPrimaryOf(Variable to) {
+            Variable toPrimary = Util.primary(to);
+            return links.stream().anyMatch(l -> Util.primary(l.to()).equals(toPrimary));
+        }
     }
 
     // private so that we can ensure that only the links builder can make link objects

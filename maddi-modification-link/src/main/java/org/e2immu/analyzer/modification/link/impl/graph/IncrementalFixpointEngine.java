@@ -142,7 +142,7 @@ public final class IncrementalFixpointEngine<V, L> {
             propagateForward(fact, queue);
             propagateBackward(fact, queue);
         }
-
+        LOGGER.debug("End of update, {}", statementIndex);
         return newFacts;
     }
 
@@ -246,6 +246,7 @@ public final class IncrementalFixpointEngine<V, L> {
         for (V u : affected) {
             for (var edge : graph.successors(u).entrySet()) {
                 seeds.add(new Fact<>(u, edge.getKey(), edge.getValue()));
+                seeds.add(new Fact<>(edge.getKey(), u, reverse.apply(edge.getValue())));
             }
         }
         incrementalUpdate(seeds, statementIndex);

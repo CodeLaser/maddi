@@ -47,7 +47,7 @@ public class TestRedundantModificationLinks extends CommonTest {
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo vi0L1 = vd0.variableInfo("l1");
-        assertEquals("l1←0:list,l1.§m≡0:list.§m", vi0L1.linkedVariables().toString());
+        assertEquals("l1.§m≡0:list.§m,l1←0:list", vi0L1.linkedVariables().toString());
         VariableInfo vi0List = vd0.variableInfo(list);
         assertEquals("0:list→l1,0:list.§m≡l1.§m", vi0List.linkedVariables().toString());
 
@@ -59,25 +59,22 @@ public class TestRedundantModificationLinks extends CommonTest {
                 vi1L1.linkedVariables().toString());
         VariableInfo vi1List = vd1.variableInfo(list);
         // only points to l1
-        assertEquals("0:list.§$s→l1.§$s,0:list.§$s⊇l2.§$s,0:list.§m≡l1.§m,0:list→l1",
+        assertEquals("0:list→l1,0:list.§$s→l1.§$s,0:list.§$s⊇l2.§$s,0:list.§m≡l1.§m,0:list.§m≡l2.§m",
                 vi1List.linkedVariables().toString());
         VariableInfo vi1L2 = vd1.variableInfo("l2");
-        assertEquals("l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,l2.§m≡l1.§m", vi1L2.linkedVariables().toString());
+        assertEquals("l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,l2.§m≡0:list.§m,l2.§m≡l1.§m", vi1L2.linkedVariables().toString());
 
         VariableData vd3 = VariableDataImpl.of(method.methodBody().statements().getLast());
         VariableInfo vi3L1 = vd3.variableInfo("l1");
         assertEquals("""
-                l1.§$s←0:list.§$s,l1.§$s⊇method.§$s,l1.§$s⊇l2.§$s,l1.§$s⊇l3.§$s,l1.§m≡method.§m,\
-                l1.§m≡0:list.§m,\
-                l1.§m≡l2.§m,\
-                l1.§m≡l3.§m,\
-                l1←0:list\
+                l1.§$s⊇method.§$s,l1.§$s←0:list.§$s,l1.§$s⊇l2.§$s,l1.§$s⊇l3.§$s,l1.§m≡method.§m,\
+                l1.§m≡0:list.§m,l1.§m≡l2.§m,l1.§m≡l3.§m,l1←0:list\
                 """, vi3L1.linkedVariables().toString());
         VariableInfo vi3L2 = vd3.variableInfo("l2");
-        assertEquals("l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,l2.§m≡l1.§m", vi3L2.linkedVariables().toString());
+        assertEquals("l2.§$s⊇method.§$s,l2.§$s⊆0:list.§$s,l2.§$s⊆l1.§$s,l2.§$s⊇l3.§$s,l2.§m≡method.§m,l2.§m≡0:list.§m,l2.§m≡l1.§m,l2.§m≡l3.§m", vi3L2.linkedVariables().toString());
         VariableInfo vi3L3 = vd3.variableInfo("l3");
         assertFalse(vi3L3.isModified());
-        assertEquals("l3.§$s⊆l1.§$s,l3.§m≡l1.§m,l3→method", vi3L3.linkedVariables().toString());
+        assertEquals("l3.§$s→method.§$s,l3.§$s⊆0:list.§$s,l3.§$s⊆l1.§$s,l3.§$s⊆l2.§$s,l3.§m≡method.§m,l3.§m≡0:list.§m,l3.§m≡l1.§m,l3.§m≡l2.§m,l3→method", vi3L3.linkedVariables().toString());
         assertTrue(mlvSet.modified().isEmpty());
 
         assertEquals("[-] --> method.§$s⊆0:list.§$s,method.§m≡0:list.§m", mlvSet.toString());

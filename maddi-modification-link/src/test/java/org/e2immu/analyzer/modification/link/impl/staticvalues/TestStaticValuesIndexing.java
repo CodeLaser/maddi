@@ -47,7 +47,7 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         VariableInfo vi0J = vd0.variableInfo("j");
         assertEquals("j←$_ce0", vi0J.linkedVariables().toString());
-        assertEquals("[-] --> method←0:a[3],method∈0:a", mlv.toString());
+        assertEquals("[-] --> method∈0:a,method←0:a[3]", mlv.toString());
     }
 
     @Language("java")
@@ -80,23 +80,23 @@ public class TestStaticValuesIndexing extends CommonTest {
 
         MethodInfo setYs = X.findUniqueMethod("setYs", 2);
         MethodLinkedVariables mlvSetYs = setYs.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(setYs));
-        assertEquals("[-, 1:y→this.ys*[0:i],1:y∈this.ys*] --> -", mlvSetYs.toString());
+        assertEquals("[-, 1:y∈this.ys*,1:y→this.ys*[0:i]] --> -", mlvSetYs.toString());
 
         MethodInfo getYs = X.findUniqueMethod("getYs", 1);
         MethodLinkedVariables mlvGetYs = getYs.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(getYs));
-        assertEquals("[-] --> getYs←this.ys[0:i],getYs∈this.ys", mlvGetYs.toString());
+        assertEquals("[-] --> getYs∈this.ys,getYs←this.ys[0:i]", mlvGetYs.toString());
 
         MethodInfo method = X.findUniqueMethod("method", 0);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
 
         VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         VariableInfo viY = vd0.variableInfo("y");
-        assertEquals("y←this.ys[0],y∈this.ys", viY.linkedVariables().toString());
+        assertEquals("y∈this.ys,y←this.ys[0]", viY.linkedVariables().toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
         VariableInfo viY1 = vd1.variableInfo("y");
-        assertEquals("y→this.ys[1],y←this.ys[0],y∈this.ys", viY1.linkedVariables().toString());
-        assertEquals("[] --> method→this.ys*[1],method←this.ys*[0],method∈this.ys*", mlv.toString());
+        assertEquals("y∈this.ys,y←this.ys[0],y→this.ys[1]", viY1.linkedVariables().toString());
+        assertEquals("[] --> method∈this.ys*,method←this.ys*[0],method≡this.ys*[1]", mlv.toString());
         assertEquals("this, this.ys", mlv.sortedModifiedString());
     }
 }
