@@ -134,6 +134,9 @@ public class TestDependent extends CommonTest {
         VariableInfo viNext2 = add2.variableInfo("next");
         assertEquals("next→method,next∈iterator.§ts,next∈0:list.§ts", viNext2.linkedVariables().toString());
 
+        VariableInfo viMethod2 = add2.variableInfo(add.fullyQualifiedName());
+        assertEquals("method∈?0:list.§ts", viMethod2.linkedVariables().toString());
+
         // make sure that list is not modified, and that method ∈, not ∈?
         assertEquals("[-] --> method∈0:list.§ts", mlvAdd.toString());
     }

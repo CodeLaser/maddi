@@ -12,15 +12,14 @@ public final class WitnessIndex<V, L> {
     }
 
     public String print(Fact<V, L> fact) {
-        Witness<V, L> w = witnesses.get(fact);
-        if (w == null) return "";
-        return w.toString();
+        return print(Object::toString, fact);
     }
 
     public String print(Function<V, String> vertexPrinter, Fact<V, L> fact) {
         Witness<V, L> w = witnesses.get(fact);
         if (w == null) return "";
-        return w.print(vertexPrinter);
+        int cost = witnessCost(w);
+        return w.print(vertexPrinter) + (cost == 0 ? "" : "(" + cost + ")");
     }
 
     private int witnessCost(Witness<V, L> witness) {
