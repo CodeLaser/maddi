@@ -23,6 +23,8 @@ Features:
    Their outcome is different!
 5. the Graph and MakeGraph classes try to keep this graph as simple as possible, whilst generally being
    the cause for this graph system being ways too large in complex situations.
+6. modifications on certain variables can cause a selection of edges to be removed. This class provides a
+   'repair' function to recompute the closure.
  */
 public final class IncrementalFixpointEngine<V, L> {
     private final LabeledGraph<V, L> graph;
@@ -41,10 +43,10 @@ public final class IncrementalFixpointEngine<V, L> {
         this.graph = new LabeledGraph<>();
         this.closure = new Closure<>(best);
         this.witnessIndex = new WitnessIndex<>(scoreFunction);
-        this.combine = combine;
-        this.valid = valid;
-        this.best = best;
-        this.reverse = reverse;
+        this.combine = Objects.requireNonNull(combine);
+        this.valid = Objects.requireNonNull(valid);
+        this.best = Objects.requireNonNull(best);
+        this.reverse = Objects.requireNonNull(reverse);
     }
 
     public L label(V from, V to) {
@@ -113,27 +115,26 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     private int incrementalUpdate(Collection<Fact<V, L>> seeds, String statementIndex) {
-        Deque<Fact<V, L>> queue = new ArrayDeque<>(seeds);
         int newFacts = 0;
-        while (!queue.isEmpty()) {
-            Fact<V, L> fact = queue.removeFirst();
-
+        for (Fact<V, L> fact : seeds) {
             if (closure.add(fact.source(), fact.target(), fact.label())) {
                 newFacts++;
-
                 witnessIndex.putIfBetter(fact,
                         new Witness.DirectWitness<>(fact.source(), fact.target(), fact.label(), statementIndex));
-
-                propagateForward(fact, queue);
-                propagateBackward(fact, queue);
             }
+        }
+        Deque<Fact<V, L>> queue = new ArrayDeque<>(seeds);
+        while (!queue.isEmpty()) {
+            Fact<V, L> fact = queue.removeFirst();
+            propagateForward(fact, queue);
+            propagateBackward(fact, queue);
         }
 
         return newFacts;
     }
 
     private void propagateForward(Fact<V, L> fact, Deque<Fact<V, L>> queue) {
-        for (var edge : graph.successors(fact.target()).entrySet()) {
+        for (Map.Entry<V, L> edge : graph.successors(fact.target()).entrySet()) {
             L nextLabel = combine.apply(fact.label(), edge.getValue());
             V source = fact.source();
             V target = edge.getKey();
@@ -150,18 +151,21 @@ public final class IncrementalFixpointEngine<V, L> {
 
     private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue) {
         V source = fact.source();
-        for (var pred : closure.successors(source)) {
-            V p = pred.getKey();
-            L label = closure.label(p, source);
-            L predLabel = reverse.apply(label); // because we're following the successors!
+        for (Map.Entry<V, L> edge : closure.successors(source)) {
+            V p = edge.getKey();
             V target = fact.target();
-            if (valid.test(predLabel) && !p.equals(target) && !p.equals(source)) {
-                Fact<V, L> next = new Fact<>(p, target, combine.apply(predLabel, fact.label()));
-                Fact<V, L> newFact = new Fact<>(p, source, predLabel);
-                boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(newFact, fact));
+            if (!p.equals(source) && !p.equals(target)) {
+                L label = edge.getValue();
+                L predLabel = reverse.apply(label); // because we're following the successors!
+                L combined = combine.apply(predLabel, fact.label());
+                if (valid.test(combined)) {
+                    Fact<V, L> next = new Fact<>(p, target, combined);
+                    Fact<V, L> newFact = new Fact<>(p, source, predLabel);
+                    boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(newFact, fact));
 
-                if (closure.add(next.source(), next.target(), next.label()) || improved) {
-                    queue.addLast(next);
+                    if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                        queue.addLast(next);
+                    }
                 }
             }
         }

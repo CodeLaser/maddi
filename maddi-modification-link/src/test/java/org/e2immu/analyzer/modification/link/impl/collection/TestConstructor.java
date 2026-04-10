@@ -79,10 +79,10 @@ public class TestConstructor extends CommonTest {
                             """, graph.print());
                     assertEquals("""
                             0:input.§$s ~ iis.§$s   1(0:input.§$s ~ iis.§$s)
-                            0:input.§$s ∋? removed   [0:input.§$s ~ iis.§$s, iis.§$s ∋ removed]
+                            0:input.§$s ∋ removed   [0:input.§$s ⊇ iis.§$s, iis.§$s ∋ removed](17)
                             iis.§$s ~ 0:input.§$s   1(iis.§$s ~ 0:input.§$s)
                             iis.§$s ∋ removed   1(iis.§$s ∋ removed)
-                            removed ∈? 0:input.§$s   [removed ∈ iis.§$s, iis.§$s ~ 0:input.§$s]
+                            removed ∈ 0:input.§$s   [removed ∈ iis.§$s, iis.§$s ⊆ 0:input.§$s](19)
                             removed ∈ iis.§$s   1(removed ∈ iis.§$s)
                             """, graph.printClosure());
                 }
@@ -115,7 +115,7 @@ public class TestConstructor extends CommonTest {
             Statement callM2 = methodB.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(callM2);
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
-            assertEquals("removed∈?0:input.§$s,removed∈iis.§$s", removed.linkedVariablesOrEmpty().toString());
+            assertEquals("removed∈0:input.§$s,removed∈iis.§$s", removed.linkedVariablesOrEmpty().toString());
 
             assertEquals("[-] --> -", mlvB.toString());
         }
