@@ -64,6 +64,8 @@ public interface Links extends Iterable<Link>, Value {
 
         void prepend(LinkNature linkNature, Variable to);
 
+        void replace(Link link, LinkNature newLinkNature);
+
         Variable primary();
 
         void removeIf(Predicate<Link> link);

@@ -15,10 +15,13 @@ public class LinkNatureImpl implements LinkNature {
     public static final LinkNature NONE = new LinkNatureImpl("X", 0);
     public static final LinkNature EMPTY = new LinkNatureImpl("∅", 1);
 
+    // helpers for moving between objects
     public static final LinkNature IS_FIELD_OF = new LinkNatureImpl("≺", 2);
     public static final LinkNature CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 3);
     public static final LinkNature SHARES_FIELDS = new LinkNatureImpl("≈", 4);
 
+    // see TestConsumers,2; necessary to make the connection between filtered and streamed
+    // TODO extremely expensive
     public static final LinkNature OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 5);
     public static final LinkNature IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 6);
     public static final LinkNature OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 7);
@@ -28,20 +31,27 @@ public class LinkNatureImpl implements LinkNature {
     public static final LinkNature IS_SUBSET_OF = new LinkNatureImpl("⊆", 9);
     public static final LinkNature IS_SUPERSET_OF = new LinkNatureImpl("⊇", 10);
 
-    public static final LinkNature IS_ELEMENT_OF = new LinkNatureImpl("∈", 11);
-    public static final LinkNature CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 12);
+    // these must have a lower rank than ∈, ∋
+    public static final LinkNature COULD_BE_ELEMENT_OF = new LinkNatureImpl("∈?", 11);
+    public static final LinkNature COULD_CONTAIN_AS_MEMBER = new LinkNatureImpl("∋?", 12);
 
-    public static final LinkNature IS_DECORATED_WITH = new LinkNatureImpl("↗", 13);
-    public static final LinkNature CONTAINS_DECORATION = new LinkNatureImpl("↖", 14);
+    public static final LinkNature IS_ELEMENT_OF = new LinkNatureImpl("∈", 13);
+    public static final LinkNature CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 14);
 
+    // used for functional interfaces
+    public static final LinkNature IS_DECORATED_WITH = new LinkNatureImpl("↗", 15);
+    public static final LinkNature CONTAINS_DECORATION = new LinkNatureImpl("↖", 16);
+
+    // identical as long as some methods are not involved (e.g. remove() on Iterator)
     private static final String IDENTICAL_TO_PASS_SYMBOL = "☷"; // tri-gram for earth, 0x2637
-    private static final int IDENTICAL_TO_RANK = 15;
+    private static final int IDENTICAL_TO_RANK = 17;
 
+    // real equivalence, used for §m mutation links
     private static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", IDENTICAL_TO_RANK);
 
     // java a=b implies a ← b
-    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 16);
-    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 17);
+    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 18);
+    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 19);
     private static final int N = IS_ASSIGNED_TO.rank() + 1;
 
 
@@ -69,6 +79,7 @@ public class LinkNatureImpl implements LinkNature {
 
     private static final LinkNature[] linkNatures = {
             NONE, EMPTY, IS_FIELD_OF, CONTAINS_AS_FIELD, SHARES_FIELDS, OBJECT_GRAPH_OVERLAPS, IS_IN_OBJECT_GRAPH,
+            COULD_BE_ELEMENT_OF, COULD_CONTAIN_AS_MEMBER,
             OBJECT_GRAPH_CONTAINS, SHARES_ELEMENTS, IS_SUBSET_OF, IS_SUPERSET_OF, IS_ELEMENT_OF,
             CONTAINS_AS_MEMBER, IS_DECORATED_WITH, CONTAINS_DECORATION, IS_ASSIGNED_FROM,
             IS_ASSIGNED_TO, IS_IDENTICAL_TO};
@@ -128,6 +139,7 @@ public class LinkNatureImpl implements LinkNature {
         return pass;
     }
 
+    // write ∈∈ when there are 2 array dimensions to be followed
     @Override
     public boolean multiplySymbols() {
         return this == IS_ELEMENT_OF || this == CONTAINS_AS_MEMBER;
@@ -187,6 +199,8 @@ public class LinkNatureImpl implements LinkNature {
         if (this == IS_ASSIGNED_TO) return IS_ASSIGNED_FROM;
         if (this == IS_DECORATED_WITH) return CONTAINS_DECORATION;
         if (this == CONTAINS_DECORATION) return IS_DECORATED_WITH;
+        if (this == COULD_BE_ELEMENT_OF) return COULD_CONTAIN_AS_MEMBER;
+        if (this == COULD_CONTAIN_AS_MEMBER) return COULD_BE_ELEMENT_OF;
         return this;
     }
 
@@ -255,9 +269,14 @@ public class LinkNatureImpl implements LinkNature {
 
         if (this == IS_ELEMENT_OF) {
             if (other == IS_SUBSET_OF) return IS_ELEMENT_OF;
+            if (other == COULD_BE_ELEMENT_OF || other == SHARES_ELEMENTS) return COULD_BE_ELEMENT_OF;
             if (other == IS_IN_OBJECT_GRAPH || other == IS_FIELD_OF) return IS_IN_OBJECT_GRAPH;
             // (*)
             if (other == OBJECT_GRAPH_OVERLAPS) return OBJECT_GRAPH_OVERLAPS;
+        }
+
+        if (this == COULD_BE_ELEMENT_OF) {
+            if (other == IS_SUBSET_OF) return COULD_BE_ELEMENT_OF;
         }
 
         if (this == IS_FIELD_OF) {
@@ -335,6 +354,7 @@ public class LinkNatureImpl implements LinkNature {
         }
 
         if (this == SHARES_ELEMENTS) {
+            if (other == CONTAINS_AS_MEMBER) return COULD_CONTAIN_AS_MEMBER;
             if (other == IS_SUBSET_OF) return SHARES_ELEMENTS;
             if (other == IS_ELEMENT_OF
                 || other == IS_FIELD_OF

@@ -92,7 +92,7 @@ public record MakeGraph(JavaInspector javaInspector, Runtime runtime, Graph grap
                || !(mv.assignmentExpression() instanceof NullConstant);
     }
 
-    boolean doOneMakeGraphCycle(String statementIndex, Set<Variable> modifiedInThisEvaluation) {
+    boolean expandGraph(String statementIndex, Set<Variable> modifiedInThisEvaluation) {
         Map<Variable, Set<Variable>> subs = computeSubs(modifiedInThisEvaluation);
         List<Edge> newLinks = new ArrayList<>();
         // TODO should we use graph.edges() here, or graph.edgesWithEquivalence() ? if so, we'll need to cache the result

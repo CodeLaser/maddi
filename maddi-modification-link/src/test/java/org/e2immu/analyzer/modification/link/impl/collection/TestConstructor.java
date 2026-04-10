@@ -79,8 +79,10 @@ public class TestConstructor extends CommonTest {
                             """, graph.print());
                     assertEquals("""
                             0:input.§$s ~ iis.§$s   1(0:input.§$s ~ iis.§$s)
+                            0:input.§$s ∋? removed   [0:input.§$s ~ iis.§$s, iis.§$s ∋ removed]
                             iis.§$s ~ 0:input.§$s   1(iis.§$s ~ 0:input.§$s)
                             iis.§$s ∋ removed   1(iis.§$s ∋ removed)
+                            removed ∈? 0:input.§$s   [removed ∈ iis.§$s, iis.§$s ~ 0:input.§$s]
                             removed ∈ iis.§$s   1(removed ∈ iis.§$s)
                             """, graph.printClosure());
                 }
@@ -98,14 +100,12 @@ public class TestConstructor extends CommonTest {
             Statement s0 = methodB.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo iis = vd0.variableInfo("iis");
-            Links tlvIIS = iis.linkedVariablesOrEmpty();
-            assertEquals("iis.§$s⊆0:input.§$s", tlvIIS.toString());
+            assertEquals("iis.§$s⊆0:input.§$s", iis.linkedVariablesOrEmpty().toString());
 
             Statement s1 = methodB.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo removed1 = vd1.variableInfo("removed");
-            Links tlvT1 = removed1.linkedVariablesOrEmpty();
-            //FIXME assertEquals("removed∈iis.§$s,removed∩0:input.§$s", tlvT1.toString());
+            assertEquals("removed∈0:input.§$s,removed∈iis.§$s", removed1.linkedVariablesOrEmpty().toString());
 
             VariableInfo iis1 = vd1.variableInfo("iis");
             Links tlvIIS1 = iis1.linkedVariablesOrEmpty();
@@ -115,8 +115,7 @@ public class TestConstructor extends CommonTest {
             Statement callM2 = methodB.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(callM2);
             VariableInfo removed = vd2.variableInfoContainerOrNull("removed").best(Stage.EVALUATION);
-            Links tlvT2 = removed.linkedVariablesOrEmpty();
-           //FIXME assertEquals("removed∈iis.§$s,removed∩0:input.§$s", tlvT2.toString());
+            assertEquals("removed∈?0:input.§$s,removed∈iis.§$s", removed.linkedVariablesOrEmpty().toString());
 
             assertEquals("[-] --> -", mlvB.toString());
         }
@@ -129,36 +128,34 @@ public class TestConstructor extends CommonTest {
             Statement s0 = methodA.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             VariableInfo iis = vd0.variableInfo("iis");
-            Links tlvIIS = iis.linkedVariablesOrEmpty();
-            assertEquals("iis.§$s⊆0:input.§$s", tlvIIS.toString());
+            assertEquals("iis.§$s⊆0:input.§$s", iis.linkedVariablesOrEmpty().toString());
 
             Statement s1 = methodA.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             VariableInfo iis1 = vd1.variableInfo("iis");
-            Links tlvIIS1 = iis1.linkedVariablesOrEmpty();
-            assertEquals("iis.§$s~0:input.§$s", tlvIIS1.toString());
+            assertEquals("iis.§$s~0:input.§$s", iis1.linkedVariablesOrEmpty().toString());
 
             Statement s2 = methodA.methodBody().statements().get(2);
             VariableData vd2 = VariableDataImpl.of(s2);
             VariableInfo iis2 = vd2.variableInfo("iis");
-            Links tlvIIS2 = iis2.linkedVariablesOrEmpty();
-            assertEquals("iis.§$s∋ii,iis.§$s~0:input.§$s", tlvIIS2.toString());
+            assertEquals("iis.§$s∋ii,iis.§$s~0:input.§$s", iis2.linkedVariablesOrEmpty().toString());
 
             Statement s3 = methodA.methodBody().statements().get(3);
             VariableData vd3 = VariableDataImpl.of(s3);
             VariableInfo iis3 = vd3.variableInfo("iis");
-            Links tlvIIS3 = iis3.linkedVariablesOrEmpty();
             // NOTE: ii should have been removed!
-            assertEquals("iis.§$s∋ii2,iis.§$s~0:input.§$s", tlvIIS3.toString());
+            assertEquals("iis.§$s∋ii2,iis.§$s~0:input.§$s", iis3.linkedVariablesOrEmpty().toString());
+
+            VariableInfo ii2 = vd3.variableInfo("ii2");
+            assertEquals("ii2∈?0:input.§$s,ii2∈iis.§$s", ii2.linkedVariables().toString());
 
             Statement callM2 = methodA.methodBody().statements().get(4);
             MethodCall methodCall = (MethodCall) callM2.expression();
             assertEquals("ii2.method2(4)", methodCall.toString());
             Value.VariableBooleanMap map = methodCall.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
                     ValueImpl.VariableBooleanMapImpl.EMPTY);
-            // FIXME this can be solved by introducing a ∈? as the combination of ∈ and ~
-           // assertEquals("a.b.X.methodA(java.util.List<a.b.X.II>):0:input=false, ii2=true, iis=false",
-          //          nice(map.map()));
+            assertEquals("a.b.X.methodA(java.util.List<a.b.X.II>):0:input=false, ii2=true, iis=false",
+                    nice(map.map()));
             assertEquals("[-] --> -", mlvA.toString());
         }
     }
