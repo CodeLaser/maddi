@@ -110,7 +110,35 @@ public class TestDependent extends CommonTest {
         TypeInfo X = javaInspector.parse(INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
-        LinkComputer tlc = new LinkComputerImpl(javaInspector);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
+
+            if ("1".equals(statementIndex)) {
+                assertEquals("""
+                        iterator.§ts ~ 0:list.§ts   1(iterator.§ts ~ 0:list.§ts)
+                        iterator.§ts ∋ next   1(iterator.§ts ∋ next)
+                        0:list.§ts ~ iterator.§ts   1(0:list.§ts ~ iterator.§ts)
+                        0:list.§ts ∋ next   [0:list.§ts ⊇ iterator.§ts, iterator.§ts ∋ next](17)
+                        next ∈ iterator.§ts   1(next ∈ iterator.§ts)
+                        next ∈ 0:list.§ts   [next ∈ iterator.§ts, iterator.§ts ⊆ 0:list.§ts](19)
+                        """, graph.printClosure());
+            }
+            if ("2".equals(statementIndex)) {
+                assertEquals("""
+                        method ∈ iterator.§ts   [method ← next, next ∈ iterator.§ts](10)
+                        method ∈ 0:list.§ts   [method ← next, next ∈ 0:list.§ts](10)
+                        method ← next   2(method ← next)
+                        iterator.§ts ∋ method   [iterator.§ts ∋ next, next → method](8)
+                        iterator.§ts ~ 0:list.§ts   1(iterator.§ts ~ 0:list.§ts)
+                        iterator.§ts ∋ next   1(iterator.§ts ∋ next)
+                        0:list.§ts ∋ method   [0:list.§ts ∋ next, next → method](8)
+                        0:list.§ts ~ iterator.§ts   1(0:list.§ts ~ iterator.§ts)
+                        0:list.§ts ∋ next   [0:list.§ts ∋ method, method ← next](9)
+                        next → method   2(next → method)
+                        next ∈ iterator.§ts   1(next ∈ iterator.§ts)
+                        next ∈ 0:list.§ts   [next → method, method ∈ 0:list.§ts](9)
+                        """, graph.printClosure());
+            }
+        });
 
         MethodInfo add = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvAdd = add.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(add));
@@ -135,7 +163,7 @@ public class TestDependent extends CommonTest {
         assertEquals("next→method,next∈iterator.§ts,next∈0:list.§ts", viNext2.linkedVariables().toString());
 
         VariableInfo viMethod2 = add2.variableInfo(add.fullyQualifiedName());
-        assertEquals("method∈?0:list.§ts", viMethod2.linkedVariables().toString());
+        assertEquals("method∈0:list.§ts", viMethod2.linkedVariables().toString());
 
         // make sure that list is not modified, and that method ∈, not ∈?
         assertEquals("[-] --> method∈0:list.§ts", mlvAdd.toString());
