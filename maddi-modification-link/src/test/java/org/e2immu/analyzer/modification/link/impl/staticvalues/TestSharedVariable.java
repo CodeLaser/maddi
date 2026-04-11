@@ -66,6 +66,7 @@ public class TestSharedVariable extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 2);
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("""
+                [-, -] --> method.s1∈0:r.list1.§$s,method.s2∈0:r.list2.§$s\
                 """, mlv.toString());
     }
 }

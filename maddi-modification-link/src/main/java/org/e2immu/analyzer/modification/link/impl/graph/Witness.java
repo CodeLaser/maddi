@@ -15,21 +15,16 @@ public sealed interface Witness<V, L>
 
     String print(Function<V, String> vertexPrinter);
 
-    record DirectWitness<V, L>(V from, V to, L label, String statementIndex) implements Witness<V, L> {
-        @Override
-        public @NotNull String toString() {
-            return statementIndex + "(" + from + " " + label + " " + to + ")";
-        }
+    record DirectWitness<V, L>(Fact<V, L> fact, String statementIndex) implements Witness<V, L> {
 
         @Override
         public String print(Function<V, String> vertexPrinter) {
-            return statementIndex + "(" + vertexPrinter.apply(from) + " " + label + " "
-                   + vertexPrinter.apply(to) + ")";
+            return statementIndex + "(" + fact.print(vertexPrinter) + ")";
         }
 
         @Override
         public Set<Fact<V, L>> support() {
-            return Set.of();
+            return Set.of(fact);
         }
     }
 
@@ -44,18 +39,24 @@ public sealed interface Witness<V, L>
                                                        boolean inferred) {
             Stream<Fact<V, L>> leftSupport = leftWitness.support().stream();
             Stream<Fact<V, L>> rightSupport = rightWitness.support().stream();
-            return new CompositeWitness<>(left, right, inferred, Stream.concat(leftSupport, rightSupport)
-                    .collect(Collectors.toUnmodifiableSet()));
+            Set<Fact<V, L>> newSupport = Stream.concat(leftSupport, rightSupport)
+                    .collect(Collectors.toUnmodifiableSet());
+            return new CompositeWitness<>(left, right, inferred, newSupport);
         }
 
         @Override
         public @NotNull String toString() {
-            return (inferred ? "*" : "") + (support.size() - 2) + "[" + left + ", " + right + "]";
+            return (inferred ? "*" : "") + "[" + left + ", " + right + "]";
         }
 
         @Override
         public String print(Function<V, String> vertexPrinter) {
-            return (inferred ? "*" : "") + "[" + left.print(vertexPrinter) + ", " + right.print(vertexPrinter) + "]";
+            return (inferred ? "*" : "")
+                   + "[" + left.print(vertexPrinter) + ", " + right.print(vertexPrinter) + "]"
+                   + (support.size() > 2 ? support.stream()
+                    .filter(f -> !f.equals(left) && !f.equals(right))
+                    .map(f -> f.print(vertexPrinter))
+                    .collect(Collectors.joining(", ", " support: ", "")) : "");
         }
     }
 }

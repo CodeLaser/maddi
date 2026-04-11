@@ -70,7 +70,7 @@ public class TestDependent extends CommonTest {
         VariableInfo vi13copy = vd13.variableInfo("copy");
         assertEquals("copy.§ts∋extract3,copy.§ts~0:list.§ts", vi13copy.linkedVariables().toString());
         VariableInfo vi13list = vd13.variableInfo(extract3.parameters().getFirst());
-        assertEquals("0:list.§ts∋extract3,0:list.§ts~copy.§ts", vi13list.linkedVariables().toString());
+        assertEquals("0:list.§ts~copy.§ts", vi13list.linkedVariables().toString());
         assertEquals("[-] --> extract3∈0:list.§ts", mlv3.toString());
 
         MethodInfo extract4 = X.findUniqueMethod("extract4", 1);
@@ -157,7 +157,7 @@ public class TestDependent extends CommonTest {
         VariableData add2 = VariableDataImpl.of(add.methodBody().statements().get(2));
         VariableInfo viIterator2 = add2.variableInfo("iterator");
         assertEquals("""
-                iterator.§m☷0:list.§m,iterator.§ts∋method,iterator.§ts~0:list.§ts,iterator.§ts∋next\
+                iterator.§m☷0:list.§m,iterator.§ts~0:list.§ts,iterator.§ts∋next\
                 """, viIterator2.linkedVariables().toString());
         VariableInfo viNext2 = add2.variableInfo("next");
         assertEquals("next→method,next∈iterator.§ts,next∈0:list.§ts", viNext2.linkedVariables().toString());

@@ -16,7 +16,7 @@ public class TestEngine {
 
     final IncrementalFixpointEngine<String, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
             LinkNature::best, LinkNature::valid, LinkNature::score, LinkNature::reverse,
-            Object::toString, String::compareTo);
+            Object::toString, String::compareTo, _ -> true);
 
     @Test
     public void test1() {
