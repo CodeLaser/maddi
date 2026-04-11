@@ -23,10 +23,6 @@ public final class LabeledGraph<V, L> {
                 .collect(Collectors.joining(" / "));
     }
 
-    public String print(Comparator<V> comparator) {
-        return print(Object::toString, comparator);
-    }
-
     public String print(Function<V, String> vertexPrinter, Comparator<V> comparator) {
         return map.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                 .map(e ->
@@ -61,8 +57,8 @@ public final class LabeledGraph<V, L> {
         return !label.equals(prev);
     }
 
-    public Map<V, L> successors(V v) {
-        return map.getOrDefault(v, Map.of());
+    public Iterable<Map.Entry<V, L>> successors(V v) {
+        return map.getOrDefault(v, Map.of()).entrySet();
     }
 
     public Set<V> vertices() {

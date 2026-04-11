@@ -246,7 +246,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             this.returnVariable = methodInfo.hasReturnValue() ? new ReturnVariableImpl(methodInfo) : null;
 
             IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
-                    LinkNature::best, LinkNature::valid, LinkNature::score, LinkNature::reverse);
+                    LinkNature::best, LinkNature::valid, LinkNature::score, LinkNature::reverse,
+                    LinkGraph::vertexPrinter, Variable::compareTo);
             Graph graph = new Graph(engine);
             this.followGraph = new FollowGraph(graph);
             MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);
