@@ -12,52 +12,53 @@ public class LinkNatureImpl implements LinkNature {
     // rank is from least interesting to most interesting
 
 
-    public static final LinkNature NONE = new LinkNatureImpl("X", 0);
-    public static final LinkNature EMPTY = new LinkNatureImpl("∅", 1);
+    public static final LinkNature NONE = new LinkNatureImpl("X", 0, -1);
+    public static final LinkNature EMPTY = new LinkNatureImpl("∅", 1, -1);
 
 
     // see TestConsumers,2; necessary to make the connection between filtered and streamed
     // TODO extremely expensive
-    public static final LinkNature OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 2);
-    public static final LinkNature IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 3);
-    public static final LinkNature OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 4);
+    public static final LinkNature OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 2, 20);
+    public static final LinkNature IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 3, 9);
+    public static final LinkNature OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 4, 9);
 
     // helpers for moving between objects
-    public static final LinkNature SHARES_FIELDS = new LinkNatureImpl("≈", 5);
-    public static final LinkNature IS_FIELD_OF = new LinkNatureImpl("≺", 6);
-    public static final LinkNature CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 7);
+    public static final LinkNature SHARES_FIELDS = new LinkNatureImpl("≈", 5, 8);
+    public static final LinkNature IS_FIELD_OF = new LinkNatureImpl("≺", 6, 7);
+    public static final LinkNature CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 7, 7);
 
-    public static final LinkNature SHARES_ELEMENTS = new LinkNatureImpl("~", 8);
+    public static final LinkNature SHARES_ELEMENTS = new LinkNatureImpl("~", 8, 6);
 
-    public static final LinkNature IS_SUBSET_OF = new LinkNatureImpl("⊆", 9);
-    public static final LinkNature IS_SUPERSET_OF = new LinkNatureImpl("⊇", 10);
+    public static final LinkNature IS_SUBSET_OF = new LinkNatureImpl("⊆", 9, 5);
+    public static final LinkNature IS_SUPERSET_OF = new LinkNatureImpl("⊇", 10, 5);
 
     // these must have a lower rank than ∈, ∋
-    public static final LinkNature COULD_BE_ELEMENT_OF = new LinkNatureImpl("∈?", 11);
-    public static final LinkNature COULD_CONTAIN_AS_MEMBER = new LinkNatureImpl("∋?", 12);
+    public static final LinkNature COULD_BE_ELEMENT_OF = new LinkNatureImpl("∈?", 11, 4);
+    public static final LinkNature COULD_CONTAIN_AS_MEMBER = new LinkNatureImpl("∋?", 12, 4);
 
-    public static final LinkNature IS_ELEMENT_OF = new LinkNatureImpl("∈", 13);
-    public static final LinkNature CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 14);
+    public static final LinkNature IS_ELEMENT_OF = new LinkNatureImpl("∈", 13, 3);
+    public static final LinkNature CONTAINS_AS_MEMBER = new LinkNatureImpl("∋", 14, 3);
 
     // used for functional interfaces
-    public static final LinkNature IS_DECORATED_WITH = new LinkNatureImpl("↗", 15);
-    public static final LinkNature CONTAINS_DECORATION = new LinkNatureImpl("↖", 16);
+    public static final LinkNature IS_DECORATED_WITH = new LinkNatureImpl("↗", 15, 2);
+    public static final LinkNature CONTAINS_DECORATION = new LinkNatureImpl("↖", 16, 2);
 
     // identical as long as some methods are not involved (e.g. remove() on Iterator)
     private static final String IDENTICAL_TO_PASS_SYMBOL = "☷"; // tri-gram for earth, 0x2637
     private static final int IDENTICAL_TO_RANK = 17;
+    private static final int IDENTICAL_TO_SCORE = 1;
 
     // real equivalence, used for §m mutation links
-    private static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", IDENTICAL_TO_RANK);
+    private static final LinkNature IS_IDENTICAL_TO = new LinkNatureImpl("≡", IDENTICAL_TO_RANK, IDENTICAL_TO_SCORE);
 
     // java a=b implies a ← b
-    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 18);
-    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 19);
+    public static final LinkNature IS_ASSIGNED_FROM = new LinkNatureImpl("←", 18, IDENTICAL_TO_SCORE);
+    public static final LinkNature IS_ASSIGNED_TO = new LinkNatureImpl("→", 19, IDENTICAL_TO_SCORE);
     private static final int N = IS_ASSIGNED_TO.rank() + 1;
 
 
-    private static final LinkNature LN_THIS = new LinkNatureImpl("this", -1);
-    private static final LinkNature LN_OTHER = new LinkNatureImpl("other", -2);
+    private static final LinkNature LN_THIS = new LinkNatureImpl("this", -1, -1);
+    private static final LinkNature LN_OTHER = new LinkNatureImpl("other", -2, -1);
 
     // ← → are more important than ≡
     // they follow the flow of assignments
@@ -65,15 +66,17 @@ public class LinkNatureImpl implements LinkNature {
     private final String symbol;
     private final int rank;
     private final Set<MethodInfo> pass;
+    private final int score;
 
-    private LinkNatureImpl(String symbol, int rank) {
-        this(symbol, rank, Set.of());
+    private LinkNatureImpl(String symbol, int rank, int score) {
+        this(symbol, rank, score, Set.of());
     }
 
-    private LinkNatureImpl(String symbol, int rank, Set<MethodInfo> pass) {
+    private LinkNatureImpl(String symbol, int rank, int score, Set<MethodInfo> pass) {
         this.symbol = symbol;
         this.rank = rank;
         this.pass = pass;
+        this.score = score;
     }
 
     private static final Map<String, LinkNature> stringMap = new HashMap<>();
@@ -132,12 +135,13 @@ public class LinkNatureImpl implements LinkNature {
 
     public static LinkNature makeIdenticalTo(Collection<MethodInfo> exceptionsToPass) {
         if (exceptionsToPass == null || exceptionsToPass.isEmpty()) return IS_IDENTICAL_TO;
-        return new LinkNatureImpl(IDENTICAL_TO_PASS_SYMBOL, IDENTICAL_TO_RANK, Set.copyOf(exceptionsToPass));
+        return new LinkNatureImpl(IDENTICAL_TO_PASS_SYMBOL, IDENTICAL_TO_RANK, IDENTICAL_TO_SCORE,
+                Set.copyOf(exceptionsToPass));
     }
 
     @Override
     public int score() {
-        return N - rank;
+        return score;
     }
 
     @Override

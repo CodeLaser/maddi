@@ -138,17 +138,21 @@ public final class IncrementalFixpointEngine<V, L> {
             }
         }
         Deque<Fact<V, L>> queueCopy = new ArrayDeque<>(queue);
+
         while (!queue.isEmpty()) {
             Fact<V, L> fact = queue.removeFirst();
             LOGGER.debug("Inference phase: process {}", fact);
             propagateForward(fact, queue, false);
             propagateBackward(fact, queue, false);
         }
+        Set<Fact<V, L>> history = new HashSet<>();
         while (!queueCopy.isEmpty()) {
             Fact<V, L> fact = queueCopy.removeFirst();
-            LOGGER.debug("Optimization phase: process {}", fact);
-            propagateForward(fact, queueCopy, true);
-            propagateBackward(fact, queueCopy, true);
+            if (history.add(fact)) {
+                LOGGER.debug("Optimization phase: process {}", fact);
+                propagateForward(fact, queueCopy, true);
+                propagateBackward(fact, queueCopy, true);
+            }
         }
         LOGGER.debug("End of update, {}", statementIndex);
         assert consistencyCheck();
