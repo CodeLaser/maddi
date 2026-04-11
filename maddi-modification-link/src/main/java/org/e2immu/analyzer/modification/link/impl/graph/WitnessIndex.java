@@ -52,7 +52,7 @@ public final class WitnessIndex<V, L> {
         for (Fact<V, L> fact : removedFacts) {
             Witness<V, L> witness = witnesses.remove(fact);
             assert witness != null;
-            if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _)
+            if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _, _)
                 && vertices.contains(left.target())) {
                 extra.add(left.source());
                 extra.add(right.target());
