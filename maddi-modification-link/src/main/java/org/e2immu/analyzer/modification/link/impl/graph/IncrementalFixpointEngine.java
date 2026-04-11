@@ -128,33 +128,44 @@ public final class IncrementalFixpointEngine<V, L> {
 
     private int incrementalUpdate(Collection<Fact<V, L>> seeds, String statementIndex) {
         int newFacts = 0;
+        Deque<Fact<V, L>> queue = new ArrayDeque<>();
         for (Fact<V, L> fact : seeds) {
             if (closure.add(fact.source(), fact.target(), fact.label())) {
                 newFacts++;
                 witnessIndex.putIfBetter(fact,
                         new Witness.DirectWitness<>(fact.source(), fact.target(), fact.label(), statementIndex));
+                queue.add(fact);
             }
         }
-        Deque<Fact<V, L>> queue = new ArrayDeque<>(seeds);
+        Deque<Fact<V, L>> queueCopy = new ArrayDeque<>(queue);
         while (!queue.isEmpty()) {
             Fact<V, L> fact = queue.removeFirst();
-            LOGGER.debug("Process {}", fact);
-            propagateForward(fact, queue);
-            propagateBackward(fact, queue);
+            LOGGER.debug("Inference phase: process {}", fact);
+            propagateForward(fact, queue, false);
+            propagateBackward(fact, queue, false);
+        }
+        while (!queueCopy.isEmpty()) {
+            Fact<V, L> fact = queueCopy.removeFirst();
+            LOGGER.debug("Optimization phase: process {}", fact);
+            propagateForward(fact, queueCopy, true);
+            propagateBackward(fact, queueCopy, true);
         }
         LOGGER.debug("End of update, {}", statementIndex);
+        assert consistencyCheck();
         return newFacts;
     }
 
-    private void propagateForward(Fact<V, L> fact, Deque<Fact<V, L>> queue) {
-        for (Map.Entry<V, L> edge : closure.successors(fact.target())) {
+    private void propagateForward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize) {
+        Iterable<Map.Entry<V, L>> successors = optimize ? closure.successors(fact.target())
+                : graph.successors(fact.target()).entrySet();
+        for (Map.Entry<V, L> edge : successors) {
             L nextLabel = combine.apply(fact.label(), edge.getValue());
             V source = fact.source();
             V target = edge.getKey();
             if (!source.equals(target) && valid.test(nextLabel)) {
                 Fact<V, L> next = new Fact<>(source, target, nextLabel);
                 Fact<V, L> newFact = new Fact<>(fact.target(), target, edge.getValue());
-                boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(fact, newFact));
+                boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(fact, newFact, !optimize));
                 if (closure.add(next.source(), next.target(), next.label()) || improved) {
                     queue.addLast(next);
                 }
@@ -162,7 +173,7 @@ public final class IncrementalFixpointEngine<V, L> {
         }
     }
 
-    private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue) {
+    private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize) {
         V source = fact.source();
         for (Map.Entry<V, L> edge : closure.successors(source)) {
             V p = edge.getKey();
@@ -174,7 +185,7 @@ public final class IncrementalFixpointEngine<V, L> {
                 if (valid.test(combined)) {
                     Fact<V, L> next = new Fact<>(p, target, combined);
                     Fact<V, L> newFact = new Fact<>(p, source, predLabel);
-                    boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(newFact, fact));
+                    boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(newFact, fact, !optimize));
 
                     if (closure.add(next.source(), next.target(), next.label()) || improved) {
                         queue.addLast(next);
@@ -205,7 +216,10 @@ public final class IncrementalFixpointEngine<V, L> {
         Fact<V, L> fact = new Fact<>(from, to, label);
         Witness<V, L> witness = witnessIndex.get(fact);
         // edges of the label graph must be witnessed as such
-        return !(witness instanceof Witness.DirectWitness<V, L>);
+        if (witness instanceof Witness.DirectWitness<V, L> dw) {
+            return !(dw.from().equals(from)) || !(dw.to().equals(to)) || !dw.label().equals(label);
+        }
+        return true;
     }
 
     private boolean betterThanOrEqual(L l1, L l2) {
@@ -224,7 +238,7 @@ public final class IncrementalFixpointEngine<V, L> {
             return graph.replace(fact.source(), fact.target(), newLabel, reverseNewLabel)
                     ? Set.of(fact.source(), fact.target()) : Set.of();
         }
-        if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right)) {
+        if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _)) {
             Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel, reverseNewLabel) : Set.of();
             Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel, reverseNewLabel) : Set.of();
             return Stream.concat(Stream.concat(Stream.of(fact.source(), fact.target()), set1.stream()), set2.stream())
@@ -250,7 +264,6 @@ public final class IncrementalFixpointEngine<V, L> {
             }
         }
         incrementalUpdate(seeds, statementIndex);
-        assert consistencyCheck();
     }
 
     public Set<V> vertices() {

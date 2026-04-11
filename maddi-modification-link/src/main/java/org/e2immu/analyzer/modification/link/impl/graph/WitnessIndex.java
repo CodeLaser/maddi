@@ -32,7 +32,12 @@ public final class WitnessIndex<V, L> {
 
     public boolean putIfBetter(Fact<V, L> fact, Witness<V, L> candidate) {
         Witness<V, L> existing = witnesses.get(fact);
-        if (existing == null || witnessCost(candidate) < witnessCost(existing)) {
+        if (existing == null
+            || candidate instanceof Witness.DirectWitness<V, L> && existing instanceof Witness.CompositeWitness<V, L>
+            || candidate instanceof Witness.DirectWitness<V, L> && existing instanceof Witness.DirectWitness<V, L>
+               && witnessCost(candidate) < witnessCost(existing)
+            || candidate instanceof Witness.CompositeWitness<V, L> c && existing instanceof Witness.CompositeWitness<V, L> e
+               && (c.inferred() && !e.inferred() || witnessCost(candidate) < witnessCost(existing))) {
             witnesses.put(fact, candidate);
             return true;
         }
@@ -48,7 +53,7 @@ public final class WitnessIndex<V, L> {
         for (Fact<V, L> fact : removedFacts) {
             Witness<V, L> witness = witnesses.remove(fact);
             assert witness != null;
-            if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right)
+            if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _)
                 && vertices.contains(left.target())) {
                 extra.add(left.source());
                 extra.add(right.target());
@@ -69,7 +74,7 @@ public final class WitnessIndex<V, L> {
                 .removeIf(e -> {
                     if (vertices.contains(e.getKey().source())
                         || vertices.contains(e.getKey().target())) return true;
-                    if (e.getValue() instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right)
+                    if (e.getValue() instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _)
                         && vertices.contains(left.target())) {
                         extra.add(left.source());
                         extra.add(right.target());

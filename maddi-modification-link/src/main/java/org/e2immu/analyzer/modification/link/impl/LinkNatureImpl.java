@@ -15,16 +15,17 @@ public class LinkNatureImpl implements LinkNature {
     public static final LinkNature NONE = new LinkNatureImpl("X", 0);
     public static final LinkNature EMPTY = new LinkNatureImpl("∅", 1);
 
-    // helpers for moving between objects
-    public static final LinkNature IS_FIELD_OF = new LinkNatureImpl("≺", 2);
-    public static final LinkNature CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 3);
-    public static final LinkNature SHARES_FIELDS = new LinkNatureImpl("≈", 4);
 
     // see TestConsumers,2; necessary to make the connection between filtered and streamed
     // TODO extremely expensive
-    public static final LinkNature OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 5);
-    public static final LinkNature IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 6);
-    public static final LinkNature OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 7);
+    public static final LinkNature OBJECT_GRAPH_OVERLAPS = new LinkNatureImpl("∩", 2);
+    public static final LinkNature IS_IN_OBJECT_GRAPH = new LinkNatureImpl("≤", 3);
+    public static final LinkNature OBJECT_GRAPH_CONTAINS = new LinkNatureImpl("≥", 4);
+
+    // helpers for moving between objects
+    public static final LinkNature SHARES_FIELDS = new LinkNatureImpl("≈", 5);
+    public static final LinkNature IS_FIELD_OF = new LinkNatureImpl("≺", 6);
+    public static final LinkNature CONTAINS_AS_FIELD = new LinkNatureImpl("≻", 7);
 
     public static final LinkNature SHARES_ELEMENTS = new LinkNatureImpl("~", 8);
 
@@ -177,7 +178,7 @@ public class LinkNatureImpl implements LinkNature {
 
     @Override
     public boolean valid() {
-        return rank >= IS_FIELD_OF.rank();
+        return rank > EMPTY.rank();
     }
 
     @Override
