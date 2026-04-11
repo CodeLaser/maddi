@@ -117,25 +117,25 @@ public class TestDependent extends CommonTest {
                         iterator.§ts ~ 0:list.§ts   1(iterator.§ts ~ 0:list.§ts)
                         iterator.§ts ∋ next   1(iterator.§ts ∋ next)
                         0:list.§ts ~ iterator.§ts   1(0:list.§ts ~ iterator.§ts)
-                        0:list.§ts ∋ next   *[0:list.§ts ⊇ iterator.§ts, iterator.§ts ∋ next](17)
+                        0:list.§ts ∋ next   *[0:list.§ts ⊇ iterator.§ts, iterator.§ts ∋ next]
                         next ∈ iterator.§ts   1(next ∈ iterator.§ts)
-                        next ∈ 0:list.§ts   *[next ∈ iterator.§ts, iterator.§ts ⊆ 0:list.§ts](19)
+                        next ∈ 0:list.§ts   *[next ∈ iterator.§ts, iterator.§ts ⊆ 0:list.§ts]
                         """, graph.printClosure());
             }
             if ("2".equals(statementIndex)) {
                 assertEquals("""
-                        method ∈ iterator.§ts   *[method ← next, next ∈ iterator.§ts](10)
-                        method ∈ 0:list.§ts   [method ← next, next ∈ 0:list.§ts](10)
+                        method ∈ iterator.§ts   *[method ← next, next ∈ iterator.§ts]
+                        method ∈ 0:list.§ts   [method ← next, next ∈ 0:list.§ts]
                         method ← next   2(method ← next)
-                        iterator.§ts ∋ method   *[iterator.§ts ∋ next, next → method](8)
+                        iterator.§ts ∋ method   *[iterator.§ts ∋ next, next → method]
                         iterator.§ts ~ 0:list.§ts   1(iterator.§ts ~ 0:list.§ts)
                         iterator.§ts ∋ next   1(iterator.§ts ∋ next)
-                        0:list.§ts ∋ method   *[0:list.§ts ∋ next, next → method](8)
+                        0:list.§ts ∋ method   *[0:list.§ts ∋ next, next → method]
                         0:list.§ts ~ iterator.§ts   1(0:list.§ts ~ iterator.§ts)
-                        0:list.§ts ∋ next   *[0:list.§ts ∋ method, method ← next](9)
+                        0:list.§ts ∋ next   *[0:list.§ts ∋ method, method ← next]
                         next → method   2(next → method)
                         next ∈ iterator.§ts   1(next ∈ iterator.§ts)
-                        next ∈ 0:list.§ts   [next → method, method ∈ 0:list.§ts](9)
+                        next ∈ 0:list.§ts   [next → method, method ∈ 0:list.§ts]
                         """, graph.printClosure());
             }
         });

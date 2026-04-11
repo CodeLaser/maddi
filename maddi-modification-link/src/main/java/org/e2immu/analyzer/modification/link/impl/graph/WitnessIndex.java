@@ -18,8 +18,7 @@ public final class WitnessIndex<V, L> {
     public String print(Function<V, String> vertexPrinter, Fact<V, L> fact) {
         Witness<V, L> w = witnesses.get(fact);
         if (w == null) return "";
-        int cost = witnessCost(w);
-        return w.print(vertexPrinter) + (cost == 0 ? "" : "(" + cost + ")");
+        return w.print(vertexPrinter);
     }
 
     private int witnessCost(Witness<V, L> witness) {
@@ -64,24 +63,5 @@ public final class WitnessIndex<V, L> {
 
     public int size() {
         return witnesses.size();
-    }
-
-    //NOTE: we leave intermediates (CompositeWitness) in place
-    // return extra vertices to remove
-    public Set<V> removeVertices(Set<V> vertices) {
-        Set<V> extra = new HashSet<>();
-        witnesses.entrySet()
-                .removeIf(e -> {
-                    if (vertices.contains(e.getKey().source())
-                        || vertices.contains(e.getKey().target())) return true;
-                    if (e.getValue() instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _)
-                        && vertices.contains(left.target())) {
-                        extra.add(left.source());
-                        extra.add(right.target());
-                        return true;
-                    }
-                    return false;
-                });
-        return extra;
     }
 }
