@@ -46,12 +46,16 @@ public final class IncrementalFixpointEngine<V, L> {
     private final BinaryOperator<L> best;
     private final Predicate<L> valid;
     private final UnaryOperator<L> reverse;
+    private final Function<V, String> vertexPrinter;
+    private final Comparator<V> vertexComparator;
 
     public IncrementalFixpointEngine(BinaryOperator<L> combine,
                                      BinaryOperator<L> best,
                                      Predicate<L> valid,
                                      Function<L, Integer> scoreFunction,
-                                     UnaryOperator<L> reverse) {
+                                     UnaryOperator<L> reverse,
+                                     Function<V, String> vertexPrinter,
+                                     Comparator<V> vertexComparator) {
         this.graph = new LabeledGraph<>();
         this.closure = new Closure<>(best);
         this.witnessIndex = new WitnessIndex<>(scoreFunction);
@@ -59,10 +63,8 @@ public final class IncrementalFixpointEngine<V, L> {
         this.valid = Objects.requireNonNull(valid);
         this.best = Objects.requireNonNull(best);
         this.reverse = Objects.requireNonNull(reverse);
-    }
-
-    public L label(V from, V to) {
-        return graph.successors(from).get(to);
+        this.vertexPrinter = vertexPrinter;
+        this.vertexComparator = vertexComparator;
     }
 
     public int sizeOfClosure() {
@@ -85,32 +87,24 @@ public final class IncrementalFixpointEngine<V, L> {
         return graph.edges();
     }
 
-    public String print(Comparator<V> comparator) {
-        return graph.print(comparator);
+    public String print() {
+        return graph.print(vertexPrinter, vertexComparator);
     }
 
     public String print(Function<V, String> vertexPrinter, Comparator<V> comparator) {
         return graph.print(vertexPrinter, comparator);
     }
 
-    public String printEdges(Comparator<V> comparator) {
-        return graph.printEdges(comparator);
+    public String printEdges() {
+        return graph.printEdges(vertexComparator);
     }
 
-    public String printClosure(Comparator<V> vertexComparator) {
-        return closure.print(Object::toString, vertexComparator, witnessIndex);
-    }
-
-    public String printClosure(Function<V, String> vertexPrinter, Comparator<V> vertexComparator) {
+    public String printClosure() {
         return closure.print(vertexPrinter, vertexComparator, witnessIndex);
     }
 
     public boolean addVertex(V v) {
         return graph.addVertex(v);
-    }
-
-    public void removeVertex(V v) {
-        removeVertices(Set.of(v));
     }
 
     public void removeVertices(Set<V> vertices) {
@@ -137,47 +131,60 @@ public final class IncrementalFixpointEngine<V, L> {
                 queue.add(fact);
             }
         }
+        if (queue.isEmpty()) {
+            return 0;
+        }
+        LOGGER.debug("New information, statement {}", statementIndex);
         Deque<Fact<V, L>> queueCopy = new ArrayDeque<>(queue);
 
         while (!queue.isEmpty()) {
             Fact<V, L> fact = queue.removeFirst();
-            LOGGER.debug("Inference phase: process {}", fact);
-            propagateForward(fact, queue, false);
-            propagateBackward(fact, queue, false);
+            LOGGER.debug("-- inference phase: process {}", fact.print(vertexPrinter));
+            propagateForward(fact, queue, false, null);
+            propagateBackward(fact, queue, false, null);
         }
+        // see e.g. TestDependent,2,3 -- they need this optimization phase
         Set<Fact<V, L>> history = new HashSet<>();
         while (!queueCopy.isEmpty()) {
             Fact<V, L> fact = queueCopy.removeFirst();
             if (history.add(fact)) {
-                LOGGER.debug("Optimization phase: process {}", fact);
-                propagateForward(fact, queueCopy, true);
-                propagateBackward(fact, queueCopy, true);
+                LOGGER.debug("-- optimization phase: process {}", fact.print(vertexPrinter));
+                propagateForward(fact, queueCopy, true, history);
+                propagateBackward(fact, queueCopy, true, history);
             }
         }
-        LOGGER.debug("End of update, {}", statementIndex);
-        assert consistencyCheck();
+        LOGGER.debug("End of update, statement {}", statementIndex);
+        assert consistencyCheckSucceeds();
         return newFacts;
     }
 
-    private void propagateForward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize) {
-        Iterable<Map.Entry<V, L>> successors = optimize ? closure.successors(fact.target())
-                : graph.successors(fact.target()).entrySet();
+    private void propagateForward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize, Set<Fact<V, L>> history) {
+        Iterable<Map.Entry<V, L>> successors = optimize
+                ? closure.successors(fact.target())
+                : graph.successors(fact.target());
         for (Map.Entry<V, L> edge : successors) {
             L nextLabel = combine.apply(fact.label(), edge.getValue());
             V source = fact.source();
             V target = edge.getKey();
             if (!source.equals(target) && valid.test(nextLabel)) {
                 Fact<V, L> next = new Fact<>(source, target, nextLabel);
-                Fact<V, L> newFact = new Fact<>(fact.target(), target, edge.getValue());
-                boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(fact, newFact, !optimize));
-                if (closure.add(next.source(), next.target(), next.label()) || improved) {
-                    queue.addLast(next);
+                if (history == null || addToHistory(history, next)) {
+                    Fact<V, L> newFact = new Fact<>(fact.target(), target, edge.getValue());
+                    boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(fact, newFact, !optimize));
+                    if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                        queue.addLast(next);
+                    }
                 }
             }
         }
     }
 
-    private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize) {
+    private boolean addToHistory(Set<Fact<V, L>> history, Fact<V, L> fact) {
+        return history.add(fact) && (!reverse.apply(fact.label()).equals(fact.label())
+                                     || history.add(new Fact<>(fact.target(), fact.source(), fact.label())));
+    }
+
+    private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize, Set<Fact<V, L>> history) {
         V source = fact.source();
         for (Map.Entry<V, L> edge : closure.successors(source)) {
             V p = edge.getKey();
@@ -188,42 +195,57 @@ public final class IncrementalFixpointEngine<V, L> {
                 L combined = combine.apply(predLabel, fact.label());
                 if (valid.test(combined)) {
                     Fact<V, L> next = new Fact<>(p, target, combined);
-                    Fact<V, L> newFact = new Fact<>(p, source, predLabel);
-                    boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(newFact, fact, !optimize));
+                    if (history == null || addToHistory(history, next)) {
+                        Fact<V, L> newFact = new Fact<>(p, source, predLabel);
+                        boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(newFact, fact, !optimize));
 
-                    if (closure.add(next.source(), next.target(), next.label()) || improved) {
-                        queue.addLast(next);
+                        if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                            queue.addLast(next);
+                        }
                     }
                 }
             }
         }
     }
 
-
     // meant for assertions only!
-    boolean consistencyCheck() {
+    boolean consistencyCheckSucceeds() {
+        boolean success = true;
         for (Map.Entry<V, Map<V, L>> entry : graph.edges()) {
             for (Map.Entry<V, L> entry2 : entry.getValue().entrySet()) {
-                if (consistencyCheckFails(entry.getKey(), entry2.getKey(), entry2.getValue())) return false;
-                if (consistencyCheckFails(entry2.getKey(), entry.getKey(), reverse.apply(entry2.getValue())))
-                    return false;
+                if (singleEdgeConsistencyCheckFails(entry.getKey(), entry2.getKey(), entry2.getValue())) {
+                    success = false;
+                    // keep going to produce more error messages
+                }
+                if (singleEdgeConsistencyCheckFails(entry2.getKey(), entry.getKey(), reverse.apply(entry2.getValue()))) {
+                    success = false;
+                }
             }
         }
-        return true;
+        return success;
     }
 
-    private boolean consistencyCheckFails(V from, V to, L label) {
+    private boolean singleEdgeConsistencyCheckFails(V from, V to, L label) {
         L inClosure = closure.label(from, to);
-        if (inClosure == null || !betterThanOrEqual(inClosure, label)) {
+        if (inClosure == null) {
+            LOGGER.error("Not in closure: {} {} {}", from, label, to);
+            return true;
+        }
+        if (!betterThanOrEqual(inClosure, label)) {
+            LOGGER.error("Worse! {} {} {} but have {} in closure", from, label, to, inClosure);
             return true;
         }
         Fact<V, L> fact = new Fact<>(from, to, label);
         Witness<V, L> witness = witnessIndex.get(fact);
         // edges of the label graph must be witnessed as such
         if (witness instanceof Witness.DirectWitness<V, L> dw) {
-            return !(dw.from().equals(from)) || !(dw.to().equals(to)) || !dw.label().equals(label);
+            boolean different = !(dw.from().equals(from)) || !(dw.to().equals(to)) || !dw.label().equals(label);
+            if (different) {
+                LOGGER.error("Direct witness different! {} vs {} {} {}", dw, from, label, to);
+            }
+            return different;
         }
-        return true;
+        return false;
     }
 
     private boolean betterThanOrEqual(L l1, L l2) {
@@ -262,7 +284,7 @@ public final class IncrementalFixpointEngine<V, L> {
         // rebuild it
         List<Fact<V, L>> seeds = new ArrayList<>();
         for (V u : affected) {
-            for (var edge : graph.successors(u).entrySet()) {
+            for (var edge : graph.successors(u)) {
                 seeds.add(new Fact<>(u, edge.getKey(), edge.getValue()));
                 seeds.add(new Fact<>(edge.getKey(), u, reverse.apply(edge.getValue())));
             }

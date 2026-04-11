@@ -79,10 +79,10 @@ public class TestConstructor extends CommonTest {
                             """, graph.print());
                     assertEquals("""
                             0:input.§$s ~ iis.§$s   1(0:input.§$s ~ iis.§$s)
-                            0:input.§$s ∋ removed   [0:input.§$s ⊇ iis.§$s, iis.§$s ∋ removed](17)
+                            0:input.§$s ∋ removed   *[0:input.§$s ⊇ iis.§$s, iis.§$s ∋ removed]
                             iis.§$s ~ 0:input.§$s   1(iis.§$s ~ 0:input.§$s)
                             iis.§$s ∋ removed   1(iis.§$s ∋ removed)
-                            removed ∈ 0:input.§$s   [removed ∈ iis.§$s, iis.§$s ⊆ 0:input.§$s](19)
+                            removed ∈ 0:input.§$s   *[removed ∈ iis.§$s, iis.§$s ⊆ 0:input.§$s]
                             removed ∈ iis.§$s   1(removed ∈ iis.§$s)
                             """, graph.printClosure());
                 }

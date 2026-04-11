@@ -121,11 +121,11 @@ public class Graph {
     }
 
     public String print() {
-        return engine.print(Graph::printForTesting, Variable::compareTo);
+        return engine.print();
     }
 
     public String printClosure() {
-        return engine.printClosure(Graph::printForTesting, Variable::compareTo);
+        return engine.printClosure();
     }
 
     private static String printForTesting(Variable v) {

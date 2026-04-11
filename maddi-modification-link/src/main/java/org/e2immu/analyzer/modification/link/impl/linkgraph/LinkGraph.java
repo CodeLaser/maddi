@@ -113,8 +113,7 @@ public class LinkGraph {
             change = makeGraph.expandGraph(statementIndex, modifiedInThisEvaluation.keySet());
         }
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Bi-directional graph for local:\n{}\n{}", graph.engine()
-                            .printClosure(LinkGraph::vertexPrinter, Variable::compareTo),
+            LOGGER.debug("Bi-directional graph for local:\n{}\n{}", graph.engine().printClosure(),
                     graph.printEquivalence(LinkGraph::vertexPrinter));
         }
         assert !checkDuplicateNames ||
@@ -155,7 +154,7 @@ public class LinkGraph {
         return res;
     }
 
-    private static String vertexPrinter(Variable variable) {
+    public static String vertexPrinter(Variable variable) {
         if (variable instanceof ParameterInfo pi) {
             return pi.isUnnamed() ? "_" : pi.index() + ":" + pi.name();
         }
