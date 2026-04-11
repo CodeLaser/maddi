@@ -14,26 +14,27 @@ import java.util.stream.Stream;
 /*
 Features:
 
-0. label function has a reverse and combine; these do not play well together
+1. label function has a reverse and combine; these do not play well together
    e.g. rev(∋ + ∈) = rev(~) != rev(∋)+rev(∈) == X
-   it also has a test for valid labels (X is never stored) and a score function (see 4)
-1. LabeledGraph is symmetric: if a B c is present, then c rev(B) a is present as well
+   it also has a test for valid labels (X is never stored) and a score function (see further)
+2. LabeledGraph is symmetric: if a B c is present, then c rev(B) a is present as well
    we do not need to store the reverse graph for efficiency reasons
-2. ClosureGraph is symmetric: if a B c is present, then c rev(B) a is present as well
+3. ClosureGraph is symmetric: if a B c is present, then c rev(B) a is present as well
    we do not need to store the reverse graph for efficiency reasons
-3. The incremental fixpoint algorithm must have a forward and a backward phase, because the lack of operator symmetry.
+4. Witnesses keep support history to avoid cyclic reasoning
+5. The incremental fixpoint algorithm must have a forward and a backward phase, because the lack of operator symmetry.
    Each phase must do one direction at a time!
-4. we prefer direct high value edges over lower value edges, e.g. ← + ∈ is preferred over ∈ + ~
+6. we prefer direct high value edges over lower value edges, e.g. ← + ∈ is preferred over ∈ + ~
    Their outcome is different!
    As a consequence, the forward propagation must go over the closure rather
    than the graph, because otherwise it cannot find the best combination (it will find 'a' combination).
    See TestDependent,2 for an example, where ∈? finally gets replaced by ∈ because of an already existing combination
    in the closure.
-5. the Graph and MakeGraph classes try to keep this graph as simple as possible, whilst generally being
+7. the Graph and MakeGraph classes try to keep this graph as simple as possible, whilst generally being
    the cause for this graph system being ways too large in complex situations.
-6. modifications on certain variables can cause a selection of edges to be removed. This class provides a
+8. modifications on certain variables can cause a selection of edges to be removed. This class provides a
    'repair' function to recompute the closure.
-
+9. return values cannot be used to create composite facts, see acceptForComposite, TestSharedVariables
 
  */
 public final class IncrementalFixpointEngine<V, L> {
@@ -48,6 +49,7 @@ public final class IncrementalFixpointEngine<V, L> {
     private final UnaryOperator<L> reverse;
     private final Function<V, String> vertexPrinter;
     private final Comparator<V> vertexComparator;
+    private final Predicate<V> acceptForComposite;
 
     public IncrementalFixpointEngine(BinaryOperator<L> combine,
                                      BinaryOperator<L> best,
@@ -55,7 +57,8 @@ public final class IncrementalFixpointEngine<V, L> {
                                      Function<L, Integer> scoreFunction,
                                      UnaryOperator<L> reverse,
                                      Function<V, String> vertexPrinter,
-                                     Comparator<V> vertexComparator) {
+                                     Comparator<V> vertexComparator,
+                                     Predicate<V> acceptForComposite) {
         this.graph = new LabeledGraph<>();
         this.closure = new Closure<>(best);
         this.witnessIndex = new WitnessIndex<>(scoreFunction);
@@ -65,6 +68,7 @@ public final class IncrementalFixpointEngine<V, L> {
         this.reverse = Objects.requireNonNull(reverse);
         this.vertexPrinter = vertexPrinter;
         this.vertexComparator = vertexComparator;
+        this.acceptForComposite = acceptForComposite;
     }
 
     public int sizeOfClosure() {
@@ -127,7 +131,7 @@ public final class IncrementalFixpointEngine<V, L> {
             if (closure.add(fact.source(), fact.target(), fact.label())) {
                 newFacts++;
                 witnessIndex.putIfBetter(fact,
-                        new Witness.DirectWitness<>(fact.source(), fact.target(), fact.label(), statementIndex));
+                        new Witness.DirectWitness<>(fact, statementIndex));
                 queue.add(fact);
             }
         }
@@ -166,7 +170,7 @@ public final class IncrementalFixpointEngine<V, L> {
             L nextLabel = combine.apply(fact.label(), edge.getValue());
             V source = fact.source();
             V target = edge.getKey();
-            if (!source.equals(target) && valid.test(nextLabel)) {
+            if (acceptForComposite.test(target) && !source.equals(target) && valid.test(nextLabel)) {
                 Fact<V, L> next = new Fact<>(source, target, nextLabel);
                 if (history == null || addToHistory(history, next)) {
                     Fact<V, L> newFact = new Fact<>(fact.target(), target, edge.getValue());
@@ -176,7 +180,12 @@ public final class IncrementalFixpointEngine<V, L> {
                         Witness.CompositeWitness<V, L> candidate = Witness.CompositeWitness.of(leftW, rightW, fact,
                                 newFact, !optimize);
                         boolean improved = witnessIndex.putIfBetter(next, candidate);
-                        if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                        boolean added = closure.add(next.source(), next.target(), next.label());
+                        if (added || improved) {
+                            LOGGER.debug(" -- -- forward, {} {} {} witness {}", next.print(vertexPrinter),
+                                    added ? "added" : "",
+                                    improved ? "improved" : "",
+                                    candidate.print(vertexPrinter));
                             queue.addLast(next);
                         }
                     }
@@ -191,8 +200,7 @@ public final class IncrementalFixpointEngine<V, L> {
     }
 
     private boolean doesNotCreateCycle(Fact<V, L> target, Witness<V, L> left, Witness<V, L> right) {
-        return (left == null || !left.support().contains(target))
-               && (right == null || !right.support().contains(target));
+        return !left.support().contains(target) && !right.support().contains(target);
     }
 
     private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize, Set<Fact<V, L>> history) {
@@ -200,7 +208,7 @@ public final class IncrementalFixpointEngine<V, L> {
         for (Map.Entry<V, L> edge : closure.successors(source)) {
             V p = edge.getKey();
             V target = fact.target();
-            if (!p.equals(source) && !p.equals(target)) {
+            if (acceptForComposite.test(target) && !p.equals(source) && !p.equals(target)) {
                 L label = edge.getValue();
                 L predLabel = reverse.apply(label); // because we're following the successors!
                 L combined = combine.apply(predLabel, fact.label());
@@ -213,8 +221,14 @@ public final class IncrementalFixpointEngine<V, L> {
                         if (leftW != null && rightW != null && doesNotCreateCycle(next, leftW, rightW)) {
                             Witness.CompositeWitness<V, L> candidate = Witness.CompositeWitness.of(leftW, rightW, newFact,
                                     fact, !optimize);
+                            assert !candidate.support().contains(next);
+                            boolean added = closure.add(next.source(), next.target(), next.label());
                             boolean improved = witnessIndex.putIfBetter(next, candidate);
-                            if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                            if (added || improved) {
+                                LOGGER.debug(" -- -- backward, {} {} {} witness {}",
+                                        added ? "added" : "",
+                                        improved ? "improved" : "",
+                                        next.print(vertexPrinter), candidate.print(vertexPrinter));
                                 queue.addLast(next);
                             }
                         }
@@ -255,7 +269,7 @@ public final class IncrementalFixpointEngine<V, L> {
         Witness<V, L> witness = witnessIndex.get(fact);
         // edges of the label graph must be witnessed as such
         if (witness instanceof Witness.DirectWitness<V, L> dw) {
-            boolean different = !(dw.from().equals(from)) || !(dw.to().equals(to)) || !dw.label().equals(label);
+            boolean different = !(dw.fact().equals(fact));
             if (different) {
                 LOGGER.error("Direct witness different! {} vs {} {} {}", dw, from, label, to);
             }
