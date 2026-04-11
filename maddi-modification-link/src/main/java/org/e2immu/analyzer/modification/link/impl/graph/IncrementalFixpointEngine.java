@@ -170,9 +170,15 @@ public final class IncrementalFixpointEngine<V, L> {
                 Fact<V, L> next = new Fact<>(source, target, nextLabel);
                 if (history == null || addToHistory(history, next)) {
                     Fact<V, L> newFact = new Fact<>(fact.target(), target, edge.getValue());
-                    boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(fact, newFact, !optimize));
-                    if (closure.add(next.source(), next.target(), next.label()) || improved) {
-                        queue.addLast(next);
+                    Witness<V, L> leftW = witnessIndex.get(fact);
+                    Witness<V, L> rightW = witnessIndex.get(newFact);
+                    if (leftW != null && rightW != null && doesNotCreateCycle(next, leftW, rightW)) {
+                        Witness.CompositeWitness<V, L> candidate = Witness.CompositeWitness.of(leftW, rightW, fact,
+                                newFact, !optimize);
+                        boolean improved = witnessIndex.putIfBetter(next, candidate);
+                        if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                            queue.addLast(next);
+                        }
                     }
                 }
             }
@@ -182,6 +188,11 @@ public final class IncrementalFixpointEngine<V, L> {
     private boolean addToHistory(Set<Fact<V, L>> history, Fact<V, L> fact) {
         return history.add(fact) && (!reverse.apply(fact.label()).equals(fact.label())
                                      || history.add(new Fact<>(fact.target(), fact.source(), fact.label())));
+    }
+
+    private boolean doesNotCreateCycle(Fact<V, L> target, Witness<V, L> left, Witness<V, L> right) {
+        return (left == null || !left.support().contains(target))
+               && (right == null || !right.support().contains(target));
     }
 
     private void propagateBackward(Fact<V, L> fact, Deque<Fact<V, L>> queue, boolean optimize, Set<Fact<V, L>> history) {
@@ -197,10 +208,15 @@ public final class IncrementalFixpointEngine<V, L> {
                     Fact<V, L> next = new Fact<>(p, target, combined);
                     if (history == null || addToHistory(history, next)) {
                         Fact<V, L> newFact = new Fact<>(p, source, predLabel);
-                        boolean improved = witnessIndex.putIfBetter(next, new Witness.CompositeWitness<>(newFact, fact, !optimize));
-
-                        if (closure.add(next.source(), next.target(), next.label()) || improved) {
-                            queue.addLast(next);
+                        Witness<V, L> leftW = witnessIndex.get(newFact);
+                        Witness<V, L> rightW = witnessIndex.get(fact);
+                        if (leftW != null && rightW != null && doesNotCreateCycle(next, leftW, rightW)) {
+                            Witness.CompositeWitness<V, L> candidate = Witness.CompositeWitness.of(leftW, rightW, newFact,
+                                    fact, !optimize);
+                            boolean improved = witnessIndex.putIfBetter(next, candidate);
+                            if (closure.add(next.source(), next.target(), next.label()) || improved) {
+                                queue.addLast(next);
+                            }
                         }
                     }
                 }
@@ -264,7 +280,7 @@ public final class IncrementalFixpointEngine<V, L> {
             return graph.replace(fact.source(), fact.target(), newLabel, reverseNewLabel)
                     ? Set.of(fact.source(), fact.target()) : Set.of();
         }
-        if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _)) {
+        if (witness instanceof Witness.CompositeWitness<V, L>(Fact<V, L> left, Fact<V, L> right, _, _)) {
             Set<V> set1 = left.label().equals(fact.label()) ? replaceReturnAffected(left, newLabel, reverseNewLabel) : Set.of();
             Set<V> set2 = right.label().equals(fact.label()) ? replaceReturnAffected(right, newLabel, reverseNewLabel) : Set.of();
             return Stream.concat(Stream.concat(Stream.of(fact.source(), fact.target()), set1.stream()), set2.stream())
