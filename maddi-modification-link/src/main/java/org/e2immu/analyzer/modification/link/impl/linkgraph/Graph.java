@@ -3,10 +3,12 @@ package org.e2immu.analyzer.modification.link.impl.linkgraph;
 import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
+import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
 import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
@@ -25,10 +27,16 @@ import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS
 
 public class Graph {
     private final IncrementalFixpointEngine<Variable, LinkNature> engine;
-    private final EquivalenceGroup equivalenceGroup = new EquivalenceGroup();
+    private final VirtualModificationIdenticals virtualModificationIdenticals = new VirtualModificationIdenticals();
+    private final SharedVariables sharedVariables;
 
-    public Graph(IncrementalFixpointEngine<Variable, LinkNature> engine) {
+    public Graph(Runtime runtime, IncrementalFixpointEngine<Variable, LinkNature> engine) {
         this.engine = engine;
+        this.sharedVariables = new SharedVariables(runtime);
+    }
+
+    public SharedVariables sharedVariables() {
+        return sharedVariables;
     }
 
     public IncrementalFixpointEngine<Variable, LinkNature> engine() {
@@ -46,16 +54,16 @@ public class Graph {
     public Iterable<Map.Entry<Variable, Map<Variable, LinkNature>>> edgesWithEquivalence() {
         List<Map.Entry<Variable, Map<Variable, LinkNature>>> res = new LinkedList<>();
         engine.edges().forEach(res::add);
-        equivalenceGroup.edges().forEach(res::add);
+        virtualModificationIdenticals.edges().forEach(res::add);
         return res;
     }
 
     public Stream<Variable> eqVariables() {
-        return equivalenceGroup.variables();
+        return virtualModificationIdenticals.variables();
     }
 
     public void removeEquivalence(Set<Variable> allToRemove2) {
-        equivalenceGroup.remove(allToRemove2);
+        virtualModificationIdenticals.remove(allToRemove2);
     }
 
     private boolean invalidEdge(Variable from, LinkNature label, Variable to) {
@@ -66,9 +74,9 @@ public class Graph {
     }
 
     public Stream<Link> equivalentEdgesStream(Variable primary) {
-        Set<Variable> variables = equivalenceGroup.variablesPartOf(primary);
-        Map<Variable, EquivalenceGroup.Group> groups = variables.stream()
-                .collect(Collectors.toUnmodifiableMap(v -> v, equivalenceGroup::members));
+        Set<Variable> variables = virtualModificationIdenticals.variablesPartOf(primary);
+        Map<Variable, VirtualModificationIdenticals.Group> groups = variables.stream()
+                .collect(Collectors.toUnmodifiableMap(v -> v, virtualModificationIdenticals::members));
         return groups.entrySet().stream().flatMap(e -> e.getValue().expand(e.getKey()));
     }
 
@@ -78,21 +86,19 @@ public class Graph {
             return engine.addVertex(from); // safety measure, is technically possible
         }
         if (invalidEdge(from, linkNature, to)) return false;
-        if (linkNature.isIdenticalTo()) {
-            EquivalenceGroup.AddResult result = equivalenceGroup.add(from, linkNature, to);
-            if (result.isMerge()) {
-                throw new UnsupportedOperationException("NYI");
-            }
-            return result.isAddOrNew();
+        if (linkNature.isIdenticalTo() && Util.isVirtualModification(from)) {
+            return virtualModificationIdenticals.add(from, linkNature, to);
         }
-        Variable eqFrom = equivalenceGroup.representative(from);
-        Variable eqTo = equivalenceGroup.representative(to);
-
-        return engine.addSymmetricEdge(eqFrom, eqTo, linkNature, statementIndex) > 0;
+        if (linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)) {
+            return sharedVariables.isAssignedFrom(from, to);
+        }
+        Variable tFrom = sharedVariables.translateForward(from);
+        Variable tTo = sharedVariables.translateForward(to);
+        return engine.addSymmetricEdge(tFrom, tTo, linkNature, statementIndex) > 0;
     }
 
     public String printEquivalence(Function<Variable, String> variablePrinter) {
-        return equivalenceGroup.print(variablePrinter);
+        return virtualModificationIdenticals.print(variablePrinter);
     }
 
 

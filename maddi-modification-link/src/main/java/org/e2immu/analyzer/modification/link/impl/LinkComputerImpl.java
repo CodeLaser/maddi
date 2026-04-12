@@ -248,11 +248,10 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             IncrementalFixpointEngine<Variable, LinkNature> engine = new IncrementalFixpointEngine<>(LinkNature::combine,
                     LinkNature::best, LinkNature::valid, LinkNature::score, LinkNature::reverse,
                     LinkGraph::vertexPrinter, Variable::compareTo, v -> !(v instanceof ReturnVariable));
-            Graph graph = new Graph(engine);
+            Graph graph = new Graph(javaInspector.runtime(), engine);
             this.followGraph = new FollowGraph(graph);
             MakeGraph makeGraph = new MakeGraph(javaInspector, javaInspector.runtime(), graph);
-            this.linkGraph = new LinkGraph(javaInspector, javaInspector.runtime(), options.checkDuplicateNames(), graph,
-                    makeGraph, followGraph);
+            this.linkGraph = new LinkGraph(javaInspector.runtime(), options.checkDuplicateNames(), graph, makeGraph);
             this.writeLinksAndModification = new WriteLinksAndModification(javaInspector, virtualFieldComputer,
                     followGraph);
         }

@@ -23,6 +23,31 @@ public class SharedVariables {
         variableTranslationMap = new VariableTranslationMap(runtime);
     }
 
+    public boolean isAssignedFrom(Variable from, Variable to) {
+        SharedVariable sv1 = memberToGroup.get(from);
+        SharedVariable sv2 = memberToGroup.get(to);
+        if (sv1 == null && sv2 == null) {
+            create(from, to);
+            return true;
+        }
+        if (sv1 == sv2) {
+            return false; // already in the same group
+        }
+        if (sv1 == null) {
+            add(sv2, from);
+        }
+        if (sv2 == null) {
+            add(sv1, to);
+        }
+        // merge 2 groups
+        merge(sv1, sv2, from, to);
+        return true;
+    }
+
+    public Variable translateForward(Variable variable) {
+        return variableTranslationMap.translateVariableRecursively(variable);
+    }
+
     public String print(Function<Variable, String> variablePrinter) {
         return sharedVariablesByName.entrySet().stream()
                 .map(e -> e.getKey() + ": "
@@ -37,20 +62,22 @@ public class SharedVariables {
         sharedVariablesByName.values().forEach(g -> g.removeAll(variables));
     }
 
-    public void create(Variable referenceVariable, Variable firstAssignedTo) {
-        SharedVariable sv = new SharedVariable(referenceVariable.simpleName(), referenceVariable, runtime);
-        sv.add(firstAssignedTo);
+    private void create(Variable referenceVariable, Variable firstAssignedTo) {
+        SharedVariable sv = new SharedVariable(referenceVariable.simpleName(), referenceVariable.parameterizedType(),
+                runtime);
         sharedVariablesByName.put(sv.fullyQualifiedName(), sv);
         add(sv, referenceVariable);
         add(sv, firstAssignedTo);
     }
 
     private void add(SharedVariable sharedVariable, Variable variable) {
+        sharedVariable.add(variable);
         memberToGroup.put(variable, sharedVariable);
         variableTranslationMap.put(variable, sharedVariable);
     }
 
-    public Variable translateForward(Variable variable) {
-        return variableTranslationMap.translateVariable(variable);
+    private void merge(SharedVariable sv1, SharedVariable sv2, Variable from, Variable to) {
+        throw new UnsupportedOperationException("NYI");
     }
+
 }

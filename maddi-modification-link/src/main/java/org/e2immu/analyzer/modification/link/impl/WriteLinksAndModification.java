@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -22,6 +23,7 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.*;
 import static org.e2immu.analyzer.modification.prepwork.variable.impl.VariableInfoImpl.UNMODIFIED_VARIABLE;
@@ -167,9 +169,16 @@ class WriteLinksAndModification {
             if (link.linkNature().isIdenticalToOrAssignedFromTo()
                 && link.to() instanceof IntermediateVariable iv && iv.isNewObject()) {
                 needMarker = true;
-            } else if (LinkVariable.acceptForLinkedVariables(link.from())
-                       && LinkVariable.acceptForLinkedVariables(link.to())) {
-                newLinks.add(link);
+            } else {
+                iterateOverShared(link.from())
+                        .filter(LinkVariable::acceptForLinkedVariables)
+                        .forEach(from -> {
+                            iterateOverShared(link.to())
+                                    .filter(LinkVariable::acceptForLinkedVariables)
+                                    .forEach(to -> {
+                                        newLinks.add(new LinksImpl.LinkImpl(from, link.linkNature(), to));
+                                    });
+                        });
             }
         }
         if (needMarker) {
@@ -177,6 +186,18 @@ class WriteLinksAndModification {
             newLinks.addFirst(new LinksImpl.LinkImpl(rv, IS_ASSIGNED_FROM, marker));
         }
         builder.replaceAll(newLinks);
+    }
+
+    private Stream<Variable> iterateOverShared(Variable variable) {
+        if (variable instanceof SharedVariable sv) {
+            return sv.variables().stream();
+        }
+        if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
+            return iterateOverShared(fr.scopeVariable())
+                    .map(scope -> runtime.newFieldReference(fr.fieldInfo(),
+                            runtime.newVariableExpression(scope), fr.parameterizedType()));
+        }
+        return Stream.of(variable);
     }
 
     private static boolean assignedInThisStatement(Statement statement, VariableInfo vi) {
