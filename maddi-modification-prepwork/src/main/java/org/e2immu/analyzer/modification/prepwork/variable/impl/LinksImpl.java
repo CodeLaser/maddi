@@ -216,7 +216,7 @@ public class LinksImpl implements Links {
         }
 
         @Override
-        public Iterable<Link> linkSet() {
+        public Collection<Link> linkSet() {
             return links;
         }
 

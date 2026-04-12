@@ -7,6 +7,7 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -74,7 +75,7 @@ public interface Links extends Iterable<Link>, Value {
 
         void removeIfFromTo(Predicate<Variable> predicate);
 
-        Iterable<Link> linkSet();
+        Collection<Link> linkSet();
 
         int size();
 

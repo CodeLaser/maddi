@@ -7,6 +7,7 @@ import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
+import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.variable.DependentVariable;
@@ -89,7 +90,7 @@ public class Graph {
         if (linkNature.isIdenticalTo() && Util.isVirtualModification(from)) {
             return virtualModificationIdenticals.add(from, linkNature, to);
         }
-        if (linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)) {
+        if (linkNature.isAssignedFrom() && !(from instanceof ReturnVariable) &&  !(to instanceof MarkerVariable)) {
             return sharedVariables.isAssignedFrom(from, to);
         }
         Variable tFrom = sharedVariables.translateForward(from);
