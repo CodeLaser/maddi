@@ -109,11 +109,17 @@ class WriteLinksAndModification {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder = followGraph.followGraph(virtualFieldComputer, variable);
+        Links.Builder builder2 = followGraph.followGraph(virtualFieldComputer, variable);
+        Links.Builder builder = new LinksImpl.Builder(builder2.primary());
+        for (Link link : builder2.linkSet()) {
+            iterateOverShared(link.from()).forEach(from -> iterateOverShared(link.to())
+                    .forEach(to -> builder.add(from, link.linkNature(), to)));
+        }
         followGraph.graph().equivalentEdgesStream(variable)
                 .filter(link -> builder.containsPrimaryOf(link.to()))
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));
+
         List<Link> toRemove = new ArrayList<>();
         if (variable instanceof ReturnVariable rv) {
             // return variables will always be complete
@@ -169,16 +175,9 @@ class WriteLinksAndModification {
             if (link.linkNature().isIdenticalToOrAssignedFromTo()
                 && link.to() instanceof IntermediateVariable iv && iv.isNewObject()) {
                 needMarker = true;
-            } else {
-                iterateOverShared(link.from())
-                        .filter(LinkVariable::acceptForLinkedVariables)
-                        .forEach(from -> {
-                            iterateOverShared(link.to())
-                                    .filter(LinkVariable::acceptForLinkedVariables)
-                                    .forEach(to -> {
-                                        newLinks.add(new LinksImpl.LinkImpl(from, link.linkNature(), to));
-                                    });
-                        });
+            } else if (LinkVariable.acceptForLinkedVariables(link.from())
+                       && LinkVariable.acceptForLinkedVariables(link.to())) {
+                newLinks.add(link);
             }
         }
         if (needMarker) {
@@ -194,7 +193,9 @@ class WriteLinksAndModification {
         }
         if (variable instanceof FieldReference fr && fr.scopeVariable() != null) {
             return iterateOverShared(fr.scopeVariable())
-                    .map(scope -> runtime.newFieldReference(fr.fieldInfo(),
+                    .map(scope -> scope == fr.scopeVariable()
+                            ? fr
+                            : runtime.newFieldReference(fr.fieldInfo(),
                             runtime.newVariableExpression(scope), fr.parameterizedType()));
         }
         return Stream.of(variable);

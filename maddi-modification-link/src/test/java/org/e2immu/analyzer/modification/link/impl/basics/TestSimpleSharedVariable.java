@@ -48,4 +48,45 @@ public class TestSimpleSharedVariable extends CommonTest {
         MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
         assertEquals("[-] --> method∈0:in.§$s", mlv.toString());
     }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.List;
+            class X {
+                String method(List<String> in) {
+                    List<String> copy = in;
+                    String first = copy.getFirst();
+                    return first;
+                }
+            }
+            """;
+
+    @DisplayName("away from return")
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(INPUT2);
+        PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
+        analyzer.doPrimaryType(X);
+        LinkComputer tlc = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
+            if("1".equals(statementIndex)) {
+                Assertions.assertEquals("""
+                        first ∈ $__sv_copy.§$s   1(first ∈ $__sv_copy.§$s)
+                        $__sv_copy.§$s ∋ first   1($__sv_copy.§$s ∋ first)
+                        """, graph.printClosure());
+            }
+            if("2".equals(statementIndex)) {
+                Assertions.assertEquals("""
+                        return method ← first   2(return method ← first)
+                        return method ∈ $__sv_copy.§$s   *[return method ← first, first ∈ $__sv_copy.§$s]
+                        first → return method   2(first → return method)
+                        first ∈ $__sv_copy.§$s   1(first ∈ $__sv_copy.§$s)
+                        $__sv_copy.§$s ∋ first   1($__sv_copy.§$s ∋ first)
+                        """, graph.printClosure());
+            }
+        });
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        MethodLinkedVariables mlv = method.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(method));
+        assertEquals("[-] --> method∈0:in.§$s", mlv.toString());
+    }
 }
