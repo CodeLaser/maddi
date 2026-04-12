@@ -1,4 +1,4 @@
-package org.e2immu.analyzer.modification.link.impl.graph;
+package org.e2immu.analyzer.modification.link.impl.linkgraph;
 
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
@@ -15,6 +15,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+// meant to be used exclusively for §m groups
 public class EquivalenceGroup {
     public Stream<Variable> variables() {
         return memberToGroup.keySet().stream();
