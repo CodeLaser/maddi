@@ -23,25 +23,26 @@ public class SharedVariables {
         variableTranslationMap = new VariableTranslationMap(runtime);
     }
 
-    public boolean isAssignedFrom(Variable from, Variable to) {
+    public SharedVariable isAssignedFrom(Variable from, Variable to) {
         SharedVariable sv1 = memberToGroup.get(from);
         SharedVariable sv2 = memberToGroup.get(to);
         if (sv1 == null && sv2 == null) {
-            create(from, to);
-            return true;
+            return create(from, to);
         }
         if (sv1 == sv2) {
-            return false; // already in the same group
+            return null; // already in the same group
         }
         if (sv1 == null) {
             add(sv2, from);
+            return sv2;
         }
         if (sv2 == null) {
             add(sv1, to);
+            return sv1;
         }
         // merge 2 groups
         merge(sv1, sv2, from, to);
-        return true;
+        return sv1;
     }
 
     public Variable translateForward(Variable variable) {
@@ -62,12 +63,13 @@ public class SharedVariables {
         sharedVariablesByName.values().forEach(g -> g.removeAll(variables));
     }
 
-    private void create(Variable referenceVariable, Variable firstAssignedTo) {
+    private SharedVariable create(Variable referenceVariable, Variable firstAssignedTo) {
         SharedVariable sv = new SharedVariable(referenceVariable.simpleName(), referenceVariable.parameterizedType(),
                 runtime);
         sharedVariablesByName.put(sv.fullyQualifiedName(), sv);
         add(sv, referenceVariable);
         add(sv, firstAssignedTo);
+        return sv;
     }
 
     private void add(SharedVariable sharedVariable, Variable variable) {

@@ -6,6 +6,7 @@ import org.e2immu.analyzer.modification.link.impl.linkgraph.FollowGraph;
 import org.e2immu.analyzer.modification.link.impl.localvar.IntermediateVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.*;
@@ -100,6 +101,12 @@ class WriteLinksAndModification {
         builder.replace(toUpdate, SHARES_ELEMENTS);
     }
 
+    /*
+    It is possible that 2 real variables are represented by one shared variable.
+    It is equally possible that one real variable refers is composed of multiple shared variables.
+
+    On top of that, we add the relevant modification links kept in VirtualModificationIdenticals.
+    */
     private List<Link> doVariableReturnRecompute(Statement statement,
                                                  VariableInfo vi,
                                                  Set<Variable> unmarkedModifications,
@@ -109,13 +116,30 @@ class WriteLinksAndModification {
         Variable variable = vi.variable();
         unmarkedModifications.remove(variable);
 
-        Links.Builder builder2 = followGraph.followGraph(virtualFieldComputer, variable);
+        Links.Builder builder2;
+        // step one, multiple real variables map onto a single shared variable
+        Variable toFollow = followGraph.graph().translateForward(variable);
+        Links.Builder builder1 = followGraph.followGraph(virtualFieldComputer, toFollow);
+        if (toFollow != variable) {
+            builder2 = new LinksImpl.Builder(variable);
+            builder1.linkSet().forEach(link -> {
+                VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+                vtm.put(toFollow, variable);
+                Link translated = link.translateFrom(vtm);
+                builder2.add(translated.from(), translated.linkNature(), translated.to());
+            });
+        } else {
+            builder2 = builder1;
+        }
+
         Links.Builder builder = new LinksImpl.Builder(builder2.primary());
+        // components of the variable can also be part of the shared variables...
         for (Link link : builder2.linkSet()) {
             iterateOverShared(link.from()).forEach(from -> iterateOverShared(link.to())
                     .forEach(to -> builder.add(from, link.linkNature(), to)));
         }
-        followGraph.graph().equivalentEdgesStream(variable)
+        // finally, modification edges
+        followGraph.graph().virtualModificationEdgeStream(variable)
                 .filter(link -> builder.containsPrimaryOf(link.to()))
                 .filter(link -> !builder.contains(link.from(), link.linkNature(), link.to()))
                 .forEach(link -> builder.add(link.from(), link.linkNature(), link.to()));

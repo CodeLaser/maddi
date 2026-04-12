@@ -77,11 +77,8 @@ public class TestSimpleSharedVariable extends CommonTest {
             }
             if("2".equals(statementIndex)) {
                 Assertions.assertEquals("""
-                        return method ← first   2(return method ← first)
-                        return method ∈ $__sv_copy.§$s   *[return method ← first, first ∈ $__sv_copy.§$s]
-                        first → return method   2(first → return method)
-                        first ∈ $__sv_copy.§$s   1(first ∈ $__sv_copy.§$s)
-                        $__sv_copy.§$s ∋ first   1($__sv_copy.§$s ∋ first)
+                        $__sv_return method ∈ $__sv_copy.§$s   2($__sv_return method ∈ $__sv_copy.§$s)
+                        $__sv_copy.§$s ∋ $__sv_return method   2($__sv_copy.§$s ∋ $__sv_return method)
                         """, graph.printClosure());
             }
         });

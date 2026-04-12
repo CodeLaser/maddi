@@ -14,6 +14,14 @@ public final class LabeledGraph<V, L> {
         return map.entrySet();
     }
 
+    public Map<V, L> edges(V v) {
+        return map.getOrDefault(v, Map.of());
+    }
+
+    public boolean isKnown(V v) {
+        return map.containsKey(v);
+    }
+
     public String printEdges(Comparator<V> comparator) {
         return map.entrySet().stream().sorted(Map.Entry.comparingByKey(comparator))
                 .flatMap(e ->
