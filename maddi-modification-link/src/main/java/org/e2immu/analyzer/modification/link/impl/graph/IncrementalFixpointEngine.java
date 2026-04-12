@@ -71,6 +71,14 @@ public final class IncrementalFixpointEngine<V, L> {
         this.acceptForComposite = acceptForComposite;
     }
 
+    public Iterable<Map.Entry<V, L>> edges(V v) {
+        return graph.successors(v);
+    }
+
+    public boolean isKnown(V from) {
+        return graph.isKnown(from);
+    }
+
     public int sizeOfClosure() {
         return closure.countFacts();
     }

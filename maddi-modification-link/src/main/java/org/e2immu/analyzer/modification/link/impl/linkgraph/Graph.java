@@ -4,13 +4,11 @@ import org.e2immu.analyzer.modification.link.impl.LinkNatureImpl;
 import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
+import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
-import org.e2immu.analyzer.modification.prepwork.variable.ReturnVariable;
-import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
@@ -34,10 +32,6 @@ public class Graph {
     public Graph(Runtime runtime, IncrementalFixpointEngine<Variable, LinkNature> engine) {
         this.engine = engine;
         this.sharedVariables = new SharedVariables(runtime);
-    }
-
-    public SharedVariables sharedVariables() {
-        return sharedVariables;
     }
 
     public IncrementalFixpointEngine<Variable, LinkNature> engine() {
@@ -74,7 +68,7 @@ public class Graph {
                && label != LinkNatureImpl.IS_ELEMENT_OF;
     }
 
-    public Stream<Link> equivalentEdgesStream(Variable primary) {
+    public Stream<Link> virtualModificationEdgeStream(Variable primary) {
         Set<Variable> variables = virtualModificationIdenticals.variablesPartOf(primary);
         Map<Variable, VirtualModificationIdenticals.Group> groups = variables.stream()
                 .collect(Collectors.toUnmodifiableMap(v -> v, virtualModificationIdenticals::members));
@@ -90,12 +84,43 @@ public class Graph {
         if (linkNature.isIdenticalTo() && Util.isVirtualModification(from)) {
             return virtualModificationIdenticals.add(from, linkNature, to);
         }
-        if (linkNature.isAssignedFrom() && !(from instanceof ReturnVariable) &&  !(to instanceof MarkerVariable)) {
-            return sharedVariables.isAssignedFrom(from, to);
+        if (linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)) {
+            SharedVariable sv = sharedVariables.isAssignedFrom(from, to);
+            boolean fromInGraph = engine.isKnown(from);
+            boolean toInGraph = engine.isKnown(to);
+            if (sv == null) {
+                assert !fromInGraph && !toInGraph
+                        : from + " and " + to + " should already have been removed; they're in the same equivalance group";
+                return false;
+            }
+            if (fromInGraph) {
+                transformToSharedVariable(from, sv, statementIndex);
+                if (toInGraph) {
+                    engine.removeVertices(Set.of(to));
+                }
+            } else if (toInGraph) {
+                transformToSharedVariable(to, sv, statementIndex);
+            }
+            return true;
         }
         Variable tFrom = sharedVariables.translateForward(from);
         Variable tTo = sharedVariables.translateForward(to);
         return engine.addSymmetricEdge(tFrom, tTo, linkNature, statementIndex) > 0;
+    }
+
+
+    private void transformToSharedVariable(Variable variableInGraph, SharedVariable sharedVariable, String statementIndex) {
+        Iterable<Map.Entry<Variable, LinkNature>> forwardLinks = engine.edges(variableInGraph);
+        engine.removeVertices(Set.of(variableInGraph));
+        engine.addVertex(sharedVariable);
+        for (Map.Entry<Variable, LinkNature> link : forwardLinks) {
+            engine.addSymmetricEdge(sharedVariable, link.getKey(), link.getValue(), statementIndex);
+        }
+        engine.recompute(Set.of(sharedVariable), statementIndex, _ -> true);
+    }
+
+    public Variable translateForward(Variable variable) {
+        return sharedVariables.translateForward(variable);
     }
 
     public String printEquivalence(Function<Variable, String> variablePrinter) {
@@ -132,17 +157,6 @@ public class Graph {
 
     public String printClosure() {
         return engine.printClosure();
-    }
-
-    private static String printForTesting(Variable v) {
-        if (v instanceof ParameterInfo pi) return pi.index() + ":" + pi.name();
-        if (v instanceof DependentVariable dv && dv.indexVariable() != null) {
-            return printForTesting(dv.arrayVariable()) + "[" + printForTesting(dv.indexVariable()) + "]";
-        }
-        if (v instanceof FieldReference fr && fr.scopeVariable() != null) {
-            return printForTesting(fr.scopeVariable()) + "." + fr.fieldInfo().name();
-        }
-        return v.toString();
     }
 
     public void recompute(Set<Variable> affected,
