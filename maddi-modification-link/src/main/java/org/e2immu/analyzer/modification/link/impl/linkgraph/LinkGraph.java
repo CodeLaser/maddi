@@ -27,19 +27,15 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class LinkGraph {
-    //JavaInspector javaInspector;
     Runtime runtime;
     boolean checkDuplicateNames;
     Graph graph;
     MakeGraph makeGraph;
-    //FollowGraph followGraph;
 
-    public LinkGraph(JavaInspector javaInspector,
-                     Runtime runtime,
+    public LinkGraph(Runtime runtime,
                      boolean checkDuplicateNames,
                      Graph graph,
-                     MakeGraph makeGraph,
-                     FollowGraph followGraph) {
+                     MakeGraph makeGraph) {
         this.checkDuplicateNames = checkDuplicateNames;
         this.graph = graph;
         this.makeGraph = makeGraph;

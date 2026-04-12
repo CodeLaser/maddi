@@ -2,6 +2,7 @@ package org.e2immu.analyzer.modification.link.impl.localvar;
 
 import org.e2immu.analyzer.modification.link.impl.LinkVariable;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
 
@@ -11,14 +12,10 @@ import java.util.Set;
 public class SharedVariable extends LocalVariableImpl implements LinkVariable {
     public static final String PREFIX = "$__sv_";
 
-    private final Variable referenceVariable;
     private final Set<Variable> variables = new LinkedHashSet<>();
 
-    public SharedVariable(String name, Variable referenceVariable, Runtime runtime) {
-        super(PREFIX + name, referenceVariable.parameterizedType(),
-                runtime.newVariableExpression(referenceVariable));
-        this.referenceVariable = referenceVariable;
-        variables.add(referenceVariable);
+    public SharedVariable(String name, ParameterizedType parameterizedType, Runtime runtime) {
+        super(PREFIX + name, parameterizedType, runtime.newEmptyExpression());
     }
 
     public boolean add(Variable variable) {
@@ -27,11 +24,7 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
 
     @Override
     public boolean acceptForLinkedVariables() {
-        return false;
-    }
-
-    public Variable referenceVariable() {
-        return referenceVariable;
+        throw new UnsupportedOperationException();
     }
 
     public Set<Variable> variables() {

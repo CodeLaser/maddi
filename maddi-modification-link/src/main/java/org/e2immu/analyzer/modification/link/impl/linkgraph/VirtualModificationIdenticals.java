@@ -15,11 +15,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-// meant to be used exclusively for §m groups
-public class EquivalenceGroup {
-    public Stream<Variable> variables() {
-        return memberToGroup.keySet().stream();
-    }
+public class VirtualModificationIdenticals {
 
     public record Group(LinkNature linkNature, Set<Variable> members) {
         public Stream<Link> expand(Variable v1) {
@@ -82,25 +78,8 @@ public class EquivalenceGroup {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private enum AddResultEnum {
-        NEW, ADD, MERGE, NONE;
-    }
 
-    public record AddResult(AddResultEnum result, Variable representativeToRemove) {
-        public boolean isAddOrNew() {
-            return result == AddResultEnum.ADD || result == AddResultEnum.NEW;
-        }
-
-        public boolean isMerge() {
-            return result == AddResultEnum.MERGE;
-        }
-    }
-
-    private static final AddResult AR_NEW = new AddResult(AddResultEnum.NEW, null);
-    private static final AddResult AR_ADD = new AddResult(AddResultEnum.ADD, null);
-    private static final AddResult AR_NONE = new AddResult(AddResultEnum.NONE, null);
-
-    public AddResult add(Variable v1, LinkNature linkNature, Variable v2) {
+    public boolean add(Variable v1, LinkNature linkNature, Variable v2) {
         Integer g1 = memberToGroup.get(v1);
         Integer g2 = memberToGroup.get(v2);
         if (g1 == null && g2 == null) {
@@ -111,37 +90,33 @@ public class EquivalenceGroup {
             groups.put(newGroupId, new Group(linkNature, set));
             memberToGroup.put(v1, newGroupId);
             memberToGroup.put(v2, newGroupId);
-            return AR_NEW;
+            return true;
         }
         if (g1 == null) {
             groups.get(g2).members.add(v1);
             memberToGroup.put(v1, g2);
-            return AR_ADD;
+            return true;
         }
         if (g2 == null) {
             groups.get(g1).members.add(v2);
             memberToGroup.put(v2, g1);
-            return AR_ADD;
+            return true;
         }
         int g1i = g1;
         int g2i = g2;
         if (g1i == g2i) {
-            return AR_NONE;
+            return false;
         }
         // merge g2 into g1
         Group group2 = groups.get(g2);
-        Variable representative = group2.members.stream().findFirst().orElseThrow();
         groups.get(g1).members.addAll(group2.members);
         groups.remove(g2);
         group2.members.forEach(v -> memberToGroup.put(v, g1));
-        return new AddResult(AddResultEnum.MERGE, representative);
+        return true;
     }
 
-    public Variable representative(Variable v) {
-        Integer gId = memberToGroup.get(v);
-        if (gId != null) {
-            return groups.get(gId).members.stream().findFirst().orElseThrow();
-        }
-        return v;
+    public Stream<Variable> variables() {
+        return memberToGroup.keySet().stream();
     }
+
 }
