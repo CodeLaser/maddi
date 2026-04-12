@@ -21,4 +21,5 @@ module org.e2immu.analyzer.modification.link {
     exports org.e2immu.analyzer.modification.link.io;
     exports org.e2immu.analyzer.modification.link.impl.translate;
     exports org.e2immu.analyzer.modification.link.impl.graph;
+    exports org.e2immu.analyzer.modification.link.impl.linkgraph;
 }
