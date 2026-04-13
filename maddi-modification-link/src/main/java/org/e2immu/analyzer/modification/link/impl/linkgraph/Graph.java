@@ -5,6 +5,7 @@ import org.e2immu.analyzer.modification.link.impl.graph.Fact;
 import org.e2immu.analyzer.modification.link.impl.graph.IncrementalFixpointEngine;
 import org.e2immu.analyzer.modification.link.impl.localvar.MarkerVariable;
 import org.e2immu.analyzer.modification.link.impl.localvar.SharedVariable;
+import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationMap;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.variable.Link;
 import org.e2immu.analyzer.modification.prepwork.variable.LinkNature;
@@ -13,10 +14,7 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -25,6 +23,7 @@ import java.util.stream.Stream;
 import static org.e2immu.analyzer.modification.link.impl.LinkNatureImpl.CONTAINS_AS_FIELD;
 
 public class Graph {
+    private final Runtime runtime;
     private final IncrementalFixpointEngine<Variable, LinkNature> engine;
     private final VirtualModificationIdenticals virtualModificationIdenticals = new VirtualModificationIdenticals();
     private final SharedVariables sharedVariables;
@@ -32,6 +31,7 @@ public class Graph {
     public Graph(Runtime runtime, IncrementalFixpointEngine<Variable, LinkNature> engine) {
         this.engine = engine;
         this.sharedVariables = new SharedVariables(runtime);
+        this.runtime = runtime;
     }
 
     public IncrementalFixpointEngine<Variable, LinkNature> engine() {
@@ -108,12 +108,12 @@ public class Graph {
                 return false;
             }
             if (!fromInGraph.isEmpty()) {
-                transformToSharedVariable(fromInGraph, sv, statementIndex);
+                transformToSharedVariable(from, fromInGraph, sv, statementIndex);
                 if (!toInGraph.isEmpty()) {
                     engine.removeVertices(Set.of(to));
                 }
             } else if (!toInGraph.isEmpty()) {
-                transformToSharedVariable(toInGraph, sv, statementIndex);
+                transformToSharedVariable(to, toInGraph, sv, statementIndex);
             }
             return true;
         }
@@ -129,18 +129,22 @@ public class Graph {
     }
 
 
-    private void transformToSharedVariable(Set<Variable> variablesInGraph,
+    private void transformToSharedVariable(Variable variable,
+                                           Set<Variable> variablesInGraph,
                                            SharedVariable sharedVariable,
                                            String statementIndex) {
-        List<Iterable<Map.Entry<Variable, LinkNature>>> forwardLinksList = variablesInGraph.stream()
-                .map(engine::edges)
+        var forwardLinksList = variablesInGraph
+                .stream()
+                .map(v -> new AbstractMap.SimpleEntry<>(v, engine.edges(v)))
                 .toList();
         engine.removeVertices(variablesInGraph);
         engine.addVertex(sharedVariable);
-        for (Iterable<Map.Entry<Variable, LinkNature>> forwardLinks : forwardLinksList) {
-            for (Map.Entry<Variable, LinkNature> link : forwardLinks) {
-                // FIXME translate rather than simply use link
-                engine.addSymmetricEdge(sharedVariable, link.getKey(), link.getValue(), statementIndex);
+        for (Map.Entry<Variable, Iterable<Map.Entry<Variable, LinkNature>>> forwardLinks : forwardLinksList) {
+            VariableTranslationMap vtm = new VariableTranslationMap(runtime);
+            vtm.put(variable, sharedVariable);
+            Variable newFrom =vtm.translateVariableRecursively( forwardLinks.getKey());
+            for (Map.Entry<Variable, LinkNature> link : forwardLinks.getValue()) {
+                engine.addSymmetricEdge(newFrom, link.getKey(), link.getValue(), statementIndex);
             }
         }
         engine.recompute(Set.of(sharedVariable), statementIndex, _ -> true);
