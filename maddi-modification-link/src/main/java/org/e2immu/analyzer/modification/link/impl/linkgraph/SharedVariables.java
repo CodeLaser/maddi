@@ -5,7 +5,9 @@ import org.e2immu.analyzer.modification.link.impl.translate.VariableTranslationM
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.variable.Variable;
 
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -20,6 +22,12 @@ public class SharedVariables {
     public SharedVariables(Runtime runtime) {
         this.runtime = runtime;
         variableTranslationMap = new VariableTranslationMap(runtime);
+    }
+
+    public Collection<Variable> allShared(Variable variable) {
+        SharedVariable sv = memberToGroup.get(variable);
+        if(sv == null) return List.of(variable);
+        return sv.variables();
     }
 
     public SharedVariable isAssignedFrom(Variable from, Variable to) {

@@ -53,9 +53,16 @@ class WriteLinksAndModification {
         Map<Variable, Links.Builder> newLinkedVariables = new HashMap<>();
         List<Link> toRemove = new ArrayList<>();
 
+        Map<Variable, Set<MethodInfo>> expandedModifiedDuringEvaluation = new HashMap<>();
+        for (Map.Entry<Variable, Set<MethodInfo>> entry : modifiedDuringEvaluation.entrySet()) {
+            for (Variable v : followGraph.graph().allShared(entry.getKey())) {
+                expandedModifiedDuringEvaluation.put(v, entry.getValue());
+            }
+        }
+
         for (VariableInfo vi : vd.variableInfoIterable(Stage.EVALUATION)) {
             toRemove.addAll(doVariableReturnRecompute(statement, vi, unmarkedModifications,
-                    previouslyModified, modifiedDuringEvaluation, newLinkedVariables));
+                    previouslyModified, expandedModifiedDuringEvaluation, newLinkedVariables));
         }
         /*
          toRemove now contains links that should change from ⊆, ⊇ to ~, see e.g. TestConstructor,1; TestDependent,1
@@ -156,6 +163,8 @@ class WriteLinksAndModification {
                     && (assignedInThisStatement(statement, vi)
                         || !modifiedInThisEvaluation.containsKey(variable)
                            // all the §m links
+                           && notLinkedToModifiedVirtualModification(variable, toFollow, modifiedInThisEvaluation)
+                           // and other links such as ≺ IS_FIELD_OF
                            && notLinkedToModified(builder, modifiedInThisEvaluation));
             builder.removeIf(WriteLinksAndModification::notInLinkedVariables);
 
@@ -228,6 +237,12 @@ class WriteLinksAndModification {
     private static boolean assignedInThisStatement(Statement statement, VariableInfo vi) {
         String index = statement.source().index();
         return vi.assignments().contains(index) && !vi.reads().indices().contains(index);
+    }
+
+    private boolean notLinkedToModifiedVirtualModification(Variable variable,
+                                                           Variable toFollow,
+                                                           Map<Variable, Set<MethodInfo>> modifiedVariablesAndTheirCause) {
+        return followGraph.graph().eqVariables(variable).noneMatch(modifiedVariablesAndTheirCause::containsKey);
     }
 
     private boolean notLinkedToModified(Links.Builder builder,

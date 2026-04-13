@@ -119,4 +119,13 @@ public class VirtualModificationIdenticals {
         return memberToGroup.keySet().stream();
     }
 
+    // given v, and v.§m ≡ w.§m ≡ x.§m, return v, w, x
+    public Stream<Variable> equivalentStream(Variable variable) {
+        Set<Integer> groups = memberToGroup.entrySet().stream()
+                .filter(e -> variable.equals(Util.firstRealVariable(e.getKey())))
+                .map(Map.Entry::getValue)
+                .collect(Collectors.toUnmodifiableSet());
+        return groups.stream().flatMap(g -> this.groups.getOrDefault(g, EMPTY).members.stream())
+                .map(Util::firstRealVariable);
+    }
 }

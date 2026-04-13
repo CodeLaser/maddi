@@ -10,6 +10,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Assertions;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public class TestSimpleSharedVariable extends CommonTest {
@@ -198,8 +200,15 @@ public class TestSimpleSharedVariable extends CommonTest {
             }
         });
         MethodInfo method = X.findUniqueMethod("method", 1);
+        ParameterInfo in = method.parameters().getFirst();
         MethodLinkedVariables mlvListAdd = method.analysis().getOrCreate(METHOD_LINKS,
                 () -> linkComputer.doMethod(method));
+
+        VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
+        VariableInfo copy1 = vd1.variableInfo("copy");
+        assertTrue(copy1.isModified());
+        VariableInfo in1 = vd1.variableInfo(in);
+        assertTrue(in1.isModified());
 
         VariableData vd2 = VariableDataImpl.of(method.methodBody().statements().get(2));
         VariableInfo field2 = vd2.variableInfo("a.b.X.field");
