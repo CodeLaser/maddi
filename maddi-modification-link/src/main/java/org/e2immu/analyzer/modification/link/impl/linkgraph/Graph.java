@@ -34,6 +34,10 @@ public class Graph {
         this.runtime = runtime;
     }
 
+    public Collection<Variable> allShared(Variable variable) {
+        return sharedVariables.allShared(variable);
+    }
+
     public IncrementalFixpointEngine<Variable, LinkNature> engine() {
         return engine;
     }
@@ -55,6 +59,10 @@ public class Graph {
 
     public Stream<Variable> eqVariables() {
         return virtualModificationIdenticals.variables();
+    }
+
+    public Stream<Variable> eqVariables(Variable variable) {
+      return  virtualModificationIdenticals.equivalentStream(variable);
     }
 
     public void removeEquivalence(Set<Variable> allToRemove2) {
@@ -142,7 +150,7 @@ public class Graph {
         for (Map.Entry<Variable, Iterable<Map.Entry<Variable, LinkNature>>> forwardLinks : forwardLinksList) {
             VariableTranslationMap vtm = new VariableTranslationMap(runtime);
             vtm.put(variable, sharedVariable);
-            Variable newFrom =vtm.translateVariableRecursively( forwardLinks.getKey());
+            Variable newFrom = vtm.translateVariableRecursively(forwardLinks.getKey());
             for (Map.Entry<Variable, LinkNature> link : forwardLinks.getValue()) {
                 engine.addSymmetricEdge(newFrom, link.getKey(), link.getValue(), statementIndex);
             }
