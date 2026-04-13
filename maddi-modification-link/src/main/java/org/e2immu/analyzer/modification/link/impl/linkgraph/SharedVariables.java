@@ -7,7 +7,6 @@ import org.e2immu.language.cst.api.variable.Variable;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -45,6 +44,10 @@ public class SharedVariables {
         return sv1;
     }
 
+    public boolean isKnown(Variable from) {
+        return memberToGroup.containsKey(from);
+    }
+
     public Variable translateForward(Variable variable) {
         return variableTranslationMap.translateVariableRecursively(variable);
     }
@@ -58,18 +61,34 @@ public class SharedVariables {
                 .collect(Collectors.joining("\n"));
     }
 
-    public void remove(Set<Variable> variables) {
-        memberToGroup.keySet().removeAll(variables);
-        sharedVariablesByName.values().forEach(g -> g.removeAll(variables));
+    public void remove(Variable variable) {
+        if (memberToGroup.remove(variable) != null) {
+            sharedVariablesByName.values().forEach(g -> g.remove(variable));
+            boolean removed = variableTranslationMap.remove(variable);
+            assert removed;
+        }
     }
 
     private SharedVariable create(Variable referenceVariable, Variable firstAssignedTo) {
-        SharedVariable sv = new SharedVariable(referenceVariable.simpleName(), referenceVariable.parameterizedType(),
+        String newName = makeName(SharedVariable.PREFIX + referenceVariable.simpleName());
+        SharedVariable sv = new SharedVariable(newName, referenceVariable.parameterizedType(),
                 runtime);
         sharedVariablesByName.put(sv.fullyQualifiedName(), sv);
         add(sv, referenceVariable);
         add(sv, firstAssignedTo);
         return sv;
+    }
+
+    private String makeName(String s) {
+        int i = 0;
+        while (sharedVariablesByName.containsKey(name(s, i))) {
+            ++i;
+        }
+        return name(s, i);
+    }
+
+    private static String name(String s, int i) {
+        return s + (i > 0 ? "" + i : "");
     }
 
     private void add(SharedVariable sharedVariable, Variable variable) {

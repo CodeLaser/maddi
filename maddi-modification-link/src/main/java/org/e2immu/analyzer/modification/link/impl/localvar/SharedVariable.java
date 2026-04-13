@@ -15,7 +15,7 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
     private final Set<Variable> variables = new LinkedHashSet<>();
 
     public SharedVariable(String name, ParameterizedType parameterizedType, Runtime runtime) {
-        super(PREFIX + name, parameterizedType, runtime.newEmptyExpression());
+        super(name, parameterizedType, runtime.newEmptyExpression());
     }
 
     public boolean add(Variable variable) {
@@ -33,5 +33,9 @@ public class SharedVariable extends LocalVariableImpl implements LinkVariable {
 
     public void removeAll(Set<Variable> variables) {
         this.variables.removeAll(variables);
+    }
+
+    public void remove(Variable variable) {
+        variables.remove(variable);
     }
 }

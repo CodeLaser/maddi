@@ -119,9 +119,9 @@ public final class IncrementalFixpointEngine<V, L> {
         return graph.addVertex(v);
     }
 
-    public void removeVertices(Set<V> vertices) {
-        graph.removeVertices(vertices);
+    public boolean removeVertices(Set<V> vertices) {
         closure.removeVertices(vertices);
+        return graph.removeVertices(vertices);
     }
 
     public int addSymmetricEdge(V from, V to, L label, String statementIndex) {
