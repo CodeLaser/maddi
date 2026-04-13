@@ -190,10 +190,10 @@ public class TestSimpleSharedVariable extends CommonTest {
             }
             if ("4".equals(statementIndex)) {
                 Assertions.assertEquals("""
-                        $__sv_return method ∋ this.second   4($__sv_return method ∋ this.second)
                         this.field ∈ $__sv_copy.§$s   1(this.field ∈ $__sv_copy.§$s)
-                        this.second ∈ $__sv_return method   4(this.second ∈ $__sv_return method)
+                        this.second ∈ $__sv_return method.§$s   4(this.second ∈ $__sv_return method.§$s)
                         $__sv_copy.§$s ∋ this.field   1($__sv_copy.§$s ∋ this.field)
+                        $__sv_return method.§$s ∋ this.second   4($__sv_return method.§$s ∋ this.second)
                         """, graph.printClosure());
             }
         });
