@@ -76,6 +76,14 @@ public class Graph {
     }
 
 
+    public void clear(Variable variable, String statementIndex) {
+        sharedVariables.remove(variable);
+        Set<Variable> set = Set.of(variable);
+        if (engine.removeVertices(set)) {
+            engine.recompute(set, statementIndex, _ -> true);
+        }
+    }
+
     boolean mergeEdgeBi(Variable from, LinkNature linkNature, Variable to, String statementIndex) {
         if (from.equals(to)) {
             return engine.addVertex(from); // safety measure, is technically possible
@@ -85,21 +93,27 @@ public class Graph {
             return virtualModificationIdenticals.add(from, linkNature, to);
         }
         if (linkNature.isAssignedFrom() && !(to instanceof MarkerVariable)) {
+            boolean fromInGroups = sharedVariables.isKnown(from);
+            if (fromInGroups) {
+                // reassignment: we must remove 'from' if present in any shared variable
+                sharedVariables.remove(from);
+                // TODO what with fromInGraph?
+            }
             SharedVariable sv = sharedVariables.isAssignedFrom(from, to);
-            boolean fromInGraph = engine.isKnown(from);
-            boolean toInGraph = engine.isKnown(to);
+            Set<Variable> fromInGraph = isKnownInGraph(from);
+            Set<Variable> toInGraph = isKnownInGraph(to);
             if (sv == null) {
-                assert !fromInGraph && !toInGraph
+                assert fromInGraph.isEmpty() && toInGraph.isEmpty()
                         : from + " and " + to + " should already have been removed; they're in the same equivalance group";
                 return false;
             }
-            if (fromInGraph) {
-                transformToSharedVariable(from, sv, statementIndex);
-                if (toInGraph) {
+            if (!fromInGraph.isEmpty()) {
+                transformToSharedVariable(fromInGraph, sv, statementIndex);
+                if (!toInGraph.isEmpty()) {
                     engine.removeVertices(Set.of(to));
                 }
-            } else if (toInGraph) {
-                transformToSharedVariable(to, sv, statementIndex);
+            } else if (!toInGraph.isEmpty()) {
+                transformToSharedVariable(toInGraph, sv, statementIndex);
             }
             return true;
         }
@@ -108,13 +122,26 @@ public class Graph {
         return engine.addSymmetricEdge(tFrom, tTo, linkNature, statementIndex) > 0;
     }
 
+    private Set<Variable> isKnownInGraph(Variable variable) {
+        return engine.vertices().stream()
+                .filter(v -> Util.variableAndScopes(v).anyMatch(variable::equals))
+                .collect(Collectors.toUnmodifiableSet());
+    }
 
-    private void transformToSharedVariable(Variable variableInGraph, SharedVariable sharedVariable, String statementIndex) {
-        Iterable<Map.Entry<Variable, LinkNature>> forwardLinks = engine.edges(variableInGraph);
-        engine.removeVertices(Set.of(variableInGraph));
+
+    private void transformToSharedVariable(Set<Variable> variablesInGraph,
+                                           SharedVariable sharedVariable,
+                                           String statementIndex) {
+        List<Iterable<Map.Entry<Variable, LinkNature>>> forwardLinksList = variablesInGraph.stream()
+                .map(engine::edges)
+                .toList();
+        engine.removeVertices(variablesInGraph);
         engine.addVertex(sharedVariable);
-        for (Map.Entry<Variable, LinkNature> link : forwardLinks) {
-            engine.addSymmetricEdge(sharedVariable, link.getKey(), link.getValue(), statementIndex);
+        for (Iterable<Map.Entry<Variable, LinkNature>> forwardLinks : forwardLinksList) {
+            for (Map.Entry<Variable, LinkNature> link : forwardLinks) {
+                // FIXME translate rather than simply use link
+                engine.addSymmetricEdge(sharedVariable, link.getKey(), link.getValue(), statementIndex);
+            }
         }
         engine.recompute(Set.of(sharedVariable), statementIndex, _ -> true);
     }

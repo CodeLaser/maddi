@@ -16,7 +16,6 @@ import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,18 +76,21 @@ public class LinkGraph {
         Set<Variable> allToRemove = graph.variables().stream()
                 .filter(v -> toRemove.contains(Util.firstRealVariable(v)))
                 .collect(Collectors.toUnmodifiableSet());
-        if(!allToRemove.isEmpty()) {
+        if (!allToRemove.isEmpty()) {
             graph.remove(allToRemove);
         }
         Set<Variable> allToRemove2 = graph.eqVariables()
                 .filter(v -> toRemove.contains(Util.firstRealVariable(v)))
                 .collect(Collectors.toUnmodifiableSet());
-        if(!allToRemove2.isEmpty()) {
+        if (!allToRemove2.isEmpty()) {
             graph.removeEquivalence(allToRemove2);
         }
 
-        Map<Variable, Links> newLinks2 = reduceLinks(newLinks);
-
+        Reduce r = reduceLinks(newLinks);
+        if (r != null && r.clear != null) {
+            graph.clear(r.clear, statementIndex);
+        }
+        Map<Variable, Links> newLinks2 = r == null ? newLinks : r.newLinks;
         newLinks2.entrySet()
                 .stream()
                 .filter(e -> !(e.getKey() instanceof This))
@@ -118,7 +120,10 @@ public class LinkGraph {
 
     private final Set<IntermediateVariable> intermediateVariablesRemoved = new HashSet<>();
 
-    private Map<Variable, Links> reduceLinks(Map<Variable, Links> newLinks) {
+    private record Reduce(Map<Variable, Links> newLinks, Variable clear) {
+    }
+
+    private Reduce reduceLinks(Map<Variable, Links> newLinks) {
         Variable source = null; // iis ← $__c0  == target ← source
         Variable target = null;
         Links skip = null;
@@ -138,7 +143,7 @@ public class LinkGraph {
                 }
             }
         }
-        if (source == null) return newLinks;
+        if (source == null) return null;
         Map<Variable, Links> res = new HashMap<>();
         for (Map.Entry<Variable, Links> entry : newLinks.entrySet()) {
             if (skip != entry.getValue()) {
@@ -147,7 +152,7 @@ public class LinkGraph {
                 res.put(v, links);
             }
         }
-        return res;
+        return new Reduce(res, target);
     }
 
     public static String vertexPrinter(Variable variable) {

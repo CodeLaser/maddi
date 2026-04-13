@@ -36,6 +36,10 @@ public class VariableTranslationMap implements TranslationMap {
         return this.map.isEmpty();
     }
 
+    public boolean remove(Variable variable) {
+        return this.map.remove(variable) != null;
+    }
+
     @Override
     public Variable translateVariable(Variable variable) {
         return this.map.getOrDefault(variable, variable);

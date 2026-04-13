@@ -52,9 +52,9 @@ public final class LabeledGraph<V, L> {
         return true;
     }
 
-    public void removeVertices(Set<V> vertices) {
-        map.keySet().removeAll(vertices);
+    public boolean removeVertices(Set<V> vertices) {
         map.values().forEach(map -> map.keySet().removeAll(vertices));
+        return map.keySet().removeAll(vertices);
     }
 
     public boolean replace(V from, V to, L label, L reverseLabel) {

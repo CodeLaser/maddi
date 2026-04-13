@@ -173,15 +173,28 @@ public class TestSimpleSharedVariable extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
-        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, new LinkComputerImpl.TestVisitor() {
-            @Override
-            public void visit(String statementIndex, Graph graph) {
-                if ("1".equals(statementIndex)) {
-                    assertEquals("""
-                            this.field ∈ $__sv_copy.§$s   1(this.field ∈ $__sv_copy.§$s)
-                            $__sv_copy.§$s ∋ this.field   1($__sv_copy.§$s ∋ this.field)
-                            """, graph.printClosure());
-                }
+        LinkComputerImpl linkComputer = new LinkComputerImpl(javaInspector, (statementIndex, graph) -> {
+            if ("1".equals(statementIndex) || "2".equals(statementIndex)) {
+                Assertions.assertEquals("""
+                        this.field ∈ $__sv_copy.§$s   1(this.field ∈ $__sv_copy.§$s)
+                        $__sv_copy.§$s ∋ this.field   1($__sv_copy.§$s ∋ this.field)
+                        """, graph.printClosure());
+            }
+            if ("3".equals(statementIndex)) {
+                Assertions.assertEquals("""
+                        this.field ∈ $__sv_copy.§$s   1(this.field ∈ $__sv_copy.§$s)
+                        this.second ∈ copy.§$s   3(this.second ∈ copy.§$s)
+                        $__sv_copy.§$s ∋ this.field   1($__sv_copy.§$s ∋ this.field)
+                        copy.§$s ∋ this.second   3(copy.§$s ∋ this.second)
+                        """, graph.printClosure());
+            }
+            if ("4".equals(statementIndex)) {
+                Assertions.assertEquals("""
+                        $__sv_return method ∋ this.second   4($__sv_return method ∋ this.second)
+                        this.field ∈ $__sv_copy.§$s   1(this.field ∈ $__sv_copy.§$s)
+                        this.second ∈ $__sv_return method   4(this.second ∈ $__sv_return method)
+                        $__sv_copy.§$s ∋ this.field   1($__sv_copy.§$s ∋ this.field)
+                        """, graph.printClosure());
             }
         });
         MethodInfo method = X.findUniqueMethod("method", 1);
@@ -200,6 +213,7 @@ public class TestSimpleSharedVariable extends CommonTest {
         assertEquals("copy.§$s∋this.second", copy3.linkedVariables().toString());
 
         // important that this.second not part of 0:in
+        // also important is that 0:in remains modified...
         assertEquals("[0:in*.§$s∋this.field] --> method.§$s∋this.second", mlvListAdd.toString());
     }
 
