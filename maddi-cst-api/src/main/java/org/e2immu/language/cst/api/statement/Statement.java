@@ -60,6 +60,10 @@ public interface Statement extends Element {
         return Stream.concat(Stream.ofNullable(block()), otherBlocksStream());
     }
 
+    default Iterable<Block> subBlocks() {
+        return () -> subBlockStream().iterator();
+    }
+
     Statement withBlocks(List<Block> tSubBlocks);
 
     interface Builder<B extends Builder<?>> extends Element.Builder<B> {
