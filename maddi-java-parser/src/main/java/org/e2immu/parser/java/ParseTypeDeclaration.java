@@ -31,6 +31,7 @@ import org.e2immu.language.inspection.api.parser.Lombok;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.parser.TypeContext;
 import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
+import org.e2immu.language.inspection.api.util.RecordSynthetics;
 import org.e2immu.support.Either;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
@@ -480,11 +481,11 @@ public class ParseTypeDeclaration extends CommonParse {
             RecordSynthetics rs = new RecordSynthetics(runtime, typeInfo);
             assert recordFields != null;
             if (!haveConstructorMatchingFields(builder, recordFields)) {
-                MethodInfo cc = rs.createSyntheticConstructor(source, recordFields);
+                MethodInfo cc = createSyntheticConstructor(rs, source, recordFields);
                 builder.addConstructor(cc);
             }
             // finally, add synthetic methods if needed
-            rs.createAccessors(recordFields).forEach(accessor -> {
+            createAccessors(rs, recordFields).forEach(accessor -> {
                 builder.addMethod(accessor);
                 context.resolver().addRecordAccessor(accessor);
             });
@@ -495,6 +496,18 @@ public class ParseTypeDeclaration extends CommonParse {
         }
 
         return typeInfo;
+    }
+
+    private MethodInfo createSyntheticConstructor(RecordSynthetics rs,
+                                                  Source source,
+                                                  List<ParseTypeDeclaration.RecordField> recordFields) {
+        ParseTypeDeclaration.RecordField last = recordFields.isEmpty() ? null : recordFields.getLast();
+        List<FieldInfo> fields = recordFields.stream().map(ParseTypeDeclaration.RecordField::fieldInfo).toList();
+        return rs.createSyntheticConstructor(source, fields, last != null && last.varargs() ? last.fieldInfo() : null);
+    }
+
+    private List<MethodInfo> createAccessors(RecordSynthetics rs, List<ParseTypeDeclaration.RecordField> recordFields) {
+        return recordFields.stream().map(rf -> rs.createAccessor(rf.fieldInfo())).toList();
     }
 
     private boolean haveConstructorMatchingFields(TypeInfo.Builder builder, List<RecordField> recordFields) {
