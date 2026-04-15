@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package org.e2immu.language.inspection.api.util;
 
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Assignment;
@@ -26,25 +26,25 @@ import org.e2immu.language.cst.api.variable.This;
 
 import java.util.List;
 
-class RecordSynthetics {
+public class RecordSynthetics {
     private final Runtime runtime;
     private final TypeInfo typeInfo;
 
-    RecordSynthetics(Runtime runtime, TypeInfo typeInfo) {
+    public RecordSynthetics(Runtime runtime, TypeInfo typeInfo) {
         this.runtime = runtime;
         this.typeInfo = typeInfo;
     }
 
-    MethodInfo createSyntheticConstructor(Source source, List<ParseTypeDeclaration.RecordField> recordFields) {
+    public MethodInfo createSyntheticConstructor(Source source, List<FieldInfo> fields, FieldInfo varArgsField) {
         MethodInfo cc = runtime.newConstructor(typeInfo, runtime.methodTypeSyntheticConstructor());
         Block.Builder methodBody = runtime.newBlockBuilder().setSource(source);
         Access publicAccess = runtime.accessPublic();
         This thisVar = runtime.newThis(typeInfo.asParameterizedType());
         int count = 0;
-        for (ParseTypeDeclaration.RecordField rf : recordFields) {
-            FieldInfo fieldInfo = rf.fieldInfo();
+        for (FieldInfo fieldInfo : fields) {
             ParameterInfo pi = cc.builder().addParameter(fieldInfo.name(), fieldInfo.type());
-            pi.builder().setSynthetic(true).setAccess(publicAccess).setVarArgs(rf.varargs()).commit();
+            boolean varargs = fieldInfo == varArgsField;
+            pi.builder().setSynthetic(true).setAccess(publicAccess).setVarArgs(varargs).commit();
             Source statementSource = runtime.newParserSource("" + count, 0, 0, 0, 0);
             VariableExpression thisVe = runtime.newVariableExpressionBuilder()
                     .setVariable(thisVar).setSource(statementSource)
@@ -73,12 +73,7 @@ class RecordSynthetics {
         return cc;
     }
 
-    List<MethodInfo> createAccessors(List<ParseTypeDeclaration.RecordField> recordFields) {
-        return recordFields.stream().map(this::createAccessor).toList();
-    }
-
-    private MethodInfo createAccessor(ParseTypeDeclaration.RecordField rf) {
-        FieldInfo fieldInfo = rf.fieldInfo();
+    public MethodInfo createAccessor(FieldInfo fieldInfo) {
         MethodInfo methodInfo = runtime.newMethod(fieldInfo.owner(), fieldInfo.name(),
                 runtime.methodTypeMethod());
         FieldReference fr = runtime.newFieldReference(fieldInfo);
