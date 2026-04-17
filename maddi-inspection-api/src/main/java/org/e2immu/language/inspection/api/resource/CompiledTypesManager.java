@@ -80,6 +80,8 @@ public interface CompiledTypesManager {
         throw new UnsupportedOperationException();
     }
 
+    default boolean isPackage(String candidate) { throw new UnsupportedOperationException(); }
+
     default void preload(String thePackage) {
         throw new UnsupportedOperationException();
     }

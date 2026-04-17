@@ -77,4 +77,7 @@ public interface ParseResult {
      * @return all descendants, never null.
      */
     Set<TypeInfo> descendants(TypeInfo typeInfo, boolean recurse);
+
+    boolean isPackage(String candidate);
+
 }
