@@ -368,6 +368,17 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
+    public boolean isPackage(String candidate) {
+        trieLock.readLock().lock();
+        try {
+            String[] split = candidate.split("\\.");
+            return typeTrie.isStrictPrefix(split);
+        } finally {
+            trieLock.readLock().unlock();
+        }
+    }
+
+    @Override
     public boolean packageContainsTypes(String packageName) {
         return !primaryTypesInPackageEnsureLoaded(packageName, ANY).isEmpty();
     }
