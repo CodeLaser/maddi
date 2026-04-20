@@ -28,12 +28,16 @@ import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.This;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.element.ElementImpl;
-import org.e2immu.language.cst.impl.output.*;
+import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
+import org.e2immu.language.cst.impl.output.QualifiedNameImpl;
+import org.e2immu.language.cst.impl.output.TextImpl;
+import org.e2immu.language.cst.impl.output.TypeNameImpl;
 
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.*;
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.IMPLICIT;
 
 public class ThisImpl extends VariableImpl implements This {
 
@@ -121,12 +125,11 @@ public class ThisImpl extends VariableImpl implements This {
     @Override
     public Stream<TypeReference> typesReferenced(Predicate<Element> test, DetailedSources detailedSources) {
         if (explicitlyWriteType == null) {
-            return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT));
+            return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT, null));
         }
-        TypeReferenceNature nature = detailedSources != null && detailedSources.isFullyQualified(parameterizedType())
-                ? FULLY_QUALIFIED : EXPLICIT;
-        return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT),
-                new ElementImpl.TypeReference(explicitlyWriteType, nature));
+        TypeInfo qualifier = detailedSources == null ? typeInfo() : detailedSources.qualifier(typeInfo());
+        return Stream.of(new ElementImpl.TypeReference(typeInfo(), IMPLICIT, null),
+                new ElementImpl.TypeReference(explicitlyWriteType, EXPLICIT, qualifier));
     }
 
     @Override

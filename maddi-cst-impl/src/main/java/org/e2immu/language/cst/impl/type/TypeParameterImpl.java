@@ -287,7 +287,8 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
             Stream<Element.TypeReference> s2 = typeBounds().stream()
                     .flatMap(pt -> pt.typesReferenced(typeReferenceNature, detailedSources, visited));
             Stream<Element.TypeReference> s3 = owner.isLeft()
-                    ? Stream.of(new ElementImpl.TypeReference(owner.getLeft(), TypeReferenceNature.IMPLICIT))
+                    ? Stream.of(new ElementImpl.TypeReference(owner.getLeft(), TypeReferenceNature.IMPLICIT,
+                    null))
                     : Stream.of();
             return Stream.concat(s1, Stream.concat(s2, s3));
         }

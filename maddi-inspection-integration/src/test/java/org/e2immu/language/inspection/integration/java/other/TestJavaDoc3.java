@@ -106,13 +106,9 @@ public class TestJavaDoc3 extends CommonTest2 {
             ParseResult pr1 = init(Map.of("a.A", a), Map.of("b.B", B));
 
             TypeInfo A = pr1.findType("a.A");
-            assertEquals("""
-                            TypeReference[typeInfo=a.A, typeReferenceNature=IMPLICIT], \
-                            TypeReference[typeInfo=b.B, typeReferenceNature=EXPLICIT], \
-                            TypeReference[typeInfo=java.lang.Object, typeReferenceNature=EXPLICIT], \
-                            TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT]\
-                            """,
-                    A.typesReferenced(null).map(Object::toString).sorted().collect(Collectors.joining(", ")));
+            assertEquals("a.A[I], b.B[E], java.lang.Object[E], void[E]",
+                    A.typesReferenced(null).map(Object::toString).sorted()
+                            .collect(Collectors.joining(", ")));
         }
     }
 }

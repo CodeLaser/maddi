@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -60,6 +62,20 @@ public class TestImport extends CommonTest {
     @Test
     public void test0() {
         TypeInfo typeInfo = javaInspector.parse(INPUT0);
+        MethodInfo method = typeInfo.findUniqueMethod("method", 0);
+        Statement s0 = method.methodBody().statements().getFirst();
+        assertEquals("""
+                java.lang.System[I]
+                java.lang.System[E]
+                java.io.PrintStream[I]
+                org.e2immu.language.inspection.integration.java.importhelper.RLevel[I]
+                org.e2immu.language.inspection.integration.java.importhelper.RLevel[E]
+                java.lang.String[I]
+                org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective[I]
+                org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective[E]
+                org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective[I]\
+                """, s0.typesReferenced(_ -> true).map(Object::toString)
+                .collect(Collectors.joining("\n")));
         assertEquals(OUTPUT1, javaInspector.print2(typeInfo.compilationUnit()));
     }
 

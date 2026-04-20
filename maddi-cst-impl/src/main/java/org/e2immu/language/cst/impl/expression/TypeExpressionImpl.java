@@ -38,6 +38,8 @@ import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+
 public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression {
     public final ParameterizedType parameterizedType;
     public final Diamond diamond;
@@ -120,8 +122,9 @@ public class TypeExpressionImpl extends ExpressionImpl implements TypeExpression
             return Stream.of();
         }
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
-        TypeReferenceNature trn = DetailedSources.isFullyQualified(detailedSources, parameterizedType);
-        return Stream.of(new ElementImpl.TypeReference(typeInfo, trn));
+        TypeInfo qualifier = detailedSources == null ? typeInfo : detailedSources.qualifier(typeInfo);
+        Element.TypeReference typeReference = new ElementImpl.TypeReference(typeInfo, EXPLICIT, qualifier);
+        return Stream.of(typeReference);
     }
 
     @Override

@@ -192,10 +192,8 @@ public class TestJavaDoc extends CommonTest {
         assertEquals("*\n     * {@link java.util.LinkedList}", methodInfo.javaDoc().comment());
         JavaDoc.Tag tag = methodInfo.javaDoc().tags().getFirst();
         assertEquals("java.util.LinkedList", tag.resolvedReference().toString());
-        assertEquals("""
-                [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=java.util.LinkedList, typeReferenceNature=FULLY_QUALIFIED]]\
-                """, methodInfo.typesReferenced(null).toList().toString());
+        assertEquals("[void[E], java.util.LinkedList[E FQN]]",
+                methodInfo.typesReferenced(null).toList().toString());
         DetailedSources detailedSources = tag.source().detailedSources();
         assertNotNull(detailedSources);
         assertEquals("4-15:4-34", detailedSources.detail(tag.resolvedReference()).compact2());
@@ -337,11 +335,7 @@ public class TestJavaDoc extends CommonTest {
             assertEquals("java.util.LinkedList", tag.content());
             assertEquals("java.util.LinkedList", tag.resolvedReference().toString());
             assertEquals("""
-                    [TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT], \
-                    TypeReference[typeInfo=java.util.LinkedList, typeReferenceNature=FULLY_QUALIFIED], \
-                    TypeReference[typeInfo=a.b.X, typeReferenceNature=IMPLICIT], \
-                    TypeReference[typeInfo=a.b.X, typeReferenceNature=EXPLICIT], \
-                    TypeReference[typeInfo=a.b.X, typeReferenceNature=FULLY_QUALIFIED]]\
+                    [void[E], java.util.LinkedList[E FQN], a.b.X[I], a.b.X[E], a.b.X[E FQN]]\
                     """, methodInfo.typesReferenced(null).toList().toString());
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);

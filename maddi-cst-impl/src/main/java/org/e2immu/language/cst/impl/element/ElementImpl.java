@@ -15,16 +15,15 @@
 package org.e2immu.language.cst.impl.element;
 
 import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.cst.impl.output.QualificationImpl;
 import org.e2immu.language.cst.impl.variable.DescendModeEnum;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +31,7 @@ import java.util.stream.Stream;
 
 public abstract class ElementImpl implements Element {
 
-    public record TypeReference(TypeInfo typeInfo, TypeReferenceNature typeReferenceNature)
+    public record TypeReference(TypeInfo typeInfo, TypeReferenceNature typeReferenceNature, TypeInfo typeToImport)
             implements Element.TypeReference {
         public TypeReference {
             assert typeInfo != null;
@@ -40,8 +39,17 @@ public abstract class ElementImpl implements Element {
         }
 
         @Override
-        public Element.TypeReference withNature(TypeReferenceNature typeReferenceNature) {
-            return typeReferenceNature == this.typeReferenceNature ? this : new TypeReference(typeInfo, typeReferenceNature);
+        public Element.TypeReference with(TypeReferenceNature typeReferenceNature, TypeInfo typeToImport) {
+            return typeReferenceNature == this.typeReferenceNature && typeToImport == this.typeToImport ? this
+                    : new TypeReference(typeInfo, typeReferenceNature, typeToImport);
+        }
+
+        @Override
+        public @NotNull String toString() {
+            String ie = typeReferenceNature == TypeReferenceNature.IMPLICIT ? "I"
+                    : "E" + (typeToImport == null ? " FQN" : typeToImport == typeInfo
+                    ? "" : " " + typeToImport.fullyQualifiedName());
+            return typeInfo.fullyQualifiedName() + "[" + ie + "]";
         }
     }
 

@@ -55,11 +55,8 @@ public class TestSealed extends CommonTest {
         assertFalse(P.isNonSealed());
         assertEquals("@3:27-3:33", P.source().detailedSources().detail(DetailedSources.PERMITS).toString());
         assertEquals(3, P.permittedWhenSealed().size());
-        assertEquals("""
-                [TypeReference[typeInfo=a.b.X.A, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=a.b.X.B, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=a.b.X.C, typeReferenceNature=FULLY_QUALIFIED]]\
-                """, P.typesReferenced(null).toList().toString());
+        assertEquals("[a.b.X.A[E], a.b.X.B[E], a.b.X.C[E FQN]]",
+                P.typesReferenced(null).toList().toString());
 
         TypeInfo A = X.findSubType("A", true);
         assertEquals("@6:26-6:32", A.source().detailedSources().detail(DetailedSources.EXTENDS).toString());

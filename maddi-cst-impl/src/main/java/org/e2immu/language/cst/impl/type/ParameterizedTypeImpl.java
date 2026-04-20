@@ -190,12 +190,11 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                                                          DetailedSources detailedSources,
                                                          Set<TypeParameter> visited) {
         if (typeInfo != null) {
-            Element.TypeReferenceNature nature = typeReferenceNature.isExplicit()
-                    ? DetailedSources.isFullyQualified(detailedSources, typeInfo)
-                    : Element.TypeReferenceNature.IMPLICIT;
-            return Stream.concat(Stream.<Element.TypeReference>of(new ElementImpl.TypeReference(typeInfo, nature)),
-                    parameters.stream().flatMap(pt ->
-                            pt.typesReferenced(typeReferenceNature, detailedSources, visited)));
+            TypeInfo qualifier = detailedSources != null && typeReferenceNature.isExplicit()
+                    ? detailedSources.qualifier(typeInfo) : typeInfo;
+            Element.TypeReference typeReference = new ElementImpl.TypeReference(typeInfo, typeReferenceNature, qualifier);
+            return Stream.concat(Stream.of(typeReference), parameters.stream().flatMap(pt ->
+                    pt.typesReferenced(typeReferenceNature, detailedSources, visited)));
         }
         if (typeParameter != null) {
             return typeParameter.typesReferenced(Element.TypeReferenceNature.IMPLICIT, null,

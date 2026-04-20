@@ -170,22 +170,9 @@ public class TestSwitch extends CommonTest {
         String collected = methodInfo.typesReferenced(null)
                 .map(Object::toString).sorted().collect(Collectors.joining(", "));
         assertEquals("""
-                TypeReference[typeInfo=a.b.X.R, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=a.b.X.R, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=a.b.X.S, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=int, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=int, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=int, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=int, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=int, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=int, typeReferenceNature=IMPLICIT], \
-                TypeReference[typeInfo=int, typeReferenceNature=IMPLICIT], \
-                TypeReference[typeInfo=int, typeReferenceNature=IMPLICIT], \
-                TypeReference[typeInfo=java.lang.Object, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=java.lang.Object, typeReferenceNature=IMPLICIT], \
-                TypeReference[typeInfo=java.lang.String, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=java.lang.String, typeReferenceNature=IMPLICIT], \
-                TypeReference[typeInfo=java.lang.UnsupportedOperationException, typeReferenceNature=EXPLICIT]\
+                a.b.X.R[E], a.b.X.R[E], a.b.X.S[E], int[E], int[E], int[E], int[E], int[E], int[I], int[I], int[I], \
+                java.lang.Object[E], java.lang.Object[I], java.lang.String[E], java.lang.String[I], \
+                java.lang.UnsupportedOperationException[E]\
                 """, collected);
     }
 
@@ -214,8 +201,8 @@ public class TestSwitch extends CommonTest {
 
         String collected = method.typesReferenced(null)
                 .map(Object::toString).sorted().collect(Collectors.joining(", "));
-        assertTrue(collected.contains("TypeReference[typeInfo=a.b.X.R, typeReferenceNature=EXPLICIT]"));
-        assertTrue(collected.contains("TypeReference[typeInfo=a.b.X.S, typeReferenceNature=EXPLICIT]"));
+        assertTrue(collected.contains("a.b.X.R[E]"));
+        assertTrue(collected.contains("a.b.X.S[E]"));
     }
 
 
@@ -345,13 +332,8 @@ public class TestSwitch extends CommonTest {
         MethodInfo method = X.findUniqueMethod("m", 1);
 
         assertEquals("""
-                TypeReference[typeInfo=java.io.PrintStream, typeReferenceNature=IMPLICIT], \
-                TypeReference[typeInfo=java.lang.Object, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=java.lang.Object, typeReferenceNature=IMPLICIT], \
-                TypeReference[typeInfo=java.lang.String, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=java.lang.System, typeReferenceNature=EXPLICIT], \
-                TypeReference[typeInfo=java.lang.System, typeReferenceNature=IMPLICIT], \
-                TypeReference[typeInfo=void, typeReferenceNature=EXPLICIT]\
+                java.io.PrintStream[I], java.lang.Object[E], java.lang.Object[I], java.lang.String[E], \
+                java.lang.System[E], java.lang.System[I], void[E]\
                 """, method.typesReferenced(null)
                 .map(Object::toString).sorted().collect(Collectors.joining(", ")));
     }
