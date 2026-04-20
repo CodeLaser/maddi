@@ -61,6 +61,8 @@ public interface Qualification {
 
     void addField(FieldInfo fieldInfo);
 
+    void addUnqualifiedType(TypeInfo typeInfo);
+
     void addThis(This thisVar);
 
     void addMethodUnlessOverride(MethodInfo methodInfo);
