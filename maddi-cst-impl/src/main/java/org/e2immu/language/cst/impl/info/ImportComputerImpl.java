@@ -63,6 +63,9 @@ public class ImportComputerImpl implements ImportComputer {
             qualification = new QualificationImpl(q.doNotQualifyImplicit(), q.typeNameRequired(), q.decorator());
         }
 
+        Set<String> reservedNames = compilationUnit.types().stream()
+                .flatMap(TypeInfo::recursiveSubTypeStream)
+                .map(TypeInfo::simpleName).collect(Collectors.toUnmodifiableSet());
         /*
         there are 2 mechanisms to determine imports: duplicate naming (addTypeReturnImport)
         and TypeReferenceNature.FULLY_QUALIFIED.
@@ -74,10 +77,17 @@ public class ImportComputerImpl implements ImportComputer {
                 .forEach(tr -> {
                     TypeInfo typeToImport = tr.typeToImport();
                     if (typeToImport != null) {
-                        if (allowInImport(typeToImport)) {
-                            typesReferenced.add(typeToImport);
+                        TypeInfo toImport;
+                        // see e.g. TestComposer, class OfField<F extends TypeDescriptor.OfField<F>>
+                        if (reservedNames.contains(typeToImport.simpleName())) {
+                            toImport = typeToImport.primaryType();
+                        } else {
+                            toImport = typeToImport;
                         }
-                    } else  {
+                        if (allowInImport(toImport)) {
+                            typesReferenced.add(toImport);
+                        }
+                    } else {
                         qualification.addTypeNotImported(tr.typeInfo());
                     }
                 });
