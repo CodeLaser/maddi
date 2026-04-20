@@ -843,15 +843,23 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public String print2(CompilationUnit compilationUnit) {
-        return print2(compilationUnit, null, importComputer(4, compilationUnit.sourceSet()));
+        return print2(compilationUnit, (Qualification.Decorator) null, importComputer(4,
+                compilationUnit.sourceSet()));
     }
 
     @Override
     public String print2(CompilationUnit compilationUnit,
                          Qualification.Decorator decorator,
                          ImportComputer importComputer) {
+        return print2(compilationUnit, runtime.qualificationQualifyFromPrimaryType(decorator), importComputer);
+    }
+
+    @Override
+    public String print2(CompilationUnit compilationUnit,
+                         Qualification qualification,
+                         ImportComputer importComputer) {
         OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
-                .print(importComputer, runtime.qualificationQualifyFromPrimaryType(decorator));
+                .print(importComputer, qualification);
         Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         return formatter.write(ob);
     }

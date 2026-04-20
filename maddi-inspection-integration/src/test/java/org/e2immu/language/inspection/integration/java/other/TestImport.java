@@ -60,6 +60,14 @@ public class TestImport extends CommonTest {
             public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + Effective.E1); } }
             """;
 
+    @Language("java")
+    private static final String OUTPUT1bis = """
+            package org.e2immu.analyser.resolver.testexample;
+            import org.e2immu.language.inspection.integration.java.importhelper.RLevel;
+            import org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel;
+            public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + RMultiLevel.Effective.E1); } }
+            """;
+
     @Test
     public void test0() {
         TypeInfo typeInfo = javaInspector.parse(INPUT0, JavaInspectorImpl.DETAILED_SOURCES);
@@ -77,7 +85,9 @@ public class TestImport extends CommonTest {
                 org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective[I]\
                 """, s0.typesReferenced(_ -> true).map(Object::toString)
                 .collect(Collectors.joining("\n")));
-        assertEquals(OUTPUT1, javaInspector.print2(typeInfo.compilationUnit()));
+        assertEquals(OUTPUT1bis, javaInspector.print2(typeInfo.compilationUnit()));
+        assertEquals(OUTPUT1, javaInspector.print2(typeInfo.compilationUnit(), runtime.qualificationExistingSources(),
+                javaInspector.importComputer(4, typeInfo.compilationUnit().sourceSet())));
     }
 
     @Language("java")

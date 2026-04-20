@@ -71,6 +71,7 @@ public class ImportComputerImpl implements ImportComputer {
         and TypeReferenceNature.FULLY_QUALIFIED.
          */
         Set<TypeInfo> typesReferenced = new HashSet<>();
+        boolean keepPrimary = qualification.typeNameRequired() == TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE;
         compilationUnit.types().stream()
                 .flatMap(typeInfo -> typeInfo.typesReferenced(null))
                 .filter(Element.TypeReference::explicit)
@@ -78,8 +79,10 @@ public class ImportComputerImpl implements ImportComputer {
                     TypeInfo typeToImport = tr.typeToImport();
                     if (typeToImport != null) {
                         TypeInfo toImport;
-                        // see e.g. TestComposer, class OfField<F extends TypeDescriptor.OfField<F>>
-                        if (reservedNames.contains(typeToImport.simpleName())) {
+                        if (keepPrimary) {
+                            toImport = tr.typeInfo().primaryType();
+                        } else if (reservedNames.contains(typeToImport.simpleName())) {
+                            // see e.g. TestComposer, class OfField<F extends TypeDescriptor.OfField<F>>
                             toImport = typeToImport.primaryType();
                         } else {
                             toImport = typeToImport;

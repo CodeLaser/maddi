@@ -1211,6 +1211,12 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public Qualification qualificationExistingSources() {
+        return new QualificationImpl(true,
+                TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING, null);
+    }
+
+    @Override
     public Qualification qualificationQualifyFromPrimaryType() {
         return new QualificationImpl(true, TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE, null);
     }

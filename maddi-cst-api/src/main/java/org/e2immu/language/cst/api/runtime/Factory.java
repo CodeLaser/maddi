@@ -486,6 +486,8 @@ public interface Factory {
 
     Qualification qualificationFullyQualifiedNames();
 
+    Qualification qualificationExistingSources();
+
     Qualification qualificationQualifyFromPrimaryType();
 
     Qualification qualificationQualifyFromPrimaryType(Qualification.Decorator decorator);
