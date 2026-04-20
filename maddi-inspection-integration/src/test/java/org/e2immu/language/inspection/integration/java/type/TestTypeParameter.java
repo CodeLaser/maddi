@@ -15,6 +15,7 @@
 package org.e2immu.language.inspection.integration.java.type;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -387,6 +388,13 @@ public class TestTypeParameter extends CommonTest {
                 lvc1.localVariable().parameterizedType().detailedString());
         ConstructorCall cc = (ConstructorCall) lvc1.localVariable().assignmentExpression();
         assertEquals("java.util.TreeMap<Number,Number>", cc.parameterizedType().detailedString());
+
+        assertEquals("""
+                [double[E], java.util.Map[E], java.lang.Number[E], java.util.SortedMap[E], java.util.TreeMap[E], \
+                int[E], java.util.Map.Entry[E java.util.Map]]\
+                """, method.typesReferenced(_ -> true)
+                .filter(Element.TypeReference::explicit)
+                .distinct().toList().toString());
         assertEquals(OUTPUT9, javaInspector.print2(C.compilationUnit()));
     }
 }

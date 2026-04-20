@@ -74,8 +74,8 @@ public class ImportComputerImpl implements ImportComputer {
                 .forEach(tr -> {
                     TypeInfo typeToImport = tr.typeToImport();
                     if (typeToImport != null) {
-                        if (allowInImport(tr.typeInfo())) {
-                            typesReferenced.add(tr.typeInfo());
+                        if (allowInImport(typeToImport)) {
+                            typesReferenced.add(typeToImport);
                         }
                     } else  {
                         qualification.addTypeNotImported(tr.typeInfo());
