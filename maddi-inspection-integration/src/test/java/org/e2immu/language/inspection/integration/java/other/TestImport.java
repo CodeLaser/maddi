@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -55,13 +56,13 @@ public class TestImport extends CommonTest {
     private static final String OUTPUT1 = """
             package org.e2immu.analyser.resolver.testexample;
             import org.e2immu.language.inspection.integration.java.importhelper.RLevel;
-            import org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel;
-            public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + RMultiLevel.Effective.E1); } }
+            import org.e2immu.language.inspection.integration.java.importhelper.RMultiLevel.Effective;
+            public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + Effective.E1); } }
             """;
 
     @Test
     public void test0() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT0);
+        TypeInfo typeInfo = javaInspector.parse(INPUT0, JavaInspectorImpl.DETAILED_SOURCES);
         MethodInfo method = typeInfo.findUniqueMethod("method", 0);
         Statement s0 = method.methodBody().statements().getFirst();
         assertEquals("""

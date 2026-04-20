@@ -14,18 +14,23 @@
 
 package org.e2immu.language.inspection.integration.java.method;
 
+import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.impl.info.CompilationUnitPrinterImpl;
 import org.e2immu.language.cst.impl.info.ImportComputerImpl;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestMethodCall3 extends CommonTest {
     @Language("java")
@@ -110,7 +115,19 @@ public class TestMethodCall3 extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT1);
+        TypeInfo typeInfo = javaInspector.parse(INPUT1, JavaInspectorImpl.DETAILED_SOURCES);
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("same4", 4);
+        LocalVariableCreation lvc = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
+        assertNotNull(lvc.source().detailedSources());
+        assertEquals("""
+                [java.net.http.HttpRequest[E], java.net.URI[E], java.lang.String[E], java.lang.String[E], \
+                java.lang.Long[E], java.net.http.HttpRequest.Builder[E java.net.http.HttpRequest], \
+                java.net.http.HttpRequest[E], java.time.Duration[E], java.util.Objects[E], \
+                org.e2immu.analyser.resolver.testexample.MethodCall_31[E], \
+                org.e2immu.analyser.resolver.testexample.MethodCall_31[E]]\
+                """, methodInfo.typesReferenced(_->true)
+                .filter(Element.TypeReference::explicit)
+                .map(Object::toString).toList().toString());
          assertEquals(OUTPUT1, javaInspector.print2(typeInfo.compilationUnit()));
     }
 

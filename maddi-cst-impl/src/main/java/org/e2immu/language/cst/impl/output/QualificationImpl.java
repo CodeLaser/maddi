@@ -80,10 +80,13 @@ public class QualificationImpl implements Qualification {
 
     @Override
     public TypeNameRequired qualifierRequired(TypeInfo typeInfo) {
-        assert top.typesNotImported != null; // to keep IntelliJ happy
         TypeNameImpl.Required r = top.typesNotImported.get(typeInfo);
-        if (r != null) return r;
-        if (typeNameRequired != null) return typeNameRequired;
+        if (r != null) {
+            return r;
+        }
+        if (typeNameRequired != null && !top.simpleTypeNames.contains(typeInfo.simpleName())) {
+            return typeNameRequired;
+        }
         return TypeNameImpl.Required.SIMPLE;
     }
 
