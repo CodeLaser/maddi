@@ -44,6 +44,10 @@ public interface JavaInspector {
     // for tests
     void invalidateAllSources();
 
+    String print2(CompilationUnit compilationUnit,
+                  Qualification qualification,
+                  ImportComputer importComputer);
+
     // for tests
     SourceSet javaBase();
 

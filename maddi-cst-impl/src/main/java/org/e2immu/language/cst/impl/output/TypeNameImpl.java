@@ -32,6 +32,7 @@ public record TypeNameImpl(String simpleName,
         FQN, // com.foo.Bar.Bar2
         DESCRIPTOR, // source_set::com.foo.Bar.Bar2
         QUALIFIED_FROM_PRIMARY_TYPE, // Bar.Bar2
+        QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING, // when detailed sources matter
         SIMPLE // Bar2
     }
 
@@ -62,7 +63,7 @@ public record TypeNameImpl(String simpleName,
             case SIMPLE -> simpleName;
             case FQN -> fullyQualifiedName;
             case DESCRIPTOR -> descriptor;
-            case QUALIFIED_FROM_PRIMARY_TYPE -> fromPrimaryTypeDownwards;
+            case QUALIFIED_FROM_PRIMARY_TYPE, QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING -> fromPrimaryTypeDownwards;
             case DOLLARIZED_FQN ->
                     fullyQualifiedName.substring(0, fullyQualifiedName.length() - fromPrimaryTypeDownwards.length())
                     + fromPrimaryTypeDownwards.replace(".", "$");
