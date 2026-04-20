@@ -39,6 +39,7 @@ public class QualificationImpl implements Qualification {
     private final Set<FieldInfo> qualifiedFields = new HashSet<>();
     private final Set<MethodInfo> unqualifiedMethods = new HashSet<>();
     private final Set<This> unqualifiedThis = new HashSet<>();
+    private final Set<TypeInfo> unqualifiedTypes = new HashSet<>();
     private final Map<TypeInfo, TypeNameImpl.Required> typesNotImported;
     private final Set<String> simpleTypeNames;
     private final QualificationImpl parent;
@@ -80,6 +81,7 @@ public class QualificationImpl implements Qualification {
 
     @Override
     public TypeNameRequired qualifierRequired(TypeInfo typeInfo) {
+        if (unqualifiedTypes.contains(typeInfo)) return TypeNameImpl.Required.SIMPLE;
         TypeNameImpl.Required r = top.typesNotImported.get(typeInfo);
         if (r != null) {
             return r;
@@ -137,6 +139,11 @@ public class QualificationImpl implements Qualification {
         if (newName) {
             unqualifiedFields.add(fieldInfo);
         } // else: we'll have to qualify, because the name has already been taken
+    }
+
+    @Override
+    public void addUnqualifiedType(TypeInfo typeInfo) {
+        unqualifiedTypes.add(typeInfo);
     }
 
     @Override

@@ -66,6 +66,9 @@ public class ImportComputerImpl implements ImportComputer {
         Set<String> reservedNames = compilationUnit.types().stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
                 .map(TypeInfo::simpleName).collect(Collectors.toUnmodifiableSet());
+        compilationUnit.types().stream()
+                .flatMap(ti -> ti.subTypes().stream()).forEach(qualification::addUnqualifiedType);
+
         /*
         there are 2 mechanisms to determine imports: duplicate naming (addTypeReturnImport)
         and TypeReferenceNature.FULLY_QUALIFIED.
