@@ -353,10 +353,15 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
-            TypeInfo resolved = apiResolved();
-            return resolved == null ? Stream.empty() : Stream.of(new ElementImpl.TypeReference(resolved,
-                    DetailedSources.isFullyQualified(source.detailedSources(), resolved)));
+            return typeReference(apiResolved(), source);
+
         }
+    }
+
+    private static Stream<Element.TypeReference> typeReference(TypeInfo resolved, Source source) {
+        if (resolved == null) return Stream.empty();
+        return Stream.of(new ElementImpl.TypeReference(resolved, TypeReferenceNature.EXPLICIT,
+                source.detailedSources() == null ? resolved : source.detailedSources().qualifier(resolved)));
     }
 
     private static class ProvidesImpl implements Provides {
@@ -456,13 +461,8 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
 
         @Override
         public Stream<TypeReference> typesReferenced(Predicate<Element> predicate) {
-            TypeInfo a = apiResolved();
-            DetailedSources detailedSources = source.detailedSources();
-            Stream<ElementImpl.TypeReference> s1 = a == null ? Stream.empty()
-                    : Stream.of(new ElementImpl.TypeReference(a, DetailedSources.isFullyQualified(detailedSources, a)));
-            TypeInfo i = implementationResolved();
-            Stream<ElementImpl.TypeReference> s2 = i == null ? Stream.empty()
-                    : Stream.of(new ElementImpl.TypeReference(i, DetailedSources.isFullyQualified(detailedSources, i)));
+            Stream<Element.TypeReference> s1 = typeReference(apiResolved(), source);
+            Stream<Element.TypeReference> s2 = typeReference(implementationResolved(), source);
             return Stream.concat(s1, s2);
         }
     }

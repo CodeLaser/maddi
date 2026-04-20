@@ -18,18 +18,10 @@ import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.Formatter;
-import org.e2immu.language.cst.api.output.OutputBuilder;
-import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
-import org.e2immu.language.cst.impl.output.GuideImpl;
-import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
-import org.e2immu.language.cst.impl.output.SpaceEnum;
-import org.e2immu.language.cst.impl.output.TextImpl;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -225,20 +217,22 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         if (tag.resolvedReference() instanceof Info info) {
             TypeInfo typeInfo = info.typeInfo();
             TypeReferenceNature trn;
+            TypeInfo qualifier;
             if (tag.source() == null || tag.source().detailedSources() == null) {
                 trn = TypeReferenceNature.IMPLICIT;
+                qualifier = null;
             } else {
                 DetailedSources ds = tag.source().detailedSources();
                 Source s = ds.detail(typeInfo);
                 if (s == null) {
                     trn = TypeReferenceNature.IMPLICIT;
-                } else if (s.posDiff() >= typeInfo.fullyQualifiedName().length()) {
-                    trn = TypeReferenceNature.FULLY_QUALIFIED;
+                    qualifier = null;
                 } else {
                     trn = TypeReferenceNature.EXPLICIT;
+                    qualifier = ds.qualifier(typeInfo);
                 }
             }
-            return new ElementImpl.TypeReference(typeInfo, trn);
+            return new ElementImpl.TypeReference(typeInfo, trn, qualifier);
         }
         return null;
     }

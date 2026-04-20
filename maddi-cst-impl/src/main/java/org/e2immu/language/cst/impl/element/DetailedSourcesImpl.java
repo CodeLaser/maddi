@@ -163,21 +163,22 @@ public class DetailedSourcesImpl implements DetailedSources {
     }
 
     @Override
-    public boolean isFullyQualified(TypeInfo typeInfo) {
+    public TypeInfo qualifier(TypeInfo typeInfo) {
         Object o = identityHashMap.get(typeInfo);
         if (o instanceof Source s) {
-            // >= because the dots can be surrounded by spaces (highly unusual, but possible)
-            return s.posDiff() >= typeInfo.fullyQualifiedName().length();
+            return qualifier(s, typeInfo);
         }
         if (o instanceof List<?> list && !list.isEmpty()) {
-            return list.stream()
-                    .allMatch(obj -> ((Source) obj).posDiff() >= typeInfo.fullyQualifiedName().length());
+            return qualifier((Source) list.getFirst(), typeInfo);
         }
-        return false;
+        return typeInfo;
     }
 
-    @Override
-    public boolean isFullyQualified(ParameterizedType parameterizedType) {
-        return false;
+    // >= because the dots can be surrounded by spaces (highly unusual, but possible)
+    //  s.posDiff() >= typeInfo.fullyQualifiedName().length();
+    private TypeInfo qualifier(Source s, TypeInfo typeInfo) {
+        if (s.posDiff() == typeInfo.simpleName().length()) return typeInfo;
+        if (s.posDiff() >= typeInfo.fullyQualifiedName().length()) return null;
+        throw new UnsupportedOperationException("To implement! Code is definitiely used in parse type, maybe in TypeContext");
     }
 }

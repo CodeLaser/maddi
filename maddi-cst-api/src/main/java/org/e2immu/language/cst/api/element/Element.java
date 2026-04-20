@@ -119,7 +119,7 @@ public interface Element {
     Stream<Variable> variableStreamDescend();
 
     enum TypeReferenceNature {
-        IMPLICIT, EXPLICIT, FULLY_QUALIFIED;
+        IMPLICIT, EXPLICIT;
 
         public boolean isExplicit() {
             return this != IMPLICIT;
@@ -132,15 +132,22 @@ public interface Element {
             return typeReferenceNature() != TypeReferenceNature.IMPLICIT;
         }
 
-        default boolean requiresImport() {
-            return typeReferenceNature() == TypeReferenceNature.EXPLICIT;
-        }
-
         TypeReferenceNature typeReferenceNature();
 
         TypeInfo typeInfo();
 
-        TypeReference withNature(TypeReferenceNature typeReferenceNature);
+        /*
+         IMPLICIT -> null
+         EXPLICIT ->
+            == typeInfo() is the normal situation. == null -> fully qualified.
+            != null, != typeInfo(): partially qualified; e.g.
+                    when written as Entry, then typeToImport will be java.util.Map.Entry.
+                    when written as Map.Entry, then typeToImport will be java.util.Map
+                    when written as java.util.Map.Entry, then typeToImport will be null
+         */
+        TypeInfo typeToImport();
+
+        TypeReference with(TypeReferenceNature typeReferenceNature, TypeInfo typeToImport);
     }
 
     /**

@@ -70,14 +70,15 @@ public class ImportComputerImpl implements ImportComputer {
         Set<TypeInfo> typesReferenced = new HashSet<>();
         compilationUnit.types().stream()
                 .flatMap(typeInfo -> typeInfo.typesReferenced(null))
+                .filter(Element.TypeReference::explicit)
                 .forEach(tr -> {
-                    TypeInfo primaryType = tr.typeInfo().primaryType();
-                    if (tr.requiresImport()) {
-                        if (allowInImport(primaryType)) {
-                            typesReferenced.add(primaryType);
+                    TypeInfo typeToImport = tr.typeToImport();
+                    if (typeToImport != null) {
+                        if (allowInImport(tr.typeInfo())) {
+                            typesReferenced.add(tr.typeInfo());
                         }
-                    } else if (tr.typeReferenceNature() == Element.TypeReferenceNature.FULLY_QUALIFIED) {
-                        qualification.addTypeNotImported(primaryType);
+                    } else  {
+                        qualification.addTypeNotImported(tr.typeInfo());
                     }
                 });
         LOGGER.debug("Types referenced in {}: {}", compilationUnit, typesReferenced);

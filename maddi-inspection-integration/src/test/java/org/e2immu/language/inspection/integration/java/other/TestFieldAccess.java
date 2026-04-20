@@ -27,6 +27,7 @@ import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -204,11 +205,14 @@ public class TestFieldAccess extends CommonTest {
     @Test
     public void test4() {
         TypeInfo X = javaInspector.parse(INPUT4);
-        Set<Element.TypeReference> typeReferences = X.typesReferenced(null)
-                .filter(Element.TypeReference::requiresImport)
+        List<Element.TypeReference> typeReferences = X.typesReferenced(null)
+                .filter(Element.TypeReference::explicit)
                 .filter(tr -> "java.text".equals(tr.typeInfo().packageName()))
-                .collect(Collectors.toUnmodifiableSet());
-        assertEquals(2, typeReferences.size());
+                .distinct()
+                .toList();
+        assertEquals("""
+                [java.text.StringCharacterIterator[E], java.text.CharacterIterator[E]]\
+                """, typeReferences.toString());
     }
 
 

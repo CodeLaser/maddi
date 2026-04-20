@@ -41,6 +41,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+
 public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     public static final String JAVA_LANG_OBJECT = "java.lang.Object";
 
@@ -560,12 +562,12 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
         Stream<TypeReference> fromParent = parentClass() == null || parentClass().isJavaLangObject() ? Stream.empty()
-                : parentClass().typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
+                : parentClass().typesReferenced(EXPLICIT, detailedSources);
         Stream<TypeReference> fromInterfaces = interfacesImplemented().stream()
-                .flatMap(pt -> pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
+                .flatMap(pt -> pt.typesReferenced(EXPLICIT, detailedSources));
         Stream<TypeReference> fromPermits = permittedWhenSealed().stream()
-                .map(ti -> new ElementImpl.TypeReference(ti,
-                        DetailedSources.isFullyQualified(detailedSources, ti)));
+                .map(ti -> new ElementImpl.TypeReference(ti, EXPLICIT,
+                        detailedSources == null ? ti : detailedSources.qualifier(ti)));
         Stream<TypeReference> fromAnnotations = annotations().stream().flatMap(annotationExpression -> annotationExpression.typesReferenced(predicate));
         Stream<TypeReference> fromMethods = methods().stream().flatMap(methodInfo -> methodInfo.typesReferenced(predicate));
         Stream<TypeReference> fromConstructors = constructors().stream().flatMap(methodInfo -> methodInfo.typesReferenced(predicate));

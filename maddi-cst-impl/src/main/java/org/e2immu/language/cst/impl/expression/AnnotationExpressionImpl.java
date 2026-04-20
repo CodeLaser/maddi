@@ -37,6 +37,8 @@ import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static org.e2immu.language.cst.api.element.Element.TypeReferenceNature.EXPLICIT;
+
 public class AnnotationExpressionImpl extends ExpressionImpl implements AnnotationExpression {
     private final TypeInfo typeInfo;
     private final List<KV> keyValuePairs;
@@ -236,8 +238,9 @@ public class AnnotationExpressionImpl extends ExpressionImpl implements Annotati
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
-        return Stream.concat(Stream.of(new ElementImpl.TypeReference(typeInfo,
-                        DetailedSources.isFullyQualified(detailedSources, typeInfo))),
+        TypeInfo qualifier = detailedSources == null ? typeInfo : detailedSources.qualifier(typeInfo);
+        Element.TypeReference typeReference = new ElementImpl.TypeReference(typeInfo, EXPLICIT, qualifier);
+        return Stream.concat(Stream.of(typeReference),
                 keyValuePairs.stream().flatMap(kv -> kv.value().typesReferenced(predicate)));
     }
 
