@@ -69,4 +69,8 @@ public interface Source extends Comparable<Source> {
         if (line == beginLine()) return beginPos() <= pos;
         return pos <= endPos();
     }
+
+    default int lines() {
+        return endLine() - beginLine() + 1;
+    }
 }
