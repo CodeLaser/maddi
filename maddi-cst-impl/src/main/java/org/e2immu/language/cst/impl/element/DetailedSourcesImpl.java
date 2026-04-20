@@ -166,19 +166,22 @@ public class DetailedSourcesImpl implements DetailedSources {
     public TypeInfo qualifier(TypeInfo typeInfo) {
         Object o = identityHashMap.get(typeInfo);
         if (o instanceof Source s) {
-            return qualifier(s, typeInfo);
+            return qualifier(s.posDiff(), typeInfo);
         }
         if (o instanceof List<?> list && !list.isEmpty()) {
-            return qualifier((Source) list.getFirst(), typeInfo);
+            return qualifier(((Source) list.getFirst()).posDiff(), typeInfo);
         }
         return typeInfo;
     }
 
     // >= because the dots can be surrounded by spaces (highly unusual, but possible)
     //  s.posDiff() >= typeInfo.fullyQualifiedName().length();
-    private TypeInfo qualifier(Source s, TypeInfo typeInfo) {
-        if (s.posDiff() == typeInfo.simpleName().length()) return typeInfo;
-        if (s.posDiff() >= typeInfo.fullyQualifiedName().length()) return null;
-        throw new UnsupportedOperationException("To implement! Code is definitiely used in parse type, maybe in TypeContext");
+    private TypeInfo qualifier(int posDiff, TypeInfo typeInfo) {
+        if (posDiff == typeInfo.simpleName().length()) return typeInfo;
+        if (posDiff >= typeInfo.fullyQualifiedName().length()) return null;
+        if (typeInfo.compilationUnitOrEnclosingType().isLeft()) return typeInfo; // fallback in case of spaces
+        TypeInfo enclosing = typeInfo.compilationUnitOrEnclosingType().getRight();
+        int minLength = typeInfo.simpleName().length() + 1; // but there could be more spaces; unlikely
+        return qualifier(posDiff - minLength, enclosing);
     }
 }
