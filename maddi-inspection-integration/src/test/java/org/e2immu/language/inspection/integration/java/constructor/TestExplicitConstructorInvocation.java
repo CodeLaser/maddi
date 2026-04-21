@@ -57,6 +57,10 @@ public class TestExplicitConstructorInvocation extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1);
+        MethodInfo c1 = typeInfo.findConstructor(1);
+        assertEquals("13-5:15-5", c1.source().compact2());
+        // There is no 'source' in the methodBody
+        assertNull(c1.methodBody().source());
     }
 
     @Language("java")
