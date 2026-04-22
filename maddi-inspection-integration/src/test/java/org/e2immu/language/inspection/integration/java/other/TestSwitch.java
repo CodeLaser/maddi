@@ -172,7 +172,7 @@ public class TestSwitch extends CommonTest {
         assertEquals("""
                 a.b.X.R[E], a.b.X.R[E], a.b.X.S[E], int[E], int[E], int[E], int[E], int[E], int[I], int[I], int[I], \
                 java.lang.Object[E], java.lang.Object[I], java.lang.String[E], java.lang.String[I], \
-                java.lang.UnsupportedOperationException[E]\
+                java.lang.UnsupportedOperationException[E], java.lang.UnsupportedOperationException[I]\
                 """, collected);
     }
 

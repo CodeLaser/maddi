@@ -323,6 +323,15 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
     public Stream<Element.TypeReference> typesReferenced(Predicate<Element> predicate) {
         if (reject(predicate)) return Stream.of();
         DetailedSources detailedSources = source() == null ? null : source().detailedSources();
+        Stream<Element.TypeReference> typeStream;
+        if (constructor == null) {
+            typeStream = Stream.of();
+        } else {
+            TypeInfo qualifier = detailedSources == null ? constructor.typeInfo()
+                    : detailedSources.qualifier(constructor.typeInfo());
+            typeStream = Stream.of(new ElementImpl.TypeReference(constructor.typeInfo(),
+                    TypeReferenceNature.EXPLICIT, qualifier));
+        }
         Stream<Element.TypeReference> typeArgStream = typeArguments.stream().flatMap(pt ->
                 pt.typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources));
         Stream<Element.TypeReference> arrayInitStream = arrayInitializer == null ? Stream.of()
@@ -332,9 +341,9 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
         Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced(predicate);
         Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
         Stream<Element.TypeReference> ccTypeStream = concreteReturnType
-                .typesReferenced(TypeReferenceNature.EXPLICIT, detailedSources);
-        return Stream.concat(typeArgStream, Stream.concat(arrayInitStream, Stream.concat(anonStream,
-                Stream.concat(objectStream, Stream.concat(paramStream, ccTypeStream)))));
+                .typesReferenced(TypeReferenceNature.IMPLICIT, detailedSources);
+        return Stream.concat(typeStream, Stream.concat(typeArgStream, Stream.concat(arrayInitStream,
+                Stream.concat(anonStream, Stream.concat(objectStream, Stream.concat(paramStream, ccTypeStream))))));
     }
 
     @Override
