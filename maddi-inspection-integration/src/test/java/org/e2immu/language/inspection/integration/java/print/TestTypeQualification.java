@@ -49,7 +49,7 @@ public class TestTypeQualification extends CommonTest {
     public void test1() {
         TypeInfo X = javaInspector.parse(INPUT1, JavaInspectorImpl.DETAILED_SOURCES);
         assertEquals("""
-                [java.sql.Date[E FQN], java.util.Date[E], java.util.Date[I], java.sql.Date[E FQN]]\
+                [java.sql.Date[E FQN], java.util.Date[E], java.sql.Date[E FQN], java.util.Date[I], java.sql.Date[I]]\
                 """, X.typesReferenced(null).toList().toString());
 
         ImportComputer importComputer = javaInspector.importComputer(4, null);
