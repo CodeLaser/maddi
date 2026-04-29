@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestRun {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestRun.class);
-    private static final String JDK_HOMEBREW_21 = "jdk-Homebrew-21.0.10";
+    private static final String JDK_HOMEBREW_21 = "jdk-Homebrew-21.0.11";
     private static final String JDK_HOMEBREW_24 = "jdk-Homebrew-24.0.2";
     private static final String JDK_HOMEBREW_25 = "jdk-Homebrew-25.0.2";
 
@@ -94,7 +94,7 @@ public class TestRun {
             public void afterAnnotatedApiParsing(JavaInspector javaInspector) {
                 int expectCt = switch (context()) {
                     case JDK_HOMEBREW_24 -> 3208;
-                    case JDK_HOMEBREW_21 -> 3557;
+                    case JDK_HOMEBREW_21 -> 3555;
                     case JDK_HOMEBREW_25 -> 3599;
                     case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 594;
                     case LIBS_LOG_HOMEBREW_25, LIBS_LOG_ORACLE_24 -> 609;
@@ -129,7 +129,7 @@ public class TestRun {
                         .count();
                 int expectParentNonNull = switch (context()) {
                     case JDK_HOMEBREW_24 -> 2746;
-                    case JDK_HOMEBREW_21 -> 2926;
+                    case JDK_HOMEBREW_21 -> 2924;
                     case JDK_HOMEBREW_25 -> 2982;
                     case LIBS_MADDI_HOMEBREW_25, LIBS_MADDI_ORACLE_24 -> 524;
                     case LIBS_LOG_HOMEBREW_25 -> 525;
