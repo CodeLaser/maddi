@@ -160,7 +160,7 @@ public class ParseHelperImpl extends CommonParse implements ParseHelper {
                     .build());
         } else {
             // in Java, we must have a block
-            throw new UnsupportedOperationException();
+            builder.setMethodBody(runtime.emptyBlock());
         }
     }
 
