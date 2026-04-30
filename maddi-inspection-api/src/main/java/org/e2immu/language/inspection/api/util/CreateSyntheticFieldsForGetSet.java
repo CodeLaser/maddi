@@ -111,7 +111,8 @@ public record CreateSyntheticFieldsForGetSet(Runtime runtime) {
         if (mi.annotations().stream().anyMatch(ae -> fluentFqn.equals(ae.typeInfo().fullyQualifiedName()))) {
             return true;
         }
-        return !mi.methodBody().isEmpty()
+        return mi.methodBody() != null
+               && !mi.methodBody().isEmpty()
                && mi.methodBody().lastStatement() instanceof ReturnStatement rs
                && rs.expression() instanceof VariableExpression ve && ve.variable() instanceof This;
     }

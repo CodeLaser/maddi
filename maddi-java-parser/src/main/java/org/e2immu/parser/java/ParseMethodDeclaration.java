@@ -230,13 +230,9 @@ public class ParseMethodDeclaration extends CommonParse {
         } else {
             toResolve = null;
         }
-        if (toResolve != null || explicitConstructorInvocation != null) {
-            Context resContext = context.newVariableContextForMethodBlock(methodInfo, null);
-            resContext.resolver().add(methodInfo, builder, resContext.emptyForwardType(), explicitConstructorInvocation,
-                    toResolve, newContext, recordAssignments);
-        } else {
-            builder.setMethodBody(runtime.emptyBlock());
-        }
+        Context resContext = context.newVariableContextForMethodBlock(methodInfo, null);
+        resContext.resolver().add(methodInfo, builder, resContext.emptyForwardType(), explicitConstructorInvocation,
+                toResolve, newContext, recordAssignments);
 
         builder.commitParameters();
         methodModifiers.forEach(builder::addMethodModifier);
