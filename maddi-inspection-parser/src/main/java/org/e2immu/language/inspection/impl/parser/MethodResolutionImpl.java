@@ -814,7 +814,7 @@ public class MethodResolutionImpl implements MethodResolution {
             } else {
                 int varargsSkipped = Math.abs(evaluatedExpressions.size() - parameters.size());
                 int methodDistance = entry.getValue();
-                sumScore += 100 * methodDistance + 10 * varargsSkipped;
+                sumScore += methodDistance + 10 * varargsSkipped;
                 if (acceptedErasedTypesCombination == null) {
                     acceptedErasedTypesCombination = thisAcceptedErasedTypesCombination;
                 } else if (!acceptedErasedTypesCombination.equals(thisAcceptedErasedTypesCombination)) {
