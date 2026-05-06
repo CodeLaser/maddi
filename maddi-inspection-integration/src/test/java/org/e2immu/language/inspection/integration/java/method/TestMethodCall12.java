@@ -95,4 +95,56 @@ public class TestMethodCall12 extends CommonTest2 {
         FieldInfo arrayList = C.getFieldByName("arrayList", true);
         assertEquals("Type a.ArrayList", arrayList.type().toString());
     }
+
+    @Language("java")
+    private static final String ASSERTIONS_C = """
+            package c;
+            
+            class C {
+                interface Assert <SELF extends Assert<SELF,ACTUAL>, ACTUAL> { }
+                abstract class AbstractAssert<SELF extends AbstractAssert<SELF,ACTUAL>, ACTUAL> implements Assert<SELF,ACTUAL>{ }
+                abstract class AbstractBooleanAssert <SELF extends AbstractBooleanAssert<SELF>> extends AbstractAssert<SELF,Boolean> {
+                    SELF isFalse();
+                }
+                static AbstractBooleanAssert<?> assertThat(boolean actual) { return null; }
+                static AbstractBooleanAssert<?> assertThat(Boolean actual) { return null; }
+            }
+            """;
+
+    @Language("java")
+    private static final String ASSERTIONS_I = """
+            package c;
+            
+            class I extends C {
+                abstract class AbstractObjectAssert <SELF extends AbstractObjectAssert<SELF,ACTUAL>, ACTUAL> extends AbstractAssert<SELF,ACTUAL> {}
+                interface ComparableAssert <SELF extends ComparableAssert<SELF,ACTUAL>, ACTUAL extends Comparable<? super ACTUAL>> {}
+                abstract class AbstractComparableAssert <SELF extends AbstractComparableAssert<SELF,ACTUAL>, ACTUAL extends Comparable<? super ACTUAL>> extends AbstractObjectAssert<SELF,ACTUAL> implements ComparableAssert<SELF,ACTUAL> {}
+            
+                static <T extends Comparable<? super T>> AbstractComparableAssert<?,T> assertThat(T actual) { return null; }
+            }
+            """;
+
+    @Language("java")
+    private static final String C3 = """
+            package a.b;
+            import static c.I.assertThat;
+            class C {
+
+                static class Builder { }
+                static class DS {
+                    final boolean method(Builder builder) {
+                        return true;
+                    }
+                }
+                void test(DS ds, Builder builder) {
+                    assertThat(ds.method(builder)).isFalse();
+                }
+            }
+            """;
+
+    @DisplayName("assertThat boolean")
+    @Test
+    public void test3() throws IOException {
+        init(Map.of("c.I", ASSERTIONS_I, "c.C", ASSERTIONS_C, "a.b.C3", C3));
+    }
 }
