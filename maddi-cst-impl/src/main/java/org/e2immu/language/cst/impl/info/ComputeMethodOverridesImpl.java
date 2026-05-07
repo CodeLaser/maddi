@@ -216,7 +216,7 @@ public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
         Objects.requireNonNull(inSuperType);
         Objects.requireNonNull(inSubType);
         if (inSuperType.isReturnTypeOfConstructor() && inSubType == inSuperType) return false;
-
+        if (inSubType.arrays() != inSuperType.arrays()) return true;
         if (inSuperType.typeInfo() != null) {
             if (inSubType.typeInfo() != inSuperType.typeInfo()) return true;
             if (inSuperType.parameters().size() != inSubType.parameters().size()) return true;
