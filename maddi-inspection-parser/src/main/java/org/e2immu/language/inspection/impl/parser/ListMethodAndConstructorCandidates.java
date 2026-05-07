@@ -140,6 +140,8 @@ public class ListMethodAndConstructorCandidates {
                 // see TestMethodCall12; you can call a static method from an instance context, but the type must agree
                 .filter(m -> !m.isStatic() || scopeNature != ScopeNature.INSTANCE
                              || m.typeInfo().equals(typeOfObject.typeInfo()))
+                .filter(m -> result.stream()
+                        .noneMatch(r -> r.methodInfo().overrides().contains(m)))
                 .forEach(m -> {
                     MethodTypeParameterMap mt = new MethodTypeParameterMapImpl(m, typeMap);
                     result.add(mt);
