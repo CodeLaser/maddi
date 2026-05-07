@@ -97,6 +97,9 @@ public interface Factory {
 
     int isAssignableFromCovariantErasure(ParameterizedType typeOfParameter, ParameterizedType actualType);
 
+    boolean isAssignableFromCovariantErasure(ParameterizedType target, ParameterizedType from
+            , boolean allowBoxingUnboxingWidening);
+
     int isNotAssignable();
 
     Lambda.OutputVariant lambdaOutputVariantEmpty();
