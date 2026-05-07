@@ -72,21 +72,17 @@ public class MethodResolutionImpl implements MethodResolution {
         ListMethodAndConstructorCandidates.Scope scope = list
                 .computeScope(context.parseHelper(), context, index, unparsedScope, TypeParameterMap.EMPTY);
         int numArguments = unparsedArguments.size();
-        Set<MethodTypeParameterMap> methodCandidatesIn = initialMethodCandidates(list, scope, numArguments, methodName);
-        Map<MethodTypeParameterMap, Integer> methodCandidates = methodCandidatesIn.stream().collect(Collectors.toMap(
-                e -> e, _ -> 1, Integer::sum, HashMap::new));
+        Set<MethodTypeParameterMap> methodCandidates = initialMethodCandidates(list, scope, numArguments, methodName);
 
-        FilterResult filterResult = filterMethodCandidatesInErasureMode(context, methodCandidates, unparsedArguments);
-        if (methodCandidates.size() > 1) {
-            trimMethodsWithBestScore(methodCandidates, filterResult.compatibilityScore);
-            if (methodCandidates.size() > 1) {
-                trimMethodsByCandidateScore(methodCandidates);
-                if (methodCandidates.size() > 1) {
-                    trimVarargsVsMethodsWithFewerParameters(methodCandidates);
-                }
-            }
+        Map<Integer, Expression> evaluatedExpressions = new TreeMap<>();
+        int i = 0;
+        ForwardType forward = context.erasureForwardType();
+        for (Object argument : unparsedArguments) {
+            Expression evaluated = context.resolver().parseHelper().parseExpression(context, index, forward, argument);
+            evaluatedExpressions.put(i++, evaluated);
         }
-        sortRemainingCandidatesByShallowPublic(methodCandidates);
+
+        // FIXME now come stage1, stage2 etc. adapted to erasure types
 
         if (methodCandidates.isEmpty()) {
             throw new RuntimeException("Have no method candidates remaining in erasure mode for "
@@ -103,37 +99,15 @@ public class MethodResolutionImpl implements MethodResolution {
              */
             types = Set.of(scope.expression().parameterizedType());
         } else {
-            types = methodCandidates.keySet().stream()
-                    .map(mc -> erasureReturnType(mc, filterResult, scope))
+            types = methodCandidates.stream()
+                    .map(mc -> erasureReturnType(mc, evaluatedExpressions, scope))
                     .collect(Collectors.toUnmodifiableSet());
         }
         return types;
     }
 
-    /**
-     * StringBuilder.length() is in public interface CharSequence and in the private type AbstractStringBuilder.
-     * We prioritise the CharSequence version, because that one can be annotated using annotated APIs.
-     *
-     * @param methodCandidates the candidates to sort
-     */
-    private void sortRemainingCandidatesByShallowPublic(Map<MethodTypeParameterMap, Integer> methodCandidates) {
-        if (methodCandidates.size() > 1) {
-            Comparator<MethodTypeParameterMap> comparator =
-                    (m1, m2) -> {
-                        boolean m1Accessible = m1.methodInfo().isPubliclyAccessible();
-                        boolean m2Accessible = m2.methodInfo().isPubliclyAccessible();
-                        if (m1Accessible && !m2Accessible) return -1;
-                        if (m2Accessible && !m1Accessible) return 1;
-                        return 0; // don't know what to prioritize
-                    };
-            List<MethodTypeParameterMap> sorted = new ArrayList<>(methodCandidates.keySet());
-            sorted.sort(comparator);
-        }
-    }
-
     private record ContextAndScope(Context context, Expression scope) {
     }
-
 
     private static ContextAndScope determineTypeContextAndScope(Context context, String index, Object unparsedScope) {
         Context newContext;
@@ -350,19 +324,15 @@ public class MethodResolutionImpl implements MethodResolution {
         ParameterizedType returnType(Runtime runtime,
                                      TypeInfo primaryType,
                                      TypeParameterMap extra) {
-            //LOGGER.info(" - mapExpansion {}", mapExpansion);
-            //LOGGER.info(" - method concrete type map {}", method.concreteTypes());
             ParameterizedType pt;
             if (mapExpansion.isEmpty()) {
                 pt = method.getConcreteReturnType(runtime);
             } else {
                 MethodTypeParameterMap expand = method.expand(runtime, primaryType, mapExpansion);
-                //LOGGER.info(" - expand = {}", expand);
                 pt = expand.getConcreteReturnType(runtime);
             }
             ParameterizedType withExtra = pt.applyTranslation(runtime, extra.map());
             // See TypeParameter_4
-            //LOGGER.info(" - withExtra: {}", withExtra.detailedString());
             return withExtra.isUnboundWildcard() ? runtime.objectParameterizedType() : withExtra;
         }
     }
@@ -382,10 +352,11 @@ public class MethodResolutionImpl implements MethodResolution {
         return methodCandidates;
     }
 
-    private ParameterizedType erasureReturnType(MethodTypeParameterMap mc, FilterResult filterResult,
+    private ParameterizedType erasureReturnType(MethodTypeParameterMap mc,
+                                                Map<Integer, Expression> evaluatedExpressions,
                                                 ListMethodAndConstructorCandidates.Scope scope) {
         MethodInfo candidate = mc.methodInfo();
-        TypeParameterMap map0 = filterResult.typeParameterMap(candidate);
+        TypeParameterMap map0 = typeParameterMap(candidate, evaluatedExpressions);
         TypeParameterMap map1 = map0.merge(scope.typeParameterMap());
         TypeInfo methodType = candidate.typeInfo();
         TypeInfo scopeType = scope.type().bestTypeInfo();
@@ -545,8 +516,11 @@ public class MethodResolutionImpl implements MethodResolution {
             if (parameter.isVarArgs()) {
                 if (!acceptVarargs) return false;
                 for (ParameterizedType actualType : actualTypes) {
-                    int compatible = callIsAssignableFrom(actualType, formalType);
-                    if (compatible >= 0) return true; // matching the array type
+                    boolean assignable = runtime.isAssignableFromCovariantErasure(formalType, actualType,
+                            acceptWideningBoxingUnboxing);
+                    if (assignable) {
+                        return true; // matching the array type
+                    }
                 }
                 ParameterizedType elementType = formalType.copyWithOneFewerArrays();
                 int pos = parameters.size();
@@ -555,8 +529,9 @@ public class MethodResolutionImpl implements MethodResolution {
                     if (concreteVarArgTypes == null) break;
                     boolean haveMatch = false;
                     for (ParameterizedType actualType : actualTypes) {
-                        int compatible = callIsAssignableFrom(actualType, elementType);
-                        if (compatible >= 0) {
+                        boolean assignable = runtime.isAssignableFromCovariantErasure(elementType, actualType,
+                                acceptWideningBoxingUnboxing);
+                        if (assignable) {
                             haveMatch = true;
                             break;
                         }
@@ -593,74 +568,6 @@ public class MethodResolutionImpl implements MethodResolution {
         return new TypeParameterMap(map);
     }
 
-    private void trimMethodsByReevaluatingErasedParameterExpressions(Context context,
-                                                                     String index,
-                                                                     Map<Integer, Expression> evaluatedExpressions,
-                                                                     List<Object> unparsedArguments,
-                                                                     Map<MethodTypeParameterMap, Integer> methodCandidates,
-                                                                     ParameterizedType outsideContext,
-                                                                     TypeParameterMap extra) {
-        List<Integer> erased = new ArrayList<>(unparsedArguments.size());
-        for (Map.Entry<Integer, Expression> entry : evaluatedExpressions.entrySet()) {
-            if (entry.getValue() instanceof ErasedExpression) {
-                erased.add(entry.getKey());
-            }
-        }
-        if (erased.isEmpty()) return; // there are no erased expressions to re-evaluate
-        Map<MethodTypeParameterMap, Integer> scores = new HashMap<>();
-        int bestScore = Integer.MAX_VALUE;
-        for (MethodTypeParameterMap method : methodCandidates.keySet()) {
-            int score = computeScoreForReevaluationOfErasedParameterExpressions(context, index, unparsedArguments,
-                    evaluatedExpressions, method, erased, outsideContext, extra);
-            scores.put(method, score);
-            if (score >= 0 && score < bestScore) bestScore = score;
-        }
-        LOGGER.debug("Best score is {}", bestScore);
-        if (bestScore != Integer.MAX_VALUE) {
-            int finalBestScore = bestScore;
-            scores.forEach((method, score) -> {
-                if (score < 0 || score > finalBestScore) methodCandidates.remove(method);
-            });
-            LOGGER.debug("Remaining: {}", methodCandidates.size());
-        }
-    }
-
-    // this is pretty expensive code, but should be rarely used. See TestMethodCall8,assertDoesNotThrow
-    private int computeScoreForReevaluationOfErasedParameterExpressions(Context context,
-                                                                        String index,
-                                                                        List<Object> unparsedArguments,
-                                                                        Map<Integer, Expression> evaluatedExpressions,
-                                                                        MethodTypeParameterMap method,
-                                                                        List<Integer> erased,
-                                                                        ParameterizedType outsideContext,
-                                                                        TypeParameterMap extra) {
-        int score = 0;
-        TypeParameterMap cumulative = extra;
-        List<ParameterInfo> parameters = method.methodInfo().parameters();
-        for (int i : erased) {
-            LOGGER.debug("Reevaluating erased expression for score computation, {}, pos {}", method.methodInfo(), i);
-            Expression evEx = evaluatedExpressions.get(i);
-            ReevaluateErasedExpressions.ReEval res = reEval.reevaluateParameterExpression(context, index,
-                    unparsedArguments, outsideContext, method.methodInfo().name(), evEx, method, i, cumulative,
-                    parameters);
-            cumulative = res.typeParameterMap();
-            ParameterizedType pt;
-            if (i >= parameters.size()) {
-                ParameterInfo parameterInfo = parameters.getLast();
-                assert parameterInfo.isVarArgs();
-                pt = parameterInfo.parameterizedType().copyWithOneFewerArrays();
-            } else {
-                ParameterInfo parameterInfo = parameters.get(i);
-                pt = parameterInfo.parameterizedType();
-            }
-            int c = compatibleParameter(res.evaluated(), pt);
-            if (c == -1) {
-                return -1; // incompatible, so no point in continuing
-            }
-            score += c;
-        }
-        return score;
-    }
 
     private UnsupportedOperationException multipleCandidatesError(String methodName,
                                                                   List<MethodTypeParameterMap> methodCandidates,
@@ -771,194 +678,57 @@ public class MethodResolutionImpl implements MethodResolution {
         LOGGER.error("No candidate found for {} in {}", methodName, typeInfo);
     }
 
-    private record FilterResult(Map<Integer, Expression> evaluatedExpressions,
-                                Map<MethodInfo, Integer> compatibilityScore) {
-
-        // See Lambda_6, Lambda_13: connect type of evaluated argument result to formal parameter type
-        public TypeParameterMap typeParameterMap(MethodInfo candidate) {
-            Map<NamedType, ParameterizedType> result = new HashMap<>();
-            int i = 0;
-            for (ParameterInfo parameterInfo : candidate.parameters()) {
-                if (i >= evaluatedExpressions.size()) break;
-                Expression expression = evaluatedExpressions.get(i);
-                // we have a match between the return type of the expression, and the type of the parameter
-                // expression: MethodCallErasure, with Collector<T,?,Set<T>> as concrete type
-                // parameter type: Collector<? super T,A,R>   (T belongs to Stream, A,R to the collect method)
-                // we want to add R --> Set<T> to the type map
-                Map<NamedType, ParameterizedType> map = new HashMap<>();
-                Set<ParameterizedType> erasureTypes = expandErasureTypes(expression);
-                for (ParameterizedType pt : erasureTypes) {
-                    map.putAll(pt.initialTypeParameterMap());
-                }
-
-                // we now have R as #2 in Collector mapped to Set<T>, and we need to replace that by the
-                // actual type parameter of the formal type of parameterInfo
-                //result.putAll( parameterInfo.parameterizedType.translateMap(typeContext, map));
-                int j = 0;
-                boolean isVarargs = parameterInfo.isVarArgs();
-                for (ParameterizedType tp : parameterInfo.parameterizedType().parameters()) {
-                    if (tp.typeParameter() != null) {
-                        int index = j;
-                        map.entrySet().stream()
-                                .filter(e -> e.getKey() instanceof TypeParameter t && t.getIndex() == index)
-                                // we do not add to the map when the result is one type parameter to the next (MethodCall_19)
-                                .filter(e -> e.getValue().bestTypeInfo() != null)
-                                .map(Map.Entry::getValue)
-                                .findFirst()
-                                .ifPresent(inMap -> {
-                                    // see MethodCall_60,_61,_62,_63 for the array count computation
-                                    ParameterizedType target = inMap.copyWithArrays(inMap.arrays() - tp.arrays());
-                                    result.merge(tp.typeParameter(), target, ParameterizedType::bestDefined);
-                                });
-                    }
-                    j++;
-                }
-                if (parameterInfo.parameterizedType().isTypeParameter() && erasureTypes.isEmpty()) {
-                    // see MethodCall_48; MethodCall_3 shows why we omit ErasureExpression
-                    // see MethodCall_60,_61,_62,_63 for the array count computation
-                    boolean oneFewer = expression.parameterizedType().arrays() == parameterInfo.parameterizedType().arrays() - 1;
-                    int paramArrays = parameterInfo.parameterizedType().arrays() - (isVarargs && oneFewer ? 1 : 0);
-                    int arrays = expression.parameterizedType().arrays() - paramArrays;
-                    ParameterizedType target = expression.parameterizedType().copyWithArrays(arrays);
-                    result.merge(parameterInfo.parameterizedType().typeParameter(), target, ParameterizedType::bestDefined);
-                }
-                i++;
+    // See Lambda_6, Lambda_13: connect type of evaluated argument result to formal parameter type
+    public TypeParameterMap typeParameterMap(MethodInfo candidate, Map<Integer, Expression> evaluatedExpressions) {
+        Map<NamedType, ParameterizedType> result = new HashMap<>();
+        int i = 0;
+        for (ParameterInfo parameterInfo : candidate.parameters()) {
+            if (i >= evaluatedExpressions.size()) break;
+            Expression expression = evaluatedExpressions.get(i);
+            // we have a match between the return type of the expression, and the type of the parameter
+            // expression: MethodCallErasure, with Collector<T,?,Set<T>> as concrete type
+            // parameter type: Collector<? super T,A,R>   (T belongs to Stream, A,R to the collect method)
+            // we want to add R --> Set<T> to the type map
+            Map<NamedType, ParameterizedType> map = new HashMap<>();
+            Set<ParameterizedType> erasureTypes = expandErasureTypes(expression);
+            for (ParameterizedType pt : erasureTypes) {
+                map.putAll(pt.initialTypeParameterMap());
             }
-            return new TypeParameterMap(result);
-        }
-    }
 
-    private FilterResult filterMethodCandidatesInErasureMode(Context context,
-                                                             Map<MethodTypeParameterMap, Integer> methodCandidates,
-                                                             List<Object> expressions) {
-        Map<Integer, Expression> evaluatedExpressions = new HashMap<>();
-        Map<MethodInfo, Integer> compatibilityScore = new HashMap<>();
-        int pos = 0;
-        while (!methodCandidates.isEmpty() && evaluatedExpressions.size() < expressions.size()) {
-            ForwardType fwd = context.erasureForwardType();
-            Expression evaluatedExpression = context.parseHelper().parseExpression(context, "", fwd,
-                    expressions.get(pos));
-            evaluatedExpressions.put(pos, Objects.requireNonNull(evaluatedExpression));
-            filterCandidatesByParameter(evaluatedExpression, pos, methodCandidates, compatibilityScore);
-            pos++;
-        }
-        return new FilterResult(evaluatedExpressions, compatibilityScore);
-    }
-
-    private void trimMethodsByCandidateScore(Map<MethodTypeParameterMap, Integer> methodCandidates) {
-        int min = methodCandidates.values().stream()
-                .mapToInt(i -> i)
-                .min().orElseThrow();
-        if (min == notAssignable) throw new UnsupportedOperationException();
-        methodCandidates.entrySet().removeIf(e -> e.getValue() > min);
-    }
-
-    private void trimMethodsWithBestScore(Map<MethodTypeParameterMap, Integer> methodCandidates,
-                                          Map<MethodInfo, Integer> compatibilityScore) {
-        int min = methodCandidates.entrySet().stream()
-                .mapToInt(e -> score(compatibilityScore, e))
-                .min().orElseThrow();
-        if (min == notAssignable) throw new UnsupportedOperationException();
-        methodCandidates.entrySet()
-                .removeIf(e -> score(compatibilityScore, e) > min);
-    }
-
-    /*
-    TestMethodCall13,8 shows the necessity of taking 'e.getValue' into account, next to the compatibility score.
-    Multiplication turns out to work but is not necessarily the best choice?
-     */
-    private static int score(Map<MethodInfo, Integer> compatibilityScore, Map.Entry<MethodTypeParameterMap, Integer> e) {
-        int c = compatibilityScore.getOrDefault(e.getKey().methodInfo(), 0);
-        int value = e.getValue();
-        if (c < 0 || value < 0) return -1;
-        return Math.max(1, c) * Math.max(1, value);
-    }
-
-    // remove varargs if there's also non-varargs solutions
-//
-// this step if AFTER the score step, so we've already dealt with type conversions.
-// we still have to deal with overloads in supertypes, methods with the same type signature
-    private static void trimVarargsVsMethodsWithFewerParameters
-    (Map<MethodTypeParameterMap, Integer> methodCandidates) {
-        int countVarargs = (int) methodCandidates.keySet().stream().filter(e -> e.methodInfo().isVarargs()).count();
-        if (countVarargs > 0 && countVarargs < methodCandidates.size()) {
-            methodCandidates.keySet().removeIf(e -> e.methodInfo().isVarargs());
-        }
-    }
-
-    private void filterCandidatesByParameter(Expression expression,
-                                             int pos,
-                                             Map<MethodTypeParameterMap, Integer> methodCandidates,
-                                             Map<MethodInfo, Integer> compatibilityScore) {
-        methodCandidates.keySet().removeIf(mc -> {
-            int score = compatibleParameter(expression, pos, mc.methodInfo());
-            if (score >= 0) {
-                Integer inMap = compatibilityScore.get(mc.methodInfo());
-                inMap = inMap == null ? score : score + inMap;
-                compatibilityScore.put(mc.methodInfo(), inMap);
+            // we now have R as #2 in Collector mapped to Set<T>, and we need to replace that by the
+            // actual type parameter of the formal type of parameterInfo
+            //result.putAll( parameterInfo.parameterizedType.translateMap(typeContext, map));
+            int j = 0;
+            boolean isVarargs = parameterInfo.isVarArgs();
+            for (ParameterizedType tp : parameterInfo.parameterizedType().parameters()) {
+                if (tp.typeParameter() != null) {
+                    int index = j;
+                    map.entrySet().stream()
+                            .filter(e -> e.getKey() instanceof TypeParameter t && t.getIndex() == index)
+                            // we do not add to the map when the result is one type parameter to the next (MethodCall_19)
+                            .filter(e -> e.getValue().bestTypeInfo() != null)
+                            .map(Map.Entry::getValue)
+                            .findFirst()
+                            .ifPresent(inMap -> {
+                                // see MethodCall_60,_61,_62,_63 for the array count computation
+                                ParameterizedType target = inMap.copyWithArrays(inMap.arrays() - tp.arrays());
+                                result.merge(tp.typeParameter(), target, ParameterizedType::bestDefined);
+                            });
+                }
+                j++;
             }
-            return score < 0;
-        });
-    }
-
-    // different situations with varargs: method(int p1, String... args)
-// 1: method(1) is possible, but pos will not get here, so there's no reason for incompatibility
-// 2: pos == params.size()-1: method(p, "abc")
-// 3: pos == params.size()-1: method(p, new String[] { "a", "b"} )
-// 4: pos >= params.size(): method(p, "a", "b")  -> we need the base type
-    private int compatibleParameter(Expression expression, int pos, MethodInfo methodInspection) {
-        assert !expression.isEmpty() : "Should we return NOT_ASSIGNABLE?";
-        List<ParameterInfo> params = methodInspection.parameters();
-
-        if (pos >= params.size()) {
-            ParameterInfo lastParameter = params.getLast();
-            assert lastParameter.isVarArgs();
-            ParameterizedType typeOfParameter = lastParameter.parameterizedType().copyWithOneFewerArrays();
-            return compatibleParameter(expression, typeOfParameter);
-        }
-        ParameterInfo parameterInfo = params.get(pos);
-        if (pos == params.size() - 1 && parameterInfo.isVarArgs()) {
-            int withArrays = compatibleParameter(expression, parameterInfo.parameterizedType());
-            int withoutArrays = compatibleParameter(expression, parameterInfo.parameterizedType().copyWithOneFewerArrays());
-            if (withArrays == -1) return withoutArrays;
-            if (withoutArrays == -1) return withArrays;
-            return Math.min(withArrays, withoutArrays);
-        }
-        // the normal situation
-        return compatibleParameter(expression, parameterInfo.parameterizedType());
-    }
-
-    private int compatibleParameter(Expression evaluatedExpression, ParameterizedType typeOfParameter) {
-        Set<ParameterizedType> erasureTypes = expandErasureTypes(evaluatedExpression);
-        return erasureTypes.stream().mapToInt(type -> {
-                    // Hack? see also paramIsErasure higher up in filterCandidatesByParameters
-                    int a = callIsAssignableFrom(type, typeOfParameter);
-                    int b = callIsAssignableFrom(typeOfParameter, type);
-                    return a < 0 || b < 0 ? Math.max(a, b) : Math.min(a, b);
-                })
-                .reduce(notAssignable, (v0, v1) -> {
-                    if (v0 < 0) return v1;
-                    if (v1 < 0) return v0;
-                    return Math.min(v0, v1);
-                });
-    }
-
-    private int callIsAssignableFrom(ParameterizedType actualType, ParameterizedType typeOfParameter) {
-        int c = runtime.isAssignableFromCovariantErasure(typeOfParameter, actualType);
-        if (c == -1) {
-            TypeInfo actual = actualType.typeInfo();
-            TypeInfo formal = typeOfParameter.typeInfo();
-            if (actual != null && formal != null
-                && actual.fullyQualifiedName().equals(formal.fullyQualifiedName())
-                && !actual.compilationUnit().sourceSet().equals(formal.compilationUnit().sourceSet())) {
-                LOGGER.warn("Incompatible types; still, accepting the method: {} in {}, {}",
-                        actual.fullyQualifiedName(),
-                        actual.compilationUnit().sourceSet().name(),
-                        formal.compilationUnit().sourceSet().name());
-                return 0;
+            if (parameterInfo.parameterizedType().isTypeParameter() && erasureTypes.isEmpty()) {
+                // see MethodCall_48; MethodCall_3 shows why we omit ErasureExpression
+                // see MethodCall_60,_61,_62,_63 for the array count computation
+                boolean oneFewer = expression.parameterizedType().arrays() == parameterInfo.parameterizedType().arrays() - 1;
+                int paramArrays = parameterInfo.parameterizedType().arrays() - (isVarargs && oneFewer ? 1 : 0);
+                int arrays = expression.parameterizedType().arrays() - paramArrays;
+                ParameterizedType target = expression.parameterizedType().copyWithArrays(arrays);
+                result.merge(parameterInfo.parameterizedType().typeParameter(), target, ParameterizedType::bestDefined);
             }
+            i++;
         }
-        return c;
+        return new TypeParameterMap(result);
     }
 
     // replace an ErasedExpression with its erasure types
@@ -1219,9 +989,11 @@ public class MethodResolutionImpl implements MethodResolution {
     }
 
     @Override
-    public Either<Set<Count>, Expression> computeMethodReferenceErasureCounts(Context
-                                                                                      context, List<Comment> comments,
-                                                                              Source source, Expression scope, String methodName) {
+    public Either<Set<Count>, Expression> computeMethodReferenceErasureCounts(Context context,
+                                                                              List<Comment> comments,
+                                                                              Source source,
+                                                                              Expression scope,
+                                                                              String methodName) {
         ParameterizedType parameterizedType = scope.parameterizedType();
         boolean constructor = "new".equals(methodName);
 
