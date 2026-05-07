@@ -408,7 +408,9 @@ public class MethodResolutionImpl implements MethodResolution {
             Expression evaluated = context.resolver().parseHelper().parseExpression(context, index, forward, argument);
             evaluatedExpressions.put(i++, evaluated);
         }
-        Map<MethodTypeParameterMap, Integer> methodCandidates = methodCandidatesIn.stream().collect(Collectors.toMap(
+        Set<MethodTypeParameterMap> methodCandidatesStage1 = stage1ApplicableMethods(methodCandidatesIn,
+                evaluatedExpressions, extra);
+        Map<MethodTypeParameterMap, Integer> methodCandidates = methodCandidatesStage1.stream().collect(Collectors.toMap(
                 e -> e, e -> 1, Integer::sum, HashMap::new));
 
         FilterResult filterResult = filterCandidatesByParameters(methodCandidates, evaluatedExpressions, extra);
@@ -453,6 +455,82 @@ public class MethodResolutionImpl implements MethodResolution {
                 returnType, extra2, methodName, filterResult.evaluatedExpressions, method);
         Map<NamedType, ParameterizedType> mapExpansion = computeMapExpansion(method, newParameterExpressions, returnType);
         return new Candidate(newParameterExpressions, mapExpansion, method);
+    }
+
+    private Set<MethodTypeParameterMap> stage1ApplicableMethods(Set<MethodTypeParameterMap> methodCandidates,
+                                                                Map<Integer, Expression> evaluatedExpressions,
+                                                                TypeParameterMap typeParameterMap) {
+        Map<Integer, Set<ParameterizedType>> acceptedErasedTypes =
+                evaluatedExpressions.entrySet().stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e ->
+                        expandErasureTypes(e.getValue()).stream()
+                                .map(pt -> pt.applyTranslation(runtime, typeParameterMap.map()))
+                                .collect(Collectors.toUnmodifiableSet())));
+
+        // gate 1: strict subtyping
+        Set<MethodTypeParameterMap> set1 = methodCandidates.stream()
+                .filter(mc -> stage1ApplicableMethod(mc, evaluatedExpressions,
+                        acceptedErasedTypes, false, false))
+                .collect(Collectors.toUnmodifiableSet());
+        if (!set1.isEmpty()) return set1;
+
+        // gate 2: allow widening, boxing, unboxing
+        Set<MethodTypeParameterMap> set2 = methodCandidates.stream()
+                .filter(mc -> stage1ApplicableMethod(mc, evaluatedExpressions,
+                        acceptedErasedTypes, true, false))
+                .collect(Collectors.toUnmodifiableSet());
+        if (!set2.isEmpty()) return set2;
+
+        // gate 3: also allow varargs
+        return methodCandidates.stream().filter(mc -> stage1ApplicableMethod(mc,
+                        evaluatedExpressions, acceptedErasedTypes, true, true))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private boolean stage1ApplicableMethod(MethodTypeParameterMap methodCandidate,
+                                           Map<Integer, Expression> evaluatedExpressions,
+                                           Map<Integer, Set<ParameterizedType>> acceptedErasedTypes,
+                                           boolean acceptWideningBoxingUnboxing,
+                                           boolean acceptVarargs) {
+        List<ParameterInfo> parameters = methodCandidate.methodInfo().parameters();
+        for (ParameterInfo parameter : parameters) {
+            Set<ParameterizedType> actualTypes = acceptedErasedTypes.get(parameter.index());
+            if (actualTypes == null) {
+                assert parameter.isVarArgs() : "Incorrect arity; this method should not have been a candidate";
+                return acceptVarargs;
+            }
+            if (parameter.isVarArgs()) {
+                if (!acceptVarargs) return false;
+                ParameterizedType arrayType = parameter.parameterizedType();
+                for (ParameterizedType actualType : actualTypes) {
+                    int compatible = callIsAssignableFrom(actualType, arrayType);
+                    if (compatible >= 0) return true; // matching the array type
+                }
+                ParameterizedType elementType = arrayType.copyWithOneFewerArrays();
+                int pos = parameters.size();
+                while (true) {
+                    Set<ParameterizedType> concreteVarArgTypes = acceptedErasedTypes.get(pos);
+                    if (concreteVarArgTypes == null) break;
+                    boolean haveMatch = false;
+                    for (ParameterizedType actualType : actualTypes) {
+                        int compatible = callIsAssignableFrom(actualType, elementType);
+                        if (compatible >= 0) {
+                            haveMatch = true;
+                            break;
+                        }
+                    }
+                    if (!haveMatch) return false;
+                    ++pos;
+                }
+                return true;
+            }
+            // not a varargs type
+            for (ParameterizedType actualType : actualTypes) {
+                boolean assignable = runtime.isAssignableFromCovariantErasure(parameter.parameterizedType(), actualType,
+                        acceptWideningBoxingUnboxing);
+                if (!assignable) return false;
+            }
+        }
+        return true;
     }
 
     private TypeParameterMap makeMethodTypeParameterMap(MethodInfo methodInfo, List<ParameterizedType> methodTypeArguments) {
