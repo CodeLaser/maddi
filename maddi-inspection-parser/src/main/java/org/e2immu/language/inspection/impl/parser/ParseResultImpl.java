@@ -37,7 +37,7 @@ public class ParseResultImpl implements ParseResult {
     private final Map<String, List<TypeInfo>> typesBySimpleName;
     private final Map<String, SourceSet> sourceSetsByName;
     private final Map<SourceSet, ModuleInfo> sourceSetToModuleInfo;
-    private final Set<String> packagesAndTheirPrefixes;
+    private final Set<String> packageParts;
 
     public ParseResultImpl(Set<TypeInfo> types, Map<String, SourceSet> sourceSetsByName, Map<SourceSet, ModuleInfo> sourceSetToModuleInfo) {
         this.sourceSetToModuleInfo = sourceSetToModuleInfo;
@@ -65,14 +65,9 @@ public class ParseResultImpl implements ParseResult {
         typesBySimpleName.replaceAll((t, ts) -> List.copyOf(ts));
         this.typesBySimpleName = Map.copyOf(typesBySimpleName);
         this.children = Map.copyOf(children);
-        this.packagesAndTheirPrefixes = new HashSet<>();
+        this.packageParts = new HashSet<>();
         primaryTypesOfPackage.keySet().forEach(s -> {
-            int dot = -1;
-            while ((dot = s.indexOf('.', dot + 1)) > 0) {
-                String prefix = s.substring(0, dot);
-                packagesAndTheirPrefixes.add(prefix);
-            }
-            packagesAndTheirPrefixes.add(s);
+            primaryTypes().forEach(pt -> packageParts.addAll(Arrays.asList(pt.packageName().split("\\."))));
         });
     }
 
@@ -102,8 +97,8 @@ public class ParseResultImpl implements ParseResult {
     }
 
     @Override
-    public boolean isPackage(String candidate) {
-        return packagesAndTheirPrefixes.contains(candidate);
+    public boolean isPackagePart(String string) {
+        return packageParts.contains(string);
     }
 
     @Override
