@@ -48,10 +48,10 @@ public class ListMethodAndConstructorCandidates {
 
     public static final int IGNORE_PARAMETER_NUMBERS = -1;
 
-    public Map<MethodTypeParameterMap, Integer> resolveConstructor(ParameterizedType formalType,
-                                                                   ParameterizedType concreteType,
-                                                                   int parametersPresented,
-                                                                   Map<NamedType, ParameterizedType> typeMap) {
+    public Set<MethodTypeParameterMap> resolveConstructor(ParameterizedType formalType,
+                                                          ParameterizedType concreteType,
+                                                          int parametersPresented,
+                                                          Map<NamedType, ParameterizedType> typeMap) {
         List<TypeInfo> types = extractTypeInfo(concreteType != null ? concreteType : formalType, typeMap);
         // there's only one situation where we can have multiple types; that's multiple type bounds; only the first one can be a class
         TypeInfo typeInfo = types.getFirst();
@@ -60,7 +60,7 @@ public class ListMethodAndConstructorCandidates {
                 .filter(methodInspection -> parametersPresented == IGNORE_PARAMETER_NUMBERS ||
                                             compatibleNumberOfParameters(methodInspection, parametersPresented))
                 .map(mi -> new MethodTypeParameterMapImpl(mi, typeMap))
-                .collect(Collectors.toMap(mt -> mt, _ -> 1));
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     public void recursivelyResolveOverloadedMethods(ParameterizedType typeOfObject,
@@ -68,10 +68,10 @@ public class ListMethodAndConstructorCandidates {
                                                     int parametersPresented,
                                                     boolean decrementWhenNotStatic,
                                                     Map<NamedType, ParameterizedType> typeMap,
-                                                    Map<MethodTypeParameterMap, Integer> result,
+                                                    Set<MethodTypeParameterMap> result,
                                                     ScopeNature scopeNature) {
         recursivelyResolveOverloadedMethods(typeOfObject, methodName, parametersPresented, decrementWhenNotStatic,
-                typeMap, result, new HashSet<>(), new HashSet<>(), false, scopeNature, 0);
+                typeMap, result, new HashSet<>(), new HashSet<>(), false, scopeNature);
     }
 
     private void recursivelyResolveOverloadedMethods(ParameterizedType typeOfObject,
@@ -79,12 +79,11 @@ public class ListMethodAndConstructorCandidates {
                                                      int parametersPresented,
                                                      boolean decrementWhenNotStatic,
                                                      Map<NamedType, ParameterizedType> typeMap,
-                                                     Map<MethodTypeParameterMap, Integer> result,
+                                                     Set<MethodTypeParameterMap> result,
                                                      Set<TypeInfo> visited,
                                                      Set<TypeInfo> visitedStatic,
                                                      boolean staticOnly,
-                                                     ScopeNature scopeNature,
-                                                     int distance) {
+                                                     ScopeNature scopeNature) {
         List<TypeInfo> multipleTypeInfoObjects = extractTypeInfo(typeOfObject, typeMap);
         // more than one: only in the rare situation of multiple type bounds
         for (TypeInfo typeInfo : multipleTypeInfoObjects) {
@@ -93,8 +92,7 @@ public class ListMethodAndConstructorCandidates {
                 if (!staticOnly) visited.add(typeInfo);
                 visitedStatic.add(typeInfo);
                 resolveOverloadedMethodsSingleType(typeInfo, staticOnly, scopeNature, methodName, parametersPresented,
-                        decrementWhenNotStatic, typeMap, result, visited, visitedStatic, distance + 2,
-                        typeOfObject);
+                        decrementWhenNotStatic, typeMap, result, visited, visitedStatic, typeOfObject);
             }
         }
         // it is possible that we find the method in one of the statically imported types... with * import
@@ -105,7 +103,7 @@ public class ListMethodAndConstructorCandidates {
                 visitedStatic.add(typeInfo);
                 resolveOverloadedMethodsSingleType(typeInfo, true, scopeNature, methodName,
                         parametersPresented, decrementWhenNotStatic, typeMap, result, visited, visitedStatic,
-                        distance + 1, typeOfObject);
+                        typeOfObject);
             }
         }
         // or import by name
@@ -116,7 +114,7 @@ public class ListMethodAndConstructorCandidates {
                     visitedStatic.add(byName);
                     resolveOverloadedMethodsSingleType(byName, true, scopeNature, methodName,
                             parametersPresented, decrementWhenNotStatic, typeMap, result, visited, visitedStatic,
-                            distance, typeOfObject);
+                            typeOfObject);
                 }
             }
         }
@@ -129,10 +127,9 @@ public class ListMethodAndConstructorCandidates {
                                                     int parametersPresented,
                                                     boolean decrementWhenNotStatic,
                                                     Map<NamedType, ParameterizedType> typeMap,
-                                                    Map<MethodTypeParameterMap, Integer> result,
+                                                    Set<MethodTypeParameterMap> result,
                                                     Set<TypeInfo> visited,
                                                     Set<TypeInfo> visitedStatic,
-                                                    int distance,
                                                     ParameterizedType typeOfObject) {
         typeInfo.methodStream()
                 .filter(m -> m.name().equals(methodName))
@@ -145,8 +142,7 @@ public class ListMethodAndConstructorCandidates {
                              || m.typeInfo().equals(typeOfObject.typeInfo()))
                 .forEach(m -> {
                     MethodTypeParameterMap mt = new MethodTypeParameterMapImpl(m, typeMap);
-                    int score = distance + (m.isStatic() && scopeNature == ScopeNature.INSTANCE ? 100 : 0);
-                    result.merge(mt, score, Integer::min);
+                    result.add(mt);
                 });
 
 
@@ -156,13 +152,12 @@ public class ListMethodAndConstructorCandidates {
                 "Parent class of " + typeInfo.fullyQualifiedName() + " is null";
         if (!isJLO) {
             recursivelyResolveOverloadedMethods(parentClass, methodName, parametersPresented, decrementWhenNotStatic,
-                    joinMaps(typeMap, parentClass), result, visited, visitedStatic, staticOnly, scopeNature,
-                    distance + 1);
+                    joinMaps(typeMap, parentClass), result, visited, visitedStatic, staticOnly, scopeNature);
         }
         for (ParameterizedType interfaceImplemented : typeInfo.interfacesImplemented()) {
             recursivelyResolveOverloadedMethods(interfaceImplemented, methodName, parametersPresented,
                     decrementWhenNotStatic, joinMaps(typeMap, interfaceImplemented), result, visited, visitedStatic,
-                    staticOnly, scopeNature, distance + 2);
+                    staticOnly, scopeNature);
         }
         // See UtilityClass_2 for an example where we should go to the static methods of the enclosing type
         if (typeInfo.compilationUnitOrEnclosingType().isRight()) {
@@ -173,7 +168,7 @@ public class ListMethodAndConstructorCandidates {
                 ParameterizedType enclosingType = typeInfo.compilationUnitOrEnclosingType().getRight().asParameterizedType();
                 recursivelyResolveOverloadedMethods(enclosingType, methodName, parametersPresented, decrementWhenNotStatic,
                         joinMaps(typeMap, enclosingType), result, visited, visitedStatic,
-                        onlyStatic, scopeNature, distance + 1);
+                        onlyStatic, scopeNature);
             }
         }
     }
