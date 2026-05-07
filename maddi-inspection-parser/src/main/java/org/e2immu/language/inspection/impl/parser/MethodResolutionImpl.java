@@ -498,14 +498,14 @@ public class MethodResolutionImpl implements MethodResolution {
                 assert parameter.isVarArgs() : "Incorrect arity; this method should not have been a candidate";
                 return acceptVarargs;
             }
+            ParameterizedType formalType = parameter.parameterizedType();
             if (parameter.isVarArgs()) {
                 if (!acceptVarargs) return false;
-                ParameterizedType arrayType = parameter.parameterizedType();
                 for (ParameterizedType actualType : actualTypes) {
-                    int compatible = callIsAssignableFrom(actualType, arrayType);
+                    int compatible = callIsAssignableFrom(actualType, formalType);
                     if (compatible >= 0) return true; // matching the array type
                 }
-                ParameterizedType elementType = arrayType.copyWithOneFewerArrays();
+                ParameterizedType elementType = formalType.copyWithOneFewerArrays();
                 int pos = parameters.size();
                 while (true) {
                     Set<ParameterizedType> concreteVarArgTypes = acceptedErasedTypes.get(pos);
@@ -524,11 +524,16 @@ public class MethodResolutionImpl implements MethodResolution {
                 return true;
             }
             // not a varargs type
+            boolean accept = false;
             for (ParameterizedType actualType : actualTypes) {
-                boolean assignable = runtime.isAssignableFromCovariantErasure(parameter.parameterizedType(), actualType,
+                boolean assignable = runtime.isAssignableFromCovariantErasure(formalType, actualType,
                         acceptWideningBoxingUnboxing);
-                if (!assignable) return false;
+                if (assignable) {
+                    accept = true;
+                    break;
+                }
             }
+            if (!accept) return false;
         }
         return true;
     }
