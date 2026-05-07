@@ -400,7 +400,6 @@ public class MethodResolutionImpl implements MethodResolution {
                                              ParameterizedType returnType,
                                              TypeParameterMap extra,
                                              boolean complain) {
-
         Map<Integer, Expression> evaluatedExpressions = new TreeMap<>();
         int i = 0;
         ForwardType forward = context.erasureForwardType();
@@ -408,58 +407,89 @@ public class MethodResolutionImpl implements MethodResolution {
             Expression evaluated = context.resolver().parseHelper().parseExpression(context, index, forward, argument);
             evaluatedExpressions.put(i++, evaluated);
         }
-        Set<MethodTypeParameterMap> methodCandidatesStage1 = stage1ApplicableMethods(methodCandidatesIn,
+        List<MethodTypeParameterMap> methodCandidatesStage1 = stage1ApplicableMethods(methodCandidatesIn,
                 evaluatedExpressions, extra);
-        Map<MethodTypeParameterMap, Integer> methodCandidates = methodCandidatesStage1.stream().collect(Collectors.toMap(
-                e -> e, e -> 1, Integer::sum, HashMap::new));
-
-        FilterResult filterResult = filterCandidatesByParameters(methodCandidates, evaluatedExpressions, extra);
-
-        // now we need to ensure that there is only 1 method left, but, there can be overloads and
-        // methods with implicit type conversions, varargs, etc. etc.
-        if (methodCandidates.isEmpty()) {
+        List<MethodTypeParameterMap> sorted = stage2MostSpecificMethod(methodCandidatesStage1);
+        if (sorted.isEmpty()) {
             if (complain) {
-                noCandidatesError(context.enclosingType(), methodName, filterResult.evaluatedExpressions);
+                noCandidatesError(context.enclosingType(), methodName, evaluatedExpressions);
             }
             return null;
         }
-
-        // DISTANCE IN THE HIERARCHY
-        if (methodCandidates.size() > 1) {
-            trimMethodsWithBestScore(methodCandidates, filterResult.compatibilityScore);
-        }
-        // equal distance: most specific return type
-        if (methodCandidates.size() > 1) {
-            trimMethodsKeepMostSpecificReturnType(context.enclosingType().primaryType(), methodCandidates);
-        }
-        // return type of erased lambdas
-        if (methodCandidates.size() > 1) {
-            trimMethodsByReevaluatingErasedParameterExpressions(context, index, filterResult.evaluatedExpressions,
-                    unparsedArguments, methodCandidates, returnType, extra);
-        }
-        // varargs vs single element
-        if (methodCandidates.size() > 1) {
-            trimVarargsVsMethodsWithFewerParameters(methodCandidates);
-        }
-        List<MethodTypeParameterMap> sorted = sortRemainingCandidatesByShallowPublic(methodCandidates);
+        MethodTypeParameterMap method;
         if (sorted.size() > 1) {
-            multipleCandidatesError(methodName, methodCandidates, filterResult.evaluatedExpressions);
+            // Step B1: exactly one non-abstract → it wins (the "nearest concrete" rule)
+            List<MethodTypeParameterMap> concrete = sorted.stream()
+                    .filter(m -> !m.methodInfo().isAbstract()).toList();
+            if (concrete.size() == 1) {
+                method = concrete.getFirst();
+            } else if (concrete.isEmpty()) {
+                // all abstract, most specific return type wins
+                // Step B2: all abstract with same erasure → pick most specific return type
+                // (arbitrary choice among tied return types — real compilers just pick one)
+                List<MethodTypeParameterMap> mostSpecificReturn = sorted.stream()
+                        .filter(m1 -> sorted.stream()
+                                .filter(m2 -> m2 != m1)
+                                .allMatch(m2 -> moreSpecificReturn(m1, m2)))
+                        .toList();
+                if (!mostSpecificReturn.isEmpty()) {
+                    method = mostSpecificReturn.getFirst();
+                } else {
+                    throw multipleCandidatesError(methodName, sorted, evaluatedExpressions);
+                }
+            } else {
+                throw multipleCandidatesError(methodName, sorted, evaluatedExpressions);
+            }
+        } else {
+            method = sorted.getFirst();
         }
-        MethodTypeParameterMap method = sorted.getFirst();
-        LOGGER.debug("Found method {}", method.methodInfo());
+        LOGGER.debug("Found most specific method {}", method.methodInfo());
 
         TypeParameterMap extra2 = methodTypeArguments.isEmpty() ? extra :
                 extra.merge(makeMethodTypeParameterMap(method.methodInfo(), methodTypeArguments));
 
         List<Expression> newParameterExpressions = reEval.reEvaluateErasedExpressions(context, index, unparsedArguments,
-                returnType, extra2, methodName, filterResult.evaluatedExpressions, method);
+                returnType, extra2, methodName, evaluatedExpressions, method);
         Map<NamedType, ParameterizedType> mapExpansion = computeMapExpansion(method, newParameterExpressions, returnType);
         return new Candidate(newParameterExpressions, mapExpansion, method);
     }
 
-    private Set<MethodTypeParameterMap> stage1ApplicableMethods(Set<MethodTypeParameterMap> methodCandidates,
-                                                                Map<Integer, Expression> evaluatedExpressions,
-                                                                TypeParameterMap typeParameterMap) {
+    private boolean moreSpecificReturn(MethodTypeParameterMap m1, MethodTypeParameterMap m2) {
+        ParameterizedType pt1 = m1.getConcreteReturnType(runtime);
+        ParameterizedType pt2 = m2.getConcreteReturnType(runtime);
+        return !pt1.equals(pt2) && runtime.isAssignableFrom(pt2, pt1, true);
+    }
+
+    private List<MethodTypeParameterMap> stage2MostSpecificMethod(List<MethodTypeParameterMap> methodCandidates) {
+        if (methodCandidates.size() < 2) return methodCandidates;
+        List<MethodTypeParameterMap> result = new ArrayList<>(methodCandidates);
+        result.removeIf(m1 -> methodCandidates.stream()
+                .filter(m2 -> m2 != m1)
+                .anyMatch(m2 -> moreSpecificThan(m2, m1)    // m2 dominates m1
+                                && !moreSpecificThan(m1, m2)));  // strictly (not mutual)
+        return result;
+    }
+
+    private boolean moreSpecificThan(MethodTypeParameterMap m1, MethodTypeParameterMap m2) {
+        List<ParameterInfo> m1Parameters = m1.methodInfo().parameters();
+        List<ParameterInfo> m2Parameters = m2.methodInfo().parameters();
+        int pos = 0;
+        while (true) {
+            boolean m1Done = pos >= m1Parameters.size();
+            boolean m2Done = pos >= m2Parameters.size();
+            if (m1Done && m2Done) return true; // all tested!
+            if (m1Done) return true;
+            if (m2Done) return false;
+            ParameterizedType pt1 = m1Parameters.get(pos).parameterizedType();
+            ParameterizedType pt2 = m2Parameters.get(pos).parameterizedType();
+            if (!runtime.isAssignableFrom(pt2, pt1, true)) return false;
+            ++pos;
+        }
+    }
+
+    private List<MethodTypeParameterMap> stage1ApplicableMethods(Set<MethodTypeParameterMap> methodCandidates,
+                                                                 Map<Integer, Expression> evaluatedExpressions,
+                                                                 TypeParameterMap typeParameterMap) {
         Map<Integer, Set<ParameterizedType>> acceptedErasedTypes =
                 evaluatedExpressions.entrySet().stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e ->
                         expandErasureTypes(e.getValue()).stream()
@@ -467,23 +497,23 @@ public class MethodResolutionImpl implements MethodResolution {
                                 .collect(Collectors.toUnmodifiableSet())));
 
         // gate 1: strict subtyping
-        Set<MethodTypeParameterMap> set1 = methodCandidates.stream()
+        List<MethodTypeParameterMap> set1 = methodCandidates.stream()
                 .filter(mc -> stage1ApplicableMethod(mc, evaluatedExpressions,
                         acceptedErasedTypes, false, false))
-                .collect(Collectors.toUnmodifiableSet());
+                .toList();
         if (!set1.isEmpty()) return set1;
 
         // gate 2: allow widening, boxing, unboxing
-        Set<MethodTypeParameterMap> set2 = methodCandidates.stream()
+        List<MethodTypeParameterMap> set2 = methodCandidates.stream()
                 .filter(mc -> stage1ApplicableMethod(mc, evaluatedExpressions,
                         acceptedErasedTypes, true, false))
-                .collect(Collectors.toUnmodifiableSet());
+                .toList();
         if (!set2.isEmpty()) return set2;
 
         // gate 3: also allow varargs
         return methodCandidates.stream().filter(mc -> stage1ApplicableMethod(mc,
                         evaluatedExpressions, acceptedErasedTypes, true, true))
-                .collect(Collectors.toUnmodifiableSet());
+                .toList();
     }
 
     private boolean stage1ApplicableMethod(MethodTypeParameterMap methodCandidate,
@@ -619,15 +649,15 @@ public class MethodResolutionImpl implements MethodResolution {
         return score;
     }
 
-    private void multipleCandidatesError(String methodName,
-                                         Map<MethodTypeParameterMap, Integer> methodCandidates,
-                                         Map<Integer, Expression> evaluatedExpressions) {
+    private UnsupportedOperationException multipleCandidatesError(String methodName,
+                                                                  List<MethodTypeParameterMap> methodCandidates,
+                                                                  Map<Integer, Expression> evaluatedExpressions) {
         LOGGER.error("Multiple candidates for {}", methodName);
-        methodCandidates.forEach((m, _) -> LOGGER.error(" -- {}", m.methodInfo()));
+        methodCandidates.forEach(m -> LOGGER.error(" -- {}", m.methodInfo()));
         LOGGER.error("{} Evaluated expressions:", evaluatedExpressions.size());
         evaluatedExpressions.forEach((i, e) -> LOGGER.error(" -- index {}: {}, {}, {}", i, e, e.getClass(),
                 e instanceof ErasedExpression ? "-" : e.parameterizedType().toString()));
-        throw new UnsupportedOperationException("Multiple candidates");
+        return new UnsupportedOperationException("Multiple candidates");
     }
 
     private Map<NamedType, ParameterizedType> computeMapExpansion(MethodTypeParameterMap method,
@@ -1065,9 +1095,9 @@ public class MethodResolutionImpl implements MethodResolution {
     }
 
     // remove varargs if there's also non-varargs solutions
-    //
-    // this step if AFTER the score step, so we've already dealt with type conversions.
-    // we still have to deal with overloads in supertypes, methods with the same type signature
+//
+// this step if AFTER the score step, so we've already dealt with type conversions.
+// we still have to deal with overloads in supertypes, methods with the same type signature
     private static void trimVarargsVsMethodsWithFewerParameters
     (Map<MethodTypeParameterMap, Integer> methodCandidates) {
         int countVarargs = (int) methodCandidates.keySet().stream().filter(e -> e.methodInfo().isVarargs()).count();
@@ -1092,10 +1122,10 @@ public class MethodResolutionImpl implements MethodResolution {
     }
 
     // different situations with varargs: method(int p1, String... args)
-    // 1: method(1) is possible, but pos will not get here, so there's no reason for incompatibility
-    // 2: pos == params.size()-1: method(p, "abc")
-    // 3: pos == params.size()-1: method(p, new String[] { "a", "b"} )
-    // 4: pos >= params.size(): method(p, "a", "b")  -> we need the base type
+// 1: method(1) is possible, but pos will not get here, so there's no reason for incompatibility
+// 2: pos == params.size()-1: method(p, "abc")
+// 3: pos == params.size()-1: method(p, new String[] { "a", "b"} )
+// 4: pos >= params.size(): method(p, "a", "b")  -> we need the base type
     private int compatibleParameter(Expression expression, int pos, MethodInfo methodInspection) {
         assert !expression.isEmpty() : "Should we return NOT_ASSIGNABLE?";
         List<ParameterInfo> params = methodInspection.parameters();
@@ -1249,7 +1279,7 @@ public class MethodResolutionImpl implements MethodResolution {
     }
 
     // this is one direction: assume that the inference comes from the parameters, and helps sort out the return value
-    // See TestMethodCall8,7B,7C
+// See TestMethodCall8,7B,7C
     private FT computeFunctionalType(Context context,
                                      MethodInfo methodInfo,
                                      MethodTypeParameterMap method,
