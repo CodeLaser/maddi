@@ -23,7 +23,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestOverride4 extends CommonTest2 {
@@ -54,5 +56,20 @@ public class TestOverride4 extends CommonTest2 {
         TypeInfo B = parseResult.findType("a.B");
         MethodInfo bm = B.findUniqueMethod("m", 0);
         assertTrue(bm.overrides().contains(am));
+    }
+
+    @Test
+    public void test2() throws IOException {
+        init(Map.of());
+        TypeInfo sb = javaInspector.compiledTypesManager().getOrLoad(StringBuilder.class);
+        MethodInfo sbAppend = sb.methodStream()
+                .filter(m -> m.parameters().size() == 1
+                             && "append".equals(m.name())
+                             && m.parameters().getFirst().parameterizedType()
+                                     .equals(javaInspector.runtime().charParameterizedType()))
+                .findFirst().orElseThrow();
+        assertEquals("java.lang.StringBuilder.append(char)", sbAppend.fullyQualifiedName());
+        assertEquals("java.lang.AbstractStringBuilder.append(char), java.lang.Appendable.append(char)",
+                sbAppend.overrides().stream().map(MethodInfo::fullyQualifiedName).sorted().collect(Collectors.joining(", ")));
     }
 }
