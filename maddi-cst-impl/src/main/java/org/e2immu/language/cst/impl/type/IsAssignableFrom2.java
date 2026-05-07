@@ -107,7 +107,7 @@ public class IsAssignableFrom2 {
                 return allowBoxingUnboxingWidening;
             }
         } else if (target.isJavaLangObject()) {
-            return true;
+            return allowBoxingUnboxingWidening || from.isJavaLangObject();
         }
 
         // TWO TYPES, POTENTIALLY WITH PARAMETERS, but not TYPE PARAMETERS
