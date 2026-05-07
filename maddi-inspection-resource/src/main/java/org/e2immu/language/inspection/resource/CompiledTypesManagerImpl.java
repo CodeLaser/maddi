@@ -93,6 +93,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final Map<String, TypeInfo> mapSingleTypeForFQN = new HashMap<>();
     private final ReentrantReadWriteLock trieLock = new ReentrantReadWriteLock();
     private final Trie<TypeData> typeTrie = new Trie<>();
+    private final Set<String> packageParts = new HashSet<>(); // sync'ed by typeTrie
     private final SourceSet javaBase;
 
     public CompiledTypesManagerImpl(SourceSet javaBase, Resources classPath) {
@@ -147,6 +148,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
+        if (typeInfo.isPrimaryType()) {
+            String[] split = typeInfo.packageName().split("\\.");
+            //noinspection all
+            for (int i = 0; i < split.length - 1; ++i) packageParts.add(split[i]);
+        }
         String fullyQualifiedName = typeInfo.fullyQualifiedName();
         String[] parts = fullyQualifiedName.split("\\.");
         if (!typeInfo.isPrimaryType() && !typeInfo.compilationUnit().externalLibrary()) {
@@ -368,11 +374,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     }
 
     @Override
-    public boolean isPackage(String candidate) {
+    public boolean isPackagePart(String string) {
         trieLock.readLock().lock();
         try {
-            String[] split = candidate.split("\\.");
-            return typeTrie.isStrictPrefix(split);
+            return packageParts.contains(string);
         } finally {
             trieLock.readLock().unlock();
         }

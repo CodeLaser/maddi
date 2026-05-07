@@ -17,7 +17,6 @@ package org.e2immu.language.inspection.api.parser;
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
@@ -78,6 +77,6 @@ public interface ParseResult {
      */
     Set<TypeInfo> descendants(TypeInfo typeInfo, boolean recurse);
 
-    boolean isPackage(String candidate);
+    boolean isPackagePart(String candidate);
 
 }
