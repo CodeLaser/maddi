@@ -27,6 +27,7 @@ public class TestCompiledTypesManager extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package veryunlikely.b;
+            import java.io.OutputStream;
             class C {
                 private String s;
                 C(Object o) {
@@ -42,6 +43,9 @@ public class TestCompiledTypesManager extends CommonTest {
         javaInspector.parse(INPUT1, JavaInspectorImpl.DETAILED_SOURCES);
         assertTrue(javaInspector.compiledTypesManager().isPackagePart("veryunlikely"));
         assertFalse(javaInspector.compiledTypesManager().isPackagePart("String"));
+        assertTrue(javaInspector.compiledTypesManager().isPackagePart("java"));
+        assertTrue(javaInspector.compiledTypesManager().isPackagePart("io"));
+        assertFalse(javaInspector.compiledTypesManager().isPackagePart("*"));
     }
 
 }

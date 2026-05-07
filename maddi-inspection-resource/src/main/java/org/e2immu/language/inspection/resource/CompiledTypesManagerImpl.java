@@ -150,8 +150,7 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
         if (typeInfo.isPrimaryType()) {
             String[] split = typeInfo.packageName().split("\\.");
-            //noinspection all
-            for (int i = 0; i < split.length - 1; ++i) packageParts.add(split[i]);
+            Collections.addAll(packageParts, split);
         }
         String fullyQualifiedName = typeInfo.fullyQualifiedName();
         String[] parts = fullyQualifiedName.split("\\.");
