@@ -109,7 +109,9 @@ public class TestIsAssignableFrom2 extends CommonTest {
         ParameterizedType longPt = runtime.longParameterizedType();
         ParameterizedType intPt = runtime.intParameterizedType();
         ParameterizedType objectPt = runtime.objectParameterizedType();
+        ParameterizedType objectPt1 = runtime.objectParameterizedType().copyWithArrays(1);
         ParameterizedType stringPt = runtime.stringParameterizedType();
+        ParameterizedType stringPt1 = runtime.stringParameterizedType().copyWithArrays(1);
 
         assertTrue(runtime.isAssignableFrom(longPt, longPt, true));
         assertTrue(runtime.isAssignableFrom(longPt, longPt, false));
@@ -121,5 +123,11 @@ public class TestIsAssignableFrom2 extends CommonTest {
 
         assertTrue(runtime.isAssignableFrom(objectPt, objectPt, true));
         assertTrue(runtime.isAssignableFrom(objectPt, objectPt, false));
+
+        assertFalse(runtime.isAssignableFrom(stringPt1, stringPt, true));
+        assertFalse(runtime.isAssignableFrom(stringPt, stringPt1, true));
+
+        assertTrue(runtime.isAssignableFrom(objectPt, objectPt1, true));
+        assertFalse(runtime.isAssignableFrom(objectPt1, objectPt, true));
     }
 }
