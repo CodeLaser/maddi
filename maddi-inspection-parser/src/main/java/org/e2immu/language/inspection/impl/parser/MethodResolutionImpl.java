@@ -72,8 +72,9 @@ public class MethodResolutionImpl implements MethodResolution {
         ListMethodAndConstructorCandidates.Scope scope = list
                 .computeScope(context.parseHelper(), context, index, unparsedScope, TypeParameterMap.EMPTY);
         int numArguments = unparsedArguments.size();
-        Map<MethodTypeParameterMap, Integer> methodCandidates = initialMethodCandidates(list, scope, numArguments,
-                methodName);
+        Set<MethodTypeParameterMap> methodCandidatesIn = initialMethodCandidates(list, scope, numArguments, methodName);
+        Map<MethodTypeParameterMap, Integer> methodCandidates = methodCandidatesIn.stream().collect(Collectors.toMap(
+                e -> e, e -> 1, Integer::sum, HashMap::new));
 
         FilterResult filterResult = filterMethodCandidatesInErasureMode(context, methodCandidates, unparsedArguments);
         if (methodCandidates.size() > 1) {
@@ -154,7 +155,7 @@ public class MethodResolutionImpl implements MethodResolution {
         Map<NamedType, ParameterizedType> typeMap = expectedConcreteType == null ? Map.of() :
                 expectedConcreteType.initialTypeParameterMap();
         TypeParameterMap typeParameterMap = new TypeParameterMap(typeMap);
-        Map<MethodTypeParameterMap, Integer> candidates = list.resolveConstructor(formalType, expectedConcreteType,
+        Set<MethodTypeParameterMap> candidates = list.resolveConstructor(formalType, expectedConcreteType,
                 unparsedArguments.size(), typeMap);
         Candidate candidate = chooseCandidateAndEvaluateCall(context, index, MethodInfo.CONSTRUCTOR_NAME,
                 methodTypeArguments, candidates, unparsedArguments, formalType, typeParameterMap, complain);
@@ -277,7 +278,7 @@ public class MethodResolutionImpl implements MethodResolution {
         ListMethodAndConstructorCandidates.Scope scope = list
                 .computeScope(context.parseHelper(), context, index, unparsedScope, TypeParameterMap.EMPTY);
         int numArguments = unparsedArguments.size();
-        Map<MethodTypeParameterMap, Integer> methodCandidates = initialMethodCandidates(list, scope, numArguments,
+        Set<MethodTypeParameterMap> methodCandidates = initialMethodCandidates(list, scope, numArguments,
                 methodName);
         if (methodCandidates.isEmpty()) {
             throw new Summary.ParseException(context,
@@ -352,11 +353,11 @@ public class MethodResolutionImpl implements MethodResolution {
         }
     }
 
-    private Map<MethodTypeParameterMap, Integer> initialMethodCandidates(ListMethodAndConstructorCandidates list,
-                                                                         ListMethodAndConstructorCandidates.Scope scope,
-                                                                         int numArguments,
-                                                                         String methodName) {
-        Map<MethodTypeParameterMap, Integer> methodCandidates = new HashMap<>();
+    private Set<MethodTypeParameterMap> initialMethodCandidates(ListMethodAndConstructorCandidates list,
+                                                                ListMethodAndConstructorCandidates.Scope scope,
+                                                                int numArguments,
+                                                                String methodName) {
+        Set<MethodTypeParameterMap> methodCandidates = new HashSet<>();
         list.recursivelyResolveOverloadedMethods(scope.type(), methodName,
                 numArguments, false, scope.typeParameterMap().map(), methodCandidates,
                 scope.nature());
@@ -394,7 +395,7 @@ public class MethodResolutionImpl implements MethodResolution {
                                              String index,
                                              String methodName,
                                              List<ParameterizedType> methodTypeArguments,
-                                             Map<MethodTypeParameterMap, Integer> methodCandidates,
+                                             Set<MethodTypeParameterMap> methodCandidatesIn,
                                              List<Object> unparsedArguments,
                                              ParameterizedType returnType,
                                              TypeParameterMap extra,
@@ -407,6 +408,8 @@ public class MethodResolutionImpl implements MethodResolution {
             Expression evaluated = context.resolver().parseHelper().parseExpression(context, index, forward, argument);
             evaluatedExpressions.put(i++, evaluated);
         }
+        Map<MethodTypeParameterMap, Integer> methodCandidates = methodCandidatesIn.stream().collect(Collectors.toMap(
+                e -> e, e -> 1, Integer::sum, HashMap::new));
 
         FilterResult filterResult = filterCandidatesByParameters(methodCandidates, evaluatedExpressions, extra);
 
@@ -1279,7 +1282,7 @@ public class MethodResolutionImpl implements MethodResolution {
                                                                             int numParametersInForwardSam,
                                                                             boolean scopeIsAType,
                                                                             MethodTypeParameterMap sam) {
-        Map<MethodTypeParameterMap, Integer> methodCandidates = methodCandidatesForMethodReference(context, methodName,
+        Set<MethodTypeParameterMap> methodCandidates = methodCandidatesForMethodReference(context, methodName,
                 scopeType, isConstructor, numParametersInForwardSam, scopeIsAType);
         if (methodCandidates.isEmpty()) {
             throw new Summary.ParseException(context, "Cannot find a candidate for " + methodName);
@@ -1288,7 +1291,7 @@ public class MethodResolutionImpl implements MethodResolution {
         if (methodCandidates.size() > 1) {
             sorted = handleMultipleCandidates(sam, methodCandidates, scopeIsAType, isConstructor);
         } else {
-            sorted = List.copyOf(methodCandidates.keySet());
+            sorted = List.copyOf(methodCandidates);
         }
         if (sorted.isEmpty()) {
             throw new Summary.ParseException(context, "I've killed all the candidates myself??");
@@ -1296,24 +1299,24 @@ public class MethodResolutionImpl implements MethodResolution {
         return sorted.getFirst();
     }
 
-    private Map<MethodTypeParameterMap, Integer> methodCandidatesForMethodReference(Context context,
-                                                                                    String methodName,
-                                                                                    ParameterizedType scopeType,
-                                                                                    boolean isConstructor,
-                                                                                    int numParametersInForwardSam,
-                                                                                    boolean scopeIsAType) {
+    private Set<MethodTypeParameterMap> methodCandidatesForMethodReference(Context context,
+                                                                           String methodName,
+                                                                           ParameterizedType scopeType,
+                                                                           boolean isConstructor,
+                                                                           int numParametersInForwardSam,
+                                                                           boolean scopeIsAType) {
         ListMethodAndConstructorCandidates list = new ListMethodAndConstructorCandidates(runtime,
                 context.typeContext().importMap());
         Map<NamedType, ParameterizedType> typeMap = scopeType.initialTypeParameterMap();
 
-        Map<MethodTypeParameterMap, Integer> methodCandidates;
+        Set<MethodTypeParameterMap> methodCandidates;
         if (isConstructor) {
             methodCandidates = list.resolveConstructor(scopeType, scopeType, numParametersInForwardSam, typeMap);
         } else {
             ListMethodAndConstructorCandidates.ScopeNature scopeNature = scopeIsAType
                     ? ListMethodAndConstructorCandidates.ScopeNature.STATIC
                     : ListMethodAndConstructorCandidates.ScopeNature.INSTANCE;
-            methodCandidates = new HashMap<>();
+            methodCandidates = new HashSet<>();
             list.recursivelyResolveOverloadedMethods(scopeType, methodName, numParametersInForwardSam,
                     scopeIsAType, typeMap, methodCandidates, scopeNature);
         }
@@ -1327,8 +1330,9 @@ public class MethodResolutionImpl implements MethodResolution {
         ParameterizedType parameterizedType = scope.parameterizedType();
         boolean constructor = "new".equals(methodName);
 
-        Map<MethodTypeParameterMap, Integer> methodCandidates;
-        ListMethodAndConstructorCandidates list = new ListMethodAndConstructorCandidates(runtime, context.typeContext().importMap());
+        Set<MethodTypeParameterMap> methodCandidates;
+        ListMethodAndConstructorCandidates list = new ListMethodAndConstructorCandidates(runtime,
+                context.typeContext().importMap());
         if (constructor) {
             if (parameterizedType.arrays() > 0) {
                 Expression e = arrayConstruction(comments, source, parameterizedType);
@@ -1337,7 +1341,7 @@ public class MethodResolutionImpl implements MethodResolution {
             methodCandidates = list.resolveConstructor(parameterizedType, parameterizedType,
                     IGNORE_PARAMETER_NUMBERS, parameterizedType.initialTypeParameterMap());
         } else {
-            methodCandidates = new HashMap<>();
+            methodCandidates = new HashSet<>();
             list.recursivelyResolveOverloadedMethods(parameterizedType,
                     methodName, IGNORE_PARAMETER_NUMBERS, false,
                     parameterizedType.initialTypeParameterMap(), methodCandidates,
@@ -1348,7 +1352,7 @@ public class MethodResolutionImpl implements MethodResolution {
                                                     (constructor ? "constructor" : methodName) + " at " + source);
         }
         Set<Count> erasures = new HashSet<>();
-        for (MethodTypeParameterMap mt : methodCandidates.keySet()) {
+        for (MethodTypeParameterMap mt : methodCandidates) {
             MethodInfo methodInfo = mt.methodInfo();
             LOGGER.debug("Found method reference candidate, this can work: {}", methodInfo);
             boolean scopeIsType = scope instanceof TypeExpression;
@@ -1366,10 +1370,10 @@ public class MethodResolutionImpl implements MethodResolution {
     }
 
     private List<MethodTypeParameterMap> handleMultipleCandidates(MethodTypeParameterMap singleAbstractMethod,
-                                                                  Map<MethodTypeParameterMap, Integer> methodCandidates,
+                                                                  Set<MethodTypeParameterMap> methodCandidates,
                                                                   boolean scopeIsAType,
                                                                   boolean constructor) {
-        List<MethodTypeParameterMap> sorted = new ArrayList<>(methodCandidates.keySet());
+        List<MethodTypeParameterMap> sorted = new ArrayList<>(methodCandidates);
         // check types of parameters in SAM
         // see if the method candidate's type fits the SAMs
         for (int i = 0; i < singleAbstractMethod.methodInfo().parameters().size(); i++) {
