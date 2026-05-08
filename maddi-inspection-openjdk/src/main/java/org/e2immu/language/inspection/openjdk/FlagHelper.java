@@ -32,8 +32,7 @@ public record FlagHelper(Runtime runtime) {
         }
     }
 
-    public void type(JCTree.JCClassDecl jcClassDecl, TypeInfo.Builder builder) {
-        long flags = jcClassDecl.getModifiers().flags;
+    public void type(long flags, TypeInfo.Builder builder) {
         boolean isPublic = (flags & Flags.PUBLIC) != 0;
         if (isPublic) builder.addTypeModifier(runtime.typeModifierPublic());
         boolean isProtected = (flags & Flags.PROTECTED) != 0;

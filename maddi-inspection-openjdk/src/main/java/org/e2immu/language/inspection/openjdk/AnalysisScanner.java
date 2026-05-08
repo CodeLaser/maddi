@@ -11,7 +11,6 @@ import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -23,11 +22,9 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
-import java.net.URI;
 import java.util.*;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> {
@@ -44,10 +41,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final SourcePositions sourcePositions;
     private final LineMap lineMap;
     private final CompilationUnitTree compilationUnitTree;
-    private final Elements elements;
     private final FlagHelper flagHelper;
-
-    private final Map<String, TypeInfo> typeTable = new HashMap<>();
+    private final ClassSymbolScanner classSymbolScanner;
+    private final TypeData typeData;
 
     AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit,
                     CompilationUnitTree compilationUnitTree,
@@ -60,8 +56,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         this.lineMap = lineMap;
         this.sourcePositions = sourcePositions;
         this.compilationUnitTree = compilationUnitTree;
-        this.elements = elements;
-        this.flagHelper = new FlagHelper(runtime);
+        typeData = new TypeData();
+        flagHelper = new FlagHelper(runtime);
+        classSymbolScanner = new ClassSymbolScanner(runtime, flagHelper, elements, typeData);
     }
 
     // -- Indentation helper ----------------------------------------------
@@ -87,8 +84,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             enclosed.builder().addSubType(typeInfo);
         }
         typeStack.addLast(typeInfo);
-        typeTable.put(typeInfo.fullyQualifiedName(), typeInfo);
-        flagHelper.type(jcClassDecl, typeInfo.builder());
+        typeData.put(typeInfo);
+        flagHelper.type(jcClassDecl.getModifiers().flags, typeInfo.builder());
 
         for (var member : node.getMembers()) {
             currentMethod = null;
@@ -160,40 +157,17 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         if (type instanceof JCTree.JCIdent identifier) {
             if (identifier.type instanceof Type.ClassType ct) {
                 String fullyQualifiedType = ct.toString();
-                TypeInfo typeInfo = typeTable.get(fullyQualifiedType);
+                TypeInfo typeInfo = typeData.getType(fullyQualifiedType);
                 if (typeInfo == null) {
                     if (ct.tsym instanceof Symbol.ClassSymbol cs) {
-                        String packageName = cs.owner.toString();
-                        TypeInfo primaryType = typeStack.getFirst(); // FIXME can we see which jar?
-                        SourceSet sourceSet = primaryType.compilationUnit().sourceSet();
-                        URI uri = cs.classfile.toUri();
-                        CompilationUnit cu = runtime.newCompilationUnitBuilder()
-                                .setPackageName(packageName)
-                                .setSourceSet(sourceSet)
-                                .setURI(uri)
-                                .build();
-                        TypeInfo newTypeInfo = runtime.newTypeInfo(cu, identifier.toString());
-                        typeTable.put(newTypeInfo.fullyQualifiedName(), newTypeInfo);
-                        //The following completely loads 'cs'
-                        List<? extends Element> members = elements.getAllMembers(cs);
-                        for (var member : members) {
-                            scanByteCode(newTypeInfo, member);
-                        }
-                        return newTypeInfo.asParameterizedType();
+                        TypeInfo newType = classSymbolScanner.typeInfo(cs);
+                        typeData.put(newType);
+                        return newType.asParameterizedType();
                     }
                 }
             }
         }
         throw new UnsupportedOperationException("NYI");
-    }
-
-    private void scanByteCode(TypeInfo typeInfo, Element member) {
-        LOGGER.info("Adding members to {}", typeInfo);
-        if (member instanceof Symbol.MethodSymbol ms) {
-            String name = ms.getSimpleName().toString();
-            MethodInfo method = runtime.newMethod(typeInfo, name, runtime.methodTypeMethod());
-            typeInfo.builder().addMethod(method);
-        }
     }
 
     @Override
@@ -355,7 +329,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                     LOGGER.info("Field {}", name);
                     if (element instanceof Symbol.VarSymbol vs) {
                         String owner = vs.owner.toString();
-                        TypeInfo typeInfoOwner = typeTable.get(owner);
+                        TypeInfo typeInfoOwner = typeData.getType(owner);
                         FieldInfo fieldInfo = typeInfoOwner.getFieldByName(name, true);
                         currentExpression = runtime.newVariableExpressionBuilder()
                                 .setSource(sourceForNode(node))

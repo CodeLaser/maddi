@@ -55,6 +55,8 @@ public class TestClass1 {
         if (callInfo instanceof ExpressionAsStatement eas) {
             if (eas.expression() instanceof MethodCall mc) {
                 assertEquals("Class1.LOGGER", mc.object().toString());
+                assertEquals("slf4j-api-2.0.15.jar",
+                        mc.object().parameterizedType().typeInfo().compilationUnit().sourceSet().name());
                 if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
                     assertEquals("LOGGER", fr.fieldInfo().name());
                     assertEquals("Type org.slf4j.Logger", fr.parameterizedType().toString());
