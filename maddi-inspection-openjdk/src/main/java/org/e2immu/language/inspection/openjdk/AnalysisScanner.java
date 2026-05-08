@@ -3,14 +3,19 @@ package org.e2immu.language.inspection.openjdk;
 import com.sun.source.tree.*;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.code.Flags;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeModifier;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.TypeNature;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import com.sun.tools.javac.tree.JCTree;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final Runtime runtime;
@@ -19,6 +24,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final PrintStream out;
     private int depth = 0;
     private TypeInfo currentType;
+    private MethodInfo currentMethod;
     private final CompilationUnit compilationUnit;
 
     AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit, Trees trees, PrintStream out) {
@@ -63,6 +69,18 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         currentType = runtime.newTypeInfo(compilationUnit, node.getSimpleName().toString());
         collectedTypes.add(currentType);
 
+        TypeNature typeNature = runtime.typeNatureClass();
+        node.getModifiers().getFlags().forEach(modifier -> {
+            TypeModifier tm = switch (modifier.name()) {
+                case "PUBLIC" -> runtime.typeModifierPublic();
+                case "PROTECTED" -> runtime.typeModifierProtected();
+                default -> throw new UnsupportedOperationException("NYI");
+            };
+            currentType.builder().addTypeModifier(tm);
+        });
+
+        currentType.builder().setTypeNature(typeNature);
+
         out.println();
         print("CLASS:", node.getSimpleName().toString());
         return super.visitClass(node, p);   // visit children
@@ -72,8 +90,33 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     @Override
     public Void visitMethod(MethodTree node, Void p) {
+        JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
         out.println();
-        print("METHOD:", node.getName().toString());
+        String methodName = node.getName().toString();
+
+        int pos = jcMethod.pos;
+
+        if ("<init>".equals(methodName)) {
+            currentMethod = runtime.newConstructor(currentType);
+            currentType.builder().addConstructor(currentMethod);
+        } else {
+            currentMethod = runtime.newMethod(currentType, methodName, runtime.methodTypeMethod());
+            currentType.builder().addMethod(currentMethod);
+        }
+
+        // The cleaner check: flags directly encode synthetic/bridge/etc.
+        long flags = jcMethod.getModifiers().flags;
+        boolean isSynthetic = (flags & Flags.SYNTHETIC) != 0;
+        boolean isBridge    = (flags & Flags.BRIDGE)    != 0;
+        boolean isGeneratedConstructor = (flags & Flags.GENERATEDCONSTR) != 0;
+
+        if(isSynthetic || isGeneratedConstructor) {
+            currentMethod.builder().setSynthetic(true);
+        }
+
+        out.printf("METHOD %s  pos=%d  synthetic=%b  bridge=%b  generatedConstr=%b%n",
+                node.getName(), pos, isSynthetic, isBridge, isGeneratedConstructor);
+
 
         // getElement() gives you the javax.lang.model.element.Element for
         // this declaration — here an ExecutableElement for the method.
@@ -83,7 +126,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             print("  element kind:", element.getKind().toString());
             print("  return type:", element.asType().toString());
         }
-        return super.visitMethod(node, p);
+        super.visitMethod(node, p);
+
+        currentMethod.builder()
+                .computeAccess()
+                .commit();
+        return null;
     }
 
     // -- Variable declarations (fields and locals) -----------------------
