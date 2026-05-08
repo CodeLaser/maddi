@@ -146,7 +146,8 @@ public class SingleDirExplorer {
                 SourcePositions sourcePositions = trees.getSourcePositions();
                 LineMap lineMap = unit.getLineMap();
 
-                AnalysisScanner analysisScanner = new AnalysisScanner(runtime, compilationUnit, unit, trees, sourcePositions, lineMap);
+                AnalysisScanner analysisScanner = new AnalysisScanner(runtime, compilationUnit, unit, trees,
+                        sourcePositions, lineMap);
                 analysisScanner.scan(unit, null);
                 types.addAll(analysisScanner.types());
             }

@@ -20,7 +20,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
 
 import javax.lang.model.type.TypeKind;
-import java.io.PrintStream;
+import javax.tools.Diagnostic;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -29,8 +29,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final Runtime runtime;
     private final List<TypeInfo> collectedTypes = new ArrayList<>();
     private final Trees trees;
-    private final PrintStream out;
-    private int depth = 0;
     private TypeInfo currentType;
     private MethodInfo currentMethod;
     private Block.Builder currentBlockBuilder;
@@ -47,35 +45,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         this.runtime = runtime;
         this.compilationUnit = compilationUnit;
         this.trees = trees;
-        this.out = System.out;
         this.lineMap = lineMap;
         this.sourcePositions = sourcePositions;
         this.compilationUnitTree = compilationUnitTree;
     }
 
     // -- Indentation helper ----------------------------------------------
-
-    private String indent() {
-        return "  ".repeat(depth);
-    }
-
-    private void print(String label, String value) {
-        out.printf("%s%-22s %s%n", indent(), label, value);
-    }
-
-    // -- Depth tracking --------------------------------------------------
-    //
-    // Override scan() to bracket every node visit with depth tracking.
-    // You can skip this and just use depth++ / depth-- in each visitXxx
-    // pair if you only care about specific node types.
-
-    @Override
-    public Void scan(Tree tree, Void p) {
-        depth++;
-        Void result = super.scan(tree, p);
-        depth--;
-        return result;
-    }
 
     public Collection<TypeInfo> types() {
         return collectedTypes;
@@ -100,8 +75,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
         currentType.builder().setTypeNature(typeNature);
 
-        out.println();
-        print("CLASS:", node.getSimpleName().toString());
         return super.visitClass(node, p);   // visit children
     }
 
@@ -110,10 +83,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     @Override
     public Void visitMethod(MethodTree node, Void p) {
         JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
-        out.println();
         String methodName = node.getName().toString();
-
-        int pos = jcMethod.pos;
 
         if ("<init>".equals(methodName)) {
             currentMethod = runtime.newConstructor(currentType);
@@ -149,23 +119,17 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             currentMethod.builder().setSynthetic(true);
         }
 
-        out.printf("METHOD %s  pos=%d  synthetic=%b  bridge=%b  generatedConstr=%b%n",
-                node.getName(), pos, isSynthetic, isBridge, isGeneratedConstructor);
-
-
         // getElement() gives you the javax.lang.model.element.Element for
         // this declaration — here an ExecutableElement for the method.
         // You can cast it to query parameter types, return type, throws, etc.
         var element = trees.getElement(getCurrentPath());
-        if (element != null) {
-            print("  element kind:", element.getKind().toString());
-            print("  return type:", element.asType().toString());
-        }
 
         currentBlockBuilder = runtime.newBlockBuilder();
         super.visitMethod(node, p);
 
         currentMethod.builder()
+                .setSource(sourceForNode(node))
+                .addComments(commentsForNode(node))
                 .setMethodBody(currentBlockBuilder.build())
                 .computeAccess()
                 .commit();
@@ -196,8 +160,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     @Override
     public Void visitReturn(ReturnTree node, Void unused) {
         super.visitReturn(node, unused);
-        currentBlockBuilder.addStatement(runtime.newReturnBuilder().setExpression(currentExpression)
-                .setSource(sourceForNode(node)).build());
+        currentBlockBuilder.addStatement(runtime.newReturnBuilder()
+                .setSource(sourceForNode(node))
+                .addComments(commentsForNode(node))
+                .setExpression(currentExpression)
+                .build());
         return null;
     }
 
@@ -207,7 +174,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         super.visitExpressionStatement(node, unused);
         assert currentExpression != null;
         ExpressionAsStatement statement = runtime.newExpressionAsStatementBuilder()
-                .setExpression(currentExpression).build();
+                .setSource(sourceForNode(node))
+                .addComments(commentsForNode(node))
+                .setExpression(currentExpression)
+                .build();
         currentBlockBuilder.addStatement(statement);
         return null;
     }
@@ -243,11 +213,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     @Override
     public Void visitVariable(VariableTree node, Void p) {
-        print("VARIABLE:", node.getName().toString());
+        System.out.println("VARIABLE:" + node.getName().toString());
 
         var typeMirror = trees.getTypeMirror(getCurrentPath());
         if (typeMirror != null) {
-            print("  type:", typeMirror.toString());
+            System.out.println("  type:" + typeMirror.toString());
         }
         return super.visitVariable(node, p);
     }
@@ -262,29 +232,47 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     @Override
     public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
+
+
         // The method select is usually a MemberSelectTree ("obj.method")
         // or an IdentifierTree ("method"), both giving the method name.
         String callSite = node.getMethodSelect().toString();
-        print("CALL:", callSite);
+        Expression object;
+        boolean objectIsImplicit = node.getMethodSelect() instanceof JCTree.JCIdent;
+        if (objectIsImplicit) {
+            object = runtime.newVariableExpressionBuilder().setVariable(runtime.newThis(currentType.asParameterizedType()))
+                    .setSource(runtime.noSource()).build();
+        } else {
+            scan(node.getMethodSelect(), p);
+            object = currentExpression;
+        }
+
+        List<Expression> arguments = new ArrayList<>(node.getArguments().size());
+        for (var arg : node.getArguments()) {
+            scan(arg, p);
+            arguments.add(currentExpression);
+        }
 
         var element = trees.getElement(getCurrentPath());
         if (element != null) {
-            print("  resolves to:", element.toString());
-            print("  declared in:", element.getEnclosingElement().toString());
+            System.out.print("  resolves to:" + element.toString());
+            System.out.print("  declared in:" + element.getEnclosingElement().toString());
         }
 
         // getTypeMirror on a method invocation gives you the *return type*
         // of the call expression as seen by the type checker.
         var returnType = trees.getTypeMirror(getCurrentPath());
         if (returnType != null) {
-            print("  return type:", returnType.toString());
+            System.out.print("  return type:" + returnType.toString());
         }
         super.visitMethodInvocation(node, p);
 
         currentExpression = runtime.newMethodCallBuilder()
-                .setObject(runtime.newEmptyExpression())
+                .setSource(sourceForNode(node))
+                .setObjectIsImplicit(objectIsImplicit)
+                .setObject(runtime.newEmptyExpression()) // object
                 .setMethodInfo(runtime.assignAndOperatorBool())
-                .setParameterExpressions(List.of())
+                .setParameterExpressions(arguments)
                 .setConcreteReturnType(runtime.intParameterizedType())
                 .build();
         return null;
@@ -303,10 +291,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             // you probably want all of these in a real analyzer.
             switch (element.getKind()) {
                 case LOCAL_VARIABLE, PARAMETER, FIELD, ENUM_CONSTANT -> {
-                    print("IDENT:", node.getName().toString());
-                    print("  kind:", element.getKind().toString());
+                    System.out.print("IDENT:" + node.getName().toString());
+                    System.out.print("  kind:" + element.getKind().toString());
                     var type = trees.getTypeMirror(getCurrentPath());
-                    if (type != null) print("  type:", type.toString());
+                    if (type != null) System.out.print("  type:" + type.toString());
                 }
                 default -> { /* skip type/package refs for brevity */ }
             }
@@ -316,32 +304,19 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     // -- If you want to see EVERY node, uncomment this: ------------------
 
-    @Override
-    public Void visitOther(Tree node, Void p) {
-        print("NODE:", node.getKind().toString());
-        return super.visitOther(node, p);
-    }
-
-    // Or override scan() to print every node kind before super.scan():
-    //
-    // @Override
-    // public Void scan(Tree tree, Void p) {
-    //     if (tree != null)
-    //         out.printf("%s[%s]%n", "  ".repeat(depth), tree.getKind());
-    //     depth++;
-    //     Void result = super.scan(tree, p);
-    //     depth--;
-    //     return result;
-    // }
-
     private Source sourceForNode(Tree node) {
-        long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
         long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
-
+        if (endPos == Diagnostic.NOPOS) return runtime.noSource(); // synthetic
+        long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
         long startLine = lineMap.getLineNumber(startPos);
         long startCol = lineMap.getColumnNumber(startPos);
         long endLine = lineMap.getLineNumber(endPos);
         long endCol = lineMap.getColumnNumber(endPos) - 1; // we work inclusively
         return runtime.newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
+    }
+
+    private List<Comment> commentsForNode(Tree node) {
+
+        return List.of();
     }
 }

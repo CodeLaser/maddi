@@ -51,15 +51,15 @@ public class TestClass1 {
         Statement callInfo = method.methodBody().statements().getFirst();
         if (callInfo instanceof ExpressionAsStatement eas) {
             if (eas.expression() instanceof MethodCall mc) {
-
+            //FIXME    assertEquals("", mc.object().toString());
             } else fail();
         } else fail();
         Statement return3 = method.methodBody().statements().getLast();
-        assertEquals("11-9:11-17", return3.source().compact2());
+        assertEquals("12-9:12-17", return3.source().compact2());
         if (return3 instanceof ReturnStatement rs) {
             if (rs.expression() instanceof IntConstant ic) {
                 assertEquals(3, ic.constant());
-                assertEquals("11-16:11-16", ic.source().compact2());
+                assertEquals("12-16:12-16", ic.source().compact2());
             } else fail();
         } else fail();
 

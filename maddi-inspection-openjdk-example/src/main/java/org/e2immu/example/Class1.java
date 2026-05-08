@@ -8,10 +8,13 @@ public class Class1 {
 
     private int method() {
         LOGGER.info("I'm here!");
+        // return a constant
         return 3;
     }
 
+    // a comment on a method
     protected void voidMethod() {
+        /* and one one a statement */
         System.out.println();
     }
 }
