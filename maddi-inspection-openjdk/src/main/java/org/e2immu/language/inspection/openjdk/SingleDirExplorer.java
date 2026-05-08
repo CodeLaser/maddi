@@ -1,16 +1,18 @@
 package org.e2immu.language.inspection.openjdk;
 
-import com.sun.source.tree.*;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Trees;
+import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
 
-import javax.tools.JavaCompiler;
-import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
+import javax.tools.*;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -38,15 +40,18 @@ import java.util.stream.Stream;
  */
 public class SingleDirExplorer {
 
-    public static void main(String[] args) throws Exception {
-        if (args.length < 1) {
-            System.err.println("Usage: ASTExplorer <src/main/java>");
-            System.exit(1);
-        }
+    private final Runtime runtime;
 
-        Path root = Path.of(args[0]);
+    public SingleDirExplorer(Runtime runtime) {
+        this.runtime = runtime;
+    }
+
+    public List<TypeInfo> go(SourceSet sourceSet, String classPathDir) throws Exception {
+
+        Path root = Path.of(sourceSet.uri().toURL().toURI());
         if (!Files.isDirectory(root)) {
             System.err.println("Not a directory: " + root);
+            System.err.println("Base directory is " + Path.of(".").toAbsolutePath());
             System.exit(1);
         }
 
@@ -57,7 +62,7 @@ public class SingleDirExplorer {
                     .filter(p -> p.toString().endsWith(".java"))
                     .sorted()
                     .map(Path::toFile)
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         if (sources.isEmpty()) {
@@ -65,6 +70,24 @@ public class SingleDirExplorer {
             System.exit(1);
         }
         System.out.printf("Found %d source files.%n%n", sources.size());
+
+        // Collect .jar files if a lib directory was supplied
+        List<File> jars = List.of();
+        if (classPathDir != null) {
+            Path libDir = Path.of(classPathDir);
+            if (!Files.isDirectory(libDir)) {
+                System.err.println("Not a directory: " + libDir);
+                System.exit(1);
+            }
+            try (Stream<Path> walk = Files.walk(libDir)) {
+                jars = walk
+                        .filter(p -> p.toString().endsWith(".jar"))
+                        .sorted()
+                        .map(Path::toFile)
+                        .toList();
+            }
+            System.out.printf("Found %d jar files.%n%n", jars.size());
+        }
 
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
@@ -74,6 +97,24 @@ public class SingleDirExplorer {
 
         try (StandardJavaFileManager fileManager =
                      compiler.getStandardFileManager(null, null, null)) {
+
+            // Set the classpath on the file manager before creating the task.
+            // CLASS_PATH covers both the jars we found and anything already
+            // on the JVM's own classpath (e.g. your analyzer's own classes).
+            // If you want to suppress the latter and use only explicit jars,
+            // replace the concatenation with just: jars
+            if (!jars.isEmpty()) {
+                List<File> classpath = Stream.concat(
+                                jars.stream(),
+                                Stream.of(System.getProperty("java.class.path")
+                                                .split(File.pathSeparator))
+                                        .map(File::new)
+                                        .filter(File::exists)
+                        )
+                        .collect(Collectors.toList());
+
+                fileManager.setLocation(StandardLocation.CLASS_PATH, classpath);
+            }
 
             Iterable<? extends JavaFileObject> compilationUnits =
                     fileManager.getJavaFileObjects(sources.toArray(new File[0]));
@@ -92,10 +133,18 @@ public class SingleDirExplorer {
             Iterable<? extends CompilationUnitTree> units = task.parse();
             task.analyze();
 
+            List<TypeInfo> types = new ArrayList<>();
             for (CompilationUnitTree unit : units) {
                 System.out.println("=== " + unit.getSourceFile().getName() + " ===\n");
-                new AnalysisScanner(trees, System.out).scan(unit, null);
+                CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
+                        .setPackageName(unit.getPackageName().toString())
+                        .setSourceSet(sourceSet)
+                        .build();
+                AnalysisScanner analysisScanner = new AnalysisScanner(runtime, compilationUnit, trees, System.out);
+                analysisScanner.scan(unit, null);
+                types.addAll(analysisScanner.types());
             }
+            return List.copyOf(types);
         }
     }
 }

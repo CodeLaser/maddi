@@ -3,16 +3,27 @@ package org.e2immu.language.inspection.openjdk;
 import com.sun.source.tree.*;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
+import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> {
-
+    private final Runtime runtime;
+    private final List<TypeInfo> collectedTypes = new ArrayList<>();
     private final Trees trees;
     private final PrintStream out;
     private int depth = 0;
+    private TypeInfo currentType;
+    private final CompilationUnit compilationUnit;
 
-    AnalysisScanner(Trees trees, PrintStream out) {
+    AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit, Trees trees, PrintStream out) {
+        this.runtime = runtime;
+        this.compilationUnit = compilationUnit;
         this.trees = trees;
         this.out = out;
     }
@@ -41,10 +52,17 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         return result;
     }
 
+    public Collection<TypeInfo> types() {
+        return collectedTypes;
+    }
+
     // -- Class declarations ----------------------------------------------
 
     @Override
     public Void visitClass(ClassTree node, Void p) {
+        currentType = runtime.newTypeInfo(compilationUnit, node.getSimpleName().toString());
+        collectedTypes.add(currentType);
+
         out.println();
         print("CLASS:", node.getSimpleName().toString());
         return super.visitClass(node, p);   // visit children
