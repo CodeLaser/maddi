@@ -35,9 +35,18 @@ public class TestClass1 {
         MethodInfo constructor = class1.findConstructor(0);
         assertEquals("org.e2immu.example.Class1.<init>()", constructor.fullyQualifiedName());
         assertTrue(constructor.isSynthetic());
+        assertTrue(constructor.methodModifiers().contains(runtime.methodModifierPublic()));
 
         MethodInfo method = class1.findUniqueMethod("method", 0);
         assertEquals("source::org.e2immu.example.Class1.method()", method.descriptor());
         assertFalse(method.isSynthetic());
+        assertTrue(method.methodModifiers().contains(runtime.methodModifierPrivate()));
+        assertEquals(runtime.intParameterizedType(), method.returnType());
+
+        MethodInfo voidMethod = class1.findUniqueMethod("voidMethod", 0);
+        assertEquals("source::org.e2immu.example.Class1.voidMethod()", voidMethod.descriptor());
+        assertFalse(voidMethod.isSynthetic());
+        assertTrue(voidMethod.methodModifiers().contains(runtime.methodModifierProtected()));
+        assertEquals(runtime.voidParameterizedType(), voidMethod.returnType());
     }
 }
