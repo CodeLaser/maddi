@@ -2,9 +2,11 @@ package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.IntConstant;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
@@ -46,13 +48,21 @@ public class TestClass1 {
         assertTrue(method.methodModifiers().contains(runtime.methodModifierPrivate()));
         assertEquals(runtime.intParameterizedType(), method.returnType());
 
+        Statement callInfo = method.methodBody().statements().getFirst();
+        if (callInfo instanceof ExpressionAsStatement eas) {
+            if (eas.expression() instanceof MethodCall mc) {
+
+            } else fail();
+        } else fail();
         Statement return3 = method.methodBody().statements().getLast();
+        assertEquals("11-9:11-17", return3.source().compact2());
         if (return3 instanceof ReturnStatement rs) {
             if (rs.expression() instanceof IntConstant ic) {
                 assertEquals(3, ic.constant());
+                assertEquals("11-16:11-16", ic.source().compact2());
             } else fail();
         } else fail();
-        
+
         MethodInfo voidMethod = class1.findUniqueMethod("voidMethod", 0);
         assertEquals("source::org.e2immu.example.Class1.voidMethod()", voidMethod.descriptor());
         assertFalse(voidMethod.isSynthetic());

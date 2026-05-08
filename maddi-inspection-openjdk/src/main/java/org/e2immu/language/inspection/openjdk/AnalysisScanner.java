@@ -1,11 +1,14 @@
 package org.e2immu.language.inspection.openjdk;
 
 import com.sun.source.tree.*;
+import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.tree.JCTree;
+import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -33,12 +36,21 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private Block.Builder currentBlockBuilder;
     private Expression currentExpression;
     private final CompilationUnit compilationUnit;
+    private final SourcePositions sourcePositions;
+    private final LineMap lineMap;
+    private final CompilationUnitTree compilationUnitTree;
 
-    AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit, Trees trees, PrintStream out) {
+    AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit,
+                    CompilationUnitTree compilationUnitTree,
+                    Trees trees, SourcePositions sourcePositions,
+                    LineMap lineMap) {
         this.runtime = runtime;
         this.compilationUnit = compilationUnit;
         this.trees = trees;
-        this.out = out;
+        this.out = System.out;
+        this.lineMap = lineMap;
+        this.sourcePositions = sourcePositions;
+        this.compilationUnitTree = compilationUnitTree;
     }
 
     // -- Indentation helper ----------------------------------------------
@@ -184,7 +196,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     @Override
     public Void visitReturn(ReturnTree node, Void unused) {
         super.visitReturn(node, unused);
-        currentBlockBuilder.addStatement(runtime.newReturnStatement(currentExpression));
+        currentBlockBuilder.addStatement(runtime.newReturnBuilder().setExpression(currentExpression)
+                .setSource(sourceForNode(node)).build());
         return null;
     }
 
@@ -203,18 +216,20 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     public Void visitLiteral(LiteralTree node, Void unused) {
         JCTree.JCLiteral literal = (JCTree.JCLiteral) node;
 
+        List<Comment> comments = List.of();
+        Source source = sourceForNode(node);
         currentExpression = switch (literal.typetag) {
-            case INT -> runtime.newInt((Integer) literal.value);
-            case DOUBLE -> runtime.newDouble((Double) literal.value);
-            case LONG -> runtime.newLong((Long) literal.value);
-            case FLOAT -> runtime.newFloat((Float) literal.value);
-            case SHORT -> runtime.newShort((Short) literal.value);
-            case BOOLEAN -> runtime.newBoolean((Boolean) literal.value);
-            case CHAR -> runtime.newChar((Character) literal.value);
+            case INT -> runtime.newInt(comments, source, (Integer) literal.value);
+            case DOUBLE -> runtime.newDouble(comments, source, (Double) literal.value);
+            case LONG -> runtime.newLong(comments, source, (Long) literal.value);
+            case FLOAT -> runtime.newFloat(comments, source, (Float) literal.value);
+            case SHORT -> runtime.newShort(comments, source, (Short) literal.value);
+            case BOOLEAN -> runtime.newBoolean(comments, source, (Boolean) literal.value);
+            case CHAR -> runtime.newChar(comments, source, (Character) literal.value);
             case CLASS -> {
                 Tree.Kind kind = literal.typetag.getKindLiteral();
                 if (Tree.Kind.STRING_LITERAL == kind) {
-                    yield runtime.newStringConstant((String) literal.value);
+                    yield runtime.newStringConstant(comments, source, (String) literal.value);
                 }
                 throw new UnsupportedOperationException("?");
             }
@@ -264,13 +279,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         if (returnType != null) {
             print("  return type:", returnType.toString());
         }
+        super.visitMethodInvocation(node, p);
+
         currentExpression = runtime.newMethodCallBuilder()
                 .setObject(runtime.newEmptyExpression())
                 .setMethodInfo(runtime.assignAndOperatorBool())
                 .setParameterExpressions(List.of())
                 .setConcreteReturnType(runtime.intParameterizedType())
                 .build();
-        return super.visitMethodInvocation(node, p);
+        return null;
     }
 
     // -- Identifier references -------------------------------------------
@@ -316,4 +333,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     //     depth--;
     //     return result;
     // }
+
+    private Source sourceForNode(Tree node) {
+        long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
+        long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
+
+        long startLine = lineMap.getLineNumber(startPos);
+        long startCol = lineMap.getColumnNumber(startPos);
+        long endLine = lineMap.getLineNumber(endPos);
+        long endCol = lineMap.getColumnNumber(endPos) - 1; // we work inclusively
+        return runtime.newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
+    }
 }
