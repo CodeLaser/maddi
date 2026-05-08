@@ -4,18 +4,20 @@ import com.sun.source.tree.*;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeModifier;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
 
+import javax.lang.model.type.TypeKind;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import com.sun.tools.javac.tree.JCTree;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final Runtime runtime;
@@ -99,18 +101,34 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         if ("<init>".equals(methodName)) {
             currentMethod = runtime.newConstructor(currentType);
             currentType.builder().addConstructor(currentMethod);
+            currentMethod.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+
         } else {
             currentMethod = runtime.newMethod(currentType, methodName, runtime.methodTypeMethod());
             currentType.builder().addMethod(currentMethod);
+
+            ParameterizedType returnType = convertType(node.getReturnType());
+            currentMethod.builder().setReturnType(returnType);
         }
 
         // The cleaner check: flags directly encode synthetic/bridge/etc.
         long flags = jcMethod.getModifiers().flags;
         boolean isSynthetic = (flags & Flags.SYNTHETIC) != 0;
-        boolean isBridge    = (flags & Flags.BRIDGE)    != 0;
+        boolean isBridge = (flags & Flags.BRIDGE) != 0;
         boolean isGeneratedConstructor = (flags & Flags.GENERATEDCONSTR) != 0;
-
-        if(isSynthetic || isGeneratedConstructor) {
+        boolean isPublic = (flags & Flags.PUBLIC) != 0;
+        boolean isPrivate = (flags & Flags.PRIVATE) != 0;
+        boolean isProtected = (flags & Flags.PROTECTED) != 0;
+        if (isPublic) {
+            currentMethod.builder().addMethodModifier(runtime.methodModifierPublic());
+        }
+        if (isPrivate) {
+            currentMethod.builder().addMethodModifier(runtime.methodModifierPrivate());
+        }
+        if (isProtected) {
+            currentMethod.builder().addMethodModifier(runtime.methodModifierProtected());
+        }
+        if (isSynthetic || isGeneratedConstructor) {
             currentMethod.builder().setSynthetic(true);
         }
 
@@ -132,6 +150,27 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 .computeAccess()
                 .commit();
         return null;
+    }
+
+    private ParameterizedType convertType(Tree type) {
+        if (type == null) return runtime.voidParameterizedType();
+        if (type instanceof JCTree.JCPrimitiveTypeTree ptt) {
+            TypeKind primitiveTypeKind = ptt.typetag.getPrimitiveTypeKind();
+            if (primitiveTypeKind != null) {
+                return switch (primitiveTypeKind) {
+                    case VOID -> runtime.voidParameterizedType();
+                    case INT -> runtime.intParameterizedType();
+                    case DOUBLE -> runtime.doubleParameterizedType();
+                    case LONG -> runtime.longParameterizedType();
+                    case FLOAT -> runtime.floatParameterizedType();
+                    case SHORT -> runtime.shortParameterizedType();
+                    case BOOLEAN -> runtime.booleanParameterizedType();
+                    case CHAR -> runtime.charParameterizedType();
+                    default -> throw new UnsupportedOperationException();
+                };
+            }
+        }
+        throw new UnsupportedOperationException("NYI");
     }
 
     // -- Variable declarations (fields and locals) -----------------------
