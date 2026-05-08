@@ -62,15 +62,7 @@ public class IsAssignableFrom2 {
     }
 
     public boolean execute() {
-        return execute(false, false, Mode.COVARIANT);
-    }
-
-    public enum Mode {
-        INVARIANT, // everything has to be identical, there is no leeway with respect to hierarchy
-        COVARIANT, // allow assignment of sub-types: Number <-- Integer; List<Integer> <-- IntegerList
-        CONTRAVARIANT, // allow for super-types:  Integer <-- Number; IntegerList <-- List<Integer>
-        ANY, // accept everything
-        COVARIANT_ERASURE, // covariant, but ignore all type parameters
+        return execute(false, false);
     }
 
     private static final int IN_RECURSION = -1;
@@ -79,20 +71,19 @@ public class IsAssignableFrom2 {
      * @param ignoreArrays               do the comparison, ignoring array information
      * @param strictTypeParameterTargets set to true when deciding whether a cast is required in an assignment, or not.
      *                                   typical value is false, when used for method selection.
-     * @param mode                       the comparison mode
      * @return a numeric "nearness", the lower, the better and the more specific
      */
-    public Boolean execute(boolean ignoreArrays, boolean strictTypeParameterTargets, Mode mode) {
-        String visitedString = from + "|" + target + "|" + mode + "|" + ignoreArrays + "|" + strictTypeParameterTargets;
+    public Boolean execute(boolean ignoreArrays, boolean strictTypeParameterTargets) {
+        String visitedString = from + "|" + target + "|" + ignoreArrays + "|" + strictTypeParameterTargets;
         Integer cachedValue = cache.get(visitedString);
         if (cachedValue != null) return cachedValue == IN_RECURSION ? null : cachedValue == 1;
         cache.put(visitedString, IN_RECURSION);
-        boolean accept = internalExecute(ignoreArrays, strictTypeParameterTargets, mode);
+        boolean accept = internalExecute(ignoreArrays, strictTypeParameterTargets);
         cache.put(visitedString, accept ? 1 : 0);
         return accept;
     }
 
-    private boolean internalExecute(boolean ignoreArrays, boolean strictTypeParameterTargets, Mode mode) {
+    private boolean internalExecute(boolean ignoreArrays, boolean strictTypeParameterTargets) {
         if (target == from || target.equals(from) || ignoreArrays && target.equalsIgnoreArrays(from)) return true;
         if (target.equalsFQN(from)) return true;
 
@@ -127,7 +118,7 @@ public class IsAssignableFrom2 {
                 if (target.arrays() > 0) {
                     // recurse without the arrays; target and from remain the same
                     // this changes the cache key
-                    return execute(true, strictTypeParameterTargets, Mode.COVARIANT);
+                    return execute(true, strictTypeParameterTargets);
                 }
             }
 
@@ -135,8 +126,7 @@ public class IsAssignableFrom2 {
             if (from.typeInfo().isPrimitiveExcludingVoid()) {
                 if (target.typeInfo().isPrimitiveExcludingVoid()) {
                     // use a dedicated method in Primitives
-                    int i = runtime.isAssignableFromToForPrimitives(from, target,
-                            mode == Mode.COVARIANT || mode == Mode.COVARIANT_ERASURE);
+                    int i = runtime.isAssignableFromToForPrimitives(from, target, true);
                     return i == 0 || allowBoxingUnboxingWidening && i > 0;
                 }
                 return allowBoxingUnboxingWidening && checkBoxing(target, from);
@@ -148,42 +138,33 @@ public class IsAssignableFrom2 {
 
             // two different types, so they must be in a hierarchy
             if (target.typeInfo() != from.typeInfo()) {
-                return allowBoxingUnboxingWidening && differentNonNullTypeInfo(mode, strictTypeParameterTargets);
+                return allowBoxingUnboxingWidening && differentNonNullTypeInfo(strictTypeParameterTargets);
             }
             // identical base type, so look at type parameters
-            return sameNoNullTypeInfo(mode, strictTypeParameterTargets);
+            return sameNoNullTypeInfo(strictTypeParameterTargets);
         }
 
         if (target.typeInfo() != null && from.typeParameter() != null) {
             List<ParameterizedType> otherTypeBounds = from.typeParameter().typeBounds();
             if (otherTypeBounds.isEmpty()) {
-                if (mode == Mode.COVARIANT_ERASURE) {
-                    if (from.arrays() > target.arrays() && !target.typeInfo().isJavaLangObject()) {
-                        // See MethodCall13,4: double <- T[]
-                        return false;
-                    }
-                    // See MethodCall13,4: char[] <- T[]
-                    return from.arrays() <= 0 || from.arrays() != target.arrays()
-                           || !target.typeInfo().isPrimitiveExcludingVoid();// see e.g. Lambda_7, MethodCall_30,_31,_59
-                }
                 return target.typeInfo().isJavaLangObject();
             }
             return otherTypeBounds.stream()
                     .map(bound -> new IsAssignableFrom2(runtime, target, bound, allowBoxingUnboxingWidening, cache)
-                            .execute(true, strictTypeParameterTargets, mode))
+                            .execute(true, strictTypeParameterTargets))
                     .allMatch(i -> i == null || i);
             // note: i == null means: IN_RECURSION
         }
 
         // I am a type parameter
         if (target.typeParameter() != null) {
-            return targetIsATypeParameter(mode, strictTypeParameterTargets);
+            return targetIsATypeParameter(strictTypeParameterTargets);
         }
         // if wildcard is unbound, I am <?>; anything goes
         return target.wildcard() == null || target.wildcard().isUnbound();
     }
 
-    private boolean targetIsATypeParameter(Mode mode, boolean strictTypeParameterTargets) {
+    private boolean targetIsATypeParameter(boolean strictTypeParameterTargets) {
         assert target.typeParameter() != null;
 
         if (target.typeParameter().equals(from.typeParameter()) && target.arrays() != from.arrays()) {
@@ -210,7 +191,7 @@ public class IsAssignableFrom2 {
         if (from.typeInfo() != null) {
             for (ParameterizedType typeBound : targetTypeBounds) {
                 Boolean accept = new IsAssignableFrom2(runtime, typeBound, from, allowBoxingUnboxingWidening, cache)
-                        .execute(true, strictTypeParameterTargets, mode);
+                        .execute(true, strictTypeParameterTargets);
                 if (accept == null || accept) {
                     return true; // in recursion
                 }
@@ -223,15 +204,11 @@ public class IsAssignableFrom2 {
             if (fromTypeBounds.isEmpty()) {
                 return !strictTypeParameterTargets && allowBoxingUnboxingWidening;
             }
-            if (mode == Mode.INVARIANT && (isSelfReference(from) || isSelfReference(target))) {
-                // see TestAssignableFromGenerics2
-                return true;
-            }
             // we both have type bounds; we go for the best combination
             for (ParameterizedType myBound : targetTypeBounds) {
                 for (ParameterizedType otherBound : fromTypeBounds) {
                     Boolean accept = new IsAssignableFrom2(runtime, myBound, otherBound, allowBoxingUnboxingWidening, cache)
-                            .execute(true, strictTypeParameterTargets, mode);
+                            .execute(true, strictTypeParameterTargets);
                     if (accept == null || accept) return true;
                 }
             }
@@ -248,38 +225,29 @@ public class IsAssignableFrom2 {
         return ti.typeParameters().size() > i && ti.typeParameters().get(i).equals(tp);
     }
 
-    private boolean sameNoNullTypeInfo(Mode mode, boolean strictTypeParameterTargets) {
-        if (mode == Mode.COVARIANT_ERASURE) return true;
-
+    private boolean sameNoNullTypeInfo(boolean strictTypeParameterTargets) {
         // List<E> <-- List<String>
         if (target.parameters().isEmpty()) {
             // ? extends Type <-- Type ; Type <- ? super Type; ...
-            return compatibleWildcards(mode, target.wildcard(), from.wildcard());
+            return compatibleWildcards(target.wildcard(), from.wildcard());
         }
         return ListUtil.joinLists(target.parameters(), from.parameters())
                 .allMatch(p ->
-                        compatibleTypeParameter(mode, strictTypeParameterTargets, p));
+                        compatibleTypeParameter(strictTypeParameterTargets, p));
     }
 
-    private boolean compatibleTypeParameter(Mode mode,
-                                            boolean strictTypeParameterTargets,
+    private boolean compatibleTypeParameter(boolean strictTypeParameterTargets,
                                             ListUtil.Pair<ParameterizedType, ParameterizedType> p) {
-        Mode newMode = mode == Mode.INVARIANT ? Mode.INVARIANT : Mode.COVARIANT;
         Boolean accept = new IsAssignableFrom2(runtime, p.k(), p.v(), allowBoxingUnboxingWidening, cache)
-                .execute(true, strictTypeParameterTargets, newMode);
+                .execute(true, strictTypeParameterTargets);
         return accept == null || accept;
     }
 
-    private boolean differentNonNullTypeInfo(Mode mode, boolean strictTypeParameterTargets) {
-        boolean accept = switch (mode) {
-            case COVARIANT, COVARIANT_ERASURE -> hierarchy(strictTypeParameterTargets, target, from, mode);
-            case CONTRAVARIANT -> hierarchy(strictTypeParameterTargets, from, target, Mode.COVARIANT);
-            case INVARIANT -> false;
-            case ANY -> throw new UnsupportedOperationException("?");
-        };
+    private boolean differentNonNullTypeInfo(boolean strictTypeParameterTargets) {
+        boolean accept = hierarchy(strictTypeParameterTargets, target, from);
         if (!accept && from.isFunctionalInterface() && target.isFunctionalInterface()) {
             // two functional interfaces, yet different TypeInfo objects
-            return functionalInterface(mode);
+            return functionalInterface(strictTypeParameterTargets);
         }
         return accept;
     }
@@ -288,7 +256,7 @@ public class IsAssignableFrom2 {
     either COVARIANT_ERASURE, which means we simply have to test the number of parameters and isVoid,
     or INVARIANT... all type parameters identical
      */
-    private boolean functionalInterface(Mode mode) {
+    private boolean functionalInterface(boolean strictTypeParameterTargets) {
         TypeInfo targetTi = target.typeInfo();
         MethodInfo targetMi = targetTi.singleAbstractMethod();
         TypeInfo fromTi = from.typeInfo();
@@ -308,52 +276,40 @@ public class IsAssignableFrom2 {
         if (targetMi.parameters().size() != fromMi.parameters().size()) return false;
 
         boolean targetIsVoid = targetMi.returnType().isVoid();
-        boolean fromIsVoid = fromMi.returnType().isVoid();
 
-        // target void -> fromIsVoid is unimportant, we can assign a function to a consumer
-        if (!targetIsVoid) {
-            if (fromIsVoid) return false;
-            // see TestMethodCall13,5 for an example where the return type plays a role
-            Boolean erasedReturnType = new IsAssignableFrom2(runtime, targetMi.returnType(), fromMi.returnType())
-                    .execute(false, false, mode);
-            if (erasedReturnType != null && !erasedReturnType) return false;
-        }
-
-        if (mode == Mode.COVARIANT_ERASURE) {
-            return true;
-        }
         // now, ensure that all type parameters have equal values
         int i = 0;
         for (ParameterInfo t : targetMi.parameters()) {
             ParameterInfo f = fromMi.parameters().get(i);
-            if (!t.parameterizedType().equals(f.parameterizedType())) return false;
+            if (strictTypeParameterTargets && !t.parameterizedType().equals(f.parameterizedType())) return false;
             i++;
         }
+        if (targetIsVoid) return true;
         return targetMi.returnType().equals(fromMi.returnType());
     }
 
-    private boolean hierarchy(boolean strictTypeParameterTargets, ParameterizedType target, ParameterizedType from, Mode mode) {
+    private boolean hierarchy(boolean strictTypeParameterTargets, ParameterizedType target, ParameterizedType from) {
         TypeInfo other = from.typeInfo();
         for (ParameterizedType interfaceImplemented : other.interfacesImplemented()) {
             ParameterizedType concreteType = from.concreteDirectSuperType(interfaceImplemented);
             Boolean scoreInterface = new IsAssignableFrom2(runtime, target, concreteType, allowBoxingUnboxingWidening, cache)
-                    .execute(true, strictTypeParameterTargets, mode);
+                    .execute(true, strictTypeParameterTargets);
             if (scoreInterface != null && scoreInterface) return true;
         }
         ParameterizedType parentClass = other.parentClass();
         if (parentClass != null && !parentClass.isJavaLangObject()) {
             ParameterizedType concreteType = from.concreteDirectSuperType(parentClass);
             Boolean scoreParent = new IsAssignableFrom2(runtime, target, concreteType, allowBoxingUnboxingWidening, cache)
-                    .execute(true, strictTypeParameterTargets, mode);
+                    .execute(true, strictTypeParameterTargets);
             return scoreParent != null && scoreParent;
         }
         return false;
     }
 
 
-    private boolean compatibleWildcards(Mode mode, Wildcard w1, Wildcard w2) {
+    private boolean compatibleWildcards(Wildcard w1, Wildcard w2) {
         if (w1 == w2) return true;
-        return mode != Mode.INVARIANT || w1 != null;
+        return w1 != null;
     }
 
     // int <- Integer, long <- Integer, double <- Long
@@ -377,6 +333,6 @@ public class IsAssignableFrom2 {
         }
         // check the hierarchy of boxed: e.g. Number
         ParameterizedType boxedPt = boxed.asSimpleParameterizedType();
-        return hierarchy(false, target, boxedPt, Mode.COVARIANT);
+        return hierarchy(false, target, boxedPt);
     }
 }
