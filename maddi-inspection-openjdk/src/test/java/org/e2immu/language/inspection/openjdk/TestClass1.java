@@ -3,6 +3,7 @@ package org.e2immu.language.inspection.openjdk;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.expression.StringConstant;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -56,6 +57,12 @@ public class TestClass1 {
                 assertEquals("Class1.LOGGER", mc.object().toString());
                 if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
                     assertEquals("LOGGER", fr.fieldInfo().name());
+                    assertEquals("Type org.slf4j.Logger", fr.parameterizedType().toString());
+                    assertTrue(fr.parameterizedType().typeInfo().methods().size() > 70);
+                } else fail();
+                assertEquals(1, mc.parameterExpressions().size());
+                if (mc.parameterExpressions().getFirst() instanceof StringConstant sc) {
+                    assertEquals("I'm here!", sc.constant());
                 } else fail();
             } else fail();
         } else fail();
@@ -73,5 +80,10 @@ public class TestClass1 {
         assertFalse(voidMethod.isSynthetic());
         assertTrue(voidMethod.methodModifiers().contains(runtime.methodModifierProtected()));
         assertEquals(runtime.voidParameterizedType(), voidMethod.returnType());
+
+        TypeInfo enclosed = class1.findSubType("Enclosed");
+        assertFalse(enclosed.isInnerClass());
+        assertTrue(enclosed.isStatic());
+        assertSame(class1, enclosed.compilationUnitOrEnclosingType().getRight());
     }
 }

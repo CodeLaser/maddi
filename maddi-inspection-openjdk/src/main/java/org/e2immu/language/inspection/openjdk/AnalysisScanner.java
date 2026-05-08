@@ -16,27 +16,27 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeModifier;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.type.TypeNature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import java.net.URI;
 import java.util.*;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
+    private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
 
     private final Runtime runtime;
-    private final List<TypeInfo> collectedTypes = new ArrayList<>();
+    private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
     private final Trees trees;
-    private TypeInfo currentType;
     private MethodInfo currentMethod;
     private Block.Builder currentBlockBuilder;
     private Expression currentExpression;
@@ -44,51 +44,58 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final SourcePositions sourcePositions;
     private final LineMap lineMap;
     private final CompilationUnitTree compilationUnitTree;
+    private final Elements elements;
+    private final FlagHelper flagHelper;
 
     private final Map<String, TypeInfo> typeTable = new HashMap<>();
 
     AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit,
                     CompilationUnitTree compilationUnitTree,
                     Trees trees, SourcePositions sourcePositions,
-                    LineMap lineMap) {
+                    LineMap lineMap,
+                    Elements elements) {
         this.runtime = runtime;
         this.compilationUnit = compilationUnit;
         this.trees = trees;
         this.lineMap = lineMap;
         this.sourcePositions = sourcePositions;
         this.compilationUnitTree = compilationUnitTree;
+        this.elements = elements;
+        this.flagHelper = new FlagHelper(runtime);
     }
 
     // -- Indentation helper ----------------------------------------------
 
     public Collection<TypeInfo> types() {
-        return collectedTypes;
+        return collectedPrimaryTypes;
     }
 
     // -- Class declarations ----------------------------------------------
 
     @Override
     public Void visitClass(ClassTree node, Void p) {
-        currentType = runtime.newTypeInfo(compilationUnit, node.getSimpleName().toString());
-        collectedTypes.add(currentType);
-        typeTable.put(currentType.fullyQualifiedName(), currentType);
+        JCTree.JCClassDecl jcClassDecl = (JCTree.JCClassDecl) node;
+        TypeInfo typeInfo;
 
-        TypeNature typeNature = runtime.typeNatureClass();
-        node.getModifiers().getFlags().forEach(modifier -> {
-            TypeModifier tm = switch (modifier.name()) {
-                case "PUBLIC" -> runtime.typeModifierPublic();
-                case "PROTECTED" -> runtime.typeModifierProtected();
-                default -> throw new UnsupportedOperationException("NYI");
-            };
-            currentType.builder().addTypeModifier(tm);
-        });
-        currentType.builder().setTypeNature(typeNature);
+        String simpleName = node.getSimpleName().toString();
+        if (typeStack.isEmpty()) {
+            typeInfo = runtime.newTypeInfo(compilationUnit, simpleName);
+            collectedPrimaryTypes.add(typeInfo);
+        } else {
+            TypeInfo enclosed = typeStack.getLast();
+            typeInfo = runtime.newTypeInfo(enclosed, simpleName);
+            enclosed.builder().addSubType(typeInfo);
+        }
+        typeStack.addLast(typeInfo);
+        typeTable.put(typeInfo.fullyQualifiedName(), typeInfo);
+        flagHelper.type(jcClassDecl, typeInfo.builder());
 
         for (var member : node.getMembers()) {
             currentMethod = null;
             scan(member, p);
         }
 
+        typeStack.removeLast();
         return null;
     }
 
@@ -99,6 +106,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
         String methodName = node.getName().toString();
 
+        TypeInfo currentType = typeStack.getLast();
         if ("<init>".equals(methodName)) {
             currentMethod = runtime.newConstructor(currentType);
             currentType.builder().addConstructor(currentMethod);
@@ -112,26 +120,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             currentMethod.builder().setReturnType(returnType);
         }
 
-        // The cleaner check: flags directly encode synthetic/bridge/etc.
-        long flags = jcMethod.getModifiers().flags;
-        boolean isSynthetic = (flags & Flags.SYNTHETIC) != 0;
-        boolean isBridge = (flags & Flags.BRIDGE) != 0;
-        boolean isGeneratedConstructor = (flags & Flags.GENERATEDCONSTR) != 0;
-        boolean isPublic = (flags & Flags.PUBLIC) != 0;
-        boolean isPrivate = (flags & Flags.PRIVATE) != 0;
-        boolean isProtected = (flags & Flags.PROTECTED) != 0;
-        if (isPublic) {
-            currentMethod.builder().addMethodModifier(runtime.methodModifierPublic());
-        }
-        if (isPrivate) {
-            currentMethod.builder().addMethodModifier(runtime.methodModifierPrivate());
-        }
-        if (isProtected) {
-            currentMethod.builder().addMethodModifier(runtime.methodModifierProtected());
-        }
-        if (isSynthetic || isGeneratedConstructor) {
-            currentMethod.builder().setSynthetic(true);
-        }
+        flagHelper.method(jcMethod, currentMethod.builder());
 
         // getElement() gives you the javax.lang.model.element.Element for
         // this declaration — here an ExecutableElement for the method.
@@ -173,9 +162,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 String fullyQualifiedType = ct.toString();
                 TypeInfo typeInfo = typeTable.get(fullyQualifiedType);
                 if (typeInfo == null) {
-                    if(ct.tsym instanceof Symbol.ClassSymbol cs) {
+                    if (ct.tsym instanceof Symbol.ClassSymbol cs) {
                         String packageName = cs.owner.toString();
-                        SourceSet sourceSet = currentType.compilationUnit().sourceSet();
+                        TypeInfo primaryType = typeStack.getFirst(); // FIXME can we see which jar?
+                        SourceSet sourceSet = primaryType.compilationUnit().sourceSet();
                         URI uri = cs.classfile.toUri();
                         CompilationUnit cu = runtime.newCompilationUnitBuilder()
                                 .setPackageName(packageName)
@@ -184,13 +174,26 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                                 .build();
                         TypeInfo newTypeInfo = runtime.newTypeInfo(cu, identifier.toString());
                         typeTable.put(newTypeInfo.fullyQualifiedName(), newTypeInfo);
+                        //The following completely loads 'cs'
+                        List<? extends Element> members = elements.getAllMembers(cs);
+                        for (var member : members) {
+                            scanByteCode(newTypeInfo, member);
+                        }
                         return newTypeInfo.asParameterizedType();
                     }
                 }
-                return typeInfo.asParameterizedType();
             }
         }
         throw new UnsupportedOperationException("NYI");
+    }
+
+    private void scanByteCode(TypeInfo typeInfo, Element member) {
+        LOGGER.info("Adding members to {}", typeInfo);
+        if (member instanceof Symbol.MethodSymbol ms) {
+            String name = ms.getSimpleName().toString();
+            MethodInfo method = runtime.newMethod(typeInfo, name, runtime.methodTypeMethod());
+            typeInfo.builder().addMethod(method);
+        }
     }
 
     @Override
@@ -257,15 +260,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 long flags = variableDecl.getModifiers().flags;
                 boolean isStatic = (flags & Flags.STATIC) != 0;
                 boolean isFinal = (flags & Flags.FINAL) != 0;
-                if(variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
+                if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
                     String name = varSymbol.toString();
                     ParameterizedType type = convertType(variableDecl.vartype);
-                    FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, currentType);
+                    TypeInfo owner = typeStack.getLast();
+                    FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
                     if (isFinal) fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal());
                     fieldInfo.builder().setSource(sourceForNode(node))
                             .setInitializer(runtime.newEmptyExpression())
                             .commit();
-                    currentType.builder().addField(fieldInfo);
+                    owner.builder().addField(fieldInfo);
                 }
             }
         }
@@ -291,7 +295,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         Expression object;
         String methodName;
         if (methodSelect instanceof IdentifierTree it) {
-            object = runtime.newVariableExpressionBuilder().setVariable(runtime.newThis(currentType.asParameterizedType()))
+            TypeInfo currentType = typeStack.getLast(); // FIXME temp value, can also be static
+            object = runtime.newVariableExpressionBuilder()
+                    .setVariable(runtime.newThis(currentType.asParameterizedType()))
                     .setSource(runtime.noSource()).build();
             methodName = it.getName().toString();
         } else if (methodSelect instanceof MemberSelectTree mst) {
@@ -324,7 +330,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         currentExpression = runtime.newMethodCallBuilder()
                 .setSource(sourceForNode(node))
                 .setObjectIsImplicit(methodSelect instanceof IdentifierTree)
-                .setObject(object == null ? runtime.newEmptyExpression(): object)
+                .setObject(object == null ? runtime.newEmptyExpression() : object)
                 .setMethodInfo(runtime.assignAndOperatorBool())
                 .setParameterExpressions(arguments)
                 .setConcreteReturnType(runtime.intParameterizedType())

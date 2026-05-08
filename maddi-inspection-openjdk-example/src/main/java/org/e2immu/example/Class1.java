@@ -18,4 +18,8 @@ public class Class1 {
         /* and one one a statement */
         System.out.println();
     }
+
+    static class Enclosed {
+
+    }
 }
