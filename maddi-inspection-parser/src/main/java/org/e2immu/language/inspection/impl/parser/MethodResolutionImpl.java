@@ -475,11 +475,9 @@ public class MethodResolutionImpl implements MethodResolution {
     private List<MethodTypeParameterMap> stage1ApplicableMethods(Set<MethodTypeParameterMap> methodCandidates,
                                                                  Map<Integer, Expression> evaluatedExpressions,
                                                                  TypeParameterMap typeParameterMap) {
-        Map<Integer, Set<ParameterizedType>> acceptedErasedTypes =
+        Map<Integer, TypeList> acceptedErasedTypes =
                 evaluatedExpressions.entrySet().stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e ->
-                        expandErasureTypes(e.getValue()).stream()
-                                .map(pt -> pt.applyTranslation(runtime, typeParameterMap.map()))
-                                .collect(Collectors.toUnmodifiableSet())));
+                        expandErasureTypes(runtime, e.getValue(), typeParameterMap)));
 
         // gate 1: strict subtyping
         List<MethodTypeParameterMap> set1 = methodCandidates.stream()
@@ -501,13 +499,26 @@ public class MethodResolutionImpl implements MethodResolution {
                 .toList();
     }
 
+    private record ActualType(ParameterizedType pt, boolean erased) {
+        boolean assignable(Runtime runtime, ParameterizedType formalType, boolean acceptWideningBoxingUnboxing) {
+            if (erased) {
+                return runtime.isAssignableFrom(pt, formalType, acceptWideningBoxingUnboxing);
+            }
+            return runtime.isAssignableFrom(formalType, pt, acceptWideningBoxingUnboxing);
+        }
+
+    }
+
+    private record TypeList(List<ActualType> types) {
+    }
+
     private boolean stage1ApplicableMethod(MethodTypeParameterMap methodCandidate,
-                                           Map<Integer, Set<ParameterizedType>> acceptedErasedTypes,
+                                           Map<Integer, TypeList> acceptedErasedTypes,
                                            boolean acceptWideningBoxingUnboxing,
                                            boolean acceptVarargs) {
         List<ParameterInfo> parameters = methodCandidate.methodInfo().parameters();
         for (ParameterInfo parameter : parameters) {
-            Set<ParameterizedType> actualTypes = acceptedErasedTypes.get(parameter.index());
+            TypeList actualTypes = acceptedErasedTypes.get(parameter.index());
             if (actualTypes == null) {
                 assert parameter.isVarArgs() : "Incorrect arity; this method should not have been a candidate";
                 return acceptVarargs;
@@ -515,9 +526,8 @@ public class MethodResolutionImpl implements MethodResolution {
             ParameterizedType formalType = parameter.parameterizedType();
             if (parameter.isVarArgs()) {
                 if (!acceptVarargs) return false;
-                for (ParameterizedType actualType : actualTypes) {
-                    boolean assignable = runtime.isAssignableFromCovariantErasure(formalType, actualType,
-                            acceptWideningBoxingUnboxing);
+                for (ActualType actualType : actualTypes.types) {
+                    boolean assignable = actualType.assignable(runtime, formalType, acceptWideningBoxingUnboxing);
                     if (assignable) {
                         return true; // matching the array type
                     }
@@ -525,12 +535,11 @@ public class MethodResolutionImpl implements MethodResolution {
                 ParameterizedType elementType = formalType.copyWithOneFewerArrays();
                 int pos = parameters.size();
                 while (true) {
-                    Set<ParameterizedType> concreteVarArgTypes = acceptedErasedTypes.get(pos);
+                    TypeList concreteVarArgTypes = acceptedErasedTypes.get(pos);
                     if (concreteVarArgTypes == null) break;
                     boolean haveMatch = false;
-                    for (ParameterizedType actualType : actualTypes) {
-                        boolean assignable = runtime.isAssignableFromCovariantErasure(elementType, actualType,
-                                acceptWideningBoxingUnboxing);
+                    for (ActualType actualType : actualTypes.types) {
+                        boolean assignable = actualType.assignable(runtime, elementType, acceptWideningBoxingUnboxing);
                         if (assignable) {
                             haveMatch = true;
                             break;
@@ -543,9 +552,8 @@ public class MethodResolutionImpl implements MethodResolution {
             }
             // not a varargs type
             boolean accept = false;
-            for (ParameterizedType actualType : actualTypes) {
-                boolean assignable = runtime.isAssignableFromCovariantErasure(formalType, actualType,
-                        acceptWideningBoxingUnboxing);
+            for (ActualType actualType : actualTypes.types) {
+                boolean assignable = actualType.assignable(runtime, formalType, acceptWideningBoxingUnboxing);
                 if (assignable) {
                     accept = true;
                     break;
@@ -748,6 +756,27 @@ public class MethodResolutionImpl implements MethodResolution {
             return !(e instanceof VariableExpression);
         });
         return Set.copyOf(set);
+    }
+
+    // replace an ErasedExpression with its erasure types
+    private static TypeList expandErasureTypes(Runtime runtime, Expression start, TypeParameterMap typeParameterMap) {
+        TypeList typeList = new TypeList(new ArrayList<>());
+        if (!(start instanceof ErasedExpression)) {
+            ParameterizedType pt = start.parameterizedType().applyTranslation(runtime, typeParameterMap.map());
+            typeList.types.add(new ActualType(pt, false));
+        }
+        start.visit(e -> {
+            if (e instanceof ErasedExpression erasedExpression) {
+                erasedExpression.erasureTypes().forEach(et ->
+                        typeList.types.add(new ActualType(et.applyTranslation(runtime, typeParameterMap.map()), true)));
+            }
+            /*
+            See TestOverload1,3: if the ErasedExpression is hidden inside the scope of a variable, it should not
+            appear as a possibility in "set".
+             */
+            return !(e instanceof VariableExpression);
+        });
+        return typeList;
     }
 
 

@@ -85,9 +85,9 @@ public class TestIsAssignableFrom2 extends CommonTest {
         TypeInfo comparable = javaInspector.compiledTypesManager().get(Comparable.class);
         ParameterizedType erasedComparable = comparable.asSimpleParameterizedType();
         assertFalse(new IsAssignableFrom2(runtime, erasedComparable, longPredicatePt)
-                .execute(true, false, IsAssignableFrom2.Mode.COVARIANT_ERASURE));
+                .execute(true, false));
         assertFalse(new IsAssignableFrom2(runtime, longPredicatePt, erasedComparable)
-                .execute(true, false, IsAssignableFrom2.Mode.COVARIANT_ERASURE));
+                .execute(true, false));
     }
 
     @Test
@@ -99,9 +99,10 @@ public class TestIsAssignableFrom2 extends CommonTest {
         ParameterizedType longPredicatePt = longPredicate.asSimpleParameterizedType();
         ParameterizedType longConsumerPt = longConsumer.asSimpleParameterizedType();
         assertFalse(runtime.isAssignableFrom(longPredicatePt, longConsumerPt, true));
-        assertFalse(runtime.isAssignableFrom(longConsumerPt, longPredicatePt, true));
-        assertTrue(new IsAssignableFrom2(runtime, longConsumerPt, longPredicatePt, true)
-                .execute(false, true, IsAssignableFrom2.Mode.COVARIANT_ERASURE));
+
+        // a predicate is also a consumer, but a consumer is not a predicate
+        assertTrue(runtime.isAssignableFrom(longConsumerPt, longPredicatePt, true));
+        assertFalse(runtime.isAssignableFrom(longPredicatePt, longConsumerPt, true));
     }
 
     @Test

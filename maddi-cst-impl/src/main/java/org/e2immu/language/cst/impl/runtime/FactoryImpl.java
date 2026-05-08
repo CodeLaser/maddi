@@ -245,14 +245,6 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
-    public boolean isAssignableFromCovariantErasure(ParameterizedType target,
-                                                    ParameterizedType from,
-                                                    boolean allowBoxingUnboxingWidening) {
-        return new IsAssignableFrom2(this, target, from, allowBoxingUnboxingWidening)
-                .execute(false, false, IsAssignableFrom2.Mode.COVARIANT_ERASURE);
-    }
-
-    @Override
     public boolean isAssignableFrom(ParameterizedType target,
                                     ParameterizedType from,
                                     boolean allowBoxingUnboxingWidening) {
