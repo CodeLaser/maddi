@@ -18,7 +18,10 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.LocalVariable;
+import org.e2immu.language.cst.api.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +33,7 @@ import java.util.*;
 class AnalysisScanner extends TreePathScanner<Void, Void> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
     private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
+    private final Deque<Map<String, Variable>> variableStack = new ArrayDeque<>();
 
     private final Runtime runtime;
     private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
@@ -125,7 +129,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         var element = trees.getElement(getCurrentPath());
 
         currentBlockBuilder = runtime.newBlockBuilder();
+        variableStack.addLast(new HashMap<>());
         super.visitMethod(node, p);
+        variableStack.removeLast();
 
         currentMethod.builder()
                 .setSource(sourceForNode(node))
@@ -229,21 +235,38 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         LOGGER.info("VARIABLE:" + node.getName().toString());
 
         if (node instanceof JCTree.JCVariableDecl variableDecl) {
-            if (currentMethod == null) {
-                // field!
-                long flags = variableDecl.getModifiers().flags;
-                boolean isStatic = (flags & Flags.STATIC) != 0;
-                boolean isFinal = (flags & Flags.FINAL) != 0;
-                if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
-                    String name = varSymbol.toString();
-                    ParameterizedType type = convertType(variableDecl.vartype);
+            long flags = variableDecl.getModifiers().flags;
+            boolean isStatic = (flags & Flags.STATIC) != 0;
+            boolean isFinal = (flags & Flags.FINAL) != 0;
+
+            if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
+                String name = varSymbol.toString();
+                ParameterizedType type = convertType(variableDecl.vartype);
+
+                currentExpression = null;
+                scan(node.getInitializer(), p);
+                if (currentExpression == null) {
+                    currentExpression = runtime.newEmptyExpression();
+                }
+                if (currentMethod == null) {
+                    // field!
                     TypeInfo owner = typeStack.getLast();
                     FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
                     if (isFinal) fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal());
                     fieldInfo.builder().setSource(sourceForNode(node))
-                            .setInitializer(runtime.newEmptyExpression())
+                            .setInitializer(currentExpression)
                             .commit();
                     owner.builder().addField(fieldInfo);
+                } else {
+                    // local variable
+
+                    LocalVariable localVariable = runtime.newLocalVariable(name, type, currentExpression);
+                    LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
+                            .setSource(sourceForNode(node))
+                            .setLocalVariable(localVariable);
+                    if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
+                    currentBlockBuilder.addStatement(lvcb.build());
+                    variableStack.getLast().put(localVariable.simpleName(), localVariable);
                 }
             }
         }
@@ -283,7 +306,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
         List<Expression> arguments = new ArrayList<>(node.getArguments().size());
         for (var arg : node.getArguments()) {
+            currentExpression = null;
             scan(arg, p);
+            if (currentExpression == null) {
+                LOGGER.warn("Have unparsed expression");
+                currentExpression = runtime.newEmptyExpression();
+            }
             arguments.add(currentExpression);
         }
 
@@ -337,7 +365,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                                 .build();
                     }
                 }
-                case LOCAL_VARIABLE, PARAMETER, ENUM_CONSTANT -> {
+                case LOCAL_VARIABLE -> {
+                    LOGGER.info("Local variable {}", name);
+                    Variable variable = (LocalVariable) findVariableInStack(name);
+                    currentExpression = runtime.newVariableExpressionBuilder()
+                            .setSource(sourceForNode(node))
+                            .setVariable(variable)
+                            .build();
+                }
+                case PARAMETER, ENUM_CONSTANT -> {
                     LOGGER.info("variable identifier:" + node.getName().toString());
                     LOGGER.info("  kind:" + element.getKind().toString());
                     var type = trees.getTypeMirror(getCurrentPath());
@@ -347,6 +383,22 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             }
         }
         return null;// super.visitIdentifier(node, p);
+    }
+
+    @Override
+    public Void visitBlock(BlockTree node, Void unused) {
+        variableStack.push(new HashMap<>());
+        super.visitBlock(node, unused);
+        variableStack.pop();
+        return null;
+    }
+
+    private Variable findVariableInStack(String name) {
+        for (Map<String, Variable> map : variableStack.reversed()) {
+            Variable v = map.get(name);
+            if (v != null) return v;
+        }
+        throw new UnsupportedOperationException("Cannot find variable " + name + " on stack");
     }
 
     // -- If you want to see EVERY node, uncomment this: ------------------

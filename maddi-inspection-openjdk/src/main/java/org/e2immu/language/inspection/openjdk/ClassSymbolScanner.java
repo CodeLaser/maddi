@@ -62,9 +62,9 @@ public record ClassSymbolScanner(Runtime runtime,
     }
 
     private void scanByteCode(TypeInfo typeInfo, Element member) {
-        LOGGER.info("Adding members to {}", typeInfo);
         if (member instanceof Symbol.MethodSymbol ms) {
             String name = ms.getSimpleName().toString();
+            LOGGER.info("Adding member {} to {}", name, typeInfo);
             MethodInfo method = runtime.newMethod(typeInfo, name, runtime.methodTypeMethod());
             typeInfo.builder().addMethod(method);
         }
