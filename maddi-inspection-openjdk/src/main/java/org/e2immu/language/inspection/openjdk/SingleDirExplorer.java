@@ -5,6 +5,11 @@ import com.sun.source.tree.LineMap;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.parser.Scanner;
+import com.sun.tools.javac.parser.ScannerFactory;
+import com.sun.tools.javac.parser.Tokens;
+import com.sun.tools.javac.util.Context;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -138,6 +143,9 @@ public class SingleDirExplorer {
             List<TypeInfo> types = new ArrayList<>();
             for (CompilationUnitTree unit : units) {
                 System.out.println("=== " + unit.getSourceFile().getName() + " ===\n");
+
+                List<SourceComment> comments = extractComments(unit, (BasicJavacTask) task);
+
                 CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
                         .setPackageName(unit.getPackageName().toString())
                         .setSourceSet(sourceSet)
@@ -153,5 +161,58 @@ public class SingleDirExplorer {
             }
             return List.copyOf(types);
         }
+    }
+
+
+    public record SourceComment(
+            long start,       // char offset in source
+            long end,
+            long line,
+            long col,
+            Tokens.Comment.CommentStyle style,
+            String text
+    ) {
+    }
+
+    public static List<SourceComment> extractComments(CompilationUnitTree unit,
+                                                      BasicJavacTask task) throws Exception {
+
+        Context context = task.getContext();
+        ScannerFactory factory = ScannerFactory.instance(context);
+        LineMap lineMap = unit.getLineMap();
+
+        // Read raw source characters
+        CharSequence source = unit.getSourceFile().getCharContent(true);
+
+        Scanner scanner = factory.newScanner(source.toString(), true); // true = keep comments
+
+        List<SourceComment> comments = new ArrayList<>();
+
+        while (true) {
+            scanner.nextToken();
+            Tokens.TokenKind kind = scanner.token().kind;
+
+            // Comments come through as CUSTOM tokens before the real token;
+            // they are accessible via the preceding comments list on the token
+
+            com.sun.tools.javac.util.List<Tokens.Comment> commentList = scanner.token().comments;
+            if(commentList != null){
+            for (Tokens.Comment c : commentList) {
+             if(!c.getText().isBlank()){
+                long start = c.getSourcePos(0);
+                long end = start + c.getText().length();
+                comments.add(new SourceComment(
+                        start, end,
+                        lineMap.getLineNumber(start),
+                        lineMap.getColumnNumber(start),
+                        c.getStyle(),
+                        c.getText()
+                ));
+            }
+}}
+            if (kind == Tokens.TokenKind.EOF) break;
+        }
+
+        return comments;
     }
 }
