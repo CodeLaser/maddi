@@ -27,3 +27,20 @@ dependencies {
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-inspection-resource"))
 }
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.addAll(listOf(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED"
+    ))
+}
+
+tasks.test {
+    useJUnitPlatform()
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED"
+    )
+}

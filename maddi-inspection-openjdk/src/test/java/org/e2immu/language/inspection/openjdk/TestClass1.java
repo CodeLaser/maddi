@@ -1,6 +1,7 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
@@ -13,7 +14,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestClass1 {
     @Test
@@ -30,5 +31,13 @@ public class TestClass1 {
         assertEquals(1, types.size());
         TypeInfo class1 = types.getFirst();
         assertEquals("org.e2immu.example.Class1", class1.fullyQualifiedName());
+
+        MethodInfo constructor = class1.findConstructor(0);
+        assertEquals("org.e2immu.example.Class1.<init>()", constructor.fullyQualifiedName());
+        assertTrue(constructor.isSynthetic());
+
+        MethodInfo method = class1.findUniqueMethod("method", 0);
+        assertEquals("source::org.e2immu.example.Class1.method()", method.descriptor());
+        assertFalse(method.isSynthetic());
     }
 }
