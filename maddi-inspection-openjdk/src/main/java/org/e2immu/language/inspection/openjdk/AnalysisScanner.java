@@ -6,10 +6,13 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeModifier;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.Block;
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
 
@@ -27,6 +30,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private int depth = 0;
     private TypeInfo currentType;
     private MethodInfo currentMethod;
+    private Block.Builder currentBlockBuilder;
+    private Expression currentExpression;
     private final CompilationUnit compilationUnit;
 
     AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit, Trees trees, PrintStream out) {
@@ -144,9 +149,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             print("  element kind:", element.getKind().toString());
             print("  return type:", element.asType().toString());
         }
+
+        currentBlockBuilder = runtime.newBlockBuilder();
         super.visitMethod(node, p);
 
         currentMethod.builder()
+                .setMethodBody(currentBlockBuilder.build())
                 .computeAccess()
                 .commit();
         return null;
@@ -171,6 +179,49 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             }
         }
         throw new UnsupportedOperationException("NYI");
+    }
+
+    @Override
+    public Void visitReturn(ReturnTree node, Void unused) {
+        super.visitReturn(node, unused);
+        currentBlockBuilder.addStatement(runtime.newReturnStatement(currentExpression));
+        return null;
+    }
+
+    @Override
+    public Void visitExpressionStatement(ExpressionStatementTree node, Void unused) {
+        System.out.println("Expression statement");
+        super.visitExpressionStatement(node, unused);
+        assert currentExpression != null;
+        ExpressionAsStatement statement = runtime.newExpressionAsStatementBuilder()
+                .setExpression(currentExpression).build();
+        currentBlockBuilder.addStatement(statement);
+        return null;
+    }
+
+    @Override
+    public Void visitLiteral(LiteralTree node, Void unused) {
+        JCTree.JCLiteral literal = (JCTree.JCLiteral) node;
+
+        currentExpression = switch (literal.typetag) {
+            case INT -> runtime.newInt((Integer) literal.value);
+            case DOUBLE -> runtime.newDouble((Double) literal.value);
+            case LONG -> runtime.newLong((Long) literal.value);
+            case FLOAT -> runtime.newFloat((Float) literal.value);
+            case SHORT -> runtime.newShort((Short) literal.value);
+            case BOOLEAN -> runtime.newBoolean((Boolean) literal.value);
+            case CHAR -> runtime.newChar((Character) literal.value);
+            case CLASS -> {
+                Tree.Kind kind = literal.typetag.getKindLiteral();
+                if (Tree.Kind.STRING_LITERAL == kind) {
+                    yield runtime.newStringConstant((String) literal.value);
+                }
+                throw new UnsupportedOperationException("?");
+            }
+            default -> throw new UnsupportedOperationException();
+        };
+
+        return super.visitLiteral(node, unused);
     }
 
     // -- Variable declarations (fields and locals) -----------------------
@@ -213,6 +264,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         if (returnType != null) {
             print("  return type:", returnType.toString());
         }
+        currentExpression = runtime.newMethodCallBuilder()
+                .setObject(runtime.newEmptyExpression())
+                .setMethodInfo(runtime.assignAndOperatorBool())
+                .setParameterExpressions(List.of())
+                .setConcreteReturnType(runtime.intParameterizedType())
+                .build();
         return super.visitMethodInvocation(node, p);
     }
 
@@ -241,13 +298,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     }
 
     // -- If you want to see EVERY node, uncomment this: ------------------
-    //
-    // @Override
-    // public Void visitOther(Tree node, Void p) {
-    //     print("NODE:", node.getKind().toString());
-    //     return super.visitOther(node, p);
-    // }
-    //
+
+    @Override
+    public Void visitOther(Tree node, Void p) {
+        print("NODE:", node.getKind().toString());
+        return super.visitOther(node, p);
+    }
+
     // Or override scan() to print every node kind before super.scan():
     //
     // @Override

@@ -1,9 +1,12 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
@@ -43,6 +46,13 @@ public class TestClass1 {
         assertTrue(method.methodModifiers().contains(runtime.methodModifierPrivate()));
         assertEquals(runtime.intParameterizedType(), method.returnType());
 
+        Statement return3 = method.methodBody().statements().getLast();
+        if (return3 instanceof ReturnStatement rs) {
+            if (rs.expression() instanceof IntConstant ic) {
+                assertEquals(3, ic.constant());
+            } else fail();
+        } else fail();
+        
         MethodInfo voidMethod = class1.findUniqueMethod("voidMethod", 0);
         assertEquals("source::org.e2immu.example.Class1.voidMethod()", voidMethod.descriptor());
         assertFalse(voidMethod.isSynthetic());
