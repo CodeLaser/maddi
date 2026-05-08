@@ -1,17 +1,16 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.expression.IntConstant;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.StringConstant;
-import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
@@ -83,6 +82,20 @@ public class TestClass1 {
         assertTrue(voidMethod.methodModifiers().contains(runtime.methodModifierProtected()));
         assertEquals(runtime.voidParameterizedType(), voidMethod.returnType());
 
+        Statement vm1 = voidMethod.methodBody().statements().getFirst();
+        if (vm1 instanceof LocalVariableCreation lvc) {
+            LocalVariable lv = lvc.localVariable();
+            assertEquals("j", lv.simpleName());
+            assertSame(runtime.intParameterizedType(), lv.parameterizedType());
+        } else fail();
+        Statement vm2 = voidMethod.methodBody().statements().get(1);
+        if (vm2 instanceof ExpressionAsStatement eas && eas.expression() instanceof MethodCall mc) {
+            Expression arg1 = mc.parameterExpressions().getFirst();
+            if (arg1 instanceof VariableExpression ve && ve.variable() instanceof LocalVariable lv) {
+                assertEquals("j", lv.simpleName());
+            } else fail();
+        } else fail();
+        
         TypeInfo enclosed = class1.findSubType("Enclosed");
         assertFalse(enclosed.isInnerClass());
         assertTrue(enclosed.isStatic());
