@@ -3,12 +3,14 @@ package org.e2immu.language.inspection.openjdk;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.IntConstant;
 import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
@@ -51,7 +53,10 @@ public class TestClass1 {
         Statement callInfo = method.methodBody().statements().getFirst();
         if (callInfo instanceof ExpressionAsStatement eas) {
             if (eas.expression() instanceof MethodCall mc) {
-            //FIXME    assertEquals("", mc.object().toString());
+                assertEquals("Class1.LOGGER", mc.object().toString());
+                if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+                    assertEquals("LOGGER", fr.fieldInfo().name());
+                } else fail();
             } else fail();
         } else fail();
         Statement return3 = method.methodBody().statements().getLast();

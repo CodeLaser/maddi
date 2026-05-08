@@ -14,6 +14,7 @@ public class Class1 {
 
     // a comment on a method
     protected void voidMethod() {
+        method();
         /* and one one a statement */
         System.out.println();
     }

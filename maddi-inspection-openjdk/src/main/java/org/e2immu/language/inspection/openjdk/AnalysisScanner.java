@@ -5,11 +5,15 @@ import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Source;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeModifier;
@@ -18,14 +22,17 @@ import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.lang.model.type.TypeKind;
 import javax.tools.Diagnostic;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.net.URI;
+import java.util.*;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
+
     private final Runtime runtime;
     private final List<TypeInfo> collectedTypes = new ArrayList<>();
     private final Trees trees;
@@ -37,6 +44,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final SourcePositions sourcePositions;
     private final LineMap lineMap;
     private final CompilationUnitTree compilationUnitTree;
+
+    private final Map<String, TypeInfo> typeTable = new HashMap<>();
 
     AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit,
                     CompilationUnitTree compilationUnitTree,
@@ -62,6 +71,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     public Void visitClass(ClassTree node, Void p) {
         currentType = runtime.newTypeInfo(compilationUnit, node.getSimpleName().toString());
         collectedTypes.add(currentType);
+        typeTable.put(currentType.fullyQualifiedName(), currentType);
 
         TypeNature typeNature = runtime.typeNatureClass();
         node.getModifiers().getFlags().forEach(modifier -> {
@@ -72,10 +82,14 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             };
             currentType.builder().addTypeModifier(tm);
         });
-
         currentType.builder().setTypeNature(typeNature);
 
-        return super.visitClass(node, p);   // visit children
+        for (var member : node.getMembers()) {
+            currentMethod = null;
+            scan(member, p);
+        }
+
+        return null;
     }
 
     // -- Method declarations ---------------------------------------------
@@ -154,6 +168,28 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 };
             }
         }
+        if (type instanceof JCTree.JCIdent identifier) {
+            if (identifier.type instanceof Type.ClassType ct) {
+                String fullyQualifiedType = ct.toString();
+                TypeInfo typeInfo = typeTable.get(fullyQualifiedType);
+                if (typeInfo == null) {
+                    if(ct.tsym instanceof Symbol.ClassSymbol cs) {
+                        String packageName = cs.owner.toString();
+                        SourceSet sourceSet = currentType.compilationUnit().sourceSet();
+                        URI uri = cs.classfile.toUri();
+                        CompilationUnit cu = runtime.newCompilationUnitBuilder()
+                                .setPackageName(packageName)
+                                .setSourceSet(sourceSet)
+                                .setURI(uri)
+                                .build();
+                        TypeInfo newTypeInfo = runtime.newTypeInfo(cu, identifier.toString());
+                        typeTable.put(newTypeInfo.fullyQualifiedName(), newTypeInfo);
+                        return newTypeInfo.asParameterizedType();
+                    }
+                }
+                return typeInfo.asParameterizedType();
+            }
+        }
         throw new UnsupportedOperationException("NYI");
     }
 
@@ -170,7 +206,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     @Override
     public Void visitExpressionStatement(ExpressionStatementTree node, Void unused) {
-        System.out.println("Expression statement");
+        LOGGER.info("Expression statement");
         super.visitExpressionStatement(node, unused);
         assert currentExpression != null;
         ExpressionAsStatement statement = runtime.newExpressionAsStatementBuilder()
@@ -213,13 +249,27 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     @Override
     public Void visitVariable(VariableTree node, Void p) {
-        System.out.println("VARIABLE:" + node.getName().toString());
+        LOGGER.info("VARIABLE:" + node.getName().toString());
 
-        var typeMirror = trees.getTypeMirror(getCurrentPath());
-        if (typeMirror != null) {
-            System.out.println("  type:" + typeMirror.toString());
+        if (node instanceof JCTree.JCVariableDecl variableDecl) {
+            if (currentMethod == null) {
+                // field!
+                long flags = variableDecl.getModifiers().flags;
+                boolean isStatic = (flags & Flags.STATIC) != 0;
+                boolean isFinal = (flags & Flags.FINAL) != 0;
+                if(variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
+                    String name = varSymbol.toString();
+                    ParameterizedType type = convertType(variableDecl.vartype);
+                    FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, currentType);
+                    if (isFinal) fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal());
+                    fieldInfo.builder().setSource(sourceForNode(node))
+                            .setInitializer(runtime.newEmptyExpression())
+                            .commit();
+                    currentType.builder().addField(fieldInfo);
+                }
+            }
         }
-        return super.visitVariable(node, p);
+        return null;
     }
 
     // -- Method calls ----------------------------------------------------
@@ -236,16 +286,20 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
         // The method select is usually a MemberSelectTree ("obj.method")
         // or an IdentifierTree ("method"), both giving the method name.
-        String callSite = node.getMethodSelect().toString();
+        ExpressionTree methodSelect = node.getMethodSelect();
+        String callSite = methodSelect.toString();
         Expression object;
-        boolean objectIsImplicit = node.getMethodSelect() instanceof JCTree.JCIdent;
-        if (objectIsImplicit) {
+        String methodName;
+        if (methodSelect instanceof IdentifierTree it) {
             object = runtime.newVariableExpressionBuilder().setVariable(runtime.newThis(currentType.asParameterizedType()))
                     .setSource(runtime.noSource()).build();
-        } else {
-            scan(node.getMethodSelect(), p);
+            methodName = it.getName().toString();
+        } else if (methodSelect instanceof MemberSelectTree mst) {
+            scan(mst.getExpression(), p);
             object = currentExpression;
-        }
+            methodName = mst.getIdentifier().toString();
+        } else throw new UnsupportedOperationException("?");
+        LOGGER.info("Method call to {}", methodName);
 
         List<Expression> arguments = new ArrayList<>(node.getArguments().size());
         for (var arg : node.getArguments()) {
@@ -255,22 +309,22 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
         var element = trees.getElement(getCurrentPath());
         if (element != null) {
-            System.out.print("  resolves to:" + element.toString());
-            System.out.print("  declared in:" + element.getEnclosingElement().toString());
+            LOGGER.info("  resolves to:" + element.toString());
+            LOGGER.info("  declared in:" + element.getEnclosingElement().toString());
         }
 
         // getTypeMirror on a method invocation gives you the *return type*
         // of the call expression as seen by the type checker.
         var returnType = trees.getTypeMirror(getCurrentPath());
         if (returnType != null) {
-            System.out.print("  return type:" + returnType.toString());
+            LOGGER.info("  return type:" + returnType.toString());
         }
         super.visitMethodInvocation(node, p);
 
         currentExpression = runtime.newMethodCallBuilder()
                 .setSource(sourceForNode(node))
-                .setObjectIsImplicit(objectIsImplicit)
-                .setObject(runtime.newEmptyExpression()) // object
+                .setObjectIsImplicit(methodSelect instanceof IdentifierTree)
+                .setObject(object == null ? runtime.newEmptyExpression(): object)
                 .setMethodInfo(runtime.assignAndOperatorBool())
                 .setParameterExpressions(arguments)
                 .setConcreteReturnType(runtime.intParameterizedType())
@@ -289,17 +343,30 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         if (element != null) {
             // Filter out TYPE and PACKAGE identifiers for brevity;
             // you probably want all of these in a real analyzer.
+            String name = node.getName().toString();
             switch (element.getKind()) {
-                case LOCAL_VARIABLE, PARAMETER, FIELD, ENUM_CONSTANT -> {
-                    System.out.print("IDENT:" + node.getName().toString());
-                    System.out.print("  kind:" + element.getKind().toString());
-                    var type = trees.getTypeMirror(getCurrentPath());
-                    if (type != null) System.out.print("  type:" + type.toString());
+                case FIELD -> {
+                    LOGGER.info("Field {}", name);
+                    if (element instanceof Symbol.VarSymbol vs) {
+                        String owner = vs.owner.toString();
+                        TypeInfo typeInfoOwner = typeTable.get(owner);
+                        FieldInfo fieldInfo = typeInfoOwner.getFieldByName(name, true);
+                        currentExpression = runtime.newVariableExpressionBuilder()
+                                .setSource(sourceForNode(node))
+                                .setVariable(runtime.newFieldReference(fieldInfo))
+                                .build();
+                    }
                 }
-                default -> { /* skip type/package refs for brevity */ }
+                case LOCAL_VARIABLE, PARAMETER, ENUM_CONSTANT -> {
+                    LOGGER.info("variable identifier:" + node.getName().toString());
+                    LOGGER.info("  kind:" + element.getKind().toString());
+                    var type = trees.getTypeMirror(getCurrentPath());
+                    if (type != null) LOGGER.info("  type:" + type.toString());
+                }
+
             }
         }
-        return super.visitIdentifier(node, p);
+        return null;// super.visitIdentifier(node, p);
     }
 
     // -- If you want to see EVERY node, uncomment this: ------------------
