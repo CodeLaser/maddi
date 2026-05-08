@@ -255,10 +255,12 @@ public class MyMethodVisitor extends MethodVisitor {
             throw e;
         }
         methodInfo.builder().setMethodBody(runtime.emptyBlock());
-        Set<MethodInfo> overrides = computeMethodOverrides.overrides(methodInfo);
-        methodInfo.builder().addOverrides(overrides);
-
-        methodInfo.builder().commit();
+        if (!"java.lang".equals(methodInfo.typeInfo().packageName())) {
+            Set<MethodInfo> overrides = computeMethodOverrides.overrides(methodInfo);
+            methodInfo.builder().addOverrides(overrides);
+            methodInfo.builder().commit();
+        } // else: delay: when computing the overrides of java.lang.Throwable.toString, the methods of java.lang.Object
+        // have not yet been computed completely. See TestOverride4,3
         if (methodInfo.isConstructor()) {
             typeInfo.builder().addConstructor(methodInfo);
         } else {

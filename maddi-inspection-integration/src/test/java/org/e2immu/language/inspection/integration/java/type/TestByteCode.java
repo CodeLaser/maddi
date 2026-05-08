@@ -64,7 +64,7 @@ public class TestByteCode extends CommonTest {
                     inspectedJavaUtil++;
                 }
             } else {
-                assertTrue(ti.haveOnDemandInspection());
+                assertTrue(ti.haveOnDemandInspection(), "TI = "+ti);
             }
         }
         LOGGER.info("Known {}, inspected {} loaded {}; java.util*: {}, {}", known.get(), inspected, loaded.size(),

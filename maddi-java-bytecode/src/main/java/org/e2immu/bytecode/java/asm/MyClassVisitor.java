@@ -430,7 +430,9 @@ public class MyClassVisitor extends ClassVisitor {
                 }
 
                 currentTypeBuilder.setSingleAbstractMethod(functionalInterface());
-                currentTypeBuilder.commit();
+                if (!"java.lang".equals(currentType.packageName())) {
+                    currentTypeBuilder.commit();
+                } // delay because of method delay
                 currentTypeBuilder = null;
             } catch (RuntimeException rte) {
                 LOGGER.error("Caught exception bytecode inspecting type {}", currentType.fullyQualifiedName());

@@ -24,6 +24,7 @@ import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.impl.info.ComputeMethodOverridesImpl;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -187,6 +188,7 @@ public class JavaInspectorImpl implements JavaInspector {
             for (String packageName : new String[]{"java.lang", "java.util.function"}) {
                 preload(packageName);
             }
+            commitDelayedJavaLang();
 
             Resources sourcePath = assembleSourcePath(inputConfiguration.workingDirectory(),
                     inputConfiguration.sourceSets(), initializationProblems);
@@ -299,6 +301,11 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public void preload(String thePackage) {
         compiledTypesManager.preload(thePackage);
+    }
+
+    private void commitDelayedJavaLang() {
+        ComputeMethodOverrides cmo = new ComputeMethodOverridesImpl(runtime);
+        ((CompiledTypesManagerImpl) compiledTypesManager).commitDelayedJavaLang(cmo);
     }
 
     private Resources assembleClassPath(Path workingDirectory,
