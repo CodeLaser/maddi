@@ -25,8 +25,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestOverride4 extends CommonTest2 {
     @Language("java")
@@ -71,5 +70,21 @@ public class TestOverride4 extends CommonTest2 {
         assertEquals("java.lang.StringBuilder.append(char)", sbAppend.fullyQualifiedName());
         assertEquals("java.lang.AbstractStringBuilder.append(char), java.lang.Appendable.append(char)",
                 sbAppend.overrides().stream().map(MethodInfo::fullyQualifiedName).sorted().collect(Collectors.joining(", ")));
+    }
+
+
+    @Test
+    public void test3() throws IOException {
+        init(Map.of());
+        TypeInfo object = javaInspector.runtime().objectTypeInfo();
+        TypeInfo object2 = javaInspector.compiledTypesManager().get(Object.class);
+        assertSame(object, object2);
+
+        assertEquals(12, object.methods().size());
+        TypeInfo sb = javaInspector.compiledTypesManager().getOrLoad(Throwable.class);
+        MethodInfo throwableToString = sb.findUniqueMethod("toString", 0);
+        assertEquals("java.lang.Throwable.toString()", throwableToString.fullyQualifiedName());
+        assertEquals("java.lang.Object.toString()",
+                throwableToString.overrides().stream().map(MethodInfo::fullyQualifiedName).sorted().collect(Collectors.joining(", ")));
     }
 }

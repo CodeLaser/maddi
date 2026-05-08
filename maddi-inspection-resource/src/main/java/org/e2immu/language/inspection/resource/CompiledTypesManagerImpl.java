@@ -15,6 +15,8 @@
 package org.e2immu.language.inspection.resource;
 
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.ComputeMethodOverrides;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
@@ -392,4 +394,33 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         List<TypeData> typeDataList = typeTrie.get(parts);
         return typeDataList == null ? null : typeDataList.stream().map(TypeData::sourceFile).toList();
     }
+
+    // see MethodVisitor: we delay committing methods because we cannot yet compute the overrides
+    // (TestOverride4, when we want to compute the overrides of java.lang.Throwable.toString(), java.lang.Object
+    // has not been analyzed completely yet).
+    public void commitDelayedJavaLang(ComputeMethodOverrides computeMethodOverrides) {
+        trieLock.readLock().lock();
+        try {
+            typeTrie.visitDoNotRecurse(new String[]{"java", "lang"}, tds -> {
+                if (tds != null) {
+                    for (TypeData typeData : tds) {
+                        commitTypeRecursively(typeData.typeInfo(), computeMethodOverrides);
+                    }
+                }
+            });
+        } finally {
+            trieLock.readLock().unlock();
+        }
+    }
+
+    private void commitTypeRecursively(TypeInfo typeInfo, ComputeMethodOverrides computeMethodOverrides) {
+        typeInfo.subTypes().forEach(st -> commitTypeRecursively(st, computeMethodOverrides));
+        typeInfo.constructorAndMethodStream().forEach(mi -> {
+            Set<MethodInfo> overrides = computeMethodOverrides.overrides(mi);
+            mi.builder().addOverrides(overrides);
+            mi.builder().commit();
+        });
+        typeInfo.builder().commit();
+    }
+
 }

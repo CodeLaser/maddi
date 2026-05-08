@@ -540,7 +540,8 @@ public class TestImport extends CommonTest {
     public void test18() {
         TypeInfo X = javaInspector.parse(INPUT18);
         MethodInfo method = X.findUniqueMethod("method", 2);
-        assertEquals("Type java.security.cert.Certificate", method.parameters().get(0).parameterizedType().toString());
+        assertEquals("Type java.security.cert.Certificate",
+                method.parameters().getFirst().parameterizedType().toString());
     }
 
 
