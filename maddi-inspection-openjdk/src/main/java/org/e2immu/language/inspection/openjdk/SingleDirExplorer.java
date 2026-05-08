@@ -1,7 +1,9 @@
 package org.e2immu.language.inspection.openjdk;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.LineMap;
 import com.sun.source.util.JavacTask;
+import com.sun.source.util.SourcePositions;
 import com.sun.source.util.Trees;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -140,7 +142,11 @@ public class SingleDirExplorer {
                         .setPackageName(unit.getPackageName().toString())
                         .setSourceSet(sourceSet)
                         .build();
-                AnalysisScanner analysisScanner = new AnalysisScanner(runtime, compilationUnit, trees, System.out);
+
+                SourcePositions sourcePositions = trees.getSourcePositions();
+                LineMap lineMap = unit.getLineMap();
+
+                AnalysisScanner analysisScanner = new AnalysisScanner(runtime, compilationUnit, unit, trees, sourcePositions, lineMap);
                 analysisScanner.scan(unit, null);
                 types.addAll(analysisScanner.types());
             }
