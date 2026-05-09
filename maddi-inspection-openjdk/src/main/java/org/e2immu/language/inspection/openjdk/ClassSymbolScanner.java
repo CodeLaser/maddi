@@ -1,5 +1,6 @@
 package org.e2immu.language.inspection.openjdk;
 
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -37,13 +38,14 @@ public record ClassSymbolScanner(Runtime runtime,
         //The following completely loads 'cs'
         List<? extends Element> members = elements.getAllMembers(cs);
         for (var member : members) {
-            scanByteCode(newTypeInfo, member);
+            addMemberToType(newTypeInfo, member);
         }
         return newTypeInfo;
     }
 
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+)!/.*");
     private static final Pattern JAVA_RUNTIME = Pattern.compile("jrt:/([^/]+)/.*");
+
     private SourceSet ensureSourceSet(URI uri) {
         Matcher m = JAR_FILE.matcher(uri.toString());
         if (m.matches()) {
@@ -61,7 +63,7 @@ public record ClassSymbolScanner(Runtime runtime,
         Matcher rt = JAVA_RUNTIME.matcher(uri.toString());
         if (rt.matches()) {
             String module = rt.group(1);
-            URI jarUri = URI.create("jmod:"+module);
+            URI jarUri = URI.create("jmod:" + module);
             SourceSet known = typeData.getSourceSet(module);
             if (known == null) {
                 SourceSet sourceSet = new SourceSetImpl(module, jarUri, false, false, true,
@@ -74,12 +76,21 @@ public record ClassSymbolScanner(Runtime runtime,
         throw new UnsupportedOperationException("NYI");
     }
 
-    private void scanByteCode(TypeInfo typeInfo, Element member) {
+    private void addMemberToType(TypeInfo typeInfo, Element member) {
         if (member instanceof Symbol.MethodSymbol ms) {
             String name = ms.getSimpleName().toString();
             LOGGER.info("Adding member {} to {}", name, typeInfo);
-            MethodInfo method = runtime.newMethod(typeInfo, name, runtime.methodTypeMethod());
-            typeInfo.builder().addMethod(method);
+            MethodInfo method;
+            if ("<init>".equals(name)) {
+                method = runtime.newConstructor(typeInfo);
+            } else {
+                boolean isStatic = (ms.flags() & Flags.STATIC) != 0;
+                method = runtime.newMethod(typeInfo, name,
+                        isStatic ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
+                typeInfo.builder().addMethod(method);
+            }
+            flagHelper.method(ms.flags(), method.builder());
+            typeData.put(ms, method);
         }
     }
 

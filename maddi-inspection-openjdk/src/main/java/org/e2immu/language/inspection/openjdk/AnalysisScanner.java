@@ -48,6 +48,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final FlagHelper flagHelper;
     private final ConvertType convertType;
     private final TypeData typeData;
+    private final Elements elements;
 
     AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit,
                     CompilationUnitTree compilationUnitTree,
@@ -60,6 +61,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         this.lineMap = lineMap;
         this.sourcePositions = sourcePositions;
         this.compilationUnitTree = compilationUnitTree;
+        this.elements = elements;
+
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
         ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, flagHelper, elements, typeData);
@@ -123,21 +126,25 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         MethodInfo methodInfo;
         // construction of the method
         TypeInfo currentType = typeStack.getLast();
+        long methodFlags = jcMethod.getModifiers().flags;
         if ("<init>".equals(methodName)) {
             methodInfo = runtime.newConstructor(currentType);
             currentType.builder().addConstructor(methodInfo);
             methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
 
         } else {
-            methodInfo = runtime.newMethod(currentType, methodName, runtime.methodTypeMethod());
+            boolean isStatic = (methodFlags & Flags.STATIC) != 0;
+            methodInfo = runtime.newMethod(currentType, methodName,
+                    isStatic ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
             currentType.builder().addMethod(methodInfo);
 
             ParameterizedType returnType = convertType.convert(node.getReturnType());
             methodInfo.builder().setReturnType(returnType);
         }
+        typeData.put(jcMethod.sym, methodInfo);
 
         // flags
-        flagHelper.method(jcMethod, methodInfo.builder());
+        flagHelper.method(methodFlags, methodInfo.builder());
 
         // parameters
         for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
@@ -266,7 +273,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     }
 
     // -- Expressions ---------------------------------------------
-    
+
     @Override
     public Void visitBinary(BinaryTree node, Void unused) {
         JCTree.JCBinary binary = (JCTree.JCBinary) node;
@@ -308,7 +315,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             String name = node.getName().toString();
             switch (element.getKind()) {
                 case FIELD -> {
-                    LOGGER.info("Field {}", name);
                     if (element instanceof Symbol.VarSymbol vs) {
                         String owner = vs.owner.toString();
                         TypeInfo typeInfoOwner = typeData.getType(owner);
@@ -317,23 +323,32 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                                 .setSource(sourceForNode(node))
                                 .setVariable(runtime.newFieldReference(fieldInfo))
                                 .build();
-                    }
+                    } else throw new UnsupportedOperationException();
                 }
                 case LOCAL_VARIABLE -> {
-                    LOGGER.info("Local variable {}", name);
                     Variable variable = (LocalVariable) findInElementStack(name);
                     currentExpression = runtime.newVariableExpressionBuilder()
                             .setSource(sourceForNode(node))
                             .setVariable(variable)
                             .build();
                 }
-                case PARAMETER, ENUM_CONSTANT -> {
-                    LOGGER.info("variable identifier:" + node.getName().toString());
-                    LOGGER.info("  kind:" + element.getKind().toString());
-                    var type = trees.getTypeMirror(getCurrentPath());
-                    if (type != null) LOGGER.info("  type:" + type.toString());
-                }
+                // case PARAMETER, ENUM_CONSTANT -> {
 
+                // }
+                case PACKAGE -> {
+                    LOGGER.debug("Skipping package {}", node);
+                }
+                case CLASS -> {
+                    if (element instanceof Symbol.ClassSymbol classSymbol) {
+                        ParameterizedType type = convertType.convert(classSymbol.type);
+                        currentExpression = runtime.newTypeExpressionBuilder()
+                                .setDiamond(runtime.diamondNo()) // TODO
+                                .setParameterizedType(type)
+                                .build();
+                    } else throw new UnsupportedOperationException("NYI");
+                    LOGGER.info("?");
+                }
+                default -> throw new UnsupportedOperationException("NYI: " + element.getKind());
             }
         }
         return null;// super.visitIdentifier(node, p);
@@ -376,6 +391,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         boolean objectIsImplicit;
         boolean explicitConstructorInvocation;
         ParameterizedType concreteReturnType;
+        MethodInfo methodInfo;
 
         if (methodSelect instanceof IdentifierTree it) {
             TypeInfo currentType = typeStack.getLast(); // FIXME temp value, can also be static
@@ -384,12 +400,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 explicitConstructorInvocation = true;
                 object = null;
                 concreteReturnType = runtime.parameterizedTypeReturnTypeOfConstructor();
+                methodInfo = null;
             } else {
                 object = runtime.newVariableExpressionBuilder()
                         .setVariable(runtime.newThis(currentType.asParameterizedType()))
                         .setSource(runtime.noSource()).build();
                 concreteReturnType = convertType.convert(methodInvocation.type);
                 explicitConstructorInvocation = false;
+                if (it instanceof JCTree.JCIdent jcIdent && jcIdent.sym instanceof Symbol.MethodSymbol methodSymbol) {
+                    methodInfo = typeData.getMethod(methodSymbol);
+                } else throw new UnsupportedOperationException("NYI");
             }
             objectIsImplicit = true;
         } else if (methodSelect instanceof MemberSelectTree mst) {
@@ -399,6 +419,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             objectIsImplicit = false;
             concreteReturnType = convertType.convert(methodInvocation.type);
             explicitConstructorInvocation = false;
+            if (methodInvocation.meth instanceof JCTree.JCFieldAccess fieldAccess
+                && fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
+                methodInfo = typeData.getMethod(methodSymbol);
+                if (methodInfo == null) {
+                    throw new UnsupportedOperationException("Cannot find method " + fieldAccess);
+                }
+            } else throw new UnsupportedOperationException("NYI");
         } else throw new UnsupportedOperationException("NYI");
 
         LOGGER.info("Method call to {}", methodName);
@@ -429,11 +456,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             currentBlockBuilder.addStatement(statement);
             currentExpression = null; // as a marker for ExpressionAsStatement
         } else {
+            assert methodInfo != null;
             currentExpression = runtime.newMethodCallBuilder()
                     .setSource(sourceForNode(node))
                     .setObjectIsImplicit(objectIsImplicit)
                     .setObject(object == null ? runtime.newEmptyExpression() : object)
-                    .setMethodInfo(runtime.assignAndOperatorBool())
+                    .setMethodInfo(methodInfo)
                     .setParameterExpressions(arguments)
                     .setConcreteReturnType(concreteReturnType)
                     .build();
