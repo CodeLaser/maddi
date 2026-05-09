@@ -3,6 +3,7 @@ package org.e2immu.language.inspection.openjdk;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
@@ -68,11 +69,11 @@ public class TestClass1 {
             } else fail();
         } else fail();
         Statement return3 = method.methodBody().statements().getLast();
-        assertEquals("12-9:12-17", return3.source().compact2());
+        assertEquals("15-9:15-17", return3.source().compact2());
         if (return3 instanceof ReturnStatement rs) {
             if (rs.expression() instanceof IntConstant ic) {
                 assertEquals(3, ic.constant());
-                assertEquals("12-16:12-16", ic.source().compact2());
+                assertEquals("15-16:15-16", ic.source().compact2());
             } else fail();
         } else fail();
 
@@ -95,10 +96,17 @@ public class TestClass1 {
                 assertEquals("j", lv.simpleName());
             } else fail();
         } else fail();
-        
+
         TypeInfo enclosed = class1.findSubType("Enclosed");
         assertFalse(enclosed.isInnerClass());
         assertTrue(enclosed.isStatic());
         assertSame(class1, enclosed.compilationUnitOrEnclosingType().getRight());
+        assertEquals("T", enclosed.typeParameters().getFirst().simpleName());
+
+        MethodInfo compareTo = enclosed.findUniqueMethod("compareTo", 1);
+        assertEquals(1, compareTo.parameters().size());
+        ParameterInfo p0 = compareTo.parameters().getFirst();
+        assertEquals("Type org.e2immu.example.Class1.Enclosed<T>", p0.parameterizedType().toString());
+        assertEquals(1, p0.annotations().size());
     }
 }

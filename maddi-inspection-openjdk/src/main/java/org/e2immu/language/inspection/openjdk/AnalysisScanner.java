@@ -10,11 +10,10 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
@@ -33,7 +32,7 @@ import java.util.*;
 class AnalysisScanner extends TreePathScanner<Void, Void> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
     private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
-    private final Deque<Map<String, Variable>> variableStack = new ArrayDeque<>();
+    private final Deque<Map<String, Element>> elementStack = new ArrayDeque<>();
 
     private final Runtime runtime;
     private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
@@ -88,15 +87,29 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             enclosed.builder().addSubType(typeInfo);
         }
         typeStack.addLast(typeInfo);
+        elementStack.addLast(new HashMap<>());
         typeData.put(typeInfo);
+
+        // flags: modifiers, type nature
         flagHelper.type(jcClassDecl.getModifiers().flags, typeInfo.builder());
 
+        // type parameters
+        for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
+            int index = jcTypeParameter.pos;
+            String name = jcTypeParameter.getName().toString();
+            TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
+            typeInfo.builder().addOrSetTypeParameter(tp);
+            elementStack.getLast().put(name, tp);
+        }
+
+        // members: methods, fields
         for (var member : node.getMembers()) {
             currentMethod = null;
             scan(member, p);
         }
 
         typeStack.removeLast();
+        elementStack.removeLast();
         return null;
     }
 
@@ -106,34 +119,46 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     public Void visitMethod(MethodTree node, Void p) {
         JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
         String methodName = node.getName().toString();
-
+        MethodInfo methodInfo;
+        // construction of the method
         TypeInfo currentType = typeStack.getLast();
         if ("<init>".equals(methodName)) {
-            currentMethod = runtime.newConstructor(currentType);
-            currentType.builder().addConstructor(currentMethod);
-            currentMethod.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+            methodInfo = runtime.newConstructor(currentType);
+            currentType.builder().addConstructor(methodInfo);
+            methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
 
         } else {
-            currentMethod = runtime.newMethod(currentType, methodName, runtime.methodTypeMethod());
-            currentType.builder().addMethod(currentMethod);
+            methodInfo = runtime.newMethod(currentType, methodName, runtime.methodTypeMethod());
+            currentType.builder().addMethod(methodInfo);
 
             ParameterizedType returnType = convertType(node.getReturnType());
-            currentMethod.builder().setReturnType(returnType);
+            methodInfo.builder().setReturnType(returnType);
         }
 
-        flagHelper.method(jcMethod, currentMethod.builder());
+        // flags
+        flagHelper.method(jcMethod, methodInfo.builder());
 
-        // getElement() gives you the javax.lang.model.element.Element for
-        // this declaration — here an ExecutableElement for the method.
-        // You can cast it to query parameter types, return type, throws, etc.
-        var element = trees.getElement(getCurrentPath());
+        // parameters
+        for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
+            String name = jcVariableDecl.getName().toString();
+            ParameterizedType type = convertType(jcVariableDecl.getType());
+            ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
 
+            long flags = jcVariableDecl.getModifiers().flags;
+            boolean isFinal = (flags & Flags.FINAL) != 0;
+            boolean varargs = (flags & Flags.VARARGS) != 0;
+            parameterInfo.builder().setVarArgs(varargs).setIsFinal(isFinal).commit();
+        }
+
+        // method body
         currentBlockBuilder = runtime.newBlockBuilder();
-        variableStack.addLast(new HashMap<>());
+        elementStack.addLast(new HashMap<>());
+        currentMethod = methodInfo;
         super.visitMethod(node, p);
-        variableStack.removeLast();
+        elementStack.removeLast();
+        currentMethod = null;
 
-        currentMethod.builder()
+        methodInfo.builder()
                 .setSource(sourceForNode(node))
                 .addComments(commentsForNode(node))
                 .setMethodBody(currentBlockBuilder.build())
@@ -165,13 +190,24 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 String fullyQualifiedType = ct.toString();
                 TypeInfo typeInfo = typeData.getType(fullyQualifiedType);
                 if (typeInfo == null) {
+                    // on-demand loading; should be replaced by import handling?
                     if (ct.tsym instanceof Symbol.ClassSymbol cs) {
                         TypeInfo newType = classSymbolScanner.typeInfo(cs);
                         typeData.put(newType);
                         return newType.asParameterizedType();
-                    }
+                    } else throw new UnsupportedOperationException("NYI");
                 }
+                return typeInfo.asParameterizedType();
+            } else if (identifier.type instanceof Type.TypeVar) {
+                String typeParameterName = identifier.getName().toString();
+                TypeParameter tp = (TypeParameter) findInElementStack(typeParameterName);
+                return runtime.newParameterizedType(tp, 0, null);
             }
+        }
+        if (type instanceof JCTree.JCTypeApply apply) {
+            ParameterizedType base = convertType(apply.getType());
+            List<ParameterizedType> parameters = apply.getTypeArguments().stream().map(this::convertType).toList();
+            return runtime.newParameterizedType(base.typeInfo(), parameters);
         }
         throw new UnsupportedOperationException("NYI");
     }
@@ -266,7 +302,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                             .setLocalVariable(localVariable);
                     if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
                     currentBlockBuilder.addStatement(lvcb.build());
-                    variableStack.getLast().put(localVariable.simpleName(), localVariable);
+                    elementStack.getLast().put(localVariable.simpleName(), localVariable);
                 }
             }
         }
@@ -367,7 +403,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 }
                 case LOCAL_VARIABLE -> {
                     LOGGER.info("Local variable {}", name);
-                    Variable variable = (LocalVariable) findVariableInStack(name);
+                    Variable variable = (LocalVariable) findInElementStack(name);
                     currentExpression = runtime.newVariableExpressionBuilder()
                             .setSource(sourceForNode(node))
                             .setVariable(variable)
@@ -387,18 +423,18 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     @Override
     public Void visitBlock(BlockTree node, Void unused) {
-        variableStack.push(new HashMap<>());
+        elementStack.push(new HashMap<>());
         super.visitBlock(node, unused);
-        variableStack.pop();
+        elementStack.pop();
         return null;
     }
 
-    private Variable findVariableInStack(String name) {
-        for (Map<String, Variable> map : variableStack.reversed()) {
-            Variable v = map.get(name);
+    private Element findInElementStack(String name) {
+        for (Map<String, Element> map : elementStack.reversed()) {
+            Element v = map.get(name);
             if (v != null) return v;
         }
-        throw new UnsupportedOperationException("Cannot find variable " + name + " on stack");
+        throw new UnsupportedOperationException("Cannot find element '" + name + "' on stack");
     }
 
     // -- If you want to see EVERY node, uncomment this: ------------------

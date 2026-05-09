@@ -42,10 +42,10 @@ public record ClassSymbolScanner(Runtime runtime,
         return newTypeInfo;
     }
 
-    private static final Pattern PATTERN = Pattern.compile("(jar:file:.+)/([^/!]+)!/.*");
-
+    private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+)!/.*");
+    private static final Pattern JAVA_RUNTIME = Pattern.compile("jrt:/([^/]+)/.*");
     private SourceSet ensureSourceSet(URI uri) {
-        Matcher m = PATTERN.matcher(uri.toString());
+        Matcher m = JAR_FILE.matcher(uri.toString());
         if (m.matches()) {
             String jarName = m.group(2);
             URI jarUri = URI.create(m.group(1) + "/" + m.group(2));
@@ -53,6 +53,19 @@ public record ClassSymbolScanner(Runtime runtime,
             if (known == null) {
                 SourceSet sourceSet = new SourceSetImpl(jarName, jarUri, false, false, true,
                         true, false);
+                typeData.put(sourceSet);
+                return sourceSet;
+            }
+            return known;
+        }
+        Matcher rt = JAVA_RUNTIME.matcher(uri.toString());
+        if (rt.matches()) {
+            String module = rt.group(1);
+            URI jarUri = URI.create("jmod:"+module);
+            SourceSet known = typeData.getSourceSet(module);
+            if (known == null) {
+                SourceSet sourceSet = new SourceSetImpl(module, jarUri, false, false, true,
+                        true, true);
                 typeData.put(sourceSet);
                 return sourceSet;
             }
