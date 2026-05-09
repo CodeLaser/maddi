@@ -6,7 +6,6 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
@@ -20,13 +19,13 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import java.util.*;
@@ -47,7 +46,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final LineMap lineMap;
     private final CompilationUnitTree compilationUnitTree;
     private final FlagHelper flagHelper;
-    private final ClassSymbolScanner classSymbolScanner;
+    private final ConvertType convertType;
     private final TypeData typeData;
 
     AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit,
@@ -63,11 +62,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         this.compilationUnitTree = compilationUnitTree;
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
-        classSymbolScanner = new ClassSymbolScanner(runtime, flagHelper, elements, typeData);
+        ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, flagHelper, elements, typeData);
+        convertType = new ConvertType(runtime, classSymbolScanner, typeData, this::findInElementStack);
     }
 
-    // -- Indentation helper ----------------------------------------------
-
+    // result
     public Collection<TypeInfo> types() {
         return collectedPrimaryTypes;
     }
@@ -133,7 +132,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             methodInfo = runtime.newMethod(currentType, methodName, runtime.methodTypeMethod());
             currentType.builder().addMethod(methodInfo);
 
-            ParameterizedType returnType = convertType(node.getReturnType());
+            ParameterizedType returnType = convertType.convert(node.getReturnType());
             methodInfo.builder().setReturnType(returnType);
         }
 
@@ -143,7 +142,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         // parameters
         for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
             String name = jcVariableDecl.getName().toString();
-            ParameterizedType type = convertType(jcVariableDecl.getType());
+            ParameterizedType type = convertType.convert(jcVariableDecl.getType());
             ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
 
             // flags
@@ -178,65 +177,36 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         return null;
     }
 
+    // -- Annotations ---------------------------------------------
+
     private AnnotationExpression convertAnnotation(JCTree.JCAnnotation annotation) {
-        ParameterizedType at = convertType(annotation.getAnnotationType());
+        ParameterizedType at = convertType.convert(annotation.getAnnotationType());
         return runtime.newAnnotationExpressionBuilder().setTypeInfo(at.typeInfo()).build();
     }
 
-    private ParameterizedType convertType(Type type) {
-        if (type instanceof Type.JCPrimitiveType primitiveType) {
-            return primitiveType(primitiveType.getKind());
-        }
-        throw new UnsupportedOperationException("NYI");
+    // -- Statements ---------------------------------------------
+
+    @Override
+    public Void visitBlock(BlockTree node, Void unused) {
+        elementStack.push(new HashMap<>());
+        super.visitBlock(node, unused);
+        elementStack.pop();
+        return null;
     }
 
-    private ParameterizedType convertType(Tree type) {
-        if (type == null) return runtime.voidParameterizedType();
-        if (type instanceof JCTree.JCPrimitiveTypeTree ptt) {
-            TypeKind primitiveTypeKind = ptt.typetag.getPrimitiveTypeKind();
-            if (primitiveTypeKind != null) {
-                return primitiveType(primitiveTypeKind);
-            }
-        }
-        if (type instanceof JCTree.JCIdent identifier) {
-            if (identifier.type instanceof Type.ClassType ct) {
-                String fullyQualifiedType = ct.toString();
-                TypeInfo typeInfo = typeData.getType(fullyQualifiedType);
-                if (typeInfo == null) {
-                    // on-demand loading; should be replaced by import handling?
-                    if (ct.tsym instanceof Symbol.ClassSymbol cs) {
-                        TypeInfo newType = classSymbolScanner.typeInfo(cs);
-                        typeData.put(newType);
-                        return newType.asParameterizedType();
-                    } else throw new UnsupportedOperationException("NYI");
-                }
-                return typeInfo.asParameterizedType();
-            } else if (identifier.type instanceof Type.TypeVar) {
-                String typeParameterName = identifier.getName().toString();
-                TypeParameter tp = (TypeParameter) findInElementStack(typeParameterName);
-                return runtime.newParameterizedType(tp, 0, null);
-            }
-        }
-        if (type instanceof JCTree.JCTypeApply apply) {
-            ParameterizedType base = convertType(apply.getType());
-            List<ParameterizedType> parameters = apply.getTypeArguments().stream().map(this::convertType).toList();
-            return runtime.newParameterizedType(base.typeInfo(), parameters);
-        }
-        throw new UnsupportedOperationException("NYI");
-    }
-
-    private ParameterizedType primitiveType(TypeKind primitiveTypeKind) {
-        return switch (primitiveTypeKind) {
-            case VOID -> runtime.voidParameterizedType();
-            case INT -> runtime.intParameterizedType();
-            case DOUBLE -> runtime.doubleParameterizedType();
-            case LONG -> runtime.longParameterizedType();
-            case FLOAT -> runtime.floatParameterizedType();
-            case SHORT -> runtime.shortParameterizedType();
-            case BOOLEAN -> runtime.booleanParameterizedType();
-            case CHAR -> runtime.charParameterizedType();
-            default -> throw new UnsupportedOperationException();
-        };
+    @Override
+    public Void visitExpressionStatement(ExpressionStatementTree node, Void unused) {
+        LOGGER.info("Expression statement");
+        super.visitExpressionStatement(node, unused);
+        if (currentExpression != null) {
+            ExpressionAsStatement statement = runtime.newExpressionAsStatementBuilder()
+                    .setSource(sourceForNode(node))
+                    .addComments(commentsForNode(node))
+                    .setExpression(currentExpression)
+                    .build();
+            currentBlockBuilder.addStatement(statement);
+        } // else: was explicit constructor invocation, a statement
+        return null;
     }
 
     @Override
@@ -251,96 +221,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         return null;
     }
 
-    @Override
-    public Void visitExpressionStatement(ExpressionStatementTree node, Void unused) {
-        LOGGER.info("Expression statement");
-        super.visitExpressionStatement(node, unused);
-        assert currentExpression != null;
-        ExpressionAsStatement statement = runtime.newExpressionAsStatementBuilder()
-                .setSource(sourceForNode(node))
-                .addComments(commentsForNode(node))
-                .setExpression(currentExpression)
-                .build();
-        currentBlockBuilder.addStatement(statement);
-        return null;
-    }
-
-    @Override
-    public Void visitUnary(UnaryTree node, Void unused) {
-        JCTree.JCUnary unary = (JCTree.JCUnary) node;
-        scan(unary.getExpression(), unused);
-        Expression expression = currentExpression;
-        JCTree.Tag opcode = unary.getTag();
-        MethodInfo operator = switch (opcode) {
-            case BITXOR -> runtime.bitWiseNotOperatorInt();
-            case NEG -> runtime.logicalNotOperatorBool();
-            default -> throw new UnsupportedOperationException();
-        };
-        Precedence precedence = runtime.precedenceUnary();
-        currentExpression = runtime.newUnaryOperator(List.of(), sourceForNode(node), operator, expression, precedence);
-        return null;
-    }
-
-    @Override
-    public Void visitBinary(BinaryTree node, Void unused) {
-        JCTree.JCBinary binary = (JCTree.JCBinary) node;
-        scan(node.getLeftOperand(), unused);
-        Expression lhs = currentExpression;
-        scan(node.getRightOperand(), unused);
-        Expression rhs = currentExpression;
-        JCTree.Tag opcode = binary.getTag();
-        MethodInfo operator = switch (opcode) {
-            case PLUS -> runtime.plusOperatorInt();
-            case MINUS -> runtime.minusOperatorInt();
-            case MUL -> runtime.multiplyOperatorInt();
-            case DIV -> runtime.divideOperatorInt();
-            case EQ -> runtime.equalsOperatorInt();
-            default -> throw new UnsupportedOperationException("NYI");
-        };
-        Precedence precedence = switch (opcode) {
-            case PLUS, MINUS -> runtime.precedenceAdditive();
-            case MUL, DIV -> runtime.precedenceMultiplicative();
-            default -> throw new UnsupportedOperationException();
-        };
-        ParameterizedType type = convertType(binary.type);
-        currentExpression = runtime.newBinaryOperatorBuilder()
-                .setLhs(lhs).setOperator(operator).setRhs(rhs)
-                .setSource(sourceForNode(node))
-                .setPrecedence(precedence)
-                .setParameterizedType(type)
-                .build();
-        return null;
-    }
-
-    @Override
-    public Void visitLiteral(LiteralTree node, Void unused) {
-        JCTree.JCLiteral literal = (JCTree.JCLiteral) node;
-
-        List<Comment> comments = List.of();
-        Source source = sourceForNode(node);
-        currentExpression = switch (literal.typetag) {
-            case INT -> runtime.newInt(comments, source, (Integer) literal.value);
-            case DOUBLE -> runtime.newDouble(comments, source, (Double) literal.value);
-            case LONG -> runtime.newLong(comments, source, (Long) literal.value);
-            case FLOAT -> runtime.newFloat(comments, source, (Float) literal.value);
-            case SHORT -> runtime.newShort(comments, source, (Short) literal.value);
-            case BOOLEAN -> runtime.newBoolean(comments, source, (Boolean) literal.value);
-            case CHAR -> runtime.newChar(comments, source, (Character) literal.value);
-            case CLASS -> {
-                Tree.Kind kind = literal.typetag.getKindLiteral();
-                if (Tree.Kind.STRING_LITERAL == kind) {
-                    yield runtime.newStringConstant(comments, source, (String) literal.value);
-                }
-                throw new UnsupportedOperationException("?");
-            }
-            default -> throw new UnsupportedOperationException();
-        };
-
-        return super.visitLiteral(node, unused);
-    }
-
-    // -- Variable declarations (fields and locals) -----------------------
-
+    // note: also field declarations
     @Override
     public Void visitVariable(VariableTree node, Void p) {
         LOGGER.info("VARIABLE:" + node.getName().toString());
@@ -352,7 +233,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
             if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
                 String name = varSymbol.toString();
-                ParameterizedType type = convertType(variableDecl.vartype);
+                ParameterizedType type = convertType.convert(variableDecl.vartype);
 
                 currentExpression = null;
                 scan(node.getInitializer(), p);
@@ -384,77 +265,39 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         return null;
     }
 
-    // -- Method calls ----------------------------------------------------
-    //
-    // This is probably the most important node for code-quality analysis.
-    // After attribution, getElement() on a method invocation path gives
-    // you the ExecutableElement of the *resolved* method — including the
-    // declaring class, parameter types, and return type — even through
-    // overloading and generics.
-
+    // -- Expressions ---------------------------------------------
+    
     @Override
-    public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
-
-
-        // The method select is usually a MemberSelectTree ("obj.method")
-        // or an IdentifierTree ("method"), both giving the method name.
-        ExpressionTree methodSelect = node.getMethodSelect();
-        String callSite = methodSelect.toString();
-        Expression object;
-        String methodName;
-        if (methodSelect instanceof IdentifierTree it) {
-            TypeInfo currentType = typeStack.getLast(); // FIXME temp value, can also be static
-            object = runtime.newVariableExpressionBuilder()
-                    .setVariable(runtime.newThis(currentType.asParameterizedType()))
-                    .setSource(runtime.noSource()).build();
-            methodName = it.getName().toString();
-        } else if (methodSelect instanceof MemberSelectTree mst) {
-            scan(mst.getExpression(), p);
-            object = currentExpression;
-            methodName = mst.getIdentifier().toString();
-        } else throw new UnsupportedOperationException("?");
-        LOGGER.info("Method call to {}", methodName);
-
-        List<Expression> arguments = new ArrayList<>(node.getArguments().size());
-        for (var arg : node.getArguments()) {
-            currentExpression = null;
-            scan(arg, p);
-            if (currentExpression == null) {
-                LOGGER.warn("Have unparsed expression");
-                currentExpression = runtime.newEmptyExpression();
-            }
-            arguments.add(currentExpression);
-        }
-
-        var element = trees.getElement(getCurrentPath());
-        if (element != null) {
-            LOGGER.info("  resolves to:" + element.toString());
-            LOGGER.info("  declared in:" + element.getEnclosingElement().toString());
-        }
-
-        // getTypeMirror on a method invocation gives you the *return type*
-        // of the call expression as seen by the type checker.
-        var returnType = trees.getTypeMirror(getCurrentPath());
-        if (returnType != null) {
-            LOGGER.info("  return type:" + returnType.toString());
-        }
-        super.visitMethodInvocation(node, p);
-
-        currentExpression = runtime.newMethodCallBuilder()
+    public Void visitBinary(BinaryTree node, Void unused) {
+        JCTree.JCBinary binary = (JCTree.JCBinary) node;
+        scan(node.getLeftOperand(), unused);
+        Expression lhs = currentExpression;
+        scan(node.getRightOperand(), unused);
+        Expression rhs = currentExpression;
+        JCTree.Tag opcode = binary.getTag();
+        MethodInfo operator = switch (opcode) {
+            case PLUS -> runtime.plusOperatorInt();
+            case MINUS -> runtime.minusOperatorInt();
+            case MUL -> runtime.multiplyOperatorInt();
+            case DIV -> runtime.divideOperatorInt();
+            case EQ -> runtime.equalsOperatorInt();
+            default -> throw new UnsupportedOperationException("NYI");
+        };
+        Precedence precedence = switch (opcode) {
+            case PLUS, MINUS -> runtime.precedenceAdditive();
+            case MUL, DIV -> runtime.precedenceMultiplicative();
+            default -> throw new UnsupportedOperationException();
+        };
+        ParameterizedType type = convertType.convert(binary.type);
+        currentExpression = runtime.newBinaryOperatorBuilder()
+                .setLhs(lhs).setOperator(operator).setRhs(rhs)
                 .setSource(sourceForNode(node))
-                .setObjectIsImplicit(methodSelect instanceof IdentifierTree)
-                .setObject(object == null ? runtime.newEmptyExpression() : object)
-                .setMethodInfo(runtime.assignAndOperatorBool())
-                .setParameterExpressions(arguments)
-                .setConcreteReturnType(runtime.intParameterizedType())
+                .setPrecedence(precedence)
+                .setParameterizedType(type)
                 .build();
         return null;
     }
 
-    // -- Identifier references -------------------------------------------
-    //
-    // An identifier is any bare name: a local variable, a field, a class
-    // name, a type parameter, etc.  getElement() tells you which one.
 
     @Override
     public Void visitIdentifier(IdentifierTree node, Void p) {
@@ -497,12 +340,124 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     }
 
     @Override
-    public Void visitBlock(BlockTree node, Void unused) {
-        elementStack.push(new HashMap<>());
-        super.visitBlock(node, unused);
-        elementStack.pop();
+    public Void visitLiteral(LiteralTree node, Void unused) {
+        JCTree.JCLiteral literal = (JCTree.JCLiteral) node;
+
+        List<Comment> comments = List.of();
+        Source source = sourceForNode(node);
+        currentExpression = switch (literal.typetag) {
+            case INT -> runtime.newInt(comments, source, (Integer) literal.value);
+            case DOUBLE -> runtime.newDouble(comments, source, (Double) literal.value);
+            case LONG -> runtime.newLong(comments, source, (Long) literal.value);
+            case FLOAT -> runtime.newFloat(comments, source, (Float) literal.value);
+            case SHORT -> runtime.newShort(comments, source, (Short) literal.value);
+            case BOOLEAN -> runtime.newBoolean(comments, source, (Boolean) literal.value);
+            case CHAR -> runtime.newChar(comments, source, (Character) literal.value);
+            case CLASS -> {
+                Tree.Kind kind = literal.typetag.getKindLiteral();
+                if (Tree.Kind.STRING_LITERAL == kind) {
+                    yield runtime.newStringConstant(comments, source, (String) literal.value);
+                }
+                throw new UnsupportedOperationException("?");
+            }
+            default -> throw new UnsupportedOperationException();
+        };
+
+        return super.visitLiteral(node, unused);
+    }
+
+    @Override
+    public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
+        JCTree.JCMethodInvocation methodInvocation = (JCTree.JCMethodInvocation) node;
+
+        ExpressionTree methodSelect = node.getMethodSelect();
+        Expression object;
+        String methodName;
+        boolean objectIsImplicit;
+        boolean explicitConstructorInvocation;
+        ParameterizedType concreteReturnType;
+
+        if (methodSelect instanceof IdentifierTree it) {
+            TypeInfo currentType = typeStack.getLast(); // FIXME temp value, can also be static
+            methodName = it.getName().toString();
+            if ("super".equals(methodName) || "this".equals(methodName)) {
+                explicitConstructorInvocation = true;
+                object = null;
+                concreteReturnType = runtime.parameterizedTypeReturnTypeOfConstructor();
+            } else {
+                object = runtime.newVariableExpressionBuilder()
+                        .setVariable(runtime.newThis(currentType.asParameterizedType()))
+                        .setSource(runtime.noSource()).build();
+                concreteReturnType = convertType.convert(methodInvocation.type);
+                explicitConstructorInvocation = false;
+            }
+            objectIsImplicit = true;
+        } else if (methodSelect instanceof MemberSelectTree mst) {
+            scan(mst.getExpression(), p);
+            object = currentExpression;
+            methodName = mst.getIdentifier().toString();
+            objectIsImplicit = false;
+            concreteReturnType = convertType.convert(methodInvocation.type);
+            explicitConstructorInvocation = false;
+        } else throw new UnsupportedOperationException("NYI");
+
+        LOGGER.info("Method call to {}", methodName);
+
+        List<Expression> arguments = new ArrayList<>(node.getArguments().size());
+        for (var arg : node.getArguments()) {
+            currentExpression = null;
+            scan(arg, p);
+            if (currentExpression == null) {
+                LOGGER.warn("Have unparsed expression");
+                currentExpression = runtime.newEmptyExpression();
+            }
+            arguments.add(currentExpression);
+        }
+
+        var element = trees.getElement(getCurrentPath());
+        if (element != null) {
+            LOGGER.info("  resolves to:" + element.toString());
+            LOGGER.info("  declared in:" + element.getEnclosingElement().toString());
+        }
+
+        if (explicitConstructorInvocation) {
+            Statement statement = runtime.newExplicitConstructorInvocationBuilder()
+                    .setIsSuper("super".equals(methodName))
+                    .setMethodInfo(runtime.assignAndOperatorBool())
+                    .setParameterExpressions(arguments)
+                    .build();
+            currentBlockBuilder.addStatement(statement);
+            currentExpression = null; // as a marker for ExpressionAsStatement
+        } else {
+            currentExpression = runtime.newMethodCallBuilder()
+                    .setSource(sourceForNode(node))
+                    .setObjectIsImplicit(objectIsImplicit)
+                    .setObject(object == null ? runtime.newEmptyExpression() : object)
+                    .setMethodInfo(runtime.assignAndOperatorBool())
+                    .setParameterExpressions(arguments)
+                    .setConcreteReturnType(concreteReturnType)
+                    .build();
+        }
         return null;
     }
+
+    @Override
+    public Void visitUnary(UnaryTree node, Void unused) {
+        JCTree.JCUnary unary = (JCTree.JCUnary) node;
+        scan(unary.getExpression(), unused);
+        Expression expression = currentExpression;
+        JCTree.Tag opcode = unary.getTag();
+        MethodInfo operator = switch (opcode) {
+            case BITXOR -> runtime.bitWiseNotOperatorInt();
+            case NEG -> runtime.logicalNotOperatorBool();
+            default -> throw new UnsupportedOperationException();
+        };
+        Precedence precedence = runtime.precedenceUnary();
+        currentExpression = runtime.newUnaryOperator(List.of(), sourceForNode(node), operator, expression, precedence);
+        return null;
+    }
+
+    // -- HELPERS ------------------
 
     private Element findInElementStack(String name) {
         for (Map<String, Element> map : elementStack.reversed()) {
@@ -511,8 +466,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         }
         throw new UnsupportedOperationException("Cannot find element '" + name + "' on stack");
     }
-
-    // -- If you want to see EVERY node, uncomment this: ------------------
 
     private Source sourceForNode(Tree node) {
         long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
@@ -526,7 +479,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     }
 
     private List<Comment> commentsForNode(Tree node) {
-
+        // TODO, using CongoCC data
         return List.of();
     }
 }
