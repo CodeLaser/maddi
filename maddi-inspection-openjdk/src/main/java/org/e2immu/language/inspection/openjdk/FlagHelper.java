@@ -1,13 +1,45 @@
 package org.e2immu.language.inspection.openjdk;
 
 import com.sun.tools.javac.code.Flags;
-import com.sun.tools.javac.tree.JCTree;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.TypeNature;
 
 public record FlagHelper(Runtime runtime) {
+
+    public void field(long flags, FieldInfo.Builder builder) {
+        boolean isPublic = (flags & Flags.PUBLIC) != 0;
+        boolean isPrivate = (flags & Flags.PRIVATE) != 0;
+        boolean isProtected = (flags & Flags.PROTECTED) != 0;
+        boolean isFinal = (flags & Flags.FINAL) != 0;
+        boolean isStatic = (flags & Flags.STATIC) != 0;
+        boolean isVolatile = (flags & Flags.VOLATILE) != 0;
+        boolean isTransient = (flags & Flags.TRANSIENT) != 0;
+
+        if (isPublic) {
+            builder.addFieldModifier(runtime.fieldModifierPublic());
+        }
+        if (isProtected) {
+            builder.addFieldModifier(runtime.fieldModifierProtected());
+        }
+        if (isPrivate) {
+            builder.addFieldModifier(runtime.fieldModifierPrivate());
+        }
+        if (isFinal) {
+            builder.addFieldModifier(runtime.fieldModifierFinal());
+        }
+        if (isStatic) {
+            builder.addFieldModifier(runtime.fieldModifierStatic());
+        }
+        if (isVolatile) {
+            builder.addFieldModifier(runtime.fieldModifierVolatile());
+        }
+        if (isTransient) {
+            builder.addFieldModifier(runtime.fieldModifierTransient());
+        }
+    }
 
     public void method(long flags, MethodInfo.Builder builder) {
         // The cleaner check: flags directly encode synthetic/bridge/etc.

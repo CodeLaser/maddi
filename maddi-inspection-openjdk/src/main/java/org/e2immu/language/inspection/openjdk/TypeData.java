@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.openjdk;
 
 import com.sun.tools.javac.code.Symbol;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
@@ -13,6 +14,7 @@ public class TypeData {
     private final Map<String, SourceSet> sourceSetMap = new HashMap<>();
     private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
+    private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
 
     public SourceSet getSourceSet(String name) {
         return sourceSetMap.get(name);
@@ -37,4 +39,13 @@ public class TypeData {
     public MethodInfo getMethod(Symbol.MethodSymbol methodSymbol) {
         return methodSymbolMap.get(methodSymbol);
     }
+
+    public void put(Symbol.VarSymbol varSymbol, FieldInfo fieldInfo) {
+        varSymbolMap.put(varSymbol, fieldInfo);
+    }
+
+    public FieldInfo getField(Symbol.VarSymbol varSymbol) {
+        return varSymbolMap.get(varSymbol);
+    }
+
 }

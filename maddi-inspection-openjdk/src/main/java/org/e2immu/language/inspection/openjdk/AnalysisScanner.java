@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.slf4j.Logger;
@@ -67,6 +68,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         flagHelper = new FlagHelper(runtime);
         ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, flagHelper, elements, typeData);
         convertType = new ConvertType(runtime, classSymbolScanner, typeData, this::findInElementStack);
+        classSymbolScanner.setConvertType(convertType);
     }
 
     // result
@@ -307,6 +309,40 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
 
     @Override
+    public Void visitMemberSelect(MemberSelectTree node, Void unused) {
+
+        if (node instanceof JCTree.JCFieldAccess fieldAccess) {
+            // class literal
+            if ("class".equals(fieldAccess.name.toString())) {
+                if (fieldAccess.selected instanceof JCTree.JCIdent ident) {
+                    ParameterizedType classType = convertType.convert(fieldAccess.type);
+                    ParameterizedType realType = convertType.convert(ident.type);
+                    currentExpression = runtime.newClassExpressionBuilder(realType)
+                            .setSource(sourceForNode(node))
+                            .setClassType(classType).build();
+                    return null;
+                } else throw new UnsupportedOperationException();
+            }
+
+            // static field access, no need to generate a TypeExpression
+            if (fieldAccess.sym instanceof Symbol.VarSymbol vs) {
+                scan(fieldAccess.getExpression(), unused);
+                Expression scope = currentExpression;
+                ParameterizedType concreteType = convertType.convert(fieldAccess.type);
+                FieldInfo fieldInfo = typeData.getField(vs);
+                assert fieldInfo != null : "Cannot find field " + node;
+                FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
+                currentExpression = runtime.newVariableExpressionBuilder()
+                        .setSource(sourceForNode(node))
+                        .setVariable(fr).build();
+                return null;
+            }
+        }
+        super.visitMemberSelect(node, unused);
+        return null;
+    }
+
+    @Override
     public Void visitIdentifier(IdentifierTree node, Void p) {
         var element = trees.getElement(getCurrentPath());
         if (element != null) {
@@ -346,7 +382,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                                 .setParameterizedType(type)
                                 .build();
                     } else throw new UnsupportedOperationException("NYI");
-                    LOGGER.info("?");
                 }
                 default -> throw new UnsupportedOperationException("NYI: " + element.getKind());
             }

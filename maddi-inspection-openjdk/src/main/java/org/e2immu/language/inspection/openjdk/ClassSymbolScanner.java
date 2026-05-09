@@ -4,9 +4,11 @@ import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,11 +19,28 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public record ClassSymbolScanner(Runtime runtime,
-                                 FlagHelper flagHelper,
-                                 Elements elements,
-                                 TypeData typeData) {
+public class ClassSymbolScanner {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);
+    private final Runtime runtime;
+    private final FlagHelper flagHelper;
+    private final Elements elements;
+    private final TypeData typeData;
+    private ConvertType convertType;
+
+    public ClassSymbolScanner(Runtime runtime,
+                              FlagHelper flagHelper,
+                              Elements elements,
+                              TypeData typeData) {
+        this.runtime = runtime;
+        this.flagHelper = flagHelper;
+        this.elements = elements;
+        this.typeData = typeData;
+    }
+
+    public void setConvertType(ConvertType convertType) {
+        assert this.convertType == null : "SetOnce!";
+        this.convertType = convertType;
+    }
 
     TypeInfo typeInfo(Symbol.ClassSymbol cs) {
         String packageName = cs.owner.toString();
@@ -79,11 +98,12 @@ public record ClassSymbolScanner(Runtime runtime,
     private void addMemberToType(TypeInfo typeInfo, Element member) {
         if (member instanceof Symbol.MethodSymbol ms) {
             String name = ms.getSimpleName().toString();
-            LOGGER.info("Adding member {} to {}", name, typeInfo);
             MethodInfo method;
             if ("<init>".equals(name)) {
+                LOGGER.info("Adding constructor {} to {}", name, typeInfo);
                 method = runtime.newConstructor(typeInfo);
             } else {
+                LOGGER.info("Adding method {} to {}", name, typeInfo);
                 boolean isStatic = (ms.flags() & Flags.STATIC) != 0;
                 method = runtime.newMethod(typeInfo, name,
                         isStatic ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
@@ -91,6 +111,15 @@ public record ClassSymbolScanner(Runtime runtime,
             }
             flagHelper.method(ms.flags(), method.builder());
             typeData.put(ms, method);
+        } else if (member instanceof Symbol.VarSymbol vs) {
+            String name = vs.getSimpleName().toString();
+            LOGGER.info("Adding field {} to {}", name, typeInfo);
+            ParameterizedType type = convertType.convert(vs.type);
+            boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
+            FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
+            typeInfo.builder().addField(fieldInfo);
+            flagHelper.field(vs.flags(), fieldInfo.builder());
+            typeData.put(vs, fieldInfo);
         }
     }
 
