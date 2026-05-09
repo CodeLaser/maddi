@@ -108,5 +108,9 @@ public class TestClass1 {
         ParameterInfo p0 = compareTo.parameters().getFirst();
         assertEquals("Type org.e2immu.example.Class1.Enclosed<T>", p0.parameterizedType().toString());
         assertEquals(1, p0.annotations().size());
+        assertEquals("org.jetbrains.annotations.NotNull",
+                p0.annotations().getFirst().typeInfo().fullyQualifiedName());
+        Statement returnCompare = compareTo.methodBody().statements().getFirst();
+        assertEquals("", returnCompare.expression().toString());
     }
 }
