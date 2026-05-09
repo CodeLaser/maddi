@@ -29,6 +29,10 @@ public record ConvertType(Runtime runtime,
         if (type instanceof Type.JCVoidType) {
             return runtime.voidParameterizedType();
         }
+        if (type instanceof Type.ArrayType at) {
+            ParameterizedType base = convert(at.elemtype);
+            return runtime.newParameterizedType(base.typeInfo(), 1);
+        }
         throw new UnsupportedOperationException("NYI");
     }
 
@@ -61,21 +65,28 @@ public record ConvertType(Runtime runtime,
 
     private ParameterizedType classType(Type.ClassType ct) {
         String fullyQualifiedType = ct.toString();
-        TypeInfo typeInfo = typeData.getType(fullyQualifiedType);
-        if (typeInfo == null) {
+        TypeInfo known = typeData.getType(fullyQualifiedType);
+        TypeInfo typeInfo;
+        if (known == null) {
             // on-demand loading; should be replaced by import handling?
             if (ct.tsym instanceof Symbol.ClassSymbol cs) {
-                TypeInfo newType = classSymbolScanner.typeInfo(cs);
-                typeData.put(newType);
-                return newType.asParameterizedType();
+                typeInfo = classSymbolScanner.typeInfo(cs);
+                typeData.put(typeInfo);
             } else throw new UnsupportedOperationException("NYI");
+        } else {
+            typeInfo = known;
         }
-        return typeInfo.asParameterizedType();
+        if (ct.getTypeArguments().isEmpty()) {
+            return typeInfo.asSimpleParameterizedType();
+        }
+        List<ParameterizedType> typeParameters = ct.getTypeArguments().stream().map(this::convert).toList();
+        return runtime.newParameterizedType(typeInfo, typeParameters);
     }
 
     private ParameterizedType primitiveType(TypeKind primitiveTypeKind) {
         return switch (primitiveTypeKind) {
             case VOID -> runtime.voidParameterizedType();
+            case BYTE -> runtime.byteParameterizedType();
             case INT -> runtime.intParameterizedType();
             case DOUBLE -> runtime.doubleParameterizedType();
             case LONG -> runtime.longParameterizedType();
