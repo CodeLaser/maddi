@@ -9,9 +9,8 @@ import org.e2immu.language.cst.api.type.TypeNature;
 
 public record FlagHelper(Runtime runtime) {
 
-    public void method(JCTree.JCMethodDecl jcMethod, MethodInfo.Builder builder) {
+    public void method(long flags, MethodInfo.Builder builder) {
         // The cleaner check: flags directly encode synthetic/bridge/etc.
-        long flags = jcMethod.getModifiers().flags;
         boolean isSynthetic = (flags & Flags.SYNTHETIC) != 0;
         boolean isBridge = (flags & Flags.BRIDGE) != 0;
         boolean isGeneratedConstructor = (flags & Flags.GENERATEDCONSTR) != 0;
