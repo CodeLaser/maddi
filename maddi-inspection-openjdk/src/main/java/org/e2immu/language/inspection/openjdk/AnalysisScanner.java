@@ -148,6 +148,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         flagHelper.method(methodFlags, methodInfo.builder());
 
         // parameters
+        HashMap<String, Element> parameterMap = new HashMap<>();
         for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
             String name = jcVariableDecl.getName().toString();
             ParameterizedType type = convertType.convertTree(jcVariableDecl.getType());
@@ -165,12 +166,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 parameterInfo.builder().addAnnotation(ae);
             }
             parameterInfo.builder().commit();
+            parameterMap.put(parameterInfo.simpleName(), parameterInfo);
         }
 
 
         // method body
         currentBlockBuilder = runtime.newBlockBuilder();
-        elementStack.addLast(new HashMap<>());
+        elementStack.addLast(parameterMap);
         currentMethod = methodInfo;
         scan(node.getBody(), p);
         elementStack.removeLast();
@@ -257,6 +259,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                             .setInitializer(currentExpression)
                             .commit();
                     owner.builder().addField(fieldInfo);
+                    typeData.put(varSymbol, fieldInfo);
                 } else {
                     // local variable
 
@@ -360,16 +363,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                                 .build();
                     } else throw new UnsupportedOperationException();
                 }
-                case LOCAL_VARIABLE -> {
-                    Variable variable = (LocalVariable) findInElementStack(name);
+                case LOCAL_VARIABLE, PARAMETER -> {
+                    Variable variable = (Variable) findInElementStack(name);
                     currentExpression = runtime.newVariableExpressionBuilder()
                             .setSource(sourceForNode(node))
                             .setVariable(variable)
                             .build();
                 }
-                // case PARAMETER, ENUM_CONSTANT -> {
-
-                // }
                 case PACKAGE -> {
                     LOGGER.debug("Skipping package {}", node);
                 }

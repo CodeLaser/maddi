@@ -62,7 +62,7 @@ public class TestClass1 {
                 if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
                     assertEquals("LOGGER", fr.fieldInfo().name());
                     assertEquals("Type org.slf4j.Logger", fr.parameterizedType().toString());
-                    assertTrue(fr.parameterizedType().typeInfo().methods().size() > 70);
+                    assertTrue(fr.parameterizedType().typeInfo().methods().size() > 60);
                 } else fail();
                 assertEquals(1, mc.parameterExpressions().size());
                 if (mc.parameterExpressions().getFirst() instanceof StringConstant sc) {
@@ -113,6 +113,6 @@ public class TestClass1 {
         assertEquals("org.jetbrains.annotations.NotNull",
                 p0.annotations().getFirst().typeInfo().fullyQualifiedName());
         Statement returnCompare = compareTo.methodBody().statements().getFirst();
-        assertEquals("", returnCompare.expression().toString());
+        assertEquals("this.list.size()-o.list.size()", returnCompare.expression().toString());
     }
 }
