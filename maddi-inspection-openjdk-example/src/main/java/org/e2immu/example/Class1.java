@@ -30,4 +30,6 @@ public class Class1 {
             return list.size() - o.list.size();
         }
     }
+
+    record R(int k, String s) {}
 }

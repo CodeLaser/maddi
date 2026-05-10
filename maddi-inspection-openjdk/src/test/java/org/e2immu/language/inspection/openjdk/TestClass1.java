@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.*;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -14,7 +15,6 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -41,6 +41,7 @@ public class TestClass1 {
         assertEquals(1, types.size());
         TypeInfo class1 = types.getFirst();
         assertEquals("org.e2immu.example.Class1", class1.fullyQualifiedName());
+        assertEquals(runtime.objectParameterizedType(), class1.parentClass());
 
         MethodInfo constructor = class1.findConstructor(0);
         assertEquals("org.e2immu.example.Class1.<init>()", constructor.fullyQualifiedName());
@@ -105,6 +106,9 @@ public class TestClass1 {
         assertSame(class1, enclosed.compilationUnitOrEnclosingType().getRight());
         assertEquals("T", enclosed.typeParameters().getFirst().simpleName());
 
+        assertEquals("Type Comparable<org.e2immu.example.Class1.Enclosed<T>>",
+                enclosed.interfacesImplemented().getFirst().toString());
+
         MethodInfo compareTo = enclosed.findUniqueMethod("compareTo", 1);
         assertEquals(1, compareTo.parameters().size());
         ParameterInfo p0 = compareTo.parameters().getFirst();
@@ -114,5 +118,19 @@ public class TestClass1 {
                 p0.annotations().getFirst().typeInfo().fullyQualifiedName());
         Statement returnCompare = compareTo.methodBody().statements().getFirst();
         assertEquals("this.list.size()-o.list.size()", returnCompare.expression().toString());
+        assertEquals("java.lang.Override", compareTo.annotations().getFirst().typeInfo().fullyQualifiedName());
+
+        TypeInfo R = class1.findSubType("R");
+        assertTrue(R.typeNature().isRecord());
+        assertEquals(2, R.fields().size());
+        FieldInfo k = R.getFieldByName("k", true);
+        assertTrue(k.type().isInt());
+
+        MethodInfo accessK = R.findUniqueMethod("k", 0);
+        assertTrue(accessK.isSynthetic());
+
+        FieldInfo s = R.getFieldByName("s", true);
+        // check that 'java.lang.String' is not a duplicate object
+        assertEquals(runtime.stringParameterizedType(), s.type());
     }
 }
