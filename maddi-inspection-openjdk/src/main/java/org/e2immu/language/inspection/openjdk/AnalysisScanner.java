@@ -24,6 +24,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.inspection.api.util.RecordSynthetics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -115,7 +116,25 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         for (JCTree.JCExpression i : jcClassDecl.implementing) {
             typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i));
         }
+        for (JCTree.JCExpression permits : jcClassDecl.permitting) {
+            typeInfo.builder().addPermittedType(convertType.convert(permits.type).typeInfo());
+        }
 
+        // record components: fields and accessors
+        if (typeInfo.typeNature().isRecord()) {
+            RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
+            for (var rc : jcClassDecl.sym.getRecordComponents()) {
+                LOGGER.info("rc = ");
+                ParameterizedType pt = convertType.convert(rc.type);
+                FieldInfo fieldInfo = runtime.newFieldInfo(rc.name.toString(), false, pt, typeInfo);
+                fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
+                        .addFieldModifier(runtime.fieldModifierPrivate());
+                typeInfo.builder().addField(fieldInfo);
+                MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
+                typeInfo.builder().addMethod(accessor);
+                typeData.put(rc.accessor, accessor);
+            }
+        }
         // annotations
         for (JCTree.JCAnnotation annotation : jcClassDecl.getModifiers().getAnnotations()) {
             AnnotationExpression ae = convertAnnotation(annotation);
@@ -147,7 +166,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             methodInfo = runtime.newConstructor(currentType);
             currentType.builder().addConstructor(methodInfo);
             methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
-
         } else {
             MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags);
             methodInfo = runtime.newMethod(currentType, methodName, methodType);
@@ -184,6 +202,14 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         }
         methodInfo.builder().commitParameters();
 
+        // record synthetic constructor?
+        if (methodInfo.isSynthetic() && currentType.typeNature().isRecord()) {
+            for (ParameterInfo pi : methodInfo.parameters()) {
+                FieldInfo field = currentType.getFieldByName(pi.name(), true);
+                field.builder().setInitializer(runtime.newVariableExpression(pi));
+            }
+        }
+        
         // annotations
         for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
             AnnotationExpression ae = convertAnnotation(annotation);
@@ -258,8 +284,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
         if (node instanceof JCTree.JCVariableDecl variableDecl) {
             long flags = variableDecl.getModifiers().flags;
-            boolean isStatic = (flags & Flags.STATIC) != 0;
-            boolean isFinal = (flags & Flags.FINAL) != 0;
 
             if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
                 String name = varSymbol.toString();
@@ -272,20 +296,23 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 }
                 if (currentMethod == null) {
                     // field!
+                    boolean isStatic = (flags & Flags.STATIC) != 0;
                     TypeInfo owner = typeStack.getLast();
-                    FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
-                    if (isFinal) fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal());
-                    fieldInfo.builder().setSource(sourceForNode(node))
-                            .setInitializer(currentExpression)
-                            .commit();
-                    owner.builder().addField(fieldInfo);
+                    if (!owner.typeNature().isRecord() || isStatic) {
+                        FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+                        flagHelper.field(flags, fieldInfo.builder());
+                        fieldInfo.builder().setSource(sourceForNode(node))
+                                .setInitializer(currentExpression)
+                                .commit();
+                        owner.builder().addField(fieldInfo);
 
-                    // annotations
-                    for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
-                        AnnotationExpression ae = convertAnnotation(annotation);
-                        fieldInfo.builder().addAnnotation(ae);
-                    }
-                    typeData.put(varSymbol, fieldInfo);
+                        // annotations
+                        for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+                            AnnotationExpression ae = convertAnnotation(annotation);
+                            fieldInfo.builder().addAnnotation(ae);
+                        }
+                        typeData.put(varSymbol, fieldInfo);
+                    } // else: non-static record components are dealt with in the type visitor
                 } else {
 
                     // local variable
@@ -294,6 +321,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                     LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
                             .setSource(sourceForNode(node))
                             .setLocalVariable(localVariable);
+                    boolean isFinal = (flags & Flags.FINAL) != 0;
                     if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
 
                     // annotations

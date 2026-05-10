@@ -128,9 +128,12 @@ public class TestClass1 {
 
         MethodInfo accessK = R.findUniqueMethod("k", 0);
         assertTrue(accessK.isSynthetic());
+        assertTrue(accessK.isPublic());
 
         FieldInfo s = R.getFieldByName("s", true);
         // check that 'java.lang.String' is not a duplicate object
+        assertTrue(s.isFinal());
+        assertEquals("s", s.initializer().toString());
         assertEquals(runtime.stringParameterizedType(), s.type());
     }
 }
