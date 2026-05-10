@@ -14,6 +14,7 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -25,6 +26,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestClass1 {
+
     @Test
     public void test() throws Exception {
         Runtime runtime = new RuntimeImpl();

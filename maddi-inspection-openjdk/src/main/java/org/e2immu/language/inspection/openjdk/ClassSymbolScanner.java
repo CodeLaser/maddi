@@ -44,7 +44,7 @@ public class ClassSymbolScanner {
         this.convertType = convertType;
     }
 
-    TypeInfo typeInfo(Symbol.ClassSymbol cs) {
+    TypeInfo primaryType(Symbol.ClassSymbol cs) {
         String packageName = cs.owner.toString();
         boolean internal = cs.classfile == null;
         URI uri;
@@ -139,8 +139,9 @@ public class ClassSymbolScanner {
     }
 
     private void addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs) {
+        if (typeData.getType(cs.fullname.toString()) != null) return;
         String name = cs.getSimpleName().toString();
-        LOGGER.info("Adding enclosed type {} to {}", name, typeInfo);
+        LOGGER.debug("Adding enclosed type {} to {}", name, typeInfo);
         TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
         typeData.put(enclosed);
         typeInfo.builder().addSubType(enclosed);
@@ -149,7 +150,7 @@ public class ClassSymbolScanner {
 
     private void addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
         String name = vs.getSimpleName().toString();
-        LOGGER.info("Adding field {} to {}", name, typeInfo);
+        LOGGER.debug("Adding field {} to {}", name, typeInfo);
         ParameterizedType type = convertType.convert(vs.type);
         boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
         FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
@@ -163,10 +164,10 @@ public class ClassSymbolScanner {
         String name = ms.getSimpleName().toString();
         MethodInfo method;
         if ("<init>".equals(name)) {
-            LOGGER.info("Adding constructor {} to {}", name, typeInfo);
+            LOGGER.debug("Adding constructor {} to {}", name, typeInfo);
             method = runtime.newConstructor(typeInfo);
         } else {
-            LOGGER.info("Adding method {} to {}", name, typeInfo);
+            LOGGER.debug("Adding method {} to {}", name, typeInfo);
             MethodInfo.MethodType methodType = flagHelper.methodType(ms.flags());
             method = runtime.newMethod(typeInfo, name, methodType);
             typeInfo.builder().addMethod(method);

@@ -89,7 +89,7 @@ public class ConvertType {
         throw new UnsupportedOperationException("NYI");
     }
 
-    ParameterizedType convert(Tree type) {
+    ParameterizedType convertTree(Tree type) {
         if (type == null) return runtime.voidParameterizedType();
         if (type instanceof JCTree.JCPrimitiveTypeTree ptt) {
             TypeKind primitiveTypeKind = ptt.typetag.getPrimitiveTypeKind();
@@ -109,8 +109,8 @@ public class ConvertType {
             }
         }
         if (type instanceof JCTree.JCTypeApply apply) {
-            ParameterizedType base = convert(apply.getType());
-            List<ParameterizedType> parameters = apply.getTypeArguments().stream().map(this::convert).toList();
+            ParameterizedType base = convertTree(apply.getType());
+            List<ParameterizedType> parameters = apply.getTypeArguments().stream().map(this::convertTree).toList();
             return runtime.newParameterizedType(base.typeInfo(), parameters);
         }
         throw new UnsupportedOperationException("NYI");
@@ -123,7 +123,7 @@ public class ConvertType {
         if (known == null) {
             // on-demand loading; should be replaced by import handling?
             if (ct.tsym instanceof Symbol.ClassSymbol cs) {
-                typeInfo = classSymbolScanner.typeInfo(cs);
+                typeInfo = classSymbolScanner.primaryType(cs);
             } else throw new UnsupportedOperationException("NYI");
         } else {
             typeInfo = known;

@@ -139,7 +139,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             methodInfo = runtime.newMethod(currentType, methodName, methodType);
             currentType.builder().addMethod(methodInfo);
 
-            ParameterizedType returnType = convertType.convert(node.getReturnType());
+            ParameterizedType returnType = convertType.convertTree(node.getReturnType());
             methodInfo.builder().setReturnType(returnType);
         }
         typeData.put(jcMethod.sym, methodInfo);
@@ -150,7 +150,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         // parameters
         for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
             String name = jcVariableDecl.getName().toString();
-            ParameterizedType type = convertType.convert(jcVariableDecl.getType());
+            ParameterizedType type = convertType.convertTree(jcVariableDecl.getType());
             ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
 
             // flags
@@ -188,7 +188,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     // -- Annotations ---------------------------------------------
 
     private AnnotationExpression convertAnnotation(JCTree.JCAnnotation annotation) {
-        ParameterizedType at = convertType.convert(annotation.getAnnotationType());
+        ParameterizedType at = convertType.convertTree(annotation.getAnnotationType());
         return runtime.newAnnotationExpressionBuilder().setTypeInfo(at.typeInfo()).build();
     }
 
@@ -241,7 +241,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
             if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
                 String name = varSymbol.toString();
-                ParameterizedType type = convertType.convert(variableDecl.vartype);
+                ParameterizedType type = convertType.convertTree(variableDecl.vartype);
 
                 currentExpression = null;
                 scan(node.getInitializer(), p);
