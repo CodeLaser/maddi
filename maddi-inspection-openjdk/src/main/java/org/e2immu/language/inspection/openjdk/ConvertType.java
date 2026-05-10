@@ -57,8 +57,21 @@ public class ConvertType {
         }
         if (type instanceof Type.TypeVar typeVar) {
             String typeParameterName = typeVar.tsym.toString();
-            TypeParameter tp = (TypeParameter) findInElementStack.apply(typeParameterName);
-            return runtime.newParameterizedType(tp, 0, null);
+            TypeParameter typeParameter;
+            if (typeVar.tsym.owner instanceof Symbol.MethodSymbol ms) {
+                if (ms.owner instanceof Symbol.ClassSymbol cs) {
+                    String typeFqn = cs.fullname.toString();
+                    typeParameter = typeData.getTmpMethodTypeParameter(typeFqn, typeParameterName);
+                    assert typeParameter != null;
+                } else throw new UnsupportedOperationException();
+            } else {
+                TypeInfo owner = typeData.getType(typeVar.tsym.owner.toString());
+                assert owner != null;
+                typeParameter = owner.typeParameters().stream()
+                        .filter(tp -> tp.simpleName().equals(typeParameterName))
+                        .findFirst().orElseThrow();
+            }
+            return runtime.newParameterizedType(typeParameter, 0, null);
         }
         throw new UnsupportedOperationException("NYI");
     }
@@ -91,14 +104,13 @@ public class ConvertType {
     }
 
     private ParameterizedType classType(Type.ClassType ct) {
-        String fullyQualifiedType = ct.toString();
+        String fullyQualifiedType = ct.tsym.toString();
         TypeInfo known = typeData.getType(fullyQualifiedType);
         TypeInfo typeInfo;
         if (known == null) {
             // on-demand loading; should be replaced by import handling?
             if (ct.tsym instanceof Symbol.ClassSymbol cs) {
                 typeInfo = classSymbolScanner.typeInfo(cs);
-                typeData.put(typeInfo);
             } else throw new UnsupportedOperationException("NYI");
         } else {
             typeInfo = known;
