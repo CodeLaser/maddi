@@ -108,6 +108,20 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             elementStack.getLast().put(name, tp);
         }
 
+        ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending);
+        ParameterizedType parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
+                : explicitParentClass;
+        typeInfo.builder().setParentClass(parentClass);
+        for (JCTree.JCExpression i : jcClassDecl.implementing) {
+            typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i));
+        }
+
+        // annotations
+        for (JCTree.JCAnnotation annotation : jcClassDecl.getModifiers().getAnnotations()) {
+            AnnotationExpression ae = convertAnnotation(annotation);
+            typeInfo.builder().addAnnotation(ae);
+        }
+
         // members: methods, fields
         for (var member : node.getMembers()) {
             currentMethod = null;
@@ -168,7 +182,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             parameterInfo.builder().commit();
             parameterMap.put(parameterInfo.simpleName(), parameterInfo);
         }
+        methodInfo.builder().commitParameters();
 
+        // annotations
+        for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
+            AnnotationExpression ae = convertAnnotation(annotation);
+            methodInfo.builder().addAnnotation(ae);
+        }
 
         // method body
         currentBlockBuilder = runtime.newBlockBuilder();
@@ -259,8 +279,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                             .setInitializer(currentExpression)
                             .commit();
                     owner.builder().addField(fieldInfo);
+
+                    // annotations
+                    for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+                        AnnotationExpression ae = convertAnnotation(annotation);
+                        fieldInfo.builder().addAnnotation(ae);
+                    }
                     typeData.put(varSymbol, fieldInfo);
                 } else {
+
                     // local variable
 
                     LocalVariable localVariable = runtime.newLocalVariable(name, type, currentExpression);
@@ -268,6 +295,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                             .setSource(sourceForNode(node))
                             .setLocalVariable(localVariable);
                     if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
+
+                    // annotations
+                    for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+                        AnnotationExpression ae = convertAnnotation(annotation);
+                        lvcb.addAnnotation(ae);
+                    }
+
                     currentBlockBuilder.addStatement(lvcb.build());
                     elementStack.getLast().put(localVariable.simpleName(), localVariable);
                 }
