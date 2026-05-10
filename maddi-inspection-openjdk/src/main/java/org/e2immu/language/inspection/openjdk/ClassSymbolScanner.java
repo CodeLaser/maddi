@@ -4,9 +4,7 @@ import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.slf4j.Logger;
@@ -47,7 +45,13 @@ public class ClassSymbolScanner {
 
     TypeInfo typeInfo(Symbol.ClassSymbol cs) {
         String packageName = cs.owner.toString();
-        URI uri = cs.classfile.toUri();
+        boolean internal = cs.classfile == null;
+        URI uri;
+        if (internal) {
+            uri = URI.create("jrt:/internal/");
+        } else {
+            uri = cs.classfile.toUri();
+        }
         SourceSet sourceSet = ensureSourceSet(uri);
         CompilationUnit cu = runtime.newCompilationUnitBuilder()
                 .setPackageName(packageName)
@@ -56,16 +60,30 @@ public class ClassSymbolScanner {
                 .build();
         String simpleName = cs.name.toString();
         TypeInfo newTypeInfo = runtime.newTypeInfo(cu, simpleName);
+        typeData.put(newTypeInfo);
+        if (!internal) {
+            loadType(cs, newTypeInfo);
+        }
+        return newTypeInfo;
+    }
+
+    private void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo) {
         flagHelper.type(cs.flags(), newTypeInfo.builder());
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs'
             List<? extends Element> members = elements.getAllMembers(cs);
+
+            int index = 0;
+            for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
+                TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
+                newTypeInfo.builder().addOrSetTypeParameter(newTp);
+            }
+
             for (var member : members) {
                 addMemberToType(newTypeInfo, member);
             }
             recursionPrevention.remove(newTypeInfo);
         }
-        return newTypeInfo;
     }
 
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+)!/.*");
@@ -103,30 +121,90 @@ public class ClassSymbolScanner {
 
     private void addMemberToType(TypeInfo typeInfo, Element member) {
         if (member instanceof Symbol.MethodSymbol ms) {
-            String name = ms.getSimpleName().toString();
-            MethodInfo method;
-            if ("<init>".equals(name)) {
-                LOGGER.info("Adding constructor {} to {}", name, typeInfo);
-                method = runtime.newConstructor(typeInfo);
-            } else {
-                LOGGER.info("Adding method {} to {}", name, typeInfo);
-                boolean isStatic = (ms.flags() & Flags.STATIC) != 0;
-                method = runtime.newMethod(typeInfo, name,
-                        isStatic ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
-                typeInfo.builder().addMethod(method);
-            }
-            flagHelper.method(ms.flags(), method.builder());
-            typeData.put(ms, method);
+            addMethodToType(typeInfo, ms);
         } else if (member instanceof Symbol.VarSymbol vs) {
-            String name = vs.getSimpleName().toString();
-            LOGGER.info("Adding field {} to {}", name, typeInfo);
-            ParameterizedType type = convertType.convert(vs.type);
-            boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
-            FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
-            typeInfo.builder().addField(fieldInfo);
-            flagHelper.field(vs.flags(), fieldInfo.builder());
-            typeData.put(vs, fieldInfo);
+            addFieldToType(typeInfo, vs);
+        } else if (member instanceof Symbol.ClassSymbol cs) {
+            addEnclosedTypeToType(typeInfo, cs);
         }
+    }
+
+    private void addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs) {
+        String name = cs.getSimpleName().toString();
+        LOGGER.info("Adding enclosed type {} to {}", name, typeInfo);
+        TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
+        typeData.put(enclosed);
+        typeInfo.builder().addSubType(enclosed);
+        //  loadType(cs, enclosed); FIXME recursion issue
+    }
+
+    private void addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
+        FieldInfo override = typeData.getField(vs);
+        if (override != null) {
+            LOGGER.info("Override field: {}", override);
+            return;
+        }
+        String name = vs.getSimpleName().toString();
+        LOGGER.info("Adding field {} to {}", name, typeInfo);
+        ParameterizedType type = convertType.convert(vs.type);
+        boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
+        FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
+        typeInfo.builder().addField(fieldInfo);
+        flagHelper.field(vs.flags(), fieldInfo.builder());
+
+        FieldInfo override2 = typeData.getField(vs);
+        if (override2 != null) {
+            LOGGER.info("Override2 field: {}", override2);
+            return;
+        }
+        typeData.put(vs, fieldInfo);
+    }
+
+    private void addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+        MethodInfo override = typeData.getMethod(ms);
+        if (override != null) {
+            LOGGER.info("Override: {}", override);
+            return;
+        }
+        String name = ms.getSimpleName().toString();
+        MethodInfo method;
+        if ("<init>".equals(name)) {
+            LOGGER.info("Adding constructor {} to {}", name, typeInfo);
+            method = runtime.newConstructor(typeInfo);
+        } else {
+            LOGGER.info("Adding method {} to {}", name, typeInfo);
+            boolean isStatic = (ms.flags() & Flags.STATIC) != 0;
+            method = runtime.newMethod(typeInfo, name,
+                    isStatic ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
+            typeInfo.builder().addMethod(method);
+        }
+        int index = 0;
+        for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
+            TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), method);
+            method.builder().addTypeParameter(newTp);
+            typeData.putTmpMethodTypeParameter(typeInfo.fullyQualifiedName(), newTp.simpleName(), newTp);
+        }
+
+        flagHelper.method(ms.flags(), method.builder());
+        for (Symbol.VarSymbol parameter : ms.params) {
+            ParameterizedType pt = convertType.convert(parameter.type);
+            ParameterInfo parameterInfo = method.builder().addParameter(parameter.getSimpleName().toString(), pt);
+            long flags = parameter.flags();
+            if ((flags & Flags.VARARGS) != 0) parameterInfo.builder().setVarArgs(true);
+            if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
+            parameterInfo.builder().commit();
+        }
+        method.builder().commitParameters();
+        // now the fully qualified name has been computed...
+
+        typeData.clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
+
+        MethodInfo override2 = typeData.getMethod(ms);
+        if (override2 != null) {
+            LOGGER.info("Override2: {}", override2);
+            return;
+        }
+        typeData.put(ms, method);
     }
 
 }
