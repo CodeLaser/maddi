@@ -14,9 +14,7 @@ import org.slf4j.LoggerFactory;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import java.net.URI;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,6 +26,7 @@ public class ClassSymbolScanner {
     private final TypeData typeData;
     private ConvertType convertType;
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
+    private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
 
     public ClassSymbolScanner(Runtime runtime,
                               FlagHelper flagHelper,
@@ -37,6 +36,13 @@ public class ClassSymbolScanner {
         this.flagHelper = flagHelper;
         this.elements = elements;
         this.typeData = typeData;
+        predefinedTypes.put("String", runtime.stringTypeInfo());
+        predefinedTypes.put("Object", runtime.objectTypeInfo());
+        predefinedTypes.put("Integer", runtime.integerTypeInfo());
+        predefinedTypes.put("Boolean", runtime.boxedBooleanTypeInfo());
+        predefinedTypes.put("Long", runtime.boxedLongTypeInfo());
+        predefinedTypes.put("Character", runtime.characterTypeInfo());
+        predefinedTypes.put("Class", runtime.classTypeInfo());
     }
 
     public void setConvertType(ConvertType convertType) {
@@ -44,23 +50,32 @@ public class ClassSymbolScanner {
         this.convertType = convertType;
     }
 
+
     TypeInfo primaryType(Symbol.ClassSymbol cs) {
-        String packageName = cs.owner.toString();
-        boolean internal = cs.classfile == null;
-        URI uri;
-        if (internal) {
-            uri = URI.create("jrt:/internal/");
-        } else {
-            uri = cs.classfile.toUri();
-        }
-        SourceSet sourceSet = ensureSourceSet(uri);
-        CompilationUnit cu = runtime.newCompilationUnitBuilder()
-                .setPackageName(packageName)
-                .setSourceSet(sourceSet)
-                .setURI(uri)
-                .build();
         String simpleName = cs.name.toString();
-        TypeInfo newTypeInfo = runtime.newTypeInfo(cu, simpleName);
+        String packageName = cs.owner.toString();
+        TypeInfo newTypeInfo;
+        boolean internal;
+        TypeInfo predefinedType;
+        if ("java.lang".equals(packageName) && (predefinedType = predefinedTypes.get(simpleName)) != null) {
+            newTypeInfo = predefinedType;
+            internal = false;
+        } else {
+            internal = cs.classfile == null;
+            URI uri;
+            if (internal) {
+                uri = URI.create("jrt:/internal/");
+            } else {
+                uri = cs.classfile.toUri();
+            }
+            SourceSet sourceSet = ensureSourceSet(uri);
+            CompilationUnit cu = runtime.newCompilationUnitBuilder()
+                    .setPackageName(packageName)
+                    .setSourceSet(sourceSet)
+                    .setURI(uri)
+                    .build();
+            newTypeInfo = runtime.newTypeInfo(cu, simpleName);
+        }
         typeData.put(newTypeInfo);
         if (!internal) {
             loadType(cs, newTypeInfo);
