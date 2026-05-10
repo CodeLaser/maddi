@@ -135,9 +135,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
 
         } else {
-            boolean isStatic = (methodFlags & Flags.STATIC) != 0;
-            methodInfo = runtime.newMethod(currentType, methodName,
-                    isStatic ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
+            MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags);
+            methodInfo = runtime.newMethod(currentType, methodName, methodType);
             currentType.builder().addMethod(methodInfo);
 
             ParameterizedType returnType = convertType.convert(node.getReturnType());
