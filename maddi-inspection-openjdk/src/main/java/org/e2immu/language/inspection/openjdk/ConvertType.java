@@ -9,15 +9,28 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.type.Wildcard;
 
 import javax.lang.model.type.TypeKind;
 import java.util.List;
 import java.util.function.Function;
 
-public record ConvertType(Runtime runtime,
-                          ClassSymbolScanner classSymbolScanner,
-                          TypeData typeData,
-                          Function<String, Element> findInElementStack) {
+public class ConvertType {
+    private final Runtime runtime;
+    private final ClassSymbolScanner classSymbolScanner;
+    private final TypeData typeData;
+    private final Function<String, Element> findInElementStack;
+
+    public ConvertType(Runtime runtime,
+                       ClassSymbolScanner classSymbolScanner,
+                       TypeData typeData,
+                       Function<String, Element> findInElementStack) {
+        this.runtime = runtime;
+        this.classSymbolScanner = classSymbolScanner;
+        this.typeData = typeData;
+        this.findInElementStack = findInElementStack;
+    }
+
 
     ParameterizedType convert(Type type) {
         if (type instanceof Type.JCPrimitiveType primitiveType) {
@@ -32,6 +45,20 @@ public record ConvertType(Runtime runtime,
         if (type instanceof Type.ArrayType at) {
             ParameterizedType base = convert(at.elemtype);
             return runtime.newParameterizedType(base.typeInfo(), 1);
+        }
+        if (type instanceof Type.WildcardType wildcardType) {
+            ParameterizedType base = convert(wildcardType.bound);
+            if (base.isJavaLangObject()) return runtime.parameterizedTypeWildcard(); // '?'
+            Wildcard wildCard = runtime.wildcardExtends(); // TODO
+            if (base.isTypeParameter()) {
+                return runtime.newParameterizedType(base.typeParameter(), 0, wildCard);
+            }
+            return runtime.newParameterizedType(base.typeInfo(), 0, wildCard, List.of());
+        }
+        if (type instanceof Type.TypeVar typeVar) {
+            String typeParameterName = typeVar.tsym.toString();
+            TypeParameter tp = (TypeParameter) findInElementStack.apply(typeParameterName);
+            return runtime.newParameterizedType(tp, 0, null);
         }
         throw new UnsupportedOperationException("NYI");
     }
