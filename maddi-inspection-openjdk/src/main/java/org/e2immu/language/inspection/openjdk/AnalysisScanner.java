@@ -98,7 +98,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         typeData.put(typeInfo);
 
         // flags: modifiers, type nature
-        flagHelper.type(jcClassDecl.getModifiers().flags, typeInfo.builder());
+        flagHelper.type(jcClassDecl.getModifiers().flags, typeInfo.builder(), simpleName);
 
         // type parameters
         for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
@@ -124,7 +124,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         if (typeInfo.typeNature().isRecord()) {
             RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
             for (var rc : jcClassDecl.sym.getRecordComponents()) {
-                LOGGER.info("rc = ");
                 ParameterizedType pt = convertType.convert(rc.type);
                 FieldInfo fieldInfo = runtime.newFieldInfo(rc.name.toString(), false, pt, typeInfo);
                 fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
@@ -209,7 +208,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 field.builder().setInitializer(runtime.newVariableExpression(pi));
             }
         }
-        
+
         // annotations
         for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
             AnnotationExpression ae = convertAnnotation(annotation);
@@ -340,6 +339,19 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     // -- Expressions ---------------------------------------------
 
+
+    @Override
+    public Void visitArrayAccess(ArrayAccessTree node, Void unused) {
+        JCTree.JCArrayAccess aa = (JCTree.JCArrayAccess) node;
+        scan(aa.indexed, unused);
+        Expression array = currentExpression;
+        scan(aa.index, unused);
+        Expression index = currentExpression;
+        currentExpression = runtime.newVariableExpressionBuilder().setSource(sourceForNode(node))
+                .setVariable(runtime.newDependentVariable(array, index)).build();
+        return null;
+    }
+
     @Override
     public Void visitBinary(BinaryTree node, Void unused) {
         JCTree.JCBinary binary = (JCTree.JCBinary) node;
@@ -370,7 +382,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 .build();
         return null;
     }
-
 
     @Override
     public Void visitMemberSelect(MemberSelectTree node, Void unused) {
