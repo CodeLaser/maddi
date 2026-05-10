@@ -45,7 +45,9 @@ public class ConvertType {
         }
         if (type instanceof Type.ArrayType at) {
             ParameterizedType base = convert(at.elemtype);
-            return runtime.newParameterizedType(base.typeInfo(), 1);
+            return base.isTypeParameter()
+                    ? runtime.newParameterizedType(base.typeParameter(), base.arrays() + 1, null)
+                    : runtime.newParameterizedType(base.typeInfo(), base.arrays() + 1, null, List.of());
         }
         if (type instanceof Type.WildcardType wildcardType) {
             if (wildcardType.isUnbound()) {
@@ -112,6 +114,12 @@ public class ConvertType {
             ParameterizedType base = convertTree(apply.getType());
             List<ParameterizedType> parameters = apply.getTypeArguments().stream().map(this::convertTree).toList();
             return runtime.newParameterizedType(base.typeInfo(), parameters);
+        }
+        if (type instanceof JCTree.JCArrayTypeTree att) {
+            ParameterizedType base = convertTree(att.elemtype);
+            return base.isTypeParameter()
+                    ? runtime.newParameterizedType(base.typeParameter(), base.arrays() + 1, null)
+                    : runtime.newParameterizedType(base.typeInfo(), base.arrays() + 1, null, List.of());
         }
         throw new UnsupportedOperationException("NYI");
     }

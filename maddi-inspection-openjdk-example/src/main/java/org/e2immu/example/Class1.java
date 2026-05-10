@@ -31,5 +31,9 @@ public class Class1 {
         }
     }
 
-    record R(int k, String s) {}
+    record R(int k, String s, int[] ints, Double[][] matrix) {
+        double get(int i, int j) {
+            return matrix[i][j];
+        }
+    }
 }

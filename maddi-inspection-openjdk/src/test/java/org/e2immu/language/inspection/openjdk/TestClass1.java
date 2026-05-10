@@ -122,7 +122,7 @@ public class TestClass1 {
 
         TypeInfo R = class1.findSubType("R");
         assertTrue(R.typeNature().isRecord());
-        assertEquals(2, R.fields().size());
+        assertEquals(4, R.fields().size());
         FieldInfo k = R.getFieldByName("k", true);
         assertTrue(k.type().isInt());
 
@@ -135,5 +135,15 @@ public class TestClass1 {
         assertTrue(s.isFinal());
         assertEquals("s", s.initializer().toString());
         assertEquals(runtime.stringParameterizedType(), s.type());
+
+        FieldInfo ints = R.getFieldByName("ints", true);
+        assertEquals("Type int[]", ints.type().toString());
+
+        FieldInfo matrix = R.getFieldByName("matrix", true);
+        assertEquals("Type Double[][]", matrix.type().toString());
+
+        MethodInfo get = R.findUniqueMethod("get", 2);
+        ReturnStatement rsGet = (ReturnStatement) get.methodBody().statements().getLast();
+        assertEquals("this.matrix[i][j]", rsGet.expression().toString());
     }
 }
