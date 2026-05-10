@@ -29,8 +29,7 @@ public class TypeData {
 
     public TypeParameter getTmpMethodTypeParameter(String typeFqn, String methodTpName) {
         Map<String, TypeParameter> typeParameterMap = tmpMethodTypeParameterMap.get(typeFqn);
-        assert typeParameterMap != null;
-        return typeParameterMap.get(methodTpName);
+        return typeParameterMap == null ? null : typeParameterMap.get(methodTpName);
     }
 
     public SourceSet getSourceSet(String name) {

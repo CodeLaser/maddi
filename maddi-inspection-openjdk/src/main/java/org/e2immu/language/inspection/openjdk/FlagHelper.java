@@ -63,6 +63,16 @@ public record FlagHelper(Runtime runtime) {
         }
     }
 
+    public MethodInfo.MethodType methodType(long flags) {
+        boolean isStatic = (flags & Flags.STATIC) != 0;
+        if (isStatic) return runtime().methodTypeStaticMethod();
+        boolean isDefault = (flags & Flags.DEFAULT) != 0;
+        if (isDefault) return runtime().methodTypeDefaultMethod();
+        boolean isAbstract = (flags & Flags.ABSTRACT) != 0;
+        if (isAbstract) return runtime().methodTypeAbstractMethod();
+        return runtime.methodTypeMethod();
+    }
+
     public void type(long flags, TypeInfo.Builder builder) {
         boolean isPublic = (flags & Flags.PUBLIC) != 0;
         if (isPublic) builder.addTypeModifier(runtime.typeModifierPublic());
@@ -72,9 +82,12 @@ public record FlagHelper(Runtime runtime) {
         if (isStatic) builder.addTypeModifier(runtime.typeModifierStatic());
 
         boolean isInterface = (flags & Flags.INTERFACE) != 0;
+        boolean isRecord = (flags & Flags.RECORD) != 0;
         TypeNature typeNature;
         if (isInterface) {
             typeNature = runtime.typeNatureInterface();
+        } else if (isRecord) {
+            typeNature = runtime.typeNatureRecord();
         } else {
             typeNature = runtime.typeNatureClass();
         }

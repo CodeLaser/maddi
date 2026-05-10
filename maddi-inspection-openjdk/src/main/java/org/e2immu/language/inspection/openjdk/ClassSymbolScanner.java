@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.openjdk;
 
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.*;
@@ -79,8 +80,16 @@ public class ClassSymbolScanner {
                 newTypeInfo.builder().addOrSetTypeParameter(newTp);
             }
 
+            ParameterizedType superType = convertType.convert(cs.getSuperclass());
+            newTypeInfo.builder().setParentClass(superType);
+
+            for (Type type : cs.getInterfaces()) {
+                ParameterizedType pt = convertType.convert(type);
+                newTypeInfo.builder().addInterfaceImplemented(pt);
+            }
+
             for (var member : members) {
-                addMemberToType(newTypeInfo, member);
+                addMemberToType(newTypeInfo, cs, member);
             }
             recursionPrevention.remove(newTypeInfo);
         }
@@ -119,12 +128,12 @@ public class ClassSymbolScanner {
         throw new UnsupportedOperationException("NYI");
     }
 
-    private void addMemberToType(TypeInfo typeInfo, Element member) {
-        if (member instanceof Symbol.MethodSymbol ms) {
+    private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member) {
+        if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
             addMethodToType(typeInfo, ms);
-        } else if (member instanceof Symbol.VarSymbol vs) {
+        } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
             addFieldToType(typeInfo, vs);
-        } else if (member instanceof Symbol.ClassSymbol cs) {
+        } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
             addEnclosedTypeToType(typeInfo, cs);
         }
     }
@@ -135,15 +144,10 @@ public class ClassSymbolScanner {
         TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
         typeData.put(enclosed);
         typeInfo.builder().addSubType(enclosed);
-        //  loadType(cs, enclosed); FIXME recursion issue
+        loadType(cs, enclosed);
     }
 
     private void addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
-        FieldInfo override = typeData.getField(vs);
-        if (override != null) {
-            LOGGER.info("Override field: {}", override);
-            return;
-        }
         String name = vs.getSimpleName().toString();
         LOGGER.info("Adding field {} to {}", name, typeInfo);
         ParameterizedType type = convertType.convert(vs.type);
@@ -152,20 +156,10 @@ public class ClassSymbolScanner {
         typeInfo.builder().addField(fieldInfo);
         flagHelper.field(vs.flags(), fieldInfo.builder());
 
-        FieldInfo override2 = typeData.getField(vs);
-        if (override2 != null) {
-            LOGGER.info("Override2 field: {}", override2);
-            return;
-        }
         typeData.put(vs, fieldInfo);
     }
 
     private void addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
-        MethodInfo override = typeData.getMethod(ms);
-        if (override != null) {
-            LOGGER.info("Override: {}", override);
-            return;
-        }
         String name = ms.getSimpleName().toString();
         MethodInfo method;
         if ("<init>".equals(name)) {
@@ -173,9 +167,8 @@ public class ClassSymbolScanner {
             method = runtime.newConstructor(typeInfo);
         } else {
             LOGGER.info("Adding method {} to {}", name, typeInfo);
-            boolean isStatic = (ms.flags() & Flags.STATIC) != 0;
-            method = runtime.newMethod(typeInfo, name,
-                    isStatic ? runtime.methodTypeStaticMethod() : runtime.methodTypeMethod());
+            MethodInfo.MethodType methodType = flagHelper.methodType(ms.flags());
+            method = runtime.newMethod(typeInfo, name, methodType);
             typeInfo.builder().addMethod(method);
         }
         int index = 0;
@@ -198,12 +191,6 @@ public class ClassSymbolScanner {
         // now the fully qualified name has been computed...
 
         typeData.clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
-
-        MethodInfo override2 = typeData.getMethod(ms);
-        if (override2 != null) {
-            LOGGER.info("Override2: {}", override2);
-            return;
-        }
         typeData.put(ms, method);
     }
 

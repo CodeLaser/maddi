@@ -5,6 +5,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -47,9 +48,12 @@ public class ConvertType {
             return runtime.newParameterizedType(base.typeInfo(), 1);
         }
         if (type instanceof Type.WildcardType wildcardType) {
-            ParameterizedType base = convert(wildcardType.bound);
-            if (base.isJavaLangObject()) return runtime.parameterizedTypeWildcard(); // '?'
-            Wildcard wildCard = runtime.wildcardExtends(); // TODO
+            if (wildcardType.isUnbound()) {
+                return runtime.parameterizedTypeWildcard();
+            }
+            boolean isExtends = wildcardType.isExtendsBound();
+            Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
+            ParameterizedType base = convert(wildcardType.type);
             if (base.isTypeParameter()) {
                 return runtime.newParameterizedType(base.typeParameter(), 0, wildCard);
             }
@@ -62,7 +66,15 @@ public class ConvertType {
                 if (ms.owner instanceof Symbol.ClassSymbol cs) {
                     String typeFqn = cs.fullname.toString();
                     typeParameter = typeData.getTmpMethodTypeParameter(typeFqn, typeParameterName);
-                    assert typeParameter != null;
+                    if (typeParameter == null) {
+                        // method must have been completed, look up!
+                        // FIXME could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
+                        MethodInfo owner = typeData.getMethod(ms);
+                        assert owner != null;
+                        typeParameter = owner.typeParameters().stream()
+                                .filter(tp -> tp.simpleName().equals(typeParameterName))
+                                .findFirst().orElseThrow();
+                    }
                 } else throw new UnsupportedOperationException();
             } else {
                 TypeInfo owner = typeData.getType(typeVar.tsym.owner.toString());
@@ -73,6 +85,7 @@ public class ConvertType {
             }
             return runtime.newParameterizedType(typeParameter, 0, null);
         }
+        if ("none".equals(type.toString())) return null; // parent of Object
         throw new UnsupportedOperationException("NYI");
     }
 
