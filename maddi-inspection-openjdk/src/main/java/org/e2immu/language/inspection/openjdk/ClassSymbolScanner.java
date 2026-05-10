@@ -15,7 +15,9 @@ import org.slf4j.LoggerFactory;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import java.net.URI;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,6 +28,7 @@ public class ClassSymbolScanner {
     private final Elements elements;
     private final TypeData typeData;
     private ConvertType convertType;
+    private final Set<TypeInfo> recursionPrevention = new HashSet<>();
 
     public ClassSymbolScanner(Runtime runtime,
                               FlagHelper flagHelper,
@@ -54,10 +57,13 @@ public class ClassSymbolScanner {
         String simpleName = cs.name.toString();
         TypeInfo newTypeInfo = runtime.newTypeInfo(cu, simpleName);
         flagHelper.type(cs.flags(), newTypeInfo.builder());
-        //The following completely loads 'cs'
-        List<? extends Element> members = elements.getAllMembers(cs);
-        for (var member : members) {
-            addMemberToType(newTypeInfo, member);
+        if (recursionPrevention.add(newTypeInfo)) {
+            //The following completely loads 'cs'
+            List<? extends Element> members = elements.getAllMembers(cs);
+            for (var member : members) {
+                addMemberToType(newTypeInfo, member);
+            }
+            recursionPrevention.remove(newTypeInfo);
         }
         return newTypeInfo;
     }
