@@ -11,10 +11,7 @@ import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.Lambda;
-import org.e2immu.language.cst.api.expression.Precedence;
+import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
@@ -277,6 +274,128 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         return null;
     }
 
+    // note: also field declarations
+    @Override
+    public Void visitVariable(VariableTree node, Void p) {
+        LOGGER.info("VARIABLE:" + node.getName().toString());
+
+        if (node instanceof JCTree.JCVariableDecl variableDecl) {
+            long flags = variableDecl.getModifiers().flags;
+
+            if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
+                String name = varSymbol.toString();
+                ParameterizedType type = convertType.convertTree(variableDecl.vartype);
+
+                currentExpression = null;
+                scan(node.getInitializer(), p);
+                if (currentExpression == null) {
+                    currentExpression = runtime.newEmptyExpression();
+                }
+                if (currentMethod == null) {
+                    // field!
+                    boolean isStatic = (flags & Flags.STATIC) != 0;
+                    TypeInfo owner = typeStack.getLast();
+                    if (!owner.typeNature().isRecord() || isStatic) {
+                        FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+                        flagHelper.field(flags, fieldInfo.builder());
+                        fieldInfo.builder().setSource(sourceForNode(node))
+                                .setInitializer(currentExpression)
+                                .commit();
+                        owner.builder().addField(fieldInfo);
+
+                        // annotations
+                        for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+                            AnnotationExpression ae = convertAnnotation(annotation);
+                            fieldInfo.builder().addAnnotation(ae);
+                        }
+                        typeData.put(varSymbol, fieldInfo);
+                    } // else: non-static record components are dealt with in the type visitor
+                } else {
+
+                    // local variable
+
+                    LocalVariable localVariable = runtime.newLocalVariable(name, type, currentExpression);
+                    LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
+                            .setSource(sourceForNode(node))
+                            .setLocalVariable(localVariable);
+                    boolean isFinal = (flags & Flags.FINAL) != 0;
+                    if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
+
+                    // annotations
+                    for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+                        AnnotationExpression ae = convertAnnotation(annotation);
+                        lvcb.addAnnotation(ae);
+                    }
+
+                    currentBlockBuilder.addStatement(lvcb.build());
+                    elementStack.getLast().put(localVariable.simpleName(), localVariable);
+                }
+            }
+        }
+        return null;
+    }
+
+    // -- Expressions ---------------------------------------------
+
+
+    @Override
+    public Void visitArrayAccess(ArrayAccessTree node, Void unused) {
+        JCTree.JCArrayAccess aa = (JCTree.JCArrayAccess) node;
+        scan(aa.indexed, unused);
+        Expression array = currentExpression;
+        scan(aa.index, unused);
+        Expression index = currentExpression;
+        currentExpression = runtime.newVariableExpressionBuilder().setSource(sourceForNode(node))
+                .setVariable(runtime.newDependentVariable(array, index)).build();
+        return null;
+    }
+
+    @Override
+    public Void visitAssignment(AssignmentTree node, Void unused) {
+        JCTree.JCAssign assign = (JCTree.JCAssign) node;
+        scan(assign.rhs, unused);
+        Expression value = currentExpression;
+        scan(assign.lhs, unused);
+        VariableExpression target = (VariableExpression) currentExpression;
+        currentExpression = runtime.newAssignmentBuilder()
+                .setSource(sourceForNode(node))
+                .setTarget(target)
+                .setValue(value)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitBinary(BinaryTree node, Void unused) {
+        JCTree.JCBinary binary = (JCTree.JCBinary) node;
+        scan(node.getLeftOperand(), unused);
+        Expression lhs = currentExpression;
+        scan(node.getRightOperand(), unused);
+        Expression rhs = currentExpression;
+        JCTree.Tag opcode = binary.getTag();
+        MethodInfo operator = switch (opcode) {
+            case PLUS -> runtime.plusOperatorInt();
+            case MINUS -> runtime.minusOperatorInt();
+            case MUL -> runtime.multiplyOperatorInt();
+            case DIV -> runtime.divideOperatorInt();
+            case EQ -> runtime.equalsOperatorInt();
+            default -> throw new UnsupportedOperationException("NYI");
+        };
+        Precedence precedence = switch (opcode) {
+            case PLUS, MINUS -> runtime.precedenceAdditive();
+            case MUL, DIV -> runtime.precedenceMultiplicative();
+            default -> throw new UnsupportedOperationException();
+        };
+        ParameterizedType type = convertType.convert(binary.type);
+        currentExpression = runtime.newBinaryOperatorBuilder()
+                .setLhs(lhs).setOperator(operator).setRhs(rhs)
+                .setSource(sourceForNode(node))
+                .setPrecedence(precedence)
+                .setParameterizedType(type)
+                .build();
+        return null;
+    }
+
     @Override
     public Void visitLambdaExpression(LambdaExpressionTree node, Void unused) {
         JCTree.JCLambda lambda = (JCTree.JCLambda) node;
@@ -360,145 +479,32 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         return null;
     }
 
-    // note: also field declarations
     @Override
-    public Void visitVariable(VariableTree node, Void p) {
-        LOGGER.info("VARIABLE:" + node.getName().toString());
+    public Void visitLiteral(LiteralTree node, Void unused) {
+        JCTree.JCLiteral literal = (JCTree.JCLiteral) node;
 
-        if (node instanceof JCTree.JCVariableDecl variableDecl) {
-            long flags = variableDecl.getModifiers().flags;
-
-            if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
-                String name = varSymbol.toString();
-                ParameterizedType type = convertType.convertTree(variableDecl.vartype);
-
-                currentExpression = null;
-                scan(node.getInitializer(), p);
-                if (currentExpression == null) {
-                    currentExpression = runtime.newEmptyExpression();
+        List<Comment> comments = List.of();
+        Source source = sourceForNode(node);
+        currentExpression = switch (literal.typetag) {
+            case INT -> runtime.newInt(comments, source, (Integer) literal.value);
+            case DOUBLE -> runtime.newDouble(comments, source, (Double) literal.value);
+            case LONG -> runtime.newLong(comments, source, (Long) literal.value);
+            case FLOAT -> runtime.newFloat(comments, source, (Float) literal.value);
+            case SHORT -> runtime.newShort(comments, source, (Short) literal.value);
+            case BOOLEAN -> runtime.newBoolean(comments, source, (Boolean) literal.value);
+            case CHAR -> runtime.newChar(comments, source, (char) (int) (Integer) literal.value);
+            case CLASS -> {
+                Tree.Kind kind = literal.typetag.getKindLiteral();
+                if (Tree.Kind.STRING_LITERAL == kind) {
+                    yield runtime.newStringConstant(comments, source, (String) literal.value);
                 }
-                if (currentMethod == null) {
-                    // field!
-                    boolean isStatic = (flags & Flags.STATIC) != 0;
-                    TypeInfo owner = typeStack.getLast();
-                    if (!owner.typeNature().isRecord() || isStatic) {
-                        FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
-                        flagHelper.field(flags, fieldInfo.builder());
-                        fieldInfo.builder().setSource(sourceForNode(node))
-                                .setInitializer(currentExpression)
-                                .commit();
-                        owner.builder().addField(fieldInfo);
-
-                        // annotations
-                        for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
-                            AnnotationExpression ae = convertAnnotation(annotation);
-                            fieldInfo.builder().addAnnotation(ae);
-                        }
-                        typeData.put(varSymbol, fieldInfo);
-                    } // else: non-static record components are dealt with in the type visitor
-                } else {
-
-                    // local variable
-
-                    LocalVariable localVariable = runtime.newLocalVariable(name, type, currentExpression);
-                    LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
-                            .setSource(sourceForNode(node))
-                            .setLocalVariable(localVariable);
-                    boolean isFinal = (flags & Flags.FINAL) != 0;
-                    if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
-
-                    // annotations
-                    for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
-                        AnnotationExpression ae = convertAnnotation(annotation);
-                        lvcb.addAnnotation(ae);
-                    }
-
-                    currentBlockBuilder.addStatement(lvcb.build());
-                    elementStack.getLast().put(localVariable.simpleName(), localVariable);
-                }
+                throw new UnsupportedOperationException("?");
             }
-        }
-        return null;
-    }
-
-    // -- Expressions ---------------------------------------------
-
-
-    @Override
-    public Void visitArrayAccess(ArrayAccessTree node, Void unused) {
-        JCTree.JCArrayAccess aa = (JCTree.JCArrayAccess) node;
-        scan(aa.indexed, unused);
-        Expression array = currentExpression;
-        scan(aa.index, unused);
-        Expression index = currentExpression;
-        currentExpression = runtime.newVariableExpressionBuilder().setSource(sourceForNode(node))
-                .setVariable(runtime.newDependentVariable(array, index)).build();
-        return null;
-    }
-
-    @Override
-    public Void visitBinary(BinaryTree node, Void unused) {
-        JCTree.JCBinary binary = (JCTree.JCBinary) node;
-        scan(node.getLeftOperand(), unused);
-        Expression lhs = currentExpression;
-        scan(node.getRightOperand(), unused);
-        Expression rhs = currentExpression;
-        JCTree.Tag opcode = binary.getTag();
-        MethodInfo operator = switch (opcode) {
-            case PLUS -> runtime.plusOperatorInt();
-            case MINUS -> runtime.minusOperatorInt();
-            case MUL -> runtime.multiplyOperatorInt();
-            case DIV -> runtime.divideOperatorInt();
-            case EQ -> runtime.equalsOperatorInt();
-            default -> throw new UnsupportedOperationException("NYI");
-        };
-        Precedence precedence = switch (opcode) {
-            case PLUS, MINUS -> runtime.precedenceAdditive();
-            case MUL, DIV -> runtime.precedenceMultiplicative();
+            case BOT -> runtime.newNullConstant(comments, source);
             default -> throw new UnsupportedOperationException();
         };
-        ParameterizedType type = convertType.convert(binary.type);
-        currentExpression = runtime.newBinaryOperatorBuilder()
-                .setLhs(lhs).setOperator(operator).setRhs(rhs)
-                .setSource(sourceForNode(node))
-                .setPrecedence(precedence)
-                .setParameterizedType(type)
-                .build();
-        return null;
-    }
 
-    @Override
-    public Void visitMemberSelect(MemberSelectTree node, Void unused) {
-
-        if (node instanceof JCTree.JCFieldAccess fieldAccess) {
-            // class literal
-            if ("class".equals(fieldAccess.name.toString())) {
-                if (fieldAccess.selected instanceof JCTree.JCIdent ident) {
-                    ParameterizedType classType = convertType.convert(fieldAccess.type);
-                    ParameterizedType realType = convertType.convert(ident.type);
-                    currentExpression = runtime.newClassExpressionBuilder(realType)
-                            .setSource(sourceForNode(node))
-                            .setClassType(classType).build();
-                    return null;
-                } else throw new UnsupportedOperationException();
-            }
-
-            // static field access, no need to generate a TypeExpression
-            if (fieldAccess.sym instanceof Symbol.VarSymbol vs) {
-                scan(fieldAccess.getExpression(), unused);
-                Expression scope = currentExpression;
-                ParameterizedType concreteType = convertType.convert(fieldAccess.type);
-                FieldInfo fieldInfo = typeData.getField(vs);
-                assert fieldInfo != null : "Cannot find field " + node;
-                FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
-                currentExpression = runtime.newVariableExpressionBuilder()
-                        .setSource(sourceForNode(node))
-                        .setVariable(fr).build();
-                return null;
-            }
-        }
-        super.visitMemberSelect(node, unused);
-        return null;
+        return super.visitLiteral(node, unused);
     }
 
     @Override
@@ -539,38 +545,50 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                                 .build();
                     } else throw new UnsupportedOperationException("NYI");
                 }
+                case ENUM -> {
+                    if (element instanceof Symbol.ClassSymbol classSymbol) {
+                        ParameterizedType type = convertType.convert(classSymbol.type);
+                    }
+                }
                 default -> throw new UnsupportedOperationException("NYI: " + element.getKind());
             }
         }
         return null;// super.visitIdentifier(node, p);
     }
 
+
     @Override
-    public Void visitLiteral(LiteralTree node, Void unused) {
-        JCTree.JCLiteral literal = (JCTree.JCLiteral) node;
+    public Void visitMemberSelect(MemberSelectTree node, Void unused) {
 
-        List<Comment> comments = List.of();
-        Source source = sourceForNode(node);
-        currentExpression = switch (literal.typetag) {
-            case INT -> runtime.newInt(comments, source, (Integer) literal.value);
-            case DOUBLE -> runtime.newDouble(comments, source, (Double) literal.value);
-            case LONG -> runtime.newLong(comments, source, (Long) literal.value);
-            case FLOAT -> runtime.newFloat(comments, source, (Float) literal.value);
-            case SHORT -> runtime.newShort(comments, source, (Short) literal.value);
-            case BOOLEAN -> runtime.newBoolean(comments, source, (Boolean) literal.value);
-            case CHAR -> runtime.newChar(comments, source, (Character) literal.value);
-            case CLASS -> {
-                Tree.Kind kind = literal.typetag.getKindLiteral();
-                if (Tree.Kind.STRING_LITERAL == kind) {
-                    yield runtime.newStringConstant(comments, source, (String) literal.value);
-                }
-                throw new UnsupportedOperationException("?");
+        if (node instanceof JCTree.JCFieldAccess fieldAccess) {
+            // class literal
+            if ("class".equals(fieldAccess.name.toString())) {
+                if (fieldAccess.selected instanceof JCTree.JCIdent ident) {
+                    ParameterizedType classType = convertType.convert(fieldAccess.type);
+                    ParameterizedType realType = convertType.convert(ident.type);
+                    currentExpression = runtime.newClassExpressionBuilder(realType)
+                            .setSource(sourceForNode(node))
+                            .setClassType(classType).build();
+                    return null;
+                } else throw new UnsupportedOperationException();
             }
-            case BOT -> runtime.newNullConstant(comments, source);
-            default -> throw new UnsupportedOperationException();
-        };
 
-        return super.visitLiteral(node, unused);
+            // static field access, no need to generate a TypeExpression
+            if (fieldAccess.sym instanceof Symbol.VarSymbol vs) {
+                scan(fieldAccess.getExpression(), unused);
+                Expression scope = currentExpression;
+                ParameterizedType concreteType = convertType.convert(fieldAccess.type);
+                FieldInfo fieldInfo = typeData.getField(vs);
+                assert fieldInfo != null : "Cannot find field " + node;
+                FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
+                currentExpression = runtime.newVariableExpressionBuilder()
+                        .setSource(sourceForNode(node))
+                        .setVariable(fr).build();
+                return null;
+            }
+        }
+        super.visitMemberSelect(node, unused);
+        return null;
     }
 
     @Override
@@ -626,10 +644,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         for (var arg : node.getArguments()) {
             currentExpression = null;
             scan(arg, p);
-            if (currentExpression == null) {
-                LOGGER.warn("Have unparsed expression");
-                currentExpression = runtime.newEmptyExpression();
-            }
             arguments.add(currentExpression);
         }
 
@@ -658,6 +672,51 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                     .setConcreteReturnType(concreteReturnType)
                     .build();
         }
+        return null;
+    }
+
+    @Override
+    public Void visitNewArray(NewArrayTree node, Void unused) {
+        JCTree.JCNewArray newArray = (JCTree.JCNewArray) node;
+        List<Expression> dimensions = new ArrayList<>();
+        for (var dim : newArray.dims) {
+            scan(dim, unused);
+            Expression dimension = currentExpression;
+            dimensions.add(dimension);
+        }
+        ParameterizedType elementType = convertType.convertTree(newArray.elemtype);
+        ParameterizedType concreteReturnType = elementType.copyWithArrays(dimensions.size());
+        MethodInfo constructor = runtime.newArrayCreationConstructor(concreteReturnType);
+        currentExpression = runtime.newConstructorCallBuilder()
+                .setConstructor(constructor)
+                .setConcreteReturnType(concreteReturnType)
+                .setDiamond(runtime.diamondNo())
+                .setParameterExpressions(dimensions)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitNewClass(NewClassTree node, Void unused) {
+        JCTree.JCNewClass newClass = (JCTree.JCNewClass) node;
+
+        List<Expression> arguments = new ArrayList<>(node.getArguments().size());
+        for (var arg : node.getArguments()) {
+            currentExpression = null;
+            scan(arg, unused);
+            arguments.add(currentExpression);
+        }
+        ParameterizedType concreteReturnType = convertType.convert(newClass.type);
+        MethodInfo constructor = typeData.getMethod((Symbol.MethodSymbol) newClass.constructor);
+
+        assert constructor != null;
+        currentExpression = runtime.newConstructorCallBuilder()
+                .setSource(sourceForNode(node))
+                .setConstructor(constructor)
+                .setDiamond(runtime.diamondNo()) // TODO
+                .setConcreteReturnType(concreteReturnType)
+                .setParameterExpressions(arguments)
+                .build();
         return null;
     }
 

@@ -45,9 +45,7 @@ public class ConvertType {
         }
         if (type instanceof Type.ArrayType at) {
             ParameterizedType base = convert(at.elemtype);
-            return base.isTypeParameter()
-                    ? runtime.newParameterizedType(base.typeParameter(), base.arrays() + 1, null)
-                    : runtime.newParameterizedType(base.typeInfo(), base.arrays() + 1, null, List.of());
+            return base.copyWithArrays(base.arrays() + 1);
         }
         if (type instanceof Type.WildcardType wildcardType) {
             if (wildcardType.isUnbound()) {
@@ -127,9 +125,7 @@ public class ConvertType {
         }
         if (type instanceof JCTree.JCArrayTypeTree att) {
             ParameterizedType base = convertTree(att.elemtype);
-            return base.isTypeParameter()
-                    ? runtime.newParameterizedType(base.typeParameter(), base.arrays() + 1, null)
-                    : runtime.newParameterizedType(base.typeInfo(), base.arrays() + 1, null, List.of());
+            return base.copyWithArrays(base.arrays() + 1);
         }
         throw new UnsupportedOperationException("NYI");
     }
