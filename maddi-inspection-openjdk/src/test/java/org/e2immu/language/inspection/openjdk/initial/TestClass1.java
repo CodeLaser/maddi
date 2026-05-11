@@ -1,4 +1,4 @@
-package org.e2immu.language.inspection.openjdk;
+package org.e2immu.language.inspection.openjdk.initial;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.*;
@@ -13,33 +13,68 @@ import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
-import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.language.inspection.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
+import java.io.IOException;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-public class TestClass1 {
+public class TestClass1 extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT = """
+            package org.e2immu.example;
+            
+            import org.jetbrains.annotations.NotNull;
+            import org.slf4j.Logger;
+            import org.slf4j.LoggerFactory;
+            
+            import java.util.List;
+            
+            public class Class1 {
+                private static final Logger LOGGER = LoggerFactory.getLogger(Class1.class);
+            
+                private int method() {
+                    LOGGER.info("I'm here!");
+                    // return a constant
+                    return 3;
+                }
+            
+                // a comment on a method
+                protected void voidMethod() {
+                    int j = method();
+                    /* and one one a statement */
+                    System.out.println(j);
+                }
+            
+                static class Enclosed<T> implements Comparable<Enclosed<T>> {
+                    List<T> list;
+            
+                    @Override
+                    public int compareTo(@NotNull Enclosed<T> o) {
+                        return list.size() - o.list.size();
+                    }
+                }
+            
+                record R(int k, String s, int[] ints, Double[][] matrix) {
+                    double get(int i, int j) {
+                        return matrix[i][j];
+                    }
+                }
+            }
+            """;
 
     @Test
-    public void test() throws Exception {
-        Runtime runtime = new RuntimeImpl();
-        SingleDirExplorer sde = new SingleDirExplorer(runtime);
-        String sourceDir = "../maddi-inspection-openjdk-example/src/main/java";
-        SourceSet sourceSet = new SourceSetImpl(
-                "source", List.of(Path.of(sourceDir)),
-                URI.create("file:" + Path.of(sourceDir).toAbsolutePath()),
-                StandardCharsets.UTF_8, false, false, false,
-                false, false, Set.of(), Set.of());
-        List<TypeInfo> types = sde.go(sourceSet, "../maddi-inspection-openjdk-example/libs");
-        assertEquals(1, types.size());
-        TypeInfo class1 = types.getFirst();
+    public void test() throws IOException {
+        TypeInfo class1 = scan(Map.of("org.e2immu.example.Class1", INPUT), List.of()).getFirst();
         assertEquals("org.e2immu.example.Class1", class1.fullyQualifiedName());
         assertEquals(runtime.objectParameterizedType(), class1.parentClass());
 
@@ -58,7 +93,7 @@ public class TestClass1 {
         if (callInfo instanceof ExpressionAsStatement eas) {
             if (eas.expression() instanceof MethodCall mc) {
                 assertEquals("Class1.LOGGER", mc.object().toString());
-                assertEquals("slf4j-api-2.0.15.jar",
+                assertEquals("slf4j-api-2.0.17.jar",
                         mc.object().parameterizedType().typeInfo().compilationUnit().sourceSet().name());
                 if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
                     assertEquals("LOGGER", fr.fieldInfo().name());
