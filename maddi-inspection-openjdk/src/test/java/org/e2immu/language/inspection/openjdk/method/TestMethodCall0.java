@@ -115,7 +115,7 @@ public class TestMethodCall0 extends CommonTest {
             assertEquals("java.lang.Iterable.forEach(java.util.function.Consumer<? super T>)",
                     mc.methodInfo().fullyQualifiedName());
             if (mc.parameterExpressions().getFirst() instanceof Lambda lambda) {
-                assertEquals("Type java.util.function.Consumer<org.e2immu.analyser.resolver.testexample.MethodCall_0.Get>",
+                assertEquals("Type java.util.function.Consumer<org.e2immu.analyser.resolver.testexample.MethodCall_2.Get>",
                         lambda.concreteFunctionalType().toString());
             } else fail();
         } else fail();

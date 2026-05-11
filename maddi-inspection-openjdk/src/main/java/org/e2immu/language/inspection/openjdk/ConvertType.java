@@ -110,6 +110,16 @@ public class ConvertType {
                 throw new UnsupportedOperationException("NYI");
             }
         }
+        if (type instanceof JCTree.JCFieldAccess fieldAccess) {
+            // enclosing type notation
+            return convert(fieldAccess.type);
+        /*    ParameterizedType enclosing = convertTree(fieldAccess.getExpression());
+            String name = fieldAccess.name.toString();
+            if (enclosing.typeInfo() != null) {
+                TypeInfo typeInfo = enclosing.typeInfo().findSubType(name);
+                return runtime.newParameterizedType(typeInfo, List.of());
+            } else throw new UnsupportedOperationException("NYI");*/
+        }
         if (type instanceof JCTree.JCTypeApply apply) {
             ParameterizedType base = convertTree(apply.getType());
             List<ParameterizedType> parameters = apply.getTypeArguments().stream().map(this::convertTree).toList();
