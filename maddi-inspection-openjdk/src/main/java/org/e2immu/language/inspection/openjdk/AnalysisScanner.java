@@ -13,6 +13,7 @@ import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.Precedence;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -276,6 +277,89 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         return null;
     }
 
+    @Override
+    public Void visitLambdaExpression(LambdaExpressionTree node, Void unused) {
+        JCTree.JCLambda lambda = (JCTree.JCLambda) node;
+        Source source = sourceForNode(node);
+
+        TypeInfo enclosingType = currentMethod.typeInfo();
+        int typeIndex = enclosingType.builder().getAndIncrementAnonymousTypes();
+        TypeInfo anonymousType = runtime.newAnonymousType(enclosingType, typeIndex);
+        anonymousType.builder()
+                .setAccess(runtime.accessPrivate())
+                .setTypeNature(runtime.typeNatureClass())
+                .setParentClass(runtime.objectParameterizedType());
+
+        Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) lambda.owner;
+        String methodName = methodSymbol.name.toString();
+        MethodInfo methodInfo = runtime.newMethod(anonymousType, methodName, runtime.methodTypeMethod());
+        MethodInfo.Builder miBuilder = methodInfo.builder();
+
+        ParameterizedType concreteReturnType = convertType.convert(methodSymbol.getReturnType());
+        ParameterizedType functionalType = convertType.convert(lambda.target);
+
+        List<Lambda.OutputVariant> outputVariants = new ArrayList<>();
+
+        Map<String, Element> lambdaParameters = new HashMap<>();
+        elementStack.addLast(lambdaParameters);
+        for (var parameter : lambda.getParameters()) {
+            if (parameter instanceof JCTree.JCVariableDecl vd) {
+                ParameterInfo pi;
+                String name = vd.name.toString();
+                ParameterizedType type = convertType.convertTree(vd.getType());
+                if ("_".equals(name)) {
+                    pi = miBuilder.addUnnamedParameter(type);
+                } else {
+                    pi = miBuilder.addParameter(name, type);
+                }
+                pi.builder().commit();
+                outputVariants.add(runtime.lambdaOutputVariantEmpty()); // TODO
+                lambdaParameters.put(name, pi);
+            } else throw new UnsupportedOperationException("NYI");
+        }
+        Block methodBody;
+        if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION) {
+            scan(lambda.body, unused);
+            Expression tExpression = currentExpression;
+
+            Statement returnStatement = runtime.newReturnBuilder()
+                    .setSource(sourceForNode(lambda.body))
+                    .setExpression(tExpression)
+                    .build();
+            methodBody = runtime.newBlockBuilder().addStatement(returnStatement).build();
+        } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
+            throw new UnsupportedOperationException("NYI");
+        } else {
+            throw new UnsupportedOperationException("NYI");
+        }
+
+        elementStack.removeLast();
+
+        miBuilder.setAccess(runtime.accessPublic())
+                .setSynthetic(true)
+                .setSource(source)
+                .setMethodBody(methodBody)
+                .setReturnType(concreteReturnType)
+                .commit();
+
+        anonymousType.builder()
+                .addMethod(methodInfo)
+                .addInterfaceImplemented(functionalType)
+                .setEnclosingMethod(currentMethod)
+                .setSingleAbstractMethod(methodInfo)
+                .setSource(source)
+                .commit();
+
+        currentExpression = runtime.newLambdaBuilder()
+                .addAnnotations(List.of()) // TODO
+                .addComments(List.of()) // TODO
+                .setSource(source)
+                .setMethodInfo(methodInfo)
+                .setOutputVariants(outputVariants)
+                .build();
+        return null;
+    }
+
     // note: also field declarations
     @Override
     public Void visitVariable(VariableTree node, Void p) {
@@ -446,7 +530,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 case PACKAGE -> {
                     LOGGER.debug("Skipping package {}", node);
                 }
-                case CLASS -> {
+                case CLASS, INTERFACE, RECORD -> {
                     if (element instanceof Symbol.ClassSymbol classSymbol) {
                         ParameterizedType type = convertType.convert(classSymbol.type);
                         currentExpression = runtime.newTypeExpressionBuilder()
@@ -482,6 +566,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 }
                 throw new UnsupportedOperationException("?");
             }
+            case BOT -> runtime.newNullConstant(comments, source);
             default -> throw new UnsupportedOperationException();
         };
 
