@@ -15,6 +15,7 @@
 package org.e2immu.language.inspection.integration.java.other;
 
 import org.e2immu.language.cst.api.expression.BinaryOperator;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -169,4 +170,38 @@ public class TestField2 extends CommonTest2 {
         assertEquals("\"x\"+Child.FIELD", r.initializer().toString());
     }
 
+
+    @Language("java")
+    String I4 = """
+            package a.b;
+            public interface I {
+                String FIELD = "abc";
+            }
+            """;
+
+    @Language("java")
+    String C4 = """
+            package a.b;
+            import static a.b.I.FIELD;
+            public class C {
+               void method() {
+                   System.out.println(FIELD);
+               }
+            }
+            """;
+
+    @Test
+    public void test4() throws IOException {
+        Map<String, String> sourcesByFqn = Map.of("a.b.I", I4, "a.b.C", C4);
+        ParseResult pr1 = init(sourcesByFqn);
+        TypeInfo C = pr1.findType("a.b.C");
+        MethodInfo method = C.findUniqueMethod("method", 0);
+        MethodCall mc = (MethodCall) method.methodBody().statements().getFirst().expression();
+        VariableExpression ve = (VariableExpression) mc.parameterExpressions().getFirst();
+        if (ve.variable() instanceof FieldReference fr) {
+            assertEquals("FIELD", fr.fieldInfo().name());
+            assertTrue(fr.fieldInfo().isStatic());
+            assertTrue(fr.isDefaultScope());
+        }
+    }
 }
