@@ -412,11 +412,29 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     @Override
     public Void visitBinary(BinaryTree node, Void unused) {
         JCTree.JCBinary binary = (JCTree.JCBinary) node;
+        JCTree.Tag opcode = binary.getTag();
+        if (JCTree.Tag.AND.equals(opcode)) {
+            List<Expression> expressions = andOrExpressions(JCTree.Tag.AND, binary);
+            currentExpression = runtime.newAndBuilder()
+                    .setSource(sourceForNode(node))
+                    .addExpressions(expressions)
+                    .build();
+            return null;
+        }
+        if (JCTree.Tag.OR.equals(opcode)) {
+            List<Expression> expressions = andOrExpressions(JCTree.Tag.OR, binary);
+            currentExpression = runtime.newOrBuilder()
+                    .setSource(sourceForNode(node))
+                    .addExpressions(expressions)
+                    .build();
+            return null;
+        }
+
         scan(node.getLeftOperand(), unused);
         Expression lhs = currentExpression;
         scan(node.getRightOperand(), unused);
         Expression rhs = currentExpression;
-        JCTree.Tag opcode = binary.getTag();
+
         MethodInfo operator = switch (opcode) {
             case PLUS -> {
                 if (lhs.parameterizedType().isJavaLangString() || rhs.parameterizedType().isJavaLangString()) {
@@ -424,8 +442,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 }
                 yield runtime.plusOperatorInt();
             }
-            case AND -> runtime.andOperatorBool();
-            case OR -> runtime.orOperatorBool();
             case BITXOR -> runtime.xorOperatorInt();
             case BITAND -> runtime.andOperatorInt();
             case BITOR -> runtime.orOperatorInt();
@@ -448,8 +464,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             case PLUS, MINUS -> runtime.precedenceAdditive();
             case MUL, DIV -> runtime.precedenceMultiplicative();
             case EQ -> runtime.precedenceEquality();
-            case OR -> runtime.precedenceLogicalOr();
-            case AND -> runtime.precedenceLogicalAnd();
             case BITOR -> runtime.precedenceBitwiseOr();
             case BITXOR -> runtime.precedenceBitwiseXor();
             case BITAND -> runtime.precedenceBitwiseAnd();
@@ -463,6 +477,21 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .setParameterizedType(type)
                 .build();
         return null;
+    }
+
+    private List<Expression> andOrExpressions(JCTree.Tag tag, JCTree.JCBinary binary) {
+        JCTree.JCBinary b = binary;
+        List<Expression> expressions = new ArrayList<>();
+        while (b.getLeftOperand() instanceof JCTree.JCBinary sub && tag.equals(sub.getTag())) {
+            scan(sub.rhs, null);
+            expressions.addFirst(currentExpression);
+            b = sub;
+        }
+        scan(b.getLeftOperand(), null);
+        expressions.addFirst(currentExpression);
+        scan(binary.getRightOperand(), null);
+        expressions.add(currentExpression);
+        return List.copyOf(expressions);
     }
 
     @Override
