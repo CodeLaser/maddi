@@ -16,8 +16,11 @@ import java.util.List;
 
 public class ScanCompilationUnits {
     private final Runtime runtime;
+    private final SourceCodeScan sourceCodeScan;
+
     public ScanCompilationUnits(Runtime runtime) {
         this.runtime = runtime;
+        sourceCodeScan = new SourceCodeScan(runtime);
     }
 
     public List<TypeInfo> scan(JavacTask task, SourceSet sourceSet) throws IOException {
@@ -34,12 +37,14 @@ public class ScanCompilationUnits {
                     .setPackageName(unit.getPackageName().toString())
                     .setSourceSet(sourceSet)
                     .build();
+            CharSequence content = unit.getSourceFile().getCharContent(false);
+            SourceCodeScan.Result scanResult = sourceCodeScan.go(content);
 
             SourcePositions sourcePositions = trees.getSourcePositions();
             LineMap lineMap = unit.getLineMap();
 
             AnalysisScanner analysisScanner = new AnalysisScanner(runtime, compilationUnit, unit, trees,
-                    sourcePositions, lineMap, task.getElements());
+                    sourcePositions, lineMap, task.getElements(), scanResult);
             analysisScanner.scan(unit, null);
             types.addAll(analysisScanner.types());
         }

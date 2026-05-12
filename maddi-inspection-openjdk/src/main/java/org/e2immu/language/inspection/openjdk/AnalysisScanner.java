@@ -50,7 +50,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     Trees trees,
                     SourcePositions sourcePositions,
                     LineMap lineMap,
-                    Elements elements) {
+                    Elements elements, SourceCodeScan.Result scanResult) {
         this.runtime = runtime;
         this.compilationUnit = compilationUnit;
         this.trees = trees;

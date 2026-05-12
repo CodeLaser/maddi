@@ -15,6 +15,7 @@
 package org.e2immu.language.inspection.openjdk.method;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -162,7 +163,9 @@ public class TestMethodCall0 extends CommonTest {
         if (test.methodBody().statements().getFirst() instanceof ExpressionAsStatement eas
             && eas.expression() instanceof MethodCall mc1
             && mc1.parameterExpressions().getFirst() instanceof MethodCall mc2) {
-            assertEquals("Type java.util.List<org.e2immu.analyser.resolver.testexample.MethodCall_3.GetOnly>",
+            assertEquals("List.of(new GetOnly(\"hello\"))", mc2.toString());
+            // CONSTRAINED TYPE - JAVAC POLY Get instead of GetOnly
+            assertEquals("Type java.util.List<org.e2immu.analyser.resolver.testexample.MethodCall_3.Get>",
                     mc2.concreteReturnType().toString());
         } else fail();
         TypeInfo GetOnly = typeInfo.findSubType("GetOnly");
