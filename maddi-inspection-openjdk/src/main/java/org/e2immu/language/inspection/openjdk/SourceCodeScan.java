@@ -9,22 +9,23 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.parser.java.util.JavaDocParser;
 import org.parsers.java.JavaParser;
 import org.parsers.java.Node;
-import org.parsers.java.ast.CompilationUnit;
-import org.parsers.java.ast.MultiLineComment;
-import org.parsers.java.ast.PackageDeclaration;
-import org.parsers.java.ast.SingleLineComment;
+import org.parsers.java.ast.*;
 
 import java.util.*;
 
 public record SourceCodeScan(Runtime runtime) {
 
 
-    public record Result(NavigableMap<Source, List<Comment>> comments, Map<Source, String> keywords) {
+    public record Result(NavigableMap<Source, List<Comment>> comments,
+                         NavigableMap<Source, List<Comment>> trailingComments,
+                         Map<Source, String> keywords) {
     }
 
     public Result go(CharSequence input) {
         NavigableMap<Source, List<Comment>> comments = new TreeMap<>();
+        NavigableMap<Source, List<Comment>> trailingComments = new TreeMap<>();
         NavigableMap<Source, String> keywords = new TreeMap<>();
+        Result result = new Result(comments, trailingComments, keywords);
 
         JavaParser p = new JavaParser(input);
         p.setParserTolerant(false);
@@ -36,9 +37,36 @@ public record SourceCodeScan(Runtime runtime) {
         Node pkgDeclaration0 = packageDeclaration.getFirst();
         keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
 
-        return new Result(Collections.unmodifiableNavigableMap(comments), Collections.unmodifiableNavigableMap(keywords));
+        for (ImportDeclaration id : cu.childrenOfType(ImportDeclaration.class)) {
+            List<Comment> importComments = comments(id);
+            if (!importComments.isEmpty()) comments.put(source(id), importComments);
+            keywords.put(source(id.getFirst()), id.getFirst().toString());
+        }
+        Source classSource = null;
+
+        for (Node node : cu) {
+            if (node instanceof TypeDeclaration td && !(node instanceof EmptyDeclaration)) {
+                scanTypeDeclaration(td, result);
+                classSource = source(td);
+            }
+        }
+
+        Node lastChild = cu.getLastChild();
+        if (lastChild.getType().isEOF() && classSource != null) {
+            List<Comment> trailingClassComments = comments(lastChild);
+            if (!trailingClassComments.isEmpty()) {
+                trailingComments.put(classSource, trailingClassComments);
+            }
+        }
+
+        return new Result(Collections.unmodifiableNavigableMap(comments),
+                Collections.unmodifiableNavigableMap(trailingComments),
+                Collections.unmodifiableNavigableMap(keywords));
     }
 
+    private void scanTypeDeclaration(TypeDeclaration td, Result result) {
+
+    }
 
     /*
     Note: we're not using Node.getAllTokens(), because that method recurses down unconditionally
