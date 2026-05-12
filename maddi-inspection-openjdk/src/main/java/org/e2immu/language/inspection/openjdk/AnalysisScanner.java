@@ -592,7 +592,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             case LONG -> runtime.newLong(comments, source, (Long) literal.value);
             case FLOAT -> runtime.newFloat(comments, source, (Float) literal.value);
             case SHORT -> runtime.newShort(comments, source, (Short) literal.value);
-            case BOOLEAN -> runtime.newBoolean(comments, source, (Boolean) literal.value);
+            case BOOLEAN -> runtime.newBoolean(comments, source, ((Integer) literal.value) == 1);
             case CHAR -> runtime.newChar(comments, source, (char) (int) (Integer) literal.value);
             case CLASS -> {
                 Tree.Kind kind = literal.typetag.getKindLiteral();
