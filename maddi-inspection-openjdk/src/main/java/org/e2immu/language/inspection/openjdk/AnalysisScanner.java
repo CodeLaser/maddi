@@ -118,7 +118,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
         typeInfo.builder().setParentClass(parentClass);
         if (!jcClassDecl.implementing.isEmpty()) {
-            Source source = scanResult.find("implements", sourceForNode(jcClassDecl.implementing.getFirst()));
+            String keyword = typeInfo.isInterface() ? "extends" : "implements";
+            Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
             dsb.put(DetailedSources.IMPLEMENTS, source);
             for (JCTree.JCExpression i : jcClassDecl.implementing) {
                 typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i, dsb));
@@ -567,11 +568,24 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     if (element instanceof Symbol.VarSymbol vs) {
                         String owner = vs.owner.toString();
                         TypeInfo typeInfoOwner = typeData.getType(owner);
-                        FieldInfo fieldInfo = typeInfoOwner.getFieldByName(name, true);
+                        boolean isThis = "this".equals(name);
+                        boolean isSuper = "super".equals(name);
+                        Variable variable;
+                        if (isThis || isSuper) {
+                            // TODO explicitly write type
+                            variable = runtime.newThis(typeInfoOwner.asParameterizedType(), null, isSuper);
+                        } else {
+                            FieldInfo fieldInfo = typeInfoOwner.getFieldByName(name, false);
+                            if (fieldInfo == null) {
+                                throw new UnsupportedOperationException("Cannot find field " + name + " in " + owner);
+                            }
+                            variable = runtime.newFieldReference(fieldInfo);
+                        }
                         currentExpression = runtime.newVariableExpressionBuilder()
                                 .setSource(sourceForNode(node))
-                                .setVariable(runtime.newFieldReference(fieldInfo))
+                                .setVariable(variable)
                                 .build();
+
                     } else throw new UnsupportedOperationException();
                 }
                 case LOCAL_VARIABLE, PARAMETER -> {
@@ -787,22 +801,42 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     @Override
     public Void visitNewClass(NewClassTree node, Void unused) {
         JCTree.JCNewClass newClass = (JCTree.JCNewClass) node;
-
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         List<Expression> arguments = new ArrayList<>(node.getArguments().size());
         for (var arg : node.getArguments()) {
             currentExpression = null;
             scan(arg, unused);
             arguments.add(currentExpression);
         }
-        ParameterizedType concreteReturnType = convertType.convert(newClass.type);
-        MethodInfo constructor = typeData.getMethod((Symbol.MethodSymbol) newClass.constructor);
-
-        assert constructor != null;
+        TypeInfo anonymousType;
+        ParameterizedType concreteReturnType;
+        MethodInfo constructor;
+        if (newClass.def != null) {
+            JCTree.JCClassDecl anonBody = newClass.def;
+            if (!anonBody.implementing.isEmpty()) {
+                concreteReturnType = convertType.convertTree(anonBody.implementing.getFirst(), dsb);
+                constructor = null;
+                TypeInfo enclosingType = typeStack.getLast();
+                anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());
+                TypeInfo.Builder builder = anonymousType.builder();
+                builder.setSource(sourceForNode(node))
+                        .setTypeNature(runtime.typeNatureClass())
+                        .setAccess(runtime.accessPrivate())
+                        .setParentClass(runtime.objectParameterizedType())
+                        .setEnclosingMethod(currentMethod);
+                builder.commit();
+            } else throw new UnsupportedOperationException();
+        } else {
+            concreteReturnType = convertType.convert(newClass.type);
+            anonymousType = null;
+            constructor = typeData.getMethod((Symbol.MethodSymbol) newClass.constructor);
+        }
         currentExpression = runtime.newConstructorCallBuilder()
-                .setSource(sourceForNode(node))
+                .setSource(sourceForNode(node, dsb))
                 .setConstructor(constructor)
                 .setDiamond(runtime.diamondNo()) // TODO
                 .setConcreteReturnType(concreteReturnType)
+                .setAnonymousClass(anonymousType)
                 .setParameterExpressions(arguments)
                 .build();
         return null;
