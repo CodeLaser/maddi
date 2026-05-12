@@ -72,12 +72,16 @@ public class TestParseBinaryOperator extends CommonTest {
         MethodInfo and = typeInfo.findUniqueMethod("and", 2);
         if (and.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
             assertEquals("a&&b&&this.c", rs.expression().toString());
-            assertInstanceOf(And.class, rs.expression());
+            if (rs.expression() instanceof And a) {
+                assertEquals(3, a.expressions().size());
+            } else fail();
         } else fail();
         MethodInfo or = typeInfo.findUniqueMethod("or", 2);
         if (or.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
             assertEquals("b||this.c||!a", rs.expression().toString());
-            assertInstanceOf(Or.class, rs.expression());
+            if (rs.expression() instanceof Or o) {
+                assertEquals(3, o.expressions().size());
+            } else fail();
             assertEquals("this.c||!a||b", runtime.sortAndSimplify(true, rs.expression()).toString());
         } else fail();
         MethodInfo subtract = typeInfo.findUniqueMethod("subtract", 2);
