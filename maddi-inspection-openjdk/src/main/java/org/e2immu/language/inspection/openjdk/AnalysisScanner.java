@@ -43,6 +43,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final FlagHelper flagHelper;
     private final ConvertType convertType;
     private final TypeData typeData;
+    private final SourceCodeScan.Result scanResult;
 
     AnalysisScanner(Runtime runtime,
                     CompilationUnit compilationUnit,
@@ -50,13 +51,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     Trees trees,
                     SourcePositions sourcePositions,
                     LineMap lineMap,
-                    Elements elements, SourceCodeScan.Result scanResult) {
+                    Elements elements,
+                    SourceCodeScan.Result scanResult) {
         this.runtime = runtime;
         this.compilationUnit = compilationUnit;
         this.trees = trees;
         this.lineMap = lineMap;
         this.sourcePositions = sourcePositions;
         this.compilationUnitTree = compilationUnitTree;
+        this.scanResult = scanResult;
 
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
@@ -114,8 +117,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     : explicitParentClass;
         }
         typeInfo.builder().setParentClass(parentClass);
-        for (JCTree.JCExpression i : jcClassDecl.implementing) {
-            typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i, dsb));
+        if (!jcClassDecl.implementing.isEmpty()) {
+            Source source = scanResult.find("implements", sourceForNode(jcClassDecl.implementing.getFirst()));
+            dsb.put(DetailedSources.IMPLEMENTS, source);
+            for (JCTree.JCExpression i : jcClassDecl.implementing) {
+                typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i, dsb));
+            }
         }
         for (JCTree.JCExpression permits : jcClassDecl.permitting) {
             TypeInfo permitted = convertType.convert(permits.type).typeInfo();
