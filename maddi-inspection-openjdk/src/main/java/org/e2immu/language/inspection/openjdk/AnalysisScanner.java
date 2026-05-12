@@ -7,10 +7,7 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
-import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
+import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -27,7 +24,7 @@ import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import java.util.*;
 
-class AnalysisScanner extends TreePathScanner<Void, Void> {
+class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
     private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
     private final Deque<Map<String, Element>> elementStack = new ArrayDeque<>();
@@ -46,9 +43,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final ConvertType convertType;
     private final TypeData typeData;
 
-    AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit,
+    AnalysisScanner(Runtime runtime,
+                    CompilationUnit compilationUnit,
                     CompilationUnitTree compilationUnitTree,
-                    Trees trees, SourcePositions sourcePositions,
+                    Trees trees,
+                    SourcePositions sourcePositions,
                     LineMap lineMap,
                     Elements elements) {
         this.runtime = runtime;
@@ -61,7 +60,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
         ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, flagHelper, elements, typeData);
-        convertType = new ConvertType(runtime, classSymbolScanner, typeData, this::findInElementStack);
+        convertType = new ConvertType(runtime, classSymbolScanner, typeData, this::findInElementStack, this);
         classSymbolScanner.setConvertType(convertType);
     }
 
@@ -102,15 +101,18 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             elementStack.getLast().put(name, tp);
         }
 
-        ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending);
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending, dsb);
         ParameterizedType parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
                 : explicitParentClass;
         typeInfo.builder().setParentClass(parentClass);
         for (JCTree.JCExpression i : jcClassDecl.implementing) {
-            typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i));
+            typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i, dsb));
         }
         for (JCTree.JCExpression permits : jcClassDecl.permitting) {
-            typeInfo.builder().addPermittedType(convertType.convert(permits.type).typeInfo());
+            TypeInfo permitted = convertType.convert(permits.type).typeInfo();
+            typeInfo.builder().addPermittedType(permitted);
+            dsb.put(permitted, sourceForNode(permits));
         }
 
         // record components: fields and accessors
@@ -138,6 +140,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             currentMethod = null;
             scan(member, p);
         }
+        typeInfo.builder().setSource(sourceForNode(node, dsb));
 
         typeStack.removeLast();
         elementStack.removeLast();
@@ -169,8 +172,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         // flags
         flagHelper.method(methodFlags, methodInfo.builder());
 
-        // type parameters
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
 
+        // type parameters
         for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
             int index = typeParameter.pos;
             String name = typeParameter.getName().toString();
@@ -182,7 +186,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         // return type
 
         if (!isConstructor) {
-            ParameterizedType returnType = convertType.convertTree(node.getReturnType());
+            ParameterizedType returnType = convertType.convertTree(node.getReturnType(), dsb);
             methodInfo.builder().setReturnType(returnType);
         }
 
@@ -190,7 +194,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         HashMap<String, Element> parameterMap = new HashMap<>();
         for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
             String name = jcVariableDecl.getName().toString();
-            ParameterizedType type = convertType.convertTree(jcVariableDecl.getType());
+            DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+            ParameterizedType type = convertType.convertTree(jcVariableDecl.getType(), dsbParam);
             ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
 
             // flags
@@ -204,7 +209,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 AnnotationExpression ae = convertAnnotation(annotation);
                 parameterInfo.builder().addAnnotation(ae);
             }
-            parameterInfo.builder().commit();
+            parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
             parameterMap.put(parameterInfo.simpleName(), parameterInfo);
         }
         methodInfo.builder().commitParameters();
@@ -232,7 +237,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         currentMethod = null;
 
         methodInfo.builder()
-                .setSource(sourceForNode(node))
+                .setSource(sourceForNode(node, dsb))
                 .addComments(commentsForNode(node))
                 .setMethodBody(blockBuilders.getLast().build())
                 .computeAccess()
@@ -242,9 +247,14 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     // -- Annotations ---------------------------------------------
 
+    // FIXME add expressions
     private AnnotationExpression convertAnnotation(JCTree.JCAnnotation annotation) {
-        ParameterizedType at = convertType.convertTree(annotation.getAnnotationType());
-        return runtime.newAnnotationExpressionBuilder().setTypeInfo(at.typeInfo()).build();
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType at = convertType.convertTree(annotation.getAnnotationType(), dsb);
+        return runtime.newAnnotationExpressionBuilder()
+                .setSource(sourceForNode(annotation, dsb))
+                .setTypeInfo(at.typeInfo())
+                .build();
     }
 
     // -- Statements ---------------------------------------------
@@ -292,10 +302,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
         if (node instanceof JCTree.JCVariableDecl variableDecl) {
             long flags = variableDecl.getModifiers().flags;
-
+            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
             if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
                 String name = varSymbol.toString();
-                ParameterizedType type = convertType.convertTree(variableDecl.vartype);
+                ParameterizedType type = convertType.convertTree(variableDecl.vartype, dsb);
 
                 currentExpression = null;
                 scan(node.getInitializer(), p);
@@ -319,7 +329,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                             fieldInfo.builder().addAnnotation(ae);
                         }
 
-                        fieldInfo.builder().commit();
+                        fieldInfo.builder()
+                                .setSource(sourceForNode(variableDecl, dsb))
+                                .commit();
                         typeData.put(varSymbol, fieldInfo);
                     } // else: non-static record components are dealt with in the type visitor
                 } else {
@@ -338,6 +350,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                         AnnotationExpression ae = convertAnnotation(annotation);
                         lvcb.addAnnotation(ae);
                     }
+                    lvcb.setSource(sourceForNode(variableDecl, dsb));
 
                     blockBuilders.getLast().addStatement(lvcb.build());
                     elementStack.getLast().put(localVariable.simpleName(), localVariable);
@@ -440,15 +453,18 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         elementStack.addLast(lambdaParameters);
         for (var parameter : lambda.getParameters()) {
             if (parameter instanceof JCTree.JCVariableDecl vd) {
+                DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
                 ParameterInfo pi;
                 String name = vd.name.toString();
-                ParameterizedType type = convertType.convertTree(vd.getType());
+                ParameterizedType type = convertType.convertTree(vd.getType(), dsbParam);
                 if ("_".equals(name)) {
                     pi = miBuilder.addUnnamedParameter(type);
                 } else {
                     pi = miBuilder.addParameter(name, type);
                 }
-                pi.builder().commit();
+                pi.builder()
+                        .setSource(sourceForNode(parameter, dsbParam))
+                        .commit();
                 outputVariants.add(runtime.lambdaOutputVariantEmpty()); // TODO
                 lambdaParameters.put(name, pi);
             } else throw new UnsupportedOperationException("NYI");
@@ -596,7 +612,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         if (node instanceof JCTree.JCFieldAccess fieldAccess) {
             // class literal
             if ("class".equals(fieldAccess.name.toString())) {
-                ParameterizedType classType = convertType.convert(fieldAccess.type);
+                DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                ParameterizedType classType = convertType.convertTree(fieldAccess, dsb);
                 ParameterizedType realType;
                 if (fieldAccess.selected instanceof JCTree.JCIdent ident) {
                     realType = convertType.convert(ident.type);
@@ -605,8 +622,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 } else {
                     throw new UnsupportedOperationException();
                 }
+                dsb.put(realType, sourceForNode(fieldAccess.getExpression()));
                 currentExpression = runtime.newClassExpressionBuilder(realType)
-                        .setSource(sourceForNode(node))
+                        .setSource(sourceForNode(node, dsb))
                         .setClassType(classType).build();
                 return null;
             }
@@ -718,6 +736,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     @Override
     public Void visitNewArray(NewArrayTree node, Void unused) {
         JCTree.JCNewArray newArray = (JCTree.JCNewArray) node;
+
         if (newArray.getInitializers() != null) {
             List<Expression> expressions = new ArrayList<>(newArray.getInitializers().size());
             for (JCTree.JCExpression e : newArray.getInitializers()) {
@@ -737,10 +756,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             Expression dimension = currentExpression;
             dimensions.add(dimension);
         }
-        ParameterizedType elementType = convertType.convertTree(newArray.elemtype);
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType elementType = convertType.convertTree(newArray.elemtype, dsb);
         ParameterizedType concreteReturnType = elementType.copyWithArrays(dimensions.size());
         MethodInfo constructor = runtime.newArrayCreationConstructor(concreteReturnType);
         currentExpression = runtime.newConstructorCallBuilder()
+                .setSource(sourceForNode(node, dsb))
                 .setConstructor(constructor)
                 .setConcreteReturnType(concreteReturnType)
                 .setDiamond(runtime.diamondNo())
@@ -856,7 +877,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         throw new UnsupportedOperationException("Cannot find element '" + name + "' on stack");
     }
 
-    private Source sourceForNode(Tree node) {
+    private Source sourceForNode(Tree node, DetailedSources.Builder dsb) {
+        return sourceForNode(node).withDetailedSources(dsb.build());
+    }
+
+    @Override
+    public Source sourceForNode(Tree node) {
         long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
         if (endPos == Diagnostic.NOPOS) return runtime.noSource(); // synthetic
         long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
