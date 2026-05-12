@@ -19,7 +19,17 @@ public record SourceCodeScan(Runtime runtime) {
 
     public record Result(NavigableMap<Source, List<Comment>> comments,
                          NavigableMap<Source, List<Comment>> trailingComments,
-                         Map<Source, String> keywords) {
+                         NavigableMap<Source, String> keywords) {
+        public Source find(String keyword, Source source) {
+            Map.Entry<Source, String> entry = keywords.floorEntry(source);
+            do {
+                if (keyword.equals(entry.getValue())) {
+                    return entry.getKey();
+                }
+                entry = keywords.lowerEntry(entry.getKey());
+            } while (entry != null);
+            throw new UnsupportedOperationException("Cannot find keyword " + keyword);
+        }
     }
 
     public Result go(CharSequence input) {
