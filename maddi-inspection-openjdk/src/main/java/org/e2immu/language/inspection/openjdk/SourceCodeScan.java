@@ -9,6 +9,7 @@ import org.e2immu.language.inspection.api.parser.Context;
 import org.e2immu.parser.java.util.JavaDocParser;
 import org.parsers.java.JavaParser;
 import org.parsers.java.Node;
+import org.parsers.java.Token;
 import org.parsers.java.ast.*;
 
 import java.util.*;
@@ -65,7 +66,48 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     private void scanTypeDeclaration(TypeDeclaration td, Result result) {
+        List<Comment> classComments = comments(td);
+        if (!classComments.isEmpty()) result.comments.put(source(td), classComments);
 
+        for (Node node : td.children()) {
+            String string = node.getSource();
+            if (node instanceof KeyWord || node instanceof Token && "record".equals(string)) {
+                result.keywords.put(source(node), string);
+            } else if (node instanceof ExtendsList el) {
+                Node extendsKeyword = el.getFirst();
+                result.keywords.put(source(extendsKeyword), extendsKeyword.getSource());
+            } else if (node instanceof ImplementsList il) {
+                Node implementsKeyword = il.getFirst();
+                result.keywords.put(source(implementsKeyword), implementsKeyword.getSource());
+            } else if (node instanceof ClassOrInterfaceBody body) {
+                for (Node node2 : body.children()) {
+                    if (node2 instanceof TypeDeclaration sub) {
+                        scanTypeDeclaration(sub, result);
+                    }
+                    if (node2 instanceof MethodDeclaration md) {
+                        scanMethodDeclaration(md, result);
+                    }
+                }
+            }
+        }
+    }
+
+    private void scanMethodDeclaration(MethodDeclaration md, Result result) {
+        List<Comment> methodComments = comments(md);
+        if (!methodComments.isEmpty()) result.comments.put(source(md), methodComments);
+        for (Node node : md.children()) {
+            String string = node.getSource();
+            if (node instanceof KeyWord || node instanceof Token && "record".equals(string)) {
+                result.keywords.put(source(node), string);
+            } else if (node instanceof FormalParameters fps) {
+                for (Node param : fps.children()) {
+                    if (param instanceof FormalParameter fp) {
+                        List<Comment> fpComments = comments(fp);
+                        if (!fpComments.isEmpty()) result.comments.put(source(fp), fpComments);
+                    }
+                }
+            }
+        }
     }
 
     /*
