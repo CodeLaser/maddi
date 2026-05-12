@@ -12,9 +12,10 @@ import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
+import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.type.TypeKind;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 
 public class ConvertType {
@@ -23,6 +24,8 @@ public class ConvertType {
     private final TypeData typeData;
     private final Function<String, Element> findInElementStack;
     private final SourceProvider sourceProvider;
+
+    private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
 
     public ConvertType(Runtime runtime,
                        ClassSymbolScanner classSymbolScanner,
@@ -75,9 +78,7 @@ public class ConvertType {
                         // Note: it could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
                         MethodInfo owner = typeData.getMethod(ms);
                         assert owner != null;
-                        typeParameter = owner.typeParameters().stream()
-                                .filter(tp -> tp.simpleName().equals(typeParameterName))
-                                .findFirst().orElseThrow();
+                        typeParameter = findTypeParameter(owner, typeParameterName);
                     } else {
                         typeParameter = tmpTypeParameter;
                     }
@@ -85,14 +86,35 @@ public class ConvertType {
             } else {
                 TypeInfo owner = typeData.getType(typeVar.tsym.owner.toString());
                 assert owner != null;
-                typeParameter = owner.typeParameters().stream()
-                        .filter(tp -> tp.simpleName().equals(typeParameterName))
-                        .findFirst().orElseThrow();
+                typeParameter = findTypeParameter(owner, typeParameterName);
             }
             return runtime.newParameterizedType(typeParameter, 0, null);
         }
         if ("none".equals(type.toString())) return null; // parent of Object
         throw new UnsupportedOperationException("NYI");
+    }
+
+    private @NotNull TypeParameter findTypeParameter(MethodInfo owner, String typeParameterName) {
+        TypeParameter inStack = findInTypeParameterStack(typeParameterName);
+        if (inStack != null) return inStack;
+        TypeParameter typeParameter = owner.typeParameters().stream()
+                .filter(tp -> tp.simpleName().equals(typeParameterName))
+                .findFirst().orElse(null);
+        if (typeParameter != null) return typeParameter;
+        return findTypeParameter(owner.typeInfo(), typeParameterName);
+    }
+
+    private @NotNull TypeParameter findTypeParameter(TypeInfo owner, String typeParameterName) {
+        TypeParameter inStack = findInTypeParameterStack(typeParameterName);
+        if (inStack != null) return inStack;
+        TypeParameter typeParameter = owner.typeParameters().stream()
+                .filter(tp -> tp.simpleName().equals(typeParameterName))
+                .findFirst().orElse(null);
+        if (typeParameter != null) return typeParameter;
+        if (owner.compilationUnitOrEnclosingType().isRight()) {
+            return findTypeParameter(owner.compilationUnitOrEnclosingType().getRight(), typeParameterName);
+        }
+        throw new UnsupportedOperationException();
     }
 
     ParameterizedType convertTree(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
@@ -178,4 +200,22 @@ public class ConvertType {
         };
     }
 
+    void newTypeParameterMap() {
+        typeParameterStack.addLast(new HashMap<>());
+    }
+
+    void popTypeParameterMap() {
+        typeParameterStack.removeLast();
+    }
+
+    void putInLastTypeParameterMap(TypeParameter typeParameter) {
+        typeParameterStack.getLast().put(typeParameter.simpleName(), typeParameter);
+    }
+
+    TypeParameter findInTypeParameterStack(String name) {
+        if (!typeParameterStack.isEmpty()) {
+            return typeParameterStack.getLast().get(name);
+        }
+        return null;
+    }
 }

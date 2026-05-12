@@ -6,6 +6,7 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.*;
@@ -102,9 +103,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
 
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-        ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending, dsb);
-        ParameterizedType parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
-                : explicitParentClass;
+        ParameterizedType parentClass;
+        if (typeInfo.typeNature().isEnum()) {
+            if (jcClassDecl.type instanceof Type.ClassType ct) {
+                parentClass = convertType.convert(ct.supertype_field);
+            } else throw new UnsupportedOperationException("NYI");
+        } else {
+            ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending, dsb);
+            parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
+                    : explicitParentClass;
+        }
         typeInfo.builder().setParentClass(parentClass);
         for (JCTree.JCExpression i : jcClassDecl.implementing) {
             typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i, dsb));
