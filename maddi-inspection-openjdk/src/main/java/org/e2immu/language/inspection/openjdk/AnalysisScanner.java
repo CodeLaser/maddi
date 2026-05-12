@@ -596,14 +596,19 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         if (node instanceof JCTree.JCFieldAccess fieldAccess) {
             // class literal
             if ("class".equals(fieldAccess.name.toString())) {
+                ParameterizedType classType = convertType.convert(fieldAccess.type);
+                ParameterizedType realType;
                 if (fieldAccess.selected instanceof JCTree.JCIdent ident) {
-                    ParameterizedType classType = convertType.convert(fieldAccess.type);
-                    ParameterizedType realType = convertType.convert(ident.type);
-                    currentExpression = runtime.newClassExpressionBuilder(realType)
-                            .setSource(sourceForNode(node))
-                            .setClassType(classType).build();
-                    return null;
-                } else throw new UnsupportedOperationException();
+                    realType = convertType.convert(ident.type);
+                } else if (fieldAccess.selected instanceof JCTree.JCFieldAccess fa) {
+                    realType = convertType.convert(fa.type);
+                } else {
+                    throw new UnsupportedOperationException();
+                }
+                currentExpression = runtime.newClassExpressionBuilder(realType)
+                        .setSource(sourceForNode(node))
+                        .setClassType(classType).build();
+                return null;
             }
 
             // static field access, no need to generate a TypeExpression
@@ -708,9 +713,24 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         return null;
     }
 
+    // new Node[3]
+    // { ... }
     @Override
     public Void visitNewArray(NewArrayTree node, Void unused) {
         JCTree.JCNewArray newArray = (JCTree.JCNewArray) node;
+        if (newArray.getInitializers() != null) {
+            List<Expression> expressions = new ArrayList<>(newArray.getInitializers().size());
+            for (JCTree.JCExpression e : newArray.getInitializers()) {
+                scan(e, unused);
+                expressions.add(currentExpression);
+            }
+            currentExpression = runtime.newArrayInitializerBuilder()
+                    .setSource(sourceForNode(node))
+                    .setCommonType(convertType.convert(newArray.type))
+                    .setExpressions(expressions)
+                    .build();
+            return null;
+        }
         List<Expression> dimensions = new ArrayList<>();
         for (var dim : newArray.dims) {
             scan(dim, unused);
