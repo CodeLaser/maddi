@@ -64,8 +64,8 @@ public class ParseFieldDeclaration extends CommonParse {
             }
             i++;
         }
-        boolean isStatic = fieldModifiers.stream().anyMatch(FieldModifier::isStatic);
         TypeInfo owner = context.enclosingType();
+        boolean isStatic = fieldModifiers.stream().anyMatch(FieldModifier::isStatic) || owner.isInterface();
 
         ParameterizedType parameterizedType;
         Node typeNode;
