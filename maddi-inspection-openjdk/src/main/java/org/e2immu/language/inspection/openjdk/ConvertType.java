@@ -4,6 +4,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -21,15 +22,18 @@ public class ConvertType {
     private final ClassSymbolScanner classSymbolScanner;
     private final TypeData typeData;
     private final Function<String, Element> findInElementStack;
+    private final SourceProvider sourceProvider;
 
     public ConvertType(Runtime runtime,
                        ClassSymbolScanner classSymbolScanner,
                        TypeData typeData,
-                       Function<String, Element> findInElementStack) {
+                       Function<String, Element> findInElementStack,
+                       SourceProvider sourceProvider) {
         this.runtime = runtime;
         this.classSymbolScanner = classSymbolScanner;
         this.typeData = typeData;
         this.findInElementStack = findInElementStack;
+        this.sourceProvider = sourceProvider;
     }
 
 
@@ -65,15 +69,17 @@ public class ConvertType {
             if (typeVar.tsym.owner instanceof Symbol.MethodSymbol ms) {
                 if (ms.owner instanceof Symbol.ClassSymbol cs) {
                     String typeFqn = cs.fullname.toString();
-                    typeParameter = typeData.getTmpMethodTypeParameter(typeFqn, typeParameterName);
-                    if (typeParameter == null) {
+                    TypeParameter tmpTypeParameter = typeData.getTmpMethodTypeParameter(typeFqn, typeParameterName);
+                    if (tmpTypeParameter == null) {
                         // method must have been completed, look up!
-                        // FIXME could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
+                        // Note: it could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
                         MethodInfo owner = typeData.getMethod(ms);
                         assert owner != null;
                         typeParameter = owner.typeParameters().stream()
                                 .filter(tp -> tp.simpleName().equals(typeParameterName))
                                 .findFirst().orElseThrow();
+                    } else {
+                        typeParameter = tmpTypeParameter;
                     }
                 } else throw new UnsupportedOperationException();
             } else {
@@ -89,7 +95,14 @@ public class ConvertType {
         throw new UnsupportedOperationException("NYI");
     }
 
-    ParameterizedType convertTree(Tree type) {
+    ParameterizedType convertTree(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
+        ParameterizedType pt = convertTreeDontSet(type, detailedSourcesBuilder);
+        assert pt != null;
+        detailedSourcesBuilder.put(pt, sourceProvider.sourceForNode(type));
+        return pt;
+    }
+
+    private ParameterizedType convertTreeDontSet(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
         if (type == null) return runtime.voidParameterizedType();
         if (type instanceof JCTree.JCPrimitiveTypeTree ptt) {
             TypeKind primitiveTypeKind = ptt.typetag.getPrimitiveTypeKind();
@@ -111,20 +124,15 @@ public class ConvertType {
         if (type instanceof JCTree.JCFieldAccess fieldAccess) {
             // enclosing type notation
             return convert(fieldAccess.type);
-        /*    ParameterizedType enclosing = convertTree(fieldAccess.getExpression());
-            String name = fieldAccess.name.toString();
-            if (enclosing.typeInfo() != null) {
-                TypeInfo typeInfo = enclosing.typeInfo().findSubType(name);
-                return runtime.newParameterizedType(typeInfo, List.of());
-            } else throw new UnsupportedOperationException("NYI");*/
         }
         if (type instanceof JCTree.JCTypeApply apply) {
-            ParameterizedType base = convertTree(apply.getType());
-            List<ParameterizedType> parameters = apply.getTypeArguments().stream().map(this::convertTree).toList();
+            ParameterizedType base = convertTree(apply.getType(), detailedSourcesBuilder);
+            List<ParameterizedType> parameters = apply.getTypeArguments().stream()
+                    .map(ta -> convertTree(ta, detailedSourcesBuilder)).toList();
             return runtime.newParameterizedType(base.typeInfo(), parameters);
         }
         if (type instanceof JCTree.JCArrayTypeTree att) {
-            ParameterizedType base = convertTree(att.elemtype);
+            ParameterizedType base = convertTree(att.elemtype, detailedSourcesBuilder);
             return base.copyWithArrays(base.arrays() + 1);
         }
         throw new UnsupportedOperationException("NYI");
