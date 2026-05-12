@@ -14,8 +14,13 @@
 
 package org.e2immu.language.inspection.openjdk.other;
 
+import org.e2immu.language.cst.api.expression.BinaryOperator;
+import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -23,8 +28,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestEnum extends CommonTest {
 
@@ -32,14 +36,14 @@ public class TestEnum extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-
+            
             public class X {
                 @interface FieldAnnotation { }
                 enum State { START,
                  @FieldAnnotation
                  BUSY,
                  END }
-
+            
                 int method(State state) {
                    return switch(state) {
                        case START -> 3;
@@ -47,7 +51,7 @@ public class TestEnum extends CommonTest {
                        default -> 0;
                    };
                 }
-
+            
                 int method2(State state) {
                    switch(state) {
                        case START:
@@ -59,14 +63,14 @@ public class TestEnum extends CommonTest {
                    }
                    return -1;
                 }
-
+            
                 int method3(State state) {
                     if (State.BUSY.equals(state)) {
                         return 3;
                     }
                     return 2;
                 }
-
+            
                 private <T extends Enum<T>> T getEnum(Class<T> enumType, String string) {
                 	if (string == null || string.isEmpty()) {
                 		return null;
@@ -77,7 +81,7 @@ public class TestEnum extends CommonTest {
             """;
 
     @Test
-    public void test() {
+    public void test1() {
         TypeInfo typeInfo = scan(Map.of("a.b.X", INPUT1), List.of()).getFirst();
         assertTrue(typeInfo.hasImplicitParent());
         TypeInfo state = typeInfo.findSubType("State");
@@ -91,6 +95,118 @@ public class TestEnum extends CommonTest {
 
         FieldInfo start = state.getFieldByName("START", true);
         assertEquals("Type a.b.X.State", start.type().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            enum E {
+              A, B, C;
+              public boolean isA() {
+                return this == A;
+              }
+              public boolean isB() {
+                 return "B".equals(name());
+              }
+              public static E[] all() {
+                 return values();
+              }
+              public static E make(String s) {
+                 return valueOf(s);
+              }
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = scan(Map.of("a.b.E", INPUT2), List.of()).getFirst();
+        assertTrue(typeInfo.typeNature().isEnum());
+
+        assertEquals("Type Enum<a.b.E>", typeInfo.parentClass().toString());
+
+        FieldInfo a = typeInfo.getFieldByName("A", true);
+        assertTrue(a.isStatic());
+
+        // TODO assertTrue(a.access().isPublic());
+        assertTrue(a.isFinal());
+        assertTrue(a.isPropertyFinal());
+        assertEquals(3, typeInfo.fields().size());
+
+        MethodInfo isA = typeInfo.findUniqueMethod("isA", 0);
+        if (isA.methodBody().statements().getFirst() instanceof ReturnStatement rs
+            && rs.expression() instanceof BinaryOperator bo && bo.rhs() instanceof VariableExpression ve &&
+            ve.variable() instanceof FieldReference fr) {
+            assertSame(a, fr.fieldInfo());
+        } else fail();
+
+        MethodInfo values = typeInfo.findUniqueMethod("values", 0);
+        assertEquals("Type a.b.E[]", values.returnType().toString());
+        MethodInfo valueOf = typeInfo.findUniqueMethod("valueOf", 1);
+        assertEquals("Type a.b.E", valueOf.returnType().toString());
+    }
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            enum E {
+              A(true, "s"), B(false), C(false, "d");
+              private final boolean b;
+              private final String s;
+            
+              E(boolean b) { this(b, ""); }
+            
+              E(boolean b, String s) {
+                 this.b = b;
+                 this.s = s;
+              }
+              public String s() {
+                return s;
+              }
+            }
+            """;
+
+    @Test
+    public void test3() {
+        TypeInfo typeInfo = scan(Map.of("a.b.E", INPUT3), List.of()).getFirst();
+        assertTrue(typeInfo.typeNature().isEnum());
+        assertFalse(typeInfo.isExtensible());
+
+        FieldInfo a = typeInfo.getFieldByName("A", true);
+        assertTrue(a.isStatic());
+        assertEquals("new E(true,\"s\")", a.initializer().toString());
+
+        FieldInfo b = typeInfo.getFieldByName("B", true);
+        assertTrue(b.isStatic());
+        assertEquals("new E(false)", b.initializer().toString());
+    }
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            public class X {
+                public enum Effective {
+                    E1, E2;
+                    public static Effective of(int index) {
+                        return index == 1 ? E1: E2;
+                    }
+                }
+                public enum Level {
+                    ONE, TWO, THREE
+                }
+            }
+            """;
+
+    @Test
+    public void test4() {
+        TypeInfo typeInfo = scan(Map.of("a.b.X", INPUT4), List.of()).getFirst();
+        TypeInfo effective = typeInfo.findSubType("Effective");
+        assertTrue(effective.typeNature().isEnum());
+        assertEquals(2, effective.fields().size());
+        assertEquals(1, effective.methods().size());
+        TypeInfo level = typeInfo.findSubType("Level");
+        assertTrue(level.typeNature().isEnum());
+        assertEquals(3, level.fields().size());
     }
 
 }
