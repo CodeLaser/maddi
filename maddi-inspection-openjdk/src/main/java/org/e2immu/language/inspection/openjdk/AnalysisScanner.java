@@ -618,11 +618,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 if (fieldAccess.selected instanceof JCTree.JCIdent ident) {
                     realType = convertType.convert(ident.type);
                 } else if (fieldAccess.selected instanceof JCTree.JCFieldAccess fa) {
-                    realType = convertType.convert(fa.type);
+                    realType = convertType.convertTree(fa, dsb);
                 } else {
                     throw new UnsupportedOperationException();
                 }
-                dsb.put(realType, sourceForNode(fieldAccess.getExpression()));
                 currentExpression = runtime.newClassExpressionBuilder(realType)
                         .setSource(sourceForNode(node, dsb))
                         .setClassType(classType).build();
