@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import java.net.URI;
 import java.util.*;
@@ -90,10 +91,38 @@ public class ClassSymbolScanner {
             List<? extends Element> members = elements.getAllMembers(cs);
 
             int index = 0;
+            convertType.newTypeParameterMap();
             for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
                 TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
+                convertType.putInLastTypeParameterMap(newTp);
+
+                List<ParameterizedType> bounds = new ArrayList<>();
+                if (typeParameter.type instanceof Type.TypeVar tv) {
+                    Type lowerBound = tv.getLowerBound();
+                    if (lowerBound.getKind() != TypeKind.NULL) {
+                        throw new UnsupportedOperationException();
+                    } else {
+                        Type upperBound = tv.getUpperBound();
+                        if (upperBound.getKind() != TypeKind.NULL) {
+                            if (upperBound.tsym == cs) {
+                                // self reference, as in java.lang.Enum<E extends Enum<E>>
+                                bounds.add(runtime.newParameterizedType(newTypeInfo,
+                                        List.of(runtime.newParameterizedType(newTp, 0, null))));
+                            } else if (upperBound instanceof Type.ClassType ct) {
+                                ParameterizedType upper = convertType.convert(ct);
+                                if (!upper.isJavaLangObject()) {
+                                    bounds.add(upper.withWildcard(runtime.wildcardExtends()));
+                                }
+                            } else {
+                                throw new UnsupportedOperationException();
+                            }
+                        }
+                    }
+                }
+                newTp.builder().setTypeBounds(List.copyOf(bounds)).commit();
                 newTypeInfo.builder().addOrSetTypeParameter(newTp);
             }
+            convertType.popTypeParameterMap();
 
             ParameterizedType superType = convertType.convert(cs.getSuperclass());
             newTypeInfo.builder().setParentClass(superType);
