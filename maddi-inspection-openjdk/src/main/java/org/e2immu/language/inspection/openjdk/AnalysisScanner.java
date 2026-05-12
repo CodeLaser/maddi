@@ -252,10 +252,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         elementStack.removeLast();
         currentMethod = null;
 
+        Block methodBody = blockBuilders.getLast().build();
+        blockBuilders.removeLast();
+
         methodInfo.builder()
                 .setSource(sourceForNode(node, dsb))
                 .addComments(commentsForNode(node))
-                .setMethodBody(blockBuilders.getLast().build())
+                .setMethodBody(methodBody)
                 .computeAccess()
                 .commit();
         return null;
@@ -415,13 +418,30 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         Expression rhs = currentExpression;
         JCTree.Tag opcode = binary.getTag();
         MethodInfo operator = switch (opcode) {
-            case PLUS -> runtime.plusOperatorInt();
+            case PLUS -> {
+                if (lhs.parameterizedType().isJavaLangString() || rhs.parameterizedType().isJavaLangString()) {
+                    yield runtime.plusOperatorString();
+                }
+                yield runtime.plusOperatorInt();
+            }
+            case AND -> runtime.andOperatorBool();
+            case OR -> runtime.orOperatorBool();
+            case BITXOR -> runtime.xorOperatorInt();
+            case BITAND -> runtime.andOperatorInt();
+            case BITOR -> runtime.orOperatorInt();
             case MINUS -> runtime.minusOperatorInt();
             case MUL -> runtime.multiplyOperatorInt();
             case DIV -> runtime.divideOperatorInt();
+            case MOD -> runtime.remainderOperatorInt();
             case EQ -> runtime.equalsOperatorInt();
-            case OR -> runtime.orOperatorBool();
-            case AND -> runtime.andOperatorBool();
+            case NE -> runtime.notEqualsOperatorInt();
+            case GE -> runtime.greaterEqualsOperatorInt();
+            case GT -> runtime.greaterOperatorInt();
+            case LE -> runtime.lessEqualsOperatorInt();
+            case LT -> runtime.lessOperatorInt();
+            case SL -> runtime.leftShiftOperatorInt();
+            case SR -> runtime.signedRightShiftOperatorInt();
+            case USR -> runtime.unsignedRightShiftOperatorInt();
             default -> throw new UnsupportedOperationException("NYI");
         };
         Precedence precedence = switch (opcode) {
@@ -430,6 +450,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             case EQ -> runtime.precedenceEquality();
             case OR -> runtime.precedenceLogicalOr();
             case AND -> runtime.precedenceLogicalAnd();
+            case BITOR -> runtime.precedenceBitwiseOr();
+            case BITXOR -> runtime.precedenceBitwiseXor();
+            case BITAND -> runtime.precedenceBitwiseAnd();
             default -> throw new UnsupportedOperationException();
         };
         ParameterizedType type = convertType.convert(binary.type);
@@ -703,6 +726,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 explicitConstructorInvocation = false;
                 if (it instanceof JCTree.JCIdent jcIdent && jcIdent.sym instanceof Symbol.MethodSymbol methodSymbol) {
                     methodInfo = typeData.getMethod(methodSymbol);
+                    if (methodInfo == null) {
+                        throw new UnsupportedOperationException("Cannot find method " + methodSymbol);
+                    }
                 } else throw new UnsupportedOperationException("NYI");
             }
             objectIsImplicit = true;
@@ -818,13 +844,23 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 constructor = null;
                 TypeInfo enclosingType = typeStack.getLast();
                 anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());
-                TypeInfo.Builder builder = anonymousType.builder();
-                builder.setSource(sourceForNode(node))
+                TypeInfo.Builder builder = anonymousType.builder()
                         .setTypeNature(runtime.typeNatureClass())
                         .setAccess(runtime.accessPrivate())
                         .setParentClass(runtime.objectParameterizedType())
                         .setEnclosingMethod(currentMethod);
-                builder.commit();
+                MethodInfo enclosingMethod = currentMethod;
+
+                // The anonymous class's own members — fields, methods, etc.
+                typeStack.addLast(anonymousType);
+                for (JCTree member : anonBody.defs) {
+                    currentMethod = null;
+                    scan(member, unused);
+                }
+                typeStack.removeLast();
+                currentMethod = enclosingMethod;
+
+                builder.setSource(sourceForNode(node)).commit();
             } else throw new UnsupportedOperationException();
         } else {
             concreteReturnType = convertType.convert(newClass.type);
@@ -907,7 +943,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         JCTree.Tag opcode = unary.getTag();
         MethodInfo operator = switch (opcode) {
             case BITXOR -> runtime.bitWiseNotOperatorInt();
-            case NEG -> runtime.logicalNotOperatorBool();
+            case NOT -> runtime.logicalNotOperatorBool();
+            case NEG -> runtime.unaryMinusOperatorInt();
             default -> throw new UnsupportedOperationException();
         };
         Precedence precedence = runtime.precedenceUnary();
