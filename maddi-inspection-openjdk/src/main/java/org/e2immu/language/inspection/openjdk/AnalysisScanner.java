@@ -14,10 +14,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.cst.api.statement.Block;
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
@@ -39,7 +36,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
     private final Trees trees;
     private MethodInfo currentMethod;
-    private Block.Builder currentBlockBuilder;
+    private final Deque<Block.Builder> blockBuilders = new ArrayDeque<>();
     private Expression currentExpression;
     private final CompilationUnit compilationUnit;
     private final SourcePositions sourcePositions;
@@ -48,7 +45,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     private final FlagHelper flagHelper;
     private final ConvertType convertType;
     private final TypeData typeData;
-    private final Elements elements;
 
     AnalysisScanner(Runtime runtime, CompilationUnit compilationUnit,
                     CompilationUnitTree compilationUnitTree,
@@ -61,7 +57,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         this.lineMap = lineMap;
         this.sourcePositions = sourcePositions;
         this.compilationUnitTree = compilationUnitTree;
-        this.elements = elements;
 
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
@@ -159,7 +154,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         // construction of the method
         TypeInfo currentType = typeStack.getLast();
         long methodFlags = jcMethod.getModifiers().flags;
-        if ("<init>".equals(methodName)) {
+        boolean isConstructor = "<init>".equals(methodName);
+        if (isConstructor) {
             methodInfo = runtime.newConstructor(currentType);
             currentType.builder().addConstructor(methodInfo);
             methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
@@ -167,14 +163,28 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags);
             methodInfo = runtime.newMethod(currentType, methodName, methodType);
             currentType.builder().addMethod(methodInfo);
-
-            ParameterizedType returnType = convertType.convertTree(node.getReturnType());
-            methodInfo.builder().setReturnType(returnType);
         }
         typeData.put(jcMethod.sym, methodInfo);
 
         // flags
         flagHelper.method(methodFlags, methodInfo.builder());
+
+        // type parameters
+
+        for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
+            int index = typeParameter.pos;
+            String name = typeParameter.getName().toString();
+            TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
+            methodInfo.builder().addTypeParameter(tp);
+            elementStack.getLast().put(name, tp);
+        }
+
+        // return type
+
+        if (!isConstructor) {
+            ParameterizedType returnType = convertType.convertTree(node.getReturnType());
+            methodInfo.builder().setReturnType(returnType);
+        }
 
         // parameters
         HashMap<String, Element> parameterMap = new HashMap<>();
@@ -214,7 +224,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         }
 
         // method body
-        currentBlockBuilder = runtime.newBlockBuilder();
+        blockBuilders.addLast(runtime.newBlockBuilder());
         elementStack.addLast(parameterMap);
         currentMethod = methodInfo;
         scan(node.getBody(), p);
@@ -224,7 +234,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
         methodInfo.builder()
                 .setSource(sourceForNode(node))
                 .addComments(commentsForNode(node))
-                .setMethodBody(currentBlockBuilder.build())
+                .setMethodBody(blockBuilders.getLast().build())
                 .computeAccess()
                 .commit();
         return null;
@@ -241,6 +251,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
 
     @Override
     public Void visitBlock(BlockTree node, Void unused) {
+        // FIXME when do we need to add this block as a statement?
         elementStack.push(new HashMap<>());
         super.visitBlock(node, unused);
         elementStack.pop();
@@ -257,7 +268,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                     .addComments(commentsForNode(node))
                     .setExpression(currentExpression)
                     .build();
-            currentBlockBuilder.addStatement(statement);
+            blockBuilders.getLast().addStatement(statement);
         } // else: was explicit constructor invocation, a statement
         return null;
     }
@@ -266,7 +277,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
     public Void visitReturn(ReturnTree node, Void unused) {
         currentExpression = null;
         scan(node.getExpression(), unused);
-        currentBlockBuilder.addStatement(runtime.newReturnBuilder()
+        blockBuilders.getLast().addStatement(runtime.newReturnBuilder()
                 .setSource(sourceForNode(node))
                 .addComments(commentsForNode(node))
                 .setExpression(currentExpression == null ? runtime.newEmptyExpression() : currentExpression)
@@ -299,8 +310,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                         FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
                         flagHelper.field(flags, fieldInfo.builder());
                         fieldInfo.builder().setSource(sourceForNode(node))
-                                .setInitializer(currentExpression)
-                                .commit();
+                                .setInitializer(currentExpression);
                         owner.builder().addField(fieldInfo);
 
                         // annotations
@@ -308,6 +318,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                             AnnotationExpression ae = convertAnnotation(annotation);
                             fieldInfo.builder().addAnnotation(ae);
                         }
+
+                        fieldInfo.builder().commit();
                         typeData.put(varSymbol, fieldInfo);
                     } // else: non-static record components are dealt with in the type visitor
                 } else {
@@ -327,7 +339,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                         lvcb.addAnnotation(ae);
                     }
 
-                    currentBlockBuilder.addStatement(lvcb.build());
+                    blockBuilders.getLast().addStatement(lvcb.build());
                     elementStack.getLast().put(localVariable.simpleName(), localVariable);
                 }
             }
@@ -379,11 +391,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
             case MUL -> runtime.multiplyOperatorInt();
             case DIV -> runtime.divideOperatorInt();
             case EQ -> runtime.equalsOperatorInt();
+            case OR -> runtime.orOperatorBool();
+            case AND -> runtime.andOperatorBool();
             default -> throw new UnsupportedOperationException("NYI");
         };
         Precedence precedence = switch (opcode) {
             case PLUS, MINUS -> runtime.precedenceAdditive();
             case MUL, DIV -> runtime.precedenceMultiplicative();
+            case EQ -> runtime.precedenceEquality();
+            case OR -> runtime.precedenceLogicalOr();
+            case AND -> runtime.precedenceLogicalAnd();
             default -> throw new UnsupportedOperationException();
         };
         ParameterizedType type = convertType.convert(binary.type);
@@ -533,9 +550,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                             .setVariable(variable)
                             .build();
                 }
-                case PACKAGE -> {
-                    LOGGER.debug("Skipping package {}", node);
-                }
+                case PACKAGE -> LOGGER.debug("Skipping package {}", node);
                 case CLASS, INTERFACE, RECORD -> {
                     if (element instanceof Symbol.ClassSymbol classSymbol) {
                         ParameterizedType type = convertType.convert(classSymbol.type);
@@ -550,7 +565,25 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                         ParameterizedType type = convertType.convert(classSymbol.type);
                     }
                 }
-                default -> throw new UnsupportedOperationException("NYI: " + element.getKind());
+                case ENUM_CONSTANT -> {
+                    if (element instanceof Symbol.VarSymbol vs) {
+                        FieldInfo fieldInfo = typeData.getField(vs);
+                        currentExpression = runtime.newVariableExpressionBuilder()
+                                .setSource(sourceForNode(node))
+                                .setVariable(runtime.newFieldReference(fieldInfo))
+                                .build();
+                    } else throw new UnsupportedOperationException("NYI");
+                }
+                case TYPE_PARAMETER -> {
+                    if (element instanceof Symbol.TypeVariableSymbol tvs) {
+                        TypeParameter typeParameter = (TypeParameter) findInElementStack(tvs.name.toString());
+                        currentExpression = runtime.newTypeExpressionBuilder()
+                                .setDiamond(runtime.diamondNo()) // TODO
+                                .setParameterizedType(runtime.newParameterizedType(typeParameter, 0, null))
+                                .build();
+                    }
+                }
+                default -> throw new UnsupportedOperationException("NYI");
             }
         }
         return null;// super.visitIdentifier(node, p);
@@ -659,7 +692,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                     .setMethodInfo(runtime.assignAndOperatorBool())
                     .setParameterExpressions(arguments)
                     .build();
-            currentBlockBuilder.addStatement(statement);
+            blockBuilders.getLast().addStatement(statement);
             currentExpression = null; // as a marker for ExpressionAsStatement
         } else {
             assert methodInfo != null;
@@ -716,6 +749,63 @@ class AnalysisScanner extends TreePathScanner<Void, Void> {
                 .setDiamond(runtime.diamondNo()) // TODO
                 .setConcreteReturnType(concreteReturnType)
                 .setParameterExpressions(arguments)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitSwitchExpression(SwitchExpressionTree node, Void unused) {
+        JCTree.JCSwitchExpression se = (JCTree.JCSwitchExpression) node;
+        currentExpression = null;
+        scan(se.getExpression(), unused);
+        Expression selector = currentExpression;
+        List<SwitchEntry> switchEntries = new ArrayList<>();
+        for (JCTree.JCCase jcCase : se.getCases()) {
+            List<Expression> conditions = new ArrayList<>();
+            for (JCTree.JCCaseLabel caseLabel : jcCase.getLabels()) {
+                LOGGER.debug("Case label {}", caseLabel);
+                if (caseLabel instanceof JCTree.JCConstantCaseLabel ccl) {
+                    scan(ccl.getConstantExpression(), unused);
+                    Expression constantExpression = currentExpression;
+                    conditions.add(constantExpression);
+                } else if (caseLabel instanceof JCTree.JCDefaultCaseLabel dcl) {
+                    conditions.add(runtime.newEmptyExpression());
+                } else {
+                    throw new UnsupportedOperationException("NYI");
+                }
+            }
+            Statement statement;
+            if (jcCase.getBody() instanceof JCTree.JCBlock block) {
+                blockBuilders.addLast(runtime.newBlockBuilder());
+                scan(block, unused);
+                statement = blockBuilders.getLast().build();
+                blockBuilders.removeLast();
+            } else if (jcCase.getBody() instanceof JCTree.JCExpression e) {
+                scan(e, unused);
+                Expression expression = currentExpression;
+                statement = runtime.newExpressionAsStatementBuilder()
+                        .setSource(sourceForNode(e))
+                        .setExpression(expression).build();
+            } else throw new UnsupportedOperationException("NYI");
+            Expression whenExpression;
+            if (jcCase.getGuard() != null) {
+                scan(jcCase.getGuard(), unused);
+                whenExpression = currentExpression;
+            } else {
+                whenExpression = runtime.newEmptyExpression();
+            }
+            SwitchEntry switchEntry = runtime.newSwitchEntryBuilder()
+                    .addConditions(conditions)
+                    .setStatement(statement)
+                    .setWhenExpression(whenExpression)
+                    .build();
+            switchEntries.add(switchEntry);
+        }
+        currentExpression = runtime.newSwitchExpressionBuilder()
+                .setSelector(selector)
+                .setSource(sourceForNode(node))
+                .setParameterizedType(convertType.convert(se.type))
+                .addSwitchEntries(switchEntries)
                 .build();
         return null;
     }
