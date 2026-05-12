@@ -91,7 +91,7 @@ public class SourceImpl implements Source {
     public int hashCode() {
         return Objects.hash(beginLine, beginPos, endLine, endPos);
     }
-
+    
     @Override
     public int compareTo(Source o) {
         if (o instanceof SourceImpl s) {
@@ -104,7 +104,6 @@ public class SourceImpl implements Source {
             return Integer.compare(endPos, s.endPos);
         } else throw new UnsupportedOperationException();
     }
-
 
     @Override
     public int beginLine() {
