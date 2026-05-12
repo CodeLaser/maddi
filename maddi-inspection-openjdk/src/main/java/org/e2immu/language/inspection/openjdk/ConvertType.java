@@ -123,7 +123,13 @@ public class ConvertType {
         }
         if (type instanceof JCTree.JCFieldAccess fieldAccess) {
             // enclosing type notation
-            return convert(fieldAccess.type);
+            String name = fieldAccess.name.toString();
+            ParameterizedType pt = convert(fieldAccess.type);
+            if (!"class".equals(name) && pt.typeInfo() != null) {
+                String packageName = pt.typeInfo().packageName();
+                detailedSourcesBuilder.put(packageName, sourceProvider.sourceForNode(fieldAccess.getExpression()));
+            }// else: java.lang.String.class
+            return pt;
         }
         if (type instanceof JCTree.JCTypeApply apply) {
             ParameterizedType base = convertTree(apply.getType(), detailedSourcesBuilder);
