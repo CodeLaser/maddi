@@ -221,7 +221,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test4() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_4", INPUT4), List.of()).getFirst());
+        assertNotNull(scan(Map.of("a.b.MethodCall_2", INPUT4), List.of()).getFirst());
     }
 
     @Language("java")

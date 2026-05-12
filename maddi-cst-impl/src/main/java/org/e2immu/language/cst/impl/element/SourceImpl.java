@@ -95,13 +95,13 @@ public class SourceImpl implements Source {
     @Override
     public int compareTo(Source o) {
         if (o instanceof SourceImpl s) {
-            int bl = beginLine - s.beginLine;
+            int bl = Integer.compare(beginLine, s.beginLine);
             if (bl != 0) return bl;
-            int bp = beginPos - s.beginPos;
+            int bp = Integer.compare(beginPos, s.beginPos);
             if (bp != 0) return bp;
-            int el = endLine - s.endLine;
+            int el = Integer.compare(endLine, s.endLine);
             if (el != 0) return el;
-            return endPos - endLine;
+            return Integer.compare(endPos, s.endPos);
         } else throw new UnsupportedOperationException();
     }
 

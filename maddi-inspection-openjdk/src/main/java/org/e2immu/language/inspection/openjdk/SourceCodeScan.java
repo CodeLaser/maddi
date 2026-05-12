@@ -22,12 +22,12 @@ public record SourceCodeScan(Runtime runtime) {
                          NavigableMap<Source, String> keywords) {
         public Source find(String keyword, Source source) {
             Map.Entry<Source, String> entry = keywords.floorEntry(source);
-            do {
+             while(entry != null) {
                 if (keyword.equals(entry.getValue())) {
                     return entry.getKey();
                 }
-                entry = keywords.lowerEntry(entry.getKey());
-            } while (entry != null);
+                 entry = keywords.lowerEntry(entry.getKey());
+            }
             throw new UnsupportedOperationException("Cannot find keyword " + keyword);
         }
     }
