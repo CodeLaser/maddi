@@ -91,7 +91,7 @@ public class SourceImpl implements Source {
     public int hashCode() {
         return Objects.hash(beginLine, beginPos, endLine, endPos);
     }
-    
+
     @Override
     public int compareTo(Source o) {
         if (o instanceof SourceImpl s) {
@@ -162,5 +162,22 @@ public class SourceImpl implements Source {
                 max,
                 endLine == other.endLine() ? Math.max(endPos, other.endPos()) : max == endLine
                         ? endPos : other.endPos());
+    }
+
+    @Override
+    public Source ofIndex(String string, int from, int length) {
+        if (from < 0 || length <= 0 || from + length > string.length()) return null;
+        int bp = this.beginPos();
+        int bl = this.beginLine();
+        for (int i = 0; i < from; ++i) {
+            char c = string.charAt(i);
+            if (c == '\n') {
+                bp = 1;
+                bl++;
+            } else {
+                bp++;
+            }
+        }
+        return new SourceImpl(index, bl, bp, bl, bp + length - 1);
     }
 }

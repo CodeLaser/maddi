@@ -136,8 +136,8 @@ public class TestFor extends CommonTest {
     public void test4() {
         TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT4), List.of()).getFirst();
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
-        assertEquals(3, main.methodBody().size());
-        if (main.methodBody().statements().get(2) instanceof ForStatement s) {
+        assertEquals(2, main.methodBody().size());
+        if (main.methodBody().statements().get(1) instanceof ForStatement s) {
             assertTrue(s.initializers().isEmpty());
             assertTrue(s.expression() instanceof BooleanConstant bc && bc.constant());
             assertTrue(s.updaters().isEmpty());

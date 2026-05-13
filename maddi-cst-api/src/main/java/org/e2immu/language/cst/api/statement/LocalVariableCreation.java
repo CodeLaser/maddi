@@ -78,4 +78,6 @@ public interface LocalVariableCreation extends Statement {
 
     LocalVariableCreation withSource(Source newSource);
 
+    LocalVariableCreation withAdditionalLocalVariable(LocalVariableCreation singleLvc);
+
 }

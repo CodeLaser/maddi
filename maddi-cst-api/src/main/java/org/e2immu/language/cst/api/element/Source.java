@@ -73,4 +73,9 @@ public interface Source extends Comparable<Source> {
     default int lines() {
         return endLine() - beginLine() + 1;
     }
+
+    default Source ofIndex(String string, int from, int toExcl) {
+        throw new UnsupportedOperationException();
+    }
+
 }
