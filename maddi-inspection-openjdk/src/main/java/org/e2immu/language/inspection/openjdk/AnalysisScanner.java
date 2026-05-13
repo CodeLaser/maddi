@@ -337,6 +337,20 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     @Override
+    public Void visitBreak(BreakTree node, Void unused) {
+        String gotoLabel = node.getLabel() == null ? null : node.getLabel().toString();
+        addStatement(runtime.newBreakBuilder().setGoToLabel(gotoLabel).setSource(statementSourceForNode(node)).build());
+        return null;
+    }
+
+    @Override
+    public Void visitContinue(ContinueTree node, Void unused) {
+        String gotoLabel = node.getLabel() == null ? null : node.getLabel().toString();
+        addStatement(runtime.newContinueBuilder().setGoToLabel(gotoLabel).setSource(statementSourceForNode(node)).build());
+        return null;
+    }
+
+    @Override
     public Void visitExpressionStatement(ExpressionStatementTree node, Void unused) {
         LOGGER.info("Expression statement");
         super.visitExpressionStatement(node, unused);
@@ -373,6 +387,63 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .setBlock(block)
                 .setExpression(iterable)
                 .setInitializer(lvc)
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitForLoop(ForLoopTree node, Void unused) {
+        ForStatement.Builder forBuilder = runtime.newForBuilder();
+
+        Map<String, Element> map = new HashMap<>();
+        elementStack.addLast(map);
+        if (!node.getInitializer().isEmpty()) {
+            if (node.getInitializer().getFirst() instanceof JCTree.JCVariableDecl) {
+                // sequence of LVCs, but we want them all together in one statement
+                LocalVariableCreation.Builder lvcBuilder = null;
+                for (StatementTree statementTree : node.getInitializer()) {
+                    Block initBlock = parseBlock("?", statementTree);
+                    Statement first = initBlock.statements().getFirst();
+                    if (first instanceof LocalVariableCreation f) {
+                        if (lvcBuilder == null) {
+                            lvcBuilder = runtime.newLocalVariableCreationBuilder().setLocalVariable(f.localVariable());
+                        } else {
+                            LocalVariableCreation.Builder finalLvcBuilder = lvcBuilder;
+                            f.localVariableStream().forEach(finalLvcBuilder::addOtherLocalVariable);
+                        }
+                    } else throw new UnsupportedOperationException("NYI");
+                }
+                assert lvcBuilder != null;
+                LocalVariableCreation built = lvcBuilder.build();
+                forBuilder.addInitializer(built);
+                built.localVariableStream().forEach(lv -> map.put(lv.simpleName(), lv));
+            } else {
+                for (StatementTree statementTree : node.getInitializer()) {
+                    Block initBlock = parseBlock("?", statementTree);
+                    Statement first = initBlock.statements().getFirst();
+                    if (first instanceof ExpressionAsStatement eas) {
+                        forBuilder.addInitializer(eas.expression());
+                    } else throw new UnsupportedOperationException("NYI");
+                }
+            }
+        }
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        forBuilder.setExpression(currentExpression == null ? runtime.constantTrue() : currentExpression);
+
+        for (ExpressionStatementTree est : node.getUpdate()) {
+            Block initBlock = parseBlock("?", est);
+            Statement first = initBlock.statements().getFirst();
+            if (first instanceof ExpressionAsStatement eas) {
+                forBuilder.addUpdater(eas.expression());
+            }
+        }
+
+        Block block = parseBlock("0", node.getStatement());
+        elementStack.removeLast();
+        addStatement(forBuilder
+                .setBlock(block)
+                .setSource(statementSourceForNode(node))
                 .build());
         return null;
     }
