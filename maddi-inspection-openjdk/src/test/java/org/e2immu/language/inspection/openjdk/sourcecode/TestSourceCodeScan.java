@@ -62,7 +62,7 @@ public class TestSourceCodeScan {
             """;
 
     @Test
-    public void test() {
+    public void test1() {
         SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
         SourceCodeScan.Result r = sourceCodeScan.go(INPUT1);
 
@@ -93,6 +93,34 @@ public class TestSourceCodeScan {
         testKeyword(kIterator, "21-50:21-59", "implements");
         testKeyword(kIterator, "28-5:28-10", "public");
         testKeyword(kIterator, "34-5:34-10", "public");
+    }
+
+    @Language("java")
+    String INPUT2 = """
+            package a.b;
+            class C {
+                int method(String s, int k) {
+                   if(s.length()==1)
+                   // comment
+                   {
+                      return k;
+                      // this was i
+                   }
+                   int i = s.length();
+                   return 2*i;
+                }
+            }
+            """;
+    @Test
+    public void test2() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT2);
+
+        Iterator<Map.Entry<Source, List<Comment>>> cIterator = r.comments().entrySet().iterator();
+        testComment(cIterator, "6-8:9-8", " comment");
+
+        Iterator<Map.Entry<Source, List<Comment>>> tIterator = r.trailingComments().entrySet().iterator();
+        testComment(tIterator, "6-8:9-8", " this was i");
     }
 
     private static void testKeyword(Iterator<Map.Entry<Source, String>> kIterator, String compact2, String keyword) {

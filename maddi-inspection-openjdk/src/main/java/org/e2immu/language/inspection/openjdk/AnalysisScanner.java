@@ -163,6 +163,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
         Source source = sourceForNode(node, dsb);
         typeInfo.builder()
+                .addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
                 .setSource(source);
 
@@ -329,6 +330,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
         return blockBuilders.removeLast().blockBuilder
                 .setSource(source)
+                .addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
                 .build();
     }
@@ -1136,5 +1138,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     private List<Comment> commentsForNode(Source source) {
         return scanResult.findComments(source);
+    }
+    private List<Comment> trailingCommentsForNode(Source source) {
+        return scanResult.findTrailingComments(source);
     }
 }
