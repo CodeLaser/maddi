@@ -91,19 +91,25 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     public Void visitClass(ClassTree node, Void p) {
         JCTree.JCClassDecl jcClassDecl = (JCTree.JCClassDecl) node;
         TypeInfo typeInfo;
-
+        String fullyQualifiedName = jcClassDecl.sym.fullname.toString();
+        TypeInfo known = typeData.getType(fullyQualifiedName);
         String simpleName = node.getSimpleName().toString();
-        if (typeStack.isEmpty()) {
-            typeInfo = runtime.newTypeInfo(compilationUnit, simpleName);
-            collectedPrimaryTypes.add(typeInfo);
+
+        if (known != null) {
+            typeInfo = known;
         } else {
-            TypeInfo enclosed = typeStack.getLast();
-            typeInfo = runtime.newTypeInfo(enclosed, simpleName);
-            enclosed.builder().addSubType(typeInfo);
+            if (typeStack.isEmpty()) {
+                typeInfo = runtime.newTypeInfo(compilationUnit, simpleName);
+                collectedPrimaryTypes.add(typeInfo);
+            } else {
+                TypeInfo enclosed = typeStack.getLast();
+                typeInfo = runtime.newTypeInfo(enclosed, simpleName);
+                enclosed.builder().addSubType(typeInfo);
+            }
+            typeData.put(typeInfo);
         }
         typeStack.addLast(typeInfo);
         elementStack.addLast(new HashMap<>());
-        typeData.put(typeInfo);
 
         // flags: modifiers, type nature
         flagHelper.type(jcClassDecl.getModifiers().flags, typeInfo.builder(), simpleName);
@@ -188,72 +194,79 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     public Void visitMethod(MethodTree node, Void p) {
         JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
         String methodName = node.getName().toString();
-        MethodInfo methodInfo;
-        // construction of the method
-        TypeInfo currentType = typeStack.getLast();
         long methodFlags = jcMethod.getModifiers().flags;
-        boolean isConstructor = "<init>".equals(methodName);
-        if (isConstructor) {
-            methodInfo = runtime.newConstructor(currentType);
-            currentType.builder().addConstructor(methodInfo);
-            methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
-        } else {
-            MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags, typeStack.getLast().isInterface());
-            methodInfo = runtime.newMethod(currentType, methodName, methodType);
-            currentType.builder().addMethod(methodInfo);
-        }
-        typeData.put(jcMethod.sym, methodInfo);
-
-        // flags
-        flagHelper.method(methodFlags, methodInfo.builder());
-
+        TypeInfo currentType = typeStack.getLast();
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-
-        // type parameters
-        for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
-            int index = typeParameter.pos;
-            String name = typeParameter.getName().toString();
-            TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
-            methodInfo.builder().addTypeParameter(tp);
-            elementStack.getLast().put(name, tp);
-        }
-
-        // return type
-
-        if (!isConstructor) {
-            ParameterizedType returnType = convertType.convertTree(node.getReturnType(), dsb);
-            methodInfo.builder().setReturnType(returnType);
-        }
-
-        // parameters
         HashMap<String, Element> parameterMap = new HashMap<>();
-        for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
-            String name = jcVariableDecl.getName().toString();
-            DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
-            ParameterizedType type = convertType.convertTree(jcVariableDecl.getType(), dsbParam);
-            ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
+
+        MethodInfo methodInfo;
+        MethodInfo known = typeData.getMethod(jcMethod.sym);
+        boolean isKnown = known != null;
+        if (isKnown) {
+            methodInfo = known;
+            methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
+        } else {
+            // construction of the method
+            boolean isConstructor = "<init>".equals(methodName);
+            if (isConstructor) {
+                methodInfo = runtime.newConstructor(currentType);
+                currentType.builder().addConstructor(methodInfo);
+                methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+            } else {
+                MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags, typeStack.getLast().isInterface());
+                methodInfo = runtime.newMethod(currentType, methodName, methodType);
+                currentType.builder().addMethod(methodInfo);
+            }
+            typeData.put(jcMethod.sym, methodInfo);
+
 
             // flags
-            long flags = jcVariableDecl.getModifiers().flags;
-            boolean isFinal = (flags & Flags.FINAL) != 0;
-            boolean varargs = (flags & Flags.VARARGS) != 0;
-            parameterInfo.builder().setVarArgs(varargs).setIsFinal(isFinal);
+            flagHelper.method(methodFlags, methodInfo.builder());
 
-            // annotations
-            for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
-                AnnotationExpression ae = convertAnnotation(annotation);
-                parameterInfo.builder().addAnnotation(ae);
+            // type parameters
+            for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
+                int index = typeParameter.pos;
+                String name = typeParameter.getName().toString();
+                TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
+                methodInfo.builder().addTypeParameter(tp);
+                elementStack.getLast().put(name, tp);
             }
-            parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
-            parameterMap.put(parameterInfo.simpleName(), parameterInfo);
-        }
-        methodInfo.builder().commitParameters();
 
-        // record synthetic constructor?
-        if (methodInfo.isSynthetic() && currentType.typeNature().isRecord()) {
-            for (ParameterInfo pi : methodInfo.parameters()) {
-                FieldInfo field = currentType.getFieldByName(pi.name(), true);
-                field.builder().setInitializer(runtime.newVariableExpression(pi));
+            // return type
+            if (!isConstructor) {
+                ParameterizedType returnType = convertType.convertTree(node.getReturnType(), dsb);
+                methodInfo.builder().setReturnType(returnType);
+            }
+
+            // parameters
+            for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
+                String name = jcVariableDecl.getName().toString();
+                DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+                ParameterizedType type = convertType.convertTree(jcVariableDecl.getType(), dsbParam);
+                ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
+
+                // flags
+                long flags = jcVariableDecl.getModifiers().flags;
+                boolean isFinal = (flags & Flags.FINAL) != 0;
+                boolean varargs = (flags & Flags.VARARGS) != 0;
+                parameterInfo.builder().setVarArgs(varargs).setIsFinal(isFinal);
+
+                // annotations
+                for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
+                    AnnotationExpression ae = convertAnnotation(annotation);
+                    parameterInfo.builder().addAnnotation(ae);
+                }
+                parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
+                parameterMap.put(parameterInfo.simpleName(), parameterInfo);
+            }
+            methodInfo.builder().commitParameters();
+
+            // record synthetic constructor?
+            if (methodInfo.isSynthetic() && currentType.typeNature().isRecord()) {
+                for (ParameterInfo pi : methodInfo.parameters()) {
+                    FieldInfo field = currentType.getFieldByName(pi.name(), true);
+                    field.builder().setInitializer(runtime.newVariableExpression(pi));
+                }
             }
         }
 
