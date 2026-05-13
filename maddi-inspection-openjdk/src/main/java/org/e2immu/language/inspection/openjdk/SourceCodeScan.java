@@ -22,13 +22,21 @@ public record SourceCodeScan(Runtime runtime) {
                          NavigableMap<Source, String> keywords) {
         public Source find(String keyword, Source source) {
             Map.Entry<Source, String> entry = keywords.floorEntry(source);
-             while(entry != null) {
+            while (entry != null) {
                 if (keyword.equals(entry.getValue())) {
                     return entry.getKey();
                 }
-                 entry = keywords.lowerEntry(entry.getKey());
+                entry = keywords.lowerEntry(entry.getKey());
             }
             throw new UnsupportedOperationException("Cannot find keyword " + keyword);
+        }
+
+        public List<Comment> findComments(Source source) {
+            Map.Entry<Source, List<Comment>> entry = comments.floorEntry(source);
+            if (entry == null) return List.of();
+            Source s = entry.getKey();
+            boolean accept = s.beginLine() == source.beginLine() && s.beginPos() == source.beginPos();
+            return accept ? entry.getValue() : List.of();
         }
     }
 
@@ -115,6 +123,19 @@ public record SourceCodeScan(Runtime runtime) {
                         List<Comment> fpComments = comments(fp);
                         if (!fpComments.isEmpty()) result.comments.put(source(fp), fpComments);
                     }
+                }
+            } else if (node instanceof CodeBlock cb) {
+                scanCodeBlock(cb, result);
+            }
+        }
+    }
+
+    private void scanCodeBlock(CodeBlock cb, Result result) {
+        for (Node node : cb.children()) {
+            if (node instanceof Statement st) {
+                List<Comment> statementComments = comments(st);
+                if (!statementComments.isEmpty()) {
+                    result.comments.put(source(st), statementComments);
                 }
             }
         }

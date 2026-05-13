@@ -61,6 +61,8 @@ public class TestParseBinaryOperator extends CommonTest {
     @Test
     public void test() {
         TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        assertEquals(" some comment", typeInfo.comments().getFirst().comment());
+        assertEquals(1, typeInfo.comments().size());
 
         MethodInfo methodInfo = typeInfo.methods().getFirst();
         assertEquals("times", methodInfo.name());
@@ -68,6 +70,10 @@ public class TestParseBinaryOperator extends CommonTest {
         Block block = methodInfo.methodBody();
         ReturnStatement returnStatement = (ReturnStatement) block.statements().getFirst();
         assertEquals("i*j", returnStatement.expression().toString());
+        assertEquals("""
+                 return comment
+                       the product of i and j \
+                """, returnStatement.comments().getFirst().comment());
 
         MethodInfo and = typeInfo.findUniqueMethod("and", 2);
         if (and.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
@@ -157,7 +163,8 @@ public class TestParseBinaryOperator extends CommonTest {
     @Test
     public void test3() {
         TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT3), List.of()).getFirst();
-
+        assertEquals(" string concat", typeInfo.comments().getFirst().comment());
+        assertEquals(1, typeInfo.comments().size());
         MethodInfo concat1 = typeInfo.findUniqueMethod("concat1", 1);
         if (concat1.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
             assertEquals("return i+\"a\";", rs.toString());
