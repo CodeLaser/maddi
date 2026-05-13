@@ -156,7 +156,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             currentMethod = null;
             scan(member, p);
         }
-        typeInfo.builder().setSource(sourceForNode(node, dsb));
+        Source source = sourceForNode(node, dsb);
+        typeInfo.builder()
+                .addComments(commentsForNode(source))
+                .setSource(source);
 
         typeStack.removeLast();
         elementStack.removeLast();
@@ -255,9 +258,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         Block methodBody = blockBuilders.getLast().build();
         blockBuilders.removeLast();
 
+        Source source = sourceForNode(node, dsb);
         methodInfo.builder()
-                .setSource(sourceForNode(node, dsb))
-                .addComments(commentsForNode(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
                 .setMethodBody(methodBody)
                 .computeAccess()
                 .commit();
@@ -292,9 +296,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         LOGGER.info("Expression statement");
         super.visitExpressionStatement(node, unused);
         if (currentExpression != null) {
+            Source source = sourceForNode(node);
             ExpressionAsStatement statement = runtime.newExpressionAsStatementBuilder()
-                    .setSource(sourceForNode(node))
-                    .addComments(commentsForNode(node))
+                    .setSource(source)
+                    .addComments(commentsForNode(source))
                     .setExpression(currentExpression)
                     .build();
             blockBuilders.getLast().addStatement(statement);
@@ -306,10 +311,27 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     public Void visitReturn(ReturnTree node, Void unused) {
         currentExpression = null;
         scan(node.getExpression(), unused);
+        Source source = sourceForNode(node);
         blockBuilders.getLast().addStatement(runtime.newReturnBuilder()
-                .setSource(sourceForNode(node))
-                .addComments(commentsForNode(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
                 .setExpression(currentExpression == null ? runtime.newEmptyExpression() : currentExpression)
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitWhileLoop(WhileLoopTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+        blockBuilders.add(runtime.newBlockBuilder());
+        scan(node.getStatement(), unused);
+        Block block = blockBuilders.removeLast().build();
+        blockBuilders.getLast().addStatement(runtime.newWhileBuilder()
+                .setSource(sourceForNode(node))
+                .setBlock(block)
+                .setExpression(condition)
                 .build());
         return null;
     }
@@ -467,6 +489,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             case BITOR -> runtime.precedenceBitwiseOr();
             case BITXOR -> runtime.precedenceBitwiseXor();
             case BITAND -> runtime.precedenceBitwiseAnd();
+            case LT, LE, GT, GE -> runtime.precedenceRelational();
             default -> throw new UnsupportedOperationException();
         };
         ParameterizedType type = convertType.convert(binary.type);
@@ -714,12 +737,19 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 scan(fieldAccess.getExpression(), unused);
                 Expression scope = currentExpression;
                 ParameterizedType concreteType = convertType.convert(fieldAccess.type);
-                FieldInfo fieldInfo = typeData.getField(vs);
-                assert fieldInfo != null : "Cannot find field " + node;
-                FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
-                currentExpression = runtime.newVariableExpressionBuilder()
-                        .setSource(sourceForNode(node))
-                        .setVariable(fr).build();
+                if ("length".equals(vs.name.toString())) {
+                    currentExpression = runtime.newArrayLengthBuilder()
+                            .setSource(sourceForNode(node))
+                            .setExpression(scope)
+                            .build();
+                } else {
+                    FieldInfo fieldInfo = typeData.getField(vs);
+                    assert fieldInfo != null : "Cannot find field " + node;
+                    FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
+                    currentExpression = runtime.newVariableExpressionBuilder()
+                            .setSource(sourceForNode(node))
+                            .setVariable(fr).build();
+                }
                 return null;
             }
         }
@@ -970,14 +1000,46 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         scan(unary.getExpression(), unused);
         Expression expression = currentExpression;
         JCTree.Tag opcode = unary.getTag();
-        MethodInfo operator = switch (opcode) {
-            case BITXOR -> runtime.bitWiseNotOperatorInt();
-            case NOT -> runtime.logicalNotOperatorBool();
-            case NEG -> runtime.unaryMinusOperatorInt();
+        MethodInfo operator;
+        boolean assign;
+        switch (opcode) {
+            case BITXOR -> {
+                operator = runtime.bitWiseNotOperatorInt();
+                assign = false;
+            }
+            case NOT -> {
+                operator = runtime.logicalNotOperatorBool();
+                assign = false;
+            }
+            case NEG -> {
+                operator = runtime.unaryMinusOperatorInt();
+                assign = false;
+            }
+            case POSTINC, PREINC -> {
+                assign = true;
+                operator = runtime.assignPlusOperatorInt();
+            }
+            case POSTDEC, PREDEC -> {
+                operator = runtime.assignMinusOperatorInt();
+                assign = true;
+            }
             default -> throw new UnsupportedOperationException();
-        };
-        Precedence precedence = runtime.precedenceUnary();
-        currentExpression = runtime.newUnaryOperator(List.of(), sourceForNode(node), operator, expression, precedence);
+        }
+        if (assign) {
+            boolean isPlus = opcode == JCTree.Tag.PREINC || opcode == JCTree.Tag.POSTINC;
+            boolean isPrefix = opcode == JCTree.Tag.PREINC || opcode == JCTree.Tag.PREDEC;
+            currentExpression = runtime.newAssignmentBuilder().setAssignmentOperator(operator)
+                    .setPrefixPrimitiveOperator(isPrefix)
+                    .setAssignmentOperatorIsPlus(isPlus)
+                    .setBinaryOperator(isPlus ? runtime.plusOperatorInt() : runtime.minusOperatorInt())
+                    .setTarget((VariableExpression) expression)
+                    .setValue(runtime.intOne(runtime.noSource()))
+                    .setSource(sourceForNode(node))
+                    .build();
+        } else {
+            Precedence precedence = runtime.precedenceUnary();
+            currentExpression = runtime.newUnaryOperator(List.of(), sourceForNode(node), operator, expression, precedence);
+        }
         return null;
     }
 
@@ -1007,8 +1069,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         return runtime.newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
     }
 
-    private List<Comment> commentsForNode(Tree node) {
-        // TODO, using CongoCC data
-        return List.of();
+    private List<Comment> commentsForNode(Source source) {
+        return scanResult.findComments(source);
     }
 }
