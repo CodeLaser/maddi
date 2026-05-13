@@ -12,23 +12,30 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package org.e2immu.language.inspection.openjdk.expression;
 
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.MethodReference;
 import org.e2immu.language.cst.api.expression.TypeExpression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TestParseMethodReference extends CommonTestParse {
+public class TestMethodReference extends CommonTest {
 
     @Language("java")
-    private static final String INPUT = """
+    private static final String INPUT1 = """
             package a.b;
             import java.util.function.Function;
             class C {
@@ -42,15 +49,15 @@ public class TestParseMethodReference extends CommonTestParse {
             """;
 
     @Test
-    public void test() {
-        TypeInfo typeInfo = parse(INPUT);
+    public void test1() {
+        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT1), List.of()).getFirst();
         TypeInfo i = typeInfo.findSubType("I");
         assertSame(typeInfo, i.primaryType());
         MethodInfo map = i.findUniqueMethod("map", 1);
         assertSame(map, i.singleAbstractMethod());
 
         MethodInfo mapper = typeInfo.findUniqueMethod("mapper", 1);
-        if (mapper.methodBody().statements().get(0) instanceof ReturnStatement rs
+        if (mapper.methodBody().statements().getFirst() instanceof ReturnStatement rs
             && rs.expression() instanceof MethodReference mr) {
             assertEquals("i::map", mr.toString());
             if (mr.scope() instanceof VariableExpression ve) {
@@ -60,6 +67,45 @@ public class TestParseMethodReference extends CommonTestParse {
             assertEquals("Type String", mr.concreteReturnType().toString());
             assertEquals("[Type a.b.C]", mr.concreteParameterTypes().toString());
             assertEquals("Type java.util.function.Function<a.b.C,String>", mr.parameterizedType().toString());
+        } else fail();
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.function.Supplier;
+            
+            public class C {
+            
+                private Map<String, Integer> make(Supplier<Map<String, Integer>> supplier) {
+                    return supplier.get();
+                }
+            
+                public void method() {
+                    Map<String, Integer> map = make(HashMap::new);
+                    map.put("a", 1);
+                }
+            }
+            """;
+
+
+    @DisplayName("constructor method reference")
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT2), List.of()).getFirst();
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
+        LocalVariableCreation lvc0 = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
+        MethodCall mc = (MethodCall) lvc0.localVariable().assignmentExpression();
+        MethodReference mr = (MethodReference) mc.parameterExpressions().getFirst();
+        // IMPORTANT: POLY TYPE Map instead of HashMap
+        assertEquals("Type java.util.function.Supplier<java.util.Map<String,Integer>>",
+                mr.parameterizedType().toString());
+        assertEquals("Type java.util.HashMap<String,Integer>", mr.concreteReturnType().toString());
+        if (mr.scope() instanceof TypeExpression te) {
+            assertEquals("14-41:14-47", te.source().compact2());
         } else fail();
     }
 }

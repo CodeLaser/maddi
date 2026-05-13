@@ -40,6 +40,22 @@ public class ConvertType {
     }
 
 
+    public MethodInfo computeSAM(TypeInfo typeInfo) {
+        MethodInfo abstractMethod = null;
+        if (typeInfo.parentClass() != null && !typeInfo.parentClass().isJavaLangObject()) {
+            abstractMethod = typeInfo.parentClass().typeInfo().singleAbstractMethod();
+        }
+        // FIXME do interfaces extended, and do override
+        for (MethodInfo methodInfo : typeInfo.methods()) {
+            if (methodInfo.isAbstract()) {
+                if (abstractMethod != null) return null;
+                abstractMethod = methodInfo;
+            }
+        }
+        return abstractMethod;
+    }
+
+
     ParameterizedType convert(Type type) {
         if (type instanceof Type.JCPrimitiveType primitiveType) {
             return primitiveType(primitiveType.getKind());

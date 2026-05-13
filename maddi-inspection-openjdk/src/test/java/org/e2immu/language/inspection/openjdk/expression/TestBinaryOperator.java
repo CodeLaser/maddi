@@ -30,7 +30,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TestParseBinaryOperator extends CommonTest {
+public class TestBinaryOperator extends CommonTest {
 
     @Language("java")
     private static final String INPUT = """
