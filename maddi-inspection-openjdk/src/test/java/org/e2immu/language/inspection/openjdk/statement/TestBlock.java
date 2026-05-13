@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package org.e2immu.language.inspection.openjdk.statement;
 
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -20,20 +20,24 @@ import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.IfElseStatement;
 import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
-public class TestParseBlock extends CommonTestParse {
+public class TestBlock extends CommonTest {
 
     @Language("java")
     private static final String INPUT = """
             package a.b;
             class C {
-              public static void main(String[] args) {
+              static void main(String[] args) {
                 if(args.length == 0) {
                   {
                   System.out.println("Empty");
@@ -50,19 +54,19 @@ public class TestParseBlock extends CommonTestParse {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = parse(INPUT);
+        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
-        if (main.methodBody().statements().get(0) instanceof IfElseStatement ifElse) {
+        if (main.methodBody().statements().getFirst() instanceof IfElseStatement ifElse) {
             assertEquals("0", ifElse.source().index());
-            Statement s000 = ifElse.block().statements().get(0);
+            Statement s000 = ifElse.block().statements().getFirst();
             if (s000 instanceof Block block) {
                 assertEquals("0.0.0", block.source().index());
-                Statement s00000 = block.statements().get(0);
+                Statement s00000 = block.statements().getFirst();
                 assertEquals("0.0.0.0.0", s00000.source().index());
             } else fail();
-            if (ifElse.elseBlock().statements().get(0) instanceof IfElseStatement ifElse2) {
+            if (ifElse.elseBlock().statements().getFirst() instanceof IfElseStatement ifElse2) {
                 assertEquals("0.1.0", ifElse2.source().index());
-                if (ifElse2.block().statements().get(0) instanceof ExpressionAsStatement eas2) {
+                if (ifElse2.block().statements().getFirst() instanceof ExpressionAsStatement eas2) {
                     assertEquals("0.1.0.0.0", eas2.source().index());
                 } else fail();
             } else fail();
@@ -70,7 +74,7 @@ public class TestParseBlock extends CommonTestParse {
         Statement s1 = main.methodBody().statements().get(1);
         if (s1 instanceof Block block) {
             assertEquals("1", block.source().index());
-            Statement s100 = block.statements().get(0);
+            Statement s100 = block.statements().getFirst();
             assertEquals("1.0.0", s100.source().index());
         } else fail();
     }
@@ -78,7 +82,7 @@ public class TestParseBlock extends CommonTestParse {
     @Language("java")
     String INPUT1 = """
             package a.b;
-            class X {
+            class C {
                 int method(String s, int k) {
                    if(s.length()==1)
                    // comment
@@ -95,7 +99,7 @@ public class TestParseBlock extends CommonTestParse {
     @DisplayName("who owns this comment?")
     @Test
     public void test1() {
-        TypeInfo typeInfo = parse(INPUT1);
+        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT1), List.of()).getFirst();
         MethodInfo method = typeInfo.findUniqueMethod("method", 2);
         IfElseStatement ifElse = (IfElseStatement) method.methodBody().statements().getFirst();
         assertEquals(1, ifElse.block().comments().size());
