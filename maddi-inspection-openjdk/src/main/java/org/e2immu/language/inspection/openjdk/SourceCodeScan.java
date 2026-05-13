@@ -32,7 +32,15 @@ public record SourceCodeScan(Runtime runtime) {
         }
 
         public List<Comment> findComments(Source source) {
-            Map.Entry<Source, List<Comment>> entry = comments.floorEntry(source);
+            return findComments(source, comments);
+        }
+
+        public List<Comment> findTrailingComments(Source source) {
+            return findComments(source, trailingComments);
+        }
+
+        private static List<Comment> findComments(Source source, NavigableMap<Source, List<Comment>> map) {
+            Map.Entry<Source, List<Comment>> entry = map.floorEntry(source);
             if (entry == null) return List.of();
             Source s = entry.getKey();
             boolean accept = s.beginLine() == source.beginLine() && s.beginPos() == source.beginPos();
@@ -131,13 +139,21 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     private void scanCodeBlock(CodeBlock cb, Result result) {
-        for (Node node : cb.children()) {
-            if (node instanceof Statement st) {
-                List<Comment> statementComments = comments(st);
-                if (!statementComments.isEmpty()) {
-                    result.comments.put(source(st), statementComments);
+        for (Statement st : cb.descendantsOfType(Statement.class)) {
+            List<Comment> statementComments = comments(st);
+            if (!statementComments.isEmpty()) {
+                result.comments.put(source(st), statementComments);
+            }
+            if (st instanceof CodeBlock subBlock) {
+                List<Comment> trailing = comments(subBlock.getLastChild());
+                if (!trailing.isEmpty()) {
+                    result.trailingComments.put(source(subBlock), trailing);
                 }
             }
+        }
+        List<Comment> trailing = comments(cb.getLastChild());
+        if (!trailing.isEmpty()) {
+            result.trailingComments.put(source(cb), trailing);
         }
     }
 
