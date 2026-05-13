@@ -25,11 +25,13 @@ public class ClassSymbolScanner {
     private final FlagHelper flagHelper;
     private final Elements elements;
     private final TypeData typeData;
+    private final SourceSet sourceSetOfCurrentTask;
     private ConvertType convertType;
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
 
     public ClassSymbolScanner(Runtime runtime,
+                              SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
                               Elements elements,
                               TypeData typeData) {
@@ -37,6 +39,8 @@ public class ClassSymbolScanner {
         this.flagHelper = flagHelper;
         this.elements = elements;
         this.typeData = typeData;
+        this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
+
         predefinedTypes.put("String", runtime.stringTypeInfo());
         predefinedTypes.put("Object", runtime.objectTypeInfo());
         predefinedTypes.put("Integer", runtime.integerTypeInfo());
@@ -51,9 +55,27 @@ public class ClassSymbolScanner {
         this.convertType = convertType;
     }
 
+    TypeInfo type(Symbol.ClassSymbol cs) {
+        if (cs.owner instanceof Symbol.PackageSymbol) {
+            return primaryType(cs, false);
+        } else if (cs.owner instanceof Symbol.ClassSymbol enclosedSymbol) {
+            TypeInfo owner = convertType.convert(enclosedSymbol.type).typeInfo();
+            String simpleName = cs.getSimpleName().toString();
+            TypeInfo inMap = owner.findSubType(simpleName, false);
+            if (inMap == null) {
+                TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
+                loadType(cs, enclosed, false);
+                typeData.put(enclosed);
+                owner.builder().addSubType(enclosed);
+                return enclosed;
+            }
+            return inMap;
+        } else throw new UnsupportedOperationException();
+    }
 
-    TypeInfo primaryType(Symbol.ClassSymbol cs) {
+    TypeInfo primaryType(Symbol.ClassSymbol cs, boolean loadMembers) {
         String simpleName = cs.name.toString();
+        assert cs.owner instanceof Symbol.PackageSymbol;
         String packageName = cs.owner.toString();
         TypeInfo newTypeInfo;
         boolean internal;
@@ -79,12 +101,12 @@ public class ClassSymbolScanner {
         }
         typeData.put(newTypeInfo);
         if (!internal) {
-            loadType(cs, newTypeInfo);
+            loadType(cs, newTypeInfo, loadMembers);
         }
         return newTypeInfo;
     }
 
-    private void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo) {
+    private void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, boolean loadMembers) {
         flagHelper.type(cs.flags(), newTypeInfo.builder(), newTypeInfo.simpleName());
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs'
@@ -132,10 +154,12 @@ public class ClassSymbolScanner {
                 newTypeInfo.builder().addInterfaceImplemented(pt);
             }
 
-            for (var member : members) {
-                addMemberToType(newTypeInfo, cs, member);
+            if (loadMembers) {
+                for (var member : members) {
+                    addMemberToType(newTypeInfo, cs, member);
+                }
+                newTypeInfo.builder().setSingleAbstractMethod(convertType.computeSAM(newTypeInfo));
             }
-            newTypeInfo.builder().setSingleAbstractMethod(convertType.computeSAM(newTypeInfo));
             recursionPrevention.remove(newTypeInfo);
         }
     }
@@ -170,7 +194,7 @@ public class ClassSymbolScanner {
             }
             return known;
         }
-        throw new UnsupportedOperationException("NYI");
+        return sourceSetOfCurrentTask;
     }
 
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member) {
@@ -199,7 +223,7 @@ public class ClassSymbolScanner {
         TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
         typeData.put(enclosed);
         typeInfo.builder().addSubType(enclosed);
-        loadType(cs, enclosed);
+        loadType(cs, enclosed, true);
     }
 
     private void addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
@@ -214,7 +238,7 @@ public class ClassSymbolScanner {
         typeData.put(vs, fieldInfo);
     }
 
-    private void addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+    MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
         String name = ms.getSimpleName().toString();
         MethodInfo method;
         if ("<init>".equals(name)) {
@@ -252,6 +276,8 @@ public class ClassSymbolScanner {
 
         typeData.clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
         typeData.put(ms, method);
+
+        return method;
     }
 
 }

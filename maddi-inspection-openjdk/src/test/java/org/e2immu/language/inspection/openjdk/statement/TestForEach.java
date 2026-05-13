@@ -18,8 +18,8 @@ import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ForEachStatement;
-import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.openjdk.CommonTest;
+import org.e2immu.language.inspection.openjdk.CompilationProblems;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +73,6 @@ public class TestForEach extends CommonTest {
 
     @Test
     public void test2() {
-        scan(Map.of("a.b.C", INPUT_2), List.of()).getFirst();
+        assertThrows(CompilationProblems.class, () -> scan(Map.of("a.b.C", INPUT_2), List.of()));
     }
 }

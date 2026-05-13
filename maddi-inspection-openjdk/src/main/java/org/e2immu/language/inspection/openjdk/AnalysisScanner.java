@@ -54,6 +54,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final Types types;
 
     AnalysisScanner(Runtime runtime,
+                    SourceSet sourceSetOfCurrentTask,
                     CompilationUnit compilationUnit,
                     CompilationUnitTree compilationUnitTree,
                     Trees trees,
@@ -73,7 +74,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
-        ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, flagHelper, elements, typeData);
+        ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, sourceSetOfCurrentTask,
+                flagHelper, elements, typeData);
         convertType = new ConvertType(runtime, classSymbolScanner, typeData, this::findInElementStack, this);
         classSymbolScanner.setConvertType(convertType);
     }
@@ -909,6 +911,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 case PACKAGE -> LOGGER.debug("Skipping package {}", node);
                 case CLASS, INTERFACE, RECORD -> {
                     if (element instanceof Symbol.ClassSymbol classSymbol) {
+
                         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                         ParameterizedType type = convertType.convertTree(node, dsb);
                         currentExpression = runtime.newTypeExpressionBuilder()
@@ -1011,8 +1014,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                             .setExpression(scope)
                             .build();
                 } else {
-                    FieldInfo fieldInfo = typeData.getField(vs);
-                    assert fieldInfo != null : "Cannot find field " + node;
+                    FieldInfo fieldInfo = Objects.requireNonNullElseGet(typeData.getField(vs),
+                            () -> convertType.ensureField(vs));
                     FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
                     currentExpression = runtime.newVariableExpressionBuilder()
                             .setSource(sourceForNode(node))
@@ -1052,10 +1055,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 concreteReturnType = convertType.convert(methodInvocation.type);
                 explicitConstructorInvocation = false;
                 if (it instanceof JCTree.JCIdent jcIdent && jcIdent.sym instanceof Symbol.MethodSymbol methodSymbol) {
-                    methodInfo = typeData.getMethod(methodSymbol);
-                    if (methodInfo == null) {
-                        throw new UnsupportedOperationException("Cannot find method " + methodSymbol);
-                    }
+                    methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(methodSymbol), () ->
+                            convertType.ensureMethod(methodSymbol));
                 } else throw new UnsupportedOperationException("NYI");
             }
             objectIsImplicit = true;
@@ -1068,10 +1069,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             explicitConstructorInvocation = false;
             if (methodInvocation.meth instanceof JCTree.JCFieldAccess fieldAccess
                 && fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
-                methodInfo = typeData.getMethod(methodSymbol);
-                if (methodInfo == null) {
-                    throw new UnsupportedOperationException("Cannot find method " + fieldAccess);
-                }
+                methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(methodSymbol), () ->
+                        convertType.ensureMethod(methodSymbol));
             } else throw new UnsupportedOperationException("NYI");
         } else throw new UnsupportedOperationException("NYI");
 
@@ -1185,7 +1184,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         } else {
             concreteReturnType = convertType.convert(newClass.type);
             anonymousType = null;
-            constructor = typeData.getMethod((Symbol.MethodSymbol) newClass.constructor);
+            Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) newClass.constructor;
+            constructor = Objects.requireNonNullElseGet(typeData.getMethod(methodSymbol), () ->
+                    convertType.ensureMethod(methodSymbol));
         }
         currentExpression = runtime.newConstructorCallBuilder()
                 .setSource(sourceForNode(node, dsb))
