@@ -135,6 +135,7 @@ public class ClassSymbolScanner {
             for (var member : members) {
                 addMemberToType(newTypeInfo, cs, member);
             }
+            newTypeInfo.builder().setSingleAbstractMethod(convertType.computeSAM(newTypeInfo));
             recursionPrevention.remove(newTypeInfo);
         }
     }
@@ -212,27 +213,32 @@ public class ClassSymbolScanner {
             method = runtime.newConstructor(typeInfo);
         } else {
             LOGGER.debug("Adding method {} to {}", name, typeInfo);
-            MethodInfo.MethodType methodType = flagHelper.methodType(ms.flags());
+            MethodInfo.MethodType methodType = flagHelper.methodType(ms.flags(), typeInfo.isInterface());
             method = runtime.newMethod(typeInfo, name, methodType);
             typeInfo.builder().addMethod(method);
         }
         int index = 0;
+        MethodInfo.Builder builder = method.builder();
+
         for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
             TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), method);
-            method.builder().addTypeParameter(newTp);
+            builder.addTypeParameter(newTp);
             typeData.putTmpMethodTypeParameter(typeInfo.fullyQualifiedName(), newTp.simpleName(), newTp);
         }
 
-        flagHelper.method(ms.flags(), method.builder());
+        flagHelper.method(ms.flags(), builder);
         for (Symbol.VarSymbol parameter : ms.params) {
             ParameterizedType pt = convertType.convert(parameter.type);
-            ParameterInfo parameterInfo = method.builder().addParameter(parameter.getSimpleName().toString(), pt);
+            ParameterInfo parameterInfo = builder.addParameter(parameter.getSimpleName().toString(), pt);
             long flags = parameter.flags();
             if ((flags & Flags.VARARGS) != 0) parameterInfo.builder().setVarArgs(true);
             if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
             parameterInfo.builder().commit();
         }
-        method.builder().commitParameters();
+        ParameterizedType returnType = convertType.convert(ms.getReturnType());
+        builder.setReturnType(returnType);
+
+        builder.commitParameters();
         // now the fully qualified name has been computed...
 
         typeData.clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());

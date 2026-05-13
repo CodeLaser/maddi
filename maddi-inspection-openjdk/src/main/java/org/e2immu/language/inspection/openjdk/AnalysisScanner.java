@@ -162,6 +162,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             currentMethod = null;
             scan(member, p);
         }
+        MethodInfo singleAbstractMethod = convertType.computeSAM(typeInfo);
+        typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
+
         Source source = sourceForNode(node, dsb);
         typeInfo.builder()
                 .addTrailingComments(trailingCommentsForNode(source))
@@ -189,7 +192,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             currentType.builder().addConstructor(methodInfo);
             methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
         } else {
-            MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags);
+            MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags, typeStack.getLast().isInterface());
             methodInfo = runtime.newMethod(currentType, methodName, methodType);
             currentType.builder().addMethod(methodInfo);
         }
@@ -579,6 +582,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         String s = variableDecl.toString(); // int b = 3; even in 'int a = 4, b = 3'
         Source thisSource = sourceForNode(variableDecl);
         Source source = prevLvc != null ? startAtEnd(prevLvc.source(), thisSource) : thisSource;
+        // FIXME ideally we check for at least a space before name, and a non-alphanumeric after name
         Source namePos = source.ofIndex(s, s.indexOf(name), name.length());
         assert namePos != null;
         dsb.put(name, namePos);
@@ -918,6 +922,34 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         return null;// super.visitIdentifier(node, p);
     }
 
+    @Override
+    public Void visitMemberReference(MemberReferenceTree node, Void unused) {
+        JCTree.JCMemberReference mr = (JCTree.JCMemberReference) node;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        currentExpression = null;
+        scan(mr.getQualifierExpression(), unused);
+        Expression scope = currentExpression;
+        MethodInfo method;
+        if (mr.sym instanceof Symbol.MethodSymbol ms) {
+            method = typeData.getMethod(ms);
+        } else throw new UnsupportedOperationException();
+        ParameterizedType concreteFunctionalType = convertType.convert(mr.type);
+        MethodInfo sam = concreteFunctionalType.typeInfo().singleAbstractMethod();
+        ParameterizedType concreteReturnType = method.isConstructor()
+                ? scope.parameterizedType()
+                : method.returnType();
+        List<ParameterizedType> concreteParameterTypes = method.parameters().stream()
+                .map(ParameterInfo::parameterizedType).toList();
+        currentExpression = runtime.newMethodReferenceBuilder()
+                .setScope(scope)
+                .setMethod(method)
+                .setConcreteFunctionalType(concreteFunctionalType)
+                .setConcreteParameterTypes(concreteParameterTypes)
+                .setConcreteReturnType(concreteReturnType)
+                .setSource(sourceForNode(node, dsb))
+                .build();
+        return null;
+    }
 
     @Override
     public Void visitMemberSelect(MemberSelectTree node, Void unused) {
