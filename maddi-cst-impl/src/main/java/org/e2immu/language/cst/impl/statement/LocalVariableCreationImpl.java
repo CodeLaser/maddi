@@ -275,6 +275,13 @@ public class LocalVariableCreationImpl extends StatementImpl implements LocalVar
     }
 
     @Override
+    public LocalVariableCreation withAdditionalLocalVariable(LocalVariableCreation singleLvc) {
+        Source mergeDetailedSources = source().mergeDetailedSources(singleLvc.source().detailedSources());
+        return new LocalVariableCreationImpl(comments(), mergeDetailedSources, annotations(), label(), localVariable,
+                Stream.concat(otherLocalVariables.stream(), Stream.of(singleLvc.localVariable())).toList(), modifiers);
+    }
+
+    @Override
     public Statement rewire(InfoMap infoMap) {
         return new LocalVariableCreationImpl(rewireComments(infoMap), source(), rewireAnnotations(infoMap), label(),
                 (LocalVariable) localVariable.rewire(infoMap),

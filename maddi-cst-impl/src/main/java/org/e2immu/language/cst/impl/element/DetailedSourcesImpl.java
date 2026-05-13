@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class DetailedSourcesImpl implements DetailedSources {
     private final IdentityHashMap<Object, Object> identityHashMap;
@@ -134,7 +135,13 @@ public class DetailedSourcesImpl implements DetailedSources {
     @Override
     public DetailedSources merge(DetailedSources other) {
         IdentityHashMap<Object, Object> copy = new IdentityHashMap<>(this.identityHashMap);
-        copy.putAll(((DetailedSourcesImpl) other).identityHashMap);
+        IdentityHashMap<Object, Object> otherMap = ((DetailedSourcesImpl) other).identityHashMap;
+        otherMap.forEach((k, v) -> copy.merge(k, v, (o1, o2) -> {
+            if (o1 instanceof List<?> l1 && o2 instanceof List<?> l2) {
+                return Stream.concat(l1.stream(), l2.stream()).toList();
+            }
+            return o2;
+        }));
         IdentityHashMap<Object, Object> copyAssociation;
         IdentityHashMap<Object, Object> otherAssociation = ((DetailedSourcesImpl) other).association;
         if (this.association == null) {

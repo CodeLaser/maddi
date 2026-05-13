@@ -286,6 +286,18 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     // -- Statements ---------------------------------------------
 
 
+    private void replaceLastStatement(Statement statement) {
+        List<Statement> statements = blockBuilders.getLast().blockBuilder.statements();
+        statements.removeLast();
+        statements.add(statement);
+    }
+
+    private Statement lastStatement() {
+        BlockData bd = blockBuilders.getLast();
+        if (bd.blockBuilder.statements().isEmpty()) return null;
+        return bd.blockBuilder.statements().getLast();
+    }
+
     private void addStatement(Statement statement) {
         blockBuilders.getLast().blockBuilder.addStatement(statement);
     }
@@ -378,7 +390,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             String name = variableDecl.name.toString();
             ParameterizedType type = convertType.convertTree(node.getVariable().getType(), dsb);
             currentExpression = runtime.newEmptyExpression();
-            lvc = continueLocalVariableCreation(node.getVariable(), variableDecl, name, type, dsb);
+            lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, null);
         } else throw new UnsupportedOperationException("NYI");
 
         Block block = parseBlock("0", node.getStatement());
@@ -523,23 +535,34 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
                     // local variable
 
-                    LocalVariableCreation lvc = continueLocalVariableCreation(node, variableDecl, name, type, dsb);
-
-                    addStatement(lvc);
+                    Statement prev = lastStatement();
+                    LocalVariableCreation prevLvc = prev instanceof LocalVariableCreation lvc2 ? lvc2 : null;
+                    LocalVariableCreation lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, prevLvc);
+                    if (prevLvc != null && sameLvc(prevLvc, lvc)) {
+                        LocalVariableCreation merged = prevLvc.withAdditionalLocalVariable(lvc);
+                        replaceLastStatement(merged);
+                    } else {
+                        addStatement(lvc);
+                    }
                 }
             }
         }
         return null;
     }
 
-    private @NotNull LocalVariableCreation continueLocalVariableCreation(VariableTree node,
-                                                                         JCTree.JCVariableDecl variableDecl,
+    private boolean sameLvc(LocalVariableCreation lvc1, LocalVariableCreation lvc2) {
+        Source s1 = lvc1.source();
+        Source s2 = lvc2.source();
+        return s1.beginPos() == s2.beginPos() && s1.beginLine() == s2.beginLine();
+    }
+
+    private @NotNull LocalVariableCreation continueLocalVariableCreation(JCTree.JCVariableDecl variableDecl,
                                                                          String name,
                                                                          ParameterizedType type,
-                                                                         DetailedSources.Builder dsb) {
+                                                                         DetailedSources.Builder dsb, LocalVariableCreation prevLvc) {
         LocalVariable localVariable = runtime.newLocalVariable(name, type, currentExpression);
         LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
-                .setSource(sourceForNode(node))
+                .setSource(sourceForNode(variableDecl))
                 .setLocalVariable(localVariable);
         long flags = variableDecl.getModifiers().flags;
         boolean isFinal = (flags & Flags.FINAL) != 0;
@@ -550,9 +573,26 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             AnnotationExpression ae = convertAnnotation(annotation);
             lvcb.addAnnotation(ae);
         }
+
+        // this is a lot of work to find out exactly where in the sources the 2nd one starts...
+        // FIXME the -2 in startAtEnd is hardCoded and not obviously correct, representing the ", "
+        String s = variableDecl.toString(); // int b = 3; even in 'int a = 4, b = 3'
+        Source thisSource = sourceForNode(variableDecl);
+        Source source = prevLvc != null ? startAtEnd(prevLvc.source(), thisSource) : thisSource;
+        Source namePos = source.ofIndex(s, s.indexOf(name), name.length());
+        assert namePos != null;
+        dsb.put(name, namePos);
+        Source assignSource = source.ofIndex(s, s.indexOf("="), 1);
+        if (assignSource != null) {
+            dsb.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS, List.of(assignSource));
+        }
         lvcb.setSource(statementSourceForNode(variableDecl, dsb));
         elementStack.getLast().put(localVariable.simpleName(), localVariable);
         return lvcb.build();
+    }
+
+    private Source startAtEnd(Source s1, Source s2) {
+        return runtime.newParserSource(s1.index(), s1.endLine(), s1.endPos() - 2, s2.endLine(), s2.endPos());
     }
 
     @Override
