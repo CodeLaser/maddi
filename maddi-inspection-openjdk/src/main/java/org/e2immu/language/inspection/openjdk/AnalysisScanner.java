@@ -7,6 +7,7 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.expression.*;
@@ -50,6 +51,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final ConvertType convertType;
     private final TypeData typeData;
     private final SourceCodeScan.Result scanResult;
+    private final Types types;
 
     AnalysisScanner(Runtime runtime,
                     CompilationUnit compilationUnit,
@@ -58,6 +60,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     SourcePositions sourcePositions,
                     LineMap lineMap,
                     Elements elements,
+                    Types types,
                     SourceCodeScan.Result scanResult) {
         this.runtime = runtime;
         this.compilationUnit = compilationUnit;
@@ -66,6 +69,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         this.sourcePositions = sourcePositions;
         this.compilationUnitTree = compilationUnitTree;
         this.scanResult = scanResult;
+        this.types = types;
 
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
@@ -885,8 +889,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 case PACKAGE -> LOGGER.debug("Skipping package {}", node);
                 case CLASS, INTERFACE, RECORD -> {
                     if (element instanceof Symbol.ClassSymbol classSymbol) {
-                        ParameterizedType type = convertType.convert(classSymbol.type);
+                        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                        ParameterizedType type = convertType.convertTree(node, dsb);
                         currentExpression = runtime.newTypeExpressionBuilder()
+                                .setSource(sourceForNode(node, dsb))
                                 .setDiamond(runtime.diamondNo()) // TODO
                                 .setParameterizedType(type)
                                 .build();
@@ -934,12 +940,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             method = typeData.getMethod(ms);
         } else throw new UnsupportedOperationException();
         ParameterizedType concreteFunctionalType = convertType.convert(mr.type);
-        MethodInfo sam = concreteFunctionalType.typeInfo().singleAbstractMethod();
-        ParameterizedType concreteReturnType = method.isConstructor()
-                ? scope.parameterizedType()
-                : method.returnType();
-        List<ParameterizedType> concreteParameterTypes = method.parameters().stream()
-                .map(ParameterInfo::parameterizedType).toList();
+        Type.MethodType instantiatedSam = (Type.MethodType) types.findDescriptorType(mr.type);
+        Type returnType = instantiatedSam.getReturnType();
+        List<Type> paramTypes = instantiatedSam.getParameterTypes();
+        // Thrown types: List<Type> thrownTypes = instantiatedSam.getThrownTypes();
+
+        ParameterizedType concreteReturnType = convertType.convert(returnType);
+        List<ParameterizedType> concreteParameterTypes = paramTypes.stream().map(convertType::convert).toList();
         currentExpression = runtime.newMethodReferenceBuilder()
                 .setScope(scope)
                 .setMethod(method)
