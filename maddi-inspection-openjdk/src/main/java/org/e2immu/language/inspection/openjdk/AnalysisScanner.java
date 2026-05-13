@@ -356,6 +356,26 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     @Override
+    public Void visitAssert(AssertTree node, Void unused) {
+        JCTree.JCAssert jcAssert = (JCTree.JCAssert) node;
+        currentExpression = null;
+        scan(jcAssert.getCondition(), unused);
+        Expression condition = currentExpression;
+        currentExpression = null;
+        scan(jcAssert.getDetail(), unused);
+        Expression message = Objects.requireNonNullElseGet(currentExpression, runtime::newEmptyExpression);
+
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newAssertBuilder()
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setExpression(condition)
+                .setMessage(message)
+                .build());
+        return null;
+    }
+
+    @Override
     public Void visitBreak(BreakTree node, Void unused) {
         String gotoLabel = node.getLabel() == null ? null : node.getLabel().toString();
         addStatement(runtime.newBreakBuilder().setGoToLabel(gotoLabel).setSource(statementSourceForNode(node)).build());
@@ -701,7 +721,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         Precedence precedence = switch (opcode) {
             case PLUS, MINUS -> runtime.precedenceAdditive();
             case MUL, DIV -> runtime.precedenceMultiplicative();
-            case EQ -> runtime.precedenceEquality();
+            case EQ, NE -> runtime.precedenceEquality();
             case BITOR -> runtime.precedenceBitwiseOr();
             case BITXOR -> runtime.precedenceBitwiseXor();
             case BITAND -> runtime.precedenceBitwiseAnd();
