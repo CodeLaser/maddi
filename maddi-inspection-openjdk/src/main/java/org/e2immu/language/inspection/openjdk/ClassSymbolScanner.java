@@ -175,11 +175,20 @@ public class ClassSymbolScanner {
 
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member) {
         if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
-            addMethodToType(typeInfo, ms);
+            boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0;
+            if (isPublic) {
+                addMethodToType(typeInfo, ms);
+            }
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
-            addFieldToType(typeInfo, vs);
+            boolean isPublic = (vs.flags() & Flags.PUBLIC) != 0;
+            if (isPublic) {
+                addFieldToType(typeInfo, vs);
+            }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
-            addEnclosedTypeToType(typeInfo, cs);
+            boolean isPublic = (cs.flags() & Flags.PUBLIC) != 0;
+            if (isPublic) {
+                addEnclosedTypeToType(typeInfo, cs);
+            }
         }
     }
 

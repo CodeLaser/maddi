@@ -103,7 +103,7 @@ public class TestMethodReference extends CommonTest {
         // IMPORTANT: POLY TYPE Map instead of HashMap
         assertEquals("Type java.util.function.Supplier<java.util.Map<String,Integer>>",
                 mr.parameterizedType().toString());
-        assertEquals("Type java.util.HashMap<String,Integer>", mr.concreteReturnType().toString());
+        assertEquals("Type java.util.Map<String,Integer>", mr.concreteReturnType().toString());
         if (mr.scope() instanceof TypeExpression te) {
             assertEquals("14-41:14-47", te.source().compact2());
         } else fail();
