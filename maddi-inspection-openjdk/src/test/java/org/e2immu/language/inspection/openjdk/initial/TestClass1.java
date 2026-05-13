@@ -1,12 +1,10 @@
 package org.e2immu.language.inspection.openjdk.initial;
 
-import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
@@ -21,11 +19,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestClass1 extends CommonTest {
 
@@ -98,7 +92,8 @@ public class TestClass1 extends CommonTest {
                 if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
                     assertEquals("LOGGER", fr.fieldInfo().name());
                     assertEquals("Type org.slf4j.Logger", fr.parameterizedType().toString());
-                    assertTrue(fr.parameterizedType().typeInfo().methods().size() > 60);
+                    // lazy loading: we've just seen one method, even if there are 60+
+                    assertEquals(1, fr.parameterizedType().typeInfo().methods().size());
                 } else fail();
                 assertEquals(1, mc.parameterExpressions().size());
                 if (mc.parameterExpressions().getFirst() instanceof StringConstant sc) {
