@@ -29,7 +29,7 @@ import java.util.*;
 class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
 
-    private record BlockData(Block.Builder blockBuilder, String index) {
+    private record BlockData(Block.Builder blockBuilder, String index, int numberOfStatements) {
     }
 
     private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
@@ -253,14 +253,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
 
         // method body
-        startBlock(null);
         elementStack.addLast(parameterMap);
         currentMethod = methodInfo;
-        scan(node.getBody(), p);
+        Block methodBody = parseBlock("-", node.getBody());
         elementStack.removeLast();
         currentMethod = null;
-
-        Block methodBody = endBlock();
 
         Source source = sourceForNode(node, dsb);
         methodInfo.builder()
@@ -286,32 +283,54 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     // -- Statements ---------------------------------------------
 
-    // FIXME add padding for statements
-    private void startBlock(String blockIndex) {
-        String i = blockIndex == null ? "-" : statementIndex() + "." + blockIndex;
-        blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i));
-    }
-
-    private Block endBlock() {
-        return blockBuilders.removeLast().blockBuilder.build();
-    }
 
     private void addStatement(Statement statement) {
         blockBuilders.getLast().blockBuilder.addStatement(statement);
     }
 
     private String statementIndex() {
+        if (blockBuilders.isEmpty()) return "-";
         BlockData bd = blockBuilders.getLast();
-        return ("-".equals(bd.index) ? "" : bd.index + ".") + bd.blockBuilder.statements().size();
+        String padded = StringUtil.pad(bd.blockBuilder.statements().size(), bd.numberOfStatements);
+        return ("-".equals(bd.index) ? "" : bd.index + ".") + padded;
     }
 
-    @Override
-    public Void visitBlock(BlockTree node, Void unused) {
-        // FIXME when do we need to add this block as a statement?
+    private Block parseBlock(String blockIndex, Tree node) {
+        List<JCTree.JCStatement> statements;
+        Source source = statementSourceForNode(node);
+
+        switch (node) {
+            case JCTree.JCBlock block -> statements = block.stats;
+            case JCTree.JCStatement statement -> statements = List.of(statement);
+            case null -> {
+                return runtime.newBlockBuilder()
+                        .setSource(source)
+                        .addComments(commentsForNode(source))
+                        .build();
+            }
+            default -> throw new UnsupportedOperationException("NYI");
+        }
         elementStack.push(new HashMap<>());
-        super.visitBlock(node, unused);
+
+        int n = statements.size();
+        String i = "-".equals(blockIndex) ? "-" : statementIndex() + "." + blockIndex;
+        blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i, n));
+
+        for (JCTree.JCStatement statement : statements) {
+            if (statement instanceof JCTree.JCBlock subBlock) {
+                Block parsedSub = parseBlock("0", subBlock);
+                addStatement(parsedSub);
+            } else {
+                scan(statement, null);
+            }
+        }
+
         elementStack.pop();
-        return null;
+
+        return blockBuilders.removeLast().blockBuilder
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .build();
     }
 
     @Override
@@ -336,13 +355,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
 
-        startBlock("0");
-        scan(node.getThenStatement(), unused);
-        Block block = endBlock();
-
-        startBlock("1");
-        scan(node.getElseStatement(), unused);
-        Block elseBlock = endBlock();
+        Block block = parseBlock("0", node.getThenStatement());
+        Block elseBlock = parseBlock("1", node.getElseStatement());
 
         addStatement(runtime.newIfElseBuilder()
                 .setSource(statementSourceForNode(node))
@@ -437,9 +451,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         currentExpression = null;
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
-        startBlock("0");
-        scan(node.getStatement(), unused);
-        Block block = endBlock();
+        Block block = parseBlock("0", node.getStatement());
         addStatement(runtime.newWhileBuilder()
                 .setSource(statementSourceForNode(node))
                 .setBlock(block)
@@ -728,10 +740,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     } else throw new UnsupportedOperationException("NYI");
                 }
                 case ENUM -> {
-                    if (element instanceof Symbol.ClassSymbol) {
+                 //   if (element instanceof Symbol.ClassSymbol) {
                         //ParameterizedType type = convertType.convert(classSymbol.type);
-                        throw new UnsupportedOperationException("NYI");
-                    }
+                 //       throw new UnsupportedOperationException("NYI");
+                 //   }
                 }
                 case ENUM_CONSTANT -> {
                     if (element instanceof Symbol.VarSymbol vs) {
@@ -1003,9 +1015,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             }
             Statement statement;
             if (jcCase.getBody() instanceof JCTree.JCBlock block) {
-                startBlock(StringUtil.pad(i, n));
-                scan(block, unused);
-                statement = endBlock();
+                statement = parseBlock(StringUtil.pad(i, n), block);
             } else if (jcCase.getBody() instanceof JCTree.JCExpression e) {
                 scan(e, unused);
                 Expression expression = currentExpression;
