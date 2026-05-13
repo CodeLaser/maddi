@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.util.RecordSynthetics;
+import org.e2immu.util.internal.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +28,10 @@ import java.util.*;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
+
+    private record BlockData(Block.Builder blockBuilder, String index) {
+    }
+
     private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
     private final Deque<Map<String, Element>> elementStack = new ArrayDeque<>();
 
@@ -34,7 +39,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
     private final Trees trees;
     private MethodInfo currentMethod;
-    private final Deque<Block.Builder> blockBuilders = new ArrayDeque<>();
+    private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
     private Expression currentExpression;
     private final CompilationUnit compilationUnit;
     private final SourcePositions sourcePositions;
@@ -248,15 +253,14 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
 
         // method body
-        blockBuilders.addLast(runtime.newBlockBuilder());
+        startBlock(null);
         elementStack.addLast(parameterMap);
         currentMethod = methodInfo;
         scan(node.getBody(), p);
         elementStack.removeLast();
         currentMethod = null;
 
-        Block methodBody = blockBuilders.getLast().build();
-        blockBuilders.removeLast();
+        Block methodBody = endBlock();
 
         Source source = sourceForNode(node, dsb);
         methodInfo.builder()
@@ -282,6 +286,25 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     // -- Statements ---------------------------------------------
 
+    // FIXME add padding for statements
+    private void startBlock(String blockIndex) {
+        String i = blockIndex == null ? "-" : statementIndex() + "." + blockIndex;
+        blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i));
+    }
+
+    private Block endBlock() {
+        return blockBuilders.removeLast().blockBuilder.build();
+    }
+
+    private void addStatement(Statement statement) {
+        blockBuilders.getLast().blockBuilder.addStatement(statement);
+    }
+
+    private String statementIndex() {
+        BlockData bd = blockBuilders.getLast();
+        return ("-".equals(bd.index) ? "" : bd.index + ".") + bd.blockBuilder.statements().size();
+    }
+
     @Override
     public Void visitBlock(BlockTree node, Void unused) {
         // FIXME when do we need to add this block as a statement?
@@ -296,14 +319,37 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         LOGGER.info("Expression statement");
         super.visitExpressionStatement(node, unused);
         if (currentExpression != null) {
-            Source source = sourceForNode(node);
+            Source source = statementSourceForNode(node);
             ExpressionAsStatement statement = runtime.newExpressionAsStatementBuilder()
                     .setSource(source)
                     .addComments(commentsForNode(source))
                     .setExpression(currentExpression)
                     .build();
-            blockBuilders.getLast().addStatement(statement);
+            addStatement(statement);
         } // else: was explicit constructor invocation, a statement
+        return null;
+    }
+
+    @Override
+    public Void visitIf(IfTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+
+        startBlock("0");
+        scan(node.getThenStatement(), unused);
+        Block block = endBlock();
+
+        startBlock("1");
+        scan(node.getElseStatement(), unused);
+        Block elseBlock = endBlock();
+
+        addStatement(runtime.newIfElseBuilder()
+                .setSource(statementSourceForNode(node))
+                .setIfBlock(block)
+                .setElseBlock(elseBlock)
+                .setExpression(condition)
+                .build());
         return null;
     }
 
@@ -311,8 +357,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     public Void visitReturn(ReturnTree node, Void unused) {
         currentExpression = null;
         scan(node.getExpression(), unused);
-        Source source = sourceForNode(node);
-        blockBuilders.getLast().addStatement(runtime.newReturnBuilder()
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newReturnBuilder()
                 .setSource(source)
                 .addComments(commentsForNode(source))
                 .setExpression(currentExpression == null ? runtime.newEmptyExpression() : currentExpression)
@@ -320,23 +366,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         return null;
     }
 
-    @Override
-    public Void visitWhileLoop(WhileLoopTree node, Void unused) {
-        currentExpression = null;
-        scan(node.getCondition(), unused);
-        Expression condition = currentExpression;
-        blockBuilders.add(runtime.newBlockBuilder());
-        scan(node.getStatement(), unused);
-        Block block = blockBuilders.removeLast().build();
-        blockBuilders.getLast().addStatement(runtime.newWhileBuilder()
-                .setSource(sourceForNode(node))
-                .setBlock(block)
-                .setExpression(condition)
-                .build());
-        return null;
-    }
-
     // note: also field declarations
+
     @Override
     public Void visitVariable(VariableTree node, Void p) {
         LOGGER.info("VARIABLE:" + node.getName().toString());
@@ -391,13 +422,29 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                         AnnotationExpression ae = convertAnnotation(annotation);
                         lvcb.addAnnotation(ae);
                     }
-                    lvcb.setSource(sourceForNode(variableDecl, dsb));
+                    lvcb.setSource(statementSourceForNode(variableDecl, dsb));
 
-                    blockBuilders.getLast().addStatement(lvcb.build());
+                    addStatement(lvcb.build());
                     elementStack.getLast().put(localVariable.simpleName(), localVariable);
                 }
             }
         }
+        return null;
+    }
+
+    @Override
+    public Void visitWhileLoop(WhileLoopTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+        startBlock("0");
+        scan(node.getStatement(), unused);
+        Block block = endBlock();
+        addStatement(runtime.newWhileBuilder()
+                .setSource(statementSourceForNode(node))
+                .setBlock(block)
+                .setExpression(condition)
+                .build());
         return null;
     }
 
@@ -681,8 +728,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     } else throw new UnsupportedOperationException("NYI");
                 }
                 case ENUM -> {
-                    if (element instanceof Symbol.ClassSymbol classSymbol) {
-                        ParameterizedType type = convertType.convert(classSymbol.type);
+                    if (element instanceof Symbol.ClassSymbol) {
+                        //ParameterizedType type = convertType.convert(classSymbol.type);
+                        throw new UnsupportedOperationException("NYI");
                     }
                 }
                 case ENUM_CONSTANT -> {
@@ -816,22 +864,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             arguments.add(currentExpression);
         }
 
-        var element = trees.getElement(getCurrentPath());
-        if (element != null) {
-            LOGGER.info("  resolves to:" + element.toString());
-            LOGGER.info("  declared in:" + element.getEnclosingElement().toString());
-        }
-
         if (explicitConstructorInvocation) {
             Statement statement = runtime.newExplicitConstructorInvocationBuilder()
                     .setIsSuper("super".equals(methodName))
                     .setMethodInfo(runtime.assignAndOperatorBool())
                     .setParameterExpressions(arguments)
                     .build();
-            blockBuilders.getLast().addStatement(statement);
+            addStatement(statement);
             currentExpression = null; // as a marker for ExpressionAsStatement
         } else {
-            assert methodInfo != null;
             currentExpression = runtime.newMethodCallBuilder()
                     .setSource(sourceForNode(node))
                     .setObjectIsImplicit(objectIsImplicit)
@@ -944,6 +985,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         scan(se.getExpression(), unused);
         Expression selector = currentExpression;
         List<SwitchEntry> switchEntries = new ArrayList<>();
+        int i = 0;
+        int n = se.cases.size();
         for (JCTree.JCCase jcCase : se.getCases()) {
             List<Expression> conditions = new ArrayList<>();
             for (JCTree.JCCaseLabel caseLabel : jcCase.getLabels()) {
@@ -952,7 +995,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     scan(ccl.getConstantExpression(), unused);
                     Expression constantExpression = currentExpression;
                     conditions.add(constantExpression);
-                } else if (caseLabel instanceof JCTree.JCDefaultCaseLabel dcl) {
+                } else if (caseLabel instanceof JCTree.JCDefaultCaseLabel) {
                     conditions.add(runtime.newEmptyExpression());
                 } else {
                     throw new UnsupportedOperationException("NYI");
@@ -960,10 +1003,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             }
             Statement statement;
             if (jcCase.getBody() instanceof JCTree.JCBlock block) {
-                blockBuilders.addLast(runtime.newBlockBuilder());
+                startBlock(StringUtil.pad(i, n));
                 scan(block, unused);
-                statement = blockBuilders.getLast().build();
-                blockBuilders.removeLast();
+                statement = endBlock();
             } else if (jcCase.getBody() instanceof JCTree.JCExpression e) {
                 scan(e, unused);
                 Expression expression = currentExpression;
@@ -984,6 +1026,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     .setWhenExpression(whenExpression)
                     .build();
             switchEntries.add(switchEntry);
+            ++i;
         }
         currentExpression = runtime.newSwitchExpressionBuilder()
                 .setSelector(selector)
@@ -1059,6 +1102,18 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     @Override
     public Source sourceForNode(Tree node) {
+        return sourceForNode(node, "-");
+    }
+
+    private Source statementSourceForNode(Tree node) {
+        return sourceForNode(node, statementIndex());
+    }
+
+    private Source statementSourceForNode(Tree node, DetailedSources.Builder dsb) {
+        return sourceForNode(node, statementIndex()).withDetailedSources(dsb.build());
+    }
+
+    private Source sourceForNode(Tree node, String index) {
         long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
         if (endPos == Diagnostic.NOPOS) return runtime.noSource(); // synthetic
         long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
@@ -1066,7 +1121,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         long startCol = lineMap.getColumnNumber(startPos);
         long endLine = lineMap.getLineNumber(endPos);
         long endCol = lineMap.getColumnNumber(endPos) - 1; // we work inclusively
-        return runtime.newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
+        return runtime.newParserSource(index, (int) startLine, (int) startCol, (int) endLine, (int) endCol);
     }
 
     private List<Comment> commentsForNode(Source source) {
