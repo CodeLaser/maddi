@@ -12,16 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package org.e2immu.language.inspection.openjdk.other;
 
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TestParseSealed extends CommonTestParse {
+public class TestSealed extends CommonTest {
 
     @Language("java")
     private static final String INPUT = """
@@ -41,7 +45,7 @@ public class TestParseSealed extends CommonTestParse {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = parse(INPUT);
+        TypeInfo typeInfo = scan(Map.of("a.b.Sealed_0", INPUT), List.of()).getFirst();
         assertTrue(typeInfo.typeNature().isClass());
         assertTrue(typeInfo.isSealed());
         assertEquals("[a.b.Sealed_0.Sub1, a.b.Sealed_0.Sub2]", typeInfo.permittedWhenSealed().toString());
