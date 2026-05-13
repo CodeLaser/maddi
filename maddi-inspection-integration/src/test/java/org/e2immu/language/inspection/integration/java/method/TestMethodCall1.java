@@ -23,8 +23,7 @@ import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodCall1 extends CommonTest {
 
@@ -160,7 +159,12 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test4() {
-        javaInspector.parse(INPUT4);
+        TypeInfo typeInfo = javaInspector.parse(INPUT4);
+        MethodInfo method = typeInfo.findUniqueMethod("method", 3);
+        assertTrue(method.parameters().get(2).isVarArgs());
+        assertEquals("Type org.e2immu.analyser.resolver.testexample.MethodCall_14.VI",
+                method.parameters().getFirst().parameterizedType().toString());
+        assertEquals(1, method.methodBody().size());
     }
 
     @Language("java")

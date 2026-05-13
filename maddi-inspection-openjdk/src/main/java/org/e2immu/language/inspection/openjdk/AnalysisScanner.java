@@ -24,9 +24,11 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import java.util.*;
+import java.util.function.IntFunction;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
@@ -52,6 +54,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final TypeData typeData;
     private final SourceCodeScan.Result scanResult;
     private final Types types;
+    private final Elements elements;
 
     AnalysisScanner(Runtime runtime,
                     SourceSet sourceSetOfCurrentTask,
@@ -71,6 +74,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         this.compilationUnitTree = compilationUnitTree;
         this.scanResult = scanResult;
         this.types = types;
+        this.elements = elements;
 
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
@@ -822,7 +826,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     .build();
             methodBody = runtime.newBlockBuilder().addStatement(returnStatement).build();
         } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
-            throw new UnsupportedOperationException("NYI");
+            methodBody = parseBlock("-", lambda.body);
         } else {
             throw new UnsupportedOperationException("NYI");
         }
@@ -970,19 +974,39 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         currentExpression = null;
         scan(mr.getQualifierExpression(), unused);
-        Expression scope = currentExpression;
+        Expression evaluatedScope = currentExpression;
         MethodInfo method;
-        if (mr.sym instanceof Symbol.MethodSymbol ms) {
-            method = typeData.getMethod(ms);
-        } else throw new UnsupportedOperationException();
-        ParameterizedType concreteFunctionalType = convertType.convert(mr.type);
-        Type.MethodType instantiatedSam = (Type.MethodType) types.findDescriptorType(mr.type);
-        Type returnType = instantiatedSam.getReturnType();
-        List<Type> paramTypes = instantiatedSam.getParameterTypes();
-        // Thrown types: List<Type> thrownTypes = instantiatedSam.getThrownTypes();
+        ParameterizedType concreteFunctionalType;
+        ParameterizedType concreteReturnType;
+        List<ParameterizedType> concreteParameterTypes;
+        Expression scope;
 
-        ParameterizedType concreteReturnType = convertType.convert(returnType);
-        List<ParameterizedType> concreteParameterTypes = paramTypes.stream().map(convertType::convert).toList();
+        if (mr.sym instanceof Symbol.MethodSymbol ms) {
+            if (ms.isConstructor() && "Array".equals(ms.owner.getQualifiedName().toString())) {
+                // array construction
+                concreteReturnType = evaluatedScope.parameterizedType().copyWithArrays(1);
+                scope = runtime.newTypeExpressionBuilder().setDiamond(runtime.diamondNo())
+                        .setSource(evaluatedScope.source())
+                        .addComments(evaluatedScope.comments())
+                        .setParameterizedType(concreteReturnType).build();
+                method = runtime.newArrayCreationConstructor(concreteReturnType);
+                TypeElement typeElement = elements.getTypeElement(IntFunction.class.getCanonicalName());
+                TypeInfo intFunction = convertType.convert(((Symbol.ClassSymbol) typeElement).type).typeInfo();
+                concreteFunctionalType = runtime.newParameterizedType(intFunction, List.of(concreteReturnType));
+                concreteParameterTypes = List.of(runtime.intParameterizedType());
+            } else {
+                method = Objects.requireNonNullElseGet(typeData.getMethod(ms), () -> convertType.ensureMethod(ms));
+                concreteFunctionalType = convertType.convert(mr.type);
+                Type.MethodType instantiatedSam = (Type.MethodType) types.findDescriptorType(mr.type);
+                Type returnType = instantiatedSam.getReturnType();
+                List<Type> paramTypes = instantiatedSam.getParameterTypes();
+                // Thrown types: List<Type> thrownTypes = instantiatedSam.getThrownTypes();
+                scope = evaluatedScope;
+                concreteReturnType = convertType.convert(returnType);
+                concreteParameterTypes = paramTypes.stream().map(convertType::convert).toList();
+            }
+        } else throw new UnsupportedOperationException();
+
         currentExpression = runtime.newMethodReferenceBuilder()
                 .setScope(scope)
                 .setMethod(method)
