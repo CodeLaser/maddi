@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.util.RecordSynthetics;
 import org.e2immu.util.internal.util.StringUtil;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -352,6 +353,31 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     @Override
+    public Void visitEnhancedForLoop(EnhancedForLoopTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getExpression(), unused);
+        Expression iterable = currentExpression;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+
+        LocalVariableCreation lvc;
+        if (node.getVariable() instanceof JCTree.JCVariableDecl variableDecl) {
+            String name = variableDecl.name.toString();
+            ParameterizedType type = convertType.convertTree(node.getVariable().getType(), dsb);
+            currentExpression = runtime.newEmptyExpression();
+            lvc = continueLocalVariableCreation(node.getVariable(), variableDecl, name, type, dsb);
+        } else throw new UnsupportedOperationException("NYI");
+
+        Block block = parseBlock("0", node.getStatement());
+        addStatement(runtime.newForEachBuilder()
+                .setSource(statementSourceForNode(node))
+                .setBlock(block)
+                .setExpression(iterable)
+                .setInitializer(lvc)
+                .build());
+        return null;
+    }
+
+    @Override
     public Void visitIf(IfTree node, Void unused) {
         currentExpression = null;
         scan(node.getCondition(), unused);
@@ -389,7 +415,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         LOGGER.info("VARIABLE:" + node.getName().toString());
 
         if (node instanceof JCTree.JCVariableDecl variableDecl) {
-            long flags = variableDecl.getModifiers().flags;
             DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
             if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
                 String name = varSymbol.toString();
@@ -402,6 +427,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 }
                 if (currentMethod == null) {
                     // field!
+                    long flags = variableDecl.getModifiers().flags;
                     boolean isStatic = (flags & Flags.STATIC) != 0;
                     TypeInfo owner = typeStack.getLast();
                     if (!owner.typeNature().isRecord() || isStatic) {
@@ -426,26 +452,36 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
                     // local variable
 
-                    LocalVariable localVariable = runtime.newLocalVariable(name, type, currentExpression);
-                    LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
-                            .setSource(sourceForNode(node))
-                            .setLocalVariable(localVariable);
-                    boolean isFinal = (flags & Flags.FINAL) != 0;
-                    if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
+                    LocalVariableCreation lvc = continueLocalVariableCreation(node, variableDecl, name, type, dsb);
 
-                    // annotations
-                    for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
-                        AnnotationExpression ae = convertAnnotation(annotation);
-                        lvcb.addAnnotation(ae);
-                    }
-                    lvcb.setSource(statementSourceForNode(variableDecl, dsb));
-
-                    addStatement(lvcb.build());
-                    elementStack.getLast().put(localVariable.simpleName(), localVariable);
+                    addStatement(lvc);
                 }
             }
         }
         return null;
+    }
+
+    private @NotNull LocalVariableCreation continueLocalVariableCreation(VariableTree node,
+                                                                         JCTree.JCVariableDecl variableDecl,
+                                                                         String name,
+                                                                         ParameterizedType type,
+                                                                         DetailedSources.Builder dsb) {
+        LocalVariable localVariable = runtime.newLocalVariable(name, type, currentExpression);
+        LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
+                .setSource(sourceForNode(node))
+                .setLocalVariable(localVariable);
+        long flags = variableDecl.getModifiers().flags;
+        boolean isFinal = (flags & Flags.FINAL) != 0;
+        if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
+
+        // annotations
+        for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+            AnnotationExpression ae = convertAnnotation(annotation);
+            lvcb.addAnnotation(ae);
+        }
+        lvcb.setSource(statementSourceForNode(variableDecl, dsb));
+        elementStack.getLast().put(localVariable.simpleName(), localVariable);
+        return lvcb.build();
     }
 
     @Override
@@ -742,10 +778,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     } else throw new UnsupportedOperationException("NYI");
                 }
                 case ENUM -> {
-                 //   if (element instanceof Symbol.ClassSymbol) {
-                        //ParameterizedType type = convertType.convert(classSymbol.type);
-                 //       throw new UnsupportedOperationException("NYI");
-                 //   }
+                    //   if (element instanceof Symbol.ClassSymbol) {
+                    //ParameterizedType type = convertType.convert(classSymbol.type);
+                    //       throw new UnsupportedOperationException("NYI");
+                    //   }
                 }
                 case ENUM_CONSTANT -> {
                     if (element instanceof Symbol.VarSymbol vs) {
@@ -1139,6 +1175,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private List<Comment> commentsForNode(Source source) {
         return scanResult.findComments(source);
     }
+
     private List<Comment> trailingCommentsForNode(Source source) {
         return scanResult.findTrailingComments(source);
     }
