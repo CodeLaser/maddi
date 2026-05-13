@@ -162,7 +162,13 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test4() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_14", INPUT4), List.of()).getFirst());
+        TypeInfo typeInfo = scan(Map.of("a.b.MethodCall_14", INPUT4), List.of()).getFirst();
+        MethodInfo method = typeInfo.findUniqueMethod("method", 3);
+        assertTrue(method.parameters().get(2).isVarArgs());
+        assertEquals("Type a.b.MethodCall_14.VI", method.parameters().getFirst().parameterizedType().toString());
+        assertEquals(1, method.methodBody().size());
+        assertEquals("""
+                """, method.methodBody().statements().getFirst().toString());
     }
 
     @Language("java")
