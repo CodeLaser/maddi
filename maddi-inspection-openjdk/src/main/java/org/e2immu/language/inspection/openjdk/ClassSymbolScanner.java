@@ -260,13 +260,15 @@ public class ClassSymbolScanner {
         }
 
         flagHelper.method(ms.flags(), builder);
-        for (Symbol.VarSymbol parameter : ms.params) {
-            ParameterizedType pt = convertType.convert(parameter.type);
-            ParameterInfo parameterInfo = builder.addParameter(parameter.getSimpleName().toString(), pt);
-            long flags = parameter.flags();
-            if ((flags & Flags.VARARGS) != 0) parameterInfo.builder().setVarArgs(true);
-            if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
-            parameterInfo.builder().commit();
+        if (ms.params != null) {
+            for (Symbol.VarSymbol parameter : ms.params) {
+                ParameterizedType pt = convertType.convert(parameter.type);
+                ParameterInfo parameterInfo = builder.addParameter(parameter.getSimpleName().toString(), pt);
+                long flags = parameter.flags();
+                if ((flags & Flags.VARARGS) != 0) parameterInfo.builder().setVarArgs(true);
+                if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
+                parameterInfo.builder().commit();
+            }
         }
         ParameterizedType returnType = convertType.convert(ms.getReturnType());
         builder.setReturnType(returnType);

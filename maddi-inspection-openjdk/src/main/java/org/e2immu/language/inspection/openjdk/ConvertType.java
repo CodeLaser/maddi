@@ -120,8 +120,14 @@ public class ConvertType {
                         typeParameter = tmpTypeParameter;
                     }
                 } else throw new UnsupportedOperationException();
+            } else if (typeVar.isCaptured()) {
+                if (typeVar.getUpperBound() instanceof Type.ClassType ct) {
+                    TypeInfo upper = convert(ct).typeInfo();
+                    return runtime.newParameterizedType(upper, 0, runtime.wildcardExtends(), List.of());
+                } else throw new UnsupportedOperationException();
             } else {
-                TypeInfo owner = typeData.getType(typeVar.tsym.owner.toString());
+                String fullyQualifiedName = typeVar.tsym.owner.toString();
+                TypeInfo owner = typeData.getType(fullyQualifiedName);
                 assert owner != null;
                 typeParameter = findTypeParameter(owner, typeParameterName);
             }
