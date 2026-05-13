@@ -24,10 +24,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class TestMap extends CommonTest {
+public class TestClassSymbolScanner extends CommonTest {
 
     @Language("java")
     private static final String INPUT = """
@@ -40,12 +39,26 @@ public class TestMap extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
-        assertTrue(typeInfo.typeNature().isClass());
-        FieldInfo entry = typeInfo.getFieldByName("entry", true);
-        ParameterizedType type = entry.type();
+        TypeInfo c = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        assertTrue(c.typeNature().isClass());
+        FieldInfo entryField = c.getFieldByName("entry", true);
+        ParameterizedType type = entryField.type();
         assertEquals("Type java.util.Map.Entry<String,Integer>", type.toString());
-        assertEquals("java.util", type.typeInfo().packageName());
+        TypeInfo entry = type.typeInfo();
+        assertEquals("java.util", entry.packageName());
+        TypeInfo map = entry.compilationUnitOrEnclosingType().getRight();
+        assertEquals("Map", map.simpleName());
+        assertEquals("Entry", entry.simpleName());
+        assertTrue(entry.methods().isEmpty());
+        assertEquals(1, map.subTypes().size());
+
+        TypeInfo mapLoaded = loadType("java.util.Map");
+        assertTrue(mapLoaded.methods().size() > 10);
+        assertEquals("jrt:/java.base/java/util/Map.class", mapLoaded.compilationUnit().uri().toString());
+        assertEquals(map.compilationUnit().uri(), mapLoaded.compilationUnit().uri());
+
+        // for now
+        assertNotSame(map, mapLoaded);
     }
 
 }

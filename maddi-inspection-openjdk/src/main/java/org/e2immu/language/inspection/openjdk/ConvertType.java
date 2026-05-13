@@ -6,6 +6,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
@@ -37,6 +38,26 @@ public class ConvertType {
         this.typeData = typeData;
         this.findInElementStack = findInElementStack;
         this.sourceProvider = sourceProvider;
+    }
+
+    public FieldInfo ensureField(Symbol.VarSymbol vs) {
+        if (vs.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo owner = convert(cs.type).typeInfo();
+            String name = vs.getSimpleName().toString();
+            boolean isStatic = vs.isStatic();
+            ParameterizedType type = convert(vs.type);
+            FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+            owner.builder().addField(fieldInfo);
+            typeData.put(vs, fieldInfo);
+            return fieldInfo;
+        } else throw new UnsupportedOperationException();
+    }
+
+    public MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol) {
+        if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo owner = convert(cs.type).typeInfo();
+            return classSymbolScanner.addMethodToType(owner, methodSymbol);
+        } else throw new UnsupportedOperationException();
     }
 
 
@@ -189,7 +210,7 @@ public class ConvertType {
         if (known == null) {
             // on-demand loading; should be replaced by import handling?
             if (ct.tsym instanceof Symbol.ClassSymbol cs) {
-                typeInfo = classSymbolScanner.primaryType(cs);
+                typeInfo = classSymbolScanner.type(cs);
             } else throw new UnsupportedOperationException("NYI");
         } else {
             typeInfo = known;

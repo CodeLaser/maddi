@@ -114,17 +114,18 @@ public class SingleDirExplorer {
 
             Iterable<? extends JavaFileObject> compilationUnits =
                     fileManager.getJavaFileObjects(sources.toArray(new File[0]));
+            DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 
             JavacTask task = (JavacTask) compiler.getTask(
                     null,
                     fileManager,
-                    null,
+                    diagnostics,
                     List.of("-proc:none"),
                     null,
                     compilationUnits
             );
 
-            return new ScanCompilationUnits(runtime).scan(task, sourceSet);
+            return new ScanCompilationUnits(runtime, diagnostics).scan(task, sourceSet);
         }
     }
 }

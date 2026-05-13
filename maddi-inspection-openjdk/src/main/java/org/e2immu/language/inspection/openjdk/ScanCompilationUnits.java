@@ -12,18 +12,25 @@ import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 
-
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class ScanCompilationUnits {
     private final Runtime runtime;
     private final SourceCodeScan sourceCodeScan;
+    private final TypeData typeData;
+    private final DiagnosticCollector<JavaFileObject> diagnostics;
 
-    public ScanCompilationUnits(Runtime runtime) {
+    public ScanCompilationUnits(Runtime runtime, DiagnosticCollector<JavaFileObject> diagnostics) {
         this.runtime = runtime;
         sourceCodeScan = new SourceCodeScan(runtime);
+        this.typeData = new TypeData();
+        this.diagnostics = diagnostics;
     }
 
     public List<TypeInfo> scan(JavacTask task, SourceSet sourceSet) throws IOException {
@@ -31,6 +38,15 @@ public class ScanCompilationUnits {
 
         Iterable<? extends CompilationUnitTree> units = task.parse();
         task.analyze();
+
+        boolean haveErrors = false;
+        for (Diagnostic<? extends JavaFileObject> d : diagnostics.getDiagnostics()) {
+            if (d.getKind() == Diagnostic.Kind.ERROR) {
+                System.out.println("Error found: " + d.getMessage(Locale.getDefault()));
+                haveErrors = true;
+            }
+        }
+        if (haveErrors) throw new CompilationProblems();
 
         List<TypeInfo> primaryTypes = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
@@ -48,11 +64,15 @@ public class ScanCompilationUnits {
 
             Types types = Types.instance(((BasicJavacTask) task).getContext());
 
-            AnalysisScanner analysisScanner = new AnalysisScanner(runtime, compilationUnit, unit, trees,
+            AnalysisScanner analysisScanner = new AnalysisScanner(runtime, sourceSet, compilationUnit, unit, trees,
                     sourcePositions, lineMap, task.getElements(), types, scanResult);
             analysisScanner.scan(unit, null);
             primaryTypes.addAll(analysisScanner.types());
         }
         return List.copyOf(primaryTypes);
+    }
+
+    public TypeData typeData() {
+        return typeData;
     }
 }
