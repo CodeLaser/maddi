@@ -14,10 +14,7 @@
 
 package org.e2immu.language.inspection.openjdk.other;
 
-import org.e2immu.language.cst.api.expression.AnnotationExpression;
-import org.e2immu.language.cst.api.expression.ArrayInitializer;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.StringConstant;
+import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -25,6 +22,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.statement.TryStatement;
+import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -163,12 +161,12 @@ public class TestAnnotations extends CommonTest {
         assertEquals(2, Resource.annotations().size());
         assertEquals("@Target({ElementType.TYPE,ElementType.FIELD,ElementType.METHOD})",
                 Resource.annotations().getFirst().toString());
-        assertEquals("@Retention(ElementType.RUNTIME)", Resource.annotations().getLast().toString());
+        assertEquals("@Retention(RetentionPolicy.RUNTIME)", Resource.annotations().getLast().toString());
 
         TypeInfo Resources = find("Resources", types);
         assertEquals(3, Resources.annotations().size());
         assertEquals("@Documented", Resources.annotations().getFirst().toString());
-        assertEquals("@Target({RetentionPolicy.TYPE,ElementType.PACKAGE})",
+        assertEquals("@Target({ElementType.TYPE,ElementType.PACKAGE})",
                 Resources.annotations().getLast().toString());
 
         TypeInfo C = find("C", types);
@@ -266,8 +264,11 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT4), List.of()).getFirst();
-        assertNotNull(C);
+        List<TypeInfo> types = scan(Map.of("a.b.C", INPUT4, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE), List.of());
+        TypeInfo C = find("C", types);
+        assertEquals("@Resource(name=C.XX,lookup=C.ZZ,type=TreeMap.class)",
+                C.annotations().getFirst().toString());
     }
 
     @Language("java")
@@ -286,8 +287,19 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test5() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT5), List.of()).getFirst();
-        assertNotNull(C);
+        List<TypeInfo> types = scan(Map.of("a.b.C", INPUT5, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE), List.of());
+        TypeInfo C = find("C", types);
+        AnnotationExpression ae = C.annotations().getFirst();
+        assertEquals("@Resource(name=C.XX,lookup=C.ZZ,authenticationType=AuthenticationType.CONTAINER)",
+                ae.toString());
+        AnnotationExpression.KV kv2 = ae.keyValuePairs().stream().filter(kv -> "authenticationType".equals(kv.key()))
+                .findFirst().orElseThrow();
+        assertEquals("KVI[key=authenticationType, value=AuthenticationType.CONTAINER]", kv2.toString());
+        if (kv2.value() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+            assertEquals("a.Resource.AuthenticationType", fr.fieldInfo().owner().toString());
+            assertEquals("AuthenticationType", fr.scope().toString());
+        }
     }
 
     @Language("java")
