@@ -139,21 +139,38 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     private void scanCodeBlock(CodeBlock cb, Result result) {
-        for (Statement st : cb.descendantsOfType(Statement.class)) {
-            List<Comment> statementComments = comments(st);
-            if (!statementComments.isEmpty()) {
-                result.comments.put(source(st), statementComments);
-            }
-            if (st instanceof CodeBlock subBlock) {
-                List<Comment> trailing = comments(subBlock.getLastChild());
-                if (!trailing.isEmpty()) {
-                    result.trailingComments.put(source(subBlock), trailing);
+        for (Node child : cb.children()) {
+            if (child instanceof Statement st) {
+                List<Comment> statementComments = comments(st);
+                if (!statementComments.isEmpty()) {
+                    result.comments.put(source(st), statementComments);
                 }
+                if (st instanceof CodeBlock sub) {
+                    subCodeBlock(result, sub);
+                }
+                // statement recursion
+                for (CodeBlock sub : st.childrenOfType(CodeBlock.class)) {
+                    subCodeBlock(result, sub);
+                }
+            } else if (child instanceof TypeDeclaration td) {
+                scanTypeDeclaration(td, result);
             }
         }
         List<Comment> trailing = comments(cb.getLastChild());
         if (!trailing.isEmpty()) {
             result.trailingComments.put(source(cb), trailing);
+        }
+    }
+
+    private void subCodeBlock(Result result, CodeBlock sub) {
+        List<Comment> cbComments = comments(sub);
+        if (!cbComments.isEmpty()) {
+            result.comments.put(source(sub), cbComments);
+        }
+        scanCodeBlock(sub, result);
+        List<Comment> trailing = comments(sub.getLastChild());
+        if (!trailing.isEmpty()) {
+            result.trailingComments.put(source(sub), trailing);
         }
     }
 
