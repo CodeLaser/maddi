@@ -222,8 +222,8 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT3 = """
             package a.b;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resources;
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resource;
+            import a.Resources;
+            import a.Resource;
             
             import static a.b.C.XX;
             
@@ -239,15 +239,22 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT3), List.of()).getFirst();
-        assertNotNull(C);
+        List<TypeInfo> types = scan(Map.of("a.b.C", INPUT3, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE), List.of());
+        TypeInfo C = find("C", types);
+        assertEquals("""
+                @Resources({\
+                @Resource(name=C.XX,lookup="yy",type=TreeMap.class),\
+                @Resource(name=C.ZZ,type=Integer.class)\
+                })\
+                """, C.annotations().getFirst().toString());
     }
 
     @Language("java")
     private static final String INPUT4 = """
             package a.b;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resource;
+            import a.Resource;
             import static a.b.C.XX;
             
             @Resource(name = XX, lookup = C.ZZ, type = java.util.TreeMap.class)
@@ -267,7 +274,7 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT5 = """
             package a.b;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resource;
+            import a.Resource;
             import static a.b.C.XX;
             
             @Resource(name = XX, lookup = C.ZZ, authenticationType = Resource.AuthenticationType.CONTAINER)
