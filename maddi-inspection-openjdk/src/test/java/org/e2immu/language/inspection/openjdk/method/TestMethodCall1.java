@@ -14,8 +14,10 @@
 
 package org.e2immu.language.inspection.openjdk.method;
 
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
@@ -33,20 +35,20 @@ public class TestMethodCall1 extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-
+            
             import java.util.Arrays;
-
+            
             public class MethodCall_11 {
-
+            
                 enum Choice {ONE, TWO, THREE,}
-
+            
                 private final Choice[] choices;
-
+            
                 public MethodCall_11(int n) {
                     choices = new Choice[n];
                     Arrays.fill(choices, Choice.ONE);
                 }
-
+            
                 Choice getChoice(int i) {
                     return choices[i];
                 }
@@ -61,14 +63,14 @@ public class TestMethodCall1 extends CommonTest {
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
-
+            
             import java.util.List;
-
+            
             public class MethodCall_12 {
-
+            
                 record Pair<K, V>(K k, V v) {
                 }
-
+            
                 public void method() {
                     List<Pair<String, Integer>> list = List.of(new Pair<>("abc", 3));
                     for (Pair<String, Integer> pair : list) {
@@ -88,9 +90,9 @@ public class TestMethodCall1 extends CommonTest {
     @Language("java")
     private static final String INPUT3 = """
             package a.b;
-
+            
             public class MethodCall_13 {
-
+            
                 public void method(String target, int n) {
                     int blockIndex = Integer.parseInt(target.substring(n + 1, target.indexOf('.', n + 1)));
                 }
@@ -105,40 +107,40 @@ public class TestMethodCall1 extends CommonTest {
     @Language("java")
     private static final String INPUT4 = """
             package a.b;
-
+            
             import java.util.Arrays;
-
+            
             public class MethodCall_14 {
                 record Pair<K, V>(K k, V v) {
                 }
-
+            
                 interface VI {
                     E make();
                 }
-
+            
                 static class VII implements VI {
-
+            
                     @Override
                     public E make() {
                         return null;
                     }
                 }
-
+            
                 interface E {
                     boolean test();
                 }
-
+            
                 static class EE implements E {
-
+            
                     @Override
                     public boolean test() {
                         return false;
                     }
                 }
-
+            
                 public void accept(boolean b, E... values) {
                 }
-
+            
                 // sort of mirrors the notNullValuesAsExpression method in StatementAnalysis
                 public void method(VI b, E e, VI... vis) {
                     accept(true, Arrays.stream(vis)
@@ -178,27 +180,27 @@ public class TestMethodCall1 extends CommonTest {
     @Language("java")
     private static final String INPUT5 = """
             package a.b;
-
+            
             public record MethodCall_15<T extends Comparable, S>(S s) {
-
+            
                 public S accept(T t) {
                     System.out.println(t);
                     return s;
                 }
-
+            
                 public S accept(String string) {
                     System.out.println(string);
                     return s;
                 }
-
+            
                 public void test() {
                     accept("a");
                 }
-
+            
                 public void test(T t) {
                     accept(t);
                 }
-
+            
                 public void test2(T t1, T t2) {
                     accept(t1);
                     accept(t2);
@@ -214,19 +216,19 @@ public class TestMethodCall1 extends CommonTest {
     @Language("java")
     private static final String INPUT7 = """
             package a.b;
-
+            
             import java.util.function.Supplier;
-
+            
             public class MethodCall_17 {
-
+            
                 private void log(String msg, Object... objects) {
                     System.out.println(msg + ": " + objects.length);
                 }
-
+            
                 private void log(String msg, Object object, Supplier<Object> supplier) {
                     System.out.println(msg + ": " + object + " = " + supplier.get());
                 }
-
+            
                 public void method(int x) {
                     log("Hello!", x, () -> "Return a string");
                     log("Hello?", x, "Return a string");
@@ -242,24 +244,24 @@ public class TestMethodCall1 extends CommonTest {
     @Language("java")
     private static final String INPUT8 = """
             package a.b;
-
+            
             import java.util.Arrays;
             import java.util.function.Function;
             import java.util.stream.Collectors;
-
-            public class MethodCall_18 {
-
+            
+            public class C {
+            
                 interface AnnotationExpression {
                     <T> T extract(String s, T t);
                 }
-
+            
                 private final AnnotationExpression ae = new AnnotationExpression() {
                     @Override
                     public <T> T extract(String s, T t) {
                         return s.length() > 0 ? null : t;
                     }
                 };
-
+            
                 // int
                 public String method1() {
                     Function<AnnotationExpression, String> f1 = ae -> {
@@ -268,7 +270,7 @@ public class TestMethodCall1 extends CommonTest {
                     };
                     return f1.apply(ae);
                 }
-
+            
                 // string[]
                 public String method2() {
                     Function<AnnotationExpression, String> f2 = ae -> {
@@ -277,7 +279,7 @@ public class TestMethodCall1 extends CommonTest {
                     };
                     return f2.apply(ae);
                 }
-
+            
                 // Integer
                 public String method3() {
                     Function<AnnotationExpression, String> f3 = ae -> {
@@ -291,12 +293,31 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test8() {
-        TypeInfo typeInfo = scan(Map.of("a.b.MethodCall_18", INPUT4), List.of()).getFirst();
+        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT8), List.of()).getFirst();
+        TypeInfo annotationExpression = typeInfo.findSubType("AnnotationExpression");
+        MethodInfo extract = annotationExpression.methods().getFirst();
+        assertEquals("a.b.C.AnnotationExpression.extract(String,T)", extract.fullyQualifiedName());
+        assertEquals(1, extract.typeParameters().size());
+
+        FieldInfo ae = typeInfo.getFieldByName("ae", true);
+        TypeInfo anon = ((ConstructorCall) ae.initializer()).anonymousClass();
+        assertEquals("a.b.C.$0", anon.fullyQualifiedName());
+        assertEquals(1, anon.methods().size());
+        MethodInfo extract2 = anon.findUniqueMethod("extract", 2);
+        assertEquals("[a.b.C.AnnotationExpression.extract(String,T)]", extract2.overrides().toString());
+        assertTrue(extract2.overrides().contains(extract));
+        assertSame(annotationExpression, anon.interfacesImplemented().getFirst().typeInfo());
+
+        MethodInfo method1 = typeInfo.findUniqueMethod("method1", 0);
+        LocalVariableCreation lvc1 = (LocalVariableCreation) method1.methodBody().statements().getFirst();
+        if (lvc1.localVariable().assignmentExpression() instanceof Lambda lambda) {
+            assertEquals(1, lambda.parameters().size());
+        }
 
         MethodInfo method2 = typeInfo.findUniqueMethod("method2", 0);
         if (method2.methodBody().statements().getFirst() instanceof LocalVariableCreation lvc
             && lvc.localVariable().assignmentExpression() instanceof Lambda lambda) {
-            assertEquals("Type java.util.function.Function<a.b.MethodCall_18.AnnotationExpression,String>",
+            assertEquals("Type java.util.function.Function<a.b.C.AnnotationExpression,String>",
                     lambda.concreteFunctionalType().toString());
             if (lambda.methodBody().statements().getFirst() instanceof LocalVariableCreation lvc2
                 && lvc2.localVariable().assignmentExpression() instanceof MethodCall mc) {
@@ -308,27 +329,27 @@ public class TestMethodCall1 extends CommonTest {
     @Language("java")
     private static final String INPUT9 = """
             package a.b;
-
-
+            
+            
             import java.util.Objects;
-
+            
             // reflects an inspection problem with code in StatementAnalysisImpl, around line 2000
             public class MethodCall_19 {
                 interface EvaluationContext {
                 }
-
+            
                 interface Precondition {
                     static Precondition empty(EvaluationContext evaluationContext) {
                         return new Precondition() {
                         };
                     }
                 }
-
+            
                 public static void method(Precondition precondition, EvaluationContext evaluationContext) {
                     setPreconditionFromMethodCalls(Objects.requireNonNullElseGet(precondition,
                             () -> Precondition.empty(evaluationContext)));
                 }
-
+            
                 public static void setPreconditionFromMethodCalls(Precondition precondition) {
                     // don't need anything here
                 }

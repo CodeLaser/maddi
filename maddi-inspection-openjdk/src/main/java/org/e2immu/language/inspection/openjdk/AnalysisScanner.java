@@ -14,6 +14,7 @@ import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.*;
+import org.e2immu.language.cst.api.type.Diamond;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
@@ -29,6 +30,7 @@ import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import java.util.*;
 import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
@@ -55,6 +57,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final SourceCodeScan.Result scanResult;
     private final Types types;
     private final Elements elements;
+    private final ComputeMethodOverrides computeMethodOverrides;
 
     AnalysisScanner(Runtime runtime,
                     SourceSet sourceSetOfCurrentTask,
@@ -76,6 +79,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         this.types = types;
         this.elements = elements;
 
+        computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
         ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, sourceSetOfCurrentTask,
@@ -287,8 +291,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         elementStack.removeLast();
         currentMethod = null;
 
+        //overrides
+        List<Symbol.MethodSymbol> overridden = computeMethodOverrides.findOverriddenMethods(jcMethod.sym);
+        Set<MethodInfo> overrides = overridden.stream()
+                .map(sym -> Objects.requireNonNullElseGet(typeData.getMethod(sym),
+                        () -> convertType.ensureMethod(sym)))
+                .collect(Collectors.toUnmodifiableSet());
+
         Source source = sourceForNode(node, dsb);
         methodInfo.builder()
+                .addOverrides(overrides)
                 .setSource(source)
                 .addComments(commentsForNode(source))
                 .setMethodBody(methodBody)
@@ -1237,6 +1249,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         TypeInfo anonymousType;
         ParameterizedType concreteReturnType;
         MethodInfo constructor;
+        Diamond diamond = newClass.clazz instanceof JCTree.JCTypeApply apply
+                ? (apply.arguments.isEmpty() ? runtime.diamondYes() : runtime.diamondShowAll()) : runtime.diamondNo();
         if (newClass.def != null) {
             JCTree.JCClassDecl anonBody = newClass.def;
             if (!anonBody.implementing.isEmpty()) {
@@ -1247,8 +1261,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 TypeInfo.Builder builder = anonymousType.builder()
                         .setTypeNature(runtime.typeNatureClass())
                         .setAccess(runtime.accessPrivate())
-                        .setParentClass(runtime.objectParameterizedType())
                         .setEnclosingMethod(currentMethod);
+                if (concreteReturnType.typeInfo().isInterface()) {
+                    builder.setParentClass(runtime.objectParameterizedType())
+                            .addInterfaceImplemented(concreteReturnType);
+                } else {
+                    builder.setParentClass(concreteReturnType);
+                }
                 MethodInfo enclosingMethod = currentMethod;
 
                 // The anonymous class's own members — fields, methods, etc.
@@ -1272,7 +1291,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         currentExpression = runtime.newConstructorCallBuilder()
                 .setSource(sourceForNode(node, dsb))
                 .setConstructor(constructor)
-                .setDiamond(runtime.diamondNo()) // TODO
+                .setDiamond(diamond)
                 .setConcreteReturnType(concreteReturnType)
                 .setAnonymousClass(anonymousType)
                 .setParameterExpressions(arguments)
