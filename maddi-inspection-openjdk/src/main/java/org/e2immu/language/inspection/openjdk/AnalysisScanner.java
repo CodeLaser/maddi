@@ -116,7 +116,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             }
             typeData.put(typeInfo);
         }
-        if(typeInfo.isPrimaryType()) {
+        if (typeInfo.isPrimaryType()) {
             collectedPrimaryTypes.add(typeInfo);
         }
         continueType(node, typeInfo, jcClassDecl, simpleName);
@@ -743,6 +743,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             LocalVariable lv = runtime.newLocalVariable(c.getParameter().getName().toString(), unionType);
             boolean isFinal = c.getParameter().getModifiers().getFlags().contains(javax.lang.model.element.Modifier.FINAL);
             Block catchBlock = parseBlock(StringUtil.pad(i, n), c.getBlock(), lv);
+
+            // annotations
+            for (AnnotationTree at : c.getParameter().getModifiers().getAnnotations()) {
+                AnnotationExpression ae = convertAnnotation((JCTree.JCAnnotation) at);
+                builder.addAnnotation(ae);
+            }
+
             tryBuilder.addCatchClause(builder
                     .setCatchVariable(lv)
                     .setFinal(isFinal)
