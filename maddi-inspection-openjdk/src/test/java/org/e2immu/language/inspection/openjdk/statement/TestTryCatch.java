@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.parser.java;
+package org.e2immu.language.inspection.openjdk.statement;
 
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -21,25 +21,26 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.TryStatement;
 import org.e2immu.language.cst.api.variable.DependentVariable;
+import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TestParseTryResource extends CommonTestParse {
+public class TestTryCatch extends CommonTest {
 
     @Language("java")
     private static final String INPUT = """
             package a.b;
             class C {
-              static class A implements AutoCloseable {
-                  public void close() { }
-              }
-              public static void method(String[] args, A b) {
-                try(A a = new A(); b) {
-                   System.out.println(a);
+              static void main(String[] args) {
+                try {
+                   System.out.println(args[0]);
                 } catch(Exception e) {
-                   System.out.println("exception"+args[0]);
+                   System.out.println("exception "+e);
                 } finally {
                    System.out.println("bye");
                 }
@@ -49,27 +50,26 @@ public class TestParseTryResource extends CommonTestParse {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = parse(INPUT);
-        MethodInfo main = typeInfo.findUniqueMethod("method", 2);
-        if (main.methodBody().statements().get(0) instanceof TryStatement tryStatement) {
-            assertEquals(2, tryStatement.resources().size());
-            assertEquals("0+0@7:9-7:21", tryStatement.resources().get(0).source().toString());
-            assertEquals("0+1@7:24-7:24", tryStatement.resources().get(1).source().toString());
-            if (tryStatement.block().statements().get(0) instanceof ExpressionAsStatement eas) {
+        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        MethodInfo main = typeInfo.findUniqueMethod("main", 1);
+        if (main.methodBody().statements().getFirst() instanceof TryStatement tryStatement) {
+            assertTrue(tryStatement.resources().isEmpty());
+            if (tryStatement.block().statements().getFirst() instanceof ExpressionAsStatement eas) {
                 if (eas.expression() instanceof MethodCall mc) {
-                    assertEquals("a", mc.parameterExpressions().get(0).toString());
+                    assertEquals("args[0]", mc.parameterExpressions().getFirst().toString());
+                    if (mc.parameterExpressions().getFirst() instanceof VariableExpression ve
+                        && ve.variable() instanceof DependentVariable dv) {
+                        assertEquals("args", dv.arrayVariable().simpleName());
+                    } else fail();
                 }
-                assertEquals("0.0.0", eas.source().index());
             } else fail();
             assertEquals(1, tryStatement.catchClauses().size());
-            assertEquals(1, tryStatement.catchClauses().get(0).block().size());
+            assertEquals(1, tryStatement.catchClauses().getFirst().block().size());
             assertEquals(1, tryStatement.finallyBlock().size());
 
             assertEquals("""
-                    try(A a=new A();b){System.out.println(a);}catch(Exception e){System.out.println("exception"+args[0]);}finally{System.out.println("bye");}\
+                    try{System.out.println(args[0]);}catch(Exception e){System.out.println("exception "+e);}finally{System.out.println("bye");}\
                     """, tryStatement.toString());
         } else fail();
     }
-
-
 }

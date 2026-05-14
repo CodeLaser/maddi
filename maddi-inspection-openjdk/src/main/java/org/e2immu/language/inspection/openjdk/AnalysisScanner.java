@@ -347,7 +347,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         return ("-".equals(bd.index) ? "" : bd.index + ".") + padded;
     }
 
-    private Block parseBlock(String blockIndex, Tree node) {
+    private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
         List<JCTree.JCStatement> statements;
         Source source = statementSourceForNode(node);
 
@@ -362,8 +362,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             }
             default -> throw new UnsupportedOperationException("NYI");
         }
-        elementStack.push(new HashMap<>());
-
+        HashMap<String, Element> localVariableMap = new HashMap<>();
+        elementStack.push(localVariableMap);
+        for (LocalVariable lv : variablesToAdd) {
+            localVariableMap.put(lv.simpleName(), lv);
+        }
         int n = statements.size();
         String i = "-".equals(blockIndex) ? "-" : statementIndex() + "." + blockIndex;
         blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i, n));
@@ -546,6 +549,69 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .addComments(commentsForNode(source))
                 .setExpression(currentExpression == null ? runtime.newEmptyExpression() : currentExpression)
                 .build());
+        return null;
+    }
+
+    @Override
+    public Void visitTry(TryTree node, Void unused) {
+        TryStatement.Builder tryBuilder = runtime.newTryBuilder();
+        Source source = statementSourceForNode(node);
+
+        List<LocalVariable> resourceVariables = new ArrayList<>();
+        int resourceCount = 0;
+        for (Tree resource : node.getResources()) {
+            String index = source.index() + "+" + resourceCount;
+            Statement first;
+            if (resource instanceof JCTree.JCIdent) {
+                scan(resource, unused);
+                Expression expression = currentExpression;
+                first = runtime.newExpressionAsStatementBuilder()
+                        .setSource(sourceForNode(resource, index))
+                        .setExpression(expression).build();
+            } else {
+                Block b = parseBlock("?", resource, resourceVariables.toArray(LocalVariable[]::new));
+                assert b.statements().size() == 1;
+                Statement s = b.statements().getFirst();
+                if (s instanceof LocalVariableCreation lvc) {
+                    lvc.localVariableStream().forEach(resourceVariables::add);
+                    first = lvc.withSource(s.source().withIndex(index));
+                } else throw new UnsupportedOperationException("NYI");
+            }
+            tryBuilder.addResource(first);
+            ++resourceCount;
+        }
+        int n = 1 + node.getCatches().size() + (node.getFinallyBlock() != null ? 1 : 0);
+        Block block = parseBlock(StringUtil.pad(0, n), node.getBlock());
+        int i = 1;
+        for (CatchTree c : node.getCatches()) {
+            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+            // FIXME multi type
+            ParameterizedType type = convertType.convertTree(c.getParameter().getType(), dsb);
+            LocalVariable lv = runtime.newLocalVariable(c.getParameter().getName().toString(), type);
+            boolean isFinal = c.getParameter().getModifiers().getFlags().contains(javax.lang.model.element.Modifier.FINAL);
+
+            Block catchBlock = parseBlock(StringUtil.pad(i, n), c.getBlock(), lv);
+            tryBuilder.addCatchClause(runtime.newCatchClauseBuilder()
+                    .addType(type)
+                    .setCatchVariable(lv)
+                    .setFinal(isFinal)
+                    .setBlock(catchBlock)
+                    .setSource(sourceForNode(c, dsb))
+                    .build());
+            ++i;
+        }
+        Block finallyBlock;
+        if (node.getFinallyBlock() != null) {
+            finallyBlock = parseBlock(StringUtil.pad(i, n), node.getFinallyBlock());
+        } else {
+            finallyBlock = runtime.emptyBlock();
+        }
+        Statement s = tryBuilder
+                .setBlock(block)
+                .setFinallyBlock(finallyBlock)
+                .setSource(source)
+                .build();
+        addStatement(s);
         return null;
     }
 
@@ -975,7 +1041,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
                     } else throw new UnsupportedOperationException();
                 }
-                case LOCAL_VARIABLE, PARAMETER, BINDING_VARIABLE -> {
+                case LOCAL_VARIABLE, PARAMETER, BINDING_VARIABLE, RESOURCE_VARIABLE, EXCEPTION_PARAMETER -> {
                     Variable variable = (Variable) findInElementStack(name);
                     currentExpression = runtime.newVariableExpressionBuilder()
                             .setSource(sourceForNode(node))
