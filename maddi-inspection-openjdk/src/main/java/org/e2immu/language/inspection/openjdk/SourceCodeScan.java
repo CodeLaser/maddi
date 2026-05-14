@@ -59,11 +59,12 @@ public record SourceCodeScan(Runtime runtime) {
 
         CompilationUnit cu = p.CompilationUnit();
         PackageDeclaration packageDeclaration = cu.getPackageDeclaration();
-        List<Comment> pkgDeclarationComments = comments(packageDeclaration);
-        if (!pkgDeclarationComments.isEmpty()) comments.put(source(packageDeclaration), pkgDeclarationComments);
-        Node pkgDeclaration0 = packageDeclaration.getFirst();
-        keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
-
+        if (packageDeclaration != null) {
+            List<Comment> pkgDeclarationComments = comments(packageDeclaration);
+            if (!pkgDeclarationComments.isEmpty()) comments.put(source(packageDeclaration), pkgDeclarationComments);
+            Node pkgDeclaration0 = packageDeclaration.getFirst();
+            keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
+        }
         for (ImportDeclaration id : cu.childrenOfType(ImportDeclaration.class)) {
             List<Comment> importComments = comments(id);
             if (!importComments.isEmpty()) comments.put(source(id), importComments);
