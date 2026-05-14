@@ -201,6 +201,9 @@ public class TestLambda extends CommonTest {
         assertTrue(t.isUnnamed());
         assertEquals(LocalVariableImpl.UNNAMED, t.name());
         assertEquals("5-15:5-15", t.source().compact2());
+
+        assertEquals("EMPTY", lambda.outputVariants().getFirst().toString());
+        assertEquals("EMPTY", lambda.outputVariants().getLast().toString());
     }
 
 
@@ -208,7 +211,7 @@ public class TestLambda extends CommonTest {
     private static final String INPUT3d = """
             package a.b;
             class C {
-                interface A { void accept(int a, int b); }
+                interface A { void accept(String a, Object b); }
                 void method1() {
                     m((String _, Object _)->System.out.println("? = ?"));
                 }
@@ -231,6 +234,8 @@ public class TestLambda extends CommonTest {
         assertTrue(t.isUnnamed());
         assertEquals(LocalVariableImpl.UNNAMED, t.name());
         assertEquals("5-22:5-29", t.source().compact2());
+        assertEquals("TYPED", lambda.outputVariants().getFirst().toString());
+        assertEquals("TYPED", lambda.outputVariants().getLast().toString());
     }
 
 
@@ -258,7 +263,7 @@ public class TestLambda extends CommonTest {
             package a.b;
             import java.util.function.Consumer;
             class C {
-                class ProxyFactory {
+                static class ProxyFactory {
                     public ProxyFactory() { }
                     public void process() { }
                     public static <T> ProxyBuilderImpl<T> builder(Class<T> type) {
@@ -266,14 +271,14 @@ public class TestLambda extends CommonTest {
                     }
                 }
             
-                class ProxyBuilderImpl<T> {
+                static class ProxyBuilderImpl<T> {
                     ProxyBuilderImpl(Class<T> clazz) {
                     }
                     ProxyBuilderImpl<T> customizer(Consumer<T> consumer) { return this; }
                     ProxyFactory build() { return new ProxyFactory(); }
                 }
             
-                <T> create(Class<T> clazz, String url, Consumer<T> customizer, boolean b, int k) {
+                <T> ProxyFactory create(Class<T> clazz, String url, Consumer<T> customizer, boolean b, int k) {
                     return ProxyFactory.builder(clazz)
                             .customizer(c -> {
                                 switch(k) {
