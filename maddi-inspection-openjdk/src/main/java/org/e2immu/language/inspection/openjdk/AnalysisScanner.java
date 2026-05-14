@@ -788,11 +788,21 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     boolean isStatic = (flags & Flags.STATIC) != 0;
                     TypeInfo owner = typeStack.getLast();
                     if (!owner.typeNature().isRecord() || isStatic) {
-                        FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+                        FieldInfo inMap = owner.getFieldByName(name, false);
+                        FieldInfo fieldInfo;
+                        if (inMap == null) {
+                            fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+                            owner.builder().addField(fieldInfo);
+                        } else {
+                            fieldInfo = inMap;
+                        }
+                        if(typeData.getField(varSymbol) == null) {
+                            typeData.put(varSymbol, fieldInfo);
+                        }
+
                         flagHelper.field(flags, fieldInfo.builder());
                         fieldInfo.builder().setSource(sourceForNode(node))
                                 .setInitializer(currentExpression);
-                        owner.builder().addField(fieldInfo);
 
                         // annotations
                         for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
@@ -803,7 +813,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                         fieldInfo.builder()
                                 .setSource(sourceForNode(variableDecl, dsb))
                                 .commit();
-                        typeData.put(varSymbol, fieldInfo);
+
                     } // else: non-static record components are dealt with in the type visitor
                 } else {
 
@@ -1224,10 +1234,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                             // TODO explicitly write type
                             variable = runtime.newThis(typeInfoOwner.asParameterizedType(), null, isSuper);
                         } else {
-                            FieldInfo fieldInfo = typeInfoOwner.getFieldByName(name, false);
-                            if (fieldInfo == null) {
-                                throw new UnsupportedOperationException("Cannot find field " + name + " in " + owner);
-                            }
+                            FieldInfo fieldInfo = Objects.requireNonNullElseGet(
+                                    typeInfoOwner.getFieldByName(name, false), () -> convertType.ensureField(vs));
                             variable = runtime.newFieldReference(fieldInfo);
                         }
                         currentExpression = runtime.newVariableExpressionBuilder()
@@ -1265,7 +1273,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 }
                 case ENUM_CONSTANT -> {
                     if (element instanceof Symbol.VarSymbol vs) {
-                        FieldInfo fieldInfo = typeData.getField(vs);
+                        FieldInfo fieldInfo = Objects.requireNonNullElseGet(typeData.getField(vs),
+                                () -> convertType.ensureField(vs));
                         currentExpression = runtime.newVariableExpressionBuilder()
                                 .setSource(sourceForNode(node))
                                 .setVariable(runtime.newFieldReference(fieldInfo))
