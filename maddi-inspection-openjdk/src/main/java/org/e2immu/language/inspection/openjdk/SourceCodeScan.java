@@ -13,6 +13,7 @@ import org.parsers.java.Token;
 import org.parsers.java.ast.*;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 public record SourceCodeScan(Runtime runtime) {
 
@@ -140,38 +141,32 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     private void scanCodeBlock(CodeBlock cb, Result result) {
-        for (Node child : cb.children()) {
+        visit(cb, child -> {
             if (child instanceof Statement st) {
                 List<Comment> statementComments = comments(st);
                 if (!statementComments.isEmpty()) {
                     result.comments.put(source(st), statementComments);
                 }
                 if (st instanceof CodeBlock sub) {
-                    subCodeBlock(result, sub);
+                    List<Comment> trailing = comments(sub.getLastChild());
+                    if (!trailing.isEmpty()) {
+                        result.trailingComments.put(source(sub), trailing);
+                    }
                 }
-                // statement recursion
-                for (CodeBlock sub : st.childrenOfType(CodeBlock.class)) {
-                    subCodeBlock(result, sub);
-                }
-            } else if (child instanceof TypeDeclaration td) {
-                scanTypeDeclaration(td, result);
             }
-        }
-        List<Comment> trailing = comments(cb.getLastChild());
-        if (!trailing.isEmpty()) {
-            result.trailingComments.put(source(cb), trailing);
-        }
+            if (child instanceof TypeDeclaration td) {
+                scanTypeDeclaration(td, result);
+                return false;
+            }
+            return true;
+        });
     }
 
-    private void subCodeBlock(Result result, CodeBlock sub) {
-        List<Comment> cbComments = comments(sub);
-        if (!cbComments.isEmpty()) {
-            result.comments.put(source(sub), cbComments);
-        }
-        scanCodeBlock(sub, result);
-        List<Comment> trailing = comments(sub.getLastChild());
-        if (!trailing.isEmpty()) {
-            result.trailingComments.put(source(sub), trailing);
+    private void visit(Node node, Predicate<Node> test) {
+        if (test.test(node)) {
+            for (Node child : node.children()) {
+                visit(child, test);
+            }
         }
     }
 
