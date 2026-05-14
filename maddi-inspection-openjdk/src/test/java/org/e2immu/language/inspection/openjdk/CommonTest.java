@@ -55,8 +55,10 @@ public class CommonTest {
     public TypeInfo loadType(String fqn) {
         Elements elements = javacTask.getElements();
         TypeElement typeElement = elements.getTypeElement(fqn);
-        ClassSymbolScanner css = new ClassSymbolScanner(runtime, sourceSet, new FlagHelper(runtime), elements, typeData);
-        css.setConvertType(new ConvertType(runtime, css, typeData, _ -> null, null));
+        ElementStack elementStack = new ElementStack();
+        ClassSymbolScanner css = new ClassSymbolScanner(runtime, sourceSet, new FlagHelper(runtime), elements, typeData,
+                elementStack);
+        css.setConvertType(new ConvertType(runtime, css, typeData, elementStack, null));
         return css.primaryType((Symbol.ClassSymbol) typeElement, true);
     }
 
