@@ -16,7 +16,6 @@ package org.e2immu.language.inspection.openjdk.statement;
 
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.SwitchStatementNewStyle;
 import org.e2immu.language.cst.api.statement.SwitchStatementOldStyle;
 import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -64,29 +63,29 @@ public class TestSwitchOldStyle extends CommonTest {
     private static final String INPUT2 = """
             package a.b;
             public class C {
-
+            
                 public static String method(int dataType) {
                     String s;
                     a:
                     switch (dataType) {
-
+            
                         case 3: {
                             s = "x";
                             break;
                         }
-
+            
                         case 4:
                             s = "z";
                             b:
                             break a;
-
+            
                         default:
                             s = "y";
-
+            
                     }
                     return s;
                 }
-
+            
             }
             """;
 
@@ -117,12 +116,12 @@ public class TestSwitchOldStyle extends CommonTest {
             }
             """;
 
-    // IMPORTANT: we reduce this one to an empty (new-style) switch, because there are no statements
+    // NOTE: differs from maddi's own parser, which returns an empty new-style switch
     @Test
     public void test3() {
         TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT3), List.of()).getFirst();
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
-        if (main.methodBody().statements().getFirst() instanceof SwitchStatementNewStyle ssns) {
+        if (main.methodBody().statements().getFirst() instanceof SwitchStatementOldStyle ssns) {
             assertEquals("switch(args.length){}",
                     ssns.print(runtime.qualificationQualifyFromPrimaryType()).toString());
         } else fail();
