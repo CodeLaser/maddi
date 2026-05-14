@@ -3,6 +3,7 @@ package org.e2immu.language.inspection.openjdk;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -13,6 +14,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.type.TypeKind;
 import java.util.*;
@@ -23,18 +25,27 @@ public class ConvertType {
     private final TypeData typeData;
     private final SourceProvider sourceProvider;
     private final ElementStack elementStack;
+    private final Types types;
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
 
     public ConvertType(Runtime runtime,
                        ClassSymbolScanner classSymbolScanner,
                        TypeData typeData,
                        ElementStack elementStack,
-                       SourceProvider sourceProvider) {
+                       SourceProvider sourceProvider,
+                       Types types) {
         this.runtime = runtime;
         this.classSymbolScanner = classSymbolScanner;
         this.typeData = typeData;
         this.elementStack = elementStack;
         this.sourceProvider = sourceProvider;
+        this.types = types;
+    }
+
+    // general method, returns null when 'cs' is not a functional type
+    public @Nullable MethodInfo computeSAM(Type type) {
+        SAMDescriptor sd = findInstantiatedSAM(type);
+        return sd == null ? null : sd.methodInfo;
     }
 
     public FieldInfo ensureField(Symbol.VarSymbol vs) {
@@ -57,22 +68,30 @@ public class ConvertType {
         } else throw new UnsupportedOperationException();
     }
 
-
-    public MethodInfo computeSAM(TypeInfo typeInfo) {
-        MethodInfo abstractMethod = null;
-        if (typeInfo.parentClass() != null && !typeInfo.parentClass().isJavaLangObject()) {
-            abstractMethod = typeInfo.parentClass().typeInfo().singleAbstractMethod();
-        }
-        // FIXME do interfaces extended, and do override
-        for (MethodInfo methodInfo : typeInfo.methods()) {
-            if (methodInfo.isAbstract()) {
-                if (abstractMethod != null) return null;
-                abstractMethod = methodInfo;
-            }
-        }
-        return abstractMethod;
+    record SAMDescriptor(MethodInfo methodInfo, Symbol.MethodSymbol symbol, Type.MethodType instantiatedType) {
     }
 
+    SAMDescriptor findInstantiatedSAM(Type functionalType) {
+        if (!functionalType.tsym.isInterface()) return null;
+        if (!types.isFunctionalInterface(functionalType.tsym)) return null;
+
+        // Symbol — for name, flags, position, enclosing interface
+        Symbol.MethodSymbol samSymbol = (Symbol.MethodSymbol) types.findDescriptorSymbol(functionalType.tsym);
+        MethodInfo methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(samSymbol),
+                () -> ensureMethod(samSymbol));
+
+        // Type — with type variables substituted for concrete args
+        // e.g. Comparator<String> -> (String, String) -> int
+        Type descriptorType = types.findDescriptorType(functionalType);
+        Type.MethodType methodType = switch (descriptorType) {
+            case Type.MethodType mt -> mt;
+            case Type.ForAll forAll -> (Type.MethodType) forAll.qtype;
+            default ->
+                    throw new UnsupportedOperationException("unexpected descriptor type: " + descriptorType.getClass());
+        };
+
+        return new SAMDescriptor(methodInfo, samSymbol, methodType);
+    }
 
     ParameterizedType convert(Type type) {
         if (type instanceof Type.JCPrimitiveType primitiveType) {

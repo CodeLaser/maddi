@@ -85,7 +85,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         flagHelper = new FlagHelper(runtime);
         ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, sourceSetOfCurrentTask,
                 flagHelper, elements, typeData, elementStack);
-        convertType = new ConvertType(runtime, classSymbolScanner, typeData, elementStack, this);
+        convertType = new ConvertType(runtime, classSymbolScanner, typeData, elementStack, this, types);
         classSymbolScanner.setConvertType(convertType);
     }
 
@@ -189,7 +189,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             currentMethod = null;
             scan(member, null);
         }
-        MethodInfo singleAbstractMethod = convertType.computeSAM(typeInfo);
+        MethodInfo singleAbstractMethod =convertType.computeSAM(jcClassDecl.type);
         typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
 
         Source source = sourceForNode(node, dsb);
@@ -1056,7 +1056,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         JCTree.JCLambda lambda = (JCTree.JCLambda) node;
         Source source = sourceForNode(node);
 
-        TypeInfo enclosingType = currentMethod.typeInfo();
+        TypeInfo enclosingType = typeStack.getLast();
         int typeIndex = enclosingType.builder().getAndIncrementAnonymousTypes();
         TypeInfo anonymousType = runtime.newAnonymousType(enclosingType, typeIndex);
         anonymousType.builder()
@@ -1064,13 +1064,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .setTypeNature(runtime.typeNatureClass())
                 .setParentClass(runtime.objectParameterizedType());
 
-        Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) lambda.owner;
-        String methodName = methodSymbol.name.toString();
+        ParameterizedType functionalType = convertType.convert(lambda.target);
+        ConvertType.SAMDescriptor sd = convertType.findInstantiatedSAM(lambda.target);
+        MethodInfo sam = sd.methodInfo();
+        assert sam != null;
+        String methodName = sam.name();
         MethodInfo methodInfo = runtime.newMethod(anonymousType, methodName, runtime.methodTypeMethod());
         MethodInfo.Builder miBuilder = methodInfo.builder();
 
-        ParameterizedType concreteReturnType = convertType.convert(methodSymbol.getReturnType());
-        ParameterizedType functionalType = convertType.convert(lambda.target);
+        ParameterizedType concreteReturnType = convertType.convert(sd.instantiatedType().restype);
 
         List<Lambda.OutputVariant> outputVariants = new ArrayList<>();
 
@@ -1081,7 +1083,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 ParameterInfo pi;
                 String name = vd.name.toString();
                 ParameterizedType type = convertType.convertTree(vd.getType(), dsbParam);
-                if ("_".equals(name)) {
+                if (name.isEmpty()) {
                     pi = miBuilder.addUnnamedParameter(type);
                 } else {
                     pi = miBuilder.addParameter(name, type);
@@ -1089,7 +1091,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 pi.builder()
                         .setSource(sourceForNode(parameter, dsbParam))
                         .commit();
-                outputVariants.add(runtime.lambdaOutputVariantEmpty()); // TODO
+                Lambda.OutputVariant ov;
+                if (vd.declaredUsingVar()) {
+                    ov = runtime.lambdaOutputVariantVar();
+                } else if (vd.vartype == null || vd.vartype.pos == vd.pos) {
+                    ov = runtime.lambdaOutputVariantEmpty();
+                } else {
+                    ov = runtime.lambdaOutputVariantTyped();
+                }
+                outputVariants.add(ov);
                 lambdaParameters.put(name, pi);
             } else throw new UnsupportedOperationException("NYI");
         }

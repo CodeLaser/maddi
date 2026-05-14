@@ -168,7 +168,8 @@ public class ClassSymbolScanner {
                 for (var member : members) {
                     addMemberToType(newTypeInfo, cs, member);
                 }
-                newTypeInfo.builder().setSingleAbstractMethod(convertType.computeSAM(newTypeInfo));
+                MethodInfo singleAbstractMethod = convertType.computeSAM(cs.type);
+                newTypeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
             }
             recursionPrevention.remove(newTypeInfo);
         }

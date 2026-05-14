@@ -11,6 +11,9 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.parser.java.ScanCompilationUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -21,6 +24,8 @@ import java.util.List;
 import java.util.Locale;
 
 public class ScanCompilationUnits {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
+
     private final Runtime runtime;
     private final SourceCodeScan sourceCodeScan;
     private final TypeData typeData;
@@ -42,7 +47,8 @@ public class ScanCompilationUnits {
         boolean haveErrors = false;
         for (Diagnostic<? extends JavaFileObject> d : diagnostics.getDiagnostics()) {
             if (d.getKind() == Diagnostic.Kind.ERROR) {
-                System.out.println("Error found: " + d.getMessage(Locale.getDefault()));
+                LOGGER.info("Error found: {} at line {}, col {}", d.getMessage(Locale.getDefault()),
+                        d.getLineNumber(), d.getColumnNumber());
                 haveErrors = true;
             }
         }

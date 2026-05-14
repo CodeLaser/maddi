@@ -1,7 +1,9 @@
 package org.e2immu.language.inspection.openjdk;
 
 import com.sun.source.util.JavacTask;
+import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Types;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -58,7 +60,8 @@ public class CommonTest {
         ElementStack elementStack = new ElementStack();
         ClassSymbolScanner css = new ClassSymbolScanner(runtime, sourceSet, new FlagHelper(runtime), elements, typeData,
                 elementStack);
-        css.setConvertType(new ConvertType(runtime, css, typeData, elementStack, null));
+        Types types =  Types.instance(((BasicJavacTask) javacTask).getContext());
+        css.setConvertType(new ConvertType(runtime, css, typeData, elementStack, null, types));
         return css.primaryType((Symbol.ClassSymbol) typeElement, true);
     }
 
