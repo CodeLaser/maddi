@@ -189,7 +189,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             currentMethod = null;
             scan(member, null);
         }
-        MethodInfo singleAbstractMethod =convertType.computeSAM(jcClassDecl.type);
+        MethodInfo singleAbstractMethod = convertType.computeSAM(jcClassDecl.type);
         typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
 
         Source source = sourceForNode(node, dsb);
@@ -321,10 +321,31 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private AnnotationExpression convertAnnotation(JCTree.JCAnnotation annotation) {
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         ParameterizedType at = convertType.convertTree(annotation.getAnnotationType(), dsb);
+        List<AnnotationExpression.KV> kvs = new ArrayList<>();
+        for (var c : annotation.getArguments()) {
+            kvs.add(convertAnnotationKv(c));
+        }
         return runtime.newAnnotationExpressionBuilder()
+                .setKeyValuesPairs(kvs)
                 .setSource(sourceForNode(annotation, dsb))
                 .setTypeInfo(at.typeInfo())
                 .build();
+    }
+
+    private AnnotationExpression.KV convertAnnotationKv(JCTree.JCExpression c) {
+        String key;
+        Expression value;
+        if (c instanceof JCTree.JCAssign assign) {
+            if (assign.lhs instanceof JCTree.JCIdent ident) {
+                key = ident.name.toString();
+            } else throw new UnsupportedOperationException();
+            scan(assign.rhs, null);
+        } else {
+            key = "value";
+            scan(c, null);
+        }
+        value = currentExpression;
+        return runtime.newAnnotationExpressionKeyValuePair(key, value);
     }
 
     // -- Statements ---------------------------------------------
@@ -876,6 +897,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
 
     @Override
+    public Void visitAnnotation(AnnotationTree node, Void unused) {
+        return super.visitAnnotation(node, unused);
+    }
+
+    @Override
     public Void visitArrayAccess(ArrayAccessTree node, Void unused) {
         JCTree.JCArrayAccess aa = (JCTree.JCArrayAccess) node;
         scan(aa.indexed, unused);
@@ -1217,8 +1243,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                             .build();
                 }
                 case PACKAGE -> LOGGER.debug("Skipping package {}", node);
-                case CLASS, INTERFACE, RECORD -> {
-                    if (element instanceof Symbol.ClassSymbol classSymbol) {
+                case CLASS, INTERFACE, RECORD, ANNOTATION_TYPE -> {
+                    if (element instanceof Symbol.ClassSymbol) {
 
                         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                         ParameterizedType type = convertType.convertTree(node, dsb);
