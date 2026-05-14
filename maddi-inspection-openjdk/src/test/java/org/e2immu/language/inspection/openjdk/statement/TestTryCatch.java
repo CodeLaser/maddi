@@ -14,11 +14,14 @@
 
 package org.e2immu.language.inspection.openjdk.statement;
 
+import org.e2immu.language.cst.api.element.Comment;
+import org.e2immu.language.cst.api.element.SingleLineComment;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.statement.TryStatement;
 import org.e2immu.language.cst.api.variable.DependentVariable;
 import org.e2immu.language.inspection.openjdk.CommonTest;
@@ -71,5 +74,42 @@ public class TestTryCatch extends CommonTest {
                     try{System.out.println(args[0]);}catch(Exception e){System.out.println("exception "+e);}finally{System.out.println("bye");}\
                     """, tryStatement.toString());
         } else fail();
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.io.IOException;
+            import java.io.Writer;
+            class X {
+                public void method(String in, Writer writer) {
+                    try { //
+                        writer.append("input: ").append(in);
+                    } catch (IOException | AssertionError e) {
+                        System.out.println("Caught io or runtime exception!");
+                        throw new RuntimeException(e);
+                    } finally {
+                        System.out.println("this was method1");
+                    }
+                }
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT2), List.of()).getFirst();
+
+        MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 2);
+        TryStatement ts = (TryStatement) methodInfo.methodBody().statements().getFirst();
+        Statement s0 = ts.block().statements().getFirst();
+        assertEquals(1, s0.comments().size());
+        Comment c = s0.comments().getFirst();
+        if (c instanceof SingleLineComment slc) {
+            assertEquals("", slc.comment());
+        } else fail();
+        TryStatement.CatchClause cc = ts.catchClauses().getFirst();
+        assertEquals("e", cc.catchVariable().simpleName());
+        assertEquals("Type Throwable", cc.catchVariable().parameterizedType().toString());
+        assertEquals(2, cc.exceptionTypes().size());
     }
 }

@@ -585,14 +585,24 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         int i = 1;
         for (CatchTree c : node.getCatches()) {
             DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-            // FIXME multi type
-            ParameterizedType type = convertType.convertTree(c.getParameter().getType(), dsb);
-            LocalVariable lv = runtime.newLocalVariable(c.getParameter().getName().toString(), type);
+            TryStatement.CatchClause.Builder builder = runtime.newCatchClauseBuilder();
+            Tree typeOfParameter = c.getParameter().getType();
+            ParameterizedType unionType;
+            if (typeOfParameter instanceof JCTree.JCTypeUnion typeUnion) {
+                unionType = convertType.convert(typeUnion.type);
+                for (Tree alternative : typeUnion.alternatives) {
+                    ParameterizedType type = convertType.convertTree(alternative, dsb);
+                    builder.addType(type);
+                }
+            } else {
+                ParameterizedType type = convertType.convertTree(typeOfParameter, dsb);
+                builder.addType(type);
+                unionType = type;
+            }
+            LocalVariable lv = runtime.newLocalVariable(c.getParameter().getName().toString(), unionType);
             boolean isFinal = c.getParameter().getModifiers().getFlags().contains(javax.lang.model.element.Modifier.FINAL);
-
             Block catchBlock = parseBlock(StringUtil.pad(i, n), c.getBlock(), lv);
-            tryBuilder.addCatchClause(runtime.newCatchClauseBuilder()
-                    .addType(type)
+            tryBuilder.addCatchClause(builder
                     .setCatchVariable(lv)
                     .setFinal(isFinal)
                     .setBlock(catchBlock)
@@ -691,7 +701,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         long flags = variableDecl.getModifiers().flags;
         boolean isFinal = (flags & Flags.FINAL) != 0;
         if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
-
+        if (variableDecl.declaredUsingVar()) lvcb.addModifier(runtime.localVariableModifierVar());
         // annotations
         for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
             AnnotationExpression ae = convertAnnotation(annotation);
