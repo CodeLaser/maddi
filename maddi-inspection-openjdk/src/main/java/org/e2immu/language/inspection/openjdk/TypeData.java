@@ -50,6 +50,11 @@ public class TypeData {
         assert prev == null : "Duplicating TypeInfo " + typeInfo;
     }
 
+    public void put(String anonymousTypeName, TypeInfo typeInfo) {
+        TypeInfo prev = singleTypeForFQN.put(anonymousTypeName, typeInfo);
+        assert prev == null : "Duplicating TypeInfo " + typeInfo;
+    }
+
     public void put(Symbol.MethodSymbol methodSymbol, MethodInfo methodInfo) {
         MethodInfo prev = methodSymbolMap.put(methodSymbol, methodInfo);
         assert prev == null : "Duplicating MethodInfo " + methodInfo;
