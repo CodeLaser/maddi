@@ -168,6 +168,10 @@ public class TestMethodCall1 extends CommonTest {
         assertEquals("Type a.b.MethodCall_14.VI", method.parameters().getFirst().parameterizedType().toString());
         assertEquals(1, method.methodBody().size());
         assertEquals("""
+                accept(true,Arrays.stream(vis).filter(vi->vi.getClass().toString().contains("e"))\
+                .map(vi->{if(b instanceof VII vii){if(e instanceof EE ee)\
+                {return new Pair<>(vi,e.test()+"xxx");}String s="ab";return new Pair<>(vi,s);}return null;})\
+                .filter(p->p!=null&&p.k.make()!=null&&p.v.length()==4).map(p->p.k.make()).toArray(E[]::new));\
                 """, method.methodBody().statements().getFirst().toString());
     }
 

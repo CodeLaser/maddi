@@ -773,6 +773,50 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     @Override
+    public Void visitTypeCast(TypeCastTree node, Void unused) {
+        JCTree.JCTypeCast jcTypeCast = (JCTree.JCTypeCast) node;
+        scan(jcTypeCast.expr, unused);
+        Expression expression = currentExpression;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType type = convertType.convertTree(jcTypeCast.getType(), dsb);
+        currentExpression = runtime.newCastBuilder()
+                .setSource(sourceForNode(node, dsb))
+                .setExpression(expression)
+                .setParameterizedType(type)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitInstanceOf(InstanceOfTree node, Void unused) {
+        JCTree.JCInstanceOf jcInstanceOf = (JCTree.JCInstanceOf) node;
+        scan(jcInstanceOf.expr, unused);
+        Expression expression = currentExpression;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType type;
+        RecordPattern recordPattern;
+        if (jcInstanceOf.pattern instanceof JCTree.JCIdent) {
+            type = convertType.convertTree(jcInstanceOf.pattern, dsb);
+            recordPattern = null;
+        } else if (jcInstanceOf.pattern instanceof JCTree.JCBindingPattern bp) {
+            type = convertType.convertTree(bp.var.getType(), dsb);
+            String name = bp.var.name.toString();
+            LocalVariable lv = runtime.newLocalVariable(name, type);
+            elementStack.getLast().put(name, lv);
+            recordPattern = runtime.newRecordPatternBuilder()
+                    .setLocalVariable(lv)
+                    .build();
+        } else throw new UnsupportedOperationException();
+        currentExpression = runtime.newInstanceOfBuilder()
+                .setSource(sourceForNode(node, dsb))
+                .setExpression(expression)
+                .setTestType(type)
+                .setPatternVariable(recordPattern)
+                .build();
+        return null;
+    }
+
+    @Override
     public Void visitLambdaExpression(LambdaExpressionTree node, Void unused) {
         JCTree.JCLambda lambda = (JCTree.JCLambda) node;
         Source source = sourceForNode(node);
@@ -918,7 +962,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
                     } else throw new UnsupportedOperationException();
                 }
-                case LOCAL_VARIABLE, PARAMETER -> {
+                case LOCAL_VARIABLE, PARAMETER, BINDING_VARIABLE -> {
                     Variable variable = (Variable) findInElementStack(name);
                     currentExpression = runtime.newVariableExpressionBuilder()
                             .setSource(sourceForNode(node))
