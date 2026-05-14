@@ -954,6 +954,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     if (element instanceof Symbol.VarSymbol vs) {
                         String owner = vs.owner.toString();
                         TypeInfo typeInfoOwner = typeData.getType(owner);
+                        assert typeInfoOwner != null;
                         boolean isThis = "this".equals(name);
                         boolean isSuper = "super".equals(name);
                         Variable variable;
@@ -1253,8 +1254,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 ? (apply.arguments.isEmpty() ? runtime.diamondYes() : runtime.diamondShowAll()) : runtime.diamondNo();
         if (newClass.def != null) {
             JCTree.JCClassDecl anonBody = newClass.def;
-            if (!anonBody.implementing.isEmpty()) {
-                concreteReturnType = convertType.convertTree(anonBody.implementing.getFirst(), dsb);
+            if (!anonBody.implementing.isEmpty() || anonBody.extending != null) {
+                JCTree.JCExpression newTypeExpression = anonBody.extending != null
+                        ? anonBody.extending : anonBody.implementing.getFirst();
+                concreteReturnType = convertType.convertTree(newTypeExpression, dsb);
                 constructor = null;
                 TypeInfo enclosingType = typeStack.getLast();
                 anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());
@@ -1269,8 +1272,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     builder.setParentClass(concreteReturnType);
                 }
                 MethodInfo enclosingMethod = currentMethod;
+                // note that we use the compiler's notation, not ours
+                typeData.put(newClass.def.sym.toString(), anonymousType);
 
-                // The anonymous class's own members — fields, methods, etc.
                 typeStack.addLast(anonymousType);
                 for (JCTree member : anonBody.defs) {
                     currentMethod = null;
@@ -1280,7 +1284,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 currentMethod = enclosingMethod;
 
                 builder.setSource(sourceForNode(node)).commit();
-            } else throw new UnsupportedOperationException();
+            } else {
+                throw new UnsupportedOperationException();
+            }
         } else {
             concreteReturnType = convertType.convert(newClass.type);
             anonymousType = null;
