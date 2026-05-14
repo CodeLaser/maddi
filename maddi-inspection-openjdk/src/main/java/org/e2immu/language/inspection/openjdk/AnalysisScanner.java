@@ -109,13 +109,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         } else {
             if (typeStack.isEmpty()) {
                 typeInfo = runtime.newTypeInfo(compilationUnit, simpleName);
-                collectedPrimaryTypes.add(typeInfo);
             } else {
                 TypeInfo enclosed = typeStack.getLast();
                 typeInfo = runtime.newTypeInfo(enclosed, simpleName);
                 enclosed.builder().addSubType(typeInfo);
             }
             typeData.put(typeInfo);
+        }
+        if(typeInfo.isPrimaryType()) {
+            collectedPrimaryTypes.add(typeInfo);
         }
         continueType(node, typeInfo, jcClassDecl, simpleName);
         return null;
@@ -796,7 +798,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                         } else {
                             fieldInfo = inMap;
                         }
-                        if(typeData.getField(varSymbol) == null) {
+                        if (typeData.getField(varSymbol) == null) {
                             typeData.put(varSymbol, fieldInfo);
                         }
 
@@ -1253,7 +1255,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                             .build();
                 }
                 case PACKAGE -> LOGGER.debug("Skipping package {}", node);
-                case CLASS, INTERFACE, RECORD, ANNOTATION_TYPE -> {
+                case ENUM, CLASS, INTERFACE, RECORD, ANNOTATION_TYPE -> {
                     if (element instanceof Symbol.ClassSymbol) {
 
                         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
@@ -1264,12 +1266,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                                 .setParameterizedType(type)
                                 .build();
                     } else throw new UnsupportedOperationException("NYI");
-                }
-                case ENUM -> {
-                    //   if (element instanceof Symbol.ClassSymbol) {
-                    //ParameterizedType type = convertType.convert(classSymbol.type);
-                    //       throw new UnsupportedOperationException("NYI");
-                    //   }
                 }
                 case ENUM_CONSTANT -> {
                     if (element instanceof Symbol.VarSymbol vs) {
@@ -1370,7 +1366,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
             // static field access, no need to generate a TypeExpression
             if (fieldAccess.sym instanceof Symbol.VarSymbol vs) {
+                currentExpression = null;
                 scan(fieldAccess.getExpression(), unused);
+                assert currentExpression != null;
                 Expression scope = currentExpression;
                 ParameterizedType concreteType = convertType.convert(fieldAccess.type);
                 if ("length".equals(vs.name.toString())) {
@@ -1386,6 +1384,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                             .setSource(sourceForNode(node))
                             .setVariable(fr).build();
                 }
+                return null;
+            }
+            if (fieldAccess.sym instanceof Symbol.ClassSymbol) {
+                DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                ParameterizedType type = convertType.convertTree(node, dsb);
+                currentExpression = runtime.newTypeExpressionBuilder()
+                        .setParameterizedType(type)
+                        .setDiamond(runtime.diamondNo())
+                        .setSource(sourceForNode(node, dsb))
+                        .build();
                 return null;
             }
         }
