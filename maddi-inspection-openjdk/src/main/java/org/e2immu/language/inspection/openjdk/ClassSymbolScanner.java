@@ -29,17 +29,20 @@ public class ClassSymbolScanner {
     private ConvertType convertType;
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
+    private final ElementStack elementStack;
 
     public ClassSymbolScanner(Runtime runtime,
                               SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
                               Elements elements,
-                              TypeData typeData) {
+                              TypeData typeData,
+                              ElementStack elementStack) {
         this.runtime = runtime;
         this.flagHelper = flagHelper;
         this.elements = elements;
         this.typeData = typeData;
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
+        this.elementStack = elementStack; // for local types owned by a method
 
         predefinedTypes.put("String", runtime.stringTypeInfo());
         predefinedTypes.put("Object", runtime.objectTypeInfo());
@@ -56,21 +59,28 @@ public class ClassSymbolScanner {
     }
 
     TypeInfo type(Symbol.ClassSymbol cs) {
-        if (cs.owner instanceof Symbol.PackageSymbol) {
-            return primaryType(cs, false);
-        } else if (cs.owner instanceof Symbol.ClassSymbol enclosedSymbol) {
-            TypeInfo owner = convertType.convert(enclosedSymbol.type).typeInfo();
-            String simpleName = cs.getSimpleName().toString();
-            TypeInfo inMap = owner.findSubType(simpleName, false);
-            if (inMap == null) {
-                TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
-                loadType(cs, enclosed, false);
-                typeData.put(enclosed);
-                owner.builder().addSubType(enclosed);
-                return enclosed;
+        switch (cs.owner) {
+            case Symbol.PackageSymbol _ -> {
+                return primaryType(cs, false);
             }
-            return inMap;
-        } else throw new UnsupportedOperationException();
+            case Symbol.ClassSymbol enclosedSymbol -> {
+                TypeInfo owner = convertType.convert(enclosedSymbol.type).typeInfo();
+                String simpleName = cs.getSimpleName().toString();
+                TypeInfo inMap = owner.findSubType(simpleName, false);
+                if (inMap == null) {
+                    TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
+                    loadType(cs, enclosed, false);
+                    typeData.put(enclosed);
+                    owner.builder().addSubType(enclosed);
+                    return enclosed;
+                }
+                return inMap;
+            }
+            case Symbol.MethodSymbol _ -> {
+                return (TypeInfo) elementStack.find(cs.getSimpleName().toString());
+            }
+            case null, default -> throw new UnsupportedOperationException();
+        }
     }
 
     TypeInfo primaryType(Symbol.ClassSymbol cs, boolean loadMembers) {

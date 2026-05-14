@@ -39,7 +39,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
-    private final Deque<Map<String, Element>> elementStack = new ArrayDeque<>();
+    private final ElementStack elementStack = new ElementStack();
 
     private final Runtime runtime;
     private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
@@ -83,8 +83,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
         ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, sourceSetOfCurrentTask,
-                flagHelper, elements, typeData);
-        convertType = new ConvertType(runtime, classSymbolScanner, typeData, this::findInElementStack, this);
+                flagHelper, elements, typeData, elementStack);
+        convertType = new ConvertType(runtime, classSymbolScanner, typeData, elementStack, this);
         classSymbolScanner.setConvertType(convertType);
     }
 
@@ -116,8 +116,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             }
             typeData.put(typeInfo);
         }
+        continueType(node, typeInfo, jcClassDecl, simpleName);
+        return null;
+    }
+
+    private void continueType(ClassTree node, TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl, String simpleName) {
         typeStack.addLast(typeInfo);
-        elementStack.addLast(new HashMap<>());
+        elementStack.push();
 
         // flags: modifiers, type nature
         flagHelper.type(jcClassDecl.getModifiers().flags, typeInfo.builder(), simpleName);
@@ -128,7 +133,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             String name = jcTypeParameter.getName().toString();
             TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
             typeInfo.builder().addOrSetTypeParameter(tp);
-            elementStack.getLast().put(name, tp);
+            elementStack.put(name, tp);
         }
 
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
@@ -180,7 +185,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         // members: methods, fields
         for (var member : node.getMembers()) {
             currentMethod = null;
-            scan(member, p);
+            scan(member, null);
         }
         MethodInfo singleAbstractMethod = convertType.computeSAM(typeInfo);
         typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
@@ -192,8 +197,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .setSource(source);
 
         typeStack.removeLast();
-        elementStack.removeLast();
-        return null;
+        elementStack.pop();
     }
 
     // -- Method declarations ---------------------------------------------
@@ -205,7 +209,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         long methodFlags = jcMethod.getModifiers().flags;
         TypeInfo currentType = typeStack.getLast();
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-        HashMap<String, Element> parameterMap = new HashMap<>();
+        Map<String, Element> parameterMap = elementStack.push();
 
         MethodInfo methodInfo;
         MethodInfo known = typeData.getMethod(jcMethod.sym);
@@ -237,7 +241,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 String name = typeParameter.getName().toString();
                 TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
                 methodInfo.builder().addTypeParameter(tp);
-                elementStack.getLast().put(name, tp);
+                elementStack.put(name, tp);
             }
 
             // return type
@@ -285,10 +289,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
 
         // method body
-        elementStack.addLast(parameterMap);
         currentMethod = methodInfo;
         Block methodBody = parseBlock("-", node.getBody());
-        elementStack.removeLast();
+        elementStack.pop();
         currentMethod = null;
 
         //overrides
@@ -362,8 +365,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             }
             default -> throw new UnsupportedOperationException("NYI");
         }
-        HashMap<String, Element> localVariableMap = new HashMap<>();
-        elementStack.push(localVariableMap);
+        Map<String, Element> localVariableMap = elementStack.push();
         for (LocalVariable lv : variablesToAdd) {
             localVariableMap.put(lv.simpleName(), lv);
         }
@@ -375,6 +377,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             if (statement instanceof JCTree.JCBlock subBlock) {
                 Block parsedSub = parseBlock("0", subBlock);
                 addStatement(parsedSub);
+            } else if (statement instanceof JCTree.JCClassDecl localType) {
+                Statement localTypeCreation = handleLocalType(localType);
+                addStatement(localTypeCreation);
             } else {
                 scan(statement, null);
             }
@@ -386,6 +391,21 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .setSource(source)
                 .addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
+                .build();
+    }
+
+    private Statement handleLocalType(JCTree.JCClassDecl localType) {
+        String simpleName = localType.getSimpleName().toString();
+        int index = currentMethod.typeInfo().builder().getAndIncrementAnonymousTypes();
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        TypeInfo typeInfo = runtime.newTypeInfo(currentMethod, simpleName, index);
+        continueType(localType, typeInfo, localType, simpleName);
+        typeInfo.builder()
+                .setAccess(runtime.accessPrivate())
+                .commit();
+        elementStack.put(simpleName, typeInfo);
+        return runtime.newLocalTypeDeclarationBuilder().setTypeInfo(typeInfo)
+                .setSource(statementSourceForNode(localType))
                 .build();
     }
 
@@ -468,8 +488,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     public Void visitForLoop(ForLoopTree node, Void unused) {
         ForStatement.Builder forBuilder = runtime.newForBuilder();
 
-        Map<String, Element> map = new HashMap<>();
-        elementStack.addLast(map);
+        Map<String, Element> map = elementStack.push();
         if (!node.getInitializer().isEmpty()) {
             if (node.getInitializer().getFirst() instanceof JCTree.JCVariableDecl) {
                 // sequence of LVCs, but we want them all together in one statement
@@ -513,7 +532,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
 
         Block block = parseBlock("0", node.getStatement());
-        elementStack.removeLast();
+        elementStack.pop();
         addStatement(forBuilder
                 .setBlock(block)
                 .setSource(statementSourceForNode(node))
@@ -581,7 +600,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             ++resourceCount;
         }
         int n = 1 + node.getCatches().size() + (node.getFinallyBlock() != null ? 1 : 0);
-        Block block = parseBlock(StringUtil.pad(0, n), node.getBlock());
+        Block block = parseBlock(StringUtil.pad(0, n), node.getBlock(), resourceVariables.toArray(LocalVariable[]::new));
         int i = 1;
         for (CatchTree c : node.getCatches()) {
             DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
@@ -693,8 +712,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private @NotNull LocalVariableCreation continueLocalVariableCreation(JCTree.JCVariableDecl variableDecl,
                                                                          String name,
                                                                          ParameterizedType type,
-                                                                         DetailedSources.Builder dsb, LocalVariableCreation prevLvc) {
-        LocalVariable localVariable = runtime.newLocalVariable(name, type, currentExpression);
+                                                                         DetailedSources.Builder dsb,
+                                                                         LocalVariableCreation prevLvc) {
+        boolean isUnnamed = name.isEmpty();
+        LocalVariable localVariable = runtime.newLocalVariable(isUnnamed ? ":" : name, type, currentExpression);
         LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
                 .setSource(sourceForNode(variableDecl))
                 .setLocalVariable(localVariable);
@@ -702,6 +723,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         boolean isFinal = (flags & Flags.FINAL) != 0;
         if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
         if (variableDecl.declaredUsingVar()) lvcb.addModifier(runtime.localVariableModifierVar());
+
         // annotations
         for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
             AnnotationExpression ae = convertAnnotation(annotation);
@@ -714,7 +736,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         Source thisSource = sourceForNode(variableDecl);
         Source source = prevLvc != null ? startAtEnd(prevLvc.source(), thisSource) : thisSource;
         // FIXME ideally we check for at least a space before name, and a non-alphanumeric after name
-        Source namePos = source.ofIndex(s, s.indexOf(name), name.length());
+        String searchFor = isUnnamed ? "_" : name;
+        Source namePos = source.ofIndex(s, s.indexOf(searchFor), searchFor.length());
         assert namePos != null;
         dsb.put(name, namePos);
         Source assignSource = source.ofIndex(s, s.indexOf("="), 1);
@@ -722,7 +745,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             dsb.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS, List.of(assignSource));
         }
         lvcb.setSource(statementSourceForNode(variableDecl, dsb));
-        elementStack.getLast().put(localVariable.simpleName(), localVariable);
+        elementStack.put(localVariable.simpleName(), localVariable);
         return lvcb.build();
     }
 
@@ -890,7 +913,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             type = convertType.convertTree(bp.var.getType(), dsb);
             String name = bp.var.name.toString();
             LocalVariable lv = runtime.newLocalVariable(name, type);
-            elementStack.getLast().put(name, lv);
+            elementStack.put(name, lv);
             recordPattern = runtime.newRecordPatternBuilder()
                     .setLocalVariable(lv)
                     .build();
@@ -927,8 +950,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
         List<Lambda.OutputVariant> outputVariants = new ArrayList<>();
 
-        Map<String, Element> lambdaParameters = new HashMap<>();
-        elementStack.addLast(lambdaParameters);
+        Map<String, Element> lambdaParameters = elementStack.push();
         for (var parameter : lambda.getParameters()) {
             if (parameter instanceof JCTree.JCVariableDecl vd) {
                 DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
@@ -963,7 +985,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             throw new UnsupportedOperationException("NYI");
         }
 
-        elementStack.removeLast();
+        elementStack.pop();
 
         miBuilder.setAccess(runtime.accessPublic())
                 .setSynthetic(true)
@@ -1052,7 +1074,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     } else throw new UnsupportedOperationException();
                 }
                 case LOCAL_VARIABLE, PARAMETER, BINDING_VARIABLE, RESOURCE_VARIABLE, EXCEPTION_PARAMETER -> {
-                    Variable variable = (Variable) findInElementStack(name);
+                    Variable variable = (Variable) elementStack.find(name);
                     currentExpression = runtime.newVariableExpressionBuilder()
                             .setSource(sourceForNode(node))
                             .setVariable(variable)
@@ -1088,7 +1110,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 }
                 case TYPE_PARAMETER -> {
                     if (element instanceof Symbol.TypeVariableSymbol tvs) {
-                        TypeParameter typeParameter = (TypeParameter) findInElementStack(tvs.name.toString());
+                        TypeParameter typeParameter = (TypeParameter) elementStack.find(tvs.name.toString());
                         currentExpression = runtime.newTypeExpressionBuilder()
                                 .setDiamond(runtime.diamondNo()) // TODO
                                 .setParameterizedType(runtime.newParameterizedType(typeParameter, 0, null))
@@ -1488,14 +1510,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     // -- HELPERS ------------------
-
-    private Element findInElementStack(String name) {
-        for (Map<String, Element> map : elementStack.reversed()) {
-            Element v = map.get(name);
-            if (v != null) return v;
-        }
-        throw new UnsupportedOperationException("Cannot find element '" + name + "' on stack");
-    }
 
     private Source sourceForNode(Tree node, DetailedSources.Builder dsb) {
         return sourceForNode(node).withDetailedSources(dsb.build());

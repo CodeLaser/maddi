@@ -5,7 +5,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -17,26 +16,24 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.type.TypeKind;
 import java.util.*;
-import java.util.function.Function;
 
 public class ConvertType {
     private final Runtime runtime;
     private final ClassSymbolScanner classSymbolScanner;
     private final TypeData typeData;
-    private final Function<String, Element> findInElementStack;
     private final SourceProvider sourceProvider;
-
+    private final ElementStack elementStack;
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
 
     public ConvertType(Runtime runtime,
                        ClassSymbolScanner classSymbolScanner,
                        TypeData typeData,
-                       Function<String, Element> findInElementStack,
+                       ElementStack elementStack,
                        SourceProvider sourceProvider) {
         this.runtime = runtime;
         this.classSymbolScanner = classSymbolScanner;
         this.typeData = typeData;
-        this.findInElementStack = findInElementStack;
+        this.elementStack = elementStack;
         this.sourceProvider = sourceProvider;
     }
 
@@ -180,7 +177,7 @@ public class ConvertType {
                 return classType(ct);
             } else if (identifier.type instanceof Type.TypeVar) {
                 String typeParameterName = identifier.getName().toString();
-                TypeParameter tp = (TypeParameter) findInElementStack.apply(typeParameterName);
+                TypeParameter tp = (TypeParameter) elementStack.find(typeParameterName);
                 return runtime.newParameterizedType(tp, 0, null);
             } else {
                 throw new UnsupportedOperationException("NYI");
