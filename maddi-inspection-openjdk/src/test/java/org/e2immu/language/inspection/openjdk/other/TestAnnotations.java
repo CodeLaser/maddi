@@ -102,6 +102,7 @@ public class TestAnnotations extends CommonTest {
                 Resource[] value();
             }
             """;
+
     @Language("java")
     private static final String RESOURCE = """
             package a;
@@ -149,14 +150,31 @@ public class TestAnnotations extends CommonTest {
             }
             """;
 
+    private static TypeInfo find(String simpleName, List<TypeInfo> types) {
+        return types.stream().filter(t -> simpleName.equals(t.simpleName())).findFirst().orElseThrow();
+    }
+
     @Test
     public void test2() {
-        TypeInfo C = scan(Map.of("a.Resource", RESOURCE, "a.Resources", RESOURCES, "a.b.C", INPUT2),
-                List.of()).getFirst();
+        List<TypeInfo> types = scan(Map.of("a.Resource", RESOURCE, "a.Resources", RESOURCES, "a.b.C", INPUT2),
+                List.of());
+
+        TypeInfo Resource = find("Resource", types);
+        assertEquals(2, Resource.annotations().size());
+        assertEquals("@Target({ElementType.TYPE,ElementType.FIELD,ElementType.METHOD})",
+                Resource.annotations().getFirst().toString());
+        assertEquals("@Retention(ElementType.RUNTIME)", Resource.annotations().getLast().toString());
+
+        TypeInfo Resources = find("Resources", types);
+        assertEquals(3, Resources.annotations().size());
+        assertEquals("@Documented", Resources.annotations().getFirst().toString());
+        assertEquals("@Target({RetentionPolicy.TYPE,ElementType.PACKAGE})",
+                Resources.annotations().getLast().toString());
+
+        TypeInfo C = find("C", types);
         assertEquals(1, C.annotations().size());
         AnnotationExpression ae = C.annotations().getFirst();
-        assertEquals("org.e2immu.language.inspection.integration.java.importhelper.a.Resources",
-                ae.typeInfo().fullyQualifiedName());
+        assertEquals("a.Resources", ae.typeInfo().fullyQualifiedName());
         assertEquals(1, ae.keyValuePairs().size());
         AnnotationExpression.KV kv0 = ae.keyValuePairs().getFirst();
         assertEquals("value", kv0.key());
@@ -174,7 +192,7 @@ public class TestAnnotations extends CommonTest {
     private static final String INPUT2b = """
             package a.b;
             
-            import org.e2immu.language.inspection.integration.java.importhelper.a.Resources;
+            import a.Resources;
             
             @Resources({ })
             public class C {
@@ -184,11 +202,12 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test2b() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT2b), List.of()).getFirst();
+        List<TypeInfo> types = scan(Map.of("a.b.C", INPUT2b, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE), List.of());
+        TypeInfo C = find("C", types);
         assertEquals(1, C.annotations().size());
         AnnotationExpression ae = C.annotations().getFirst();
-        assertEquals("org.e2immu.language.inspection.integration.java.importhelper.a.Resources",
-                ae.typeInfo().fullyQualifiedName());
+        assertEquals("a.Resources", ae.typeInfo().fullyQualifiedName());
         assertEquals(1, ae.keyValuePairs().size());
         AnnotationExpression.KV kv0 = ae.keyValuePairs().getFirst();
         assertEquals("value", kv0.key());

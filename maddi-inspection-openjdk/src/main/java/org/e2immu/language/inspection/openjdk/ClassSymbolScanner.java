@@ -69,8 +69,9 @@ public class ClassSymbolScanner {
                 TypeInfo inMap = owner.findSubType(simpleName, false);
                 if (inMap == null) {
                     TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
-                    loadType(cs, enclosed, false);
+                    // note: first put the type in typeData, only then load it... self-references are common!
                     typeData.put(enclosed);
+                    loadType(cs, enclosed, false);
                     owner.builder().addSubType(enclosed);
                     return enclosed;
                 }
