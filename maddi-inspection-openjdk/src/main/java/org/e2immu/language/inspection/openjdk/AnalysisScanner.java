@@ -47,7 +47,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private MethodInfo currentMethod;
     private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
     private Expression currentExpression;
-    private Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
+    private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
     private final CompilationUnit compilationUnit;
     private final SourcePositions sourcePositions;
     private final LineMap lineMap;
@@ -1102,7 +1102,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     .setSource(sourceForNode(lambda.body))
                     .setExpression(tExpression)
                     .build();
-            methodBody = runtime.newBlockBuilder().addStatement(returnStatement).build();
+            methodBody = runtime.newBlockBuilder()
+                    .setSource(sourceForNode(lambda.body))
+                    .addStatement(returnStatement).build();
         } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
             methodBody = parseBlock("-", lambda.body);
         } else {

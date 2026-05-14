@@ -60,7 +60,7 @@ public class TestLambda extends CommonTest {
             assertTrue(mi.isSynthetic());
             ParameterInfo s = mi.parameters().getFirst();
             assertFalse(s.isSynthetic());
-            assertEquals("7-38:7-41", s.source().compact2());
+            assertEquals("7-38:7-38", s.source().compact2());
             assertEquals("s", s.name());
             TypeInfo ti = mi.typeInfo();
             assertEquals("C.$0", ti.fullyQualifiedName());
