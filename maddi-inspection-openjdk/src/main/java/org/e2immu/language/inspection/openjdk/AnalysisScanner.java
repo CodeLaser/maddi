@@ -898,7 +898,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     @Override
     public Void visitAnnotation(AnnotationTree node, Void unused) {
-        return super.visitAnnotation(node, unused);
+        JCTree.JCAnnotation annotation = (JCTree.JCAnnotation) node;
+        currentExpression = convertAnnotation(annotation);
+        return null;
     }
 
     @Override

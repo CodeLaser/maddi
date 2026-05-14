@@ -222,6 +222,9 @@ public class ConvertType {
             ParameterizedType base = convertTree(att.elemtype, detailedSourcesBuilder);
             return base.copyWithArrays(base.arrays() + 1);
         }
+        if (type instanceof JCTree.JCWildcard) {
+            return runtime.parameterizedTypeWildcard();
+        }
         throw new UnsupportedOperationException("NYI");
     }
 
