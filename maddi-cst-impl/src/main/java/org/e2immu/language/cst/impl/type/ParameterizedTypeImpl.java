@@ -536,12 +536,15 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             }
             TypeParameter definition;
             if (typeParameter.getOwner() != null) {
+                int index = typeParameter.getIndex();
                 if (typeParameter.getOwner().isLeft()) {
                     TypeInfo owner = typeParameter.getOwner().getLeft();
-                    definition = owner.typeParameters().get(typeParameter.getIndex());
+                    assert index >= 0 && index < owner.typeParameters().size();
+                    definition = owner.typeParameters().get(index);
                 } else {
                     MethodInfo owner = typeParameter.getOwner().getRight();
-                    definition = owner.typeParameters().get(typeParameter.getIndex());
+                    assert index >= 0 && index < owner.typeParameters().size();
+                    definition = owner.typeParameters().get(index);
                 }
                 if (!definition.typeBounds().isEmpty()) {
                     // IMPROVE should be a joint type

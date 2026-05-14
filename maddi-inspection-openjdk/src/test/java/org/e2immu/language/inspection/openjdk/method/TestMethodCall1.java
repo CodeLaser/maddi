@@ -298,6 +298,8 @@ public class TestMethodCall1 extends CommonTest {
         MethodInfo extract = annotationExpression.methods().getFirst();
         assertEquals("a.b.C.AnnotationExpression.extract(String,T)", extract.fullyQualifiedName());
         assertEquals(1, extract.typeParameters().size());
+        assertEquals("T=TP#0 in AnnotationExpression.extract []",
+                extract.typeParameters().getFirst().toStringWithTypeBounds());
 
         FieldInfo ae = typeInfo.getFieldByName("ae", true);
         TypeInfo anon = ((ConstructorCall) ae.initializer()).anonymousClass();
