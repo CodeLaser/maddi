@@ -223,7 +223,7 @@ public class ParseLambdaExpression extends CommonParse {
             } else {
                 pi = miBuilder.addUnnamedParameter(type);
             }
-            Source source = source(lhs);
+            Source source = source(lhs0);
             DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
             if (detailedSourcesBuilder != null) detailedSourcesBuilder.put(pi.name(), source(lhs0));
             pi.builder().setSource(detailedSourcesBuilder == null ? source
