@@ -128,12 +128,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         flagHelper.type(jcClassDecl.getModifiers().flags, typeInfo.builder(), simpleName);
 
         // type parameters
+        int index = 0;
         for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
-            int index = jcTypeParameter.pos;
             String name = jcTypeParameter.getName().toString();
             TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
             typeInfo.builder().addOrSetTypeParameter(tp);
             elementStack.put(name, tp);
+            ++index;
         }
 
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
@@ -236,12 +237,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             flagHelper.method(methodFlags, methodInfo.builder());
 
             // type parameters
+            int index =0;
             for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
-                int index = typeParameter.pos;
                 String name = typeParameter.getName().toString();
                 TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
                 methodInfo.builder().addTypeParameter(tp);
                 elementStack.put(name, tp);
+                ++index;
             }
 
             // return type
@@ -572,6 +574,50 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     @Override
+    public Void visitSwitch(SwitchTree node, Void unused) {
+        scan(node.getExpression(), unused);
+        Expression selector = currentExpression;
+
+        JCTree.JCSwitch jcSwitch = (JCTree.JCSwitch) node;
+        boolean newStyle = jcSwitch.cases.getFirst().caseKind == CaseTree.CaseKind.RULE;
+
+        List<SwitchEntry> switchEntries = new ArrayList<>();
+        int i = 0;
+        int n = node.getCases().size();
+
+        for (CaseTree caseTree : node.getCases()) {
+            for (CaseLabelTree caseLabel : caseTree.getLabels()) {
+                List<Expression> conditions = new ArrayList<>();
+                if (caseLabel instanceof JCTree.JCConstantCaseLabel ccl) {
+                    scan(ccl.getConstantExpression(), unused);
+                    Expression constantExpression = currentExpression;
+                    conditions.add(constantExpression);
+                } else if (caseLabel instanceof JCTree.JCDefaultCaseLabel) {
+                    conditions.add(runtime.newEmptyExpression());
+                } else {
+                    throw new UnsupportedOperationException("NYI");
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitSynchronized(SynchronizedTree node, Void unused) {
+        scan(node.getExpression(), unused);
+        Expression expression = currentExpression;
+        Block block = parseBlock("0", node.getBlock());
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newSynchronizedBuilder()
+                .setSource(source)
+                .setBlock(block)
+                .setExpression(expression)
+                .addComments(commentsForNode(source))
+                .build());
+        return null;
+    }
+
+    @Override
     public Void visitTry(TryTree node, Void unused) {
         TryStatement.Builder tryBuilder = runtime.newTryBuilder();
         Source source = statementSourceForNode(node);
@@ -895,6 +941,23 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .setExpression(expression)
                 .setParameterizedType(type)
                 .build();
+        return null;
+    }
+
+    @Override
+    public Void visitConditionalExpression(ConditionalExpressionTree node, Void unused) {
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+        scan(node.getTrueExpression(), unused);
+        Expression ifTrue = currentExpression;
+        scan(node.getFalseExpression(), unused);
+        Expression ifFalse = currentExpression;
+        currentExpression = runtime.newInlineConditionalBuilder()
+                .setSource(sourceForNode(node))
+                .setCondition(condition)
+                .setIfTrue(ifTrue)
+                .setIfFalse(ifFalse)
+                .build(runtime);
         return null;
     }
 
@@ -1400,6 +1463,27 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .setAnonymousClass(anonymousType)
                 .setParameterExpressions(arguments)
                 .build();
+        return null;
+    }
+
+    @Override
+    public Void visitParenthesized(ParenthesizedTree node, Void unused) {
+        Tree parent = getCurrentPath().getParentPath().getLeaf();
+
+        scan(node.getExpression(), unused);
+        Expression expression = currentExpression;
+
+        boolean isControlFlowParent = switch (parent.getKind()) {
+            case IF, WHILE_LOOP, DO_WHILE_LOOP, FOR_LOOP, ENHANCED_FOR_LOOP,
+                 SWITCH, SWITCH_EXPRESSION, SYNCHRONIZED -> true;
+            default -> false;
+        };
+        if (!isControlFlowParent) {
+            currentExpression = runtime.newEnclosedExpressionBuilder()
+                    .setSource(sourceForNode(node))
+                    .setExpression(expression)
+                    .build();
+        }
         return null;
     }
 
