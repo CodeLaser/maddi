@@ -52,8 +52,9 @@ public class ScanCompilationUnits {
         for (CompilationUnitTree unit : units) {
             System.out.println("=== " + unit.getSourceFile().getName() + " ===\n");
 
+            String packageName = unit.getPackageName() == null ? "" : unit.getPackageName().toString();
             CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
-                    .setPackageName(unit.getPackageName().toString())
+                    .setPackageName(packageName)
                     .setSourceSet(sourceSet)
                     .build();
             CharSequence content = unit.getSourceFile().getCharContent(false);
