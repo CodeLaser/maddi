@@ -44,15 +44,17 @@ public class ScanCompilationUnits {
         Iterable<? extends CompilationUnitTree> units = task.parse();
         task.analyze();
 
-        boolean haveErrors = false;
-        for (Diagnostic<? extends JavaFileObject> d : diagnostics.getDiagnostics()) {
-            if (d.getKind() == Diagnostic.Kind.ERROR) {
-                LOGGER.info("Error found: {} at line {}, col {}", d.getMessage(Locale.getDefault()),
-                        d.getLineNumber(), d.getColumnNumber());
-                haveErrors = true;
+        if (diagnostics != null) {
+            boolean haveErrors = false;
+            for (Diagnostic<? extends JavaFileObject> d : diagnostics.getDiagnostics()) {
+                if (d.getKind() == Diagnostic.Kind.ERROR) {
+                    LOGGER.info("Error found: {} at line {}, col {}", d.getMessage(Locale.getDefault()),
+                            d.getLineNumber(), d.getColumnNumber());
+                    haveErrors = true;
+                }
             }
+            if (haveErrors) throw new CompilationProblems();
         }
-        if (haveErrors) throw new CompilationProblems();
 
         List<TypeInfo> primaryTypes = new ArrayList<>();
         for (CompilationUnitTree unit : units) {

@@ -5,6 +5,7 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
@@ -17,6 +18,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,17 +38,26 @@ public class CommonTest {
     }
 
     public TypeInfo scan(String fqn, String content) {
-        return scan(Map.of(fqn, content), List.of()).getFirst();
+        return scan(false, Map.of(fqn, content), List.of()).getFirst();
     }
 
-    public List<TypeInfo> scan(Map<String, String> sourcesByClassName, List<File> jars) {
+    public Map<String, TypeInfo> scan(boolean ignoreErrorss, String... fqnContentPairs) {
+        Map<String, String> map = new HashMap<>();
+        for (int i = 0; i < fqnContentPairs.length; i += 2) {
+            map.put(fqnContentPairs[i], fqnContentPairs[i + 1]);
+        }
+        List<TypeInfo> typeInfoList = scan(ignoreErrorss, map, List.of());
+        return typeInfoList.stream().collect(Collectors.toUnmodifiableMap(Info::fullyQualifiedName, ti -> ti));
+    }
+
+    public List<TypeInfo> scan(boolean ignoreErrors, Map<String, String> sourcesByClassName, List<File> jars) {
         sourceSet = new SourceSetImpl(
                 "source", List.of(),
                 URI.create("file:/"),
                 StandardCharsets.UTF_8, false, false, false,
                 false, false, Set.of(), Set.of());
         try {
-            DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+            DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
             javacTask = createTask(sourcesByClassName, jars, diagnostics);
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, diagnostics);
             typeData = scanCompilationUnits.typeData();

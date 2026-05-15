@@ -29,6 +29,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
@@ -128,7 +129,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         elementStack.push();
 
         // flags: modifiers, type nature
-        flagHelper.type(jcClassDecl.getModifiers().flags, typeInfo.builder(), simpleName);
+        flagHelper.type(jcClassDecl.sym, typeInfo.builder());
 
         // type parameters
         int index = 0;
@@ -159,6 +160,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             for (JCTree.JCExpression i : jcClassDecl.implementing) {
                 typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i, dsb));
             }
+        }
+        if (typeInfo.typeNature().isAnnotation()) {
+            ParameterizedType javaLangAnnotationAnnotation = convertType.convert(jcClassDecl.sym.getInterfaces().getFirst());
+            typeInfo.builder().addInterfaceImplemented(javaLangAnnotationAnnotation);
         }
         for (JCTree.JCExpression permits : jcClassDecl.permitting) {
             TypeInfo permitted = convertType.convert(permits.type).typeInfo();
@@ -251,16 +256,20 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
             // return type
             if (!isConstructor) {
-                ParameterizedType returnType = convertType.convertTree(node.getReturnType(), dsb);
+                List<AnnotationExpression> annots = new ArrayList<>();
+                ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb, annots::add);
                 methodInfo.builder().setReturnType(returnType);
+                methodInfo.builder().addAnnotations(annots);
             }
 
             // parameters
             for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
                 String name = jcVariableDecl.getName().toString();
                 DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
-                ParameterizedType type = convertType.convertTree(jcVariableDecl.getType(), dsbParam);
+                List<AnnotationExpression> annots = new ArrayList<>();
+                ParameterizedType type = convertTypeWithAnnotations(jcVariableDecl.getType(), dsb, annots::add);
                 ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
+                parameterInfo.builder().addAnnotations(annots);
 
                 // flags
                 long flags = jcVariableDecl.getModifiers().flags;
@@ -319,7 +328,21 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     // -- Annotations ---------------------------------------------
 
-    // FIXME add expressions
+    private ParameterizedType convertTypeWithAnnotations(Tree node,
+                                                         DetailedSources.Builder dsb,
+                                                         Consumer<AnnotationExpression> consumer) {
+        Tree rt;
+        if (node instanceof JCTree.JCAnnotatedType at) {
+            rt = at.getUnderlyingType();
+            for (JCTree.JCAnnotation annotationTree : at.getAnnotations()) {
+                consumer.accept(convertAnnotation(annotationTree));
+            }
+        } else {
+            rt = node;
+        }
+        return convertType.convertTree(rt, dsb);
+    }
+
     private AnnotationExpression convertAnnotation(JCTree.JCAnnotation annotation) {
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         ParameterizedType at = convertType.convertTree(annotation.getAnnotationType(), dsb);
@@ -514,9 +537,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         LocalVariableCreation lvc;
         if (node.getVariable() instanceof JCTree.JCVariableDecl variableDecl) {
             String name = variableDecl.name.toString();
-            ParameterizedType type = convertType.convertTree(node.getVariable().getType(), dsb);
+            List<AnnotationExpression> annotations = new ArrayList<>();
+            ParameterizedType type = convertTypeWithAnnotations(node.getVariable().getType(), dsb, annotations::add);
             currentExpression = runtime.newEmptyExpression();
-            lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, null);
+            lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, null, annotations);
         } else throw new UnsupportedOperationException("NYI");
 
         Block block = parseBlock("0", node.getStatement());
@@ -729,14 +753,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             TryStatement.CatchClause.Builder builder = runtime.newCatchClauseBuilder();
             Tree typeOfParameter = c.getParameter().getType();
             ParameterizedType unionType;
+            List<AnnotationExpression> annots = new ArrayList<>();
+
             if (typeOfParameter instanceof JCTree.JCTypeUnion typeUnion) {
                 unionType = convertType.convert(typeUnion.type);
                 for (Tree alternative : typeUnion.alternatives) {
-                    ParameterizedType type = convertType.convertTree(alternative, dsb);
+                    ParameterizedType type = convertTypeWithAnnotations(alternative, dsb, annots::add);
                     builder.addType(type);
                 }
             } else {
-                ParameterizedType type = convertType.convertTree(typeOfParameter, dsb);
+                ParameterizedType type = convertTypeWithAnnotations(typeOfParameter, dsb, annots::add);
                 builder.addType(type);
                 unionType = type;
             }
@@ -745,6 +771,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             Block catchBlock = parseBlock(StringUtil.pad(i, n), c.getBlock(), lv);
 
             // annotations
+            builder.addAnnotations(annots);
             for (AnnotationTree at : c.getParameter().getModifiers().getAnnotations()) {
                 AnnotationExpression ae = convertAnnotation((JCTree.JCAnnotation) at);
                 builder.addAnnotation(ae);
@@ -784,7 +811,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
             if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
                 String name = varSymbol.toString();
-                ParameterizedType type = convertType.convertTree(variableDecl.vartype, dsb);
+
+                List<AnnotationExpression> annots = new ArrayList<>();
+                ParameterizedType type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
 
                 currentExpression = null;
                 scan(node.getInitializer(), p);
@@ -805,6 +834,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                         } else {
                             fieldInfo = inMap;
                         }
+                        fieldInfo.builder().addAnnotations(annots);
+
                         if (typeData.getField(varSymbol) == null) {
                             typeData.put(varSymbol, fieldInfo);
                         }
@@ -827,10 +858,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 } else {
 
                     // local variable
-
                     Statement prev = lastStatement();
                     LocalVariableCreation prevLvc = prev instanceof LocalVariableCreation lvc2 ? lvc2 : null;
-                    LocalVariableCreation lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, prevLvc);
+                    LocalVariableCreation lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, prevLvc,
+                            annots);
                     if (prevLvc != null && sameLvc(prevLvc, lvc)) {
                         LocalVariableCreation merged = prevLvc.withAdditionalLocalVariable(lvc);
                         replaceLastStatement(merged);
@@ -853,7 +884,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                                                                          String name,
                                                                          ParameterizedType type,
                                                                          DetailedSources.Builder dsb,
-                                                                         LocalVariableCreation prevLvc) {
+                                                                         LocalVariableCreation prevLvc,
+                                                                         List<AnnotationExpression> annotations) {
         boolean isUnnamed = name.isEmpty();
         LocalVariable localVariable = runtime.newLocalVariable(isUnnamed ? ":" : name, type, currentExpression);
         LocalVariableCreation.Builder lvcb = runtime.newLocalVariableCreationBuilder()
@@ -864,6 +896,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         if (isFinal) lvcb.addModifier(runtime.localVariableModifierFinal());
         if (variableDecl.declaredUsingVar()) lvcb.addModifier(runtime.localVariableModifierVar());
 
+        lvcb.addAnnotations(annotations);
         // annotations
         for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
             AnnotationExpression ae = convertAnnotation(annotation);
@@ -1042,9 +1075,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         JCTree.JCTypeCast jcTypeCast = (JCTree.JCTypeCast) node;
         scan(jcTypeCast.expr, unused);
         Expression expression = currentExpression;
+        List<AnnotationExpression> annotations = new ArrayList<>();
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-        ParameterizedType type = convertType.convertTree(jcTypeCast.getType(), dsb);
+        ParameterizedType type = convertTypeWithAnnotations(jcTypeCast.getType(), dsb, annotations::add);
         currentExpression = runtime.newCastBuilder()
+                .addAnnotations(annotations)
                 .setSource(sourceForNode(node, dsb))
                 .setExpression(expression)
                 .setParameterizedType(type)
@@ -1077,11 +1112,12 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         ParameterizedType type;
         RecordPattern recordPattern;
+        List<AnnotationExpression> annotations = new ArrayList<>();
         if (jcInstanceOf.pattern instanceof JCTree.JCIdent) {
-            type = convertType.convertTree(jcInstanceOf.pattern, dsb);
+            type = convertTypeWithAnnotations(jcInstanceOf.pattern, dsb, annotations::add);
             recordPattern = null;
         } else if (jcInstanceOf.pattern instanceof JCTree.JCBindingPattern bp) {
-            type = convertType.convertTree(bp.var.getType(), dsb);
+            type = convertTypeWithAnnotations(bp.var.getType(), dsb, annotations::add);
             String name = bp.var.name.toString();
             LocalVariable lv = runtime.newLocalVariable(name, type);
             elementStack.put(name, lv);
@@ -1090,6 +1126,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     .build();
         } else throw new UnsupportedOperationException();
         currentExpression = runtime.newInstanceOfBuilder()
+                .addAnnotations(annotations)
                 .setSource(sourceForNode(node, dsb))
                 .setExpression(expression)
                 .setTestType(type)
@@ -1129,13 +1166,15 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
                 ParameterInfo pi;
                 String name = vd.name.toString();
-                ParameterizedType type = convertType.convertTree(vd.getType(), dsbParam);
+                List<AnnotationExpression> annots = new ArrayList<>();
+                ParameterizedType type = convertTypeWithAnnotations(vd.getType(), dsbParam, annots::add);
                 if (name.isEmpty()) {
                     pi = miBuilder.addUnnamedParameter(type);
                 } else {
                     pi = miBuilder.addParameter(name, type);
                 }
                 pi.builder()
+                        .addAnnotations(annots)
                         .setSource(sourceForNode(parameter, dsbParam))
                         .commit();
                 Lambda.OutputVariant ov;
@@ -1264,10 +1303,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 case PACKAGE -> LOGGER.debug("Skipping package {}", node);
                 case ENUM, CLASS, INTERFACE, RECORD, ANNOTATION_TYPE -> {
                     if (element instanceof Symbol.ClassSymbol) {
-
+                        List<AnnotationExpression> annots = new ArrayList<>();
                         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-                        ParameterizedType type = convertType.convertTree(node, dsb);
+                        ParameterizedType type = convertTypeWithAnnotations(node, dsb, annots::add);
                         currentExpression = runtime.newTypeExpressionBuilder()
+                                .addAnnotations(annots)
                                 .setSource(sourceForNode(node, dsb))
                                 .setDiamond(runtime.diamondNo()) // TODO
                                 .setParameterizedType(type)
@@ -1543,14 +1583,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             if (!anonBody.implementing.isEmpty() || anonBody.extending != null) {
                 JCTree.JCExpression newTypeExpression = anonBody.extending != null
                         ? anonBody.extending : anonBody.implementing.getFirst();
-                concreteReturnType = convertType.convertTree(newTypeExpression, dsb);
+                List<AnnotationExpression> annots = new ArrayList<>();
+                concreteReturnType = convertTypeWithAnnotations(newTypeExpression, dsb, annots::add);
                 constructor = null;
                 TypeInfo enclosingType = typeStack.getLast();
                 anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());
                 TypeInfo.Builder builder = anonymousType.builder()
                         .setTypeNature(runtime.typeNatureClass())
                         .setAccess(runtime.accessPrivate())
-                        .setEnclosingMethod(currentMethod);
+                        .setEnclosingMethod(currentMethod)
+                        .addAnnotations(annots);
                 if (concreteReturnType.typeInfo().isInterface()) {
                     builder.setParentClass(runtime.objectParameterizedType())
                             .addInterfaceImplemented(concreteReturnType);
