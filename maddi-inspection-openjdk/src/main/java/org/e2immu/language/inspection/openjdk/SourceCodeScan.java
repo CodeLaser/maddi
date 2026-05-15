@@ -1,6 +1,7 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.Comment;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.Info;
@@ -20,7 +21,8 @@ public record SourceCodeScan(Runtime runtime) {
 
     public record Result(NavigableMap<Source, List<Comment>> comments,
                          NavigableMap<Source, List<Comment>> trailingComments,
-                         NavigableMap<Source, String> keywords) {
+                         NavigableMap<Source, String> keywords,
+                         NavigableMap<Source, Map<Object, Object>> argumentLists) {
         public Source find(String keyword, Source source) {
             Map.Entry<Source, String> entry = keywords.floorEntry(source);
             while (entry != null) {
@@ -53,7 +55,8 @@ public record SourceCodeScan(Runtime runtime) {
         NavigableMap<Source, List<Comment>> comments = new TreeMap<>();
         NavigableMap<Source, List<Comment>> trailingComments = new TreeMap<>();
         NavigableMap<Source, String> keywords = new TreeMap<>();
-        Result result = new Result(comments, trailingComments, keywords);
+        NavigableMap<Source, Map<Object, Object>> argumentLists = new TreeMap<>();
+        Result result = new Result(comments, trailingComments, keywords, argumentLists);
 
         JavaParser p = new JavaParser(input);
         p.setParserTolerant(false);
@@ -90,7 +93,8 @@ public record SourceCodeScan(Runtime runtime) {
 
         return new Result(Collections.unmodifiableNavigableMap(comments),
                 Collections.unmodifiableNavigableMap(trailingComments),
-                Collections.unmodifiableNavigableMap(keywords));
+                Collections.unmodifiableNavigableMap(keywords),
+                Collections.unmodifiableNavigableMap(argumentLists));
     }
 
     private void scanTypeDeclaration(TypeDeclaration td, Result result) {
@@ -120,6 +124,16 @@ public record SourceCodeScan(Runtime runtime) {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static void mergeList(Map<Object, Object> map, Object key, Object element) {
+        List<Object> list = (List<Object>) map.get(key);
+        if (list == null) {
+            list = new ArrayList<>();
+            map.put(key, list);
+        }
+        list.add(element);
+    }
+
     private void scanMethodDeclaration(MethodDeclaration md, Result result) {
         List<Comment> methodComments = comments(md);
         if (!methodComments.isEmpty()) result.comments.put(source(md), methodComments);
@@ -132,8 +146,24 @@ public record SourceCodeScan(Runtime runtime) {
                     if (param instanceof FormalParameter fp) {
                         List<Comment> fpComments = comments(fp);
                         if (!fpComments.isEmpty()) result.comments.put(source(fp), fpComments);
+
+                        Map<Object, Object> commaMap = new HashMap<>();
+                        Node preceding = param.previousSibling();
+                        if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                            commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                        }
+                        Node succeeding = param.nextSibling();
+                        if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                            commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                        }
+                        Source formalSource = source(fp);
+                        result.argumentLists.put(formalSource, Map.copyOf(commaMap));
+                    } else if (param instanceof Delimiter d && d.getType() == Token.TokenType.RPAREN) {
+                        Source methodSource = source(md);
+                        result.argumentLists.put(methodSource, Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
                     }
                 }
+
             } else if (node instanceof CodeBlock cb) {
                 scanCodeBlock(cb, result);
             }
@@ -157,6 +187,20 @@ public record SourceCodeScan(Runtime runtime) {
             if (child instanceof TypeDeclaration td) {
                 scanTypeDeclaration(td, result);
                 return false;
+            }
+            if (child instanceof MethodCall || child instanceof AllocationExpression) {
+                InvocationArguments ia = child.firstChildOfType(InvocationArguments.class);
+                Map<Object, Object> argList = new HashMap<>();
+                for (Node node : ia.children()) {
+                    if (node instanceof Delimiter d) {
+                        if (d.getType() == Token.TokenType.RPAREN) {
+                            argList.put(DetailedSources.END_OF_ARGUMENT_LIST, source(d));
+                        } else if (d.getType() == Token.TokenType.COMMA) {
+                            mergeList(argList, DetailedSources.ARGUMENT_COMMAS, source(d));
+                        }
+                    }
+                }
+                result.argumentLists.put(source(child), Map.copyOf(argList));
             }
             return true;
         });
