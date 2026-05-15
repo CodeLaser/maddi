@@ -12,12 +12,14 @@ import org.parsers.java.JavaParser;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
 import org.parsers.java.ast.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Predicate;
 
 public record SourceCodeScan(Runtime runtime) {
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(SourceCodeScan.class);
 
     public record Result(NavigableMap<Source, List<Comment>> comments,
                          NavigableMap<Source, List<Comment>> trailingComments,
@@ -49,6 +51,20 @@ public record SourceCodeScan(Runtime runtime) {
             boolean accept = s.beginLine() == source.beginLine() && s.beginPos() == source.beginPos();
             return accept ? entry.getValue() : List.of();
         }
+
+        public Source findEndOfArgumentList(Source sourceOfMethodCallConstructorCall) {
+            Map<Object, Object> map = argumentLists.get(sourceOfMethodCallConstructorCall);
+            return map == null ? null : (Source) map.get(DetailedSources.END_OF_ARGUMENT_LIST);
+        }
+
+        @SuppressWarnings("unchecked")
+        public List<Source> findArgumentCommas(Source sourceOfMethodCallConstructorCall) {
+            Map<Object, Object> map = argumentLists.get(sourceOfMethodCallConstructorCall);
+            if (map == null) return null;
+            Object value = map.get(DetailedSources.ARGUMENT_COMMAS);
+            return value == null ? null : ((List<Object>) value).stream().map(o -> (Source) o).toList();
+        }
+
     }
 
     public Result go(CharSequence input) {
@@ -113,11 +129,13 @@ public record SourceCodeScan(Runtime runtime) {
                 result.keywords.put(source(implementsKeyword), implementsKeyword.getSource());
             } else if (node instanceof ClassOrInterfaceBody body) {
                 for (Node node2 : body.children()) {
-                    if (node2 instanceof TypeDeclaration sub) {
-                        scanTypeDeclaration(sub, result);
-                    }
-                    if (node2 instanceof MethodDeclaration md) {
-                        scanMethodDeclaration(md, result);
+                    String string2 = node2.getSource();
+                    switch (node2) {
+                        case TypeDeclaration sub -> scanTypeDeclaration(sub, result);
+                        case ConstructorDeclaration cd -> scanMethodDeclaration(cd, result);
+                        case MethodDeclaration md -> scanMethodDeclaration(md, result);
+                        default -> {
+                        }
                     }
                 }
             }
@@ -134,43 +152,52 @@ public record SourceCodeScan(Runtime runtime) {
         list.add(element);
     }
 
-    private void scanMethodDeclaration(MethodDeclaration md, Result result) {
+    private void scanMethodDeclaration(Node md, Result result) {
         List<Comment> methodComments = comments(md);
         if (!methodComments.isEmpty()) result.comments.put(source(md), methodComments);
         for (Node node : md.children()) {
             String string = node.getSource();
-            if (node instanceof KeyWord || node instanceof Token && "record".equals(string)) {
-                result.keywords.put(source(node), string);
-            } else if (node instanceof FormalParameters fps) {
-                for (Node param : fps.children()) {
-                    if (param instanceof FormalParameter fp) {
-                        List<Comment> fpComments = comments(fp);
-                        if (!fpComments.isEmpty()) result.comments.put(source(fp), fpComments);
+            LOGGER.info("In MD: {}: {}", node.getClass(), limit(string));
+            switch (node) {
+                case KeyWord _ -> result.keywords.put(source(node), string);
+                case FormalParameters fps -> {
+                    for (Node param : fps.children()) {
+                        if (param instanceof FormalParameter fp) {
+                            List<Comment> fpComments = comments(fp);
+                            if (!fpComments.isEmpty()) result.comments.put(source(fp), fpComments);
 
-                        Map<Object, Object> commaMap = new HashMap<>();
-                        Node preceding = param.previousSibling();
-                        if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
-                            commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                            Map<Object, Object> commaMap = new HashMap<>();
+                            Node preceding = param.previousSibling();
+                            if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                                commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                            }
+                            Node succeeding = param.nextSibling();
+                            if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                                commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                            }
+                            Source formalSource = source(fp);
+                            result.argumentLists.put(formalSource, Map.copyOf(commaMap));
+                        } else if (param instanceof Delimiter d && d.getType() == Token.TokenType.RPAREN) {
+                            Source methodSource = source(md);
+                            result.argumentLists.put(methodSource, Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
                         }
-                        Node succeeding = param.nextSibling();
-                        if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
-                            commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
-                        }
-                        Source formalSource = source(fp);
-                        result.argumentLists.put(formalSource, Map.copyOf(commaMap));
-                    } else if (param instanceof Delimiter d && d.getType() == Token.TokenType.RPAREN) {
-                        Source methodSource = source(md);
-                        result.argumentLists.put(methodSource, Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
                     }
                 }
-
-            } else if (node instanceof CodeBlock cb) {
-                scanCodeBlock(cb, result);
+                case ExplicitConstructorInvocation eci -> scanCodeBlock(eci, result);
+                case Statement st -> scanCodeBlock(st, result);
+                default -> {
+                }
             }
         }
     }
 
-    private void scanCodeBlock(CodeBlock cb, Result result) {
+    private static String limit(String s) {
+        if (s.length() < 100) return s;
+        return s.substring(0, 99) + "...";
+    }
+
+    private void scanCodeBlock(Node cb, Result result) {
+        LOGGER.info("Scan {}: {}", cb.getClass(), limit(cb.getSource()));
         visit(cb, child -> {
             if (child instanceof Statement st) {
                 List<Comment> statementComments = comments(st);
@@ -188,22 +215,32 @@ public record SourceCodeScan(Runtime runtime) {
                 scanTypeDeclaration(td, result);
                 return false;
             }
-            if (child instanceof MethodCall || child instanceof AllocationExpression) {
-                InvocationArguments ia = child.firstChildOfType(InvocationArguments.class);
-                Map<Object, Object> argList = new HashMap<>();
-                for (Node node : ia.children()) {
-                    if (node instanceof Delimiter d) {
-                        if (d.getType() == Token.TokenType.RPAREN) {
-                            argList.put(DetailedSources.END_OF_ARGUMENT_LIST, source(d));
-                        } else if (d.getType() == Token.TokenType.COMMA) {
-                            mergeList(argList, DetailedSources.ARGUMENT_COMMAS, source(d));
-                        }
-                    }
-                }
-                result.argumentLists.put(source(child), Map.copyOf(argList));
+            if (child instanceof MethodCall || child instanceof AllocationExpression
+                || child instanceof ExplicitConstructorInvocation) {
+                scanCall(result, child);
             }
             return true;
         });
+    }
+
+    private void scanCall(Result result, Node child) {
+        Source source = source(child);
+        LOGGER.info("*** scan call {}: {}: {}", source.compact2(), child.getClass(), limit(child.getSource()));
+        InvocationArguments ia = child.firstChildOfType(InvocationArguments.class);
+        if (ia != null) {
+            Map<Object, Object> argList = new HashMap<>();
+            for (Node node : ia.children()) {
+                if (node instanceof Delimiter d) {
+                    if (d.getType() == Token.TokenType.RPAREN) {
+                        argList.put(DetailedSources.END_OF_ARGUMENT_LIST, source(d));
+                    } else if (d.getType() == Token.TokenType.COMMA) {
+                        mergeList(argList, DetailedSources.ARGUMENT_COMMAS, source(d));
+                    }
+                }
+            }
+            LOGGER.info("*** ... result is {}", argList);
+            result.argumentLists.put(source, Map.copyOf(argList));
+        }
     }
 
     private void visit(Node node, Predicate<Node> test) {
