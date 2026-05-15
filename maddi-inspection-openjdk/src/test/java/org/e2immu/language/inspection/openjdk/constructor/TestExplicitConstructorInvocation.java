@@ -50,10 +50,15 @@ public class TestExplicitConstructorInvocation extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = scan("a.b.C", INPUT1);
+        MethodInfo c0 = typeInfo.findConstructor(0);
+        if (c0.methodBody().statements().getFirst() instanceof ExplicitConstructorInvocation eci) {
+            assertFalse(eci.isSuper());
+            assertEquals("Map.of()", eci.parameterExpressions().getFirst().toString());
+        }
         MethodInfo c1 = typeInfo.findConstructor(1);
         assertEquals("13-5:15-5", c1.source().compact2());
-        // There is no 'source' in the methodBody
-        assertNull(c1.methodBody().source());
+        assertEquals("-@13:40-15:5", c1.methodBody().source().toString());
+        assertEquals(2, c1.methodBody().statements().size());
     }
 
     @Language("java")
@@ -132,7 +137,7 @@ public class TestExplicitConstructorInvocation extends CommonTest {
     private static final String INPUT3 = """
             package a;
             
-            public class A {
+            public class K {
                 private String name;
                 private int i;
             
@@ -152,25 +157,26 @@ public class TestExplicitConstructorInvocation extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = scan("a.A", INPUT3);
+        TypeInfo typeInfo = scan("a.K", INPUT3);
         {
             MethodInfo constructor = typeInfo.findConstructor(1);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("9-9:9-15", explicit.source().compact2());
+            // NOTE: ; not included because for OpenJDK this is a method call rather than an ECI statement
+            assertEquals("9-9:9-14", explicit.source().compact2());
             assertEquals("9-14:9-14", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
         }
         {
             MethodInfo constructor = typeInfo.findConstructor(3);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("13-9:13-20", explicit.source().compact2());
+            assertEquals("13-9:13-19", explicit.source().compact2());
             assertEquals("13-19:13-19", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
         }
         {
             MethodInfo constructor = typeInfo.findConstructor(4);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("16-9:16-22", explicit.source().compact2());
+            assertEquals("16-9:16-21", explicit.source().compact2());
             assertEquals("16-21:16-21", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
             assertEquals("[@16:15-16:15, @16:18-16:18]", explicit.source().detailedSources()
