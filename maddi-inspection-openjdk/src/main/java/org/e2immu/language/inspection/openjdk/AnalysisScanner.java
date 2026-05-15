@@ -1621,6 +1621,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             boolean isSyntheticSuperCall = isSuper && isSyntheticSuperCall(methodInvocation, compilationUnitTree);
             Source source = isSyntheticSuperCall ? null : statementSourceForNode(node);
             Statement statement = runtime.newExplicitConstructorInvocationBuilder()
+                    .setSynthetic(true)
                     .setSource(source)
                     .setIsSuper(isSuper)
                     .setMethodInfo(methodInfo)

@@ -36,6 +36,9 @@ public interface ExplicitConstructorInvocation extends Statement {
         Builder setIsSuper(boolean isSuper);
 
         @Fluent
+        Builder setSynthetic(boolean synthetic);
+
+        @Fluent
         Builder setMethodInfo(MethodInfo methodInfo);
 
         @Fluent
