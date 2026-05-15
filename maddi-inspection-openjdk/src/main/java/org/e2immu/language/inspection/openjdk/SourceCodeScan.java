@@ -120,9 +120,6 @@ public record SourceCodeScan(Runtime runtime) {
                 scanTypeDeclaration(td, result);
                 classSource = source(td);
             }
-            if (node instanceof ModuleDirective md) {
-                scanModuleDirective(md, result);
-            }
         }
 
         Node lastChild = cu.getLastChild();
@@ -135,6 +132,8 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     private void scanModuleDirective(Node md, Result result) {
+        List<Comment> importComments = comments(md);
+        if (!importComments.isEmpty()) result.comments.put(source(md), importComments);
         for (Node node : md) {
             switch (node) {
                 case KeyWord _, Name _ -> result.keywords.put(source(node), node.getSource());
