@@ -259,7 +259,8 @@ public class ClassSymbolScanner {
             typeInfo.builder().addConstructor(method);
         } else {
             LOGGER.debug("Adding method {} to {}", name, typeInfo);
-            MethodInfo.MethodType methodType = flagHelper.methodType(ms.flags(), typeInfo.isInterface());
+            MethodInfo.MethodType methodType = flagHelper.methodType(ms.flags(),
+                    typeInfo.isInterface() || typeInfo.isAnnotation());
             method = runtime.newMethod(typeInfo, name, methodType);
             typeInfo.builder().addMethod(method);
         }
