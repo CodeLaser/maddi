@@ -26,6 +26,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
@@ -1576,24 +1577,23 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         MethodInfo methodInfo;
 
         if (methodSelect instanceof IdentifierTree it) {
-            TypeInfo currentType = typeStack.getLast(); // FIXME temp value, can also be static
+            TypeInfo currentType = typeStack.getLast();
             methodName = it.getName().toString();
-            if ("super".equals(methodName) || "this".equals(methodName)) {
-                explicitConstructorInvocation = true;
-                object = null;
-                concreteReturnType = runtime.parameterizedTypeReturnTypeOfConstructor();
-                methodInfo = null;
-            } else {
-                object = runtime.newVariableExpressionBuilder()
-                        .setVariable(runtime.newThis(currentType.asParameterizedType()))
-                        .setSource(runtime.noSource()).build();
-                concreteReturnType = convertType.convert(methodInvocation.type);
-                explicitConstructorInvocation = false;
-                if (it instanceof JCTree.JCIdent jcIdent && jcIdent.sym instanceof Symbol.MethodSymbol methodSymbol) {
-                    methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(methodSymbol), () ->
-                            convertType.ensureMethod(methodSymbol));
-                } else throw new UnsupportedOperationException("NYI");
-            }
+            if (it instanceof JCTree.JCIdent jcIdent && jcIdent.sym instanceof Symbol.MethodSymbol methodSymbol) {
+                if ("super".equals(methodName) || "this".equals(methodName)) {
+                    explicitConstructorInvocation = true;
+                    object = null;
+                    concreteReturnType = runtime.parameterizedTypeReturnTypeOfConstructor();
+                } else {
+                    object = runtime.newVariableExpressionBuilder()
+                            .setVariable(runtime.newThis(currentType.asParameterizedType()))
+                            .setSource(runtime.noSource()).build();
+                    concreteReturnType = convertType.convert(methodInvocation.type);
+                    explicitConstructorInvocation = false;
+                }
+            } else throw new UnsupportedOperationException("NYI");
+            methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(methodSymbol), () ->
+                    convertType.ensureMethod(methodSymbol));
             objectIsImplicit = true;
         } else if (methodSelect instanceof MemberSelectTree mst) {
             scan(mst.getExpression(), p);
@@ -1617,9 +1617,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
 
         if (explicitConstructorInvocation) {
+            boolean isSuper = "super".equals(methodName);
+            boolean isSyntheticSuperCall = isSuper && isSyntheticSuperCall(methodInvocation, compilationUnitTree);
+            Source source = isSyntheticSuperCall ? null : statementSourceForNode(node);
             Statement statement = runtime.newExplicitConstructorInvocationBuilder()
-                    .setIsSuper("super".equals(methodName))
-                    .setMethodInfo(runtime.assignAndOperatorBool())
+                    .setSource(source)
+                    .setIsSuper(isSuper)
+                    .setMethodInfo(methodInfo)
                     .setParameterExpressions(arguments)
                     .build();
             addStatement(statement);
@@ -1635,6 +1639,23 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     .build();
         }
         return null;
+    }
+
+    boolean isSyntheticSuperCall(JCTree.JCMethodInvocation call, CompilationUnitTree unit) {
+        // A synthetic super() has no corresponding source token —
+        // verify by checking what's actually in the source at call.pos
+        try {
+            CharSequence source = unit.getSourceFile().getCharContent(false);
+            int pos = call.pos;
+
+            // Check if "super" actually appears at this position in the source
+            if (pos < 0 || pos + 5 > source.length()) return true; // no source = synthetic
+
+            String atPos = source.subSequence(pos, pos + 5).toString();
+            return !atPos.equals("super");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     // new Node[3]
@@ -1696,16 +1717,14 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             if (!anonBody.implementing.isEmpty() || anonBody.extending != null) {
                 JCTree.JCExpression newTypeExpression = anonBody.extending != null
                         ? anonBody.extending : anonBody.implementing.getFirst();
-                List<AnnotationExpression> annots = new ArrayList<>();
-                concreteReturnType = convertTypeWithAnnotations(newTypeExpression, dsb, annots::add);
+                concreteReturnType = convertType.convert(newTypeExpression.type);
                 constructor = null;
                 TypeInfo enclosingType = typeStack.getLast();
                 anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());
                 TypeInfo.Builder builder = anonymousType.builder()
                         .setTypeNature(runtime.typeNatureClass())
                         .setAccess(runtime.accessPrivate())
-                        .setEnclosingMethod(currentMethod)
-                        .addAnnotations(annots);
+                        .setEnclosingMethod(currentMethod);
                 if (concreteReturnType.typeInfo().isInterface()) {
                     builder.setParentClass(runtime.objectParameterizedType())
                             .addInterfaceImplemented(concreteReturnType);

@@ -56,7 +56,7 @@ public class TestExtendedConstructor extends CommonTest {
     public void test1() {
         TypeInfo typeInfo = scan("a.b.C", INPUT1);
         MethodInfo test = typeInfo.findUniqueMethod("test", 0);
-        if (test.methodBody().statements().getFirst() instanceof ReturnStatement rs
+        if (test.methodBody().statements().get(1) instanceof ReturnStatement rs
             && rs.expression() instanceof ConstructorCall cc) {
             assertNotNull(cc.anonymousClass());
             assertEquals("Type java.util.HashMap<String,String>", cc.anonymousClass().parentClass().toString());
@@ -66,7 +66,7 @@ public class TestExtendedConstructor extends CommonTest {
         } else fail();
 
         MethodInfo test2 = typeInfo.findUniqueMethod("test2", 0);
-        if (test2.methodBody().statements().getFirst() instanceof ReturnStatement rs
+        if (test2.methodBody().statements().get(1) instanceof ReturnStatement rs
             && rs.expression() instanceof ConstructorCall cc) {
             assertNotNull(cc.anonymousClass());
             assertEquals("Type java.util.HashMap<String,String>", cc.anonymousClass().parentClass().toString());
