@@ -704,8 +704,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                         case JCTree.JCPatternCaseLabel pcl -> {
                             DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                             List<AnnotationExpression> annotations = new ArrayList<>();
-                            patternVariable = parseRecordPattern(pcl.getPattern(), dsb, annotations).rp;
+                            RecordPatternResult rpr = parseRecordPattern(pcl.getPattern(), dsb, annotations);
+                            patternVariable = rpr.rp;
                             expression = runtime.newEmptyExpression();
+                            rpr.newVariables.forEach(lv -> elementStack.put(lv.simpleName(), lv));
                         }
                         case null, default -> throw new UnsupportedOperationException("NYI");
                     }
@@ -746,6 +748,18 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .setBlock(block)
                 .setExpression(expression)
                 .addComments(commentsForNode(source))
+                .build());
+        return null;
+    }
+
+    @Override
+    public Void visitThrow(ThrowTree node, Void unused) {
+        scan(node.getExpression(), unused);
+        Expression expression = currentExpression;
+        addStatement(runtime.newThrowBuilder()
+                .setLabel(statementLabels.get(node))
+                .setExpression(expression)
+                .setSource(statementSourceForNode(node))
                 .build());
         return null;
     }
@@ -1135,7 +1149,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         return null;
     }
 
-    private record RecordPatternResult(ParameterizedType type, RecordPattern rp) {
+    private record RecordPatternResult(ParameterizedType type, RecordPattern rp, List<LocalVariable> newVariables) {
     }
 
     private RecordPatternResult parseRecordPattern(JCTree.JCPattern p,
@@ -1145,7 +1159,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             ParameterizedType type = convertTypeWithAnnotations(bp.var.getType(), dsb, annotations::add);
             String name = bp.var.name.toString();
             LocalVariable lv = runtime.newLocalVariable(name, type);
-            elementStack.put(name, lv);
             Source source = sourceForNode(bp, dsb);
             RecordPattern recordPattern = runtime.newRecordPatternBuilder()
                     .setSource(source)
@@ -1154,14 +1167,17 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             dsb.put(recordPattern, source);
             dsb.put(lv, source);
             dsb.put(lv.simpleName(), sourceOfIdentifier(lv.simpleName(), bp.var.pos));
-            return new RecordPatternResult(type, recordPattern);
+            return new RecordPatternResult(type, recordPattern, List.of(lv));
         }
         if (p instanceof JCTree.JCRecordPattern rp) {
             DetailedSources.Builder newDsb = runtime.newDetailedSourcesBuilder();
             ParameterizedType type = convertTypeWithAnnotations(rp.getDeconstructor(), newDsb, annotations::add);
             List<RecordPattern> patterns = new ArrayList<>();
+            List<LocalVariable> newVariables = new ArrayList<>();
             for (JCTree.JCPattern pattern : rp.getNestedPatterns()) {
-                patterns.add(parseRecordPattern(pattern, newDsb, annotations).rp);
+                RecordPatternResult recordPatternResult = parseRecordPattern(pattern, newDsb, annotations);
+                patterns.add(recordPatternResult.rp);
+                newVariables.addAll(recordPatternResult.newVariables);
             }
             Source source = sourceForNode(rp, newDsb);
             RecordPattern recordPattern = runtime.newRecordPatternBuilder()
@@ -1170,7 +1186,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     .setPatterns(patterns)
                     .build();
             dsb.put(recordPattern, sourceForNode(rp));
-            return new RecordPatternResult(type, recordPattern);
+            return new RecordPatternResult(type, recordPattern, newVariables);
         }
         if (p instanceof JCTree.JCAnyPattern anyPattern) {
             ParameterizedType type = convertType.convert(anyPattern.type);
@@ -1180,7 +1196,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     .setUnnamedPattern(true)
                     .build();
             dsb.put(recordPattern, sourceForNode(anyPattern));
-            return new RecordPatternResult(type, recordPattern);
+            return new RecordPatternResult(type, recordPattern, List.of());
         }
         throw new UnsupportedOperationException("NYI");
     }
@@ -1201,6 +1217,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             RecordPatternResult rpr = parseRecordPattern(p, dsb, annotations);
             type = rpr.type;
             recordPattern = rpr.rp;
+            rpr.newVariables.forEach(lv -> elementStack.put(lv.simpleName(), lv));
         } else {
             throw new UnsupportedOperationException();
         }
@@ -1754,7 +1771,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         int n = cases.size();
         for (JCTree.JCCase jcCase : cases) {
             List<Expression> conditions = new ArrayList<>();
-            RecordPattern patternVariable = null;
+            RecordPatternResult recordPatternResult = null;
             for (JCTree.JCCaseLabel caseLabel : jcCase.getLabels()) {
                 switch (caseLabel) {
                     case JCTree.JCConstantCaseLabel ccl -> {
@@ -1766,44 +1783,65 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     case JCTree.JCPatternCaseLabel pcl -> {
                         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                         List<AnnotationExpression> annotations = new ArrayList<>();
-                        assert patternVariable == null : "Not allowed, multiple real record patterns";
-                        patternVariable = parseRecordPattern(pcl.getPattern(), dsb, annotations).rp;
+                        assert recordPatternResult == null : "Not allowed, multiple real record patterns";
+                        recordPatternResult = parseRecordPattern(pcl.getPattern(), dsb, annotations);
                     }
                     case null, default -> throw new UnsupportedOperationException("NYI");
                 }
             }
+            LocalVariable[] newVariablesArray = recordPatternResult == null
+                    ? new LocalVariable[0] : recordPatternResult.newVariables.toArray(LocalVariable[]::new);
+            boolean haveExtraVariables = newVariablesArray.length > 0;
+
+            Expression whenExpression;
+            if (jcCase.getGuard() != null) {
+                if (haveExtraVariables) {
+                    Map<String, Element> map = elementStack.push();
+                    recordPatternResult.newVariables.forEach(lv -> map.put(lv.simpleName(), lv));
+                }
+                scan(jcCase.getGuard(), unused);
+                whenExpression = currentExpression;
+                if (haveExtraVariables) {
+                    elementStack.pop();
+                }
+            } else {
+                whenExpression = runtime.newEmptyExpression();
+            }
+
             Statement statement;
             String index = StringUtil.pad(i, n);
             if (jcCase.getBody() instanceof JCTree.JCBlock block) {
-                statement = parseBlock(index, block);
+                statement = parseBlock(index, block, newVariablesArray);
             } else if (jcCase.getBody() instanceof JCTree.JCExpression e) {
+                if (haveExtraVariables) {
+                    Map<String, Element> map = elementStack.push();
+                    recordPatternResult.newVariables.forEach(lv -> map.put(lv.simpleName(), lv));
+                }
                 scan(e, unused);
+                if (haveExtraVariables) {
+                    elementStack.pop();
+                }
                 Expression expression = currentExpression;
                 statement = runtime.newExpressionAsStatementBuilder()
                         .setSource(sourceForNode(e))
                         .setExpression(expression).build();
             } else {
-                Block block = parseBlock(index, jcCase.body);
-                if (jcCase.body instanceof JCTree.JCBlock) {
+                Block block = parseBlock(index, jcCase.body, newVariablesArray);
+                if (jcCase.body instanceof JCTree.JCBlock || block.isEmpty()) {
                     statement = block;
                 } else {
                     statement = block.statements().getFirst();
                 }
             }
-            Expression whenExpression;
-            if (jcCase.getGuard() != null) {
-                scan(jcCase.getGuard(), unused);
-                whenExpression = currentExpression;
-            } else {
-                whenExpression = runtime.newEmptyExpression();
-            }
+
             Source source = sourceForNode(jcCase);
             SwitchEntry switchEntry = runtime.newSwitchEntryBuilder()
+                    .setSource(sourceForNode(jcCase))
                     .addComments(commentsForNode(source))
                     .addConditions(conditions)
                     .setStatement(statement)
                     .setWhenExpression(whenExpression)
-                    .setPatternVariable(patternVariable)
+                    .setPatternVariable(recordPatternResult == null ? null : recordPatternResult.rp)
                     .build();
             switchEntries.add(switchEntry);
             ++i;
