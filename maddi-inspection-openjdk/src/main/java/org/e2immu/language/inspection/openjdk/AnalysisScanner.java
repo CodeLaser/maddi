@@ -117,19 +117,29 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     private void visitDirective(DirectiveTree dt, ModuleInfo.Builder builder) {
-        Source source = sourceForNode(dt);
+        Source source = scanSource(dt);
         List<Comment> comments = commentsForNode(source);
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         switch (dt) {
-            case JCTree.JCRequires rd -> builder.addRequires(source, comments,
-                    rd.moduleName.toString(), rd.isStatic(), rd.isTransitive());
+            case JCTree.JCRequires rd -> {
+                String moduleName = rd.moduleName.toString();
+                dsb.put(moduleName, scanResult.find(moduleName, scanSource(rd.getModuleName())));
+                builder.addRequires(source.withDetailedSources(dsb.build()), comments,
+                        moduleName, rd.isStatic(), rd.isTransitive());
+            }
 
             case JCTree.JCExports ed -> {
                 builder.addExports(source, comments, ed.getPackageName().toString(),
                         ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString());
             }
             case JCTree.JCOpens od -> {
-                builder.addOpens(source, comments, od.getPackageName().toString(),
-                        od.moduleNames == null ? null : od.moduleNames.getFirst().toString());
+                String packageName = od.getPackageName().toString();
+                dsb.put(packageName, scanResult.find(packageName, scanSource(od.getPackageName())));
+                String moduleName = od.moduleNames == null ? null : od.moduleNames.getFirst().toString();
+                if (moduleName != null) {
+                    dsb.put(moduleName, scanResult.find(moduleName, scanSource(od.getModuleNames().getFirst())));
+                }
+                builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, moduleName);
             }
             case JCTree.JCProvides p -> {
                 builder.addProvides(source, comments, p.getServiceName().toString(),

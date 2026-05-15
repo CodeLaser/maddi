@@ -67,7 +67,7 @@ public record SourceCodeScan(Runtime runtime) {
 
     }
 
-    public Result go(CharSequence input) {
+    public Result go(CharSequence input, boolean isModule) {
         NavigableMap<Source, List<Comment>> comments = new TreeMap<>();
         NavigableMap<Source, List<Comment>> trailingComments = new TreeMap<>();
         NavigableMap<Source, String> keywords = new TreeMap<>();
@@ -76,19 +76,42 @@ public record SourceCodeScan(Runtime runtime) {
 
         JavaParser p = new JavaParser(input);
         p.setParserTolerant(false);
+        if (isModule) {
+            p.ModularCompilationUnit();
+            Node root = p.rootNode();
+            if (root instanceof ModularCompilationUnit mcu) {
+                for (Node child : mcu.children()) {
+                    switch (child) {
+                        case RequiresDirective _, ExportsDirective _, OpensDirective _, UsesDirective _,
+                             ProvidesDirective _ -> scanModuleDirective(child, result);
+                        default -> {
+                        }
+                    }
+                }
+            } else throw new UnsupportedOperationException("? expected module");
+        } else {
+            handleCompilationUnit(p, result);
+        }
+        return new Result(Collections.unmodifiableNavigableMap(comments),
+                Collections.unmodifiableNavigableMap(trailingComments),
+                Collections.unmodifiableNavigableMap(keywords),
+                Collections.unmodifiableNavigableMap(argumentLists));
+    }
 
+    private void handleCompilationUnit(JavaParser p, Result result) {
         CompilationUnit cu = p.CompilationUnit();
         PackageDeclaration packageDeclaration = cu.getPackageDeclaration();
         if (packageDeclaration != null) {
             List<Comment> pkgDeclarationComments = comments(packageDeclaration);
-            if (!pkgDeclarationComments.isEmpty()) comments.put(source(packageDeclaration), pkgDeclarationComments);
+            if (!pkgDeclarationComments.isEmpty())
+                result.comments.put(source(packageDeclaration), pkgDeclarationComments);
             Node pkgDeclaration0 = packageDeclaration.getFirst();
-            keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
+            result.keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
         }
         for (ImportDeclaration id : cu.childrenOfType(ImportDeclaration.class)) {
             List<Comment> importComments = comments(id);
-            if (!importComments.isEmpty()) comments.put(source(id), importComments);
-            keywords.put(source(id.getFirst()), id.getFirst().toString());
+            if (!importComments.isEmpty()) result.comments.put(source(id), importComments);
+            result.keywords.put(source(id.getFirst()), id.getFirst().toString());
         }
         Source classSource = null;
 
@@ -97,20 +120,35 @@ public record SourceCodeScan(Runtime runtime) {
                 scanTypeDeclaration(td, result);
                 classSource = source(td);
             }
+            if (node instanceof ModuleDirective md) {
+                scanModuleDirective(md, result);
+            }
         }
 
         Node lastChild = cu.getLastChild();
         if (lastChild != null && lastChild.getType().isEOF() && classSource != null) {
             List<Comment> trailingClassComments = comments(lastChild);
             if (!trailingClassComments.isEmpty()) {
-                trailingComments.put(classSource, trailingClassComments);
+                result.trailingComments.put(classSource, trailingClassComments);
             }
         }
+    }
 
-        return new Result(Collections.unmodifiableNavigableMap(comments),
-                Collections.unmodifiableNavigableMap(trailingComments),
-                Collections.unmodifiableNavigableMap(keywords),
-                Collections.unmodifiableNavigableMap(argumentLists));
+    private void scanModuleDirective(Node md, Result result) {
+        for (Node node : md) {
+            switch (node) {
+                case KeyWord _, Name _ -> result.keywords.put(source(node), node.getSource());
+                case Token t -> {
+                    switch (t.getType()) {
+                        case REQUIRES, PROVIDES, USES, EXPORTS, OPENS ->
+                                result.keywords.put(source(node), node.getSource());
+                        default -> {}
+                    }
+                }
+                default -> {
+                }
+            }
+        }
     }
 
     private void scanTypeDeclaration(TypeDeclaration td, Result result) {
