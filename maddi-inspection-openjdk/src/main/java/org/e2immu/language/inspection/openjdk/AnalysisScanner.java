@@ -492,6 +492,27 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         return null;
     }
 
+    // only for static initializer blocks
+    @Override
+    public Void visitBlock(BlockTree node, Void unused) {
+        if (node instanceof JCTree.JCBlock jcBlock && (jcBlock.flags & Flags.STATIC) != 0) {
+            TypeInfo typeInfo = typeStack.getLast();
+            int index = (int) typeInfo.methods().stream().filter(MethodInfo::isStaticInitializer).count();
+            MethodInfo methodInfo = runtime.newMethod(typeInfo, "<static_" + index + ">",
+                    runtime.methodTypeStaticInitializer());
+            methodInfo.builder().setReturnType(runtime.voidParameterizedType())
+                    .setAccess(runtime.accessPrivate())
+                    .addMethodModifier(runtime.methodModifierPrivate())
+                    .addMethodModifier(runtime.methodModifierStatic())
+                    .commitParameters();
+            Block block = parseBlock("-", jcBlock);
+            methodInfo.builder().setMethodBody(block);
+            typeInfo.builder().addMethod(methodInfo);
+            return null;
+        }
+        return super.visitBlock(node, unused);
+    }
+
     @Override
     public Void visitBreak(BreakTree node, Void unused) {
         String gotoLabel = node.getLabel() == null ? null : node.getLabel().toString();
@@ -1106,6 +1127,56 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         return null;
     }
 
+    private record RecordPatternResult(ParameterizedType type, RecordPattern rp) {
+    }
+
+    private RecordPatternResult parseRecordPattern(JCTree.JCPattern p,
+                                                   DetailedSources.Builder dsb,
+                                                   List<AnnotationExpression> annotations) {
+        if (p instanceof JCTree.JCBindingPattern bp) {
+            ParameterizedType type = convertTypeWithAnnotations(bp.var.getType(), dsb, annotations::add);
+            String name = bp.var.name.toString();
+            LocalVariable lv = runtime.newLocalVariable(name, type);
+            elementStack.put(name, lv);
+            Source source = sourceForNode(bp, dsb);
+            RecordPattern recordPattern = runtime.newRecordPatternBuilder()
+                    .setSource(source)
+                    .setLocalVariable(lv)
+                    .build();
+            dsb.put(recordPattern, source);
+            dsb.put(lv, source);
+            dsb.put(lv.simpleName(), sourceOfIdentifier(lv.simpleName(), bp.var.pos));
+            return new RecordPatternResult(type, recordPattern);
+        }
+        if (p instanceof JCTree.JCRecordPattern rp) {
+            DetailedSources.Builder newDsb = runtime.newDetailedSourcesBuilder();
+            ParameterizedType type = convertTypeWithAnnotations(rp.getDeconstructor(), newDsb, annotations::add);
+            List<RecordPattern> patterns = new ArrayList<>();
+            for (JCTree.JCPattern pattern : rp.getNestedPatterns()) {
+                patterns.add(parseRecordPattern(pattern, newDsb, annotations).rp);
+            }
+            Source source = sourceForNode(rp, newDsb);
+            RecordPattern recordPattern = runtime.newRecordPatternBuilder()
+                    .setSource(source)
+                    .setRecordType(type)
+                    .setPatterns(patterns)
+                    .build();
+            dsb.put(recordPattern, sourceForNode(rp));
+            return new RecordPatternResult(type, recordPattern);
+        }
+        if(p instanceof JCTree.JCAnyPattern anyPattern) {
+            ParameterizedType type = convertType.convert(anyPattern.type);
+            Source source = sourceForNode(anyPattern, dsb);
+            RecordPattern recordPattern = runtime.newRecordPatternBuilder()
+                    .setSource(source)
+                    .setUnnamedPattern(true)
+                    .build();
+            dsb.put(recordPattern, sourceForNode(anyPattern));
+            return new RecordPatternResult(type, recordPattern);
+        }
+        throw new UnsupportedOperationException("NYI");
+    }
+
     @Override
     public Void visitInstanceOf(InstanceOfTree node, Void unused) {
         JCTree.JCInstanceOf jcInstanceOf = (JCTree.JCInstanceOf) node;
@@ -1118,15 +1189,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         if (jcInstanceOf.pattern instanceof JCTree.JCIdent) {
             type = convertTypeWithAnnotations(jcInstanceOf.pattern, dsb, annotations::add);
             recordPattern = null;
-        } else if (jcInstanceOf.pattern instanceof JCTree.JCBindingPattern bp) {
-            type = convertTypeWithAnnotations(bp.var.getType(), dsb, annotations::add);
-            String name = bp.var.name.toString();
-            LocalVariable lv = runtime.newLocalVariable(name, type);
-            elementStack.put(name, lv);
-            recordPattern = runtime.newRecordPatternBuilder()
-                    .setLocalVariable(lv)
-                    .build();
-        } else throw new UnsupportedOperationException();
+        } else if (jcInstanceOf.pattern instanceof JCTree.JCPattern p) {
+            RecordPatternResult rpr = parseRecordPattern(p, dsb, annotations);
+            type = rpr.type;
+            recordPattern = rpr.rp;
+        } else {
+            throw new UnsupportedOperationException();
+        }
         currentExpression = runtime.newInstanceOfBuilder()
                 .addAnnotations(annotations)
                 .setSource(sourceForNode(node, dsb))
