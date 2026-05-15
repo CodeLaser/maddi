@@ -94,6 +94,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     // -- Class declarations ----------------------------------------------
 
+
+    @Override
+    public Void visitCompilationUnit(CompilationUnitTree node, Void unused) {
+        for (Tree ct : node.getTypeDecls()) {
+            scan(ct, null);
+        }
+        compilationUnit.setTypes(collectedPrimaryTypes);
+        return null;
+    }
+
     @Override
     public Void visitClass(ClassTree node, Void p) {
         JCTree.JCClassDecl jcClassDecl = (JCTree.JCClassDecl) node;
@@ -127,6 +137,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
         // flags: modifiers, type nature
         flagHelper.type(jcClassDecl.sym, typeInfo.builder());
+        typeInfo.builder().computeAccess();
 
         // type parameters
         int index = 0;
@@ -231,7 +242,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 currentType.builder().addConstructor(methodInfo);
                 methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
             } else {
-                MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags, typeStack.getLast().isInterface());
+                MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags,
+                        currentType.isInterface() || currentType.isAnnotation());
                 methodInfo = runtime.newMethod(currentType, methodName, methodType);
                 currentType.builder().addMethod(methodInfo);
             }
@@ -301,11 +313,16 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             methodInfo.builder().addAnnotation(ae);
         }
 
+        Block methodBody;
         // method body
-        currentMethod = methodInfo;
-        Block methodBody = parseBlock("-", node.getBody());
-        elementStack.pop();
-        currentMethod = null;
+        if (methodInfo.isAbstract() && currentType.typeNature().isAnnotation()) {
+            methodBody = runtime.emptyBlock(); // TODO: an idea is to add a "return defaultValue;" statement
+        } else {
+            currentMethod = methodInfo;
+            methodBody = parseBlock("-", node.getBody());
+            elementStack.pop();
+            currentMethod = null;
+        }
 
         //overrides
         List<Symbol.MethodSymbol> overridden = computeMethodOverrides.findOverriddenMethods(jcMethod.sym);
