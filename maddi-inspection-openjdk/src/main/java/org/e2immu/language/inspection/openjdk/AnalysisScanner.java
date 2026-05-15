@@ -487,7 +487,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         return null;
     }
 
-    // only for static initializer blocks
+    // only for (static and instance) initializer blocks
     @Override
     public Void visitBlock(BlockTree node, Void unused) {
         if (node instanceof JCTree.JCBlock jcBlock && (jcBlock.flags & Flags.STATIC) != 0) {
@@ -496,6 +496,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             MethodInfo methodInfo = runtime.newMethod(typeInfo, "<static_" + index + ">",
                     runtime.methodTypeStaticInitializer());
             methodInfo.builder().setReturnType(runtime.voidParameterizedType())
+                    .setSource(sourceForNode(node))
                     .setAccess(runtime.accessPrivate())
                     .addMethodModifier(runtime.methodModifierPrivate())
                     .addMethodModifier(runtime.methodModifierStatic())
@@ -504,6 +505,23 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             methodInfo.builder().setMethodBody(block);
             typeInfo.builder().addMethod(methodInfo);
             return null;
+        } else {
+            Tree parent = getCurrentPath().getParentPath().getLeaf();
+            if (parent instanceof ClassTree) {
+                TypeInfo typeInfo = typeStack.getLast();
+                int index = (int) typeInfo.methods().stream().filter(MethodInfo::isInstanceInitializer).count();
+                MethodInfo methodInfo = runtime.newMethod(typeInfo,
+                        "<init_" + index + ">", runtime.methodTypeInstanceInitializer());
+                methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                        .setSource(sourceForNode(node))
+                        .setAccess(runtime.accessPrivate())
+                        .addMethodModifier(runtime.methodModifierPrivate())
+                        .commitParameters();
+                Block block = parseBlock("-", node);
+                methodInfo.builder().setMethodBody(block);
+                typeInfo.builder().addMethod(methodInfo);
+                return null;
+            }
         }
         return super.visitBlock(node, unused);
     }
