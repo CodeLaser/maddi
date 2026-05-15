@@ -9,6 +9,7 @@ import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.code.Types;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.parser.java.ScanCompilationUnit;
@@ -38,7 +39,7 @@ public class ScanCompilationUnits {
         this.diagnostics = diagnostics;
     }
 
-    public List<TypeInfo> scan(JavacTask task, SourceSet sourceSet) throws IOException {
+    public List<Info> scan(JavacTask task, SourceSet sourceSet) throws IOException {
         Trees trees = Trees.instance(task);
 
         Iterable<? extends CompilationUnitTree> units = task.parse();
@@ -56,7 +57,7 @@ public class ScanCompilationUnits {
             if (haveErrors) throw new CompilationProblems();
         }
 
-        List<TypeInfo> primaryTypes = new ArrayList<>();
+        List<Info> primaryTypesAndModules = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
             System.out.println("=== " + unit.getSourceFile().getName() + " ===\n");
 
@@ -76,9 +77,9 @@ public class ScanCompilationUnits {
             AnalysisScanner analysisScanner = new AnalysisScanner(runtime, sourceSet, compilationUnit, unit, trees,
                     sourcePositions, lineMap, task.getElements(), types, scanResult);
             analysisScanner.scan(unit, null);
-            primaryTypes.addAll(analysisScanner.types());
+            primaryTypesAndModules.addAll(analysisScanner.types());
         }
-        return List.copyOf(primaryTypes);
+        return List.copyOf(primaryTypesAndModules);
     }
 
     public TypeData typeData() {

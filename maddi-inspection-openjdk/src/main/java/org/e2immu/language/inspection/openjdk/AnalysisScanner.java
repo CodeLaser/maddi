@@ -31,6 +31,7 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
     private record BlockData(Block.Builder blockBuilder, String index, int numberOfStatements) {
@@ -41,6 +42,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     private final Runtime runtime;
     private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
+    private final List<ModuleInfo> collectedModules = new ArrayList<>();
     private final Trees trees;
     private MethodInfo currentMethod;
     private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
@@ -88,12 +90,57 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     // result
-    public Collection<TypeInfo> types() {
-        return collectedPrimaryTypes;
+    public Collection<Info> types() {
+        return Stream.concat(collectedModules.stream(), collectedPrimaryTypes.stream()).toList();
     }
 
     // -- Class declarations ----------------------------------------------
 
+
+    @Override
+    public Void visitModule(ModuleTree node, Void unused) {
+        boolean open = node.getModuleType() == ModuleTree.ModuleKind.OPEN;
+        ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        String name = node.getName().toString();
+        for (DirectiveTree d : node.getDirectives()) {
+            visitDirective(d, builder);
+        }
+        ModuleInfo moduleInfo = builder
+                .setOpen(open)
+                .setCompilationUnit(compilationUnit)
+                .setName(name)
+                .setSource(sourceForNode(node, dsb))
+                .build();
+        collectedModules.add(moduleInfo);
+        return null;
+    }
+
+    private void visitDirective(DirectiveTree dt, ModuleInfo.Builder builder) {
+        Source source = sourceForNode(dt);
+        List<Comment> comments = commentsForNode(source);
+        switch (dt) {
+            case JCTree.JCRequires rd -> builder.addRequires(source, comments,
+                    rd.moduleName.toString(), rd.isStatic(), rd.isTransitive());
+
+            case JCTree.JCExports ed -> {
+                builder.addExports(source, comments, ed.getPackageName().toString(),
+                        ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString());
+            }
+            case JCTree.JCOpens od -> {
+                builder.addOpens(source, comments, od.getPackageName().toString(),
+                        od.moduleNames == null ? null : od.moduleNames.getFirst().toString());
+            }
+            case JCTree.JCProvides p -> {
+                builder.addProvides(source, comments, p.getServiceName().toString(),
+                        p.implNames == null ? null : p.implNames.getFirst().toString());
+            }
+            case JCTree.JCUses u -> {
+                builder.addUses(source, comments, u.getServiceName().toString());
+            }
+            case null, default -> throw new UnsupportedOperationException();
+        }
+    }
 
     @Override
     public Void visitCompilationUnit(CompilationUnitTree node, Void unused) {
@@ -115,6 +162,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             for (Tree ct : node.getTypeDecls()) {
                 scan(ct, null);
             }
+        }
+        if (node.getModule() != null) {
+            scan(node.getModule(), null);
         }
         compilationUnit.setTypes(collectedPrimaryTypes);
         return null;

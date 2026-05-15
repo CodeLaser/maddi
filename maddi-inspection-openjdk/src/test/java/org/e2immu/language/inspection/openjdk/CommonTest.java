@@ -38,7 +38,8 @@ public class CommonTest {
     }
 
     public TypeInfo scan(String fqn, String content) {
-        return scan(false, Map.of(fqn, content), List.of()).getFirst();
+        return scan(false, Map.of(fqn, content), List.of())
+                .stream().map(i -> (TypeInfo) i).findFirst().orElseThrow();
     }
 
     public Map<String, TypeInfo> scan(boolean ignoreErrorss, String... fqnContentPairs) {
@@ -46,11 +47,13 @@ public class CommonTest {
         for (int i = 0; i < fqnContentPairs.length; i += 2) {
             map.put(fqnContentPairs[i], fqnContentPairs[i + 1]);
         }
-        List<TypeInfo> typeInfoList = scan(ignoreErrorss, map, List.of());
-        return typeInfoList.stream().collect(Collectors.toUnmodifiableMap(Info::fullyQualifiedName, ti -> ti));
+        List<Info> typeInfoList = scan(ignoreErrorss, map, List.of());
+        return typeInfoList.stream()
+                .map(i -> (TypeInfo) i)
+                .collect(Collectors.toUnmodifiableMap(Info::fullyQualifiedName, ti -> ti));
     }
 
-    public List<TypeInfo> scan(boolean ignoreErrors, Map<String, String> sourcesByClassName, List<File> jars) {
+    public List<Info> scan(boolean ignoreErrors, Map<String, String> sourcesByClassName, List<File> jars) {
         sourceSet = new SourceSetImpl(
                 "source", List.of(),
                 URI.create("file:/"),
