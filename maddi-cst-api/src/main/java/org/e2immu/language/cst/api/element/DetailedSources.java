@@ -76,6 +76,14 @@ public interface DetailedSources {
 
         Builder put(Object object, Source source);
 
+        default void putIfNotNull(Object object, Source source) {
+            if (source != null) put(object, source);
+        }
+
+        default void putListIfNotNull(Object object, List<Source> list) {
+            if (list != null) putList(object, list);
+        }
+
         Builder putList(Object object, List<Source> sourceList);
 
         DetailedSources build();

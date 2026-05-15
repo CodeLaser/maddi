@@ -1567,6 +1567,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     @Override
     public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
         JCTree.JCMethodInvocation methodInvocation = (JCTree.JCMethodInvocation) node;
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
 
         ExpressionTree methodSelect = node.getMethodSelect();
         Expression object;
@@ -1615,11 +1616,23 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             scan(arg, p);
             arguments.add(currentExpression);
         }
+        Source src1 = scanSource(node);
+        Source src = explicitConstructorInvocation ? src1.withEndPos(src1.endPos() + 1) : src1;
+        dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(src));
+        dsb.putListIfNotNull(DetailedSources.ARGUMENT_COMMAS, scanResult.findArgumentCommas(src));
 
         if (explicitConstructorInvocation) {
             boolean isSuper = "super".equals(methodName);
             boolean isSyntheticSuperCall = isSuper && isSyntheticSuperCall(methodInvocation, compilationUnitTree);
-            Source source = isSyntheticSuperCall ? null : statementSourceForNode(node);
+            Source source;
+            if (isSyntheticSuperCall) source = null;
+            else {
+                // important: for maddi, ECI is a statement, which requires the ;
+                // for OpenJDK, ECI is a method call, which does not have the ;
+                // FIXME there is no guarantee the ; is at +1
+                Source base = statementSourceForNode(node);
+                source = base.withEndPos(base.endPos() + 1).withDetailedSources(dsb.build());
+            }
             Statement statement = runtime.newExplicitConstructorInvocationBuilder()
                     .setSynthetic(true)
                     .setSource(source)
@@ -1631,7 +1644,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             currentExpression = null; // as a marker for ExpressionAsStatement
         } else {
             currentExpression = runtime.newMethodCallBuilder()
-                    .setSource(sourceForNode(node))
+                    .setSource(sourceForNode(node, dsb))
                     .setObjectIsImplicit(objectIsImplicit)
                     .setObject(object == null ? runtime.newEmptyExpression() : object)
                     .setMethodInfo(methodInfo)
@@ -1960,6 +1973,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     private Source statementSourceForNode(Tree node, DetailedSources.Builder dsb) {
         return sourceForNode(node, statementIndex()).withDetailedSources(dsb.build());
+    }
+
+
+    private Source scanSource(Tree tree) {
+        return sourceForNode(tree, "");
     }
 
     private Source sourceForNode(Tree node, String index) {
