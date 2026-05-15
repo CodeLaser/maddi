@@ -1,6 +1,7 @@
 package org.e2immu.language.inspection.openjdk;
 
 import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.code.Symbol;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -44,7 +45,8 @@ public record FlagHelper(Runtime runtime) {
         return runtime.methodTypeMethod();
     }
 
-    public void type(long flags, TypeInfo.Builder builder, String simpleName) {
+    public void type(Symbol.ClassSymbol cs, TypeInfo.Builder builder) {
+        long flags = cs.flags();
         if ((flags & Flags.PUBLIC) != 0) builder.addTypeModifier(runtime.typeModifierPublic());
         if ((flags & Flags.PROTECTED) != 0) builder.addTypeModifier(runtime.typeModifierProtected());
         if ((flags & Flags.PROTECTED) != 0) builder.addTypeModifier(runtime.typeModifierPrivate());
@@ -56,11 +58,7 @@ public record FlagHelper(Runtime runtime) {
 
         TypeNature typeNature;
         if ((flags & Flags.INTERFACE) != 0) {
-            if (simpleName.startsWith("@")) {
-                typeNature = runtime.typeNatureAnnotation();
-            } else {
-                typeNature = runtime.typeNatureInterface();
-            }
+            typeNature = cs.isAnnotationType() ? runtime.typeNatureAnnotation() : runtime.typeNatureInterface();
         } else if ((flags & Flags.RECORD) != 0) {
             typeNature = runtime.typeNatureRecord();
         } else if ((flags & Flags.ENUM) != 0) {

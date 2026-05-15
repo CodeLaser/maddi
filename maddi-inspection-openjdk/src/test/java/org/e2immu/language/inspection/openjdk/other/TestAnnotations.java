@@ -27,7 +27,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -148,28 +147,24 @@ public class TestAnnotations extends CommonTest {
             }
             """;
 
-    private static TypeInfo find(String simpleName, List<TypeInfo> types) {
-        return types.stream().filter(t -> simpleName.equals(t.simpleName())).findFirst().orElseThrow();
-    }
-
     @Test
     public void test2() {
-        List<TypeInfo> types = scan(Map.of("a.Resource", RESOURCE, "a.Resources", RESOURCES, "a.b.C", INPUT2),
-                List.of());
+        Map<String, TypeInfo> types = scan(false, "a.b.C", INPUT2, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE);
+        TypeInfo Resource = types.get("a.Resource");
+        TypeInfo Resources = types.get("a.Resources");
+        TypeInfo C = types.get("a.b.C");
 
-        TypeInfo Resource = find("Resource", types);
         assertEquals(2, Resource.annotations().size());
         assertEquals("@Target({ElementType.TYPE,ElementType.FIELD,ElementType.METHOD})",
                 Resource.annotations().getFirst().toString());
         assertEquals("@Retention(RetentionPolicy.RUNTIME)", Resource.annotations().getLast().toString());
 
-        TypeInfo Resources = find("Resources", types);
         assertEquals(3, Resources.annotations().size());
         assertEquals("@Documented", Resources.annotations().getFirst().toString());
         assertEquals("@Target({ElementType.TYPE,ElementType.PACKAGE})",
                 Resources.annotations().getLast().toString());
 
-        TypeInfo C = find("C", types);
         assertEquals(1, C.annotations().size());
         AnnotationExpression ae = C.annotations().getFirst();
         assertEquals("a.Resources", ae.typeInfo().fullyQualifiedName());
@@ -200,9 +195,9 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test2b() {
-        List<TypeInfo> types = scan(Map.of("a.b.C", INPUT2b, "a.Resources", RESOURCES,
-                "a.Resource", RESOURCE), List.of());
-        TypeInfo C = find("C", types);
+        Map<String, TypeInfo> types = scan(false, "a.b.C", INPUT2b, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE);
+        TypeInfo C = types.get("a.b.C");
         assertEquals(1, C.annotations().size());
         AnnotationExpression ae = C.annotations().getFirst();
         assertEquals("a.Resources", ae.typeInfo().fullyQualifiedName());
@@ -237,9 +232,9 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test3() {
-        List<TypeInfo> types = scan(Map.of("a.b.C", INPUT3, "a.Resources", RESOURCES,
-                "a.Resource", RESOURCE), List.of());
-        TypeInfo C = find("C", types);
+        Map<String, TypeInfo> types = scan(false, "a.b.C", INPUT3, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE);
+        TypeInfo C = types.get("a.b.C");
         assertEquals("""
                 @Resources({\
                 @Resource(name=C.XX,lookup="yy",type=TreeMap.class),\
@@ -264,9 +259,9 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test4() {
-        List<TypeInfo> types = scan(Map.of("a.b.C", INPUT4, "a.Resources", RESOURCES,
-                "a.Resource", RESOURCE), List.of());
-        TypeInfo C = find("C", types);
+        Map<String, TypeInfo> types = scan(false, "a.b.C", INPUT4, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE);
+        TypeInfo C = types.get("a.b.C");
         assertEquals("@Resource(name=C.XX,lookup=C.ZZ,type=TreeMap.class)",
                 C.annotations().getFirst().toString());
     }
@@ -287,9 +282,9 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test5() {
-        List<TypeInfo> types = scan(Map.of("a.b.C", INPUT5, "a.Resources", RESOURCES,
-                "a.Resource", RESOURCE), List.of());
-        TypeInfo C = find("C", types);
+        Map<String, TypeInfo> types = scan(false, "a.b.C", INPUT5, "a.Resources", RESOURCES,
+                "a.Resource", RESOURCE);
+        TypeInfo C = types.get("a.b.C");
         AnnotationExpression ae = C.annotations().getFirst();
         assertEquals("@Resource(name=C.XX,lookup=C.ZZ,authenticationType=AuthenticationType.CONTAINER)",
                 ae.toString());
@@ -398,7 +393,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test8() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT8), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT8);
         MethodInfo mi = C.findUniqueMethod("getAnalysisDataDir", 1);
         TryStatement ts = (TryStatement) mi.methodBody().statements().get(1);
         TryStatement.CatchClause cc = ts.catchClauses().getFirst();
@@ -527,7 +522,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test11() {
-        TypeInfo C = scan("a.b.C", INPUT11);
+        TypeInfo C = scan(true, "a.b.C", INPUT11).get("a.b.C");
         {
             MethodInfo value = C.findUniqueMethod("value", 0);
             assertEquals("12-5:13-16", value.source().compact2());
@@ -558,7 +553,6 @@ public class TestAnnotations extends CommonTest {
     @Language("java")
     private static final String INPUT12 = """
             package a.b;
-            import org.springframework.core.annotation.AliasFor;
             import java.lang.annotation.ElementType;
             import java.lang.annotation.Retention;
             import java.lang.annotation.RetentionPolicy;
@@ -573,10 +567,10 @@ public class TestAnnotations extends CommonTest {
             
                 @Retention(RetentionPolicy.RUNTIME)
                 public @interface EnclosingAnnotation {
-                	@AliasFor("nested2")
+                	@SuppressWarnings("nested2")
                 	NestedAnnotation nested1() default @NestedAnnotation;
             
-                	@AliasFor("nested1")
+                	@SuppressWarnings("nested1")
                 	NestedAnnotation nested2() default @NestedAnnotation;
                 }
             
@@ -588,7 +582,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test12() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT12), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT12);
         TypeInfo enclosingAnnot = C.findSubType("EnclosingAnnotation");
         assertEquals("java.lang.annotation.Annotation",
                 enclosingAnnot.interfacesImplemented().getFirst().typeInfo().fullyQualifiedName());
@@ -606,7 +600,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test13() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT13), List.of()).getFirst();
+        TypeInfo C = scan(true, "a.b.C", INPUT13).get("a.b.C");
         MethodInfo assertArrayEquals = C.findUniqueMethod("assertArrayEquals", 2);
         ParameterInfo p0 = assertArrayEquals.parameters().getFirst();
         assertEquals("Type boolean[]", p0.parameterizedType().toString());
@@ -629,7 +623,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test14() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT14), List.of()).getFirst();
+        TypeInfo C = scan(true, "a.b.C", INPUT14).get("a.b.C");
         MethodInfo assertArrayEquals = C.findUniqueMethod("assertArrayEquals", 2);
         for (ParameterInfo p1 : assertArrayEquals.parameters()) {
             assertEquals(1, p1.annotations().size());
@@ -652,7 +646,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test15() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT15), List.of()).getFirst();
+        TypeInfo C = scan(true, "a.b.C", INPUT15).get("a.b.C");
         MethodInfo assertArrayEquals = C.findUniqueMethod("assertArrayEquals", 0);
         MethodInfo findBooleans = C.findUniqueMethod("findBooleans", 0);
         assertEquals("Type boolean[]", findBooleans.returnType().toString());
@@ -674,7 +668,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test16() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT16), List.of()).getFirst();
+        TypeInfo C = scan(true, "a.b.C", INPUT16).get("a.b.C");
         MethodInfo assertArrayEquals = C.findUniqueMethod("assertArrayEquals", 0);
         MethodInfo findStrings = C.findUniqueMethod("findStrings", 0);
         assertEquals("Type String[]", findStrings.returnType().toString());
@@ -698,9 +692,12 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test17() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT17), List.of()).getFirst();
+        TypeInfo C = scan(true, "a.b.C", INPUT17).get("a.b.C");
         MethodInfo method = C.findUniqueMethod("addAll", 2);
         ParameterInfo p0 = method.parameters().getFirst();
         assertEquals(3, p0.annotations().size());
+        assertEquals("@Independent(hcParameters={1})", p0.annotations().getLast().toString());
+        ParameterInfo p1 = method.parameters().getLast();
+        assertEquals(1, p1.annotations().size());
     }
 }

@@ -120,7 +120,7 @@ public class TestEnum extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan(Map.of("a.b.E", INPUT2), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.E", INPUT2);
         assertTrue(typeInfo.typeNature().isEnum());
 
         assertEquals("Type Enum<a.b.E>", typeInfo.parentClass().toString());
@@ -168,7 +168,7 @@ public class TestEnum extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = scan(Map.of("a.b.E", INPUT3), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.E", INPUT3);
         assertTrue(typeInfo.typeNature().isEnum());
         assertFalse(typeInfo.isExtensible());
 
@@ -199,7 +199,7 @@ public class TestEnum extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo typeInfo = scan(Map.of("a.b.X", INPUT4), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.X", INPUT4);
         TypeInfo effective = typeInfo.findSubType("Effective");
         assertTrue(effective.typeNature().isEnum());
         assertEquals(2, effective.fields().size());
