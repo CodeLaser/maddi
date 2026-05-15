@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.openjdk;
 
 import com.sun.source.util.JavacTask;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 
@@ -42,7 +43,7 @@ public class SingleDirExplorer {
         this.runtime = runtime;
     }
 
-    public List<TypeInfo> go(SourceSet sourceSet, String classPathDir) throws Exception {
+    public List<Info> go(SourceSet sourceSet, String classPathDir) throws Exception {
 
         Path root = Path.of(sourceSet.uri().toURL().toURI());
         if (!Files.isDirectory(root)) {

@@ -100,7 +100,7 @@ public record SourceCodeScan(Runtime runtime) {
         }
 
         Node lastChild = cu.getLastChild();
-        if (lastChild.getType().isEOF() && classSource != null) {
+        if (lastChild != null && lastChild.getType().isEOF() && classSource != null) {
             List<Comment> trailingClassComments = comments(lastChild);
             if (!trailingClassComments.isEmpty()) {
                 trailingComments.put(classSource, trailingClassComments);
