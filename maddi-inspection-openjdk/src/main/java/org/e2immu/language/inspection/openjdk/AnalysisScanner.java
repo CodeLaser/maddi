@@ -296,6 +296,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             }
         }
 
+        // method name
+        dsb.put(methodName, sourceOfIdentifier(methodName, jcMethod.pos));
         // annotations
         for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
             AnnotationExpression ae = convertAnnotation(annotation);
@@ -1776,6 +1778,13 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     }
 
     // -- HELPERS ------------------
+
+    private Source sourceOfIdentifier(String identifier, int pos) {
+        long line = lineMap.getLineNumber(pos);
+        long begin = lineMap.getColumnNumber(pos);
+        return runtime.newParserSource(null, (int) line, (int) begin, (int) line,
+                (int) (begin + identifier.length() - 1));
+    }
 
     private Source sourceForNode(Tree node, DetailedSources.Builder dsb) {
         return sourceForNode(node).withDetailedSources(dsb.build());
