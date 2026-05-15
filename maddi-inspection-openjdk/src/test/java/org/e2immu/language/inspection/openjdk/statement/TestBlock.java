@@ -25,9 +25,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -54,7 +51,7 @@ public class TestBlock extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
         if (main.methodBody().statements().getFirst() instanceof IfElseStatement ifElse) {
             assertEquals("0", ifElse.source().index());
@@ -99,7 +96,7 @@ public class TestBlock extends CommonTest {
     @DisplayName("who owns this comment?")
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT1);
         MethodInfo method = typeInfo.findUniqueMethod("method", 2);
         IfElseStatement ifElse = (IfElseStatement) method.methodBody().statements().getFirst();
         assertEquals(1, ifElse.block().comments().size());

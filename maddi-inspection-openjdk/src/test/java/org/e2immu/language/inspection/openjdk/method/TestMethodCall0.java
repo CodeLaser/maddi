@@ -15,7 +15,6 @@
 package org.e2immu.language.inspection.openjdk.method;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.FieldInfo;
@@ -27,9 +26,6 @@ import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -59,7 +55,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("org.e2immu.test.MethodCall_0", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("org.e2immu.test.MethodCall_0", INPUT1);
         FieldInfo fieldInfo = typeInfo.getFieldByName("list", true);
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         MethodInfo add = typeInfo.findUniqueMethod("add", 1);
@@ -105,8 +101,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan(Map.of("org.e2immu.analyser.resolver.testexample.MethodCall_2", INPUT2),
-                List.of()).getFirst();
+        TypeInfo typeInfo = scan("org.e2immu.analyser.resolver.testexample.MethodCall_2", INPUT2);
         TypeInfo subType = typeInfo.findSubType("Get");
         MethodInfo accept = typeInfo.findUniqueMethod("accept", 1);
         ParameterInfo list = accept.parameters().getFirst();
@@ -156,8 +151,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = scan(Map.of("org.e2immu.analyser.resolver.testexample.MethodCall_3", INPUT3),
-                List.of()).getFirst();
+        TypeInfo typeInfo = scan("org.e2immu.analyser.resolver.testexample.MethodCall_3", INPUT3);
 
         MethodInfo test = typeInfo.findUniqueMethod("test", 0);
         if (test.methodBody().statements().getFirst() instanceof ExpressionAsStatement eas
@@ -221,7 +215,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test4() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_2", INPUT4), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_2", INPUT4));
     }
 
     @Language("java")
@@ -248,7 +242,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test5() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_5", INPUT5), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_5", INPUT5));
     }
 
     @Language("java")
@@ -271,7 +265,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test6() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_6", INPUT6), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_6", INPUT6));
     }
 
     @Language("java")
@@ -317,7 +311,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test7() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_7", INPUT7), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_7", INPUT7));
     }
 
     @Language("java")
@@ -352,7 +346,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test8() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_8", INPUT8), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_8", INPUT8));
     }
 
     @Language("java")
@@ -382,7 +376,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test9() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_9", INPUT9), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_9", INPUT9));
     }
 
 
@@ -418,7 +412,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test10() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_10", INPUT10), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_10", INPUT10));
     }
 
 
@@ -462,7 +456,7 @@ public class TestMethodCall0 extends CommonTest {
 
     @Test
     public void test11() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_11", INPUT11), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_11", INPUT11));
     }
 
 }

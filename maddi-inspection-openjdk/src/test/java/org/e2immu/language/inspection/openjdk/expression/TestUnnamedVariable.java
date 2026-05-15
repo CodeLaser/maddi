@@ -22,9 +22,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestUnnamedVariable extends CommonTest {
@@ -46,7 +43,7 @@ public class TestUnnamedVariable extends CommonTest {
     @DisplayName("unnamed variable in for loop")
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("a.b.X", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.X", INPUT1);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 1);
         ForEachStatement fe = (ForEachStatement) methodInfo.methodBody().statements().getFirst();
         assertTrue(fe.initializer().localVariable().isUnnamed());

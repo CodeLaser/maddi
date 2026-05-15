@@ -26,9 +26,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestLambda extends CommonTest {
@@ -50,7 +47,7 @@ public class TestLambda extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("C", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("C", INPUT1);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         if (method1.methodBody().statements().get(1) instanceof LocalVariableCreation lvc
             && lvc.localVariable().assignmentExpression() instanceof MethodCall mc
@@ -88,7 +85,7 @@ public class TestLambda extends CommonTest {
 
     @Test
     public void test2() {
-        assertNotNull(scan(Map.of("C", INPUT2), List.of()).getFirst());
+        assertNotNull(scan("C", INPUT2));
     }
 
     @Language("java")
@@ -112,7 +109,7 @@ public class TestLambda extends CommonTest {
     @DisplayName("ParseLambdaExpression.recursiveComputeIsVoid")
     @Test
     public void test2b() {
-        assertNotNull(scan(Map.of("C", INPUT2b), List.of()).getFirst());
+        assertNotNull(scan("C", INPUT2b));
     }
 
 
@@ -132,7 +129,7 @@ public class TestLambda extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT3), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT3);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 0);
         MethodCall callM = (MethodCall) method1.methodBody().statements().getFirst().expression();
         Lambda lambda = (Lambda) callM.parameterExpressions().getFirst();
@@ -159,7 +156,7 @@ public class TestLambda extends CommonTest {
 
     @Test
     public void test3b() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT3b), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT3b);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 0);
         MethodCall callM = (MethodCall) method1.methodBody().statements().getFirst().expression();
         Lambda lambda = (Lambda) callM.parameterExpressions().getFirst();
@@ -190,7 +187,7 @@ public class TestLambda extends CommonTest {
 
     @Test
     public void test3c() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT3c), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT3c);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 0);
         MethodCall callM = (MethodCall) method1.methodBody().statements().getFirst().expression();
         Lambda lambda = (Lambda) callM.parameterExpressions().getFirst();
@@ -223,7 +220,7 @@ public class TestLambda extends CommonTest {
 
     @Test
     public void test3d() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT3d), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT3d);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 0);
         MethodCall callM = (MethodCall) method1.methodBody().statements().getFirst().expression();
         Lambda lambda = (Lambda) callM.parameterExpressions().getFirst();
@@ -253,7 +250,7 @@ public class TestLambda extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT4), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT4);
         assertNotNull(typeInfo);
     }
 
@@ -301,7 +298,7 @@ public class TestLambda extends CommonTest {
 
     @Test
     public void test5() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT5), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT5);
         assertNotNull(typeInfo);
     }
 
@@ -361,7 +358,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
          See TestApplyTranslation,1
         */
-       // TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT6), List.of()).getFirst();
+       // TypeInfo typeInfo = oneClass("a.b.C", INPUT6);
    // }
 
 }

@@ -25,9 +25,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAnonymousType extends CommonTest {
@@ -67,7 +64,7 @@ public class TestAnonymousType extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("a.b.AnonymousType_0", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.AnonymousType_0", INPUT1);
         MethodInfo method = typeInfo.findUniqueMethod("method", 2);
         if (method.methodBody().statements().getFirst() instanceof LocalVariableCreation lvc
             && lvc.localVariable().assignmentExpression() instanceof ConstructorCall cc) {
@@ -123,7 +120,7 @@ public class TestAnonymousType extends CommonTest {
 
     @Test
     public void test2() {
-        assertNotNull(scan(Map.of("a.b.AnonymousType_1", INPUT2), List.of()).getFirst());
+        assertNotNull(scan("a.b.AnonymousType_1", INPUT2));
     }
 
     @Language("java")
@@ -161,9 +158,9 @@ public class TestAnonymousType extends CommonTest {
     @DisplayName("New anonymous class with argument")
     @Test
     public void test3() {
-        assertNotNull(scan(Map.of("a.b.X", INPUT3), List.of()).getFirst());
+        assertNotNull(scan("a.b.X", INPUT3));
     }
-    
+
     @Language("java")
     private static final String INPUT4 = """
             package a.b;
@@ -202,7 +199,7 @@ public class TestAnonymousType extends CommonTest {
     @DisplayName("New anonymous class with argument, inside other constructor call")
     @Test
     public void test3b() {
-        TypeInfo X = scan(Map.of("a.b.X", INPUT4), List.of()).getFirst();
+        TypeInfo X = scan("a.b.X", INPUT4);
         MethodInfo mi = X.findUniqueMethod("readFully", 3);
         LocalVariableCreation lvcReader = (LocalVariableCreation) mi.methodBody().statements().get(1);
         ConstructorCall newInputStreamReader = (ConstructorCall) lvcReader.localVariable().assignmentExpression();

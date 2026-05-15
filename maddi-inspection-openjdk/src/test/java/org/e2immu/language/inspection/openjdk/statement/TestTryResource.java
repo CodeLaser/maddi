@@ -26,11 +26,7 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestTryResource extends CommonTest {
 
@@ -55,7 +51,7 @@ public class TestTryResource extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
         MethodInfo main = typeInfo.findUniqueMethod("method", 2);
         if (main.methodBody().statements().getFirst() instanceof TryStatement tryStatement) {
             assertEquals(2, tryStatement.resources().size());
@@ -100,7 +96,7 @@ public class TestTryResource extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT1);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("main", 1);
         TryStatement ts = (TryStatement) methodInfo.methodBody().statements().get(1);
         assertEquals(2, ts.resources().size());
@@ -134,7 +130,7 @@ public class TestTryResource extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT2), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("test", 0);
         TryStatement ts = (TryStatement) methodInfo.methodBody().statements().getFirst();
         assertEquals(1, ts.resources().size());

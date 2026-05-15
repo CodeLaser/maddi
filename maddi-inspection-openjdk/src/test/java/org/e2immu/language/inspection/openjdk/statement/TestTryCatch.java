@@ -28,9 +28,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestTryCatch extends CommonTest {
@@ -53,7 +50,7 @@ public class TestTryCatch extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
         if (main.methodBody().statements().getFirst() instanceof TryStatement tryStatement) {
             assertTrue(tryStatement.resources().isEmpty());
@@ -97,7 +94,7 @@ public class TestTryCatch extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT2), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
 
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 2);
         TryStatement ts = (TryStatement) methodInfo.methodBody().statements().getFirst();

@@ -82,7 +82,7 @@ public class TestEnum extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("a.b.X", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.X", INPUT1);
         assertTrue(typeInfo.hasImplicitParent());
         TypeInfo state = typeInfo.findSubType("State");
         assertTrue(state.hasImplicitParent());

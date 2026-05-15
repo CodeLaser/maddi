@@ -27,9 +27,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodReference extends CommonTest {
@@ -50,7 +47,7 @@ public class TestMethodReference extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT1);
         TypeInfo i = typeInfo.findSubType("I");
         assertSame(typeInfo, i.primaryType());
         MethodInfo map = i.findUniqueMethod("map", 1);
@@ -95,7 +92,7 @@ public class TestMethodReference extends CommonTest {
     @DisplayName("constructor method reference")
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT2), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
         LocalVariableCreation lvc0 = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
         MethodCall mc = (MethodCall) lvc0.localVariable().assignmentExpression();

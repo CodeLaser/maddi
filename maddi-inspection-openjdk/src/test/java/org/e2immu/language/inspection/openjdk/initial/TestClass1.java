@@ -16,8 +16,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -68,7 +66,7 @@ public class TestClass1 extends CommonTest {
 
     @Test
     public void test() throws IOException {
-        TypeInfo class1 = scan(Map.of("org.e2immu.example.Class1", INPUT), List.of()).getFirst();
+        TypeInfo class1 = scan("org.e2immu.example.Class1", INPUT);
         assertEquals("org.e2immu.example.Class1", class1.fullyQualifiedName());
         assertEquals(runtime.objectParameterizedType(), class1.parentClass());
 

@@ -12,9 +12,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestWhile extends CommonTest {
@@ -35,7 +32,7 @@ public class TestWhile extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
         assertEquals(1, typeInfo.comments().size());
         assertEquals(" some comment", typeInfo.comments().getFirst().comment());
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);

@@ -23,9 +23,6 @@ import org.e2immu.language.inspection.openjdk.CompilationProblems;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestForEach extends CommonTest {
@@ -45,7 +42,7 @@ public class TestForEach extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
         if (main.methodBody().statements().getFirst() instanceof ForEachStatement forEach) {
             assertTrue(forEach.initializer().hasSingleDeclaration());
@@ -73,6 +70,6 @@ public class TestForEach extends CommonTest {
 
     @Test
     public void test2() {
-        assertThrows(CompilationProblems.class, () -> scan(Map.of("a.b.C", INPUT_2), List.of()));
+        assertThrows(CompilationProblems.class, () -> scan("a.b.C", INPUT_2));
     }
 }

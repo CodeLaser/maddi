@@ -35,6 +35,10 @@ public class CommonTest {
         this.runtime = new RuntimeImpl();
     }
 
+    public TypeInfo scan(String fqn, String content) {
+        return scan(Map.of(fqn, content), List.of()).getFirst();
+    }
+
     public List<TypeInfo> scan(Map<String, String> sourcesByClassName, List<File> jars) {
         sourceSet = new SourceSetImpl(
                 "source", List.of(),
@@ -60,7 +64,7 @@ public class CommonTest {
         ElementStack elementStack = new ElementStack();
         ClassSymbolScanner css = new ClassSymbolScanner(runtime, sourceSet, new FlagHelper(runtime), elements, typeData,
                 elementStack);
-        Types types =  Types.instance(((BasicJavacTask) javacTask).getContext());
+        Types types = Types.instance(((BasicJavacTask) javacTask).getContext());
         css.setConvertType(new ConvertType(runtime, css, typeData, elementStack, null, types));
         return css.primaryType((Symbol.ClassSymbol) typeElement, true);
     }

@@ -21,9 +21,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestClassSymbolScanner extends CommonTest {
@@ -39,7 +36,7 @@ public class TestClassSymbolScanner extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo c = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo c = scan("a.b.C", INPUT);
         assertTrue(c.typeNature().isClass());
         FieldInfo entryField = c.getFieldByName("entry", true);
         ParameterizedType type = entryField.type();

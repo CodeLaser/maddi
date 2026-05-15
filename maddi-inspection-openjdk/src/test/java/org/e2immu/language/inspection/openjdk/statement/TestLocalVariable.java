@@ -33,7 +33,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -52,7 +51,7 @@ public class TestLocalVariable extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
         assertEquals("C", typeInfo.simpleName());
         MethodInfo methodInfo = typeInfo.methods().getFirst();
         assertEquals("length", methodInfo.name());
@@ -106,7 +105,7 @@ public class TestLocalVariable extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT2), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
         assertEquals("C", typeInfo.simpleName());
         MethodInfo methodInfo = typeInfo.methods().getFirst();
         assertEquals("length", methodInfo.name());

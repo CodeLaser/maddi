@@ -26,7 +26,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -42,7 +41,7 @@ public class TestArrayInitializer extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = scan(Map.of("a.b.X", INPUT1), List.of()).getFirst();
+        TypeInfo X = scan("a.b.X", INPUT1);
         FieldInfo names = X.getFieldByName("names", true);
         ArrayInitializer ai = (ArrayInitializer) names.initializer();
         MethodCall mc = (MethodCall) ai.expressions().getFirst();
