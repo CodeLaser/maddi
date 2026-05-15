@@ -1,0 +1,263 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.inspection.openjdk.other;
+
+
+import org.e2immu.language.cst.api.element.RecordPattern;
+import org.e2immu.language.cst.api.expression.InstanceOf;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.LocalVariable;
+import org.e2immu.language.inspection.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestRecordPattern extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            class X1 {
+                interface I { }
+                record RI(String s) implements I { }
+                void method(I i) {
+                    if(i instanceof RI(String t)) {
+                        System.out.println(t);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("record pattern 1, basics")
+    @Test
+    public void test1() {
+        TypeInfo X = scan("a.b.X1", INPUT1);
+        MethodInfo methodInfo = X.findUniqueMethod("method", 1);
+        InstanceOf instanceOf = (InstanceOf) methodInfo.methodBody().statements().getFirst().expression();
+        RecordPattern recordPattern = instanceOf.patternVariable();
+        assertNotNull(recordPattern);
+        assertEquals("6-25:6-36", instanceOf.source().detailedSources().detail(recordPattern).compact2());
+        RecordPattern p0 = recordPattern.patterns().getFirst();
+        assertEquals("6-28:6-35", recordPattern.source().detailedSources().detail(p0).compact2());
+        LocalVariable lv = p0.localVariable();
+        assertEquals("6-28:6-35", p0.source().detailedSources().detail(lv).compact2());
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            class X2 {
+                interface I<T> { }
+                record RI<T>(T t) implements I<T> { }
+                void method(I<String> i) {
+                    if(i instanceof RI<String>(String s)) {
+                        System.out.println(s);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("record pattern 2, type parameter")
+    @Test
+    public void test2() {
+        TypeInfo X = scan("a.b.X2", INPUT2);
+
+    }
+
+    @Language("java")
+    private static final String INPUT2b = """
+            package a.b;
+            class X2 {
+                interface I<T> { }
+                record RI<T>(T t) implements I<T> { }
+                void method(I<String> i) {
+                    if(i instanceof RI<String>(var s)) {
+                        System.out.println(s);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("record pattern 2, type parameter and var")
+    @Test
+    public void test2b() {
+        TypeInfo X = scan("a.b.X2", INPUT2b);
+        MethodInfo methodInfo = X.findUniqueMethod("method", 1);
+        InstanceOf instanceOf = (InstanceOf) methodInfo.methodBody().statements().getFirst().expression();
+        RecordPattern recordPattern = instanceOf.patternVariable();
+        RecordPattern s = recordPattern.patterns().getFirst();
+        assertEquals("s", s.localVariable().simpleName());
+        assertEquals("String", s.localVariable().parameterizedType().fullyQualifiedName());
+    }
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            class X3 {
+                interface I { }
+                record RI(int j) implements I { }
+                void method(I i) {
+                    if(i instanceof RI(int k)) {
+                        System.out.println(k);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("record pattern 3, primitive type")
+    @Test
+    public void test3() {
+        TypeInfo X = scan("a.b.X3", INPUT3);
+        TypeInfo ri = X.findSubType("RI");
+        assertTrue(ri.typeNature().isRecord());
+        FieldInfo j = ri.getFieldByName("j", true);
+        assertTrue(j.type().isInt());
+    }
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            class X4 {
+                record Point(int x, int y) {}
+                enum Color { RED, GREEN, BLUE }
+                record ColoredPoint(Point p, Color c) {}
+                record Rectangle(ColoredPoint upperLeft, ColoredPoint lowerRight) {}
+                static void printUpperLeftColoredPoint(Rectangle r) {
+                    if (r instanceof Rectangle(ColoredPoint ul, ColoredPoint lr)) {
+                         System.out.println(ul.c());
+                    }
+                }
+                static void printColorOfUpperLeftPoint2(Rectangle r) {
+                    if (r instanceof Rectangle(ColoredPoint(Point p, Color c),
+                                               ColoredPoint lr)) {
+                        System.out.println(c);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("record pattern 4, nested")
+    @Test
+    public void test4() {
+        TypeInfo X = scan("a.b.X4", INPUT4);
+        TypeInfo rectangle = X.findSubType("Rectangle");
+        assertTrue(rectangle.typeNature().isRecord());
+        FieldInfo upperLeft = rectangle.getFieldByName("upperLeft", true);
+        TypeInfo coloredPoint = upperLeft.type().typeInfo();
+        assertTrue(coloredPoint.typeNature().isRecord());
+        FieldInfo p = coloredPoint.getFieldByName("p", true);
+        TypeInfo point = p.type().typeInfo();
+        assertSame(point, X.findSubType("Point"));
+        assertTrue(point.typeNature().isRecord());
+    }
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            class X5 {
+                record Point(int x, int y) {}
+                enum Color { RED, GREEN, BLUE }
+                record ColoredPoint(Point p, Color c) {}
+                record Rectangle(ColoredPoint upperLeft, ColoredPoint lowerRight) {}
+                static void printXCoordOfUpperLeftPointWithPatterns(Rectangle r) {
+                    if (r instanceof Rectangle(ColoredPoint(Point(int x, int _), Color c), _)) {
+                         System.out.println("Upper-left corner: " + x);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("record pattern 5, unnamed")
+    @Test
+    public void test5() {
+        TypeInfo X = scan("a.b.X5", INPUT5);
+
+    }
+
+
+    @Language("java")
+    private static final String INPUT6 = """
+            package a.b;
+            class X5 {
+                record Point(int x, int y) {}
+                enum Color { RED, GREEN, BLUE }
+                record ColoredPoint(Point p, Color c) {}
+                record Rectangle(ColoredPoint upperLeft, ColoredPoint lowerRight) {}
+                static void printXCoordOfUpperLeftPointWithPatterns(Rectangle r) {
+                    if (r instanceof Rectangle(ColoredPoint(Point(var x, var y), var c), var lr)) {
+                         System.out.println("Upper-left corner: " + x);
+                    }
+                }
+                static void printXCoordOfUpperLeftPointWithPatterns2(Rectangle r) {
+                    if (r instanceof Rectangle(ColoredPoint(Point(var x, var y), var c), _)) {
+                         System.out.println("Upper-left corner: " + x);
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("record pattern 6, var")
+    @Test
+    public void test6() {
+        TypeInfo X = scan("a.b.X5", INPUT6);
+        MethodInfo methodInfo = X.findUniqueMethod("printXCoordOfUpperLeftPointWithPatterns", 1);
+        InstanceOf instanceOf = (InstanceOf) methodInfo.methodBody().statements().getFirst().expression();
+        RecordPattern recordPattern = instanceOf.patternVariable();
+        RecordPattern lr = recordPattern.patterns().getLast();
+        assertEquals("a.b.X5.ColoredPoint", lr.localVariable().parameterizedType().fullyQualifiedName());
+        RecordPattern cp = recordPattern.patterns().getFirst();
+        RecordPattern point = cp.patterns().getFirst();
+        RecordPattern x = point.patterns().getFirst();
+        assertEquals("int", x.localVariable().parameterizedType().fullyQualifiedName());
+        assertEquals("x", x.localVariable().simpleName());
+        RecordPattern color = cp.patterns().getLast();
+        assertEquals("a.b.X5.Color", color.localVariable().parameterizedType().fullyQualifiedName());
+        assertEquals("c", color.localVariable().fullyQualifiedName());
+    }
+
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            class X {
+                record Point(int x, int y) {}
+                int method(Object obj) {
+                   if(obj instanceof Point(var x, var y)) {
+                       return x + y;
+                   }
+                   return 0;
+                }
+            }
+            """;
+
+    @DisplayName("record pattern 7, detailed sources")
+    @Test
+    public void test7() {
+        TypeInfo X = scan("a.b.X", INPUT7);
+        MethodInfo methodInfo = X.findUniqueMethod("method", 1);
+        InstanceOf instanceOf = (InstanceOf) methodInfo.methodBody().statements().getFirst().expression();
+        RecordPattern point = instanceOf.patternVariable();
+        RecordPattern x = point.patterns().getFirst();
+        assertEquals("5-32:5-36", x.source().compact2());
+        assertEquals("5-36:5-36", x.source().detailedSources().detail(x.localVariable().fullyQualifiedName()).compact2());
+    }
+
+}
+
+
