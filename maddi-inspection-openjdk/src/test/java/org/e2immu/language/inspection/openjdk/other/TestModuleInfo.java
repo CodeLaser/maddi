@@ -123,7 +123,7 @@ public class TestModuleInfo extends CommonTest {
         assertEquals("a.b", o0.packageName());
         assertEquals("java.datatransfer", o0.toPackageNameOrNull());
         assertEquals("12-11:12-13", o0.source().detailedSources().detail(o0.packageName()).compact2());
-        assertEquals("12-18:12-20", o0.source().detailedSources().detail(o0.toPackageNameOrNull()).compact2());
+        assertEquals("12-18:12-34", o0.source().detailedSources().detail(o0.toPackageNameOrNull()).compact2());
         assertEquals("we must open", o0.comments().getFirst().comment());
 
         List<ModuleInfo.Uses> uses = moduleInfo.uses();

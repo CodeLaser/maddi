@@ -10,7 +10,6 @@ import com.sun.tools.javac.code.Types;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.parser.java.ScanCompilationUnit;
 import org.slf4j.Logger;
@@ -61,13 +60,21 @@ public class ScanCompilationUnits {
         for (CompilationUnitTree unit : units) {
             System.out.println("=== " + unit.getSourceFile().getName() + " ===\n");
 
-            String packageName = unit.getPackageName() == null ? "" : unit.getPackageName().toString();
+            boolean isModule = unit.getModule() != null;
+            String packageName;
+            if (isModule) {
+                packageName = unit.getModule().getName().toString();
+            } else if (unit.getPackage() != null) {
+                packageName = unit.getPackageName().toString();
+            } else {
+                packageName = "";
+            }
             CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
                     .setPackageName(packageName)
                     .setSourceSet(sourceSet)
                     .build();
             CharSequence content = unit.getSourceFile().getCharContent(false);
-            SourceCodeScan.Result scanResult = sourceCodeScan.go(content);
+            SourceCodeScan.Result scanResult = sourceCodeScan.go(content, isModule);
 
             SourcePositions sourcePositions = trees.getSourcePositions();
             LineMap lineMap = unit.getLineMap();

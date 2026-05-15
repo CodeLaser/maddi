@@ -66,7 +66,7 @@ public class TestSourceCodeScan {
     @Test
     public void test1() {
         SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
-        SourceCodeScan.Result r = sourceCodeScan.go(INPUT1);
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT1, false);
 
         Iterator<Map.Entry<Source, List<Comment>>> cIterator = r.comments().entrySet().iterator();
 
@@ -117,7 +117,7 @@ public class TestSourceCodeScan {
     @Test
     public void test2() {
         SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
-        SourceCodeScan.Result r = sourceCodeScan.go(INPUT2);
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT2, false);
 
         Iterator<Map.Entry<Source, List<Comment>>> cIterator = r.comments().entrySet().iterator();
         testComment(cIterator, "6-8:9-8", " comment");
