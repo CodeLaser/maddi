@@ -1616,23 +1616,14 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             scan(arg, p);
             arguments.add(currentExpression);
         }
-        Source src1 = scanSource(node);
-        Source src = explicitConstructorInvocation ? src1.withEndPos(src1.endPos() + 1) : src1;
+        Source src = scanSource(node);
         dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(src));
         dsb.putListIfNotNull(DetailedSources.ARGUMENT_COMMAS, scanResult.findArgumentCommas(src));
 
         if (explicitConstructorInvocation) {
             boolean isSuper = "super".equals(methodName);
             boolean isSyntheticSuperCall = isSuper && isSyntheticSuperCall(methodInvocation, compilationUnitTree);
-            Source source;
-            if (isSyntheticSuperCall) source = null;
-            else {
-                // important: for maddi, ECI is a statement, which requires the ;
-                // for OpenJDK, ECI is a method call, which does not have the ;
-                // FIXME there is no guarantee the ; is at +1
-                Source base = statementSourceForNode(node);
-                source = base.withEndPos(base.endPos() + 1).withDetailedSources(dsb.build());
-            }
+            Source source = isSyntheticSuperCall ? null : statementSourceForNode(node, dsb);
             Statement statement = runtime.newExplicitConstructorInvocationBuilder()
                     .setSynthetic(true)
                     .setSource(source)
