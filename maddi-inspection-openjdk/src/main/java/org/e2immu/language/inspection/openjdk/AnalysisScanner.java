@@ -34,8 +34,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
-    private record BlockData(Block.Builder blockBuilder, String index, int numberOfStatements) {
-    }
+
 
     private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
     private final ElementStack elementStack = new ElementStack();
@@ -45,7 +44,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final List<ModuleInfo> collectedModules = new ArrayList<>();
     private final Trees trees;
     private MethodInfo currentMethod;
-    private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
+    private final BlockBuilders blockBuilders = new BlockBuilders();
     private Expression currentExpression;
     private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
     private final CompilationUnit compilationUnit;
@@ -59,6 +58,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final Types types;
     private final Elements elements;
     private final ComputeMethodOverrides computeMethodOverrides;
+    private final ScanData sd;
 
     AnalysisScanner(Runtime runtime,
                     SourceSet sourceSetOfCurrentTask,
@@ -87,6 +87,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 flagHelper, elements, typeData, elementStack);
         convertType = new ConvertType(runtime, classSymbolScanner, typeData, elementStack, this, types);
         classSymbolScanner.setConvertType(convertType);
+        sd = new ScanData(runtime, lineMap, sourcePositions, compilationUnitTree, scanResult, blockBuilders,
+             elementStack, flagHelper, typeData, convertType, classSymbolScanner, statementLabels);
     }
 
     // result
@@ -103,8 +105,9 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         ModuleInfo.Builder builder = runtime.newModuleInfoBuilder();
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         String name = node.getName().toString();
+        ScanModule scanModule = new ScanModule(sd);
         for (DirectiveTree d : node.getDirectives()) {
-            visitDirective(d, builder);
+            scanModule.visitDirective(d, builder);
         }
         ModuleInfo moduleInfo = builder
                 .setOpen(open)
@@ -114,42 +117,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                 .build();
         collectedModules.add(moduleInfo);
         return null;
-    }
-
-    private void visitDirective(DirectiveTree dt, ModuleInfo.Builder builder) {
-        Source source = scanSource(dt);
-        List<Comment> comments = commentsForNode(source);
-        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-        switch (dt) {
-            case JCTree.JCRequires rd -> {
-                String moduleName = rd.moduleName.toString();
-                dsb.put(moduleName, scanResult.find(moduleName, scanSource(rd.getModuleName())));
-                builder.addRequires(source.withDetailedSources(dsb.build()), comments,
-                        moduleName, rd.isStatic(), rd.isTransitive());
-            }
-
-            case JCTree.JCExports ed -> {
-                builder.addExports(source, comments, ed.getPackageName().toString(),
-                        ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString());
-            }
-            case JCTree.JCOpens od -> {
-                String packageName = od.getPackageName().toString();
-                dsb.put(packageName, scanResult.find(packageName, scanSource(od.getPackageName())));
-                String moduleName = od.moduleNames == null ? null : od.moduleNames.getFirst().toString();
-                if (moduleName != null) {
-                    dsb.put(moduleName, scanResult.find(moduleName, scanSource(od.getModuleNames().getFirst())));
-                }
-                builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, moduleName);
-            }
-            case JCTree.JCProvides p -> {
-                builder.addProvides(source, comments, p.getServiceName().toString(),
-                        p.implNames == null ? null : p.implNames.getFirst().toString());
-            }
-            case JCTree.JCUses u -> {
-                builder.addUses(source, comments, u.getServiceName().toString());
-            }
-            case null, default -> throw new UnsupportedOperationException();
-        }
     }
 
     @Override
@@ -205,92 +172,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
         continueType(typeInfo, jcClassDecl);
         return null;
-    }
-
-    private void continueType(TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl) {
-        typeStack.addLast(typeInfo);
-        elementStack.push();
-
-        // flags: modifiers, type nature
-        flagHelper.type(jcClassDecl.sym, typeInfo.builder());
-        typeInfo.builder().computeAccess();
-
-        // type parameters
-        int index = 0;
-        for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
-            String name = jcTypeParameter.getName().toString();
-            TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
-            typeInfo.builder().addOrSetTypeParameter(tp);
-            elementStack.put(name, tp);
-            ++index;
-        }
-
-        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-        ParameterizedType parentClass;
-        if (typeInfo.typeNature().isEnum()) {
-            if (jcClassDecl.type instanceof Type.ClassType ct) {
-                parentClass = convertType.convert(ct.supertype_field);
-            } else throw new UnsupportedOperationException("NYI");
-        } else {
-            ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending, dsb);
-            parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
-                    : explicitParentClass;
-        }
-        typeInfo.builder().setParentClass(parentClass);
-        if (!jcClassDecl.implementing.isEmpty()) {
-            String keyword = typeInfo.isInterface() ? "extends" : "implements";
-            Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
-            dsb.put(DetailedSources.IMPLEMENTS, source);
-            for (JCTree.JCExpression i : jcClassDecl.implementing) {
-                typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i, dsb));
-            }
-        }
-        if (typeInfo.typeNature().isAnnotation()) {
-            ParameterizedType javaLangAnnotationAnnotation = convertType.convert(jcClassDecl.sym.getInterfaces().getFirst());
-            typeInfo.builder().addInterfaceImplemented(javaLangAnnotationAnnotation);
-        }
-        for (JCTree.JCExpression permits : jcClassDecl.permitting) {
-            TypeInfo permitted = convertType.convert(permits.type).typeInfo();
-            typeInfo.builder().addPermittedType(permitted);
-            dsb.put(permitted, sourceForNode(permits));
-        }
-
-        // record components: fields and accessors
-        if (typeInfo.typeNature().isRecord()) {
-            RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
-            for (var rc : jcClassDecl.sym.getRecordComponents()) {
-                ParameterizedType pt = convertType.convert(rc.type);
-                FieldInfo fieldInfo = runtime.newFieldInfo(rc.name.toString(), false, pt, typeInfo);
-                fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
-                        .addFieldModifier(runtime.fieldModifierPrivate());
-                typeInfo.builder().addField(fieldInfo);
-                MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
-                typeInfo.builder().addMethod(accessor);
-                typeData.put(rc.accessor, accessor);
-            }
-        }
-        // annotations
-        for (JCTree.JCAnnotation annotation : jcClassDecl.getModifiers().getAnnotations()) {
-            AnnotationExpression ae = convertAnnotation(annotation);
-            typeInfo.builder().addAnnotation(ae);
-        }
-
-        // members: methods, fields
-        for (var member : jcClassDecl.getMembers()) {
-            currentMethod = null;
-            scan(member, null);
-        }
-        MethodInfo singleAbstractMethod = convertType.computeSAM(jcClassDecl.type);
-        typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
-
-        Source source = sourceForNode(jcClassDecl, dsb);
-        typeInfo.builder()
-                .addTrailingComments(trailingCommentsForNode(source))
-                .addComments(commentsForNode(source))
-                .setSource(source);
-
-        typeStack.removeLast();
-        elementStack.pop();
     }
 
     // -- Method declarations ---------------------------------------------
@@ -467,99 +348,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     // -- Statements ---------------------------------------------
 
-
-    private void replaceLastStatement(Statement statement) {
-        List<Statement> statements = blockBuilders.getLast().blockBuilder.statements();
-        statements.removeLast();
-        statements.add(statement);
-    }
-
-    private Statement lastStatement() {
-        BlockData bd = blockBuilders.getLast();
-        if (bd.blockBuilder.statements().isEmpty()) return null;
-        return bd.blockBuilder.statements().getLast();
-    }
-
-    private void addStatement(Statement statement) {
-        blockBuilders.getLast().blockBuilder.addStatement(statement);
-    }
-
-    private String statementIndex() {
-        if (blockBuilders.isEmpty()) return "-";
-        BlockData bd = blockBuilders.getLast();
-        String padded = StringUtil.pad(bd.blockBuilder.statements().size(), bd.numberOfStatements);
-        return ("-".equals(bd.index) ? "" : bd.index + ".") + padded;
-    }
-
-    private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
-        List<JCTree.JCStatement> statements;
-        Source source = statementSourceForNode(node);
-
-        switch (node) {
-            case JCTree.JCBlock block -> statements = block.stats;
-            case JCTree.JCStatement statement -> statements = List.of(statement);
-            case null -> {
-                return runtime.newBlockBuilder()
-                        .setSource(source)
-                        .addComments(commentsForNode(source))
-                        .build();
-            }
-            default -> throw new UnsupportedOperationException("NYI");
-        }
-        return parseBlock(blockIndex, statements, statementLabels.get(node), source, variablesToAdd);
-    }
-
-    private Block parseBlock(String blockIndex,
-                             List<JCTree.JCStatement> statements,
-                             String label,
-                             Source source,
-                             LocalVariable... variablesToAdd) {
-        Map<String, Element> localVariableMap = elementStack.push();
-        for (LocalVariable lv : variablesToAdd) {
-            localVariableMap.put(lv.simpleName(), lv);
-        }
-        int n = statements.size();
-        String i = "-".equals(blockIndex) ? "-" : statementIndex() + "." + blockIndex;
-        blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i, n));
-
-        for (JCTree.JCStatement statement : statements) {
-            if (statement instanceof JCTree.JCBlock subBlock) {
-                Block parsedSub = parseBlock("0", subBlock);
-                addStatement(parsedSub);
-            } else if (statement instanceof JCTree.JCClassDecl localType) {
-                Statement localTypeCreation = handleLocalType(localType);
-                addStatement(localTypeCreation);
-            } else {
-                scan(statement, null);
-            }
-        }
-
-        elementStack.pop();
-
-        return blockBuilders.removeLast().blockBuilder
-                .setLabel(label)
-                .setSource(source)
-                .addTrailingComments(trailingCommentsForNode(source))
-                .addComments(commentsForNode(source))
-                .build();
-    }
-
-    private Statement handleLocalType(JCTree.JCClassDecl localType) {
-        String simpleName = localType.getSimpleName().toString();
-        int index = currentMethod.typeInfo().builder().getAndIncrementAnonymousTypes();
-        TypeInfo typeInfo = runtime.newTypeInfo(currentMethod, simpleName, index);
-        continueType(typeInfo, localType);
-        typeInfo.builder()
-                .setAccess(runtime.accessPrivate())
-                .commit();
-        elementStack.put(simpleName, typeInfo);
-        return runtime.newLocalTypeDeclarationBuilder()
-                .setLabel(statementLabels.get(localType))
-                .setTypeInfo(typeInfo)
-                .setSource(statementSourceForNode(localType))
-                .build();
-    }
-
     @Override
     public Void visitAssert(AssertTree node, Void unused) {
         JCTree.JCAssert jcAssert = (JCTree.JCAssert) node;
@@ -571,7 +359,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         Expression message = Objects.requireNonNullElseGet(currentExpression, runtime::newEmptyExpression);
 
         Source source = statementSourceForNode(node);
-        addStatement(runtime.newAssertBuilder()
+        blockBuilders.addStatement(runtime.newAssertBuilder()
                 .setLabel(statementLabels.get(node))
                 .setSource(source)
                 .addComments(commentsForNode(source))
