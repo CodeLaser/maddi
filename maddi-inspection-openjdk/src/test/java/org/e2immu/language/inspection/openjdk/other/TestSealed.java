@@ -19,9 +19,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -45,7 +42,7 @@ public class TestSealed extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.Sealed_0", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.Sealed_0", INPUT);
         assertTrue(typeInfo.typeNature().isClass());
         assertTrue(typeInfo.isSealed());
         assertEquals("[a.b.Sealed_0.Sub1, a.b.Sealed_0.Sub2]", typeInfo.permittedWhenSealed().toString());

@@ -80,7 +80,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("a.b.MoveDown_0", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.MoveDown_0", INPUT1);
         assertEquals(2, typeInfo.typeParameters().size());
         TypeInfo remap = typeInfo.findSubType("Remap");
         MethodInfo apply = remap.findUniqueMethod("apply", 2);
@@ -324,7 +324,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test6() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT6), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT6);
         assertNotNull(C);
     }
 
@@ -360,7 +360,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test7() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT7), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT7);
         MethodInfo u = C.findUniqueMethod("u", 2);
         Statement ifElse = u.methodBody().statements().getFirst().block().statements().get(5);
         Statement s = ifElse.block().statements().getFirst();
@@ -444,7 +444,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test9() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT9), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT9);
         TypeInfo at = C.findSubType("AuthenticationType");
         assertTrue(at.typeNature().isEnum());
         assertEquals(2, at.fields().size());
@@ -484,7 +484,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test10() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT10), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT10);
         {
             AnnotationExpression retention = C.annotations().stream()
                     .filter(ae -> "Retention".equals(ae.typeInfo().simpleName()))
@@ -527,7 +527,7 @@ public class TestAnnotations extends CommonTest {
 
     @Test
     public void test11() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT11), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT11);
         {
             MethodInfo value = C.findUniqueMethod("value", 0);
             assertEquals("12-5:13-16", value.source().compact2());

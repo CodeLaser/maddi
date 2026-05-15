@@ -6,9 +6,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestTypeParameter extends CommonTest {
@@ -23,7 +20,7 @@ public class TestTypeParameter extends CommonTest {
             """;
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT1), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT1);
         TypeInfo annotationExpression = typeInfo.findSubType("AnnotationExpression");
         MethodInfo extract = annotationExpression.methods().getFirst();
         assertEquals("a.b.C.AnnotationExpression.extract(String,T)", extract.fullyQualifiedName());

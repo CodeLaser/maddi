@@ -22,9 +22,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -49,7 +46,7 @@ public class TestLocalType extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo X = scan(Map.of("a.b.X", INPUT2), List.of()).getFirst();
+        TypeInfo X = scan("a.b.X", INPUT2);
         MethodInfo make = X.findUniqueMethod("make", 1);
         LocalTypeDeclaration ltd = (LocalTypeDeclaration) make.methodBody().statements().getFirst();
         assertEquals("a.b.X.0$make$C", ltd.typeInfo().fullyQualifiedName());

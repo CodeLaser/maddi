@@ -25,9 +25,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestBinaryOperator extends CommonTest {
@@ -60,7 +57,7 @@ public class TestBinaryOperator extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
         assertEquals(" some comment", typeInfo.comments().getFirst().comment());
         assertEquals(1, typeInfo.comments().size());
 
@@ -126,7 +123,7 @@ public class TestBinaryOperator extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT2), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
 
         MethodInfo multDiv = typeInfo.findUniqueMethod("multDiv", 2);
         if (multDiv.methodBody().statements().getFirst() instanceof ReturnStatement rs) {
@@ -162,7 +159,7 @@ public class TestBinaryOperator extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT3), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT3);
         assertEquals(" string concat", typeInfo.comments().getFirst().comment());
         assertEquals(1, typeInfo.comments().size());
         MethodInfo concat1 = typeInfo.findUniqueMethod("concat1", 1);
@@ -199,7 +196,7 @@ public class TestBinaryOperator extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT4), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT4);
         MethodInfo mi = C.findUniqueMethod("method", 2);
         LocalVariableCreation iLvc = (LocalVariableCreation) mi.methodBody().statements().getFirst();
         assertEquals("int i=j+k-1;", iLvc.toString());
@@ -221,7 +218,7 @@ public class TestBinaryOperator extends CommonTest {
 
     @Test
     public void test5() {
-        TypeInfo C = scan(Map.of("a.b.C", INPUT5), List.of()).getFirst();
+        TypeInfo C = scan("a.b.C", INPUT5);
         MethodInfo mi = C.findUniqueMethod("method", 2);
         ExpressionAsStatement eas = (ExpressionAsStatement) mi.methodBody().statements().getFirst();
         MethodCall mc = (MethodCall) eas.expression();

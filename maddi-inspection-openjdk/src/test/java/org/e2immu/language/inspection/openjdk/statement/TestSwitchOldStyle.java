@@ -21,9 +21,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -50,7 +47,7 @@ public class TestSwitchOldStyle extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT);
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
         if (main.methodBody().statements().getFirst() instanceof SwitchStatementOldStyle sso) {
             assertEquals("switch(args.length){case 0:System.out.println(\"zero!\");case 1:case 2:case 3:System.out.println(\"less than 3\");return;default:System.out.println(\"all the rest\");}",
@@ -91,7 +88,7 @@ public class TestSwitchOldStyle extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT2), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
         MethodInfo main = typeInfo.findUniqueMethod("method", 1);
         if (main.methodBody().statements().get(1) instanceof SwitchStatementOldStyle sso) {
             assertEquals("""
@@ -119,7 +116,7 @@ public class TestSwitchOldStyle extends CommonTest {
     // NOTE: differs from maddi's own parser, which returns an empty new-style switch
     @Test
     public void test3() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT3), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT3);
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
         if (main.methodBody().statements().getFirst() instanceof SwitchStatementOldStyle ssns) {
             assertEquals("switch(args.length){}",

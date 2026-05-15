@@ -25,9 +25,6 @@ import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodCall1 extends CommonTest {
@@ -57,7 +54,7 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test1() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_11", INPUT1), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_11", INPUT1));
     }
 
     @Language("java")
@@ -84,7 +81,7 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test2() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_12", INPUT2), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_12", INPUT2));
     }
 
     @Language("java")
@@ -101,7 +98,7 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test3() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_13", INPUT3), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_13", INPUT3));
     }
 
     @Language("java")
@@ -164,7 +161,7 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo typeInfo = scan(Map.of("a.b.MethodCall_14", INPUT4), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.MethodCall_14", INPUT4);
         MethodInfo method = typeInfo.findUniqueMethod("method", 3);
         assertTrue(method.parameters().get(2).isVarArgs());
         assertEquals("Type a.b.MethodCall_14.VI", method.parameters().getFirst().parameterizedType().toString());
@@ -210,7 +207,7 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test5() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_15", INPUT5), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_15", INPUT5));
     }
 
     @Language("java")
@@ -238,7 +235,7 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test7() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_17", INPUT7), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_17", INPUT7));
     }
 
     @Language("java")
@@ -293,7 +290,7 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test8() {
-        TypeInfo typeInfo = scan(Map.of("a.b.C", INPUT8), List.of()).getFirst();
+        TypeInfo typeInfo = scan("a.b.C", INPUT8);
         TypeInfo annotationExpression = typeInfo.findSubType("AnnotationExpression");
         MethodInfo extract = annotationExpression.methods().getFirst();
         assertEquals("a.b.C.AnnotationExpression.extract(String,T)", extract.fullyQualifiedName());
@@ -360,7 +357,7 @@ public class TestMethodCall1 extends CommonTest {
 
     @Test
     public void test9() {
-        assertNotNull(scan(Map.of("a.b.MethodCall_19", INPUT9), List.of()).getFirst());
+        assertNotNull(scan("a.b.MethodCall_19", INPUT9));
     }
 
 }
