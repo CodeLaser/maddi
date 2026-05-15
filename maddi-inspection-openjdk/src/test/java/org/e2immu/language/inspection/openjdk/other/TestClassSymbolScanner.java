@@ -51,7 +51,10 @@ public class TestClassSymbolScanner extends CommonTest {
 
         TypeInfo mapLoaded = loadType("java.util.Map");
         assertTrue(mapLoaded.methods().size() > 10);
-        assertEquals("jrt:/java.base/java/util/Map.class", mapLoaded.compilationUnit().uri().toString());
+        // seen multiple values:
+        // "jrt:/java.base/java/util/Map.class"
+        // jar:file:///opt/homebrew/Cellar/openjdk/25.0.2/libexec/openjdk.jdk/Contents/Home/lib/ct.sym!/BCDEFGHIJKLMNOP/java.base/java/util/Map.sig
+        assertTrue(mapLoaded.compilationUnit().uri().toString().contains("java/util/Map"));
         assertEquals(map.compilationUnit().uri(), mapLoaded.compilationUnit().uri());
 
         // for now

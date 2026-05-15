@@ -22,8 +22,6 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.util.RecordSynthetics;
 import org.e2immu.util.internal.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
@@ -34,8 +32,6 @@ import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
 class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AnalysisScanner.class);
-
     private record BlockData(Block.Builder blockBuilder, String index, int numberOfStatements) {
     }
 
@@ -120,11 +116,11 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         if (typeInfo.isPrimaryType()) {
             collectedPrimaryTypes.add(typeInfo);
         }
-        continueType(node, typeInfo, jcClassDecl, simpleName);
+        continueType(typeInfo, jcClassDecl);
         return null;
     }
 
-    private void continueType(ClassTree node, TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl, String simpleName) {
+    private void continueType(TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl) {
         typeStack.addLast(typeInfo);
         elementStack.push();
 
@@ -192,14 +188,14 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         }
 
         // members: methods, fields
-        for (var member : node.getMembers()) {
+        for (var member : jcClassDecl.getMembers()) {
             currentMethod = null;
             scan(member, null);
         }
         MethodInfo singleAbstractMethod = convertType.computeSAM(jcClassDecl.type);
         typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
 
-        Source source = sourceForNode(node, dsb);
+        Source source = sourceForNode(jcClassDecl, dsb);
         typeInfo.builder()
                 .addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
@@ -457,9 +453,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private Statement handleLocalType(JCTree.JCClassDecl localType) {
         String simpleName = localType.getSimpleName().toString();
         int index = currentMethod.typeInfo().builder().getAndIncrementAnonymousTypes();
-        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         TypeInfo typeInfo = runtime.newTypeInfo(currentMethod, simpleName, index);
-        continueType(localType, typeInfo, localType, simpleName);
+        continueType(typeInfo, localType);
         typeInfo.builder()
                 .setAccess(runtime.accessPrivate())
                 .commit();
@@ -535,7 +530,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     @Override
     public Void visitExpressionStatement(ExpressionStatementTree node, Void unused) {
-        LOGGER.info("Expression statement");
         super.visitExpressionStatement(node, unused);
         if (currentExpression != null) {
             Source source = statementSourceForNode(node);
@@ -593,8 +587,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                         if (lvcBuilder == null) {
                             lvcBuilder = runtime.newLocalVariableCreationBuilder().setLocalVariable(f.localVariable());
                         } else {
-                            LocalVariableCreation.Builder finalLvcBuilder = lvcBuilder;
-                            f.localVariableStream().forEach(finalLvcBuilder::addOtherLocalVariable);
+                            f.localVariableStream().forEach(lvcBuilder::addOtherLocalVariable);
                         }
                     } else throw new UnsupportedOperationException("NYI");
                 }
@@ -695,17 +688,34 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             List<JCTree.JCStatement> statementsToParse = new ArrayList<>();
             for (JCTree.JCCase jcCase : jcSwitch.cases) {
                 for (JCTree.JCCaseLabel caseLabel : jcCase.getLabels()) {
+
+                    RecordPattern patternVariable;
                     Expression expression;
-                    if (caseLabel instanceof JCTree.JCConstantCaseLabel ccl) {
-                        scan(ccl.getConstantExpression(), unused);
-                        expression = currentExpression;
-                    } else if (caseLabel instanceof JCTree.JCDefaultCaseLabel) {
-                        expression = runtime.newEmptyExpression();
-                    } else {
-                        throw new UnsupportedOperationException("NYI");
+                    switch (caseLabel) {
+                        case JCTree.JCConstantCaseLabel ccl -> {
+                            scan(ccl.getConstantExpression(), unused);
+                            expression = currentExpression;
+                            patternVariable = null;
+                        }
+                        case JCTree.JCDefaultCaseLabel _ -> {
+                            expression = runtime.newEmptyExpression();
+                            patternVariable = null;
+                        }
+                        case JCTree.JCPatternCaseLabel pcl -> {
+                            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                            List<AnnotationExpression> annotations = new ArrayList<>();
+                            patternVariable = parseRecordPattern(pcl.getPattern(), dsb, annotations).rp;
+                            expression = runtime.newEmptyExpression();
+                        }
+                        case null, default -> throw new UnsupportedOperationException("NYI");
                     }
+
+                    currentExpression = null;
+                    scan(jcCase.getGuard(), null);
+                    Expression whenExpression = currentExpression;
+
                     SwitchStatementOldStyle.SwitchLabel switchLabel = runtime.newSwitchLabelOldStyle
-                            (expression, statementCount, null, null);
+                            (expression, statementCount, patternVariable, whenExpression);
                     switchLabels.add(switchLabel);
                 }
                 statementsToParse.addAll(jcCase.stats);
@@ -828,8 +838,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     @Override
     public Void visitVariable(VariableTree node, Void p) {
-        LOGGER.info("VARIABLE:" + node.getName().toString());
-
         if (node instanceof JCTree.JCVariableDecl variableDecl) {
             DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
             if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
@@ -1164,7 +1172,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             dsb.put(recordPattern, sourceForNode(rp));
             return new RecordPatternResult(type, recordPattern);
         }
-        if(p instanceof JCTree.JCAnyPattern anyPattern) {
+        if (p instanceof JCTree.JCAnyPattern anyPattern) {
             ParameterizedType type = convertType.convert(anyPattern.type);
             Source source = sourceForNode(anyPattern, dsb);
             RecordPattern recordPattern = runtime.newRecordPatternBuilder()
@@ -1371,7 +1379,8 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                             .setVariable(variable)
                             .build();
                 }
-                case PACKAGE -> LOGGER.debug("Skipping package {}", node);
+                case PACKAGE -> {
+                }
                 case ENUM, CLASS, INTERFACE, RECORD, ANNOTATION_TYPE -> {
                     if (element instanceof Symbol.ClassSymbol) {
                         List<AnnotationExpression> annots = new ArrayList<>();
@@ -1565,8 +1574,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
             } else throw new UnsupportedOperationException("NYI");
         } else throw new UnsupportedOperationException("NYI");
 
-        LOGGER.info("Method call to {}", methodName);
-
         List<Expression> arguments = new ArrayList<>(node.getArguments().size());
         for (var arg : node.getArguments()) {
             currentExpression = null;
@@ -1747,16 +1754,22 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         int n = cases.size();
         for (JCTree.JCCase jcCase : cases) {
             List<Expression> conditions = new ArrayList<>();
+            RecordPattern patternVariable = null;
             for (JCTree.JCCaseLabel caseLabel : jcCase.getLabels()) {
-                LOGGER.debug("Case label {}", caseLabel);
-                if (caseLabel instanceof JCTree.JCConstantCaseLabel ccl) {
-                    scan(ccl.getConstantExpression(), unused);
-                    Expression constantExpression = currentExpression;
-                    conditions.add(constantExpression);
-                } else if (caseLabel instanceof JCTree.JCDefaultCaseLabel) {
-                    conditions.add(runtime.newEmptyExpression());
-                } else {
-                    throw new UnsupportedOperationException("NYI");
+                switch (caseLabel) {
+                    case JCTree.JCConstantCaseLabel ccl -> {
+                        scan(ccl.getConstantExpression(), unused);
+                        Expression constantExpression = currentExpression;
+                        conditions.add(constantExpression);
+                    }
+                    case JCTree.JCDefaultCaseLabel _ -> conditions.add(runtime.newEmptyExpression());
+                    case JCTree.JCPatternCaseLabel pcl -> {
+                        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                        List<AnnotationExpression> annotations = new ArrayList<>();
+                        assert patternVariable == null : "Not allowed, multiple real record patterns";
+                        patternVariable = parseRecordPattern(pcl.getPattern(), dsb, annotations).rp;
+                    }
+                    case null, default -> throw new UnsupportedOperationException("NYI");
                 }
             }
             Statement statement;
@@ -1790,6 +1803,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     .addConditions(conditions)
                     .setStatement(statement)
                     .setWhenExpression(whenExpression)
+                    .setPatternVariable(patternVariable)
                     .build();
             switchEntries.add(switchEntry);
             ++i;
