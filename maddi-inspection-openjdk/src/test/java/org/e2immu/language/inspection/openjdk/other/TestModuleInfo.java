@@ -137,6 +137,6 @@ public class TestModuleInfo extends CommonTest {
         assertEquals("a.b.C", p0.api());
         assertEquals("c.d.E", p0.implementation());
 
-        assertTrue(moduleInfo.open());
+        assertFalse(moduleInfo.open());
     }
 }
