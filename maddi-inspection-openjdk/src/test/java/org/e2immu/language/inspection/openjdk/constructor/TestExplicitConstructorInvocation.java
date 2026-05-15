@@ -161,21 +161,21 @@ public class TestExplicitConstructorInvocation extends CommonTest {
         {
             MethodInfo constructor = typeInfo.findConstructor(1);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("9-9:9-15", explicit.source().compact2());
+            assertEquals("9-9:9-14", explicit.source().compact2());
             assertEquals("9-14:9-14", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
         }
         {
             MethodInfo constructor = typeInfo.findConstructor(3);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("13-9:13-20", explicit.source().compact2());
+            assertEquals("13-9:13-19", explicit.source().compact2());
             assertEquals("13-19:13-19", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
         }
         {
             MethodInfo constructor = typeInfo.findConstructor(4);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("16-9:16-22", explicit.source().compact2());
+            assertEquals("16-9:16-21", explicit.source().compact2());
             assertEquals("16-21:16-21", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
             assertEquals("[@16:15-16:15, @16:18-16:18]", explicit.source().detailedSources()

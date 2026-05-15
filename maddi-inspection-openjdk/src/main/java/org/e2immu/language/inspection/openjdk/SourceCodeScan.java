@@ -224,7 +224,14 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     private void scanCall(Result result, Node child) {
-        Source source = source(child);
+        Source source;
+        if (child instanceof ExplicitConstructorInvocation) {
+            // NOTE: specific code to exclude the ';' because OpenJDK sees an ECI as an expression (method call)
+            // rather than a statement.
+            source = source(child.getFirst(), child.get(child.size() - 2));
+        } else {
+            source = source(child);
+        }
         LOGGER.info("*** scan call {}: {}: {}", source.compact2(), child.getClass(), limit(child.getSource()));
         InvocationArguments ia = child.firstChildOfType(InvocationArguments.class);
         if (ia != null) {
