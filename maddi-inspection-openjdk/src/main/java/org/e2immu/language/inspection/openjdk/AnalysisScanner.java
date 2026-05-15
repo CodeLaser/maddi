@@ -97,8 +97,24 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
 
     @Override
     public Void visitCompilationUnit(CompilationUnitTree node, Void unused) {
-        for (Tree ct : node.getTypeDecls()) {
-            scan(ct, null);
+        if (node.getTypeDecls().isEmpty()) {
+            // package-info
+            List<AnnotationExpression> annotations = new ArrayList<>();
+            for (AnnotationTree at : node.getPackageAnnotations()) {
+                annotations.add(convertAnnotation((JCTree.JCAnnotation) at));
+            }
+            TypeInfo pkgInfoType = runtime.newTypeInfo(compilationUnit, "package-info");
+            pkgInfoType.builder().setTypeNature(runtime.typeNaturePackageInfo())
+                    .addAnnotations(annotations)
+                    .setParentClass(runtime.objectParameterizedType())
+                    .setAccess(runtime.accessPublic())
+                    .setSource(sourceForNode(node))
+                    .commit();
+            collectedPrimaryTypes.add(pkgInfoType);
+        } else {
+            for (Tree ct : node.getTypeDecls()) {
+                scan(ct, null);
+            }
         }
         compilationUnit.setTypes(collectedPrimaryTypes);
         return null;
