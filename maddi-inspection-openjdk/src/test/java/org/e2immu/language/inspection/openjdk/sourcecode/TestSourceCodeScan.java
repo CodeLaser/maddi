@@ -1,18 +1,20 @@
 package org.e2immu.language.inspection.openjdk.sourcecode;
 
 import org.e2immu.language.cst.api.element.Comment;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.openjdk.SourceCodeScan;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSourceCodeScan {
 
@@ -106,11 +108,12 @@ public class TestSourceCodeScan {
                       return k;
                       // this was i
                    }
-                   int i = s.length();
+                   int i = s.substring(0, 5).length();
                    return 2*i;
                 }
             }
             """;
+
     @Test
     public void test2() {
         SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
@@ -121,6 +124,46 @@ public class TestSourceCodeScan {
 
         Iterator<Map.Entry<Source, List<Comment>>> tIterator = r.trailingComments().entrySet().iterator();
         testComment(tIterator, "6-8:9-8", " this was i");
+
+        Iterator<Map.Entry<Source, Map<Object, Object>>> aIterator = r.argumentLists().entrySet().iterator();
+        testArgumentList(aIterator, "3-5:12-5", "END_OF_PARAMETER_LIST=3-31:3-31");
+        testArgumentList(aIterator, "3-16:3-23", "SUCCEEDING_COMMA=3-24:3-24");
+        testArgumentList(aIterator, "3-26:3-30", "PRECEDING_COMMA=3-24:3-24");
+        testArgumentList(aIterator, "4-11:4-20", "END_OF_ARGUMENT_LIST=4-20:4-20");
+        testArgumentList(aIterator, "10-16:10-32", "ARGUMENT_COMMAS=10-29:10-29, END_OF_ARGUMENT_LIST=10-32:10-32");
+        testArgumentList(aIterator, "10-16:10-41", "END_OF_ARGUMENT_LIST=10-41:10-41");
+        assertFalse(aIterator.hasNext());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void testArgumentList(Iterator<Map.Entry<Source, Map<Object, Object>>> aIterator,
+                                         String source, String mapToString) {
+        assertTrue(aIterator.hasNext(), "Have no more argument lists");
+        Map.Entry<Source, Map<Object, Object>> entry = aIterator.next();
+        assertEquals(source, entry.getKey().compact2());
+        List<String> list = new ArrayList<>();
+        for (Map.Entry<Object, Object> e : entry.getValue().entrySet()) {
+            String key = "?";
+            String value;
+            if (e.getKey() == DetailedSources.ARGUMENT_COMMAS) {
+                key = "ARGUMENT_COMMAS";
+                List<Object> commas = (List<Object>) e.getValue();
+                value = commas.stream().map(c -> ((Source) c).compact2()).collect(Collectors.joining(";"));
+            } else {
+                value = ((Source) e.getValue()).compact2();
+                if (e.getKey() == DetailedSources.END_OF_ARGUMENT_LIST) {
+                    key = "END_OF_ARGUMENT_LIST";
+                } else if (e.getKey() == DetailedSources.END_OF_PARAMETER_LIST) {
+                    key = "END_OF_PARAMETER_LIST";
+                } else if (e.getKey() == DetailedSources.PRECEDING_COMMA) {
+                    key = "PRECEDING_COMMA";
+                } else if (e.getKey() == DetailedSources.SUCCEEDING_COMMA) {
+                    key = "SUCCEEDING_COMMA";
+                }
+            }
+            list.add(key + "=" + value);
+        }
+        assertEquals(mapToString, list.stream().sorted().collect(Collectors.joining(", ")));
     }
 
     private static void testKeyword(Iterator<Map.Entry<Source, String>> kIterator, String compact2, String keyword) {
