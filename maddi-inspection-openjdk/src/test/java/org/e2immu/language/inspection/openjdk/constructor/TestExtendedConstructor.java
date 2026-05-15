@@ -17,6 +17,7 @@ package org.e2immu.language.inspection.openjdk.constructor;
 import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.inspection.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -28,33 +29,43 @@ public class TestExtendedConstructor extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-
+            
             import java.util.Map;
             import java.util.HashMap;
-
+            
             class C {
-            private Map<String, String> test() {
-                return new HashMap<String, String>() {
-                    {
-                        put("x", "abc");
-                    }
-                };
-
-            }
-
-            private Map<String, String> test2() {
-                return new HashMap<>() {
-                    {
-                        put("y", "12345");
-                    }
-                };
-            }
+                public C() {
+                    System.out.println("!");
+                }
+            
+                private Map<String, String> test() {
+                    return new HashMap<String, String>() {
+                        {
+                            put("x", "abc");
+                        }
+                    };
+                }
+            
+                private Map<String, String> test2() {
+                    return new HashMap<>() {
+                        {
+                            put("y", "12345");
+                        }
+                    };
+                }
             }
             """;
 
     @Test
     public void test1() {
         TypeInfo typeInfo = scan("a.b.C", INPUT1);
+        MethodInfo constructorC = typeInfo.findConstructor(0);
+        if (constructorC.methodBody().statements().getFirst() instanceof ExplicitConstructorInvocation eci) {
+            assertTrue(eci.isSuper());
+            assertTrue(eci.isSynthetic());
+        } else fail();
+        assertEquals(2, constructorC.methodBody().statements().size());
+
         MethodInfo test = typeInfo.findUniqueMethod("test", 0);
         if (test.methodBody().statements().get(1) instanceof ReturnStatement rs
             && rs.expression() instanceof ConstructorCall cc) {
