@@ -84,9 +84,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         this.elements = elements;
         this.flagHelper = flagHelper;
         this.computeMethodOverrides = computeMethodOverrides;
-        convertType = new ConvertType(runtime, classSymbolScanner, typeData, elementStack,
-                this, types);
-        classSymbolScanner.setConvertType(convertType);
+        convertType = classSymbolScanner;
+        convertType.startCompilationUnit(this, elementStack);
     }
 
     // result
