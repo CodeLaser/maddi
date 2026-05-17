@@ -132,7 +132,6 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
-        compiledTypesManager = new TypeData(null); // FIXME
         return List.of();
     }
 

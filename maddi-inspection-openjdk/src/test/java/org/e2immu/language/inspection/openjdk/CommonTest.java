@@ -32,7 +32,7 @@ public class CommonTest {
     protected final Runtime runtime;
     private JavacTask javacTask;
     private SourceSet sourceSet;
-    private TypeData typeData;
+    private ClassSymbolScanner classSymbolScanner;
 
     public CommonTest() {
         this.runtime = new RuntimeImpl();
@@ -69,7 +69,7 @@ public class CommonTest {
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, javaBase,
                     javacTask, sourceSet, parseOptions, diagnostics);
-            typeData = scanCompilationUnits.typeData();
+            classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
         } catch (IOException io) {
             fail(io);
@@ -79,10 +79,8 @@ public class CommonTest {
 
     public void loadType(TypeInfo typeInfo) {
         Elements elements = javacTask.getElements();
-        Types types = Types.instance(((BasicJavacTask) javacTask).getContext());
         TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
-        ClassSymbolScanner css = new ClassSymbolScanner(runtime, sourceSet, new FlagHelper(runtime), types, elements, typeData);
-        css.loadType((Symbol.ClassSymbol) typeElement, typeInfo, true);
+        classSymbolScanner.loadType((Symbol.ClassSymbol) typeElement, typeInfo, true);
     }
 
     private JavacTask createTask(Map<String, String> sourcesByClassName, List<File> jars,

@@ -38,7 +38,6 @@ public class ScanCompilationUnits {
     private final Types types;
     private final ComputeMethodOverrides computeMethodOverrides;
     private final FlagHelper flagHelper;
-    private final TypeData typeData;
     private final ClassSymbolScanner classSymbolScanner;
 
     public ScanCompilationUnits(Runtime runtime,
@@ -60,8 +59,7 @@ public class ScanCompilationUnits {
         Elements elements = task.getElements();
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
-        typeData = new TypeData(javaBase);
-        classSymbolScanner = new ClassSymbolScanner(runtime, sourceSet, flagHelper, types, elements, typeData);
+        classSymbolScanner = new ClassSymbolScanner(runtime, sourceSet, flagHelper, types, elements, javaBase);
     }
 
     public List<Info> scan() throws IOException {
@@ -108,9 +106,9 @@ public class ScanCompilationUnits {
 
 
             LineMap lineMap = unit.getLineMap();
-            ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, typeData, compilationUnit, unit,
-                    trees, sourcePositions, lineMap, task.getElements(), types, scanResult, computeMethodOverrides,
-                    flagHelper, classSymbolScanner);
+            ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, classSymbolScanner,
+                    compilationUnit, unit, trees, sourcePositions, lineMap, task.getElements(), types, scanResult,
+                    computeMethodOverrides, flagHelper, classSymbolScanner);
             scanCompilationUnit.scan(unit, null);
             primaryTypesAndModules.addAll(scanCompilationUnit.types());
         }
@@ -118,7 +116,8 @@ public class ScanCompilationUnits {
     }
 
     // for tests
-    TypeData typeData() {
-        return typeData;
+
+    public ClassSymbolScanner classSymbolScanner() {
+        return classSymbolScanner;
     }
 }
