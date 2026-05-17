@@ -4,11 +4,17 @@ import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
+import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.output.Formatter;
+import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.impl.info.ImportComputerImpl;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
+import org.e2immu.language.cst.print.FormattingOptionsImpl;
+import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 
@@ -103,5 +109,12 @@ public class CommonTest {
                 null,
                 compilationUnits
         );
+    }
+
+    public String print2(CompilationUnit compilationUnit) {
+        OutputBuilder ob = runtime.newCompilationUnitPrinter(compilationUnit, true)
+                .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
+        Formatter formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
+        return formatter.write(ob);
     }
 }
