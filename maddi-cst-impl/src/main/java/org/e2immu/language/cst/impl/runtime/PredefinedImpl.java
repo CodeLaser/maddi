@@ -237,6 +237,32 @@ public class PredefinedImpl implements Predefined {
     }
 
     @Override
+    public TypeInfo boxedDoubleTypeInfo() {
+        return boxedDoubleTypeInfo;
+    }
+
+    @Override
+    public TypeInfo boxedFloatTypeInfo() {
+        return boxedFloatTypeInfo;
+    }
+
+    @Override
+    public TypeInfo boxedByteTypeInfo() {
+        return boxedByteTypeInfo;
+    }
+
+    @Override
+    public TypeInfo boxedShortTypeInfo() {
+        return boxedShortTypeInfo;
+    }
+
+    @Override
+    public TypeInfo boxedVoidTypeInfo() {
+        return boxedVoidTypeInfo;
+    }
+
+
+    @Override
     public ParameterizedType floatParameterizedType() {
         return floatParameterizedType;
     }
