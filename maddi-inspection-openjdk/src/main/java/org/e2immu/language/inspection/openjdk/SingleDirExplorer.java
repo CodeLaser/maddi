@@ -3,7 +3,6 @@ package org.e2immu.language.inspection.openjdk;
 import com.sun.source.util.JavacTask;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 
 import javax.tools.*;
@@ -126,7 +125,7 @@ public class SingleDirExplorer {
                     compilationUnits
             );
 
-            return new ScanCompilationUnits(runtime, diagnostics).scan(task, sourceSet);
+            return new ScanCompilationUnits(runtime, null, diagnostics).scan(task, sourceSet);
         }
     }
 }

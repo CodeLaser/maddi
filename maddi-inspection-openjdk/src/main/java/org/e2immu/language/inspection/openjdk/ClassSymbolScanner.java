@@ -117,7 +117,7 @@ public class ClassSymbolScanner {
         return newTypeInfo;
     }
 
-    private void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, boolean loadMembers) {
+    void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, boolean loadMembers) {
         flagHelper.type(cs, newTypeInfo.builder());
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs'
