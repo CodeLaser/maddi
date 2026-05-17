@@ -8,6 +8,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -417,10 +418,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesM
                     }
                 } else throw new UnsupportedOperationException();
             } else if (typeVar.isCaptured()) {
-                if (typeVar.getUpperBound() instanceof Type.ClassType ct) {
-                    TypeInfo upper = convert(ct).typeInfo();
+                if (typeVar.getUpperBound() != null) {
+                    TypeInfo upper = convert(typeVar.getUpperBound()).typeInfo();
                     return runtime.newParameterizedType(upper, 0, runtime.wildcardExtends(), List.of());
-                } else throw new UnsupportedOperationException();
+                } else {
+                    throw new UnsupportedOperationException();
+                }
             } else {
                 String fullyQualifiedName = typeVar.tsym.owner.toString();
                 TypeInfo owner = getType(fullyQualifiedName);
@@ -460,7 +463,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesM
     public ParameterizedType convertTree(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
         ParameterizedType pt = convertTreeDontSet(type, detailedSourcesBuilder);
         assert pt != null;
-        detailedSourcesBuilder.put(pt, sourceProvider.sourceForNode(type));
+        Source source = sourceProvider.sourceForNode(type);
+        detailedSourcesBuilder.put(pt, source);
+        // FIXME do we need the following ?
+        if (pt.typeInfo() != null && pt.parameters().isEmpty() && pt.arrays() == 0) {
+            detailedSourcesBuilder.put(pt.typeInfo(), source);
+        }
         return pt;
     }
 
@@ -486,6 +494,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesM
         if (type instanceof JCTree.JCFieldAccess fieldAccess) {
             // enclosing type notation
             String name = fieldAccess.name.toString();
+            // recursively descend, but ignore result
+            // FIXME   convertTree(fieldAccess.getExpression(), detailedSourcesBuilder);
             ParameterizedType pt = convert(fieldAccess.type);
             if (!"class".equals(name) && pt.typeInfo() != null) {
                 String packageName = pt.typeInfo().packageName();
@@ -500,8 +510,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesM
             return runtime.newParameterizedType(base.typeInfo(), parameters);
         }
         if (type instanceof JCTree.JCArrayTypeTree att) {
-            ParameterizedType base = convertTree(att.elemtype, detailedSourcesBuilder);
-            return base.copyWithArrays(base.arrays() + 1);
+            int n = 1;
+            Tree t = att.elemtype;
+            while (t instanceof JCTree.JCArrayTypeTree att2) {
+                ++n;
+                t = att2.elemtype;
+            }
+            ParameterizedType withoutArray = convertTree(t, detailedSourcesBuilder);
+            ParameterizedType withArray = withoutArray.copyWithArrays(withoutArray.arrays() + n);
+            detailedSourcesBuilder.putWithArrayToWithoutArray(withArray, withoutArray);
+            return withArray;
         }
         if (type instanceof JCTree.JCWildcard) {
             return runtime.parameterizedTypeWildcard();

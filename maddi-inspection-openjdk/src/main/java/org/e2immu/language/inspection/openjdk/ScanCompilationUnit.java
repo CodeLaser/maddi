@@ -351,7 +351,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 String name = jcVariableDecl.getName().toString();
                 DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
                 List<AnnotationExpression> annots = new ArrayList<>();
-                ParameterizedType type = convertTypeWithAnnotations(jcVariableDecl.getType(), dsb, annots::add);
+                ParameterizedType type = convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, annots::add);
                 ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
                 parameterInfo.builder().addAnnotations(annots);
 
@@ -1841,7 +1841,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 throw new UnsupportedOperationException();
             }
         } else {
-            concreteReturnType = convertType.convert(newClass.type);
+            concreteReturnType = convertType.convertTree(newClass.clazz, dsb);
             anonymousType = null;
             Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) newClass.constructor;
             constructor = typeData.getOrLoadMethod(methodSymbol);
