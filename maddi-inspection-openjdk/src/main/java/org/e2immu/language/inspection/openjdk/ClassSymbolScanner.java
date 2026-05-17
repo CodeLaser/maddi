@@ -13,6 +13,8 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
+import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
+import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -26,28 +28,39 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ClassSymbolScanner implements ConvertType {
+public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);
     private final Runtime runtime;
     private final FlagHelper flagHelper;
     private final Elements elements;
     private final Types types;
-    private final TypeData typeData;
     private final SourceSet sourceSetOfCurrentTask;
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
+    private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
+
+    private final SourceSet javaBase;
+    private final Map<String, SourceSet> sourceSetMap = new HashMap<>();
+    private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
+    private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
+    private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
+    private final Map<String, Map<String, TypeParameter>> tmpMethodTypeParameterMap = new HashMap<>();
+
+    // not thread-safe: set for each compilation unit
+    private SourceProvider sourceProvider;
+    private ElementStack elementStack;
 
     public ClassSymbolScanner(Runtime runtime,
                               SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
                               Types types,
                               Elements elements,
-                              TypeData typeData) {
+                              SourceSet javaBase) {
         this.runtime = runtime;
         this.flagHelper = flagHelper;
         this.elements = elements;
         this.types = types;
-        this.typeData = typeData;
+        this.javaBase = javaBase;
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
 
         predefinedTypes.put("String", runtime.stringTypeInfo());
@@ -62,7 +75,7 @@ public class ClassSymbolScanner implements ConvertType {
     TypeInfo type(Symbol.ClassSymbol cs) {
         switch (cs.owner) {
             case Symbol.PackageSymbol _ -> {
-                return primaryType(cs, false);
+                return primaryType(cs);
             }
             case Symbol.ClassSymbol enclosedSymbol -> {
                 TypeInfo owner = convert(enclosedSymbol.type).typeInfo();
@@ -71,7 +84,7 @@ public class ClassSymbolScanner implements ConvertType {
                 if (inMap == null) {
                     TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
                     // note: first put the type in typeData, only then load it... self-references are common!
-                    typeData.put(enclosed);
+                    put(enclosed);
                     loadType(cs, enclosed, false);
                     owner.builder().addSubType(enclosed);
                     return enclosed;
@@ -83,7 +96,7 @@ public class ClassSymbolScanner implements ConvertType {
         }
     }
 
-    TypeInfo primaryType(Symbol.ClassSymbol cs, boolean loadMembers) {
+    private TypeInfo primaryType(Symbol.ClassSymbol cs) {
         String simpleName = cs.name.toString();
         assert cs.owner instanceof Symbol.PackageSymbol;
         String packageName = cs.owner.toString();
@@ -109,9 +122,9 @@ public class ClassSymbolScanner implements ConvertType {
                     .build();
             newTypeInfo = runtime.newTypeInfo(cu, simpleName);
         }
-        typeData.put(newTypeInfo);
+        put(newTypeInfo);
         if (!internal) {
-            loadType(cs, newTypeInfo, loadMembers);
+            loadType(cs, newTypeInfo, false);
         }
         return newTypeInfo;
     }
@@ -183,11 +196,11 @@ public class ClassSymbolScanner implements ConvertType {
         if (m.matches()) {
             String jarName = m.group(2);
             URI jarUri = URI.create(m.group(1) + "/" + m.group(2));
-            SourceSet known = typeData.getSourceSet(jarName);
+            SourceSet known = getSourceSet(jarName);
             if (known == null) {
                 SourceSet sourceSet = new SourceSetImpl(jarName, jarUri, false, false, true,
                         true, false);
-                typeData.put(sourceSet);
+                put(sourceSet);
                 return sourceSet;
             }
             return known;
@@ -196,11 +209,11 @@ public class ClassSymbolScanner implements ConvertType {
         if (rt.matches()) {
             String module = rt.group(1);
             URI jarUri = URI.create("jmod:" + module);
-            SourceSet known = typeData.getSourceSet(module);
+            SourceSet known = getSourceSet(module);
             if (known == null) {
                 SourceSet sourceSet = new SourceSetImpl(module, jarUri, false, false, true,
                         true, true);
-                typeData.put(sourceSet);
+                put(sourceSet);
                 return sourceSet;
             }
             return known;
@@ -228,11 +241,11 @@ public class ClassSymbolScanner implements ConvertType {
     }
 
     private void addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs) {
-        if (typeData.getType(cs.fullname.toString()) != null) return;
+        if (getType(cs.fullname.toString()) != null) return;
         String name = cs.getSimpleName().toString();
         LOGGER.debug("Adding enclosed type {} to {}", name, typeInfo);
         TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
-        typeData.put(enclosed);
+        put(enclosed);
         typeInfo.builder().addSubType(enclosed);
         loadType(cs, enclosed, true);
     }
@@ -246,7 +259,7 @@ public class ClassSymbolScanner implements ConvertType {
         typeInfo.builder().addField(fieldInfo);
         flagHelper.field(vs.flags(), fieldInfo.builder());
 
-        typeData.put(vs, fieldInfo);
+        put(vs, fieldInfo);
     }
 
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
@@ -269,7 +282,7 @@ public class ClassSymbolScanner implements ConvertType {
         for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
             TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), method);
             builder.addTypeParameter(newTp);
-            typeData.putTmpMethodTypeParameter(typeInfo.fullyQualifiedName(), newTp.simpleName(), newTp);
+            putTmpMethodTypeParameter(typeInfo.fullyQualifiedName(), newTp.simpleName(), newTp);
         }
 
         flagHelper.method(ms.flags(), builder);
@@ -289,16 +302,11 @@ public class ClassSymbolScanner implements ConvertType {
         builder.commitParameters();
         // now the fully qualified name has been computed...
 
-        typeData.clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
-        typeData.put(ms, method);
+        clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
+        put(ms, method);
 
         return method;
     }
-
-
-    private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
-    private SourceProvider sourceProvider;
-    private ElementStack elementStack;
 
     @Override
     public void startCompilationUnit(SourceProvider sourceProvider, ElementStack elementStack) {
@@ -322,7 +330,7 @@ public class ClassSymbolScanner implements ConvertType {
             ParameterizedType type = convert(vs.type);
             FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
             owner.builder().addField(fieldInfo);
-            typeData.put(vs, fieldInfo);
+            put(vs, fieldInfo);
             return fieldInfo;
         } else throw new UnsupportedOperationException();
     }
@@ -335,9 +343,6 @@ public class ClassSymbolScanner implements ConvertType {
         } else throw new UnsupportedOperationException();
     }
 
-    record SAMDescriptor(MethodInfo methodInfo, Symbol.MethodSymbol symbol, Type.MethodType instantiatedType) {
-    }
-
     @Override
     public ConvertType.SAMDescriptor findInstantiatedSAM(Type functionalType) {
         if (!functionalType.tsym.isInterface()) return null;
@@ -345,7 +350,7 @@ public class ClassSymbolScanner implements ConvertType {
 
         // Symbol — for name, flags, position, enclosing interface
         Symbol.MethodSymbol samSymbol = (Symbol.MethodSymbol) types.findDescriptorSymbol(functionalType.tsym);
-        MethodInfo methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(samSymbol),
+        MethodInfo methodInfo = Objects.requireNonNullElseGet(getMethod(samSymbol),
                 () -> ensureMethod(samSymbol));
 
         // Type — with type variables substituted for concrete args
@@ -394,11 +399,11 @@ public class ClassSymbolScanner implements ConvertType {
             if (typeVar.tsym.owner instanceof Symbol.MethodSymbol ms) {
                 if (ms.owner instanceof Symbol.ClassSymbol cs) {
                     String typeFqn = cs.fullname.toString();
-                    TypeParameter tmpTypeParameter = typeData.getTmpMethodTypeParameter(typeFqn, typeParameterName);
+                    TypeParameter tmpTypeParameter = getTmpMethodTypeParameter(typeFqn, typeParameterName);
                     if (tmpTypeParameter == null) {
                         // method must have been completed, look up!
                         // Note: it could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
-                        MethodInfo owner = typeData.getMethod(ms);
+                        MethodInfo owner = getMethod(ms);
                         assert owner != null;
                         typeParameter = findTypeParameter(owner, typeParameterName);
                     } else {
@@ -412,7 +417,7 @@ public class ClassSymbolScanner implements ConvertType {
                 } else throw new UnsupportedOperationException();
             } else {
                 String fullyQualifiedName = typeVar.tsym.owner.toString();
-                TypeInfo owner = typeData.getType(fullyQualifiedName);
+                TypeInfo owner = getType(fullyQualifiedName);
                 assert owner != null;
                 typeParameter = findTypeParameter(owner, typeParameterName);
             }
@@ -500,7 +505,7 @@ public class ClassSymbolScanner implements ConvertType {
 
     private ParameterizedType classType(Type.ClassType ct) {
         String fullyQualifiedType = ct.tsym.toString();
-        TypeInfo known = typeData.getType(fullyQualifiedType);
+        TypeInfo known = getType(fullyQualifiedType);
         TypeInfo typeInfo;
         if (known == null) {
             // on-demand loading; should be replaced by import handling?
@@ -556,4 +561,94 @@ public class ClassSymbolScanner implements ConvertType {
         return null;
     }
 
+    // type data
+
+    public SourceSet javaBase() {
+        return javaBase;
+    }
+
+    private void clearTmpMethodTypeParameterMap(String typeFqn) {
+        tmpMethodTypeParameterMap.remove(typeFqn);
+    }
+
+    private void putTmpMethodTypeParameter(String typeFqn, String methodTpName, TypeParameter methodTp) {
+        tmpMethodTypeParameterMap.computeIfAbsent(typeFqn, _ -> new HashMap<>()).put(methodTpName, methodTp);
+    }
+
+    private TypeParameter getTmpMethodTypeParameter(String typeFqn, String methodTpName) {
+        Map<String, TypeParameter> typeParameterMap = tmpMethodTypeParameterMap.get(typeFqn);
+        return typeParameterMap == null ? null : typeParameterMap.get(methodTpName);
+    }
+
+    private SourceSet getSourceSet(String name) {
+        return sourceSetMap.get(name);
+    }
+
+    private void put(SourceSet sourceSet) {
+        SourceSet prev = sourceSetMap.put(sourceSet.name(), sourceSet);
+        assert prev == null : "Duplicating SourceSet " + sourceSet;
+    }
+
+    @Override
+    public TypeInfo getType(String fullyQualifiedName) {
+        return singleTypeForFQN.get(fullyQualifiedName);
+    }
+
+    @Override
+    public void put(TypeInfo typeInfo) {
+        TypeInfo prev = singleTypeForFQN.put(typeInfo.fullyQualifiedName(), typeInfo);
+        assert prev == null : "Duplicating TypeInfo " + typeInfo;
+    }
+
+    @Override
+    public void put(String anonymousTypeName, TypeInfo typeInfo) {
+        TypeInfo prev = singleTypeForFQN.put(anonymousTypeName, typeInfo);
+        assert prev == null : "Duplicating TypeInfo " + typeInfo;
+    }
+
+    @Override
+    public void put(Symbol.MethodSymbol methodSymbol, MethodInfo methodInfo) {
+        MethodInfo prev = methodSymbolMap.put(methodSymbol, methodInfo);
+        assert prev == null : "Duplicating MethodInfo " + methodInfo;
+    }
+
+    @Override
+    public MethodInfo getMethod(Symbol.MethodSymbol methodSymbol) {
+        return methodSymbolMap.get(methodSymbol);
+    }
+
+    @Override
+    public void put(Symbol.VarSymbol varSymbol, FieldInfo fieldInfo) {
+        FieldInfo prev = varSymbolMap.put(varSymbol, fieldInfo);
+        assert prev == null : "Duplicating FieldInfo " + fieldInfo;
+    }
+
+    @Override
+    public FieldInfo getField(Symbol.VarSymbol varSymbol) {
+        return varSymbolMap.get(varSymbol);
+    }
+
+    // compiled types manager
+
+    @Override
+    public TypeData typeDataOrNull(String fqn, SourceSet sourceSetOfRequest,
+                                   SourceSet nearestSourceSet,
+                                   boolean complainSingle) {
+        throw new UnsupportedOperationException("not used by the OpenJDK implementation");
+    }
+
+    @Override
+    public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
+        put(typeInfo); // FIXME
+    }
+
+    @Override
+    public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        return getType(fullyQualifiedName); // FIXME
+    }
+
+    @Override
+    public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        throw new UnsupportedOperationException("NYI"); // FIXME
+    }
 }
