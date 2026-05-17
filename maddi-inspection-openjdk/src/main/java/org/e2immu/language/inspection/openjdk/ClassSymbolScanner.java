@@ -65,10 +65,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesM
 
         predefinedTypes.put("String", runtime.stringTypeInfo());
         predefinedTypes.put("Object", runtime.objectTypeInfo());
+
         predefinedTypes.put("Integer", runtime.integerTypeInfo());
         predefinedTypes.put("Boolean", runtime.boxedBooleanTypeInfo());
         predefinedTypes.put("Long", runtime.boxedLongTypeInfo());
         predefinedTypes.put("Character", runtime.characterTypeInfo());
+        predefinedTypes.put("Double", runtime.boxedDoubleTypeInfo());
+        predefinedTypes.put("Float", runtime.boxedFloatTypeInfo());
+        predefinedTypes.put("Short", runtime.boxedShortTypeInfo());
+        predefinedTypes.put("Byte", runtime.boxedByteTypeInfo());
+        predefinedTypes.put("Void", runtime.boxedByteTypeInfo());
+
         predefinedTypes.put("Class", runtime.classTypeInfo());
     }
 

@@ -39,6 +39,16 @@ public interface Predefined extends PredefinedWithoutParameterizedType {
 
     ParameterizedType doubleParameterizedType();
 
+    TypeInfo boxedDoubleTypeInfo();
+
+    TypeInfo boxedFloatTypeInfo();
+
+    TypeInfo boxedByteTypeInfo();
+
+    TypeInfo boxedShortTypeInfo();
+
+    TypeInfo boxedVoidTypeInfo();
+
     ParameterizedType floatParameterizedType();
 
     AnnotationExpression functionalInterfaceAnnotationExpression();
