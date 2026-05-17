@@ -29,20 +29,17 @@ public class ClassSymbolScanner {
     private ConvertType convertType;
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
-    private final ElementStack elementStack;
 
     public ClassSymbolScanner(Runtime runtime,
                               SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
                               Elements elements,
-                              TypeData typeData,
-                              ElementStack elementStack) {
+                              TypeData typeData) {
         this.runtime = runtime;
         this.flagHelper = flagHelper;
         this.elements = elements;
         this.typeData = typeData;
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
-        this.elementStack = elementStack; // for local types owned by a method
 
         predefinedTypes.put("String", runtime.stringTypeInfo());
         predefinedTypes.put("Object", runtime.objectTypeInfo());
@@ -54,7 +51,6 @@ public class ClassSymbolScanner {
     }
 
     public void setConvertType(ConvertType convertType) {
-        assert this.convertType == null : "SetOnce!";
         this.convertType = convertType;
     }
 
@@ -77,9 +73,7 @@ public class ClassSymbolScanner {
                 }
                 return inMap;
             }
-            case Symbol.MethodSymbol _ -> {
-                return (TypeInfo) elementStack.find(cs.getSimpleName().toString());
-            }
+            case Symbol.MethodSymbol _ -> throw new UnsupportedOperationException("Should have been picked up earlier");
             case null, default -> throw new UnsupportedOperationException();
         }
     }

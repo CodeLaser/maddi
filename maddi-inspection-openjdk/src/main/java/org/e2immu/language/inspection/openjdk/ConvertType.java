@@ -235,7 +235,11 @@ public class ConvertType {
         if (known == null) {
             // on-demand loading; should be replaced by import handling?
             if (ct.tsym instanceof Symbol.ClassSymbol cs) {
-                typeInfo = classSymbolScanner.type(cs);
+                if (cs.owner instanceof Symbol.MethodSymbol) {
+                    typeInfo = (TypeInfo) elementStack.find(cs.getSimpleName().toString());
+                } else {
+                    typeInfo = classSymbolScanner.type(cs);
+                }
             } else throw new UnsupportedOperationException("NYI");
         } else {
             typeInfo = known;

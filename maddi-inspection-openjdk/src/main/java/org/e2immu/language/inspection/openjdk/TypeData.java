@@ -95,17 +95,26 @@ public class TypeData implements CompiledTypesManager {
 
 
     @Override
-    public TypeData typeDataOrNull(String fqn, SourceSet sourceSetOfRequest, SourceSet nearestSourceSet, boolean complainSingle) {
-        return null;
+    public TypeData typeDataOrNull(String fqn,
+                                   SourceSet sourceSetOfRequest,
+                                   SourceSet nearestSourceSet,
+                                   boolean complainSingle) {
+        throw new UnsupportedOperationException(
+                "This is a communications method between ByteCodeInspector and CompiledTypesManager");
     }
 
     @Override
     public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
-
+        put(typeInfo); // TODO source file
     }
 
     @Override
     public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        return null;
+        return getType(fullyQualifiedName); // TODO sourceSet
+    }
+
+    @Override
+    public TypeInfo getOrLoad(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        throw new UnsupportedOperationException("NYI"); // FIXME load needs access to ClassSymbolScanner
     }
 }

@@ -11,10 +11,10 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.parser.java.ScanCompilationUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class ScanCompilationUnits {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(org.e2immu.parser.java.ScanCompilationUnit.class);
 
     private final Runtime runtime;
     private final SourceCodeScan sourceCodeScan;
@@ -39,8 +39,6 @@ public class ScanCompilationUnits {
     }
 
     public List<Info> scan(JavacTask task, SourceSet sourceSet) throws IOException {
-        Trees trees = Trees.instance(task);
-
         Iterable<? extends CompilationUnitTree> units = task.parse();
         task.analyze();
 
@@ -55,6 +53,12 @@ public class ScanCompilationUnits {
             }
             if (haveErrors) throw new CompilationProblems();
         }
+
+        Trees trees = Trees.instance(task);
+        Types types = Types.instance(((BasicJavacTask) task).getContext());
+        Elements elements = task.getElements();
+        ComputeMethodOverrides computeMethodOverrides = new ComputeMethodOverrides(types, elements);
+        FlagHelper flagHelper = new FlagHelper(runtime);
 
         List<Info> primaryTypesAndModules = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
@@ -79,14 +83,15 @@ public class ScanCompilationUnits {
             SourcePositions sourcePositions = trees.getSourcePositions();
             LineMap lineMap = unit.getLineMap();
 
-            Types types = Types.instance(((BasicJavacTask) task).getContext());
+            ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, sourceSet,
+                    flagHelper, elements, typeData);
 
-            SourceSet javaBase = null; // FIXME
-            TypeData td = new TypeData(javaBase);
-            AnalysisScanner analysisScanner = new AnalysisScanner(runtime, typeData, sourceSet, compilationUnit, unit,
-                    trees, sourcePositions, lineMap, task.getElements(), types, scanResult);
-            analysisScanner.scan(unit, null);
-            primaryTypesAndModules.addAll(analysisScanner.types());
+
+            ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, typeData, compilationUnit, unit,
+                    trees, sourcePositions, lineMap, task.getElements(), types, scanResult, computeMethodOverrides,
+                    flagHelper, classSymbolScanner);
+            scanCompilationUnit.scan(unit, null);
+            primaryTypesAndModules.addAll(scanCompilationUnit.types());
         }
         return List.copyOf(primaryTypesAndModules);
     }
