@@ -19,8 +19,12 @@ public interface TypeData {
 
     MethodInfo getMethod(Symbol.MethodSymbol methodSymbol);
 
+    MethodInfo getOrLoadMethod(Symbol.MethodSymbol methodSymbol);
+
     void put(Symbol.VarSymbol varSymbol, FieldInfo fieldInfo);
 
     FieldInfo getField(Symbol.VarSymbol varSymbol);
+
+    FieldInfo getOrLoadField(Symbol.VarSymbol vs);
 
 }
