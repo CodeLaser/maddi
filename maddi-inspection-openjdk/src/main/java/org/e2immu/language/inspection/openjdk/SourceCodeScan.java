@@ -21,6 +21,11 @@ import java.util.function.Predicate;
 public record SourceCodeScan(Runtime runtime) {
     private static final Logger LOGGER = LoggerFactory.getLogger(SourceCodeScan.class);
 
+    public static Result EMPTY_RESULT = new Result(Collections.unmodifiableNavigableMap(new TreeMap<>()),
+            Collections.unmodifiableNavigableMap(new TreeMap<>()),
+            Collections.unmodifiableNavigableMap(new TreeMap<>()),
+            Collections.unmodifiableNavigableMap(new TreeMap<>()));
+
     public record Result(NavigableMap<Source, List<Comment>> comments,
                          NavigableMap<Source, List<Comment>> trailingComments,
                          NavigableMap<Source, String> keywords,
@@ -141,7 +146,8 @@ public record SourceCodeScan(Runtime runtime) {
                     switch (t.getType()) {
                         case REQUIRES, PROVIDES, USES, EXPORTS, OPENS ->
                                 result.keywords.put(source(node), node.getSource());
-                        default -> {}
+                        default -> {
+                        }
                     }
                 }
                 default -> {
