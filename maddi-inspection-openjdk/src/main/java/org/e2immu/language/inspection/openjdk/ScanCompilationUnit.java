@@ -33,13 +33,12 @@ import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvider {
+class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceProvider {
     private record BlockData(Block.Builder blockBuilder, String index, int numberOfStatements) {
     }
 
     private final Deque<TypeInfo> typeStack = new ArrayDeque<>();
     private final ElementStack elementStack = new ElementStack();
-
     private final Runtime runtime;
     private final List<TypeInfo> collectedPrimaryTypes = new ArrayList<>();
     private final List<ModuleInfo> collectedModules = new ArrayList<>();
@@ -60,17 +59,19 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final Elements elements;
     private final ComputeMethodOverrides computeMethodOverrides;
 
-    AnalysisScanner(Runtime runtime,
-                    TypeData typeData,
-                    SourceSet sourceSetOfCurrentTask,
-                    CompilationUnit compilationUnit,
-                    CompilationUnitTree compilationUnitTree,
-                    Trees trees,
-                    SourcePositions sourcePositions,
-                    LineMap lineMap,
-                    Elements elements,
-                    Types types,
-                    SourceCodeScan.Result scanResult) {
+    ScanCompilationUnit(Runtime runtime,
+                        TypeData typeData,
+                        CompilationUnit compilationUnit,
+                        CompilationUnitTree compilationUnitTree,
+                        Trees trees,
+                        SourcePositions sourcePositions,
+                        LineMap lineMap,
+                        Elements elements,
+                        Types types,
+                        SourceCodeScan.Result scanResult,
+                        ComputeMethodOverrides computeMethodOverrides,
+                        FlagHelper flagHelper,
+                        ClassSymbolScanner classSymbolScanner) {
         this.runtime = runtime;
         this.typeData = typeData;
         this.compilationUnit = compilationUnit;
@@ -81,12 +82,10 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         this.scanResult = scanResult;
         this.types = types;
         this.elements = elements;
-
-        computeMethodOverrides = new ComputeMethodOverrides(types, elements);
-        flagHelper = new FlagHelper(runtime);
-        ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, sourceSetOfCurrentTask,
-                flagHelper, elements, typeData, elementStack);
-        convertType = new ConvertType(runtime, classSymbolScanner, typeData, elementStack, this, types);
+        this.flagHelper = flagHelper;
+        this.computeMethodOverrides = computeMethodOverrides;
+        convertType = new ConvertType(runtime, classSymbolScanner, typeData, elementStack,
+                this, types);
         classSymbolScanner.setConvertType(convertType);
     }
 
