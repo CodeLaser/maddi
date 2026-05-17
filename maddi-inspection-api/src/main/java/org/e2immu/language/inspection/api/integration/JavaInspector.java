@@ -92,7 +92,12 @@ public interface JavaInspector {
         ParseOptions build();
     }
 
-    ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest);
+    ParseOptions failFast();
+
+    default ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest) {
+        return runtime().newImportComputer(minStar, packageName ->
+                compiledTypesManager().primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest));
+    }
 
     record InitializationProblem(String errorMsg, Throwable throwable) {
     }
@@ -102,19 +107,27 @@ public interface JavaInspector {
     void preload(String thePackage);
 
     // main parse method, from sources specified in InputConfiguration
-    Summary parse(ParseOptions parseOptions);
+    default Summary parse(ParseOptions parseOptions) {
+        return parse(Map.of(), parseOptions);
+    }
 
     // only for testing
     Summary parse(Map<String, String> sourcesByTestProtocolURIString, ParseOptions parseOptions);
 
     // only for testing, uses FAIL_FAST default
-    TypeInfo parse(String input);
+    default TypeInfo parse(String input) {
+        return parseReturnAll(input, "main", failFast()).getFirst();
+    }
 
     // only for testing, uses FAIL_FAST default
-    TypeInfo parse(String input, String inputName, String sourceSetName);
+    default TypeInfo parse(String input, String inputName, String sourceSetName) {
+        return parseReturnAll(input, inputName, sourceSetName, failFast()).getFirst();
+    }
 
     // only for testing, after general parse()
-    TypeInfo parse(String input, ParseOptions parseOptions);
+    default TypeInfo parse(String input, ParseOptions parseOptions) {
+        return parseReturnAll(input, "main", parseOptions).getFirst();
+    }
 
     List<TypeInfo> parseReturnAll(String input, String inputName, String sourceSetName, ParseOptions parseOptions);
 
@@ -122,11 +135,18 @@ public interface JavaInspector {
     Summary parse(URI typeInfo, SourceSet sourceSet, ParseOptions parseOptions);
 
     // only for testing, after general parse();
-    List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions);
+    default List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions) {
+        return parseReturnAll(input, "input", sourceSetName, parseOptions);
+    }
 
-    String print2(CompilationUnit compilationUnit);
+    default String print2(CompilationUnit compilationUnit) {
+        return print2(compilationUnit, (Qualification.Decorator) null, importComputer(4,
+                compilationUnit.sourceSet()));
+    }
 
-    String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator, ImportComputer importComputer);
+   default String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator, ImportComputer importComputer){
+       return print2(compilationUnit, runtime().qualificationQualifyFromPrimaryType(decorator), importComputer);
+   }
 
     Runtime runtime();
 
