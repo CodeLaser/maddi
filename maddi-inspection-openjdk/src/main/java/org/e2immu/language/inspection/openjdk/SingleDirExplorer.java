@@ -125,7 +125,8 @@ public class SingleDirExplorer {
                     compilationUnits
             );
 
-            return new ScanCompilationUnits(runtime, null, diagnostics).scan(task, sourceSet);
+            return new ScanCompilationUnits(runtime, null, task, sourceSet,
+                    JavaInspectorImpl.DETAILED_SOURCES, diagnostics).scan();
         }
     }
 }

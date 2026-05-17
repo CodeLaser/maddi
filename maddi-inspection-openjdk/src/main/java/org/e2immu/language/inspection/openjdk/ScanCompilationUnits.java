@@ -11,6 +11,7 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,17 +29,42 @@ public class ScanCompilationUnits {
 
     private final Runtime runtime;
     private final SourceCodeScan sourceCodeScan;
-    private final TypeData typeData;
     private final DiagnosticCollector<JavaFileObject> diagnostics;
+    private final JavacTask task;
+    private final SourceSet sourceSet;
+    private final JavaInspector.ParseOptions parseOptions;
+    private final Trees trees;
+    private final SourcePositions sourcePositions;
+    private final Types types;
+    private final ComputeMethodOverrides computeMethodOverrides;
+    private final FlagHelper flagHelper;
+    private final TypeData typeData;
+    private final ClassSymbolScanner classSymbolScanner;
 
-    public ScanCompilationUnits(Runtime runtime, SourceSet javaBase, DiagnosticCollector<JavaFileObject> diagnostics) {
+    public ScanCompilationUnits(Runtime runtime,
+                                SourceSet javaBase,
+                                JavacTask task,
+                                SourceSet sourceSet,
+                                JavaInspector.ParseOptions parseOptions,
+                                DiagnosticCollector<JavaFileObject> diagnostics) {
         this.runtime = runtime;
         sourceCodeScan = new SourceCodeScan(runtime);
-        this.typeData = new TypeData(javaBase);
         this.diagnostics = diagnostics;
+        this.task = task;
+        this.sourceSet = sourceSet;
+        this.parseOptions = parseOptions;
+
+        trees = Trees.instance(task);
+        sourcePositions = trees.getSourcePositions();
+        types = Types.instance(((BasicJavacTask) task).getContext());
+        Elements elements = task.getElements();
+        computeMethodOverrides = new ComputeMethodOverrides(types, elements);
+        flagHelper = new FlagHelper(runtime);
+        typeData = new TypeData(javaBase);
+        classSymbolScanner = new ClassSymbolScanner(runtime, sourceSet, flagHelper, elements, typeData);
     }
 
-    public List<Info> scan(JavacTask task, SourceSet sourceSet) throws IOException {
+    public List<Info> scan() throws IOException {
         Iterable<? extends CompilationUnitTree> units = task.parse();
         task.analyze();
 
@@ -53,12 +79,6 @@ public class ScanCompilationUnits {
             }
             if (haveErrors) throw new CompilationProblems();
         }
-
-        Trees trees = Trees.instance(task);
-        Types types = Types.instance(((BasicJavacTask) task).getContext());
-        Elements elements = task.getElements();
-        ComputeMethodOverrides computeMethodOverrides = new ComputeMethodOverrides(types, elements);
-        FlagHelper flagHelper = new FlagHelper(runtime);
 
         List<Info> primaryTypesAndModules = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
@@ -77,16 +97,17 @@ public class ScanCompilationUnits {
                     .setPackageName(packageName)
                     .setSourceSet(sourceSet)
                     .build();
-            CharSequence content = unit.getSourceFile().getCharContent(false);
-            SourceCodeScan.Result scanResult = sourceCodeScan.go(content, isModule);
 
-            SourcePositions sourcePositions = trees.getSourcePositions();
+            SourceCodeScan.Result scanResult;
+            if (parseOptions.detailedSources()) {
+                CharSequence content = unit.getSourceFile().getCharContent(false);
+                scanResult = sourceCodeScan.go(content, isModule);
+            } else {
+                scanResult = SourceCodeScan.EMPTY_RESULT;
+            }
+
+
             LineMap lineMap = unit.getLineMap();
-
-            ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, sourceSet,
-                    flagHelper, elements, typeData);
-
-
             ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, typeData, compilationUnit, unit,
                     trees, sourcePositions, lineMap, task.getElements(), types, scanResult, computeMethodOverrides,
                     flagHelper, classSymbolScanner);
@@ -96,7 +117,8 @@ public class ScanCompilationUnits {
         return List.copyOf(primaryTypesAndModules);
     }
 
-    public TypeData typeData() {
+    // for tests
+    TypeData typeData() {
         return typeData;
     }
 }

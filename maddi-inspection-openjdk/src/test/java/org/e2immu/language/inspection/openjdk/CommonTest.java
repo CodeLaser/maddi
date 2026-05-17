@@ -9,6 +9,7 @@ import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 
 import javax.lang.model.element.TypeElement;
@@ -63,10 +64,13 @@ public class CommonTest {
             SourceSet javaBase = null; // FIXME
             DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
             javacTask = createTask(sourcesByClassName, jars, diagnostics);
-            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, javaBase, diagnostics);
+            JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
+                    .setDetailedSources(true)
+                    .build();
+            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, javaBase,
+                    javacTask, sourceSet, parseOptions, diagnostics);
             typeData = scanCompilationUnits.typeData();
-
-            return scanCompilationUnits.scan(javacTask, sourceSet);
+            return scanCompilationUnits.scan();
         } catch (IOException io) {
             fail(io);
             return null;
