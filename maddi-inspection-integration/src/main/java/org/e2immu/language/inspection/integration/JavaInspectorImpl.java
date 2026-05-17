@@ -428,25 +428,10 @@ public class JavaInspectorImpl implements JavaInspector {
         return MD5FingerPrint.NO_FINGERPRINT;
     }
 
-    // used for testing
-    @Override
-    public TypeInfo parse(String input, ParseOptions parseOptions) {
-        return parseReturnAll(input, "main", parseOptions).getFirst();
-    }
 
     @Override
-    public TypeInfo parse(String input) {
-        return parseReturnAll(input, "main", FAIL_FAST).getFirst();
-    }
-
-    @Override
-    public TypeInfo parse(String input, String inputName, String sourceSetName) {
-        return parseReturnAll(input, inputName, sourceSetName, FAIL_FAST).getFirst();
-    }
-
-    @Override
-    public List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions) {
-        return parseReturnAll(input, "input", sourceSetName, parseOptions);
+    public ParseOptions failFast() {
+        return FAIL_FAST;
     }
 
     @Override
@@ -542,10 +527,6 @@ public class JavaInspectorImpl implements JavaInspector {
         return new InputStreamReader(uri.toURL().openStream(), charset);
     }
 
-    @Override
-    public Summary parse(ParseOptions parseOptions) {
-        return parse(Map.of(), parseOptions);
-    }
 
     @Override
     public Summary parse(Map<String, String> sourcesByTestProtocolURIString, ParseOptions parseOptions) {
@@ -832,26 +813,6 @@ public class JavaInspectorImpl implements JavaInspector {
     @Override
     public Set<SourceFile> sourceFiles() {
         return sourceFiles.keySet();
-    }
-
-
-    @Override
-    public ImportComputer importComputer(int minStar, SourceSet sourceSetOfRequest) {
-        return runtime.newImportComputer(minStar, packageName ->
-                compiledTypesManager.primaryTypesInPackageEnsureLoaded(packageName, sourceSetOfRequest));
-    }
-
-    @Override
-    public String print2(CompilationUnit compilationUnit) {
-        return print2(compilationUnit, (Qualification.Decorator) null, importComputer(4,
-                compilationUnit.sourceSet()));
-    }
-
-    @Override
-    public String print2(CompilationUnit compilationUnit,
-                         Qualification.Decorator decorator,
-                         ImportComputer importComputer) {
-        return print2(compilationUnit, runtime.qualificationQualifyFromPrimaryType(decorator), importComputer);
     }
 
     @Override
