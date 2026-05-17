@@ -402,8 +402,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         //overrides
         List<Symbol.MethodSymbol> overridden = computeMethodOverrides.findOverriddenMethods(jcMethod.sym);
         Set<MethodInfo> overrides = overridden.stream()
-                .map(sym -> Objects.requireNonNullElseGet(typeData.getMethod(sym),
-                        () -> convertType.ensureMethod(sym)))
+                .map(typeData::getOrLoadMethod)
                 .collect(Collectors.toUnmodifiableSet());
 
         Source source = sourceForNode(node, dsb);
@@ -1524,8 +1523,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
                 case ENUM_CONSTANT -> {
                     if (element instanceof Symbol.VarSymbol vs) {
-                        FieldInfo fieldInfo = Objects.requireNonNullElseGet(typeData.getField(vs),
-                                () -> convertType.ensureField(vs));
+                        FieldInfo fieldInfo = typeData.getOrLoadField(vs);
                         currentExpression = runtime.newVariableExpressionBuilder()
                                 .setSource(sourceForNode(node))
                                 .setVariable(runtime.newFieldReference(fieldInfo))
@@ -1574,7 +1572,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 concreteFunctionalType = runtime.newParameterizedType(intFunction, List.of(concreteReturnType));
                 concreteParameterTypes = List.of(runtime.intParameterizedType());
             } else {
-                method = Objects.requireNonNullElseGet(typeData.getMethod(ms), () -> convertType.ensureMethod(ms));
+                method = typeData.getOrLoadMethod(ms);
                 concreteFunctionalType = convertType.convert(mr.type);
                 Type.MethodType instantiatedSam = (Type.MethodType) types.findDescriptorType(mr.type);
                 Type returnType = instantiatedSam.getReturnType();
@@ -1632,8 +1630,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                             .setExpression(scope)
                             .build();
                 } else {
-                    FieldInfo fieldInfo = Objects.requireNonNullElseGet(typeData.getField(vs),
-                            () -> convertType.ensureField(vs));
+                    FieldInfo fieldInfo = typeData.getOrLoadField(vs);
                     FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
                     currentExpression = runtime.newVariableExpressionBuilder()
                             .setSource(sourceForNode(node))
@@ -1685,8 +1682,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     explicitConstructorInvocation = false;
                 }
             } else throw new UnsupportedOperationException("NYI");
-            methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(methodSymbol), () ->
-                    convertType.ensureMethod(methodSymbol));
+            methodInfo = typeData.getOrLoadMethod(methodSymbol);
             objectIsImplicit = true;
         } else if (methodSelect instanceof MemberSelectTree mst) {
             scan(mst.getExpression(), p);
@@ -1697,8 +1693,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             explicitConstructorInvocation = false;
             if (methodInvocation.meth instanceof JCTree.JCFieldAccess fieldAccess
                 && fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
-                methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(methodSymbol), () ->
-                        convertType.ensureMethod(methodSymbol));
+                methodInfo = typeData.getOrLoadMethod(methodSymbol);
             } else throw new UnsupportedOperationException("NYI");
         } else throw new UnsupportedOperationException("NYI");
 
@@ -1848,8 +1843,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             concreteReturnType = convertType.convert(newClass.type);
             anonymousType = null;
             Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) newClass.constructor;
-            constructor = Objects.requireNonNullElseGet(typeData.getMethod(methodSymbol), () ->
-                    convertType.ensureMethod(methodSymbol));
+            constructor = typeData.getOrLoadMethod(methodSymbol);
         }
         currentExpression = runtime.newConstructorCallBuilder()
                 .setSource(sourceForNode(node, dsb))

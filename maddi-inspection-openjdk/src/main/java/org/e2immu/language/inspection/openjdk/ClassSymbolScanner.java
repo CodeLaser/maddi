@@ -350,8 +350,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesM
 
         // Symbol — for name, flags, position, enclosing interface
         Symbol.MethodSymbol samSymbol = (Symbol.MethodSymbol) types.findDescriptorSymbol(functionalType.tsym);
-        MethodInfo methodInfo = Objects.requireNonNullElseGet(getMethod(samSymbol),
-                () -> ensureMethod(samSymbol));
+        MethodInfo methodInfo = getOrLoadMethod(samSymbol);
 
         // Type — with type variables substituted for concrete args
         // e.g. Comparator<String> -> (String, String) -> int
@@ -618,6 +617,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesM
     }
 
     @Override
+    public MethodInfo getOrLoadMethod(Symbol.MethodSymbol methodSymbol) {
+        return Objects.requireNonNullElseGet(getMethod(methodSymbol), () -> ensureMethod(methodSymbol));
+    }
+
+    @Override
     public void put(Symbol.VarSymbol varSymbol, FieldInfo fieldInfo) {
         FieldInfo prev = varSymbolMap.put(varSymbol, fieldInfo);
         assert prev == null : "Duplicating FieldInfo " + fieldInfo;
@@ -626,6 +630,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData, CompiledTypesM
     @Override
     public FieldInfo getField(Symbol.VarSymbol varSymbol) {
         return varSymbolMap.get(varSymbol);
+    }
+
+    @Override
+    public FieldInfo getOrLoadField(Symbol.VarSymbol vs) {
+        return Objects.requireNonNullElseGet(getField(vs), () -> ensureField(vs));
     }
 
     // compiled types manager
