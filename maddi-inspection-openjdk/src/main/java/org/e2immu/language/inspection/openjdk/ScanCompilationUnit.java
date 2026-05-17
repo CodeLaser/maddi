@@ -997,7 +997,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
                         flagHelper.field(flags, fieldInfo.builder());
                         fieldInfo.builder().setSource(sourceForNode(node))
-                                .setInitializer(currentExpression);
+                                .setInitializer(currentExpression)
+                                .computeAccess();
 
                         // annotations
                         for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
