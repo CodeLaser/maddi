@@ -112,11 +112,9 @@ public class TestMethodCall3 extends CommonTest {
         MethodInfo methodInfo = typeInfo.findUniqueMethod("same4", 4);
         LocalVariableCreation lvc = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
         assertNotNull(lvc.source().detailedSources());
-        // NOTE difference with maddi parsing: java.net.http.HttpRequest.Builder[E java.net.http.HttpRequest]
-        // is now java.net.http.HttpRequest.Builder[E]
         assertEquals("""
                 [java.net.http.HttpRequest[E], java.net.URI[E], java.lang.String[E], java.lang.String[E], \
-                java.lang.Long[E], java.net.http.HttpRequest.Builder[E], \
+                java.lang.Long[E], java.net.http.HttpRequest.Builder[E java.net.http.HttpRequest], \
                 java.net.http.HttpRequest[E], java.time.Duration[E], java.util.Objects[E], \
                 a.b.C[E], a.b.C[E]]\
                 """, methodInfo.typesReferenced(_->true)
