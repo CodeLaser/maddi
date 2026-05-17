@@ -6,18 +6,38 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
+import org.e2immu.language.inspection.api.resource.SourceFile;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.Map;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
-public class TypeData {
+public class TypeData implements CompiledTypesManager {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TypeData.class);
+
+    private final SourceSet ANY = new SourceSetImpl("any source set will do", List.of(), URI.create("file:/"),
+            StandardCharsets.UTF_8, false, false, false, false, false,
+            Set.of(), Set.of());
+
+    private final SourceSet javaBase;
     private final Map<String, SourceSet> sourceSetMap = new HashMap<>();
     private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
-
     private final Map<String, Map<String, TypeParameter>> tmpMethodTypeParameterMap = new HashMap<>();
+
+    public TypeData(SourceSet javaBase) {
+        this.javaBase = javaBase;
+    }
+
+    @Override
+    public SourceSet javaBase() {
+        return javaBase;
+    }
 
     public void clearTmpMethodTypeParameterMap(String typeFqn) {
         tmpMethodTypeParameterMap.remove(typeFqn);
@@ -73,4 +93,19 @@ public class TypeData {
         return varSymbolMap.get(varSymbol);
     }
 
+
+    @Override
+    public TypeData typeDataOrNull(String fqn, SourceSet sourceSetOfRequest, SourceSet nearestSourceSet, boolean complainSingle) {
+        return null;
+    }
+
+    @Override
+    public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
+
+    }
+
+    @Override
+    public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
+        return null;
+    }
 }

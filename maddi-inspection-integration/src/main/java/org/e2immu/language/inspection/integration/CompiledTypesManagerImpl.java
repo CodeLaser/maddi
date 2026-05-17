@@ -12,7 +12,7 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.resource;
+package org.e2immu.language.inspection.integration;
 
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -20,6 +20,7 @@ import org.e2immu.language.inspection.api.resource.ByteCodeInspector;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.Resources;
 import org.e2immu.language.inspection.api.resource.SourceFile;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.support.SetOnce;
 import org.e2immu.util.internal.util.Trie;
 import org.slf4j.Logger;

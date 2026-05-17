@@ -60,9 +60,10 @@ public class CommonTest {
                 StandardCharsets.UTF_8, false, false, false,
                 false, false, Set.of(), Set.of());
         try {
+            SourceSet javaBase = null; // FIXME
             DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
             javacTask = createTask(sourcesByClassName, jars, diagnostics);
-            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, diagnostics);
+            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, javaBase, diagnostics);
             typeData = scanCompilationUnits.typeData();
 
             return scanCompilationUnits.scan(javacTask, sourceSet);
@@ -72,15 +73,15 @@ public class CommonTest {
         }
     }
 
-    public TypeInfo loadType(String fqn) {
+    public void loadType(TypeInfo typeInfo) {
         Elements elements = javacTask.getElements();
-        TypeElement typeElement = elements.getTypeElement(fqn);
+        TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
         ElementStack elementStack = new ElementStack();
         ClassSymbolScanner css = new ClassSymbolScanner(runtime, sourceSet, new FlagHelper(runtime), elements, typeData,
                 elementStack);
         Types types = Types.instance(((BasicJavacTask) javacTask).getContext());
         css.setConvertType(new ConvertType(runtime, css, typeData, elementStack, null, types));
-        return css.primaryType((Symbol.ClassSymbol) typeElement, true);
+        css.loadType((Symbol.ClassSymbol) typeElement, typeInfo, true);
     }
 
     private JavacTask createTask(Map<String, String> sourcesByClassName, List<File> jars,

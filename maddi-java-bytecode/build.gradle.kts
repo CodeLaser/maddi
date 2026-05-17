@@ -27,4 +27,5 @@ dependencies {
 
     testImplementation(project(":maddi-cst-impl"))
     testImplementation(project(":maddi-inspection-resource"))
+    testImplementation(project(":maddi-inspection-integration"))
 }

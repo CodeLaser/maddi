@@ -61,6 +61,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
     private final ComputeMethodOverrides computeMethodOverrides;
 
     AnalysisScanner(Runtime runtime,
+                    TypeData typeData,
                     SourceSet sourceSetOfCurrentTask,
                     CompilationUnit compilationUnit,
                     CompilationUnitTree compilationUnitTree,
@@ -71,6 +72,7 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
                     Types types,
                     SourceCodeScan.Result scanResult) {
         this.runtime = runtime;
+        this.typeData = typeData;
         this.compilationUnit = compilationUnit;
         this.trees = trees;
         this.lineMap = lineMap;
@@ -81,7 +83,6 @@ class AnalysisScanner extends TreePathScanner<Void, Void> implements SourceProvi
         this.elements = elements;
 
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
-        typeData = new TypeData();
         flagHelper = new FlagHelper(runtime);
         ClassSymbolScanner classSymbolScanner = new ClassSymbolScanner(runtime, sourceSetOfCurrentTask,
                 flagHelper, elements, typeData, elementStack);

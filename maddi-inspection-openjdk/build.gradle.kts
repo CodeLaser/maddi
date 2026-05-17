@@ -28,9 +28,9 @@ dependencies {
     implementation(project(":maddi-cst-io"))
     implementation(project(":maddi-cst-print"))
     implementation(project(":maddi-cst-analysis"))
+    implementation(project(":maddi-inspection-resource"))
 
     testImplementation(project(":maddi-cst-impl"))
-    testImplementation(project(":maddi-inspection-resource"))
 }
 
 tasks.withType<JavaCompile> {

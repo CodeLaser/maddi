@@ -57,6 +57,7 @@ public class JavaInspectorImpl implements JavaInspector {
     public static final ParseOptions FAIL_FAST = new ParseOptions(true, false,
             _ -> UNCHANGED, false, false);
     public static final ParseOptions DETAILED_SOURCES = new ParseOptionsBuilder().setDetailedSources(true).build();
+
     public static class ParseOptionsBuilder implements JavaInspector.ParseOptionsBuilder {
         private boolean failFast;
         private boolean detailedSources;
@@ -131,6 +132,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
+        compiledTypesManager = new TypeData(null); // FIXME
         return List.of();
     }
 

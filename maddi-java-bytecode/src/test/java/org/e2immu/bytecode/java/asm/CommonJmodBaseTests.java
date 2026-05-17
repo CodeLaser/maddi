@@ -20,8 +20,8 @@ import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.Resources;
 import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.language.inspection.resource.CompiledTypesManagerImpl;
-import org.e2immu.language.inspection.resource.ResourcesImpl;
+import org.e2immu.language.inspection.integration.CompiledTypesManagerImpl;
+import org.e2immu.language.inspection.integration.ResourcesImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeAll;
 

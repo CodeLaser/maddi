@@ -31,10 +31,10 @@ public class ScanCompilationUnits {
     private final TypeData typeData;
     private final DiagnosticCollector<JavaFileObject> diagnostics;
 
-    public ScanCompilationUnits(Runtime runtime, DiagnosticCollector<JavaFileObject> diagnostics) {
+    public ScanCompilationUnits(Runtime runtime, SourceSet javaBase, DiagnosticCollector<JavaFileObject> diagnostics) {
         this.runtime = runtime;
         sourceCodeScan = new SourceCodeScan(runtime);
-        this.typeData = new TypeData();
+        this.typeData = new TypeData(javaBase);
         this.diagnostics = diagnostics;
     }
 
@@ -81,8 +81,10 @@ public class ScanCompilationUnits {
 
             Types types = Types.instance(((BasicJavacTask) task).getContext());
 
-            AnalysisScanner analysisScanner = new AnalysisScanner(runtime, sourceSet, compilationUnit, unit, trees,
-                    sourcePositions, lineMap, task.getElements(), types, scanResult);
+            SourceSet javaBase = null; // FIXME
+            TypeData td = new TypeData(javaBase);
+            AnalysisScanner analysisScanner = new AnalysisScanner(runtime, typeData, sourceSet, compilationUnit, unit,
+                    trees, sourcePositions, lineMap, task.getElements(), types, scanResult);
             analysisScanner.scan(unit, null);
             primaryTypesAndModules.addAll(analysisScanner.types());
         }
