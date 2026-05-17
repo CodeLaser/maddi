@@ -1,13 +1,20 @@
 package org.e2immu.language.inspection.openjdk;
 
+import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.cst.api.type.Wildcard;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,25 +26,27 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class ClassSymbolScanner {
+public class ClassSymbolScanner implements ConvertType {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);
     private final Runtime runtime;
     private final FlagHelper flagHelper;
     private final Elements elements;
+    private final Types types;
     private final TypeData typeData;
     private final SourceSet sourceSetOfCurrentTask;
-    private ConvertType convertType;
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
 
     public ClassSymbolScanner(Runtime runtime,
                               SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
+                              Types types,
                               Elements elements,
                               TypeData typeData) {
         this.runtime = runtime;
         this.flagHelper = flagHelper;
         this.elements = elements;
+        this.types = types;
         this.typeData = typeData;
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
 
@@ -50,17 +59,13 @@ public class ClassSymbolScanner {
         predefinedTypes.put("Class", runtime.classTypeInfo());
     }
 
-    public void setConvertType(ConvertType convertType) {
-        this.convertType = convertType;
-    }
-
     TypeInfo type(Symbol.ClassSymbol cs) {
         switch (cs.owner) {
             case Symbol.PackageSymbol _ -> {
                 return primaryType(cs, false);
             }
             case Symbol.ClassSymbol enclosedSymbol -> {
-                TypeInfo owner = convertType.convert(enclosedSymbol.type).typeInfo();
+                TypeInfo owner = convert(enclosedSymbol.type).typeInfo();
                 String simpleName = cs.getSimpleName().toString();
                 TypeInfo inMap = owner.findSubType(simpleName, false);
                 if (inMap == null) {
@@ -118,10 +123,10 @@ public class ClassSymbolScanner {
             List<? extends Element> members = elements.getAllMembers(cs);
 
             int index = 0;
-            convertType.newTypeParameterMap();
+            newTypeParameterMap();
             for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
                 TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
-                convertType.putInLastTypeParameterMap(newTp);
+                putInLastTypeParameterMap(newTp);
 
                 List<ParameterizedType> bounds = new ArrayList<>();
                 if (typeParameter.type instanceof Type.TypeVar tv) {
@@ -136,7 +141,7 @@ public class ClassSymbolScanner {
                                 bounds.add(runtime.newParameterizedType(newTypeInfo,
                                         List.of(runtime.newParameterizedType(newTp, 0, null))));
                             } else if (upperBound instanceof Type.ClassType ct) {
-                                ParameterizedType upper = convertType.convert(ct);
+                                ParameterizedType upper = convert(ct);
                                 if (!upper.isJavaLangObject()) {
                                     bounds.add(upper.withWildcard(runtime.wildcardExtends()));
                                 }
@@ -149,13 +154,13 @@ public class ClassSymbolScanner {
                 newTp.builder().setTypeBounds(List.copyOf(bounds)).commit();
                 newTypeInfo.builder().addOrSetTypeParameter(newTp);
             }
-            convertType.popTypeParameterMap();
+            popTypeParameterMap();
 
-            ParameterizedType superType = convertType.convert(cs.getSuperclass());
+            ParameterizedType superType = convert(cs.getSuperclass());
             newTypeInfo.builder().setParentClass(superType);
 
             for (Type type : cs.getInterfaces()) {
-                ParameterizedType pt = convertType.convert(type);
+                ParameterizedType pt = convert(type);
                 newTypeInfo.builder().addInterfaceImplemented(pt);
             }
 
@@ -163,7 +168,7 @@ public class ClassSymbolScanner {
                 for (var member : members) {
                     addMemberToType(newTypeInfo, cs, member);
                 }
-                MethodInfo singleAbstractMethod = convertType.computeSAM(cs.type);
+                MethodInfo singleAbstractMethod = computeSAM(cs.type);
                 newTypeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
             }
             recursionPrevention.remove(newTypeInfo);
@@ -235,7 +240,7 @@ public class ClassSymbolScanner {
     private void addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
         String name = vs.getSimpleName().toString();
         LOGGER.debug("Adding field {} to {}", name, typeInfo);
-        ParameterizedType type = convertType.convert(vs.type);
+        ParameterizedType type = convert(vs.type);
         boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
         FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
         typeInfo.builder().addField(fieldInfo);
@@ -270,7 +275,7 @@ public class ClassSymbolScanner {
         flagHelper.method(ms.flags(), builder);
         if (ms.params != null) {
             for (Symbol.VarSymbol parameter : ms.params) {
-                ParameterizedType pt = convertType.convert(parameter.type);
+                ParameterizedType pt = convert(parameter.type);
                 ParameterInfo parameterInfo = builder.addParameter(parameter.getSimpleName().toString(), pt);
                 long flags = parameter.flags();
                 if ((flags & Flags.VARARGS) != 0) parameterInfo.builder().setVarArgs(true);
@@ -278,7 +283,7 @@ public class ClassSymbolScanner {
                 parameterInfo.builder().commit();
             }
         }
-        ParameterizedType returnType = convertType.convert(ms.getReturnType());
+        ParameterizedType returnType = convert(ms.getReturnType());
         builder.setReturnType(returnType);
 
         builder.commitParameters();
@@ -288,6 +293,267 @@ public class ClassSymbolScanner {
         typeData.put(ms, method);
 
         return method;
+    }
+
+
+    private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
+    private SourceProvider sourceProvider;
+    private ElementStack elementStack;
+
+    @Override
+    public void startCompilationUnit(SourceProvider sourceProvider, ElementStack elementStack) {
+        this.elementStack = elementStack;
+        this.sourceProvider = sourceProvider;
+    }
+
+    // general method, returns null when 'cs' is not a functional type
+    @Override
+    public @Nullable MethodInfo computeSAM(Type type) {
+        ConvertType.SAMDescriptor sd = findInstantiatedSAM(type);
+        return sd == null ? null : sd.methodInfo();
+    }
+
+    @Override
+    public FieldInfo ensureField(Symbol.VarSymbol vs) {
+        if (vs.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo owner = convert(cs.type).typeInfo();
+            String name = vs.getSimpleName().toString();
+            boolean isStatic = vs.isStatic();
+            ParameterizedType type = convert(vs.type);
+            FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+            owner.builder().addField(fieldInfo);
+            typeData.put(vs, fieldInfo);
+            return fieldInfo;
+        } else throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol) {
+        if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo owner = convert(cs.type).typeInfo();
+            return addMethodToType(owner, methodSymbol);
+        } else throw new UnsupportedOperationException();
+    }
+
+    record SAMDescriptor(MethodInfo methodInfo, Symbol.MethodSymbol symbol, Type.MethodType instantiatedType) {
+    }
+
+    @Override
+    public ConvertType.SAMDescriptor findInstantiatedSAM(Type functionalType) {
+        if (!functionalType.tsym.isInterface()) return null;
+        if (!types.isFunctionalInterface(functionalType.tsym)) return null;
+
+        // Symbol — for name, flags, position, enclosing interface
+        Symbol.MethodSymbol samSymbol = (Symbol.MethodSymbol) types.findDescriptorSymbol(functionalType.tsym);
+        MethodInfo methodInfo = Objects.requireNonNullElseGet(typeData.getMethod(samSymbol),
+                () -> ensureMethod(samSymbol));
+
+        // Type — with type variables substituted for concrete args
+        // e.g. Comparator<String> -> (String, String) -> int
+        Type descriptorType = types.findDescriptorType(functionalType);
+        Type.MethodType methodType = switch (descriptorType) {
+            case Type.MethodType mt -> mt;
+            case Type.ForAll forAll -> (Type.MethodType) forAll.qtype;
+            default ->
+                    throw new UnsupportedOperationException("unexpected descriptor type: " + descriptorType.getClass());
+        };
+
+        return new ConvertType.SAMDescriptor(methodInfo, samSymbol, methodType);
+    }
+
+    @Override
+    public ParameterizedType convert(Type type) {
+        if (type instanceof Type.JCPrimitiveType primitiveType) {
+            return primitiveType(primitiveType.getKind());
+        }
+        if (type instanceof Type.ClassType ct) {
+            return classType(ct);
+        }
+        if (type instanceof Type.JCVoidType) {
+            return runtime.voidParameterizedType();
+        }
+        if (type instanceof Type.ArrayType at) {
+            ParameterizedType base = convert(at.elemtype);
+            return base.copyWithArrays(base.arrays() + 1);
+        }
+        if (type instanceof Type.WildcardType wildcardType) {
+            if (wildcardType.isUnbound()) {
+                return runtime.parameterizedTypeWildcard();
+            }
+            boolean isExtends = wildcardType.isExtendsBound();
+            Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
+            ParameterizedType base = convert(wildcardType.type);
+            if (base.isTypeParameter()) {
+                return runtime.newParameterizedType(base.typeParameter(), 0, wildCard);
+            }
+            return runtime.newParameterizedType(base.typeInfo(), 0, wildCard, List.of());
+        }
+        if (type instanceof Type.TypeVar typeVar) {
+            String typeParameterName = typeVar.tsym.toString();
+            TypeParameter typeParameter;
+            if (typeVar.tsym.owner instanceof Symbol.MethodSymbol ms) {
+                if (ms.owner instanceof Symbol.ClassSymbol cs) {
+                    String typeFqn = cs.fullname.toString();
+                    TypeParameter tmpTypeParameter = typeData.getTmpMethodTypeParameter(typeFqn, typeParameterName);
+                    if (tmpTypeParameter == null) {
+                        // method must have been completed, look up!
+                        // Note: it could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
+                        MethodInfo owner = typeData.getMethod(ms);
+                        assert owner != null;
+                        typeParameter = findTypeParameter(owner, typeParameterName);
+                    } else {
+                        typeParameter = tmpTypeParameter;
+                    }
+                } else throw new UnsupportedOperationException();
+            } else if (typeVar.isCaptured()) {
+                if (typeVar.getUpperBound() instanceof Type.ClassType ct) {
+                    TypeInfo upper = convert(ct).typeInfo();
+                    return runtime.newParameterizedType(upper, 0, runtime.wildcardExtends(), List.of());
+                } else throw new UnsupportedOperationException();
+            } else {
+                String fullyQualifiedName = typeVar.tsym.owner.toString();
+                TypeInfo owner = typeData.getType(fullyQualifiedName);
+                assert owner != null;
+                typeParameter = findTypeParameter(owner, typeParameterName);
+            }
+            return runtime.newParameterizedType(typeParameter, 0, null);
+        }
+        if ("none".equals(type.toString())) return null; // parent of Object
+        throw new UnsupportedOperationException("NYI");
+    }
+
+    private @NotNull TypeParameter findTypeParameter(MethodInfo owner, String typeParameterName) {
+        TypeParameter inStack = findInTypeParameterStack(typeParameterName);
+        if (inStack != null) return inStack;
+        TypeParameter typeParameter = owner.typeParameters().stream()
+                .filter(tp -> tp.simpleName().equals(typeParameterName))
+                .findFirst().orElse(null);
+        if (typeParameter != null) return typeParameter;
+        return findTypeParameter(owner.typeInfo(), typeParameterName);
+    }
+
+    private @NotNull TypeParameter findTypeParameter(TypeInfo owner, String typeParameterName) {
+        TypeParameter inStack = findInTypeParameterStack(typeParameterName);
+        if (inStack != null) return inStack;
+        TypeParameter typeParameter = owner.typeParameters().stream()
+                .filter(tp -> tp.simpleName().equals(typeParameterName))
+                .findFirst().orElse(null);
+        if (typeParameter != null) return typeParameter;
+        if (owner.compilationUnitOrEnclosingType().isRight()) {
+            return findTypeParameter(owner.compilationUnitOrEnclosingType().getRight(), typeParameterName);
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ParameterizedType convertTree(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
+        ParameterizedType pt = convertTreeDontSet(type, detailedSourcesBuilder);
+        assert pt != null;
+        detailedSourcesBuilder.put(pt, sourceProvider.sourceForNode(type));
+        return pt;
+    }
+
+    private ParameterizedType convertTreeDontSet(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
+        if (type == null) return runtime.voidParameterizedType();
+        if (type instanceof JCTree.JCPrimitiveTypeTree ptt) {
+            TypeKind primitiveTypeKind = ptt.typetag.getPrimitiveTypeKind();
+            if (primitiveTypeKind != null) {
+                return primitiveType(primitiveTypeKind);
+            }
+        }
+        if (type instanceof JCTree.JCIdent identifier) {
+            if (identifier.type instanceof Type.ClassType ct) {
+                return classType(ct);
+            } else if (identifier.type instanceof Type.TypeVar) {
+                String typeParameterName = identifier.getName().toString();
+                TypeParameter tp = (TypeParameter) elementStack.find(typeParameterName);
+                return runtime.newParameterizedType(tp, 0, null);
+            } else {
+                throw new UnsupportedOperationException("NYI");
+            }
+        }
+        if (type instanceof JCTree.JCFieldAccess fieldAccess) {
+            // enclosing type notation
+            String name = fieldAccess.name.toString();
+            ParameterizedType pt = convert(fieldAccess.type);
+            if (!"class".equals(name) && pt.typeInfo() != null) {
+                String packageName = pt.typeInfo().packageName();
+                detailedSourcesBuilder.put(packageName, sourceProvider.sourceForNode(fieldAccess.getExpression()));
+            }// else: java.lang.String.class
+            return pt;
+        }
+        if (type instanceof JCTree.JCTypeApply apply) {
+            ParameterizedType base = convertTree(apply.getType(), detailedSourcesBuilder);
+            List<ParameterizedType> parameters = apply.getTypeArguments().stream()
+                    .map(ta -> convertTree(ta, detailedSourcesBuilder)).toList();
+            return runtime.newParameterizedType(base.typeInfo(), parameters);
+        }
+        if (type instanceof JCTree.JCArrayTypeTree att) {
+            ParameterizedType base = convertTree(att.elemtype, detailedSourcesBuilder);
+            return base.copyWithArrays(base.arrays() + 1);
+        }
+        if (type instanceof JCTree.JCWildcard) {
+            return runtime.parameterizedTypeWildcard();
+        }
+        throw new UnsupportedOperationException("NYI");
+    }
+
+    private ParameterizedType classType(Type.ClassType ct) {
+        String fullyQualifiedType = ct.tsym.toString();
+        TypeInfo known = typeData.getType(fullyQualifiedType);
+        TypeInfo typeInfo;
+        if (known == null) {
+            // on-demand loading; should be replaced by import handling?
+            if (ct.tsym instanceof Symbol.ClassSymbol cs) {
+                if (cs.owner instanceof Symbol.MethodSymbol) {
+                    typeInfo = (TypeInfo) elementStack.find(cs.getSimpleName().toString());
+                } else {
+                    typeInfo = type(cs);
+                }
+            } else throw new UnsupportedOperationException("NYI");
+        } else {
+            typeInfo = known;
+        }
+        if (ct.getTypeArguments().isEmpty()) {
+            return typeInfo.asSimpleParameterizedType();
+        }
+        List<ParameterizedType> typeParameters = ct.getTypeArguments().stream().map(this::convert).toList();
+        return runtime.newParameterizedType(typeInfo, typeParameters);
+    }
+
+    private ParameterizedType primitiveType(TypeKind primitiveTypeKind) {
+        return switch (primitiveTypeKind) {
+            case VOID -> runtime.voidParameterizedType();
+            case BYTE -> runtime.byteParameterizedType();
+            case INT -> runtime.intParameterizedType();
+            case DOUBLE -> runtime.doubleParameterizedType();
+            case LONG -> runtime.longParameterizedType();
+            case FLOAT -> runtime.floatParameterizedType();
+            case SHORT -> runtime.shortParameterizedType();
+            case BOOLEAN -> runtime.booleanParameterizedType();
+            case CHAR -> runtime.charParameterizedType();
+            default -> throw new UnsupportedOperationException();
+        };
+    }
+
+
+    private void newTypeParameterMap() {
+        typeParameterStack.addLast(new HashMap<>());
+    }
+
+    private void popTypeParameterMap() {
+        typeParameterStack.removeLast();
+    }
+
+    private void putInLastTypeParameterMap(TypeParameter typeParameter) {
+        typeParameterStack.getLast().put(typeParameter.simpleName(), typeParameter);
+    }
+
+    private TypeParameter findInTypeParameterStack(String name) {
+        if (!typeParameterStack.isEmpty()) {
+            return typeParameterStack.getLast().get(name);
+        }
+        return null;
     }
 
 }

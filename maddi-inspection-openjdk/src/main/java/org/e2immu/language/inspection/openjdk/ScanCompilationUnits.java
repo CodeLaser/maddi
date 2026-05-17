@@ -61,7 +61,7 @@ public class ScanCompilationUnits {
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
         typeData = new TypeData(javaBase);
-        classSymbolScanner = new ClassSymbolScanner(runtime, sourceSet, flagHelper, elements, typeData);
+        classSymbolScanner = new ClassSymbolScanner(runtime, sourceSet, flagHelper, types, elements, typeData);
     }
 
     public List<Info> scan() throws IOException {
