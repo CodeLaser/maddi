@@ -13,7 +13,8 @@ import org.e2immu.language.cst.impl.info.ImportComputerImpl;
 import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 
 import javax.lang.model.element.TypeElement;
@@ -65,11 +66,37 @@ public class CommonTest {
                 StandardCharsets.UTF_8, false, false, false,
                 false, false, Set.of(), Set.of());
         try {
-            SourceSet javaBase = null; // FIXME
+            SourceSet javaBase = new SourceSetImpl("java.base", List.of(),
+                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
+                    true, false, Set.of(), Set.of());
+            SourceSet javaNetHttp = new SourceSetImpl("java.net.http", List.of(),
+                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
+                    true, false, Set.of(), Set.of(javaBase));
+
+            SourceSet orgSlf4j = new SourceSetImpl("slf4j-api-2.0.17.jar", List.of(),
+                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
+                    false, false, Set.of(), Set.of(javaBase));
+            // jetbrains annotations
+            SourceSet annotations = new SourceSetImpl("annotations-26.1.0.jar", List.of(),
+                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
+                    false, false, Set.of(), Set.of(javaBase));
+            // maddi support
+            SourceSet maddiSupport = new SourceSetImpl("maddi-support-0.8.2.jar", List.of(),
+                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
+                    false, false, Set.of(), Set.of(javaBase));
+            SourceSet junitJupiter = new SourceSetImpl("junit-jupiter-api-6.0.3.jar", List.of(),
+                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
+                    false, false, Set.of(), Set.of(javaBase));
+
             DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
             javacTask = createTask(sourcesByClassName, jars, diagnostics);
 
-            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, javaBase,
+            InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                    .addSourceSets(sourceSet)
+                    .addClassPathParts(javaBase, javaNetHttp)
+                    .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter)
+                    .build();
+            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration, javaBase,
                     javacTask, sourceSet, true, diagnostics);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
