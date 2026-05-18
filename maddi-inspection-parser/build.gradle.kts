@@ -24,4 +24,5 @@ dependencies {
     api(project(":maddi-inspection-api"))
     implementation(project(":maddi-util"))
     implementation(project(":maddi-graph"))
+    implementation(project(":maddi-inspection-resource"))
 }

@@ -4,6 +4,7 @@ import com.sun.source.util.JavacTask;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.java.openjdk.ScanCompilationUnits;
 
 import javax.tools.*;
 import java.io.File;
@@ -126,7 +127,7 @@ public class SingleDirExplorer {
             );
 
             return new ScanCompilationUnits(runtime, null, task, sourceSet,
-                    JavaInspectorImpl.DETAILED_SOURCES, diagnostics).scan();
+                    true, diagnostics).scan();
         }
     }
 }
