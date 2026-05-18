@@ -14,6 +14,7 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -23,6 +24,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -204,8 +206,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             URI jarUri = URI.create(m.group(1) + "/" + m.group(2));
             SourceSet known = getSourceSet(jarName);
             if (known == null) {
-                SourceSet sourceSet = new SourceSetImpl(jarName, jarUri, false, false, true,
-                        true, false);
+                SourceSet sourceSet = new SourceSetImpl(jarName, List.of(), jarUri, StandardCharsets.UTF_8,
+                        false, false, true,
+                        true, false, Set.of(), Set.of());
                 put(sourceSet);
                 return sourceSet;
             }
@@ -217,8 +220,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             URI jarUri = URI.create("jmod:" + module);
             SourceSet known = getSourceSet(module);
             if (known == null) {
-                SourceSet sourceSet = new SourceSetImpl(module, jarUri, false, false, true,
-                        true, true);
+                SourceSet sourceSet = new SourceSetImpl(module, List.of(), jarUri, StandardCharsets.UTF_8,
+                        false, false, true,
+                        true, true, Set.of(), Set.of());
                 put(sourceSet);
                 return sourceSet;
             }

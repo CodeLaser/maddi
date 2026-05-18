@@ -14,7 +14,7 @@ import java.io.IOException;
 import static org.e2immu.language.inspection.openjdk.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class TestJavaInspector {
+public class TestJavaInspector2 {
 
     private JavaInspector javaInspector;
     private Runtime runtime;

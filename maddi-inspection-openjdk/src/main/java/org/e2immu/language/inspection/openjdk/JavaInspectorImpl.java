@@ -153,7 +153,7 @@ public class JavaInspectorImpl implements JavaInspector {
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase());
         compiledTypesManager = ctm;
         runtime = new RuntimeWithCompiledTypesManager(ctm);
-
+        javaBase().computePriorityDependencies();
         return List.of();
     }
 
