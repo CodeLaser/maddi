@@ -28,7 +28,7 @@ import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.impl.parser.ContextImpl;
 import org.e2immu.language.inspection.impl.parser.ResolverImpl;
-import org.e2immu.language.inspection.impl.parser.SummaryImpl;
+import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;

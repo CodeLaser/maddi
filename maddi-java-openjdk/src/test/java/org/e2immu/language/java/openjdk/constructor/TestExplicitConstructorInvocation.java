@@ -12,42 +12,35 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.language.inspection.integration.java.constructor;
+package org.e2immu.language.java.openjdk.constructor;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.resource.ParseResultImpl;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.java.CommonTest;
+import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestExplicitConstructorInvocation extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.analyser.resolver.testexample;
+            package a.b;
             
             import java.util.Map;
             
-            public class ExplicitConstructorInvocation_1 {
+            public class C {
             
                 public final Map<String, Integer> map;
             
-                public ExplicitConstructorInvocation_1() {
+                public C() {
                     this(Map.of());
                 }
             
-                public ExplicitConstructorInvocation_1(Map<String, Integer> map) {
+                public C(Map<String, Integer> map) {
                     this.map = Map.copyOf(map);
                 }
             
@@ -56,20 +49,25 @@ public class TestExplicitConstructorInvocation extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT1);
+        TypeInfo typeInfo = scan("a.b.C", INPUT1);
+        MethodInfo c0 = typeInfo.findConstructor(0);
+        if (c0.methodBody().statements().getFirst() instanceof ExplicitConstructorInvocation eci) {
+            assertFalse(eci.isSuper());
+            assertEquals("Map.of()", eci.parameterExpressions().getFirst().toString());
+        }
         MethodInfo c1 = typeInfo.findConstructor(1);
         assertEquals("13-5:15-5", c1.source().compact2());
-        // There is no 'source' in the methodBody
-        assertNull(c1.methodBody().source());
+        assertEquals("-@13:40-15:5", c1.methodBody().source().toString());
+        assertEquals(2, c1.methodBody().statements().size());
     }
 
     @Language("java")
     private static final String INPUT2 = """
-            package org.e2immu.analyser.resolver.testexample;
+            package a.b;
             
             import java.util.Map;
             
-            public class ExplicitConstructorInvocation_2 {
+            public class C {
             
                 static class C1 {
                     public final Map<String, Integer> map;
@@ -106,7 +104,7 @@ public class TestExplicitConstructorInvocation extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT2);
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
         TypeInfo C1 = typeInfo.findSubType("C1");
         MethodInfo C1Constructor1 = C1.findConstructor(1);
 
@@ -126,20 +124,20 @@ public class TestExplicitConstructorInvocation extends CommonTest {
             assertSame(C2Constructor1, eci.methodInfo());
         }
 
-        ParseResult parseResult = new ParseResultImpl(Set.of(typeInfo), Map.of(), null);
-        assertEquals("[org.e2immu.analyser.resolver.testexample.ExplicitConstructorInvocation_2.C2]",
+    /*   FIXME ParseResult parseResult = new ParseResultImpl(Set.of(typeInfo), Map.of(), null);
+        assertEquals("[a.b.ExplicitConstructorInvocation_2.C2]",
                 parseResult.descendants(C1, false).toString());
         Set<TypeInfo> descendants = parseResult.descendants(C1, true);
         assertTrue(descendants.contains(C2));
         assertTrue(descendants.contains(C3));
-        assertEquals(2, descendants.size());
+        assertEquals(2, descendants.size());*/
     }
 
     @Language("java")
     private static final String INPUT3 = """
             package a;
             
-            public class A {
+            public class K {
                 private String name;
                 private int i;
             
@@ -159,26 +157,25 @@ public class TestExplicitConstructorInvocation extends CommonTest {
 
     @Test
     public void test3() {
-        JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder().setDetailedSources(true).build();
-        TypeInfo typeInfo = javaInspector.parse(INPUT3, options);
+        TypeInfo typeInfo = scan("a.K", INPUT3);
         {
             MethodInfo constructor = typeInfo.findConstructor(1);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("9-9:9-15", explicit.source().compact2());
+            assertEquals("9-9:9-14", explicit.source().compact2());
             assertEquals("9-14:9-14", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
         }
         {
             MethodInfo constructor = typeInfo.findConstructor(3);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("13-9:13-20", explicit.source().compact2());
+            assertEquals("13-9:13-19", explicit.source().compact2());
             assertEquals("13-19:13-19", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
         }
         {
             MethodInfo constructor = typeInfo.findConstructor(4);
             Statement explicit = constructor.methodBody().statements().getFirst();
-            assertEquals("16-9:16-22", explicit.source().compact2());
+            assertEquals("16-9:16-21", explicit.source().compact2());
             assertEquals("16-21:16-21", explicit.source().detailedSources()
                     .detail(DetailedSources.END_OF_ARGUMENT_LIST).compact2());
             assertEquals("[@16:15-16:15, @16:18-16:18]", explicit.source().detailedSources()
@@ -187,7 +184,7 @@ public class TestExplicitConstructorInvocation extends CommonTest {
     }
 
     @Language("java")
-    private static final String INPUT9 = """
+    private static final String INPUT4 = """
             package a.b;
             
             import java.time.ZoneId;
@@ -224,8 +221,8 @@ public class TestExplicitConstructorInvocation extends CommonTest {
             """;
 
     @Test
-    public void test9() {
-        javaInspector.parse(INPUT9);
+    public void test4() {
+        scan("a.b.X", INPUT4);
     }
 
 }

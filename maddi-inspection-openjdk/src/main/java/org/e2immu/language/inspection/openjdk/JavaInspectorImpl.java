@@ -16,6 +16,7 @@ import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.api.resource.SourceFile;
+import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,12 +127,15 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public List<TypeInfo> parse(String transformedString, CompilationUnit compilationUnit, ParseResult parseResult, ParseOptions parseOptions) {
-        return List.of();
+    public ParseOptions failFast() {
+        return FAIL_FAST;
     }
 
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
+        CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl();
+        compiledTypesManager = ctm;
+        runtime = new RuntimeWithCompiledTypesManager(ctm);
         return List.of();
     }
 
@@ -140,24 +144,32 @@ public class JavaInspectorImpl implements JavaInspector {
 
     }
 
+    // main method, generally called with empty map; only tests use the map
     @Override
     public Summary parse(Map<String, String> sourcesByTestProtocolURIString, ParseOptions parseOptions) {
-        return null;
+        Summary summary = new SummaryImpl(parseOptions.failFast());
+        //
+        return summary;
     }
 
+    // single file
     @Override
-    public ParseOptions failFast() {
-        return FAIL_FAST;
+    public List<TypeInfo> parse(String transformedString, CompilationUnit compilationUnit, ParseResult parseResult, ParseOptions parseOptions) {
+        return List.of();
     }
 
+    // single file
     @Override
     public List<TypeInfo> parseReturnAll(String input, String inputName, String sourceSetName, ParseOptions parseOptions) {
         return List.of();
     }
 
+    // single file
     @Override
     public Summary parse(URI typeInfo, SourceSet sourceSet, ParseOptions parseOptions) {
-        return null;
+        Summary summary = new SummaryImpl(parseOptions.failFast());
+        //
+        return summary;
     }
 
     @Override
