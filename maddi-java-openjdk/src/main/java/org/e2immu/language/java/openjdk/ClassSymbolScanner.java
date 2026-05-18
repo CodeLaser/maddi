@@ -46,9 +46,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
     private final Map<String, Map<String, TypeParameter>> tmpMethodTypeParameterMap = new HashMap<>();
 
-    private final IdentityHashMap<Symbol.ClassSymbol, IdentityHashMap<Symbol, Boolean>> loaded
-            = new IdentityHashMap<>();
-
     // not thread-safe: set for each compilation unit
     private SourceProvider sourceProvider;
     private ElementStack elementStack;
@@ -56,7 +53,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     public enum LoadMode {
         LOAD_MEMBERS, // load everything immediately, and commit
         LAZILY,  // only load what is required, and store in "loaded"
-        COMPLETE // uses to complete a lazily loaded type; check with "loaded"
+        COMPLETE, // uses to complete a lazily loaded type; check with "loaded"
+        COMPLETE_SUB,
     }
 
     public ClassSymbolScanner(Runtime runtime,
@@ -198,6 +196,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
                 ParameterizedType superType = convert(cs.getSuperclass());
                 ParameterizedType parentClass = superType == null ? runtime.objectParameterizedType() : superType;
+                assert parentClass != null;
                 newTypeInfo.builder().setParentClass(parentClass);
 
                 for (Type type : cs.getInterfaces()) {
@@ -206,28 +205,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 }
             }
 
-            switch (loadMode) {
-                case COMPLETE -> {
-                    IdentityHashMap<Symbol, Boolean> loadMap = loaded.get(cs);
-                    assert loadMap != null;
-                    for (var member : members) {
-                        if (member instanceof Symbol symbol && !loadMap.containsKey(symbol)) {
-                            addMemberToType(newTypeInfo, cs, member, loadMode);
-                        }
-                    }
-                }
-                case LOAD_MEMBERS -> {
-                    for (var member : members) {
-                        if (member instanceof Symbol symbol) {
-                            addMemberToType(newTypeInfo, cs, member, loadMode);
-                        }
-                    }
-                }
-                case LAZILY -> {
-                    loaded.put(cs, new IdentityHashMap<>());
-                }
-            }
             if (loadMode != LoadMode.LAZILY) {
+                for (var member : members) {
+                    addMemberToType(newTypeInfo, cs, member, loadMode);
+                }
+
                 MethodInfo singleAbstractMethod = computeSAM(cs.type);
                 newTypeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
                 newTypeInfo.builder().commit(); // everything loaded!
@@ -279,17 +261,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
         if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
             boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0;
-            if (isPublic) {
+            if (isPublic && (loadMode == LoadMode.LOAD_MEMBERS
+                             || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))) {
                 addMethodToType(typeInfo, ms);
             }
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
             boolean isPublic = (vs.flags() & Flags.PUBLIC) != 0;
-            if (isPublic) {
+            if (isPublic && (loadMode == LoadMode.LOAD_MEMBERS
+                             || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))) {
                 addFieldToType(typeInfo, vs);
             }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
             boolean isPublic = (cs.flags() & Flags.PUBLIC) != 0;
-            if (isPublic) {
+            if (isPublic && (loadMode == LoadMode.LOAD_MEMBERS
+                             || loadMode == LoadMode.COMPLETE
+                                && typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)) {
                 addEnclosedTypeToType(typeInfo, cs, loadMode);
             }
         }
@@ -302,7 +288,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
         put(enclosed);
         typeInfo.builder().addSubType(enclosed);
-        loadType(cs, enclosed, loadMode);
+        // we must do type parameters, interfaces, parent class etc.
+        loadType(cs, enclosed, loadMode == LoadMode.COMPLETE ? LoadMode.COMPLETE_SUB : loadMode);
     }
 
     private void addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
@@ -386,10 +373,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
             owner.builder().addField(fieldInfo);
             put(vs, fieldInfo);
-            Map<Symbol, Boolean> map = loaded.get(cs);
-            if (map != null) {
-                map.put(vs, true);
-            }
             return fieldInfo;
         } else throw new UnsupportedOperationException();
     }
@@ -398,10 +381,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     public MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol) {
         if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
             TypeInfo owner = convert(cs.type).typeInfo();
-            Map<Symbol, Boolean> map = loaded.get(cs);
-            if (map != null) {
-                map.put(methodSymbol, true);
-            }
             return addMethodToType(owner, methodSymbol);
         } else throw new UnsupportedOperationException();
     }
