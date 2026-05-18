@@ -232,21 +232,17 @@ public class JavaInspectorImpl implements JavaInspector {
         for (Info info : scanned) {
             if (info instanceof TypeInfo typeInfo) {
                 summary.addType(typeInfo);
+                assert typeInfo.hasBeenInspected();
             } else if (info instanceof ModuleInfo moduleInfo) {
                 summary.putSourceSetToModuleInfo(sourceSet, moduleInfo);
             }
         }
         // copy into CTM
         for (TypeInfo typeInfo : scanCompilationUnits.classSymbolScanner().typesLoaded()) {
-            TypeInfo inMap = compiledTypesManager.get(typeInfo.fullyQualifiedName(), sourceSet);
-            if (inMap == null) {
-                SourceFile sourceFile = null; // FIXME where to find this? from URI?
-                compiledTypesManager.addTypeInfo(sourceFile, typeInfo);
-            } else if (!inMap.hasBeenInspected()) {
-                scanCompilationUnits.classSymbolScanner().commitType(inMap);
-                SourceFile sourceFile = null; // FIXME where to find this? from URI?
-                compiledTypesManager.addTypeInfo(sourceFile, inMap);
+            if (!typeInfo.hasBeenInspected()) {
+                scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
             }
+            compiledTypesManager.addTypeInfo(null, typeInfo);
         }
     }
 

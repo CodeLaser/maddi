@@ -50,7 +50,7 @@ public class TestClassSymbolScanner extends CommonTest {
         assertTrue(entry.methods().isEmpty());
         assertEquals(1, map.subTypes().size());
 
-        loadType(map);
+        classSymbolScanner.commitType(map);
         assertTrue(map.methods().size() > 10);
         // seen multiple values:
         // "jrt:/java.base/java/util/Map.class"

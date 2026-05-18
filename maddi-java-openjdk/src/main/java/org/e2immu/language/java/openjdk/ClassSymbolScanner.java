@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import java.net.URI;
@@ -45,9 +46,18 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
     private final Map<String, Map<String, TypeParameter>> tmpMethodTypeParameterMap = new HashMap<>();
 
+    private final IdentityHashMap<Symbol.ClassSymbol, IdentityHashMap<Symbol, Boolean>> loaded
+            = new IdentityHashMap<>();
+
     // not thread-safe: set for each compilation unit
     private SourceProvider sourceProvider;
     private ElementStack elementStack;
+
+    public enum LoadMode {
+        LOAD_MEMBERS, // load everything immediately, and commit
+        LAZILY,  // only load what is required, and store in "loaded"
+        COMPLETE // uses to complete a lazily loaded type; check with "loaded"
+    }
 
     public ClassSymbolScanner(Runtime runtime,
                               InputConfiguration inputConfiguration,
@@ -100,7 +110,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
                     // note: first put the type in typeData, only then load it... self-references are common!
                     put(enclosed);
-                    loadType(cs, enclosed, false);
+                    loadType(cs, enclosed, LoadMode.LAZILY);
                     owner.builder().addSubType(enclosed);
                     return enclosed;
                 }
@@ -139,65 +149,87 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         put(newTypeInfo);
         if (!internal) {
-            loadType(cs, newTypeInfo, false);
+            loadType(cs, newTypeInfo, LoadMode.LAZILY);
         }
         return newTypeInfo;
     }
 
-    void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, boolean loadMembers) {
+    void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, LoadMode loadMode) {
         flagHelper.type(cs, newTypeInfo.builder());
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs'
             List<? extends Element> members = elements.getAllMembers(cs);
 
-            int index = 0;
-            newTypeParameterMap();
-            for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
-                TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
-                putInLastTypeParameterMap(newTp);
+            if (loadMode != LoadMode.COMPLETE) {
+                int index = 0;
+                newTypeParameterMap();
+                for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
+                    TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
+                    putInLastTypeParameterMap(newTp);
 
-                List<ParameterizedType> bounds = new ArrayList<>();
-                if (typeParameter.type instanceof Type.TypeVar tv) {
-                    Type lowerBound = tv.getLowerBound();
-                    if (lowerBound.getKind() != TypeKind.NULL) {
-                        throw new UnsupportedOperationException();
-                    } else {
-                        Type upperBound = tv.getUpperBound();
-                        if (upperBound.getKind() != TypeKind.NULL) {
-                            if (upperBound.tsym == cs) {
-                                // self reference, as in java.lang.Enum<E extends Enum<E>>
-                                bounds.add(runtime.newParameterizedType(newTypeInfo,
-                                        List.of(runtime.newParameterizedType(newTp, 0, null))));
-                            } else if (upperBound instanceof Type.ClassType ct) {
-                                ParameterizedType upper = convert(ct);
-                                if (!upper.isJavaLangObject()) {
-                                    bounds.add(upper.withWildcard(runtime.wildcardExtends()));
+                    List<ParameterizedType> bounds = new ArrayList<>();
+                    if (typeParameter.type instanceof Type.TypeVar tv) {
+                        Type lowerBound = tv.getLowerBound();
+                        if (lowerBound.getKind() != TypeKind.NULL) {
+                            throw new UnsupportedOperationException();
+                        } else {
+                            Type upperBound = tv.getUpperBound();
+                            if (upperBound.getKind() != TypeKind.NULL) {
+                                if (upperBound.tsym == cs) {
+                                    // self reference, as in java.lang.Enum<E extends Enum<E>>
+                                    bounds.add(runtime.newParameterizedType(newTypeInfo,
+                                            List.of(runtime.newParameterizedType(newTp, 0, null))));
+                                } else if (upperBound instanceof Type.ClassType ct) {
+                                    ParameterizedType upper = convert(ct);
+                                    if (!upper.isJavaLangObject()) {
+                                        bounds.add(upper.withWildcard(runtime.wildcardExtends()));
+                                    }
+                                } else {
+                                    throw new UnsupportedOperationException();
                                 }
-                            } else {
-                                throw new UnsupportedOperationException();
                             }
                         }
                     }
+                    newTp.builder().setTypeBounds(List.copyOf(bounds)).commit();
+                    newTypeInfo.builder().addOrSetTypeParameter(newTp);
                 }
-                newTp.builder().setTypeBounds(List.copyOf(bounds)).commit();
-                newTypeInfo.builder().addOrSetTypeParameter(newTp);
-            }
-            popTypeParameterMap();
+                popTypeParameterMap();
 
-            ParameterizedType superType = convert(cs.getSuperclass());
-            newTypeInfo.builder().setParentClass(superType);
+                ParameterizedType superType = convert(cs.getSuperclass());
+                ParameterizedType parentClass = superType == null ? runtime.objectParameterizedType() : superType;
+                newTypeInfo.builder().setParentClass(parentClass);
 
-            for (Type type : cs.getInterfaces()) {
-                ParameterizedType pt = convert(type);
-                newTypeInfo.builder().addInterfaceImplemented(pt);
-            }
-
-            if (loadMembers) {
-                for (var member : members) {
-                    addMemberToType(newTypeInfo, cs, member);
+                for (Type type : cs.getInterfaces()) {
+                    ParameterizedType pt = convert(type);
+                    newTypeInfo.builder().addInterfaceImplemented(pt);
                 }
+            }
+
+            switch (loadMode) {
+                case COMPLETE -> {
+                    IdentityHashMap<Symbol, Boolean> loadMap = loaded.get(cs);
+                    assert loadMap != null;
+                    for (var member : members) {
+                        if (member instanceof Symbol symbol && !loadMap.containsKey(symbol)) {
+                            addMemberToType(newTypeInfo, cs, member, loadMode);
+                        }
+                    }
+                }
+                case LOAD_MEMBERS -> {
+                    for (var member : members) {
+                        if (member instanceof Symbol symbol) {
+                            addMemberToType(newTypeInfo, cs, member, loadMode);
+                        }
+                    }
+                }
+                case LAZILY -> {
+                    loaded.put(cs, new IdentityHashMap<>());
+                }
+            }
+            if (loadMode != LoadMode.LAZILY) {
                 MethodInfo singleAbstractMethod = computeSAM(cs.type);
                 newTypeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
+                newTypeInfo.builder().commit(); // everything loaded!
             }
             recursionPrevention.remove(newTypeInfo);
         }
@@ -243,7 +275,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return null;
     }
 
-    private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member) {
+    private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
         if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
             boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0;
             if (isPublic) {
@@ -257,19 +289,19 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
             boolean isPublic = (cs.flags() & Flags.PUBLIC) != 0;
             if (isPublic) {
-                addEnclosedTypeToType(typeInfo, cs);
+                addEnclosedTypeToType(typeInfo, cs, loadMode);
             }
         }
     }
 
-    private void addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs) {
+    private void addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs, LoadMode loadMode) {
         if (getType(cs.fullname.toString()) != null) return;
         String name = cs.getSimpleName().toString();
         LOGGER.debug("Adding enclosed type {} to {}", name, typeInfo);
         TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
         put(enclosed);
         typeInfo.builder().addSubType(enclosed);
-        loadType(cs, enclosed, true);
+        loadType(cs, enclosed, loadMode);
     }
 
     private void addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
@@ -671,8 +703,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return singleTypeForFQN.values();
     }
 
-    public void commitType(TypeInfo inMap) {
-        // TODO already partially loaded, load all the members
+    public void commitType(TypeInfo typeInfo) {
+        if (!typeInfo.hasBeenInspected()) {
+            TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
+            Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
+            loadType(cs, typeInfo, LoadMode.COMPLETE);
+            assert typeInfo.hasBeenInspected();
+        }
     }
 
 }
