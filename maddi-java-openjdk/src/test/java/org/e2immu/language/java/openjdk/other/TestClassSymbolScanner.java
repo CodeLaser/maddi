@@ -14,6 +14,7 @@
 
 package org.e2immu.language.java.openjdk.other;
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -56,6 +57,9 @@ public class TestClassSymbolScanner extends CommonTest {
         // jar:file:///opt/homebrew/Cellar/openjdk/25.0.2/libexec/openjdk.jdk/Contents/Home/lib/ct.sym!/BCDEFGHIJKLMNOP/java.base/java/util/Map.sig
         assertTrue(map.compilationUnit().uri().toString().contains("java/util/Map"));
         assertEquals(map.compilationUnit().uri(), map.compilationUnit().uri());
+
+        SourceSet sourceSet = map.compilationUnit().sourceSet();
+        assertEquals("java.base", sourceSet.name());
     }
 
 }

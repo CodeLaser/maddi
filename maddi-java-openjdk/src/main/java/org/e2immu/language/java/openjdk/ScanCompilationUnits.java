@@ -11,6 +11,7 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +41,7 @@ public class ScanCompilationUnits {
     private final boolean detailedSources;
 
     public ScanCompilationUnits(Runtime runtime,
+                                InputConfiguration inputConfiguration,
                                 SourceSet javaBase,
                                 JavacTask task,
                                 SourceSet sourceSet,
@@ -58,7 +60,8 @@ public class ScanCompilationUnits {
         Elements elements = task.getElements();
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
-        classSymbolScanner = new ClassSymbolScanner(runtime, sourceSet, flagHelper, types, elements, javaBase);
+        classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, sourceSet, flagHelper, types, elements,
+                javaBase);
     }
 
     public List<Info> scan() throws IOException {

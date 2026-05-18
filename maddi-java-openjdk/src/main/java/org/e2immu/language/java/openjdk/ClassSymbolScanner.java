@@ -14,7 +14,7 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -24,7 +24,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,6 +31,7 @@ import java.util.regex.Pattern;
 public class ClassSymbolScanner implements ConvertType, TypeData {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);
     private final Runtime runtime;
+    private final InputConfiguration inputConfiguration;
     private final FlagHelper flagHelper;
     private final Elements elements;
     private final Types types;
@@ -39,9 +39,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
+    private final Map<String, SourceSet> sourceSetMap;
 
     private final SourceSet javaBase;
-    private final Map<String, SourceSet> sourceSetMap = new HashMap<>();
     private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
@@ -52,6 +52,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private ElementStack elementStack;
 
     public ClassSymbolScanner(Runtime runtime,
+                              InputConfiguration inputConfiguration,
                               SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
                               Types types,
@@ -63,6 +64,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.types = types;
         this.javaBase = javaBase;
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
+        this.inputConfiguration = inputConfiguration;
+        assert inputConfiguration.classPathParts().contains(javaBase);
+        assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
 
         predefinedTypes.put("String", runtime.stringTypeInfo());
         predefinedTypes.put("Object", runtime.objectTypeInfo());
@@ -78,6 +82,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         predefinedTypes.put("Void", runtime.boxedByteTypeInfo());
 
         predefinedTypes.put("Class", runtime.classTypeInfo());
+
+        Map<String, SourceSet> map = new HashMap<>();
+        for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
+            map.put(sourceSet.name(), sourceSet);
+        }
+        for (SourceSet sourceSet : inputConfiguration.classPathParts()) {
+            map.put(sourceSet.name(), sourceSet);
+        }
+        sourceSetMap = Map.copyOf(map);
     }
 
     TypeInfo type(Symbol.ClassSymbol cs) {
@@ -122,7 +135,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             } else {
                 uri = cs.classfile.toUri();
             }
-            SourceSet sourceSet = ensureSourceSet(uri);
+            SourceSet sourceSet = ensureSourceSet(cs, uri);
             CompilationUnit cu = runtime.newCompilationUnitBuilder()
                     .setPackageName(packageName)
                     .setSourceSet(sourceSet)
@@ -196,39 +209,45 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
     }
 
-    private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+)!/.*");
+    private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+\\.jar)!/.*");
     private static final Pattern JAVA_RUNTIME = Pattern.compile("jrt:/([^/]+)/.*");
 
-    private SourceSet ensureSourceSet(URI uri) {
+    private SourceSet ensureSourceSet(Symbol.ClassSymbol cs, URI uri) {
         Matcher m = JAR_FILE.matcher(uri.toString());
         if (m.matches()) {
             String jarName = m.group(2);
-            URI jarUri = URI.create(m.group(1) + "/" + m.group(2));
             SourceSet known = getSourceSet(jarName);
             if (known == null) {
-                SourceSet sourceSet = new SourceSetImpl(jarName, List.of(), jarUri, StandardCharsets.UTF_8,
-                        false, false, true,
-                        true, false, Set.of(), Set.of());
-                put(sourceSet);
-                return sourceSet;
+                throw new UnsupportedOperationException(
+                        "Cannot find class path source set interpreted as jar file: " + jarName);
             }
             return known;
         }
-        Matcher rt = JAVA_RUNTIME.matcher(uri.toString());
-        if (rt.matches()) {
-            String module = rt.group(1);
-            URI jarUri = URI.create("jmod:" + module);
-            SourceSet known = getSourceSet(module);
-            if (known == null) {
-                SourceSet sourceSet = new SourceSetImpl(module, List.of(), jarUri, StandardCharsets.UTF_8,
-                        false, false, true,
-                        true, true, Set.of(), Set.of());
-                put(sourceSet);
-                return sourceSet;
+        Symbol.ModuleSymbol module = findModule(cs);
+        if (module != null) {
+            if (module.isUnnamed()) {
+                LOGGER.info("?");
+            } else {
+                SourceSet known = getSourceSet(module.name.toString());
+                if (known == null) {
+                    throw new UnsupportedOperationException(
+                            "Cannot find class path source set interpreted as java runtime module: " + module);
+                }
+                return known;
             }
-            return known;
         }
         return sourceSetOfCurrentTask;
+    }
+
+    Symbol.ModuleSymbol findModule(Symbol.ClassSymbol cs) {
+        Symbol.ClassSymbol primary = cs;
+        while (primary.owner instanceof Symbol.ClassSymbol encl) {
+            primary = encl;
+        }
+        if (primary.owner instanceof Symbol.PackageSymbol ps) {
+            return ps.modle;
+        }
+        return null;
     }
 
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member) {
@@ -608,11 +627,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     private SourceSet getSourceSet(String name) {
         return sourceSetMap.get(name);
-    }
-
-    private void put(SourceSet sourceSet) {
-        SourceSet prev = sourceSetMap.put(sourceSet.name(), sourceSet);
-        assert prev == null : "Duplicating SourceSet " + sourceSet;
     }
 
     @Override

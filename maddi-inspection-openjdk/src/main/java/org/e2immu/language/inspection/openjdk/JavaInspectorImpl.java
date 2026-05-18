@@ -215,7 +215,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
         JavacTask javacTask = createTask(sourcesByClassName, sources, jarsAndClassDirectories, diagnostics);
-        ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime,
+        ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 compiledTypesManager.javaBase(), javacTask, sourceSet, true, diagnostics);
         List<Info> scanned = scanCompilationUnits.scan();
 
@@ -230,10 +230,10 @@ public class JavaInspectorImpl implements JavaInspector {
         // copy into CTM
         for (TypeInfo typeInfo : scanCompilationUnits.classSymbolScanner().typesLoaded()) {
             TypeInfo inMap = compiledTypesManager.get(typeInfo.fullyQualifiedName(), sourceSet);
-            if(inMap == null) {
+            if (inMap == null) {
                 SourceFile sourceFile = null; // FIXME where to find this? from URI?
                 compiledTypesManager.addTypeInfo(sourceFile, typeInfo);
-            } else if(!inMap.hasBeenInspected()) {
+            } else if (!inMap.hasBeenInspected()) {
                 scanCompilationUnits.classSymbolScanner().commitType(inMap);
                 SourceFile sourceFile = null; // FIXME where to find this? from URI?
                 compiledTypesManager.addTypeInfo(sourceFile, inMap);
