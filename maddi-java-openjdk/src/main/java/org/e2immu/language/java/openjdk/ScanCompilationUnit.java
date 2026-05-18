@@ -22,7 +22,10 @@ import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.util.RecordSynthetics;
 import org.e2immu.util.internal.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
@@ -34,6 +37,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceProvider {
+    private  static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
+
     private record BlockData(Block.Builder blockBuilder, String index, int numberOfStatements) {
     }
 
@@ -203,6 +208,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             collectedPrimaryTypes.add(typeInfo);
         }
         continueType(typeInfo, jcClassDecl);
+        LOGGER.info("Commit {}", typeInfo.fullyQualifiedName());
         typeInfo.builder().commit();
         return null;
     }
@@ -258,7 +264,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         // record components: fields and accessors
         if (typeInfo.typeNature().isRecord()) {
             RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
-            for (var rc : jcClassDecl.sym.getRecordComponents()) {
+            for (Symbol.RecordComponent rc : jcClassDecl.sym.getRecordComponents()) {
                 ParameterizedType pt = convertType.convert(rc.type);
                 FieldInfo fieldInfo = runtime.newFieldInfo(rc.name.toString(), false, pt, typeInfo);
                 fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
@@ -267,6 +273,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
                 typeInfo.builder().addMethod(accessor);
                 typeData.put(rc.accessor, accessor);
+                Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
+                        .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
+                typeData.put(varSym, fieldInfo);
             }
         }
         // annotations
@@ -987,14 +996,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         if (inMap == null) {
                             fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
                             owner.builder().addField(fieldInfo);
+                            typeData.put(varSymbol, fieldInfo);
                         } else {
                             fieldInfo = inMap;
                         }
                         fieldInfo.builder().addAnnotations(annots);
-
-                        if (typeData.getField(varSymbol) == null) {
-                            typeData.put(varSymbol, fieldInfo);
-                        }
 
                         flagHelper.field(flags, fieldInfo.builder());
                         fieldInfo.builder().setSource(sourceForNode(node))

@@ -238,7 +238,8 @@ public class JavaInspectorImpl implements JavaInspector {
             }
         }
         // copy into CTM
-        for (TypeInfo typeInfo : scanCompilationUnits.classSymbolScanner().typesLoaded()) {
+        List<TypeInfo> loaded = List.copyOf(scanCompilationUnits.classSymbolScanner().typesLoaded());
+        for (TypeInfo typeInfo : loaded) {
             if (!typeInfo.hasBeenInspected()) {
                 scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
             }

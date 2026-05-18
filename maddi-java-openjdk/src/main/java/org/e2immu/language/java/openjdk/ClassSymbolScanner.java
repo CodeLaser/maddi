@@ -155,6 +155,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, LoadMode loadMode) {
+        LOGGER.info("Enter loadType: {} {}", newTypeInfo.fullyQualifiedName(), loadMode);
         flagHelper.type(cs, newTypeInfo.builder());
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs'
@@ -385,6 +386,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
             owner.builder().addField(fieldInfo);
             put(vs, fieldInfo);
+            Map<Symbol, Boolean> map = loaded.get(cs);
+            if (map != null) {
+                map.put(vs, true);
+            }
             return fieldInfo;
         } else throw new UnsupportedOperationException();
     }
@@ -393,6 +398,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     public MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol) {
         if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
             TypeInfo owner = convert(cs.type).typeInfo();
+            Map<Symbol, Boolean> map = loaded.get(cs);
+            if (map != null) {
+                map.put(methodSymbol, true);
+            }
             return addMethodToType(owner, methodSymbol);
         } else throw new UnsupportedOperationException();
     }
@@ -673,14 +682,27 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         assert prev == null : "Duplicating MethodInfo " + methodInfo;
     }
 
+    Symbol.MethodSymbol theMethod(Symbol.MethodSymbol methodSymbol) {
+        if (methodSymbol.baseSymbol() instanceof Symbol.MethodSymbol ms) {
+            return ms;
+        }
+        return methodSymbol;
+    }
+
     @Override
     public MethodInfo getMethod(Symbol.MethodSymbol methodSymbol) {
+        if (methodSymbol.baseSymbol() instanceof Symbol.MethodSymbol ms) {
+            return methodSymbolMap.get(ms);
+        }
         return methodSymbolMap.get(methodSymbol);
     }
 
     @Override
     public MethodInfo getOrLoadMethod(Symbol.MethodSymbol methodSymbol) {
-        return Objects.requireNonNullElseGet(getMethod(methodSymbol), () -> ensureMethod(methodSymbol));
+        Symbol.MethodSymbol theMethod = theMethod(methodSymbol);
+        MethodInfo inMap = methodSymbolMap.get(theMethod);
+        if (inMap != null) return inMap;
+        return ensureMethod(theMethod);
     }
 
     @Override
