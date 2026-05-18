@@ -316,7 +316,9 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
             if (ti.parentClass() == null
                 && !typeInfo.isJavaLangObject()
                 && typeNature != TypeNatureEnum.PRIMITIVE) {
-                throw new UnsupportedOperationException("Cannot commit. Type " + typeInfo + " has a null parent class, and it is not JLO. Its type nature is " + ti.typeNature());
+                throw new UnsupportedOperationException(
+                        "Cannot commit. Type " + typeInfo
+                        + " has a null parent class, and it is not JLO. Its type nature is " + ti.typeNature());
             }
             assert !ti.typeNature().isEnum()
                    || ti.parentClass() != null && "java.lang.Enum".equals(ti.parentClass().typeInfo().fullyQualifiedName());

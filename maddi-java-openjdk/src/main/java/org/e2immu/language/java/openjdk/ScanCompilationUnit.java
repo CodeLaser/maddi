@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceProvider {
-    private  static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
 
     private record BlockData(Block.Builder blockBuilder, String index, int numberOfStatements) {
     }
@@ -242,6 +242,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
                     : explicitParentClass;
         }
+        assert parentClass != null;
         typeInfo.builder().setParentClass(parentClass);
         if (!jcClassDecl.implementing.isEmpty()) {
             String keyword = typeInfo.isInterface() ? "extends" : "implements";
