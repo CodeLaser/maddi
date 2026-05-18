@@ -1,8 +1,11 @@
 package org.e2immu.language.inspection.openjdk;
 
+import com.sun.source.util.JavacTask;
 import org.e2immu.language.cst.api.element.CompilationUnit;
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
+import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -17,16 +20,22 @@ import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.SummaryImpl;
+import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
+import org.e2immu.language.java.openjdk.ScanCompilationUnits;
 import org.e2immu.util.internal.graph.util.TimedLogger;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.tools.*;
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.UNCHANGED;
 
@@ -40,6 +49,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private InputConfiguration inputConfiguration; // kept for tests
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
+    private final JavaCompiler javaCompiler;
 
     public JavaInspectorImpl() {
         this(false, false);
@@ -48,6 +58,7 @@ public class JavaInspectorImpl implements JavaInspector {
     public JavaInspectorImpl(boolean computeFingerPrints, boolean allowCreationOfStubTypes) {
         this.computeFingerPrints = computeFingerPrints;
         this.allowCreationOfStubTypes = allowCreationOfStubTypes;
+        javaCompiler = ToolProvider.getSystemJavaCompiler();
     }
 
     public static final String JAR_WITH_PATH = "jar-on-classpath";
@@ -131,25 +142,41 @@ public class JavaInspectorImpl implements JavaInspector {
         return FAIL_FAST;
     }
 
-    @Override
-    public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
-        CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl();
-        compiledTypesManager = ctm;
-        runtime = new RuntimeWithCompiledTypesManager(ctm);
-        return List.of();
-    }
-
+    // do a preload, with a real recursive load as long as we stay in the package
     @Override
     public void preload(String thePackage) {
 
+    }
+
+    @Override
+    public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
+        CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase());
+        compiledTypesManager = ctm;
+        runtime = new RuntimeWithCompiledTypesManager(ctm);
+
+        return List.of();
     }
 
     // main method, generally called with empty map; only tests use the map
     @Override
     public Summary parse(Map<String, String> sourcesByTestProtocolURIString, ParseOptions parseOptions) {
         Summary summary = new SummaryImpl(parseOptions.failFast());
-        //
+        List<SourceSet> linearization = computeScanOrder(); // from input configuration
+        for (SourceSet sourceSet : linearization) {
+            try {
+                singleSourceSet(summary, sourceSet, !parseOptions.failFast());
+            } catch (IOException ioe) {
+                if (parseOptions.failFast()) {
+                    // add parse exception
+                    break;
+                }
+            }
+        }
         return summary;
+    }
+
+    private List<SourceSet> computeScanOrder() {
+        return List.of(); // TODO
     }
 
     // single file
@@ -170,6 +197,77 @@ public class JavaInspectorImpl implements JavaInspector {
         Summary summary = new SummaryImpl(parseOptions.failFast());
         //
         return summary;
+    }
+
+    // TODO new convention for SourceSets of sources: uri is the location of the class directory!
+    private void singleSourceSet(Summary summary, SourceSet sourceSet, boolean ignoreErrors) throws IOException {
+        /*
+        TODO:
+            from the inputConfiguration, find out what the dependencies of this source set are
+            translate that in a list of jars
+         */
+        List<File> jarsAndClassDirectories = new ArrayList<>();
+        for (SourceSet dependency : sourceSet.dependencies()) {
+            jarsAndClassDirectories.add(Path.of(dependency.uri()).toFile());
+        }
+        List<File> sources = new ArrayList<>();
+        Map<String, String> sourcesByClassName = new HashMap<>();
+
+        DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
+        JavacTask javacTask = createTask(sourcesByClassName, sources, jarsAndClassDirectories, diagnostics);
+        ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime,
+                compiledTypesManager.javaBase(), javacTask, sourceSet, true, diagnostics);
+        List<Info> scanned = scanCompilationUnits.scan();
+
+        // copy from scanned into summary
+        for (Info info : scanned) {
+            if (info instanceof TypeInfo typeInfo) {
+                summary.addType(typeInfo);
+            } else if (info instanceof ModuleInfo moduleInfo) {
+                summary.putSourceSetToModuleInfo(sourceSet, moduleInfo);
+            }
+        }
+        // copy into CTM
+        for (TypeInfo typeInfo : scanCompilationUnits.classSymbolScanner().typesLoaded()) {
+            TypeInfo inMap = compiledTypesManager.get(typeInfo.fullyQualifiedName(), sourceSet);
+            if(inMap == null) {
+                SourceFile sourceFile = null; // FIXME where to find this? from URI?
+                compiledTypesManager.addTypeInfo(sourceFile, typeInfo);
+            } else if(!inMap.hasBeenInspected()) {
+                scanCompilationUnits.classSymbolScanner().commitType(inMap);
+                SourceFile sourceFile = null; // FIXME where to find this? from URI?
+                compiledTypesManager.addTypeInfo(sourceFile, inMap);
+            }
+        }
+    }
+
+    private JavacTask createTask(Map<String, String> sourcesByClassName,
+                                 List<File> sources,
+                                 List<File> jarsAndClassDirectories,
+                                 @Nullable DiagnosticCollector<JavaFileObject> diagnostics) throws IOException {
+        try (StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null)) {
+            if (!jarsAndClassDirectories.isEmpty()) {
+                fm.setLocation(StandardLocation.CLASS_PATH, jarsAndClassDirectories);
+            }
+
+            // Wrap each source string in an InMemoryJavaFileObject
+            List<JavaFileObject> inMemory = sourcesByClassName.entrySet().stream()
+                    .map(e -> new InMemoryJavaFileObject(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList());
+            Iterable<? extends JavaFileObject> compilationUnits
+                    = fm.getJavaFileObjects(sources.toArray(new File[0]));
+            Iterable<? extends JavaFileObject> allCompilationUnits
+                    = Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
+                            inMemory.stream())
+                    .toList();
+
+            return (JavacTask) javaCompiler.getTask(
+                    null, fm, diagnostics,
+                    List.of("-proc:none", "--enable-preview", "--release=25"),
+                    null,
+                    allCompilationUnits
+            );
+        }
     }
 
     @Override

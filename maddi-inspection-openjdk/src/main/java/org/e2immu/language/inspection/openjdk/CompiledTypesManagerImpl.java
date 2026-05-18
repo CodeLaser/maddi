@@ -7,6 +7,17 @@ import org.e2immu.language.inspection.api.resource.SourceFile;
 
 // important: this class should not retain any references to OpenJDK structures
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
+    private final SourceSet javaBase;
+
+    public CompiledTypesManagerImpl(SourceSet javaBase) {
+        this.javaBase = javaBase;
+    }
+
+    @Override
+    public SourceSet javaBase() {
+        return javaBase;
+    }
+
     @Override
     public TypeData typeDataOrNull(String fqn, SourceSet sourceSetOfRequest, SourceSet nearestSourceSet, boolean complainSingle) {
         return null;

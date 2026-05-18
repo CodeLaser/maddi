@@ -11,7 +11,6 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
