@@ -1,7 +1,6 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
@@ -14,18 +13,18 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class TestJavaInspector1EmptyIC {
+public class TestJavaInspector1OnlyJmod {
 
     private JavaInspector javaInspector;
-    private Runtime runtime;
 
     @BeforeEach
     public void test() throws IOException {
         javaInspector = new JavaInspectorImpl();
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .build().withDefaultModules();
+                .addSourceSets(JavaInspectorImpl.TEST_PROTOCOL_SOURCE_SET)
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .build();
         javaInspector.initialize(inputConfiguration);
-        runtime = javaInspector.runtime();
     }
 
     @Language("java")

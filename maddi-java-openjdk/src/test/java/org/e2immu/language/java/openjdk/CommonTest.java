@@ -96,7 +96,7 @@ public class CommonTest {
                     .addClassPathParts(javaBase, javaNetHttp)
                     .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter)
                     .build();
-            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration, javaBase,
+            ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                     javacTask, sourceSet, true, diagnostics);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
