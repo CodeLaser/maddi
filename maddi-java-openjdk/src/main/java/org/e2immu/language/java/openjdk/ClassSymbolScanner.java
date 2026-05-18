@@ -659,4 +659,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     public FieldInfo getOrLoadField(Symbol.VarSymbol vs) {
         return Objects.requireNonNullElseGet(getField(vs), () -> ensureField(vs));
     }
+
+    public Collection<TypeInfo> typesLoaded() {
+        return singleTypeForFQN.values();
+    }
+
+    public void commitType(TypeInfo inMap) {
+        // TODO already partially loaded, load all the members
+    }
+
 }
