@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -21,33 +22,30 @@ public class TestJavaInspector1EmptyIC {
     @BeforeEach
     public void test() throws IOException {
         javaInspector = new JavaInspectorImpl();
-        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder().build();
+        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                .build().withDefaultModules();
         javaInspector.initialize(inputConfiguration);
         runtime = javaInspector.runtime();
     }
 
     @Language("java")
-    public static final String INPUT1 = """
+    private static final String INPUT1 = """
             package a.b;
-            import org.e2immu.annotation.ImmutableContainer;
-            import org.slf4j.Logger;
-            import org.slf4j.LoggerFactory;
-            
-            @ImmutableContainer
-            record C(int k) {
-                private static final Logger LOGGER = LoggerFactory.getLogger(C.class);
-            
-                int kSquared() {
-                    LOGGER.info("Returning k*k = {}", k*k);
-                    return k*k;
+            class X1 {
+                interface I { }
+                record RI(String s) implements I { }
+                void method(I i) {
+                    if(i instanceof RI(String t)) {
+                        System.out.println(t);
+                    }
                 }
             }
             """;
 
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
-        assertEquals("@ImmutableContainer", C.annotations().getFirst().toString());
-        runtime.getFullyQualified("", true);
+        TypeInfo X1 = javaInspector.parse(Map.of(JavaInspectorImpl.TEST_PROTOCOL_PREFIX + "a.b.X1", INPUT1),
+                JavaInspectorImpl.DETAILED_SOURCES).parseResult().firstType();
+        assertEquals("a.b.X1", X1.fullyQualifiedName());
     }
 }
