@@ -35,9 +35,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class CommonTest {
 
     protected final Runtime runtime;
-    private JavacTask javacTask;
-    private SourceSet sourceSet;
-    private ClassSymbolScanner classSymbolScanner;
+    protected JavacTask javacTask;
+    protected SourceSet sourceSet;
+    protected ClassSymbolScanner classSymbolScanner;
 
     public CommonTest() {
         this.runtime = new RuntimeImpl();
@@ -104,12 +104,6 @@ public class CommonTest {
             fail(io);
             return null;
         }
-    }
-
-    public void loadType(TypeInfo typeInfo) {
-        Elements elements = javacTask.getElements();
-        TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
-        classSymbolScanner.loadType((Symbol.ClassSymbol) typeElement, typeInfo, true);
     }
 
     private JavacTask createTask(Map<String, String> sourcesByClassName, List<File> jars,

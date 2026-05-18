@@ -5,9 +5,12 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 
+import java.util.*;
+
 // important: this class should not retain any references to OpenJDK structures
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final SourceSet javaBase;
+    private final Map<String, TypeInfo> typesLoaded = new HashMap<>();
 
     public CompiledTypesManagerImpl(SourceSet javaBase) {
         this.javaBase = javaBase;
@@ -25,12 +28,20 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
+        typesLoaded.put(typeInfo.fullyQualifiedName(), typeInfo);
+    }
 
+    @Override
+    public List<TypeInfo> typesLoaded(Boolean compiled) {
+        return typesLoaded.values().stream().filter(ti -> compiled == null
+                                                 || ti.compilationUnit().sourceSet().externalLibrary() == compiled)
+                .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
+                .toList();
     }
 
     @Override
     public TypeInfo get(String fullyQualifiedName, SourceSet sourceSetOfRequest) {
-        return null;
+        return typesLoaded.get(fullyQualifiedName);
     }
 
     @Override

@@ -203,6 +203,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             collectedPrimaryTypes.add(typeInfo);
         }
         continueType(typeInfo, jcClassDecl);
+        typeInfo.builder().commit();
         return null;
     }
 

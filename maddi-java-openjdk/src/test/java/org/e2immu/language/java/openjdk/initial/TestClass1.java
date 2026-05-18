@@ -67,6 +67,7 @@ public class TestClass1 extends CommonTest {
     @Test
     public void test() throws IOException {
         TypeInfo class1 = scan("org.e2immu.example.Class1", INPUT);
+        assertTrue(class1.hasBeenInspected());
         assertEquals("org.e2immu.example.Class1", class1.fullyQualifiedName());
         assertEquals(runtime.objectParameterizedType(), class1.parentClass());
 
