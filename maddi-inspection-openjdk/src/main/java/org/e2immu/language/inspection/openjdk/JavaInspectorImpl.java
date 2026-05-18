@@ -150,6 +150,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
+        this.inputConfiguration = inputConfiguration;
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase());
         compiledTypesManager = ctm;
         runtime = new RuntimeWithCompiledTypesManager(ctm);
