@@ -42,7 +42,6 @@ public class ScanCompilationUnits {
 
     public ScanCompilationUnits(Runtime runtime,
                                 InputConfiguration inputConfiguration,
-                                SourceSet javaBase,
                                 JavacTask task,
                                 SourceSet sourceSet,
                                 boolean detailedSources,
@@ -60,8 +59,7 @@ public class ScanCompilationUnits {
         Elements elements = task.getElements();
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
-        classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, sourceSet, flagHelper, types, elements,
-                javaBase);
+        classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, sourceSet, flagHelper, types, elements);
     }
 
     public List<Info> scan() throws IOException {

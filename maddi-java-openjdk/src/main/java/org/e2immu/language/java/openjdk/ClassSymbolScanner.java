@@ -31,7 +31,6 @@ import java.util.regex.Pattern;
 public class ClassSymbolScanner implements ConvertType, TypeData {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);
     private final Runtime runtime;
-    private final InputConfiguration inputConfiguration;
     private final FlagHelper flagHelper;
     private final Elements elements;
     private final Types types;
@@ -41,7 +40,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
     private final Map<String, SourceSet> sourceSetMap;
 
-    private final SourceSet javaBase;
     private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
@@ -56,16 +54,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                               SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
                               Types types,
-                              Elements elements,
-                              SourceSet javaBase) {
+                              Elements elements) {
         this.runtime = runtime;
         this.flagHelper = flagHelper;
         this.elements = elements;
         this.types = types;
-        this.javaBase = javaBase;
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
-        this.inputConfiguration = inputConfiguration;
-        assert inputConfiguration.classPathParts().contains(javaBase);
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
 
         predefinedTypes.put("String", runtime.stringTypeInfo());
@@ -210,7 +204,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+\\.jar)!/.*");
-    private static final Pattern JAVA_RUNTIME = Pattern.compile("jrt:/([^/]+)/.*");
 
     private SourceSet ensureSourceSet(Symbol.ClassSymbol cs, URI uri) {
         Matcher m = JAR_FILE.matcher(uri.toString());
@@ -607,10 +600,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     // type data
-
-    public SourceSet javaBase() {
-        return javaBase;
-    }
 
     private void clearTmpMethodTypeParameterMap(String typeFqn) {
         tmpMethodTypeParameterMap.remove(typeFqn);

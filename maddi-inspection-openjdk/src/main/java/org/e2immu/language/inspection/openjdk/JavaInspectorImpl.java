@@ -19,6 +19,7 @@ import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.api.resource.SourceFile;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
 import org.e2immu.language.java.openjdk.ScanCompilationUnits;
@@ -31,6 +32,7 @@ import javax.tools.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -42,6 +44,9 @@ import static org.e2immu.language.inspection.api.integration.JavaInspector.Inval
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
     private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000L);
+    public static final SourceSet TEST_PROTOCOL_SOURCE_SET = new SourceSetImpl(TEST_PROTOCOL, List.of(), URI.create("file:/"),
+            StandardCharsets.UTF_8, false, false, false, false,
+            false, Set.of(), Set.of());
 
     private Runtime runtime;
     private Map<SourceFile, List<TypeInfo>> sourceFiles;
@@ -160,12 +165,12 @@ public class JavaInspectorImpl implements JavaInspector {
 
     // main method, generally called with empty map; only tests use the map
     @Override
-    public Summary parse(Map<String, String> sourcesByTestProtocolURIString, ParseOptions parseOptions) {
+    public Summary parse(Map<String, String> sourcesByFqn, ParseOptions parseOptions) {
         Summary summary = new SummaryImpl(parseOptions.failFast());
         List<SourceSet> linearization = computeScanOrder(); // from input configuration
         for (SourceSet sourceSet : linearization) {
             try {
-                singleSourceSet(summary, sourceSet, !parseOptions.failFast());
+                singleSourceSet(summary, sourcesByFqn, sourceSet, !parseOptions.failFast());
             } catch (IOException ioe) {
                 if (parseOptions.failFast()) {
                     // add parse exception
@@ -177,7 +182,7 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     private List<SourceSet> computeScanOrder() {
-        return List.of(); // TODO
+        return inputConfiguration.sourceSets(); // FIXME compute!
     }
 
     // single file
@@ -201,7 +206,10 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     // TODO new convention for SourceSets of sources: uri is the location of the class directory!
-    private void singleSourceSet(Summary summary, SourceSet sourceSet, boolean ignoreErrors) throws IOException {
+    private void singleSourceSet(Summary summary,
+                                 Map<String, String> sourcesByFqn,
+                                 SourceSet sourceSet,
+                                 boolean ignoreErrors) throws IOException {
         /*
         TODO:
             from the inputConfiguration, find out what the dependencies of this source set are
@@ -212,12 +220,12 @@ public class JavaInspectorImpl implements JavaInspector {
             jarsAndClassDirectories.add(Path.of(dependency.uri()).toFile());
         }
         List<File> sources = new ArrayList<>();
-        Map<String, String> sourcesByClassName = new HashMap<>();
+        Map<String, String> sourcesByClassName = TEST_PROTOCOL.equals(sourceSet.name()) ? sourcesByFqn : Map.of();
 
         DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
         JavacTask javacTask = createTask(sourcesByClassName, sources, jarsAndClassDirectories, diagnostics);
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                compiledTypesManager.javaBase(), javacTask, sourceSet, true, diagnostics);
+                javacTask, sourceSet, true, diagnostics);
         List<Info> scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary
