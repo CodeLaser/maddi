@@ -290,6 +290,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             currentMethod = null;
             scan(member, null);
         }
+        if (typeInfo.typeNature().isEnum()) {
+            for (var symbol : jcClassDecl.sym.members().getSymbols()) {
+                if (symbol instanceof Symbol.MethodSymbol ms
+                    && ("values".equals(ms.name.toString()) || "valueOf".equals(ms.name.toString()))) {
+                    convertType.ensureMethod(ms);
+                }
+            }
+        }
         MethodInfo singleAbstractMethod = convertType.computeSAM(jcClassDecl.type);
         typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
 
