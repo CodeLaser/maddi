@@ -210,15 +210,15 @@ public class JavaInspectorImpl implements JavaInspector {
                                  Map<String, String> sourcesByFqn,
                                  SourceSet sourceSet,
                                  boolean ignoreErrors) throws IOException {
-        /*
-        TODO:
-            from the inputConfiguration, find out what the dependencies of this source set are
-            translate that in a list of jars
-         */
         List<File> jarsAndClassDirectories = new ArrayList<>();
-        for (SourceSet dependency : sourceSet.dependencies()) {
-            jarsAndClassDirectories.add(Path.of(dependency.uri()).toFile());
+        for (SourceSet classPathPart : inputConfiguration.classPathParts()) {
+            // ignore jmod:, ignore jar-on-classpath: they are handled by the ClassSymbolScanner
+            if (!classPathPart.name().startsWith(JAR_WITH_PATH_PREFIX) && !classPathPart.partOfJdk()) {
+                Path path = Path.of(classPathPart.uri());
+                jarsAndClassDirectories.add(path.toFile());
+            }
         }
+
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName = TEST_PROTOCOL.equals(sourceSet.name()) ? sourcesByFqn : Map.of();
 
