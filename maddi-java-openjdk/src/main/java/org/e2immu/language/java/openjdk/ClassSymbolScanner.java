@@ -15,6 +15,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -89,8 +90,18 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
             map.put(sourceSet.name(), sourceSet);
         }
-        for (SourceSet sourceSet : inputConfiguration.classPathParts()) {
-            map.put(sourceSet.name(), sourceSet);
+        for (SourceSet cpp : inputConfiguration.classPathParts()) {
+            SourceSet toAdd;
+            if (cpp.name().startsWith("jar-on-classpath:")) {
+                int colon = cpp.name().indexOf(':');
+                String jarName = cpp.name().substring(colon + 1);
+                toAdd = new SourceSetImpl(jarName, cpp.sourceDirectories(), cpp.uri(),
+                        cpp.sourceEncoding(), cpp.test(), cpp.library(), cpp.externalLibrary(), cpp.partOfJdk(),
+                        cpp.runtimeOnly(), cpp.restrictToPackages(), cpp.dependencies());
+            } else {
+                toAdd = cpp;
+            }
+            map.put(toAdd.name(), toAdd);
         }
         sourceSetMap = Map.copyOf(map);
     }
