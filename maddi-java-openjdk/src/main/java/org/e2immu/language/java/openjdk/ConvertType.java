@@ -17,7 +17,7 @@ public interface ConvertType {
 
     FieldInfo ensureField(Symbol.VarSymbol vs);
 
-    MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol);
+    MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol, boolean synthetic);
 
     record SAMDescriptor(MethodInfo methodInfo, Symbol.MethodSymbol symbol, Type.MethodType instantiatedType) {
     }

@@ -200,7 +200,8 @@ public class TestEnum extends CommonTest {
         TypeInfo effective = typeInfo.findSubType("Effective");
         assertTrue(effective.typeNature().isEnum());
         assertEquals(2, effective.fields().size());
-        assertEquals(1, effective.methods().size());
+        assertEquals(3, effective.methods().size());
+        assertEquals(2, effective.methods().stream().filter(MethodInfo::isSynthetic).count());
         TypeInfo level = typeInfo.findSubType("Level");
         assertTrue(level.typeNature().isEnum());
         assertEquals(3, level.fields().size());

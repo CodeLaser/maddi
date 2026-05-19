@@ -293,8 +293,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (typeInfo.typeNature().isEnum()) {
             for (var symbol : jcClassDecl.sym.members().getSymbols()) {
                 if (symbol instanceof Symbol.MethodSymbol ms
-                    && ("values".equals(ms.name.toString()) || "valueOf".equals(ms.name.toString()))) {
-                    convertType.ensureMethod(ms);
+                    && ("values".equals(ms.name.toString()) && ms.params().isEmpty()
+                        || "valueOf".equals(ms.name.toString())
+                           && ms.params().size() == 1
+                           && ms.params().head.type.tsym.flatName().contentEquals("java.lang.String"))
+                    && typeData.getMethod(ms) == null) {
+                    convertType.ensureMethod(ms, true);
                 }
             }
         }
@@ -328,6 +332,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (isKnown) {
             methodInfo = known;
             methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
+            methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
         } else {
             // construction of the method
             boolean isConstructor = "<init>".equals(methodName);
