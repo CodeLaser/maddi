@@ -1,5 +1,6 @@
 package org.e2immu.language.inspection.openjdk;
 
+import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TestJavaInspector5RealClasspathModule {
 
     private JavaInspector javaInspector;
+    private SourceSet cstApi;
 
     @BeforeEach
     public void test() throws IOException {
@@ -35,7 +37,7 @@ public class TestJavaInspector5RealClasspathModule {
 
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");
         assertTrue(Files.isDirectory(cstApiPath));
-        SourceSet cstApi = new SourceSetImpl.Builder().setName("cst-api")
+        cstApi = new SourceSetImpl.Builder().setName("cst-api")
                 .setUri(cstApiPath.toUri())
                 .setModule(true)
                 .build();
@@ -53,6 +55,9 @@ public class TestJavaInspector5RealClasspathModule {
         JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder()
                 .setFailFast(true).setDetailedSources(true).build(); // not ignoring module here!
         ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
+        
+        ModuleInfo moduleInfo = parseResult.moduleInfo(cstApi);
+        assertEquals(13, moduleInfo.exports().size());
 
         TypeInfo element = parseResult.findType("org.e2immu.language.cst.api.element.Element");
         assertTrue(element.isInterface());

@@ -24,6 +24,7 @@ import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
 import org.e2immu.language.java.openjdk.ScanCompilationUnits;
 import org.e2immu.util.internal.graph.util.TimedLogger;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -215,28 +216,9 @@ public class JavaInspectorImpl implements JavaInspector {
                                  SourceSet sourceSet,
                                  boolean ignoreErrors,
                                  boolean ignoreModule) throws IOException {
-        List<File> jarsAndClassDirectories = new ArrayList<>();
-        for (SourceSet classPathPart : inputConfiguration.classPathParts()) {
-            // ignore jmod:, ignore jar-on-classpath: they are handled by the ClassSymbolScanner
-            if (!classPathPart.name().startsWith(JAR_WITH_PATH_PREFIX) && !classPathPart.partOfJdk()) {
-                Path path = Path.of(classPathPart.uri());
-                jarsAndClassDirectories.add(path.toFile());
-            }
-        }
-        List<File> moduleJars = new ArrayList<>();
 
-
-        List<File> sources = new ArrayList<>();
-        Map<String, String> sourcesByClassName;
-        if (TEST_PROTOCOL.equals(sourceSet.name())) {
-            sourcesByClassName = sourcesByFqn;
-        } else {
-            sourcesByClassName = Map.of();
-            sources.add(Path.of(sourceSet.uri()).toFile());
-        }
         DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
-        JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByClassName, sources, jarsAndClassDirectories,
-                moduleJars, diagnostics);
+        JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, true, diagnostics);
         List<Info> scanned = scanCompilationUnits.scan();
@@ -262,46 +244,46 @@ public class JavaInspectorImpl implements JavaInspector {
 
     private JavacTask createTask(SourceSet sourceSet,
                                  boolean ignoreModule,
-                                 Map<String, String> sourcesByClassName,
-                                 List<File> sources,
-                                 List<File> jarsAndClassDirectories,
-                                 List<File> moduleJars,
+                                 Map<String, String> sourcesByFqn,
                                  @Nullable DiagnosticCollector<JavaFileObject> diagnostics) throws IOException {
+
+
+        List<File> sources = new ArrayList<>();
+        Map<String, String> sourcesByClassName;
+        if (TEST_PROTOCOL.equals(sourceSet.name())) {
+            sourcesByClassName = sourcesByFqn;
+        } else {
+            sourcesByClassName = Map.of();
+            sources.add(Path.of(sourceSet.uri()).toFile());
+        }
+
         try (StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null)) {
+            Iterable<? extends JavaFileObject> allCompilationUnits = computeCompilationUnits(ignoreModule, sources,
+                    sourcesByClassName, fm);
+            boolean hasModuleInfo = hasModuleInfo(allCompilationUnits);
+
+            List<File> jarsAndClassDirectories = new ArrayList<>();
+            List<File> moduleJars = new ArrayList<>();
+
+            for (SourceSet classPathPart : inputConfiguration.classPathParts()) {
+                // ignore jmod:, ignore jar-on-classpath: they are handled by the ClassSymbolScanner
+                if (!classPathPart.name().startsWith(JAR_WITH_PATH_PREFIX) && !classPathPart.partOfJdk()) {
+                    File file = Path.of(classPathPart.uri()).toFile();
+                    if (ignoreModule || !classPathPart.isModule()) {
+                        jarsAndClassDirectories.add(file);
+                    } else {
+                        moduleJars.add(file);
+                    }
+                }
+            }
             if (!jarsAndClassDirectories.isEmpty()) {
                 fm.setLocation(StandardLocation.CLASS_PATH, jarsAndClassDirectories);
             }
             if (!moduleJars.isEmpty()) {
-                fm.setLocation(StandardLocation.MODULE_PATH, jarsAndClassDirectories);
+                fm.setLocation(StandardLocation.MODULE_PATH, moduleJars);
             }
-
-            List<File> allSources = new LinkedList<>();
-            for (File sourceDir : sources) {
-                try (Stream<Path> walk = Files.walk(sourceDir.toPath())) {
-                    walk.filter(p -> p.toString().endsWith(".java"))
-                            .sorted()
-                            .map(Path::toFile)
-                            .filter(f -> !ignoreModule || !"module-info.java".equals(f.getName()))
-                            .forEach(allSources::add);
-                }
-            }
-            // Wrap each source string in an InMemoryJavaFileObject
-            List<JavaFileObject> inMemory = sourcesByClassName.entrySet().stream()
-                    .map(e -> new InMemoryJavaFileObject(e.getKey(), e.getValue()))
-                    .collect(Collectors.toList());
-            Iterable<? extends JavaFileObject> compilationUnits = fm.getJavaFileObjects(allSources.toArray(new File[0]));
-            Iterable<? extends JavaFileObject> allCompilationUnits
-                    = Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
-                            inMemory.stream())
-                    .toList();
-
-
-            if (!ignoreModule) {
-                boolean hasModuleInfo = hasModuleInfo(allCompilationUnits);
-                if (hasModuleInfo && moduleJars.isEmpty()) {
-                    LOGGER.warn("The source set {} declares a module but no module path was provided.",
-                            sourceSet.name());
-                }
+            if (!ignoreModule && hasModuleInfo && moduleJars.isEmpty()) {
+                LOGGER.warn("The source set {} declares a module but no module path was provided.", sourceSet.name());
             }
             return (JavacTask) javaCompiler.getTask(
                     null, fm, diagnostics,
@@ -310,6 +292,32 @@ public class JavaInspectorImpl implements JavaInspector {
                     allCompilationUnits
             );
         }
+    }
+
+    private static @NotNull Iterable<? extends JavaFileObject> computeCompilationUnits
+            (boolean ignoreModule,
+             List<File> sources,
+             Map<String, String> sourcesByClassName, StandardJavaFileManager fm) throws IOException {
+        List<File> allSources = new LinkedList<>();
+        for (File sourceDir : sources) {
+            try (Stream<Path> walk = Files.walk(sourceDir.toPath())) {
+                walk.filter(p -> p.toString().endsWith(".java"))
+                        .sorted()
+                        .map(Path::toFile)
+                        .filter(f -> !ignoreModule || !"module-info.java".equals(f.getName()))
+                        .forEach(allSources::add);
+            }
+        }
+        // Wrap each source string in an InMemoryJavaFileObject
+        List<JavaFileObject> inMemory = sourcesByClassName.entrySet().stream()
+                .map(e -> new InMemoryJavaFileObject(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
+        Iterable<? extends JavaFileObject> compilationUnits = fm.getJavaFileObjects(allSources.toArray(new File[0]));
+        Iterable<? extends JavaFileObject> allCompilationUnits
+                = Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
+                        inMemory.stream())
+                .toList();
+        return allCompilationUnits;
     }
 
     private boolean hasModuleInfo(Iterable<? extends JavaFileObject> allCompilationUnits) {
