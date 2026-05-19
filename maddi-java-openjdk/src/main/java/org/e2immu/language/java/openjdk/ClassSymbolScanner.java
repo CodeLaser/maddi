@@ -295,7 +295,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0;
             if (isPublic && (loadMode == LoadMode.LOAD_MEMBERS
                              || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))) {
-                addMethodToType(typeInfo, ms);
+                addMethodToType(typeInfo, ms, false);
             }
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
             boolean isPublic = (vs.flags() & Flags.PUBLIC) != 0;
@@ -336,7 +336,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         put(vs, fieldInfo);
     }
 
-    MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms) {
+    MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
         String name = ms.getSimpleName().toString();
         MethodInfo method;
         if ("<init>".equals(name)) {
@@ -360,6 +360,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
 
         flagHelper.method(ms.flags(), builder);
+        if (synthetic) {
+            builder.setSynthetic(true);
+        }
         if (ms.params != null) {
             for (Symbol.VarSymbol parameter : ms.params) {
                 ParameterizedType pt = convert(parameter.type);
@@ -410,10 +413,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     @Override
-    public MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol) {
+    public MethodInfo ensureMethod(Symbol.MethodSymbol methodSymbol, boolean synthetic) {
         if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
             TypeInfo owner = convert(cs.type).typeInfo();
-            return addMethodToType(owner, methodSymbol);
+            return addMethodToType(owner, methodSymbol, synthetic);
         } else throw new UnsupportedOperationException();
     }
 
@@ -713,7 +716,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         Symbol.MethodSymbol theMethod = theMethod(methodSymbol);
         MethodInfo inMap = methodSymbolMap.get(theMethod);
         if (inMap != null) return inMap;
-        return ensureMethod(theMethod);
+        return ensureMethod(theMethod, false);
     }
 
     @Override
