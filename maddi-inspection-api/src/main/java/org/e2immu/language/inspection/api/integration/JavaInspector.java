@@ -65,7 +65,7 @@ public interface JavaInspector {
     Invalidated INVALIDATED_ALL = t -> InvalidationState.INVALID;
 
     record ParseOptions(boolean failFast, boolean detailedSources, Invalidated invalidated, boolean parallel,
-                        boolean lombok) {
+                        boolean lombok, boolean ignoreModule) {
     }
 
     /*
@@ -88,6 +88,8 @@ public interface JavaInspector {
         ParseOptionsBuilder setInvalidated(Invalidated invalidated);
 
         ParseOptionsBuilder setLombok(boolean lombok);
+
+        ParseOptionsBuilder setIgnoreModule(boolean ignoreModule);
 
         ParseOptions build();
     }
@@ -144,9 +146,9 @@ public interface JavaInspector {
                 compilationUnit.sourceSet()));
     }
 
-   default String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator, ImportComputer importComputer){
-       return print2(compilationUnit, runtime().qualificationQualifyFromPrimaryType(decorator), importComputer);
-   }
+    default String print2(CompilationUnit compilationUnit, Qualification.Decorator decorator, ImportComputer importComputer) {
+        return print2(compilationUnit, runtime().qualificationQualifyFromPrimaryType(decorator), importComputer);
+    }
 
     Runtime runtime();
 

@@ -114,7 +114,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions(true, false,
-            _ -> UNCHANGED, false, false);
+            _ -> UNCHANGED, false, false, false);
     public static final ParseOptions DETAILED_SOURCES = new ParseOptionsBuilder().setDetailedSources(true).build();
 
     public static class ParseOptionsBuilder implements JavaInspector.ParseOptionsBuilder {
@@ -123,6 +123,13 @@ public class JavaInspectorImpl implements JavaInspector {
         private boolean parallel;
         private boolean lombok;
         private Invalidated invalidated;
+        private boolean ignoreModule;
+
+        @Override
+        public ParseOptionsBuilder setIgnoreModule(boolean ignoreModule) {
+            this.ignoreModule = ignoreModule;
+            return this;
+        }
 
         @Override
         public ParseOptionsBuilder setInvalidated(Invalidated invalidated) {
@@ -156,7 +163,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         @Override
         public ParseOptions build() {
-            return new ParseOptions(failFast, detailedSources, invalidated, parallel, lombok);
+            return new ParseOptions(failFast, detailedSources, invalidated, parallel, lombok, ignoreModule);
         }
     }
 
