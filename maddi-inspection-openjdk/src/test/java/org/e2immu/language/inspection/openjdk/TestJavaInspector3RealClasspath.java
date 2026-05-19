@@ -29,8 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaInspector3RealClasspath {
 
-    public static final String COMMONS_CLI_JAR = "commons-cli-1.11.0.jar";
-    public static final String SLF4J_API_JAR = "slf4j-api-2.0.17.jar";
+    public static final String COMMONS_CLI_JAR = "commons-cli-1.11.0.jar"; // as a file in the project
+    public static final String SLF4J_API_JAR = "slf4j-api-2.0.17.jar"; // on maddi classpath
 
     private JavaInspector javaInspector;
     private Runtime runtime;
@@ -52,16 +52,16 @@ public class TestJavaInspector3RealClasspath {
                 Set.of(), Set.of());
 
         URL slf4jJar = findJarInClassPath("org/slf4j/event");
-        SourceSet slf4j =  new SourceSetImpl(SLF4J_API_JAR, List.of(), slf4jJar.toURI(),
+        SourceSet slf4j = new SourceSetImpl(SLF4J_API_JAR, List.of(), slf4jJar.toURI(),
                 StandardCharsets.UTF_8, false, true, true, false, false,
                 Set.of(), Set.of());
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(JavaInspectorImpl.TEST_PROTOCOL_SOURCE_SET)
-                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .addClassPath("jmod:java.base", "jmod:java.sql")
                 .addClassPathParts(commonsCli, maddiSupport, slf4j)
                 .build();
-        assertEquals(10, inputConfiguration.classPathParts().size());
+        assertEquals(5, inputConfiguration.classPathParts().size());
         javaInspector.initialize(inputConfiguration);
         runtime = javaInspector.runtime();
     }
@@ -73,6 +73,7 @@ public class TestJavaInspector3RealClasspath {
             import org.e2immu.annotation.ImmutableContainer;
             import org.slf4j.Logger;
             import org.slf4j.LoggerFactory;
+            import java.sql.Date;
             
             @ImmutableContainer
             record C(int k) {
@@ -83,8 +84,8 @@ public class TestJavaInspector3RealClasspath {
                     return k*k;
                 }
             
-                Option makeOption() {
-                    return new Option("-v", "return "+k);
+                Option makeOption(Date date) {
+                    return new Option("-v", "return "+k+" at "+date);
                 }
             }
             """;
@@ -97,7 +98,7 @@ public class TestJavaInspector3RealClasspath {
         TypeInfo C = parseResult.findType("a.b.C");
         assertEquals("@ImmutableContainer", C.annotations().getFirst().toString());
 
-        TypeInfo option = C.findUniqueMethod("makeOption", 0).returnType().typeInfo();
+        TypeInfo option = C.findUniqueMethod("makeOption", 1).returnType().typeInfo();
         assertEquals(COMMONS_CLI_JAR, option.compilationUnit().sourceSet().name());
 
         TypeInfo logger = C.getFieldByName("LOGGER", true).type().typeInfo();

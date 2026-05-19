@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -205,7 +206,6 @@ public class JavaInspectorImpl implements JavaInspector {
         return summary;
     }
 
-    // TODO new convention for SourceSets of sources: uri is the location of the class directory!
     private void singleSourceSet(Summary summary,
                                  Map<String, String> sourcesByFqn,
                                  SourceSet sourceSet,
@@ -218,12 +218,20 @@ public class JavaInspectorImpl implements JavaInspector {
                 jarsAndClassDirectories.add(path.toFile());
             }
         }
+        List<File> moduleJars = new ArrayList<>();
+
 
         List<File> sources = new ArrayList<>();
-        Map<String, String> sourcesByClassName = TEST_PROTOCOL.equals(sourceSet.name()) ? sourcesByFqn : Map.of();
-
+        Map<String, String> sourcesByClassName;
+        if (TEST_PROTOCOL.equals(sourceSet.name())) {
+            sourcesByClassName = sourcesByFqn;
+        } else {
+            sourcesByClassName = Map.of();
+            sources.add(Path.of(sourceSet.uri()).toFile());
+        }
         DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
-        JavacTask javacTask = createTask(sourcesByClassName, sources, jarsAndClassDirectories, diagnostics);
+        JavacTask javacTask = createTask(sourceSet, sourcesByClassName, sources, jarsAndClassDirectories, moduleJars,
+                diagnostics);
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, true, diagnostics);
         List<Info> scanned = scanCompilationUnits.scan();
@@ -247,26 +255,54 @@ public class JavaInspectorImpl implements JavaInspector {
         }
     }
 
-    private JavacTask createTask(Map<String, String> sourcesByClassName,
+    private JavacTask createTask(SourceSet sourceSet,
+                                 Map<String, String> sourcesByClassName,
                                  List<File> sources,
                                  List<File> jarsAndClassDirectories,
+                                 List<File> moduleJars,
                                  @Nullable DiagnosticCollector<JavaFileObject> diagnostics) throws IOException {
         try (StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null)) {
             if (!jarsAndClassDirectories.isEmpty()) {
                 fm.setLocation(StandardLocation.CLASS_PATH, jarsAndClassDirectories);
             }
+            if (!moduleJars.isEmpty()) {
+                fm.setLocation(StandardLocation.MODULE_PATH, jarsAndClassDirectories);
+            }
+            Iterable<? extends JavaFileObject> allCompilationUnits;
+            if (sourcesByClassName.isEmpty()) {
+                fm.setLocation(StandardLocation.SOURCE_PATH, sources);
+                allCompilationUnits = fm.list(
+                        StandardLocation.SOURCE_PATH,
+                        "",           // empty string = all packages
+                        Set.of(JavaFileObject.Kind.SOURCE),
+                        true);
+            } else {
+                List<File> allSources = new LinkedList<>();
+                for (File sourceDir : sources) {
+                    try (Stream<Path> walk = Files.walk(sourceDir.toPath())) {
+                        walk.filter(p -> p.toString().endsWith(".java"))
+                                .sorted()
+                                .map(Path::toFile)
+                                .forEach(allSources::add);
+                    }
+                }
+                // Wrap each source string in an InMemoryJavaFileObject
+                List<JavaFileObject> inMemory = sourcesByClassName.entrySet().stream()
+                        .map(e -> new InMemoryJavaFileObject(e.getKey(), e.getValue()))
+                        .collect(Collectors.toList());
+                Iterable<? extends JavaFileObject> compilationUnits = fm.getJavaFileObjects(allSources.toArray(new File[0]));
+                allCompilationUnits
+                        = Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
+                                inMemory.stream())
+                        .toList();
 
-            // Wrap each source string in an InMemoryJavaFileObject
-            List<JavaFileObject> inMemory = sourcesByClassName.entrySet().stream()
-                    .map(e -> new InMemoryJavaFileObject(e.getKey(), e.getValue()))
-                    .collect(Collectors.toList());
-            Iterable<? extends JavaFileObject> compilationUnits
-                    = fm.getJavaFileObjects(sources.toArray(new File[0]));
-            Iterable<? extends JavaFileObject> allCompilationUnits
-                    = Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
-                            inMemory.stream())
-                    .toList();
+            }
+            boolean hasModuleInfo = hasModuleInfo(allCompilationUnits);
 
+            if (hasModuleInfo && moduleJars.isEmpty()) {
+                LOGGER.warn("The source set {} declares a module but no module path was provided.",
+                        sourceSet.name());
+            }
             return (JavacTask) javaCompiler.getTask(
                     null, fm, diagnostics,
                     List.of("-proc:none", "--enable-preview", "--release=25"),
@@ -274,6 +310,13 @@ public class JavaInspectorImpl implements JavaInspector {
                     allCompilationUnits
             );
         }
+    }
+
+    private boolean hasModuleInfo(Iterable<? extends JavaFileObject> allCompilationUnits) {
+        for (JavaFileObject jfo : allCompilationUnits) {
+            if (jfo.toUri().getPath().endsWith("module-info.java")) return true;
+        }
+        return false;
     }
 
     @Override

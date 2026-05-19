@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class ScanCompilationUnits {
-    private static final Logger LOGGER = LoggerFactory.getLogger(org.e2immu.parser.java.ScanCompilationUnit.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
 
     private final Runtime runtime;
     private final SourceCodeScan sourceCodeScan;
@@ -70,8 +70,9 @@ public class ScanCompilationUnits {
             boolean haveErrors = false;
             for (Diagnostic<? extends JavaFileObject> d : diagnostics.getDiagnostics()) {
                 if (d.getKind() == Diagnostic.Kind.ERROR) {
-                    LOGGER.info("Error found: {} at line {}, col {}", d.getMessage(Locale.getDefault()),
-                            d.getLineNumber(), d.getColumnNumber());
+                    LOGGER.info("Error found in {} at line {}, col {}: {}",
+                            d.getSource(),
+                            d.getLineNumber(), d.getColumnNumber(),  d.getMessage(Locale.getDefault()));
                     haveErrors = true;
                 }
             }
