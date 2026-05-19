@@ -25,7 +25,10 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,6 +44,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
     private final Map<String, SourceSet> sourceSetMap;
+    private final Map<String, SourceSet> sourceSetDirPrefixes;
 
     private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
@@ -87,6 +91,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         predefinedTypes.put("Class", runtime.classTypeInfo());
 
         Map<String, SourceSet> map = new HashMap<>();
+        Map<String, SourceSet> prefixes = new HashMap<>();
         for (SourceSet sourceSet : inputConfiguration.sourceSets()) {
             map.put(sourceSet.name(), sourceSet);
         }
@@ -100,10 +105,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         cpp.runtimeOnly(), cpp.restrictToPackages(), cpp.dependencies());
             } else {
                 toAdd = cpp;
+                if (cpp.externalLibrary() && "file".equals(cpp.uri().getScheme())) {
+                    Path path = Path.of(cpp.uri());
+                    if (Files.isDirectory(path)) {
+                        try {
+                            prefixes.put(path.toRealPath().toAbsolutePath().toString(), cpp);
+                        } catch (IOException ioe) {
+                            throw new UnsupportedOperationException("Cannot discover real path of " + path);
+                        }
+                    }
+                }
             }
             map.put(toAdd.name(), toAdd);
         }
         sourceSetMap = Map.copyOf(map);
+        sourceSetDirPrefixes = Map.copyOf(prefixes);
     }
 
     TypeInfo type(Symbol.ClassSymbol cs) {
@@ -249,11 +265,18 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             } else {
                 SourceSet known = getSourceSet(module.name.toString());
                 if (known == null) {
-                    throw new UnsupportedOperationException(
-                            "Cannot find class path source set interpreted as java runtime module: " + module);
+                    // FIXME when the source is a module... currently not implemented
+                    return sourceSetOfCurrentTask;
                 }
                 return known;
             }
+        }
+        if ("file".equals(uri.getScheme())) {
+            SourceSet dir = sourceSetDirPrefixes.entrySet().stream()
+                    .filter(e -> uri.getPath().startsWith(e.getKey()))
+                    .map(Map.Entry::getValue)
+                    .findFirst().orElse(null);
+            if (dir != null) return dir;
         }
         return sourceSetOfCurrentTask;
     }
