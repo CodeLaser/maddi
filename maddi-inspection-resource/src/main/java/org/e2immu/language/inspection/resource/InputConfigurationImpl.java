@@ -187,6 +187,7 @@ public record InputConfigurationImpl(Path workingDirectory,
                         .setUri(uri)
                         .setSourceEncoding(sourceCharset)
                         .setRestrictToPackages(restrictSourceToPackages)
+                        .setDependencies(allDependencies)
                         .build());
             }
             for (SourceSetNamePath sourceDir : testSourceDirs) {
@@ -201,6 +202,7 @@ public record InputConfigurationImpl(Path workingDirectory,
                         .setSourceEncoding(sourceCharset)
                         .setTest(true)
                         .setRestrictToPackages(restrictSourceToPackages)
+                                .setDependencies(allDependencies)
                         .build());
             }
             return new InputConfigurationImpl(workingDirectory == null || workingDirectory.isBlank()

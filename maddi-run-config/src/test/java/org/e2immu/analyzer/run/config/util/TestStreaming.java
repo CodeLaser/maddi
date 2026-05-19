@@ -36,15 +36,24 @@ public class TestStreaming {
     @Test
     public void test() throws JsonProcessingException {
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
-        SourceSet sourceSet = new SourceSetImpl.Builder().setName("abc").setSourceDirectories(List.of(Path.of("/home/x")))
-                .setUri(URI.create("file:/home/x")).setTest(true).build();
+        SourceSet sourceSet = new SourceSetImpl.Builder()
+                .setName("abc")
+                .setSourceDirectories(List.of(Path.of("/home/x")))
+                .setUri(URI.create("file:/home/x"))
+                .setTest(true)
+                .setRestrictToPackages(Set.of("a.b.c"))
+                .build();
         FingerPrint fingerPrint1 = MD5FingerPrint.compute("hello");
         Assertions.assertEquals("XUFAKrxLKna5cZ2REBfFkg==", fingerPrint1.toString());
         sourceSet.setFingerPrint(fingerPrint1);
 
-        SourceSet sourceSet2 = new SourceSetImpl.Builder().setName("def")
-                .setSourceDirectories(List.of(Path.of("/home/y"))).setUri(URI.create("file:/home/y"))
-                .setTest(true).setDependencies(Set.of(sourceSet)).build();
+        SourceSet sourceSet2 = new SourceSetImpl.Builder()
+                .setName("def")
+                .setSourceDirectories(List.of(Path.of("/home/y")))
+                .setUri(URI.create("file:/home/y"))
+                .setTest(true)
+                .setDependencies(Set.of(sourceSet))
+                .build();
 
         sourceSet2.setAnalysisFingerPrint(MD5FingerPrint.compute("there"));
         InputConfiguration inputConfiguration = new InputConfigurationImpl(Path.of("."),

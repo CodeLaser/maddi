@@ -66,8 +66,12 @@ public class TestGrpcStub {
         assertEquals(set67, sourceFiles.getFirst().sourceSet());
         assertEquals(set73, sourceFiles.getLast().sourceSet());
 
-        SourceSet want67 = new SourceSetImpl.Builder().setName("want67").setUri(URI.create("file:/"))
-                .setTest(true).build();
+        SourceSet want67 = new SourceSetImpl.Builder()
+                .setName("want67")
+                .setUri(URI.create("file:/"))
+                .setTest(true)
+                .setDependencies(Set.of(set67))
+                .build();
         want67.computePriorityDependencies();
 
         TypeInfo clientCalls67 = ctm.getOrLoad("io.grpc.stub.ClientCalls", want67);
@@ -92,8 +96,12 @@ public class TestGrpcStub {
                 """, clientCalls67.methods().stream().map(MethodInfo::fullyQualifiedName).collect(Collectors.joining("\n")));
         assertEquals(set67, clientCalls67.compilationUnit().sourceSet());
 
-        SourceSet want73 = new SourceSetImpl.Builder().setName("want73").setUri(URI.create("file:/"))
-                .setTest(true).setDependencies(Set.of(set73)).build();
+        SourceSet want73 = new SourceSetImpl.Builder()
+                .setName("want73")
+                .setUri(URI.create("file:/"))
+                .setTest(true)
+                .setDependencies(Set.of(set73))
+                .build();
         want73.computePriorityDependencies();
 
         TypeInfo clientCalls73 = ctm.getOrLoad("io.grpc.stub.ClientCalls", want73);
@@ -142,8 +150,14 @@ public class TestGrpcStub {
 
     private static SourceSet addJmod(String name, Resources cp) throws URISyntaxException, IOException {
         URL url = ResourcesImpl.constructJModURL(name, null);
-        SourceSet jmodBase = new SourceSetImpl.Builder().setName(name).setUri(url.toURI())
-                .setLibrary(true).setExternalLibrary(true).build();
+        SourceSet jmodBase = new SourceSetImpl.Builder()
+                .setName("jmod:" + name)// TODO should we not remove "jmod:" ??
+                .setUri(url.toURI())
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .setPartOfJdk(true)
+                .setModule(true)
+                .build();
         cp.addJmod(new SourceFile("jmod:" + name, url.toURI(), jmodBase, null));
         jmodBase.computePriorityDependencies();
         return jmodBase;
@@ -152,9 +166,13 @@ public class TestGrpcStub {
     private static SourceSet addJar(String name, Resources cp, Set<SourceSet> dependencies) throws IOException {
         String path = "src/test/resources/" + name + ".jar";
         URI uri = URI.create("jar:file:" + path + "!/");
-        SourceSet sourceSet = new SourceSetImpl.Builder().setName(name).setUri(uri).setLibrary(true)
+        SourceSet sourceSet = new SourceSetImpl.Builder()
+                .setName(name)
+                .setUri(uri)
+                .setLibrary(true)
                 .setExternalLibrary(true)
-                .setDependencies(dependencies).build();
+                .setDependencies(dependencies)
+                .build();
         cp.addJar(new SourceFile(path, uri, sourceSet, null));
         sourceSet.computePriorityDependencies();
         return sourceSet;
