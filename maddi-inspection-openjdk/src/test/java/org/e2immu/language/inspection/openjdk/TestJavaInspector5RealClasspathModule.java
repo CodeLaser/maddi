@@ -18,7 +18,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TestJavaInspector4RealClasspath {
+public class TestJavaInspector5RealClasspathModule {
 
     private JavaInspector javaInspector;
 
@@ -29,14 +29,16 @@ public class TestJavaInspector4RealClasspath {
         Path maddiSupportJar = Path.of("../maddi-support/build/libs/maddi-support-0.8.2.jar").toRealPath();
         assertTrue(Files.isReadable(maddiSupportJar));
         SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support-0.8.2.jar")
-                .setUri(maddiSupportJar.toUri())
-                .setExternalLibrary(true)
-                .setLibrary(true)
-                .build(); // not bothering with module
+                .setUri(maddiSupportJar.toUri()).setExternalLibrary(true).setLibrary(true)
+                .setModule(true)
+                .build();
 
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");
         assertTrue(Files.isDirectory(cstApiPath));
-        SourceSet cstApi = new SourceSetImpl.Builder().setName("cst-api").setUri(cstApiPath.toUri()).build();
+        SourceSet cstApi = new SourceSetImpl.Builder().setName("cst-api")
+                .setUri(cstApiPath.toUri())
+                .setModule(true)
+                .build();
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(cstApi)
                 .addClassPath("jmod:java.base")
@@ -49,7 +51,7 @@ public class TestJavaInspector4RealClasspath {
     @Test
     public void test1() {
         JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder()
-                .setFailFast(true).setDetailedSources(true).setIgnoreModule(true).build();
+                .setFailFast(true).setDetailedSources(true).build(); // not ignoring module here!
         ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
 
         TypeInfo element = parseResult.findType("org.e2immu.language.cst.api.element.Element");
