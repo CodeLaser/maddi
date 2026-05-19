@@ -34,9 +34,9 @@ import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.*;
 import org.e2immu.language.inspection.impl.parser.ContextImpl;
 import org.e2immu.language.inspection.impl.parser.ResolverImpl;
-import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.parser.java.*;
 import org.e2immu.support.Either;
 import org.e2immu.util.internal.graph.util.TimedLogger;
@@ -449,9 +449,11 @@ public class JavaInspectorImpl implements JavaInspector {
         try {
             Set<SourceSet> dependencies = inputConfiguration.classPathParts().stream()
                     .collect(Collectors.toUnmodifiableSet());
-            SourceSet dummy = new SourceSetImpl(sourceSetName, List.of(), URI.create("file:" + sourceSetName),
-                    StandardCharsets.UTF_8, false, false, false, false,
-                    false, Set.of(), dependencies);
+            SourceSet dummy = new SourceSetImpl.Builder()
+                    .setName(sourceSetName)
+                    .setUri(URI.create("file:" + sourceSetName))
+                    .setDependencies(dependencies)
+                    .build();
             dummy.computePriorityDependencies();
             SourceFile sourceFile = new SourceFile(inputName, new URI("file:" + inputName), dummy,
                     MD5FingerPrint.compute(input));

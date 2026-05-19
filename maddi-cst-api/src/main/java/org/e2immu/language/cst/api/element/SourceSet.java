@@ -16,6 +16,7 @@ package org.e2immu.language.cst.api.element;
 
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,9 @@ import java.util.Set;
  */
 public interface SourceSet {
 
-    Charset sourceEncoding();
+    default Charset sourceEncoding() {
+        return StandardCharsets.UTF_8;
+    }
 
     String name();
 
@@ -45,7 +48,9 @@ public interface SourceSet {
      *
      * @return a path representing a directory containing source files
      */
-    List<Path> sourceDirectories();
+    default List<Path> sourceDirectories() {
+        return List.of();
+    }
 
     /**
      * Valid URI with a non-null scheme.
@@ -66,25 +71,43 @@ public interface SourceSet {
         return !externalLibrary();
     }
 
-    boolean test();
+    default boolean test() {
+        return false;
+    }
 
     /**
      * only relevant when external library is true
      *
      * @return if the source set is a library which is needed at runtime, but not at compile time.
      */
-    boolean runtimeOnly();
+    default boolean runtimeOnly() {
+        return false;
+    }
 
-    boolean library();
+    default boolean library() {
+        return false;
+    }
 
-    boolean externalLibrary();
+    default boolean externalLibrary() {
+        return false;
+    }
 
-    boolean partOfJdk();
+    default boolean partOfJdk() {
+        return false;
+    }
 
-    Set<String> restrictToPackages();
+    default boolean isModule() {
+        return false;
+    }
+
+    default Set<String> restrictToPackages() {
+        return Set.of();
+    }
 
     // which sourceSets must be present for this source set to compile/run/resolve?
-    Set<SourceSet> dependencies();
+    default Set<SourceSet> dependencies() {
+        return Set.of();
+    }
 
     /**
      * Used to determine whether the source of any of the types in this source set has changed.
@@ -92,14 +115,17 @@ public interface SourceSet {
      * <p>
      * The value may be computed from the sources in the <code>path</code>, or from any jar file that is their origin.
      */
-    FingerPrint fingerPrintOrNull();
+    default FingerPrint fingerPrintOrNull() {
+        return null;
+    }
 
     /**
      * can be set only once.
      *
      * @param fingerPrint the source fingerprint
      */
-    void setFingerPrint(FingerPrint fingerPrint);
+    default void setFingerPrint(FingerPrint fingerPrint) {
+    }
 
     /**
      * Used to determine whether the analysis of the whole source set has changed.
@@ -107,21 +133,35 @@ public interface SourceSet {
      * This is typically implemented using a setOnce object since the source set has to be in place before
      * the analysis can take place.
      */
-    FingerPrint analysisFingerPrintOrNull();
+    default FingerPrint analysisFingerPrintOrNull() {
+        return null;
+    }
 
-    void setAnalysisFingerPrint(FingerPrint fingerPrint);
+    default void setAnalysisFingerPrint(FingerPrint fingerPrint) {
+    }
 
     // helper methods
 
-    boolean acceptSource(String packageName, String typeName);
+    default boolean acceptSource(String packageName, String typeName) {
+        return false;
+    }
 
-    SourceSet withDependencies(Set<SourceSet> dependencies);
+    default SourceSet withDependencies(Set<SourceSet> dependencies) {
+        throw new UnsupportedOperationException();
+    }
 
-    SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri);
+    default SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
+        throw new UnsupportedOperationException();
+    }
 
-    SourceSet withSourceDirectories(List<Path> sourceDirectories);
+    default SourceSet withSourceDirectories(List<Path> sourceDirectories) {
+        throw new UnsupportedOperationException();
+    }
 
-    void computePriorityDependencies();
+    default void computePriorityDependencies() {
+    }
 
-    Map<SourceSet, Integer> priorityDependencies();
+    default Map<SourceSet, Integer> priorityDependencies() {
+        return Map.of();
+    }
 }

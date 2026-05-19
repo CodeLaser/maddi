@@ -16,13 +16,10 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,20 +38,19 @@ public class TestJavaInspector3RealClasspath {
 
         Path commonsCliJar = Path.of("testLib/" + COMMONS_CLI_JAR);
         assertTrue(Files.isReadable(commonsCliJar));
-        SourceSet commonsCli = new SourceSetImpl(COMMONS_CLI_JAR, List.of(), commonsCliJar.toUri(),
-                StandardCharsets.UTF_8, false, true, true, false, false,
-                Set.of(), Set.of());
+        SourceSet commonsCli = new SourceSetImpl.Builder().setName(COMMONS_CLI_JAR).setUri(commonsCliJar.toUri())
+                .setLibrary(true).setExternalLibrary(true).build();
 
         Path maddiSupportClasses = Path.of("../maddi-support/build/classes/java/main/");
         assertTrue(Files.isDirectory(maddiSupportClasses));
-        SourceSet maddiSupport = new SourceSetImpl("maddi-support", List.of(), maddiSupportClasses.toUri(),
-                StandardCharsets.UTF_8, false, true, true, false, false,
-                Set.of(), Set.of());
+        SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support")
+                .setUri(maddiSupportClasses.toUri())
+                .setLibrary(true).setExternalLibrary(true).build();
+        // note: no need to set module!
 
         URL slf4jJar = findJarInClassPath("org/slf4j/event");
-        SourceSet slf4j = new SourceSetImpl(SLF4J_API_JAR, List.of(), slf4jJar.toURI(),
-                StandardCharsets.UTF_8, false, true, true, false, false,
-                Set.of(), Set.of());
+        SourceSet slf4j = new SourceSetImpl.Builder().setName(SLF4J_API_JAR).setUri(slf4jJar.toURI())
+                .setLibrary(true).setExternalLibrary(true).build();
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(JavaInspectorImpl.TEST_PROTOCOL_SOURCE_SET)

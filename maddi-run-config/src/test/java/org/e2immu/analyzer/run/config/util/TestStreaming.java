@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
@@ -37,16 +36,16 @@ public class TestStreaming {
     @Test
     public void test() throws JsonProcessingException {
         ObjectMapper objectMapper = JsonStreaming.objectMapper();
-        SourceSet sourceSet = new SourceSetImpl("abc", List.of(Path.of("/home/x")), URI.create("file:/home/x"),
-                StandardCharsets.UTF_8, true, false, false, false, false,
-                Set.of("a.b.c"), Set.of());
+        SourceSet sourceSet = new SourceSetImpl.Builder().setName("abc").setSourceDirectories(List.of(Path.of("/home/x")))
+                .setUri(URI.create("file:/home/x")).setTest(true).build();
         FingerPrint fingerPrint1 = MD5FingerPrint.compute("hello");
         Assertions.assertEquals("XUFAKrxLKna5cZ2REBfFkg==", fingerPrint1.toString());
         sourceSet.setFingerPrint(fingerPrint1);
 
-        SourceSet sourceSet2 = new SourceSetImpl("def", List.of(Path.of("/home/y")), URI.create("file:/home/y"),
-                StandardCharsets.UTF_8, true, false, false, false, false,
-                Set.of(), Set.of(sourceSet));
+        SourceSet sourceSet2 = new SourceSetImpl.Builder().setName("def")
+                .setSourceDirectories(List.of(Path.of("/home/y"))).setUri(URI.create("file:/home/y"))
+                .setTest(true).setDependencies(Set.of(sourceSet)).build();
+
         sourceSet2.setAnalysisFingerPrint(MD5FingerPrint.compute("there"));
         InputConfiguration inputConfiguration = new InputConfigurationImpl(Path.of("."),
                 List.of(sourceSet, sourceSet2), List.of(), Path.of("/"));

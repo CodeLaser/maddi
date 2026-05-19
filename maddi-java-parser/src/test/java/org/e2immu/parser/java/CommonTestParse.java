@@ -28,16 +28,18 @@ import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.impl.parser.ContextImpl;
 import org.e2immu.language.inspection.impl.parser.ResolverImpl;
-import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.inspection.impl.parser.TypeContextImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.support.Either;
 import org.parsers.java.JavaParser;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 
@@ -71,9 +73,8 @@ public class CommonTestParse {
         };
     }
 
-    protected final SourceSet sourceSet = new SourceSetImpl("hardcoded", List.of(), URI.create("file:/"),
-            StandardCharsets.UTF_8, false, true, true, true, false,
-            Set.of(), Set.of());
+    protected final SourceSet sourceSet = new SourceSetImpl.Builder().setName("hardcoded")
+            .setUri(URI.create("file:/")).setLibrary(true).setExternalLibrary(true).build();
 
     protected final Runtime runtime = new RuntimeImpl() {
         @Override
@@ -388,8 +389,7 @@ public class CommonTestParse {
         Resolver resolver = new ResolverImpl(runtime.computeMethodOverrides(), new ParseHelperImpl(runtime), false);
         Context rootContext = ContextImpl.create(runtime, compiledTypesManager, failFastSummary, resolver, typeContext,
                 detailedSources, false);
-        SourceSet sourceSet = new SourceSetImpl("main", List.of(), URI.create("file:/"), StandardCharsets.UTF_8,
-                false, false, false, false, false, Set.of(), Set.of());
+        SourceSet sourceSet = new SourceSetImpl.Builder().setName("main").setUri(URI.create("file:/")).build();
         ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(failFastSummary, runtime);
         CompilationUnit cu;
         try {

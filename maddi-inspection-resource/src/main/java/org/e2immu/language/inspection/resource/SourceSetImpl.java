@@ -20,6 +20,7 @@ import org.e2immu.support.SetOnce;
 
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -33,18 +34,20 @@ public class SourceSetImpl implements SourceSet {
     private final boolean externalLibrary;
     private final boolean partOfJdk;
     private final boolean runtimeOnly;
+    private final boolean isModule;
     private final Set<String> restrictToPackages;
     private final Set<SourceSet> dependencies;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<FingerPrint> analysisFingerPrint = new SetOnce<>();
     private final SetOnce<Map<SourceSet, Integer>> priorityDependencies = new SetOnce<>();
 
-    public SourceSetImpl(String name,
-                         List<Path> sourceDirectories, URI uri,
-                         Charset sourceEncoding,
-                         boolean test, boolean library, boolean externalLibrary, boolean partOfJdk, boolean runtimeOnly,
-                         Set<String> restrictToPackages,
-                         Set<SourceSet> dependencies) {
+    private SourceSetImpl(String name,
+                          List<Path> sourceDirectories, URI uri,
+                          Charset sourceEncoding,
+                          boolean test, boolean library, boolean externalLibrary, boolean partOfJdk,
+                          boolean isModule, boolean runtimeOnly,
+                          Set<String> restrictToPackages,
+                          Set<SourceSet> dependencies) {
         this.name = Objects.requireNonNull(name);
         this.sourceDirectories = sourceDirectories;
         this.uri = Objects.requireNonNull(uri);
@@ -55,11 +58,13 @@ public class SourceSetImpl implements SourceSet {
         this.externalLibrary = externalLibrary;
         this.partOfJdk = partOfJdk;
         this.runtimeOnly = runtimeOnly;
+        this.isModule = isModule;
         this.restrictToPackages = restrictToPackages;
         this.dependencies = dependencies;
 
         assert !runtimeOnly || externalLibrary : "Runtime-only can only be true for external libraries: " + name;
         assert !partOfJdk || externalLibrary : "Parts of the JDK are also external libraries: " + name;
+        assert !partOfJdk || isModule : "Parts of the JDK are always modules: " + name;
     }
 
     @Override
@@ -114,6 +119,11 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public boolean externalLibrary() {
         return externalLibrary;
+    }
+
+    @Override
+    public boolean isModule() {
+        return isModule;
     }
 
     @Override
@@ -180,20 +190,20 @@ public class SourceSetImpl implements SourceSet {
 
     @Override
     public SourceSet withSourceDirectories(List<Path> paths) {
-        return new SourceSetImpl(name, paths, uri, sourceEncoding, test, library, externalLibrary, partOfJdk, runtimeOnly,
-                restrictToPackages, dependencies);
+        return new SourceSetImpl(name, paths, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
+                isModule, runtimeOnly, restrictToPackages, dependencies);
     }
 
     @Override
     public SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                runtimeOnly, restrictToPackages, dependencies);
+                isModule, runtimeOnly, restrictToPackages, dependencies);
     }
 
     @Override
     public SourceSet withDependencies(Set<SourceSet> dependencies) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                externalLibrary, partOfJdk, runtimeOnly, restrictToPackages, dependencies);
+                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies);
     }
 
     @Override
@@ -217,6 +227,103 @@ public class SourceSetImpl implements SourceSet {
                 result.put(dependency, distance);
                 ((SourceSetImpl) dependency).recursiveDependencies(result, distance + 1);
             }
+        }
+    }
+
+    public static class Builder {
+        private String name;
+        private List<Path> sourceDirectories = List.of();
+        private URI uri;
+        private Charset sourceEncoding = StandardCharsets.UTF_8;
+        private boolean test;
+        private boolean library;
+        private boolean externalLibrary;
+        private boolean partOfJdk;
+        private boolean runtimeOnly;
+        private boolean isModule;
+        private Set<String> restrictToPackages = Set.of();
+        private Set<SourceSet> dependencies = Set.of();
+
+        public Builder() {
+        }
+
+        public Builder(SourceSet set) {
+            name = set.name();
+            sourceDirectories = set.sourceDirectories();
+            uri = set.uri();
+            sourceEncoding = set.sourceEncoding();
+            test = set.test();
+            library = set.library();
+            externalLibrary = set.externalLibrary();
+            partOfJdk = set.partOfJdk();
+            isModule = set.isModule();
+            restrictToPackages = set.restrictToPackages();
+            dependencies = set.dependencies();
+        }
+
+        public Builder setName(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder setSourceDirectories(List<Path> sourceDirectories) {
+            this.sourceDirectories = sourceDirectories;
+            return this;
+        }
+
+        public Builder setUri(URI uri) {
+            this.uri = uri;
+            return this;
+        }
+
+        public Builder setDependencies(Set<SourceSet> dependencies) {
+            this.dependencies = dependencies;
+            return this;
+        }
+
+        public Builder setExternalLibrary(boolean externalLibrary) {
+            this.externalLibrary = externalLibrary;
+            return this;
+        }
+
+        public Builder setLibrary(boolean library) {
+            this.library = library;
+            return this;
+        }
+
+        public Builder setModule(boolean module) {
+            isModule = module;
+            return this;
+        }
+
+        public Builder setPartOfJdk(boolean partOfJdk) {
+            this.partOfJdk = partOfJdk;
+            return this;
+        }
+
+        public Builder setRestrictToPackages(Set<String> restrictToPackages) {
+            this.restrictToPackages = restrictToPackages;
+            return this;
+        }
+
+        public Builder setRuntimeOnly(boolean runtimeOnly) {
+            this.runtimeOnly = runtimeOnly;
+            return this;
+        }
+
+        public Builder setSourceEncoding(Charset sourceEncoding) {
+            this.sourceEncoding = sourceEncoding;
+            return this;
+        }
+
+        public Builder setTest(boolean test) {
+            this.test = test;
+            return this;
+        }
+
+        public SourceSet build() {
+            return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
+                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies);
         }
     }
 }

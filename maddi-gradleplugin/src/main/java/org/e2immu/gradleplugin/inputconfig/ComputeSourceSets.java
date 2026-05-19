@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.*;
@@ -141,10 +140,15 @@ public class ComputeSourceSets {
                             if (file.canRead() && !excludeFromClasspath.contains(file.getName())
                                 && !excludeFromClasspath.contains(description)
                                 && !excludeFromClasspath.contains(mci.getModule())) {
-                                SourceSet set = new SourceSetImpl(description,
-                                        null, makeURI(toRelativePath(file)), null, isTest,
-                                        true, true, false, isRuntimeOnly,
-                                        null, null);
+                                SourceSet set = new SourceSetImpl.Builder()
+                                        .setName(description)
+                                        .setUri(makeURI(toRelativePath(file)))
+                                        .setTest(isTest)
+                                        .setLibrary(true)
+                                        .setExternalLibrary(true)
+                                        .setPartOfJdk(false)
+                                        .setRuntimeOnly(isRuntimeOnly)
+                                        .build();
                                 sourceSetsByName.put(description, set);
                             }
                         }
@@ -172,10 +176,9 @@ public class ComputeSourceSets {
                                 file = inMain;
                             }
                             if (file != null) {
-                                SourceSet sourceSet = new SourceSetImpl(projectName, null,
-                                        makeURI(toRelativePath(file)), null, isTest, true,
-                                        true, false, false, null,
-                                        null);
+                                SourceSet sourceSet = new SourceSetImpl.Builder().setName(projectName)
+                                        .setUri(makeURI(toRelativePath(file))).setTest(isTest).setLibrary(true)
+                                        .setExternalLibrary(true).build();
                                 sourceSetsByName.putIfAbsent(projectName, sourceSet);
                                 LOGGER.info(" --  added project dependency via classpath: {}", file);
                             } else {
@@ -224,7 +227,7 @@ public class ComputeSourceSets {
 
     static URI makeURI(Path path) {
         assert !path.isAbsolute();
-        return URI.create("file:"+path);
+        return URI.create("file:" + path);
     }
 
     private SourceSet makeSourceSet(org.gradle.api.tasks.SourceSet gradleSourceSet,
@@ -241,9 +244,10 @@ public class ComputeSourceSets {
                 .filter(File::canRead).map(this::toRelativePath).toList();
         if (paths.isEmpty()) return null;
         Path path = paths.getFirst();
-        return new SourceSetImpl(e2immuSourceSetName, paths, makeURI(path),
-                sourceEncoding, test, false, false, false, false,
-                restrictToPackages, null);
+        return new SourceSetImpl.Builder().setName(e2immuSourceSetName)
+                .setSourceDirectories(paths).setUri(makeURI(path))
+                .setSourceEncoding(sourceEncoding).setTest(test)
+                .setRestrictToPackages(restrictToPackages).build();
     }
 
     private static String detectSourceEncoding(Project project) {

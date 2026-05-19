@@ -100,9 +100,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             if (cpp.name().startsWith("jar-on-classpath:")) {
                 int colon = cpp.name().indexOf(':');
                 String jarName = cpp.name().substring(colon + 1);
-                toAdd = new SourceSetImpl(jarName, cpp.sourceDirectories(), cpp.uri(),
-                        cpp.sourceEncoding(), cpp.test(), cpp.library(), cpp.externalLibrary(), cpp.partOfJdk(),
-                        cpp.runtimeOnly(), cpp.restrictToPackages(), cpp.dependencies());
+                toAdd = new SourceSetImpl.Builder(cpp).setName(jarName).build();
             } else {
                 toAdd = cpp;
                 if (cpp.externalLibrary() && "file".equals(cpp.uri().getScheme())) {
