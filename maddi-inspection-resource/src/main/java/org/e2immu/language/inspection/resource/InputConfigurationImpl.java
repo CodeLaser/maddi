@@ -51,8 +51,8 @@ public record InputConfigurationImpl(Path workingDirectory,
     @Override
     public InputConfiguration withDefaultModules() {
         Stream<SourceSet> defaultModuleStream = Arrays.stream(DEFAULT_MODULES).map(mod ->
-                new SourceSetImpl(mod, null, URI.create(mod), StandardCharsets.UTF_8, false, true,
-                        true, true, false, Set.of(), Set.of()));
+                new SourceSetImpl.Builder().setName(mod).setUri(URI.create(mod))
+                        .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build());
         return new InputConfigurationImpl(workingDirectory, sourceSets, Stream.concat(classPathParts.stream(),
                 defaultModuleStream).toList(), alternativeJREDirectory);
     }
@@ -66,13 +66,14 @@ public record InputConfigurationImpl(Path workingDirectory,
     @Override
     public InputConfiguration withSupportFromClasspath(Map<String, String> sourceSetNameToPackageDir) {
         List<SourceSet> support = sourceSetNameToPackageDir.entrySet().stream().map(e ->
-                (SourceSet) new SourceSetImpl(e.getKey(), null,
-                        URI.create("jar-on-classpath:" + e.getValue()),
-                        StandardCharsets.UTF_8, false, true,
-                        true, false, false, Set.of(), Set.of())).toList();
+                (SourceSet) new SourceSetImpl.Builder()
+                        .setName(e.getKey())
+                        .setUri(URI.create("jar-on-classpath:" + e.getValue()))
+                        .setLibrary(true).setExternalLibrary(true)
+                        .build()).toList();
         List<SourceSet> modifiedSourceSets = sourceSets.stream().map(set ->
-                set.withDependencies(Stream.concat(set.dependencies().stream(), support.stream())
-                        .collect(Collectors.toUnmodifiableSet())))
+                        set.withDependencies(Stream.concat(set.dependencies().stream(), support.stream())
+                                .collect(Collectors.toUnmodifiableSet())))
                 .toList();
         return new InputConfigurationImpl(workingDirectory, modifiedSourceSets,
                 Stream.concat(classPathParts.stream(), support.stream()).toList(),
@@ -125,41 +126,82 @@ public record InputConfigurationImpl(Path workingDirectory,
 
             for (String cpp : classPathStringParts) {
                 String cppName = removeJmod(cpp);
-                classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
-                        false, true, true, isJmod(cpp), false, Set.of(), Set.of()));
+                boolean jmod = isJmod(cpp);
+                classPathParts.add(new SourceSetImpl.Builder()
+                        .setName(cppName)
+                        .setUri(createURI(cpp))
+                        .setLibrary(true)
+                        .setExternalLibrary(true)
+                        .setPartOfJdk(jmod)
+                        .setModule(jmod)
+                        .build());
             }
             for (String cpp : runtimeClassPathParts) {
                 String cppName = removeJmod(cpp);
-                classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
-                        false, true, true, isJmod(cpp), true, Set.of(), Set.of()));
+                boolean jmod = isJmod(cpp);
+                classPathParts.add(new SourceSetImpl.Builder()
+                        .setName(cppName)
+                        .setUri(createURI(cpp))
+                        .setLibrary(true)
+                        .setExternalLibrary(true)
+                        .setPartOfJdk(jmod)
+                        .setModule(jmod)
+                        .setRuntimeOnly(true)
+                        .build());
             }
             for (String cpp : testClassPathParts) {
                 String cppName = removeJmod(cpp);
-                classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
-                        true, true, true, isJmod(cpp), false, Set.of(), Set.of()));
+                boolean jmod = isJmod(cpp);
+                classPathParts.add(new SourceSetImpl.Builder()
+                        .setName(cppName)
+                        .setUri(createURI(cpp))
+                        .setLibrary(true)
+                        .setExternalLibrary(true)
+                        .setPartOfJdk(jmod)
+                        .setModule(jmod)
+                        .setTest(true)
+                        .build());
             }
             for (String cpp : testRuntimeClassPathParts) {
                 String cppName = removeJmod(cpp);
-                classPathParts.add(new SourceSetImpl(cppName, null, createURI(cpp), null,
-                        true, true, true, isJmod(cpp), true, Set.of(), Set.of()));
+                boolean jmod = isJmod(cpp);
+                classPathParts.add(new SourceSetImpl.Builder()
+                        .setName(cppName)
+                        .setUri(createURI(cpp))
+                        .setLibrary(true)
+                        .setExternalLibrary(true)
+                        .setPartOfJdk(jmod)
+                        .setModule(jmod)
+                        .setRuntimeOnly(true)
+                        .setTest(true)
+                        .build());
             }
             for (SourceSetNamePath sourceDir : sourceDirs) {
                 Set<SourceSet> allDependencies = Stream.concat(classPathParts.stream(),
                         sourceSets.stream()).collect(Collectors.toUnmodifiableSet());
                 URI uri = createURI(sourceDir.path);
                 List<Path> list = uri.getScheme().equals("file") ? List.of(Path.of(sourceDir.path)) : List.of();
-                sourceSets.add(new SourceSetImpl(sourceDir.name, list, uri, sourceCharset,
-                        false, false, false, false, false,
-                        restrictSourceToPackages, allDependencies));
+                sourceSets.add(new SourceSetImpl.Builder()
+                        .setName(sourceDir.name)
+                        .setSourceDirectories(list)
+                        .setUri(uri)
+                        .setSourceEncoding(sourceCharset)
+                        .setRestrictToPackages(restrictSourceToPackages)
+                        .build());
             }
             for (SourceSetNamePath sourceDir : testSourceDirs) {
                 Set<SourceSet> allDependencies = Stream.concat(classPathParts.stream(),
                         sourceSets.stream()).collect(Collectors.toUnmodifiableSet());
                 URI uri = createURI(sourceDir.path);
                 List<Path> list = uri.getScheme().equals("file") ? List.of(Path.of(sourceDir.path)) : List.of();
-                sourceSets.add(new SourceSetImpl(sourceDir.name, list, uri, sourceCharset,
-                        true, false, false, false, false,
-                        restrictTestSourceToPackages, allDependencies));
+                sourceSets.add(new SourceSetImpl.Builder()
+                        .setName(sourceDir.name)
+                        .setSourceDirectories(list)
+                        .setUri(uri)
+                        .setSourceEncoding(sourceCharset)
+                        .setTest(true)
+                        .setRestrictToPackages(restrictSourceToPackages)
+                        .build());
             }
             return new InputConfigurationImpl(workingDirectory == null || workingDirectory.isBlank()
                     ? Path.of(".") : Path.of(workingDirectory),

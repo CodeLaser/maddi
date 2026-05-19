@@ -134,8 +134,15 @@ public class JsonStreaming {
                     }
                 }
             }
-            SourceSetImpl ssi = new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library, externalLibrary,
-                    partOfJdk, runtimeOnly, Set.copyOf(restrictToPackages), Set.copyOf(dependencies));
+            SourceSet ssi = new SourceSetImpl.Builder().setName(name)
+                    .setSourceDirectories(sourceDirectories)
+                    .setUri(uri)
+                    .setSourceEncoding(sourceEncoding)
+                    .setTest(test).setLibrary(library).setExternalLibrary(externalLibrary)
+                    .setPartOfJdk(partOfJdk).setModule(partOfJdk)
+                    .setRestrictToPackages(Set.copyOf(restrictToPackages))
+                    .setDependencies(Set.copyOf(dependencies))
+                    .build();
             String fingerPrintToString = getString(node, "fingerPrint", "");
             if (!fingerPrintToString.isBlank()) {
                 ssi.setFingerPrint(MD5FingerPrint.from(fingerPrintToString));
@@ -146,7 +153,7 @@ public class JsonStreaming {
             }
             ctxt.setAttribute(name, ssi);
 
-            return ssi;
+            return (SourceSetImpl) ssi;
         }
     }
 

@@ -28,10 +28,7 @@ import org.junit.jupiter.api.BeforeAll;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Set;
 
 public abstract class CommonJmodBaseTests {
     protected static Runtime runtime;
@@ -44,8 +41,9 @@ public abstract class CommonJmodBaseTests {
         Resources cp = new ResourcesImpl(Path.of("."));
         classPath = cp;
         URI uri = URI.create("jar:file:" + System.getProperty("java.home") + "/jmods/java.base.jmod!/");
-        SourceSet sourceSet = new SourceSetImpl("java.base", List.of(), URI.create("file:unknown"), StandardCharsets.UTF_8,
-                false, true, true, true, false, Set.of(), Set.of());
+        SourceSet sourceSet = new SourceSetImpl.Builder().setName("java.base")
+                .setUri(URI.create("file:unknown")).setLibrary(true).setExternalLibrary(true).setPartOfJdk(true)
+                .setModule(true).build();
         sourceSet.computePriorityDependencies();
         SourceFile sourceFile = new SourceFile(uri.getRawSchemeSpecificPart(), uri, sourceSet, null);
         cp.addJmod(sourceFile);

@@ -27,15 +27,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(CompiledTypesManagerImpl.class);
-    private final SourceSet ANY = new SourceSetImpl("any source set will do", List.of(), URI.create("file:/"),
-            StandardCharsets.UTF_8, false, false, false, false, false,
-            Set.of(), Set.of());
+    private final SourceSet ANY = new SourceSetImpl.Builder()
+            .setName("any source set will do")
+            .setUri(URI.create("file:/"))
+            .build();
 
     private static class TypeDataImpl implements CompiledTypesManager.TypeData {
         private final SourceFile sourceFile;

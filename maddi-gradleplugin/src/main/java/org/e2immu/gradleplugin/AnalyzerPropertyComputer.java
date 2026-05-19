@@ -183,10 +183,8 @@ public record AnalyzerPropertyComputer(
         Set<String> jmods = JavaModules.jmodsFromString(jmodsString);
         for (String jmod : jmods) {
             if (!jmod.isBlank()) {
-                SourceSet set = new SourceSetImpl(jmod, null,
-                        URI.create("jmod:" + jmod),
-                        null, false, true, true, true, false,
-                        null, null);
+                SourceSet set = new SourceSetImpl.Builder().setName(jmod).setUri(URI.create("jmod:" + jmod))
+                        .setLibrary(true).setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
                 sets.add(set);
             }
         }

@@ -15,7 +15,6 @@
 package org.e2immu.language.cst.impl.runtime;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.FingerPrint;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -33,17 +32,10 @@ import org.e2immu.language.cst.impl.info.TypeNatureEnum;
 import org.e2immu.language.cst.impl.type.ParameterizedTypeImpl;
 
 import java.net.URI;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.*;
 
 public class PredefinedImpl implements Predefined {
     public static final SourceSet PREDEFINED_SOURCESET = new SourceSet() {
-        @Override
-        public Charset sourceEncoding() {
-            return StandardCharsets.UTF_8;
-        }
 
         @Override
         public String name() {
@@ -51,23 +43,8 @@ public class PredefinedImpl implements Predefined {
         }
 
         @Override
-        public List<Path> sourceDirectories() {
-            return List.of();
-        }
-
-        @Override
         public URI uri() {
             return null;
-        }
-
-        @Override
-        public boolean test() {
-            return false;
-        }
-
-        @Override
-        public boolean runtimeOnly() {
-            return false;
         }
 
         @Override
@@ -84,67 +61,8 @@ public class PredefinedImpl implements Predefined {
         public boolean partOfJdk() {
             return true;
         }
-
-        @Override
-        public Set<String> restrictToPackages() {
-            return Set.of();
-        }
-
-        @Override
-        public Set<SourceSet> dependencies() {
-            return Set.of();
-        }
-
-        @Override
-        public FingerPrint fingerPrintOrNull() {
-            return null;
-        }
-
-        @Override
-        public void setFingerPrint(FingerPrint fingerPrint) {
-            // nothing here
-        }
-
-        @Override
-        public FingerPrint analysisFingerPrintOrNull() {
-            return null;
-        }
-
-        @Override
-        public void setAnalysisFingerPrint(FingerPrint fingerPrint) {
-            // nothing here
-        }
-
-        @Override
-        public boolean acceptSource(String packageName, String typeName) {
-            return false;
-        }
-
-        @Override
-        public SourceSet withDependencies(Set<SourceSet> dependencies) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public SourceSet withSourceDirectories(List<Path> sourceDirectories) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void computePriorityDependencies() {
-            // nothing here
-        }
-
-        @Override
-        public Map<SourceSet, Integer> priorityDependencies() {
-            return Map.of();
-        }
     };
+
     private static final CompilationUnit JAVA_PRIMITIVE = new CompilationUnitImpl.Builder()
             .setURIString("predefined://primitive")
             .setSourceSet(PREDEFINED_SOURCESET)

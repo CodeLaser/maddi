@@ -30,8 +30,10 @@ import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.SortedSet;
+import java.util.Spliterator;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -158,9 +160,8 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         tp2.builder().commit();
         context.add(tp2);
 
-        SourceSet sourceSet = new SourceSetImpl("test", List.of(), URI.create("file:test"),
-                StandardCharsets.UTF_8, false, true, true, false, false,
-                Set.of(), Set.of());
+        SourceSet sourceSet = new SourceSetImpl.Builder().setName("test").setUri(URI.create("file:test"))
+                .setLibrary(true).build();
         SourceFile sourceFile = new SourceFile("test", URI.create("file:/"), sourceSet, null);
         compiledTypesManager.addTypeInfo(sourceFile, typeInfo);
 

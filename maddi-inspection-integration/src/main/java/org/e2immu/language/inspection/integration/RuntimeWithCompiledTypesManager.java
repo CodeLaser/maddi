@@ -28,10 +28,8 @@ import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.function.*;
 
 public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
@@ -40,9 +38,13 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
 
     public RuntimeWithCompiledTypesManager(CompiledTypesManager compiledTypesManager) {
         this.compiledTypesManager = compiledTypesManager;
-        this.sourceSetOfInternal = new SourceSetImpl("_internal_", List.of(),
-                URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
-                true, true, Set.of(), Set.of());
+        this.sourceSetOfInternal = new SourceSetImpl.Builder().setName("_internal_")
+                .setUri(URI.create("file:/"))
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .setPartOfJdk(true)
+                .setModule(true)
+                .build();
     }
 
     @Override

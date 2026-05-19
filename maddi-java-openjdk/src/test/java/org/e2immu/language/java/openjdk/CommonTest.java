@@ -1,7 +1,6 @@
 package org.e2immu.language.java.openjdk;
 
 import com.sun.source.util.JavacTask;
-import com.sun.tools.javac.code.Symbol;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
@@ -17,13 +16,10 @@ import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 import javax.tools.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,33 +56,36 @@ public class CommonTest {
     }
 
     public List<Info> scan(boolean ignoreErrors, Map<String, String> sourcesByClassName, List<File> jars) {
-        sourceSet = new SourceSetImpl(
-                "source", List.of(),
-                URI.create("file:/"),
-                StandardCharsets.UTF_8, false, false, false,
-                false, false, Set.of(), Set.of());
+        sourceSet = new SourceSetImpl.Builder().setName("source").setUri(URI.create("file:/")).build();
         try {
-            SourceSet javaBase = new SourceSetImpl("java.base", List.of(),
-                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
-                    true, false, Set.of(), Set.of());
-            SourceSet javaNetHttp = new SourceSetImpl("java.net.http", List.of(),
-                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
-                    true, false, Set.of(), Set.of(javaBase));
+            SourceSet javaBase = new SourceSetImpl.Builder().setName("java.base").setUri(URI.create("file:/"))
+                    .setLibrary(true)
+                    .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
+            SourceSet javaNetHttp = new SourceSetImpl.Builder().setName("java.net.http").setUri(URI.create("file:/"))
+                    .setLibrary(true)
+                    .setExternalLibrary(true).setPartOfJdk(true).setModule(true).setDependencies(Set.of(javaBase))
+                    .build();
 
-            SourceSet orgSlf4j = new SourceSetImpl("slf4j-api-2.0.17.jar", List.of(),
-                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
-                    false, false, Set.of(), Set.of(javaBase));
+            SourceSet orgSlf4j = new SourceSetImpl.Builder().setName("slf4j-api-2.0.17.jar").setUri(URI.create("file:/"))
+                    .setLibrary(true).setExternalLibrary(true).setDependencies(Set.of(javaBase))
+                    .build();
+
             // jetbrains annotations
-            SourceSet annotations = new SourceSetImpl("annotations-26.1.0.jar", List.of(),
-                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
-                    false, false, Set.of(), Set.of(javaBase));
+            SourceSet annotations = new SourceSetImpl.Builder().setName("annotations-26.1.0.jar")
+                    .setUri(URI.create("file:/")).setLibrary(true).setExternalLibrary(true)
+                    .setDependencies(Set.of(javaBase))
+                    .build();
+            ;
             // maddi support
-            SourceSet maddiSupport = new SourceSetImpl("maddi-support-0.8.2.jar", List.of(),
-                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
-                    false, false, Set.of(), Set.of(javaBase));
-            SourceSet junitJupiter = new SourceSetImpl("junit-jupiter-api-6.0.3.jar", List.of(),
-                    URI.create("file:/"), StandardCharsets.UTF_8, false, true, true,
-                    false, false, Set.of(), Set.of(javaBase));
+            SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support-0.8.2.jar")
+                    .setUri(URI.create("file:/")).setLibrary(true).setExternalLibrary(true)
+                    .setDependencies(Set.of(javaBase))
+                    .build();
+            ;
+            SourceSet junitJupiter = new SourceSetImpl.Builder().setName("junit-jupiter-api-6.0.3.jar")
+                    .setUri(URI.create("file:/")).setLibrary(true).setExternalLibrary(true)
+                    .setDependencies(Set.of(javaBase))
+                    .build();
 
             DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
             javacTask = createTask(sourcesByClassName, jars, diagnostics);
