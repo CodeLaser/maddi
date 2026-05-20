@@ -290,7 +290,7 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     public String descriptor() {
         String paramCsv = parameters()
                 .stream()
-                .map(p -> p.parameterizedType().descriptor())
+                .map(p -> p.parameterizedType().erasedForFQN().descriptor())
                 .collect(Collectors.joining(","));
         return typeInfo.descriptor() + "." + name + "(" + paramCsv + ")";
     }

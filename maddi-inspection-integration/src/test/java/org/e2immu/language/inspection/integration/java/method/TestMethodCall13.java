@@ -186,7 +186,7 @@ public class TestMethodCall13 extends CommonTest {
         MethodCall toList = (MethodCall) method.methodBody().statements().getFirst().expression();
         assertEquals("java.util.stream.Stream.toList()", toList.methodInfo().fullyQualifiedName());
         MethodCall map = (MethodCall) toList.object();
-        assertEquals("java.util.stream.Stream.map(java.util.function.Function<? super T,? extends R>)",
+        assertEquals("java.util.stream.Stream.map(java.util.function.Function)",
                 map.methodInfo().fullyQualifiedName());
         assertEquals("Type java.util.stream.Stream<X>", map.concreteReturnType().toString());
         assertEquals("Type java.util.List<X>", toList.concreteReturnType().toString());

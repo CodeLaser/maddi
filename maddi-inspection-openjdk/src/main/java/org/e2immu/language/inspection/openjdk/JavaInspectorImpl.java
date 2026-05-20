@@ -177,9 +177,11 @@ public class JavaInspectorImpl implements JavaInspector {
     public Summary parse(Map<String, String> sourcesByFqn, ParseOptions parseOptions) {
         Summary summary = new SummaryImpl(parseOptions.failFast());
         List<SourceSet> linearization = computeScanOrder(); // from input configuration
+        Map<String, Info> previouslyLoaded = new HashMap<>();
         for (SourceSet sourceSet : linearization) {
             try {
-                singleSourceSet(summary, sourcesByFqn, sourceSet, !parseOptions.failFast(), parseOptions.ignoreModule());
+                singleSourceSet(summary, sourcesByFqn, previouslyLoaded, sourceSet, !parseOptions.failFast(),
+                        parseOptions.ignoreModule());
             } catch (IOException ioe) {
                 throw new UnsupportedOperationException("TODO error handling");
             }
@@ -221,6 +223,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     private void singleSourceSet(Summary summary,
                                  Map<String, String> sourcesByFqn,
+                                 Map<String, Info> previouslyLoaded,
                                  SourceSet sourceSet,
                                  boolean ignoreErrors,
                                  boolean ignoreModule) throws IOException {
@@ -228,7 +231,7 @@ public class JavaInspectorImpl implements JavaInspector {
         DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                javacTask, sourceSet, true, diagnostics);
+                javacTask, sourceSet, previouslyLoaded, true, diagnostics);
         List<Info> scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary
@@ -245,9 +248,12 @@ public class JavaInspectorImpl implements JavaInspector {
         for (TypeInfo typeInfo : loaded) {
             if (!typeInfo.hasBeenInspected()) {
                 scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
+                LOGGER.info("Committed {}", typeInfo);
             }
             compiledTypesManager.addTypeInfo(null, typeInfo);
         }
+
+        scanCompilationUnits.mergeIntoPreviouslyLoaded();
     }
 
     private JavacTask createTask(SourceSet sourceSet,
@@ -278,6 +284,16 @@ public class JavaInspectorImpl implements JavaInspector {
                 if (!classPathPart.name().startsWith(JAR_WITH_PATH_PREFIX) && !classPathPart.partOfJdk()) {
                     File file = Path.of(classPathPart.uri()).toFile();
                     if (ignoreModule || !classPathPart.isModule()) {
+                        jarsAndClassDirectories.add(file);
+                    } else {
+                        moduleJars.add(file);
+                    }
+                }
+            }
+            for (SourceSet dependency : sourceSet.dependencies()) {
+                if (!dependency.externalLibrary()) {
+                    File file = Path.of(dependency.uri()).toFile();
+                    if (ignoreModule || !dependency.isModule()) {
                         jarsAndClassDirectories.add(file);
                     } else {
                         moduleJars.add(file);

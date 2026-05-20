@@ -96,7 +96,7 @@ public class CommonTest {
                     .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter)
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                    javacTask, sourceSet, true, diagnostics);
+                    javacTask, sourceSet, null, true, diagnostics);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
         } catch (IOException io) {

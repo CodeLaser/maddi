@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class ScanCompilationUnits {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
@@ -44,6 +45,7 @@ public class ScanCompilationUnits {
                                 InputConfiguration inputConfiguration,
                                 JavacTask task,
                                 SourceSet sourceSet,
+                                Map<String, Info> previouslyLoaded,
                                 boolean detailedSources,
                                 DiagnosticCollector<JavaFileObject> diagnostics) {
         this.runtime = runtime;
@@ -59,7 +61,8 @@ public class ScanCompilationUnits {
         Elements elements = task.getElements();
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
-        classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, sourceSet, flagHelper, types, elements);
+        classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, previouslyLoaded, sourceSet,
+                flagHelper, types, elements);
     }
 
     public List<Info> scan() throws IOException {
@@ -114,6 +117,10 @@ public class ScanCompilationUnits {
             primaryTypesAndModules.addAll(scanCompilationUnit.types());
         }
         return List.copyOf(primaryTypesAndModules);
+    }
+
+    public void mergeIntoPreviouslyLoaded() {
+        classSymbolScanner.mergeIntoPreviouslyLoaded();
     }
 
     // for tests

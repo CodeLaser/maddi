@@ -62,7 +62,7 @@ public class TestTypeParameter extends CommonTest {
         Expression expression = set.methodBody().lastStatement().expression();
         assertEquals("iArrayList.get(i)[j].k=k", expression.toString());
         if (expression instanceof Assignment a) {
-            assertEquals("a.b.X.I.k#`12-8`[a.b.X.set(a.b.X.ArrayList<a.b.X.I[]>,int,int,int):2:j]",
+            assertEquals("a.b.X.I.k#`12-8`[a.b.X.set(a.b.X.ArrayList,int,int,int):2:j]",
                     a.variableTarget().fullyQualifiedName());
         }
     }

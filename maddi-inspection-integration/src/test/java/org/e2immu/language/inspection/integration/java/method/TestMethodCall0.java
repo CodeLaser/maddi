@@ -64,7 +64,7 @@ public class TestMethodCall0 extends CommonTest {
         MethodInfo add = typeInfo.findUniqueMethod("add", 1);
         if (add.methodBody().statements().getFirst() instanceof ExpressionAsStatement eas
             && eas.expression() instanceof MethodCall mc) {
-            assertEquals("java.util.List.add(E)", mc.methodInfo().fullyQualifiedName());
+            assertEquals("java.util.List.add(java.lang.Object)", mc.methodInfo().fullyQualifiedName());
         } else fail();
 
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);
@@ -115,7 +115,7 @@ public class TestMethodCall0 extends CommonTest {
         assertSame(subType, list.parameterizedType().parameters().getFirst().typeInfo());
         if (accept.methodBody().statements().getFirst() instanceof ExpressionAsStatement eas
             && eas.expression() instanceof MethodCall mc) {
-            assertEquals("java.lang.Iterable.forEach(java.util.function.Consumer<? super T>)",
+            assertEquals("java.lang.Iterable.forEach(java.util.function.Consumer)",
                     mc.methodInfo().fullyQualifiedName());
             if (mc.parameterExpressions().getFirst() instanceof Lambda lambda) {
                 assertEquals("Type java.util.function.Consumer<org.e2immu.analyser.resolver.testexample.MethodCall_0.Get>",

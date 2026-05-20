@@ -104,8 +104,7 @@ public class TestByteCode extends CommonTest {
                 null);
         TypeInfo carrier = typeInfo.findSubType("Carrier");
         MethodInfo close = carrier.findUniqueMethod("call", 1);
-        assertEquals("java.lang.ScopedValue.Carrier.call(CallableOp<? extends R,X extends Throwable>)",
-                close.fullyQualifiedName());
+        assertEquals("java.lang.ScopedValue.Carrier.call(CallableOp)", close.fullyQualifiedName());
         assertEquals("Type param X extends Throwable", close.exceptionTypes().getFirst().toString());
     }
 

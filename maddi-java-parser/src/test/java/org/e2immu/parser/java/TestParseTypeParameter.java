@@ -161,7 +161,7 @@ public class TestParseTypeParameter extends CommonTestParse {
         TypeInfo typeInfo = parse(INPUT4);
         MethodInfo copy = typeInfo.findUniqueMethod("copy", 1);
         assertEquals(2, copy.typeParameters().size());
-        assertEquals("a.b.X.copy(java.util.Hashtable<K,V>)", copy.fullyQualifiedName());
+        assertEquals("a.b.X.copy(java.util.Hashtable)", copy.fullyQualifiedName());
         assertEquals("""
                 public static <K,V> Hashtable<K,V> copy(Hashtable<K,V> map){Hashtable<K,V> copy=new Hashtable<K,V>();return copy;}\
                 """, copy.print(runtime.qualificationQualifyFromPrimaryType()).toString());

@@ -140,7 +140,7 @@ public class TestJavaDoc2 extends CommonTest2 {
             assertEquals("[void[E], b.B[E], a.A4[I]]", A4.typesReferenced(null).toList().toString());
             JavaDoc.Tag tag = A4.javaDoc().tags().getFirst();
             assertEquals("[a.A4[I]]", A4.javaDoc().typesReferenced(null).toList().toString());
-            assertEquals("a.A4.m(b.B<T>)", tag.resolvedReference().toString());
+            assertEquals("a.A4.m(b.B)", tag.resolvedReference().toString());
         }
     }
 }

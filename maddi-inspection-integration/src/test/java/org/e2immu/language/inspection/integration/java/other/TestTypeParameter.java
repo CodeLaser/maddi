@@ -310,7 +310,7 @@ public class TestTypeParameter extends CommonTest {
         TypeInfo myHashMap = typeInfo.findSubType("MyHashMap");
         MethodInfo put = myHashMap.findUniqueMethod("put", 2);
         if (put.methodBody().statements().get(2) instanceof ReturnStatement rs && rs.expression() instanceof MethodCall mc) {
-            assertEquals("java.util.HashMap.put(K,V)", mc.methodInfo().fullyQualifiedName());
+            assertEquals("java.util.HashMap.put(java.lang.Object,java.lang.Object)", mc.methodInfo().fullyQualifiedName());
             assertEquals("super.put(key,value)", mc.toString());
             assertTrue(mc.object() instanceof VariableExpression ve && ve.variable() instanceof This thisVar && thisVar.writeSuper());
         } else fail();
@@ -445,7 +445,7 @@ public class TestTypeParameter extends CommonTest {
                     .filter(mi -> "parallelSort".equals(mi.name())
                                   && mi.parameters().size() == 3
                                   && mi.parameters().getFirst().parameterizedType().isTypeParameter()).findFirst().orElseThrow();
-            assertEquals("java.util.Arrays.parallelSort(T extends Comparable<? super T>[],int,int)",
+            assertEquals("java.util.Arrays.parallelSort(Comparable[],int,int)",
                     parallelSort.fullyQualifiedName());
             TypeParameter tp0 = parallelSort.typeParameters().getFirst();
 

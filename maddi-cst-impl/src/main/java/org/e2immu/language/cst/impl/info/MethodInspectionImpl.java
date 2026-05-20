@@ -15,14 +15,9 @@
 package org.e2immu.language.cst.impl.info;
 
 import org.e2immu.annotation.Fluent;
-import org.e2immu.language.cst.api.info.Access;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.MethodModifier;
-import org.e2immu.language.cst.api.info.ParameterInfo;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.statement.Block;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
-import org.e2immu.language.cst.impl.type.DiamondEnum;
 import org.e2immu.language.cst.impl.variable.LocalVariableImpl;
 import org.e2immu.support.SetOnce;
 import org.slf4j.Logger;
@@ -284,7 +279,7 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
             String owner = methodInfo.typeInfo().fullyQualifiedName();
             try {
                 return owner + "." + methodInfo.name() + "(" + parameters.stream()
-                        .map(p -> p.parameterizedType().printForMethodFQN(p.isVarArgs(), DiamondEnum.SHOW_ALL))
+                        .map(p -> p.parameterizedType().erasedForFQN().printForMethodFQN())
                         .collect(Collectors.joining(",")) + ")";
             } catch (RuntimeException re) {
                 LOGGER.error("Cannot compute fully qualified method name, type {}, method {}, {} params",
