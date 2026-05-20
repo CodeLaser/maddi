@@ -60,7 +60,7 @@ public class TestOverload0 extends CommonTest {
         if (s1 instanceof ExpressionAsStatement eas) {
             if (eas.expression() instanceof MethodCall mc) {
                 // ensure we have the method with the type parameter!
-                assertEquals("org.e2immu.analyser.resolver.testexample.Overload_7.replace(S)",
+                assertEquals("org.e2immu.analyser.resolver.testexample.Overload_7.replace(java.lang.Object)",
                         mc.methodInfo().fullyQualifiedName());
             } else fail();
         } else fail();

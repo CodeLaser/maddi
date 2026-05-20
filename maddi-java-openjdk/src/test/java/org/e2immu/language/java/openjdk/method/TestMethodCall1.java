@@ -293,7 +293,7 @@ public class TestMethodCall1 extends CommonTest {
         TypeInfo typeInfo = scan("a.b.C", INPUT8);
         TypeInfo annotationExpression = typeInfo.findSubType("AnnotationExpression");
         MethodInfo extract = annotationExpression.methods().getFirst();
-        assertEquals("a.b.C.AnnotationExpression.extract(String,T)", extract.fullyQualifiedName());
+        assertEquals("a.b.C.AnnotationExpression.extract(String,java.lang.Object)", extract.fullyQualifiedName());
         assertEquals(1, extract.typeParameters().size());
         assertEquals("T=TP#0 in AnnotationExpression.extract []",
                 extract.typeParameters().getFirst().toStringWithTypeBounds());
@@ -303,7 +303,7 @@ public class TestMethodCall1 extends CommonTest {
         assertEquals("a.b.C.$0", anon.fullyQualifiedName());
         assertEquals(1, anon.methods().size());
         MethodInfo extract2 = anon.findUniqueMethod("extract", 2);
-        assertEquals("[a.b.C.AnnotationExpression.extract(String,T)]", extract2.overrides().toString());
+        assertEquals("[a.b.C.AnnotationExpression.extract(String,java.lang.Object)]", extract2.overrides().toString());
         assertTrue(extract2.overrides().contains(extract));
         assertSame(annotationExpression, anon.interfacesImplemented().getFirst().typeInfo());
 

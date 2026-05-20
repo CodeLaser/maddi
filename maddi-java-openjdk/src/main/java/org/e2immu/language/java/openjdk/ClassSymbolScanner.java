@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class ClassSymbolScanner implements ConvertType, TypeData {
     private static final Logger LOGGER = LoggerFactory.getLogger(ClassSymbolScanner.class);
@@ -46,6 +47,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Map<String, SourceSet> sourceSetMap;
     private final Map<String, SourceSet> sourceSetDirPrefixes;
 
+    private final Map<String, Info> previouslyLoaded; // Javac qualified name -> typeInfo, methodInfo, fieldInfo
     private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
@@ -64,6 +66,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     public ClassSymbolScanner(Runtime runtime,
                               InputConfiguration inputConfiguration,
+                              Map<String, Info> previouslyLoaded,
                               SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
                               Types types,
@@ -72,6 +75,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.flagHelper = flagHelper;
         this.elements = elements;
         this.types = types;
+        this.previouslyLoaded = previouslyLoaded;
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
 
@@ -476,15 +480,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 if (ms.owner instanceof Symbol.ClassSymbol cs) {
                     String typeFqn = cs.fullname.toString();
                     TypeParameter tmpTypeParameter = getTmpMethodTypeParameter(typeFqn, typeParameterName);
-                    if (tmpTypeParameter == null) {
-                        // method must have been completed, look up!
-                        // Note: it could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
-                        MethodInfo owner = getMethod(ms);
-                        assert owner != null;
-                        typeParameter = findTypeParameter(owner, typeParameterName);
-                    } else {
-                        typeParameter = tmpTypeParameter;
-                    }
+                    // method must have been completed, look up!
+                    // Note: it could be in a super-type (java.lang.Module -> java.lang.reflect.AnnotatedElement)
+                    typeParameter = Objects.requireNonNullElseGet(tmpTypeParameter,
+                            () -> findTypeParameter(ms, typeParameterName));
                 } else throw new UnsupportedOperationException();
             } else if (typeVar.isCaptured()) {
                 if (typeVar.getUpperBound() != null) {
@@ -505,9 +504,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         throw new UnsupportedOperationException("NYI");
     }
 
-    private @NotNull TypeParameter findTypeParameter(MethodInfo owner, String typeParameterName) {
+    private @NotNull TypeParameter findTypeParameter(Symbol.MethodSymbol methodSymbol, String typeParameterName) {
         TypeParameter inStack = findInTypeParameterStack(typeParameterName);
         if (inStack != null) return inStack;
+        MethodInfo owner = getMethod(methodSymbol);
+        assert owner != null;
+
         TypeParameter typeParameter = owner.typeParameters().stream()
                 .filter(tp -> tp.simpleName().equals(typeParameterName))
                 .findFirst().orElse(null);
@@ -675,6 +677,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     @Override
     public TypeInfo getType(String fullyQualifiedName) {
+        if (previouslyLoaded != null) {
+            TypeInfo typeInfo = (TypeInfo) previouslyLoaded.get(fullyQualifiedName);
+            if (typeInfo != null) return typeInfo;
+        }
         return singleTypeForFQN.get(fullyQualifiedName);
     }
 
@@ -705,16 +711,31 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     @Override
     public MethodInfo getMethod(Symbol.MethodSymbol methodSymbol) {
+        MethodInfo fromSymbol;
         if (methodSymbol.baseSymbol() instanceof Symbol.MethodSymbol ms) {
-            return methodSymbolMap.get(ms);
+            fromSymbol = methodSymbolMap.get(ms);
+        } else {
+            fromSymbol = methodSymbolMap.get(methodSymbol);
         }
-        return methodSymbolMap.get(methodSymbol);
+        if (fromSymbol != null) return fromSymbol;
+        if (previouslyLoaded != null) {
+            if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
+                TypeInfo typeInfo = convert(cs.type).typeInfo();
+                String methodFqn = typeInfo.fullyQualifiedName() + "." + methodSymbol.name + "("
+                                   + methodSymbol.params.stream()
+                                           .map(vs -> convert(types.erasure(vs.type)).printForMethodFQN())
+                                           .collect(Collectors.joining(","))
+                                   + ")";
+                return (MethodInfo) previouslyLoaded.get(methodFqn);
+            } else throw new UnsupportedOperationException("?");
+        }
+        return null;
     }
 
     @Override
     public MethodInfo getOrLoadMethod(Symbol.MethodSymbol methodSymbol) {
         Symbol.MethodSymbol theMethod = theMethod(methodSymbol);
-        MethodInfo inMap = methodSymbolMap.get(theMethod);
+        MethodInfo inMap = getMethod(theMethod);
         if (inMap != null) return inMap;
         return ensureMethod(theMethod, false);
     }
@@ -727,7 +748,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     @Override
     public FieldInfo getField(Symbol.VarSymbol varSymbol) {
-        return varSymbolMap.get(varSymbol);
+        FieldInfo fromSymbol = varSymbolMap.get(varSymbol);
+        if (fromSymbol != null) return fromSymbol;
+        if (previouslyLoaded != null) {
+            String fieldFqn = varSymbol.owner.flatName() + "." + varSymbol.name.toString();
+            return (FieldInfo) previouslyLoaded.get(fieldFqn);
+        }
+        return null;
     }
 
     @Override
@@ -746,6 +773,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             loadType(cs, typeInfo, LoadMode.COMPLETE);
             assert typeInfo.hasBeenInspected();
         }
+    }
+
+    public void mergeIntoPreviouslyLoaded() {
+        assert previouslyLoaded != null;
+        for (TypeInfo ti : singleTypeForFQN.values()) {
+            LOGGER.info("Copy {} into previously loaded, inspected? {}", ti, ti.hasBeenInspected());
+        }
+        previouslyLoaded.putAll(singleTypeForFQN);
+        varSymbolMap.values().forEach(fi -> previouslyLoaded.put(fi.fullyQualifiedName(), fi));
+        methodSymbolMap.values().forEach(mi -> previouslyLoaded.put(mi.fullyQualifiedName(), mi));
     }
 
 }

@@ -42,6 +42,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     public static final ParameterizedType NO_TYPE_GIVEN_IN_LAMBDA = new ParameterizedTypeImpl();
     public static final ParameterizedType WILDCARD_PARAMETERIZED_TYPE = new ParameterizedTypeImpl(WildcardEnum.UNBOUND);
     public static final ParameterizedType TYPE_OF_EMPTY_EXPRESSION = new ParameterizedTypeImpl();
+    private static final ParameterizedType JLO_MARKER = new ParameterizedTypeImpl();
 
     private final TypeParameter typeParameter;
     private final TypeInfo typeInfo;
@@ -159,9 +160,14 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                 this, false, DiamondEnum.SHOW_ALL, false, true).toString();
     }
 
+    private String printFqn(Diamond diamond) {
+        return ParameterizedTypePrinter.print(QualificationImpl.FULLY_QUALIFIED_NAMES,
+                this, false, diamond, false, true).toString();
+    }
+
     @Override
     public String fullyQualifiedName() {
-        return printForMethodFQN(false, DiamondEnum.SHOW_ALL);
+        return printFqn(DiamondEnum.SHOW_ALL);
     }
 
     @Override
@@ -170,14 +176,13 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
-    public String printForMethodFQN(boolean varArgs, Diamond diamond) {
-        return ParameterizedTypePrinter.print(QualificationImpl.FULLY_QUALIFIED_NAMES,
-                this, varArgs, diamond, false, true).toString();
+    public String printForMethodFQN() {
+        return printFqn(DiamondEnum.NO);
     }
 
     @Override
     public String detailedString() {
-        return printForMethodFQN(false, DiamondEnum.SHOW_ALL);
+        return printFqn(DiamondEnum.SHOW_ALL);
     }
 
     @Override
@@ -212,6 +217,17 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     public ParameterizedType erased() {
         if (arrays == 0 && wildcard == null && parameters.isEmpty()) return this;
         return new ParameterizedTypeImpl(typeInfo, typeParameter, List.of(), arrays, null);
+    }
+
+    @Override
+    public ParameterizedType erasedForFQN() {
+        if (typeParameter != null) {
+            if (typeParameter.typeBounds().isEmpty()) return JLO_MARKER.copyWithArrays(arrays);
+            return typeParameter.typeBounds().getFirst().erasedForFQN().copyWithArrays(arrays);
+        }
+        // simple type
+        if (arrays == 0 && wildcard == null && parameters.isEmpty()) return this;
+        return new ParameterizedTypeImpl(typeInfo, null, List.of(), arrays, null);
     }
 
     @Override

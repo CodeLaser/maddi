@@ -303,7 +303,8 @@ public class TestMethodCall9 extends CommonTest {
         TypeInfo A = javaInspector.parse(INPUT7);
         MethodInfo method = A.findUniqueMethod("method", 1);
         MethodCall methodCall = (MethodCall) method.methodBody().lastStatement().expression();
-        assertEquals("a.b.A.m(X,java.util.function.Consumer<String>)", methodCall.methodInfo().fullyQualifiedName());
+        assertEquals("a.b.A.m(java.lang.Object,java.util.function.Consumer)",
+                methodCall.methodInfo().fullyQualifiedName());
     }
 
 
@@ -330,12 +331,12 @@ public class TestMethodCall9 extends CommonTest {
         {
             MethodInfo method = A.findUniqueMethod("method", 1);
             MethodCall methodCall = (MethodCall) method.methodBody().lastStatement().expression();
-            assertEquals("a.b.A.m(String,java.util.function.Consumer<String>)", methodCall.methodInfo().fullyQualifiedName());
+            assertEquals("a.b.A.m(String,java.util.function.Consumer)", methodCall.methodInfo().fullyQualifiedName());
         }
         {
             MethodInfo method = A.findUniqueMethod("method2", 1);
             MethodCall methodCall = (MethodCall) method.methodBody().lastStatement().expression();
-            assertEquals("a.b.A.m(String,java.util.function.Function<String,X>)",
+            assertEquals("a.b.A.m(String,java.util.function.Function)",
                     methodCall.methodInfo().fullyQualifiedName());
         }
     }

@@ -318,7 +318,7 @@ public class TestMethodCall8 extends CommonTest {
         MethodCall setStringSet = (MethodCall) lvc0.localVariable().assignmentExpression();
         MethodCall setIntList = (MethodCall) setStringSet.object();
         MethodCall listOf = (MethodCall) setIntList.parameterExpressions().getFirst();
-        assertEquals("java.util.List.of(E,E)", listOf.methodInfo().fullyQualifiedName());
+        assertEquals("java.util.List.of(java.lang.Object,java.lang.Object)", listOf.methodInfo().fullyQualifiedName());
     }
 
     @Language("java")

@@ -16,11 +16,11 @@ package org.e2immu.language.cst.impl.type;
 
 
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.type.Diamond;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.cst.impl.output.*;
 
@@ -96,6 +96,9 @@ public class ParameterizedTypePrinter {
                 }
                 outputBuilder.add(sub);
             }
+        } else if (w == null) {
+            // all null, this is a JLO marker
+            outputBuilder.add(new TextImpl("java.lang.Object"));
         }
         if (!withoutArrays) {
             if (varargs) {

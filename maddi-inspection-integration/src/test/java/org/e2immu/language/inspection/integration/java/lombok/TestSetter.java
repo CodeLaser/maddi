@@ -52,7 +52,7 @@ public class TestSetter extends CommonTest {
             MethodInfo m = typeInfo.findUniqueMethod("setList", 1);
             assertTrue(m.isSynthetic());
             assertFalse(m.isStatic());
-            assertEquals("org.e2immu.test.X.setList(java.util.List<String>)", m.fullyQualifiedName());
+            assertEquals("org.e2immu.test.X.setList(java.util.List)", m.fullyQualifiedName());
             assertEquals("{this.list=list;}", m.methodBody().toString());
         }
         {
@@ -90,7 +90,7 @@ public class TestSetter extends CommonTest {
             MethodInfo m = typeInfo.findUniqueMethod("setList", 1);
             assertTrue(m.isSynthetic());
             assertFalse(m.isStatic());
-            assertEquals("org.e2immu.test.X.setList(java.util.List<String>)", m.fullyQualifiedName());
+            assertEquals("org.e2immu.test.X.setList(java.util.List)", m.fullyQualifiedName());
             assertEquals("{this.list=list;}", m.methodBody().toString());
         }
         assertThrows(NoSuchElementException.class, () -> typeInfo.findUniqueMethod("setI", 1));

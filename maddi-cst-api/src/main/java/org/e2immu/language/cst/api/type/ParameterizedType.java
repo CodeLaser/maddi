@@ -92,7 +92,7 @@ public interface ParameterizedType {
 
     OutputBuilder print(Qualification qualification, boolean varArgs, Diamond diamond);
 
-    String printForMethodFQN(boolean varArgs, Diamond diamond);
+    String printForMethodFQN();
 
     //
 
@@ -105,6 +105,8 @@ public interface ParameterizedType {
     boolean equalsIgnoreArrays(ParameterizedType other);
 
     ParameterizedType erased();
+
+    ParameterizedType erasedForFQN();
 
     Set<TypeParameter> extractTypeParameters();
 

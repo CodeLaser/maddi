@@ -429,7 +429,7 @@ public class TestMethodReference extends CommonTest {
         MethodCall filter2 = (MethodCall) filter3.object();
         MethodCall filter1 = (MethodCall) filter2.object();
         if (filter1.parameterExpressions().getFirst() instanceof MethodReference mr) {
-            assertEquals("java.nio.file.Files.isRegularFile(java.nio.file.Path,java.nio.file.LinkOption...)",
+            assertEquals("java.nio.file.Files.isRegularFile(java.nio.file.Path,java.nio.file.LinkOption[])",
                     mr.methodInfo().fullyQualifiedName());
         } else fail();
         VariableExpression ve = (VariableExpression) filter1.object();

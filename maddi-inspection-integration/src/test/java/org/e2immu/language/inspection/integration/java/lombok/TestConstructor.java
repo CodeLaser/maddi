@@ -92,7 +92,7 @@ public class TestConstructor extends CommonTest {
 
         MethodInfo rac = typeInfo.findConstructor(3);
         assertTrue(rac.isSynthetic());
-        assertEquals("org.e2immu.test.X.<init>(String,int,Class<?>)", rac.fullyQualifiedName());
+        assertEquals("org.e2immu.test.X.<init>(String,int,Class)", rac.fullyQualifiedName());
         ParameterInfo p0 = rac.parameters().get(0);
         assertEquals("s", p0.name());
         ParameterInfo p1 = rac.parameters().get(1);
@@ -139,7 +139,7 @@ public class TestConstructor extends CommonTest {
 
         MethodInfo aac = typeInfo.findConstructor(6);
         assertTrue(aac.isSynthetic());
-        assertEquals("org.e2immu.test.X.<init>(String,int,int,int,Class<?>,Class<?>)",
+        assertEquals("org.e2immu.test.X.<init>(String,int,int,int,Class,Class)",
                 aac.fullyQualifiedName());
         assertEquals("{this.s=s;this.k=k;this.l=l;this.m=m;this.variableClazz=variableClazz;this.clazz=clazz;}",
                 aac.methodBody().toString());
