@@ -42,29 +42,23 @@ public class TestParseGenerics extends CommonJmodBaseTests {
     @Test
     public void testNormalTypeParameter() {
         TypeInfo typeInfo = compiledTypesManager.getOrLoad(Spliterator.class);
-        assertEquals("java.util.Spliterator<T>", typeInfo.asParameterizedType()
-                .printForMethodFQN(false, DiamondEnum.SHOW_ALL));
-        assertEquals("java.util.Spliterator<>", typeInfo.asParameterizedType()
-                .printForMethodFQN(false, DiamondEnum.YES));
-        assertEquals("java.util.Spliterator", typeInfo.asParameterizedType()
-                .printForMethodFQN(false, DiamondEnum.NO));
+        assertEquals("java.util.Spliterator", typeInfo.asParameterizedType().printForMethodFQN());
     }
 
     @Test
     public void testWildcard() {
         TypeInfo typeInfo = compiledTypesManager.getOrLoad(Collection.class);
-        assertEquals("java.util.Collection<E>", typeInfo.asParameterizedType()
-                .printForMethodFQN(false, DiamondEnum.SHOW_ALL));
+        assertEquals("java.util.Collection", typeInfo.asParameterizedType().printForMethodFQN());
         MethodInfo containsAll = typeInfo.methods().stream()
                 .filter(m -> m.name().equals("containsAll")).findFirst().orElseThrow();
-        assertEquals("java.util.Collection.containsAll(java.util.Collection<?>)", containsAll.fullyQualifiedName());
+        assertEquals("java.util.Collection.containsAll(java.util.Collection)", containsAll.fullyQualifiedName());
     }
 
     @Test
     public void testExtends1() {
         TypeInfo typeInfo = compiledTypesManager.getOrLoad(Collection.class);
         MethodInfo addAll = typeInfo.methods().stream().filter(m -> m.name().equals("addAll")).findFirst().orElseThrow();
-        assertEquals("java.util.Collection.addAll(java.util.Collection<? extends E>)", addAll.fullyQualifiedName());
+        assertEquals("java.util.Collection.addAll(java.util.Collection)", addAll.fullyQualifiedName());
     }
 
     @Test
@@ -92,8 +86,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         assertSame(K, typeBoundK.parameters().getFirst().typeParameter());
 
         ParameterizedType pt = typeInfo.asParameterizedType();
-        assertEquals("java.util.EnumMap<K extends Enum<K>,V>",
-                pt.printForMethodFQN(false, DiamondEnum.SHOW_ALL));
+        assertEquals("java.util.EnumMap", pt.printForMethodFQN());
     }
 
     @Test
@@ -101,8 +94,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
         TypeInfo sortedSet = compiledTypesManager.getOrLoad(SortedSet.class);
         MethodInfo comparator = sortedSet.methods().stream().filter(m -> m.name().equals("comparator"))
                 .findFirst().orElseThrow();
-        assertEquals("java.util.Comparator<? super E>",
-                comparator.returnType().printForMethodFQN(false, DiamondEnum.SHOW_ALL));
+        assertEquals("java.util.Comparator", comparator.returnType().printForMethodFQN());
     }
 
     /*
@@ -123,7 +115,7 @@ public class TestParseGenerics extends CommonJmodBaseTests {
 
         assertSame(splitter, typeBoundSplitter.parameters().get(2).typeParameter());
 
-        assertEquals(fqn, pt.printForMethodFQN(false, DiamondEnum.SHOW_ALL));
+        assertEquals("java.util.Spliterator.OfPrimitive", pt.printForMethodFQN());
     }
 
     @Test

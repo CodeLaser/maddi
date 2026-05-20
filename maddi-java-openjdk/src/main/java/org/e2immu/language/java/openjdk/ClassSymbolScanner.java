@@ -557,7 +557,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (type instanceof JCTree.JCIdent identifier) {
             if (identifier.type instanceof Type.ClassType ct) {
                 return classType(ct);
-            } else if (identifier.type instanceof Type.TypeVar) {
+            } else if (identifier.type instanceof Type.TypeVar tv) {
+                if (tv.isCaptured()) {
+                    ParameterizedType pt = convert(tv.getUpperBound());
+                    return pt.withWildcard(runtime.wildcardExtends());
+                }
                 String typeParameterName = identifier.getName().toString();
                 TypeParameter tp = (TypeParameter) elementStack.find(typeParameterName);
                 return runtime.newParameterizedType(tp, 0, null);
