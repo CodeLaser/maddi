@@ -200,7 +200,7 @@ public record SourceCodeScan(Runtime runtime) {
         if (!methodComments.isEmpty()) result.comments.put(source(md), methodComments);
         for (Node node : md.children()) {
             String string = node.getSource();
-            LOGGER.info("In MD: {}: {}", node.getClass(), limit(string));
+            LOGGER.debug("In MD: {}: {}", node.getClass(), limit(string));
             switch (node) {
                 case KeyWord _ -> result.keywords.put(source(node), string);
                 case FormalParameters fps -> {
@@ -240,7 +240,7 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     private void scanCodeBlock(Node cb, Result result) {
-        LOGGER.info("Scan {}: {}", cb.getClass(), limit(cb.getSource()));
+        LOGGER.debug("Scan {}: {}", cb.getClass(), limit(cb.getSource()));
         visit(cb, child -> {
             if (child instanceof Statement st) {
                 List<Comment> statementComments = comments(st);
@@ -275,7 +275,7 @@ public record SourceCodeScan(Runtime runtime) {
         } else {
             source = source(child);
         }
-        LOGGER.info("*** scan call {}: {}: {}", source.compact2(), child.getClass(), limit(child.getSource()));
+        LOGGER.debug("*** scan call {}: {}: {}", source.compact2(), child.getClass(), limit(child.getSource()));
         InvocationArguments ia = child.firstChildOfType(InvocationArguments.class);
         if (ia != null) {
             Map<Object, Object> argList = new HashMap<>();
@@ -288,7 +288,7 @@ public record SourceCodeScan(Runtime runtime) {
                     }
                 }
             }
-            LOGGER.info("*** ... result is {}", argList);
+            LOGGER.debug("*** ... result is {}", argList);
             result.argumentLists.put(source, Map.copyOf(argList));
         }
     }

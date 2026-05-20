@@ -208,7 +208,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             collectedPrimaryTypes.add(typeInfo);
         }
         continueType(typeInfo, jcClassDecl);
-        LOGGER.info("Commit {}", typeInfo.fullyQualifiedName());
+        LOGGER.debug("Commit {}", typeInfo);
         typeInfo.builder().commit();
         return null;
     }

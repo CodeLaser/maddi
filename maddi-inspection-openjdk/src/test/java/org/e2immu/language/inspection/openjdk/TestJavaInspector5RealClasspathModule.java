@@ -12,8 +12,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +40,8 @@ public class TestJavaInspector5RealClasspathModule {
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");
         assertTrue(Files.isDirectory(cstApiPath));
         cstApi = new SourceSetImpl.Builder().setName("cst-api")
-                .setUri(cstApiPath.toUri())
+                .setSourceDirectories(List.of(cstApiPath))
+                .setUri(URI.create("file:/")) // not important here
                 .setModule(true)
                 .build();
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()

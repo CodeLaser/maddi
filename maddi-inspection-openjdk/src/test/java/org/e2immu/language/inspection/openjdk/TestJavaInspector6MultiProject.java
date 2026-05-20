@@ -79,7 +79,9 @@ public class TestJavaInspector6MultiProject {
     @Test
     public void test1() {
         JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder()
-                .setFailFast(true).setDetailedSources(true).build(); // not ignoring module here!
+                .setFailFast(true).setDetailedSources(true)
+                .setIgnoreModule(true)
+                .build(); // not ignoring module here!
         ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
 
         ModuleInfo moduleInfoApi = parseResult.moduleInfo(cstApi);
