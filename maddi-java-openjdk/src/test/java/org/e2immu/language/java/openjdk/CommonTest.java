@@ -75,13 +75,13 @@ public class CommonTest {
                     .setUri(URI.create("file:/")).setLibrary(true).setExternalLibrary(true)
                     .setDependencies(Set.of(javaBase))
                     .build();
-            ;
+
             // maddi support
             SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support-0.8.2.jar")
                     .setUri(URI.create("file:/")).setLibrary(true).setExternalLibrary(true)
                     .setDependencies(Set.of(javaBase))
                     .build();
-            ;
+
             SourceSet junitJupiter = new SourceSetImpl.Builder().setName("junit-jupiter-api-6.0.3.jar")
                     .setUri(URI.create("file:/")).setLibrary(true).setExternalLibrary(true)
                     .setDependencies(Set.of(javaBase))
