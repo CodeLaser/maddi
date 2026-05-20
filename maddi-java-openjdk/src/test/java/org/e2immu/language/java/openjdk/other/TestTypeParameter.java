@@ -25,7 +25,7 @@ public class TestTypeParameter extends CommonTest {
         TypeInfo annotationExpression = typeInfo.findSubType("AnnotationExpression");
         MethodInfo extract = annotationExpression.methods().getFirst();
         assertTrue(extract.isAbstract());
-        assertEquals("a.b.C.AnnotationExpression.extract(String,java.lang.Object)", extract.fullyQualifiedName());
+        assertEquals("a.b.C.AnnotationExpression.extract(String,Object)", extract.fullyQualifiedName());
         assertEquals(1, extract.typeParameters().size());
         assertEquals("T=TP#0 in AnnotationExpression.extract []", extract.typeParameters().getFirst().toStringWithTypeBounds());
     }

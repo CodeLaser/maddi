@@ -61,7 +61,7 @@ public class TestMethodCall0 extends CommonTest {
         MethodInfo add = typeInfo.findUniqueMethod("add", 1);
         if (add.methodBody().statements().getFirst() instanceof ExpressionAsStatement eas
             && eas.expression() instanceof MethodCall mc) {
-            assertEquals("java.util.List.add(java.lang.Object)", mc.methodInfo().fullyQualifiedName());
+            assertEquals("java.util.List.add(Object)", mc.methodInfo().fullyQualifiedName());
         } else fail();
 
         MethodInfo get = typeInfo.findUniqueMethod("get", 1);

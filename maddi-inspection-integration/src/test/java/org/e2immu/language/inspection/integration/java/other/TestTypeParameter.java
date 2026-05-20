@@ -310,7 +310,7 @@ public class TestTypeParameter extends CommonTest {
         TypeInfo myHashMap = typeInfo.findSubType("MyHashMap");
         MethodInfo put = myHashMap.findUniqueMethod("put", 2);
         if (put.methodBody().statements().get(2) instanceof ReturnStatement rs && rs.expression() instanceof MethodCall mc) {
-            assertEquals("java.util.HashMap.put(java.lang.Object,java.lang.Object)", mc.methodInfo().fullyQualifiedName());
+            assertEquals("java.util.HashMap.put(Object,Object)", mc.methodInfo().fullyQualifiedName());
             assertEquals("super.put(key,value)", mc.toString());
             assertTrue(mc.object() instanceof VariableExpression ve && ve.variable() instanceof This thisVar && thisVar.writeSuper());
         } else fail();

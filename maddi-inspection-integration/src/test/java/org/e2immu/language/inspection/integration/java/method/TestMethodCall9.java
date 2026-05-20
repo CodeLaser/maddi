@@ -303,7 +303,7 @@ public class TestMethodCall9 extends CommonTest {
         TypeInfo A = javaInspector.parse(INPUT7);
         MethodInfo method = A.findUniqueMethod("method", 1);
         MethodCall methodCall = (MethodCall) method.methodBody().lastStatement().expression();
-        assertEquals("a.b.A.m(java.lang.Object,java.util.function.Consumer)",
+        assertEquals("a.b.A.m(Object,java.util.function.Consumer)",
                 methodCall.methodInfo().fullyQualifiedName());
     }
 
