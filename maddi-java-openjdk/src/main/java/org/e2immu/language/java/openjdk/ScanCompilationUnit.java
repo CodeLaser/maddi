@@ -1028,7 +1028,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     currentExpression = runtime.newEmptyExpression();
                 }
                 if (currentMethod == null) {
-                    // field!
+                    // field! FIXME this is wrong for lambdas
                     long flags = variableDecl.getModifiers().flags;
                     boolean isStatic = (flags & Flags.STATIC) != 0;
                     TypeInfo owner = typeStack.getLast();
@@ -1458,7 +1458,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .setSource(sourceForNode(lambda.body))
                     .addStatement(returnStatement).build();
         } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
+            MethodInfo outer = currentMethod;
+            currentMethod = methodInfo;
             methodBody = parseBlock("-", lambda.body);
+            currentMethod = outer;
         } else {
             throw new UnsupportedOperationException("NYI");
         }
@@ -2048,6 +2051,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 operator = runtime.unaryMinusOperatorInt();
                 assign = false;
             }
+            case POS -> {
+                operator = runtime.unaryPlusOperatorInt();
+                assign = false;
+            }
             case POSTINC, PREINC -> {
                 assign = true;
                 operator = runtime.assignPlusOperatorInt();
@@ -2056,7 +2063,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 operator = runtime.assignMinusOperatorInt();
                 assign = true;
             }
-            default -> throw new UnsupportedOperationException();
+            default -> {
+                throw new UnsupportedOperationException();
+            }
         }
         if (assign) {
             boolean isPlus = opcode == JCTree.Tag.PREINC || opcode == JCTree.Tag.POSTINC;
