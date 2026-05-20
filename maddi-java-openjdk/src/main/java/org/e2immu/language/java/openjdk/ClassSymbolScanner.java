@@ -295,23 +295,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
+        boolean alwaysLoad = loadMode == LoadMode.LOAD_MEMBERS || loadMode == LoadMode.COMPLETE_SUB;
         if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
             boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0;
-            if (isPublic && (loadMode == LoadMode.LOAD_MEMBERS
-                             || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))) {
+            if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))) {
                 addMethodToType(typeInfo, ms, false);
             }
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
             boolean isPublic = (vs.flags() & Flags.PUBLIC) != 0;
-            if (isPublic && (loadMode == LoadMode.LOAD_MEMBERS
-                             || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))) {
+            if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))) {
                 addFieldToType(typeInfo, vs);
             }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
             boolean isPublic = (cs.flags() & Flags.PUBLIC) != 0;
-            if (isPublic && (loadMode == LoadMode.LOAD_MEMBERS
-                             || loadMode == LoadMode.COMPLETE
-                                && typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)) {
+            if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE
+                                           && typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)) {
                 addEnclosedTypeToType(typeInfo, cs, loadMode);
             }
         }
@@ -758,8 +756,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         FieldInfo fromSymbol = varSymbolMap.get(varSymbol);
         if (fromSymbol != null) return fromSymbol;
         if (previouslyLoaded != null) {
-            String fieldFqn = varSymbol.owner.flatName() + "." + varSymbol.name.toString();
-            return (FieldInfo) previouslyLoaded.get(fieldFqn);
+            if (varSymbol.owner instanceof Symbol.ClassSymbol cs) {
+                TypeInfo typeInfo = convert(cs.type).typeInfo();
+                String fieldFqn = typeInfo.fullyQualifiedName() + "." + varSymbol.name.toString();
+                return (FieldInfo) previouslyLoaded.get(fieldFqn);
+            }
         }
         return null;
     }
@@ -785,7 +786,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     public void mergeIntoPreviouslyLoaded() {
         assert previouslyLoaded != null;
         for (TypeInfo ti : singleTypeForFQN.values()) {
-            LOGGER.info("Copy {} into previously loaded, inspected? {}", ti, ti.hasBeenInspected());
+            LOGGER.debug("Copy {} into previously loaded, inspected? {}", ti, ti.hasBeenInspected());
         }
         previouslyLoaded.putAll(singleTypeForFQN);
         varSymbolMap.values().forEach(fi -> previouslyLoaded.put(fi.fullyQualifiedName(), fi));

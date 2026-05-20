@@ -158,59 +158,69 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     @Override
     public Void visitCompilationUnit(CompilationUnitTree node, Void unused) {
-        if (node.getTypeDecls().isEmpty()) {
-            // package-info
-            List<AnnotationExpression> annotations = new ArrayList<>();
-            for (AnnotationTree at : node.getPackageAnnotations()) {
-                annotations.add(convertAnnotation((JCTree.JCAnnotation) at));
+        try {
+            if (node.getTypeDecls().isEmpty()) {
+                // package-info
+                List<AnnotationExpression> annotations = new ArrayList<>();
+                for (AnnotationTree at : node.getPackageAnnotations()) {
+                    annotations.add(convertAnnotation((JCTree.JCAnnotation) at));
+                }
+                TypeInfo pkgInfoType = runtime.newTypeInfo(compilationUnit, "package-info");
+                pkgInfoType.builder().setTypeNature(runtime.typeNaturePackageInfo())
+                        .addAnnotations(annotations)
+                        .setParentClass(runtime.objectParameterizedType())
+                        .setAccess(runtime.accessPublic())
+                        .setSource(sourceForNode(node))
+                        .commit();
+                collectedPrimaryTypes.add(pkgInfoType);
+            } else {
+                for (Tree ct : node.getTypeDecls()) {
+                    scan(ct, null);
+                }
             }
-            TypeInfo pkgInfoType = runtime.newTypeInfo(compilationUnit, "package-info");
-            pkgInfoType.builder().setTypeNature(runtime.typeNaturePackageInfo())
-                    .addAnnotations(annotations)
-                    .setParentClass(runtime.objectParameterizedType())
-                    .setAccess(runtime.accessPublic())
-                    .setSource(sourceForNode(node))
-                    .commit();
-            collectedPrimaryTypes.add(pkgInfoType);
-        } else {
-            for (Tree ct : node.getTypeDecls()) {
-                scan(ct, null);
+            if (node.getModule() != null) {
+                scan(node.getModule(), null);
             }
+            compilationUnit.setTypes(collectedPrimaryTypes);
+            return null;
+        } catch (RuntimeException re) {
+            LOGGER.error("Caught exception in compilation unit {}", compilationUnit);
+            throw re;
         }
-        if (node.getModule() != null) {
-            scan(node.getModule(), null);
-        }
-        compilationUnit.setTypes(collectedPrimaryTypes);
-        return null;
     }
 
     @Override
     public Void visitClass(ClassTree node, Void p) {
-        JCTree.JCClassDecl jcClassDecl = (JCTree.JCClassDecl) node;
-        TypeInfo typeInfo;
-        String fullyQualifiedName = jcClassDecl.sym.fullname.toString();
-        TypeInfo known = typeData.getType(fullyQualifiedName);
-        String simpleName = node.getSimpleName().toString();
+        try {
+            JCTree.JCClassDecl jcClassDecl = (JCTree.JCClassDecl) node;
+            TypeInfo typeInfo;
+            String fullyQualifiedName = jcClassDecl.sym.fullname.toString();
+            TypeInfo known = typeData.getType(fullyQualifiedName);
+            String simpleName = node.getSimpleName().toString();
 
-        if (known != null) {
-            typeInfo = known;
-        } else {
-            if (typeStack.isEmpty()) {
-                typeInfo = runtime.newTypeInfo(compilationUnit, simpleName);
+            if (known != null) {
+                typeInfo = known;
             } else {
-                TypeInfo enclosed = typeStack.getLast();
-                typeInfo = runtime.newTypeInfo(enclosed, simpleName);
-                enclosed.builder().addSubType(typeInfo);
+                if (typeStack.isEmpty()) {
+                    typeInfo = runtime.newTypeInfo(compilationUnit, simpleName);
+                } else {
+                    TypeInfo enclosed = typeStack.getLast();
+                    typeInfo = runtime.newTypeInfo(enclosed, simpleName);
+                    enclosed.builder().addSubType(typeInfo);
+                }
+                typeData.put(typeInfo);
             }
-            typeData.put(typeInfo);
+            if (typeInfo.isPrimaryType()) {
+                collectedPrimaryTypes.add(typeInfo);
+            }
+            continueType(typeInfo, jcClassDecl);
+            LOGGER.debug("Commit {}", typeInfo);
+            typeInfo.builder().commit();
+            return null;
+        } catch (RuntimeException re) {
+            LOGGER.error("Caught exception in type {}", node.getSimpleName());
+            throw re;
         }
-        if (typeInfo.isPrimaryType()) {
-            collectedPrimaryTypes.add(typeInfo);
-        }
-        continueType(typeInfo, jcClassDecl);
-        LOGGER.debug("Commit {}", typeInfo);
-        typeInfo.builder().commit();
-        return null;
     }
 
     private void continueType(TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl) {
@@ -267,17 +277,31 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (typeInfo.typeNature().isRecord()) {
             RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
             for (Symbol.RecordComponent rc : jcClassDecl.sym.getRecordComponents()) {
-                ParameterizedType pt = convertType.convert(rc.type);
-                FieldInfo fieldInfo = runtime.newFieldInfo(rc.name.toString(), false, pt, typeInfo);
-                fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
-                        .addFieldModifier(runtime.fieldModifierPrivate());
-                typeInfo.builder().addField(fieldInfo);
-                MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
-                typeInfo.builder().addMethod(accessor);
-                typeData.put(rc.accessor, accessor);
-                Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
-                        .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
-                typeData.put(varSym, fieldInfo);
+                String fieldName = rc.name.toString();
+                FieldInfo fieldInfo;
+                // check presence
+                FieldInfo inMap = typeInfo.getFieldByName(fieldName, false);
+                if (inMap == null) {
+                    ParameterizedType pt = convertType.convert(rc.type);
+                    fieldInfo = runtime.newFieldInfo(fieldName, false, pt, typeInfo);
+                    fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
+                            .addFieldModifier(runtime.fieldModifierPrivate());
+                    typeInfo.builder().addField(fieldInfo);
+                    Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
+                            .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
+                    typeData.put(varSym, fieldInfo);
+                } else {
+                    fieldInfo = inMap;
+                }
+                // check presence
+                MethodInfo miInMap = typeInfo.methodStream()
+                        .filter(mi -> fieldName.equals(mi.name()) && mi.parameters().isEmpty())
+                        .findFirst().orElse(null);
+                if (miInMap == null) {
+                    MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
+                    typeInfo.builder().addMethod(accessor);
+                    typeData.put(rc.accessor, accessor);
+                }
             }
         }
         // annotations
@@ -346,126 +370,131 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     @Override
     public Void visitMethod(MethodTree node, Void p) {
-        JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
-        String methodName = node.getName().toString();
-        long methodFlags = jcMethod.getModifiers().flags;
-        TypeInfo currentType = typeStack.getLast();
-        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-        Map<String, Element> parameterMap = elementStack.push();
+        try {
+            JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
+            String methodName = node.getName().toString();
+            long methodFlags = jcMethod.getModifiers().flags;
+            TypeInfo currentType = typeStack.getLast();
+            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+            Map<String, Element> parameterMap = elementStack.push();
 
-        MethodInfo methodInfo;
-        MethodInfo known = typeData.getMethod(jcMethod.sym);
-        boolean isKnown = known != null;
-        if (isKnown) {
-            methodInfo = known;
-            methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
-            methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
-        } else {
-            // construction of the method
-            boolean isConstructor = "<init>".equals(methodName);
-            if (isConstructor) {
-                methodInfo = runtime.newConstructor(currentType);
-                currentType.builder().addConstructor(methodInfo);
-                methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+            MethodInfo methodInfo;
+            MethodInfo known = typeData.getMethod(jcMethod.sym);
+            boolean isKnown = known != null;
+            if (isKnown) {
+                methodInfo = known;
+                methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
+                methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
             } else {
-                MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags,
-                        currentType.isInterface() || currentType.isAnnotation());
-                methodInfo = runtime.newMethod(currentType, methodName, methodType);
-                currentType.builder().addMethod(methodInfo);
-            }
-            typeData.put(jcMethod.sym, methodInfo);
+                // construction of the method
+                boolean isConstructor = "<init>".equals(methodName);
+                if (isConstructor) {
+                    methodInfo = runtime.newConstructor(currentType);
+                    currentType.builder().addConstructor(methodInfo);
+                    methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+                } else {
+                    MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags,
+                            currentType.isInterface() || currentType.isAnnotation());
+                    methodInfo = runtime.newMethod(currentType, methodName, methodType);
+                    currentType.builder().addMethod(methodInfo);
+                }
+                typeData.put(jcMethod.sym, methodInfo);
 
-
-            // flags
-            flagHelper.method(methodFlags, methodInfo.builder());
-
-            // type parameters
-            int index = 0;
-            for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
-                String name = typeParameter.getName().toString();
-                TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
-                methodInfo.builder().addTypeParameter(tp);
-                elementStack.put(name, tp);
-                parseTypeBoundsAndCommit(jcMethod.sym, tp, typeParameter);
-                ++index;
-            }
-
-            // return type
-            if (!isConstructor) {
-                List<AnnotationExpression> annots = new ArrayList<>();
-                ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb, annots::add);
-                methodInfo.builder().setReturnType(returnType);
-                methodInfo.builder().addAnnotations(annots);
-            }
-
-            // parameters
-            for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
-                String name = jcVariableDecl.getName().toString();
-                DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
-                List<AnnotationExpression> annots = new ArrayList<>();
-                ParameterizedType type = convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, annots::add);
-                ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
-                parameterInfo.builder().addAnnotations(annots);
 
                 // flags
-                long flags = jcVariableDecl.getModifiers().flags;
-                boolean isFinal = (flags & Flags.FINAL) != 0;
-                boolean varargs = (flags & Flags.VARARGS) != 0;
-                parameterInfo.builder().setVarArgs(varargs).setIsFinal(isFinal);
+                flagHelper.method(methodFlags, methodInfo.builder());
 
-                // annotations
-                for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
-                    AnnotationExpression ae = convertAnnotation(annotation);
-                    parameterInfo.builder().addAnnotation(ae);
+                // type parameters
+                int index = 0;
+                for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
+                    String name = typeParameter.getName().toString();
+                    TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
+                    methodInfo.builder().addTypeParameter(tp);
+                    elementStack.put(name, tp);
+                    parseTypeBoundsAndCommit(jcMethod.sym, tp, typeParameter);
+                    ++index;
                 }
-                parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
-                parameterMap.put(parameterInfo.simpleName(), parameterInfo);
-            }
-            methodInfo.builder().commitParameters();
 
-            // record synthetic constructor?
-            if (methodInfo.isSynthetic() && currentType.typeNature().isRecord()) {
-                for (ParameterInfo pi : methodInfo.parameters()) {
-                    FieldInfo field = currentType.getFieldByName(pi.name(), true);
-                    field.builder().setInitializer(runtime.newVariableExpression(pi));
+                // return type
+                if (!isConstructor) {
+                    List<AnnotationExpression> annots = new ArrayList<>();
+                    ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb, annots::add);
+                    methodInfo.builder().setReturnType(returnType);
+                    methodInfo.builder().addAnnotations(annots);
+                }
+
+                // parameters
+                for (JCTree.JCVariableDecl jcVariableDecl : jcMethod.getParameters()) {
+                    String name = jcVariableDecl.getName().toString();
+                    DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
+                    List<AnnotationExpression> annots = new ArrayList<>();
+                    ParameterizedType type = convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, annots::add);
+                    ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
+                    parameterInfo.builder().addAnnotations(annots);
+
+                    // flags
+                    long flags = jcVariableDecl.getModifiers().flags;
+                    boolean isFinal = (flags & Flags.FINAL) != 0;
+                    boolean varargs = (flags & Flags.VARARGS) != 0;
+                    parameterInfo.builder().setVarArgs(varargs).setIsFinal(isFinal);
+
+                    // annotations
+                    for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
+                        AnnotationExpression ae = convertAnnotation(annotation);
+                        parameterInfo.builder().addAnnotation(ae);
+                    }
+                    parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
+                    parameterMap.put(parameterInfo.simpleName(), parameterInfo);
+                }
+                methodInfo.builder().commitParameters();
+
+                // record synthetic constructor?
+                if (methodInfo.isSynthetic() && currentType.typeNature().isRecord()) {
+                    for (ParameterInfo pi : methodInfo.parameters()) {
+                        FieldInfo field = currentType.getFieldByName(pi.name(), true);
+                        field.builder().setInitializer(runtime.newVariableExpression(pi));
+                    }
                 }
             }
+
+            // method name
+            dsb.put(methodName, sourceOfIdentifier(methodName, jcMethod.pos));
+            // annotations
+            for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
+                AnnotationExpression ae = convertAnnotation(annotation);
+                methodInfo.builder().addAnnotation(ae);
+            }
+
+            Block methodBody;
+            // method body
+            if (methodInfo.isAbstract() && currentType.typeNature().isAnnotation()) {
+                methodBody = runtime.emptyBlock(); // TODO: an idea is to add a "return defaultValue;" statement
+            } else {
+                currentMethod = methodInfo;
+                methodBody = parseBlock("-", node.getBody());
+                elementStack.pop();
+                currentMethod = null;
+            }
+
+            //overrides
+            List<Symbol.MethodSymbol> overridden = computeMethodOverrides.findOverriddenMethods(jcMethod.sym);
+            Set<MethodInfo> overrides = overridden.stream()
+                    .map(typeData::getOrLoadMethod)
+                    .collect(Collectors.toUnmodifiableSet());
+
+            Source source = sourceForNode(node, dsb);
+            methodInfo.builder()
+                    .addOverrides(overrides)
+                    .setSource(source)
+                    .addComments(commentsForNode(source))
+                    .setMethodBody(methodBody)
+                    .computeAccess()
+                    .commit();
+            return null;
+        } catch (RuntimeException re) {
+            LOGGER.error("Caught exception in method {}", node.getName().toString());
+            throw re;
         }
-
-        // method name
-        dsb.put(methodName, sourceOfIdentifier(methodName, jcMethod.pos));
-        // annotations
-        for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
-            AnnotationExpression ae = convertAnnotation(annotation);
-            methodInfo.builder().addAnnotation(ae);
-        }
-
-        Block methodBody;
-        // method body
-        if (methodInfo.isAbstract() && currentType.typeNature().isAnnotation()) {
-            methodBody = runtime.emptyBlock(); // TODO: an idea is to add a "return defaultValue;" statement
-        } else {
-            currentMethod = methodInfo;
-            methodBody = parseBlock("-", node.getBody());
-            elementStack.pop();
-            currentMethod = null;
-        }
-
-        //overrides
-        List<Symbol.MethodSymbol> overridden = computeMethodOverrides.findOverriddenMethods(jcMethod.sym);
-        Set<MethodInfo> overrides = overridden.stream()
-                .map(typeData::getOrLoadMethod)
-                .collect(Collectors.toUnmodifiableSet());
-
-        Source source = sourceForNode(node, dsb);
-        methodInfo.builder()
-                .addOverrides(overrides)
-                .setSource(source)
-                .addComments(commentsForNode(source))
-                .setMethodBody(methodBody)
-                .computeAccess()
-                .commit();
-        return null;
     }
 
     // -- Annotations ---------------------------------------------
@@ -1242,7 +1271,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         };
         Precedence precedence = switch (opcode) {
             case PLUS, MINUS -> runtime.precedenceAdditive();
-            case MUL, DIV -> runtime.precedenceMultiplicative();
+            case MUL, DIV, MOD -> runtime.precedenceMultiplicative();
             case EQ, NE -> runtime.precedenceEquality();
             case BITOR -> runtime.precedenceBitwiseOr();
             case BITXOR -> runtime.precedenceBitwiseXor();
@@ -1262,17 +1291,19 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     private List<Expression> andOrExpressions(JCTree.Tag tag, JCTree.JCBinary binary) {
         JCTree.JCBinary b = binary;
-        List<Expression> expressions = new ArrayList<>();
+        List<JCTree.JCExpression> toParse = new ArrayList<>();
+        toParse.add(binary.rhs);
         while (b.getLeftOperand() instanceof JCTree.JCBinary sub && tag.equals(sub.getTag())) {
-            scan(sub.rhs, null);
-            expressions.addFirst(currentExpression);
+            toParse.addFirst(sub.rhs);
             b = sub;
         }
-        scan(b.getLeftOperand(), null);
-        expressions.addFirst(currentExpression);
-        scan(binary.getRightOperand(), null);
-        expressions.add(currentExpression);
-        return List.copyOf(expressions);
+        toParse.addFirst(b.lhs);
+        // now we have all the clauses in order; important when they contain instanceof pattern variables
+        // which must exist sequentially...
+        return toParse.stream().map(jce -> {
+            scan(jce, null);
+            return currentExpression;
+        }).toList();
     }
 
     @Override
@@ -1370,7 +1401,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         ParameterizedType type;
         RecordPattern recordPattern;
         List<AnnotationExpression> annotations = new ArrayList<>();
-        if (jcInstanceOf.pattern instanceof JCTree.JCIdent) {
+        if (jcInstanceOf.pattern instanceof JCTree.JCIdent || jcInstanceOf.pattern instanceof JCTree.JCTypeApply) {
             type = convertTypeWithAnnotations(jcInstanceOf.pattern, dsb, annotations::add);
             recordPattern = null;
         } else if (jcInstanceOf.pattern instanceof JCTree.JCPattern p) {
@@ -2040,15 +2071,19 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         boolean assign;
         switch (opcode) {
             case BITXOR -> {
-                operator = runtime.bitWiseNotOperatorInt();
+                operator = runtime.bitwiseXorOperatorInt();
                 assign = false;
             }
-            case NOT -> {
-                operator = runtime.logicalNotOperatorBool();
+            case COMPL -> {
+                operator = runtime.bitWiseNotOperatorInt();
                 assign = false;
             }
             case NEG -> {
                 operator = runtime.unaryMinusOperatorInt();
+                assign = false;
+            }
+            case NOT -> {
+                operator = runtime.logicalNotOperatorBool();
                 assign = false;
             }
             case POS -> {

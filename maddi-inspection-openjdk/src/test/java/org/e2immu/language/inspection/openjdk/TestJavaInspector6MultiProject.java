@@ -8,6 +8,7 @@ import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -29,6 +30,9 @@ public class TestJavaInspector6MultiProject {
     private JavaInspector javaInspector;
     private SourceSet cstApi;
     private SourceSet cstAnalysis;
+    private SourceSet cstImpl;
+    private SourceSet cstImplTest;
+    private SourceSet cstIo;
 
     @BeforeEach
     public void test() throws IOException, URISyntaxException {
@@ -42,6 +46,17 @@ public class TestJavaInspector6MultiProject {
                 .setUri(maddiSupportJar.toUri())
                 .setLibrary(true)
                 .setModule(true)
+                .build();
+
+        Path maddiUtilJar = Path.of("../maddi-util/build/libs/maddi-util.jar").toRealPath();
+        Path maddUtilSrc = Path.of("../maddi-util/src/main/java");
+        SourceSet maddiUtil = new SourceSetImpl.Builder()
+                .setName("maddi-util.jar")
+                .setSourceDirectories(List.of(maddUtilSrc))
+                .setUri(maddiUtilJar.toUri())
+                .setLibrary(true)
+                .setModule(true)
+                .setDependencies(Set.of(maddiSupport))
                 .build();
 
         Path cstApiJar = Path.of("../maddi-cst-api/build/libs/maddi-cst-api.jar").toRealPath();
@@ -59,7 +74,15 @@ public class TestJavaInspector6MultiProject {
         SourceSet orgSlf4jApi = new SourceSetImpl.Builder().setName("slf4j-api-2.0.17.jar")
                 .setUri(slf4jApiUri)
                 .setExternalLibrary(true)
-                .setModule(true).build();
+                .setModule(true)
+                .build();
+
+        URI annotationsUri = NotNull.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+        SourceSet annotations = new SourceSetImpl.Builder().setName("annotations-26.1.0.jar")
+                .setUri(annotationsUri)
+                .setExternalLibrary(true)
+                .setModule(true)
+                .build();
 
         Path cstAnalysisJar = Path.of("../maddi-cst-analysis/build/libs/maddi-cst-analysis.jar").toRealPath();
         Path cstAnalysisPath = Path.of("../maddi-cst-analysis/src/main/java");
@@ -71,19 +94,54 @@ public class TestJavaInspector6MultiProject {
                 .setDependencies(Set.of(cstApi, maddiSupport, orgSlf4jApi))
                 .build();
 
+        Path cstImplJar = Path.of("../maddi-cst-impl/build/libs/maddi-cst-impl.jar").toRealPath();
+        Path cstImplPath = Path.of("../maddi-cst-impl/src/main/java");
+        cstImpl = new SourceSetImpl.Builder()
+                .setName("maddi-cst-impl.jar")
+                .setSourceDirectories(List.of(cstImplPath))
+                .setUri(cstImplJar.toUri())
+                .setModule(true)
+                .setDependencies(Set.of(cstApi, cstAnalysis, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
+                .build();
+
+        Path cstImplTestPath = Path.of("../maddi-cst-impl/src/test/java");
+        cstImplTest = new SourceSetImpl.Builder()
+                .setName("maddi-cst-impl test") // cannot be referred to
+                .setSourceDirectories(List.of(cstImplTestPath))
+                .setUri(cstImplTestPath.toUri())
+                .setModule(false)
+                .setDependencies(Set.of(cstApi, cstAnalysis, cstImpl, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
+                .build();
+
+        Path cstIoJar = Path.of("../maddi-cst-io/build/libs/maddi-cst-io.jar").toRealPath();
+        Path cstIoPath = Path.of("../maddi-cst-io/src/main/java");
+        cstIo = new SourceSetImpl.Builder()
+                .setName("maddi-cst-io.jar")
+                .setSourceDirectories(List.of(cstIoPath))
+                .setUri(cstImplJar.toUri())
+                .setModule(true)
+                .setDependencies(Set.of(cstApi, cstAnalysis, maddiSupport, orgSlf4jApi, annotations))
+                .build();
+
+        assertTrue(Files.isReadable(maddiUtilJar));
+        assertTrue(Files.isDirectory(maddUtilSrc));
+        assertTrue(Files.isReadable(maddiSupportJar));
         assertTrue(Files.isDirectory(maddiSupportSrc));
         assertTrue(Files.isReadable(cstApiJar));
         assertTrue(Files.isDirectory(cstApiPath));
-        assertTrue(Files.isReadable(maddiSupportJar));
         assertTrue(Files.isReadable(cstAnalysisJar));
         assertTrue(Files.isDirectory(cstAnalysisPath));
+        assertTrue(Files.isReadable(cstImplJar));
+        assertTrue(Files.isDirectory(cstImplPath));
+        assertTrue(Files.isDirectory(cstImplTestPath));
+        assertTrue(Files.isReadable(cstIoJar));
+        assertTrue(Files.isDirectory(cstIoPath));
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .addSourceSets(cstApi, maddiSupport, cstAnalysis)
+                .addSourceSets(cstApi, maddiSupport, cstAnalysis, maddiUtil, cstImpl, cstImplTest, cstIo)
                 .addClassPath("jmod:java.base")
-                .addClassPathParts(orgSlf4jApi)
+                .addClassPathParts(orgSlf4jApi, annotations)
                 .build();
-        assertEquals(2, inputConfiguration.classPathParts().size());
         javaInspector.initialize(inputConfiguration);
     }
 
@@ -91,7 +149,6 @@ public class TestJavaInspector6MultiProject {
     public void test1() {
         JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder()
                 .setFailFast(true).setDetailedSources(true)
-                .setIgnoreModule(false)
                 .build(); // not ignoring module here!
         ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
 
@@ -108,5 +165,8 @@ public class TestJavaInspector6MultiProject {
 
         TypeInfo valueImpl = parseResult.findType("org.e2immu.language.cst.impl.analysis.ValueImpl");
         assertTrue(valueImpl.isAbstract());
+
+        TypeInfo typeInfoImpl = parseResult.findType("org.e2immu.language.cst.impl.info.TypeInfoImpl");
+        assertTrue(typeInfoImpl.typeNature().isClass());
     }
 }
