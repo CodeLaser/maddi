@@ -161,7 +161,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             newTypeInfo = predefinedType;
             internal = false;
         } else {
-            internal = cs.classfile == null;
+            cs.complete();
+            internal = cs.packge().toString().startsWith("jdk.internal.");
             URI uri;
             if (internal) {
                 uri = URI.create("jrt:/internal/");
@@ -243,8 +244,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         bounds.add(runtime.newParameterizedType(newTypeInfo,
                                 List.of(runtime.newParameterizedType(newTp, 0, null))));
                     } else if (upperBound instanceof Type.ClassType ct) {
-                        if(ct instanceof Type.IntersectionClassType ict) {
-                            for(Type type: ict.getExplicitComponents()) {
+                        if (ct instanceof Type.IntersectionClassType ict) {
+                            for (Type type : ict.getExplicitComponents()) {
                                 ParameterizedType pt = convert(type);
                                 if (!pt.isJavaLangObject()) {
                                     bounds.add(pt.withWildcard(runtime.wildcardExtends()));
@@ -315,7 +316,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private void addMemberToType(TypeInfo typeInfo, Symbol.ClassSymbol owner, Element member, LoadMode loadMode) {
         boolean alwaysLoad = loadMode == LoadMode.LOAD_MEMBERS || loadMode == LoadMode.COMPLETE_SUB;
         if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
-            boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0;
+            // the check for JLO is actually only for the clone() method
+            boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0 || typeInfo.isJavaLangObject();
             if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))) {
                 addMethodToType(typeInfo, ms, false);
             }
