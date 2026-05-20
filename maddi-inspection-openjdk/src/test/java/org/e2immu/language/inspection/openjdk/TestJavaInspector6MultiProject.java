@@ -84,6 +84,13 @@ public class TestJavaInspector6MultiProject {
                 .setModule(true)
                 .build();
 
+        URI junitJupiterApi = Test.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+        SourceSet junitJupiter = new SourceSetImpl.Builder().setName("junit-jupiter-api-6.0.3.jar")
+                .setUri(junitJupiterApi)
+                .setExternalLibrary(true)
+                .setModule(true)
+                .build();
+
         Path cstAnalysisJar = Path.of("../maddi-cst-analysis/build/libs/maddi-cst-analysis.jar").toRealPath();
         Path cstAnalysisPath = Path.of("../maddi-cst-analysis/src/main/java");
         cstAnalysis = new SourceSetImpl.Builder()
@@ -110,7 +117,8 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstImplTestPath))
                 .setUri(cstImplTestPath.toUri())
                 .setModule(false)
-                .setDependencies(Set.of(cstApi, cstAnalysis, cstImpl, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
+                .setDependencies(Set.of(cstApi, cstAnalysis, cstImpl, maddiSupport, maddiUtil, orgSlf4jApi,
+                        annotations, junitJupiter))
                 .build();
 
         Path cstIoJar = Path.of("../maddi-cst-io/build/libs/maddi-cst-io.jar").toRealPath();
@@ -140,7 +148,7 @@ public class TestJavaInspector6MultiProject {
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(cstApi, maddiSupport, cstAnalysis, maddiUtil, cstImpl, cstImplTest, cstIo)
                 .addClassPath("jmod:java.base")
-                .addClassPathParts(orgSlf4jApi, annotations)
+                .addClassPathParts(orgSlf4jApi, annotations, junitJupiter)
                 .build();
         javaInspector.initialize(inputConfiguration);
     }
