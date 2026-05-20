@@ -98,7 +98,8 @@ public class ParameterizedTypePrinter {
             }
         } else if (w == null) {
             // all null, this is a JLO marker
-            outputBuilder.add(new TextImpl("java.lang.Object"));
+            String jlo = qualification == QualificationImpl.DESCRIPTORS ? "java.lang.Object" : "Object";
+            outputBuilder.add(new TextImpl(jlo));
         }
         if (!withoutArrays) {
             if (varargs) {

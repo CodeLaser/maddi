@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.e2immu.language.inspection.openjdk.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJavaInspector6MultiProject {
@@ -71,8 +72,9 @@ public class TestJavaInspector6MultiProject {
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(cstApi, maddiSupport, cstAnalysis)
                 .addClassPath("jmod:java.base")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "slf4j-api-2.0.17.jar")
                 .build();
-        assertEquals(1, inputConfiguration.classPathParts().size());
+        assertEquals(2, inputConfiguration.classPathParts().size());
         javaInspector.initialize(inputConfiguration);
     }
 
