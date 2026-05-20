@@ -192,7 +192,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private List<SourceSet> computeScanOrder() {
         G.Builder<SourceSet> builder = new ImmutableGraph.Builder<>(Long::sum);
         for (SourceSet set : inputConfiguration.sourceSets()) {
-            builder.add(set, set.dependencies());
+            builder.add(set, set.dependencies().stream().filter(d -> !d.externalLibrary()).toList());
         }
         Linearize.Result<SourceSet> lin = Linearize.linearize(builder.build());
         if (!lin.remainingCycles().isEmpty()) {
@@ -203,7 +203,10 @@ public class JavaInspectorImpl implements JavaInspector {
 
     // single file
     @Override
-    public List<TypeInfo> parse(String transformedString, CompilationUnit compilationUnit, ParseResult parseResult, ParseOptions parseOptions) {
+    public List<TypeInfo> parse(String transformedString,
+                                CompilationUnit compilationUnit,
+                                ParseResult parseResult,
+                                ParseOptions parseOptions) {
         return List.of();
     }
 

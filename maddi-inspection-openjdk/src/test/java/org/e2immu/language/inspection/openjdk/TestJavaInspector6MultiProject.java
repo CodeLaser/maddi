@@ -10,16 +10,19 @@ import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.e2immu.language.inspection.openjdk.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaInspector6MultiProject {
 
@@ -28,7 +31,7 @@ public class TestJavaInspector6MultiProject {
     private SourceSet cstAnalysis;
 
     @BeforeEach
-    public void test() throws IOException {
+    public void test() throws IOException, URISyntaxException {
         javaInspector = new JavaInspectorImpl();
 
         Path maddiSupportJar = Path.of("../maddi-support/build/libs/maddi-support-0.8.2.jar").toRealPath();
@@ -52,6 +55,12 @@ public class TestJavaInspector6MultiProject {
                 .setDependencies(Set.of(maddiSupport))
                 .build();
 
+        URI slf4jApiUri = Logger.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+        SourceSet orgSlf4jApi = new SourceSetImpl.Builder().setName("slf4j-api-2.0.17.jar")
+                .setUri(slf4jApiUri)
+                .setExternalLibrary(true)
+                .setModule(true).build();
+
         Path cstAnalysisJar = Path.of("../maddi-cst-analysis/build/libs/maddi-cst-analysis.jar").toRealPath();
         Path cstAnalysisPath = Path.of("../maddi-cst-analysis/src/main/java");
         cstAnalysis = new SourceSetImpl.Builder()
@@ -59,7 +68,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstAnalysisPath))
                 .setUri(cstAnalysisJar.toUri())
                 .setModule(true)
-                .setDependencies(Set.of(cstApi, maddiSupport))
+                .setDependencies(Set.of(cstApi, maddiSupport, orgSlf4jApi))
                 .build();
 
         assertTrue(Files.isDirectory(maddiSupportSrc));
@@ -72,7 +81,7 @@ public class TestJavaInspector6MultiProject {
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(cstApi, maddiSupport, cstAnalysis)
                 .addClassPath("jmod:java.base")
-                .addClassPath(JAR_WITH_PATH_PREFIX + "slf4j-api-2.0.17.jar")
+                .addClassPathParts(orgSlf4jApi)
                 .build();
         assertEquals(2, inputConfiguration.classPathParts().size());
         javaInspector.initialize(inputConfiguration);
