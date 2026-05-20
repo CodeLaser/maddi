@@ -213,6 +213,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         return Stream.concat(Stream.of(this), parameters.stream().flatMap(ParameterizedType::components));
     }
 
+    // FIXME add runtime, so that we can inject JLO; and update
     @Override
     public ParameterizedType erased() {
         if (arrays == 0 && wildcard == null && parameters.isEmpty()) return this;
@@ -223,7 +224,9 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     public ParameterizedType erasedForFQN() {
         if (typeParameter != null) {
             if (typeParameter.typeBounds().isEmpty()) return JLO_MARKER.copyWithArrays(arrays);
-            return typeParameter.typeBounds().getFirst().erasedForFQN().copyWithArrays(arrays);
+            // leftmost wins
+            ParameterizedType first = typeParameter.typeBounds().getFirst();
+            return first.erasedForFQN().copyWithArrays(arrays);
         }
         // simple type
         if (arrays == 0 && wildcard == null && parameters.isEmpty()) return this;
@@ -234,7 +237,8 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     public Set<TypeParameter> extractTypeParameters() {
         if (typeParameter != null) return Set.of(typeParameter);
         if (typeInfo != null) {
-            return parameters.stream().flatMap(p -> p.extractTypeParameters().stream()).collect(Collectors.toUnmodifiableSet());
+            return parameters.stream().flatMap(p -> p.extractTypeParameters().stream())
+                    .collect(Collectors.toUnmodifiableSet());
         }
         return Set.of();
     }

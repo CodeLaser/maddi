@@ -128,7 +128,7 @@ public class TestParseJavaDoc extends CommonTestParse {
 
         MethodInfo staticMethod = D.findUniqueMethod("staticMethod", 1);
         JavaDoc.Tag tagDS0 = staticMethod.javaDoc().tags().getFirst();
-        assertEquals("a.b.D.staticMethod(java.lang.Object):0:in", tagDS0.resolvedReference().toString());
+        assertEquals("a.b.D.staticMethod(Object):0:in", tagDS0.resolvedReference().toString());
         JavaDoc.Tag tagDS1 = staticMethod.javaDoc().tags().get(1);
         assertSame(JavaDoc.TagIdentifier.RETURN, tagDS1.identifier());
         JavaDoc.Tag tagDS2 = staticMethod.javaDoc().tags().get(2);
