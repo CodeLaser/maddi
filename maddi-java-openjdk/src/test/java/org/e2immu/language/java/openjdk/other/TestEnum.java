@@ -207,4 +207,33 @@ public class TestEnum extends CommonTest {
         assertEquals(3, level.fields().size());
     }
 
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            import java.util.EnumSet;
+            public class X {
+                public enum Level {
+                    ONE, TWO, THREE
+                }
+                EnumSet<Level> set = EnumSet.allOf(Level.class);
+            }
+            """;
+
+    @Test
+    public void test5() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT5);
+        TypeInfo level = typeInfo.findSubType("Level");
+        FieldInfo set = typeInfo.getFieldByName("set", true);
+        assertSame(level, set.type().parameters().getFirst().typeInfo());
+        TypeInfo enumSet = set.type().typeInfo();
+        assertEquals(1, enumSet.typeParameters().size());
+        assertEquals("E=TP#0 in EnumSet [Type ? extends Enum<E extends ? extends Enum<E>>]",
+                enumSet.typeParameters().getFirst().toStringWithTypeBounds());
+        classSymbolScanner.commitType(enumSet);
+        assertTrue(enumSet.hasBeenInspected());
+        MethodInfo of3 = enumSet.findUniqueMethod("of", 3);
+        assertEquals("java.util.EnumSet.of(Enum,Enum,Enum)", of3.fullyQualifiedName());
+    }
+
 }
