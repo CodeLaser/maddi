@@ -55,7 +55,7 @@ public class TestJavaInspector5RealClasspathModule {
         JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder()
                 .setFailFast(true).setDetailedSources(true).build(); // not ignoring module here!
         ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
-        
+
         ModuleInfo moduleInfo = parseResult.moduleInfo(cstApi);
         assertEquals(13, moduleInfo.exports().size());
 
