@@ -216,4 +216,29 @@ public class TestTypeParameter extends CommonTest {
         assertNull(ds2.detail(DetailedSources.SUCCEEDING_COMMA));
     }
 
+
+    @Language("java")
+    public static final String INPUT6 = """
+            package a.b;
+            import java.util.Map;
+            class X {
+              public <K extends Comparable<K>, V extends Map<K, V>> void process(V map) {
+                  map.forEach((k, v)-> System.out.println(k+"="+v));
+               }
+            }
+            """;
+
+    @Test
+    public void test6() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT6);
+        MethodInfo process = typeInfo.findUniqueMethod("process", 1);
+        assertEquals(2, process.typeParameters().size());
+        assertEquals("K=TP#0 in X.process [Type Comparable<K extends Comparable<K>>]",
+                process.typeParameters().getFirst().toStringWithTypeBounds());
+        assertEquals("V=TP#1 in X.process [Type java.util.Map<K extends Comparable<K>,V extends java.util.Map<K,V>>]",
+                process.typeParameters().getLast().toStringWithTypeBounds());
+        assertEquals("Type param V extends java.util.Map<K,V>",
+                process.parameters().getFirst().parameterizedType().toString());
+    }
+
 }

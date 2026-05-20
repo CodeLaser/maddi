@@ -144,7 +144,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 return inMap;
             }
             case Symbol.MethodSymbol _ -> throw new UnsupportedOperationException("Should have been picked up earlier");
-            case null, default -> throw new UnsupportedOperationException();
+            case null, default -> {
+                throw new UnsupportedOperationException();
+            }
         }
     }
 
@@ -195,30 +197,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
                     putInLastTypeParameterMap(newTp);
 
-                    List<ParameterizedType> bounds = new ArrayList<>();
-                    if (typeParameter.type instanceof Type.TypeVar tv) {
-                        Type lowerBound = tv.getLowerBound();
-                        if (lowerBound.getKind() != TypeKind.NULL) {
-                            throw new UnsupportedOperationException();
-                        } else {
-                            Type upperBound = tv.getUpperBound();
-                            if (upperBound.getKind() != TypeKind.NULL) {
-                                if (upperBound.tsym == cs) {
-                                    // self reference, as in java.lang.Enum<E extends Enum<E>>
-                                    bounds.add(runtime.newParameterizedType(newTypeInfo,
-                                            List.of(runtime.newParameterizedType(newTp, 0, null))));
-                                } else if (upperBound instanceof Type.ClassType ct) {
-                                    ParameterizedType upper = convert(ct);
-                                    if (!upper.isJavaLangObject()) {
-                                        bounds.add(upper.withWildcard(runtime.wildcardExtends()));
-                                    }
-                                } else {
-                                    throw new UnsupportedOperationException();
-                                }
-                            }
-                        }
-                    }
-                    newTp.builder().setTypeBounds(List.copyOf(bounds)).commit();
+                    addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
                     newTypeInfo.builder().addOrSetTypeParameter(newTp);
                 }
                 popTypeParameterMap();
@@ -245,6 +224,45 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             recursionPrevention.remove(newTypeInfo);
         }
+    }
+
+    private void addTypeBoundsAndCommit(Symbol.ClassSymbol cs,
+                                        TypeInfo newTypeInfo,
+                                        Symbol.TypeVariableSymbol typeParameter,
+                                        TypeParameter newTp) {
+        List<ParameterizedType> bounds = new ArrayList<>();
+        if (typeParameter.type instanceof Type.TypeVar tv) {
+            Type lowerBound = tv.getLowerBound();
+            if (lowerBound.getKind() != TypeKind.NULL) {
+                throw new UnsupportedOperationException();
+            } else {
+                Type upperBound = tv.getUpperBound();
+                if (upperBound.getKind() != TypeKind.NULL) {
+                    if (upperBound.tsym == cs) {
+                        // self reference, as in java.lang.Enum<E extends Enum<E>>
+                        bounds.add(runtime.newParameterizedType(newTypeInfo,
+                                List.of(runtime.newParameterizedType(newTp, 0, null))));
+                    } else if (upperBound instanceof Type.ClassType ct) {
+                        if(ct instanceof Type.IntersectionClassType ict) {
+                            for(Type type: ict.getExplicitComponents()) {
+                                ParameterizedType pt = convert(type);
+                                if (!pt.isJavaLangObject()) {
+                                    bounds.add(pt.withWildcard(runtime.wildcardExtends()));
+                                }
+                            }
+                        } else {
+                            ParameterizedType upper = convert(ct);
+                            if (!upper.isJavaLangObject()) {
+                                bounds.add(upper.withWildcard(runtime.wildcardExtends()));
+                            }
+                        }
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+            }
+        }
+        newTp.builder().setTypeBounds(List.copyOf(bounds)).commit();
     }
 
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+\\.jar)!/.*");
@@ -359,6 +377,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), method);
             builder.addTypeParameter(newTp);
             putTmpMethodTypeParameter(typeInfo.fullyQualifiedName(), newTp.simpleName(), newTp);
+            addTypeBoundsAndCommit(null, null, typeParameter, newTp);
         }
 
         flagHelper.method(ms.flags(), builder);
