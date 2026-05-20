@@ -178,7 +178,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, LoadMode loadMode) {
-        LOGGER.info("Enter loadType: {} {}", newTypeInfo.fullyQualifiedName(), loadMode);
+        LOGGER.debug("Enter loadType: {} {}", newTypeInfo.fullyQualifiedName(), loadMode);
         flagHelper.type(cs, newTypeInfo.builder());
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs'
@@ -259,7 +259,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         Symbol.ModuleSymbol module = findModule(cs);
         if (module != null) {
             if (module.isUnnamed()) {
-                LOGGER.info("?");
+                LOGGER.debug("?");
             } else {
                 SourceSet known = getSourceSet(module.name.toString());
                 if (known == null) {

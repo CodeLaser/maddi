@@ -23,6 +23,9 @@ import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
 import org.e2immu.language.java.openjdk.ScanCompilationUnits;
+import org.e2immu.util.internal.graph.G;
+import org.e2immu.util.internal.graph.ImmutableGraph;
+import org.e2immu.util.internal.graph.op.Linearize;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -178,17 +181,22 @@ public class JavaInspectorImpl implements JavaInspector {
             try {
                 singleSourceSet(summary, sourcesByFqn, sourceSet, !parseOptions.failFast(), parseOptions.ignoreModule());
             } catch (IOException ioe) {
-                if (parseOptions.failFast()) {
-                    // add parse exception
-                    break;
-                }
+                throw new UnsupportedOperationException("TODO error handling");
             }
         }
         return summary;
     }
 
     private List<SourceSet> computeScanOrder() {
-        return inputConfiguration.sourceSets(); // FIXME compute!
+        G.Builder<SourceSet> builder = new ImmutableGraph.Builder<>(Long::sum);
+        for (SourceSet set : inputConfiguration.sourceSets()) {
+            builder.add(set, set.dependencies());
+        }
+        Linearize.Result<SourceSet> lin = Linearize.linearize(builder.build());
+        if (!lin.remainingCycles().isEmpty()) {
+            throw new UnsupportedOperationException("Cycles in the source set graph");
+        }
+        return lin.asList(Comparator.comparing(SourceSet::name));
     }
 
     // single file
@@ -246,15 +254,15 @@ public class JavaInspectorImpl implements JavaInspector {
                                  boolean ignoreModule,
                                  Map<String, String> sourcesByFqn,
                                  @Nullable DiagnosticCollector<JavaFileObject> diagnostics) throws IOException {
-
-
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
         if (TEST_PROTOCOL.equals(sourceSet.name())) {
             sourcesByClassName = sourcesByFqn;
         } else {
             sourcesByClassName = Map.of();
-            sources.add(Path.of(sourceSet.uri()).toFile());
+            for (Path path : sourceSet.sourceDirectories()) {
+                sources.add(path.toFile());
+            }
         }
 
         try (StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null)) {

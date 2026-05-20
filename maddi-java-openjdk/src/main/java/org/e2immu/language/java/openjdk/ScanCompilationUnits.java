@@ -72,7 +72,7 @@ public class ScanCompilationUnits {
                 if (d.getKind() == Diagnostic.Kind.ERROR) {
                     LOGGER.info("Error found in {} at line {}, col {}: {}",
                             d.getSource(),
-                            d.getLineNumber(), d.getColumnNumber(),  d.getMessage(Locale.getDefault()));
+                            d.getLineNumber(), d.getColumnNumber(), d.getMessage(Locale.getDefault()));
                     haveErrors = true;
                 }
             }
@@ -81,7 +81,7 @@ public class ScanCompilationUnits {
 
         List<Info> primaryTypesAndModules = new ArrayList<>();
         for (CompilationUnitTree unit : units) {
-            System.out.println("=== " + unit.getSourceFile().getName() + " ===\n");
+            LOGGER.info("Compilation unit {}", unit.getSourceFile().getName());
 
             boolean isModule = unit.getModule() != null;
             String packageName;
