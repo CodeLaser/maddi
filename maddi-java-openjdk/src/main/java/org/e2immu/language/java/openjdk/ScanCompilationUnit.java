@@ -228,6 +228,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
             typeInfo.builder().addOrSetTypeParameter(tp);
             elementStack.put(name, tp);
+            parseTypeBoundsAndCommit(jcClassDecl.sym, tp, jcTypeParameter);
             ++index;
         }
 
@@ -315,6 +316,32 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         elementStack.pop();
     }
 
+    private void parseTypeBoundsAndCommit(Symbol owner, TypeParameter tp, JCTree.JCTypeParameter jcTypeParameter) {
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        List<ParameterizedType> typeBounds = jcTypeParameter.getBounds().stream()
+                .map(e -> parseTypeBoundCheckSelfReference(owner, tp, e, dsb))
+                .toList();
+        List<AnnotationExpression> annotationExpressions = jcTypeParameter.annotations.stream()
+                .map(this::convertAnnotation).toList();
+        tp.builder()
+                .setSource(sourceForNode(jcTypeParameter, dsb))
+                .addAnnotations(annotationExpressions)
+                .setTypeBounds(typeBounds)
+                .commit();
+    }
+
+    private ParameterizedType parseTypeBoundCheckSelfReference(Symbol owner,
+                                                               TypeParameter tp,
+                                                               JCTree.JCExpression expression,
+                                                               DetailedSources.Builder dsb) {
+        if (expression.type.tsym == owner) {
+            LOGGER.debug("Self-reference");
+            return runtime.newParameterizedType(tp.getOwner().getLeft(),
+                    List.of(runtime.newParameterizedType(tp, 0, null)));
+        }
+        return convertType.convertTree(expression, dsb);
+    }
+
     // -- Method declarations ---------------------------------------------
 
     @Override
@@ -359,6 +386,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
                 methodInfo.builder().addTypeParameter(tp);
                 elementStack.put(name, tp);
+                parseTypeBoundsAndCommit(jcMethod.sym, tp, typeParameter);
                 ++index;
             }
 

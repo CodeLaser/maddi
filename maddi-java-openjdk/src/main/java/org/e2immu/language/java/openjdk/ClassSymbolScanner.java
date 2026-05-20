@@ -461,6 +461,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             ParameterizedType base = convert(at.elemtype);
             return base.copyWithArrays(base.arrays() + 1);
         }
+        if (type instanceof Type.CapturedType ct && ct.wildcard.isUnbound()) {
+            return runtime.parameterizedTypeWildcard();
+        }
         if (type instanceof Type.WildcardType wildcardType) {
             if (wildcardType.isUnbound()) {
                 return runtime.parameterizedTypeWildcard();
