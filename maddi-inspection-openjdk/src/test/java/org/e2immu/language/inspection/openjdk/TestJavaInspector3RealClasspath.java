@@ -36,7 +36,7 @@ public class TestJavaInspector3RealClasspath {
     public void test() throws IOException, URISyntaxException {
         javaInspector = new JavaInspectorImpl();
 
-        Path commonsCliJar = Path.of("testLib/" + COMMONS_CLI_JAR);
+        Path commonsCliJar = Path.of("src/test/resources/" + COMMONS_CLI_JAR);
         assertTrue(Files.isReadable(commonsCliJar));
         SourceSet commonsCli = new SourceSetImpl.Builder().setName(COMMONS_CLI_JAR).setUri(commonsCliJar.toUri())
                 .setLibrary(true).setExternalLibrary(true).build();

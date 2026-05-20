@@ -251,7 +251,7 @@ public class JavaInspectorImpl implements JavaInspector {
         for (TypeInfo typeInfo : loaded) {
             if (!typeInfo.hasBeenInspected()) {
                 scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
-                LOGGER.info("Committed {}", typeInfo);
+                LOGGER.debug("Committed {}", typeInfo);
             }
             compiledTypesManager.addTypeInfo(null, typeInfo);
         }
