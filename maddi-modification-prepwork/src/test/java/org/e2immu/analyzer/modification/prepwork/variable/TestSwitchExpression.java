@@ -52,7 +52,7 @@ public class TestSwitchExpression extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("X", INPUT1);
         new PrepAnalyzer(runtime).doPrimaryType(X);
         assertTrue(X.typeNature().isRecord());
 
@@ -60,6 +60,7 @@ public class TestSwitchExpression extends CommonTest {
         Statement returnStatement = method.methodBody().statements().getFirst();
         SwitchExpression switchExpression = (SwitchExpression) returnStatement.expression();
         Statement s0 = switchExpression.entries().getFirst().statement();
+        assertEquals("this.list.getFirst().length();", s0.toString());
         assertEquals("5-23:5-46", s0.source().compact2());
         VariableData vd0 = VariableDataImpl.of(s0);
         assertEquals("X.list, X.this", vd0.knownVariableNamesToString());

@@ -1,0 +1,75 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.java.openjdk.other;
+
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
+import org.e2immu.language.cst.api.statement.IfElseStatement;
+import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.java.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestRecord extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            public record R(int a, String b) {}
+            """;
+
+    @DisplayName("record")
+    @Test
+    public void test1() {
+        TypeInfo R = scan("a.b.R", INPUT1);
+        MethodInfo syntheticConstructor = R.findConstructor(2);
+        assertTrue(syntheticConstructor.isSyntheticConstructor());
+        assertTrue(syntheticConstructor.isSynthetic());
+        assertEquals(3, syntheticConstructor.methodBody().statements().size());
+        Statement s1 = syntheticConstructor.methodBody().statements().get(2);
+        assertEquals("this.b=b;", s1.toString());
+        assertEquals("1", s1.source().index());
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            public record R(int a, String b) {
+                public R {
+                    if(a < 0) System.out.println("a is too small");
+                }
+            }
+            """;
+
+    @DisplayName("record with compact constructor")
+    @Test
+    public void test2() {
+        TypeInfo R = scan("a.b.R", INPUT2);
+        assertEquals(1, R.constructors().size());
+        MethodInfo cc = R.findConstructor(2);
+        assertTrue(cc.methodType().isCompactConstructor());
+        assertEquals(4, cc.methodBody().statements().size());
+        assertInstanceOf(ExplicitConstructorInvocation.class, cc.methodBody().statements().getFirst());
+        assertInstanceOf(IfElseStatement.class, cc.methodBody().statements().get(1));
+        Statement s2 = cc.methodBody().statements().get(2);
+        assertEquals("this.a=a;", s2.toString());
+        assertEquals("1", s2.source().index());
+    }
+
+}

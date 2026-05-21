@@ -38,10 +38,16 @@ public record FlagHelper(Runtime runtime) {
         }
     }
 
+    public MethodInfo.MethodType constructorType(long flags) {
+        if ((flags & Flags.GENERATEDCONSTR) != 0) return runtime.methodTypeSyntheticConstructor();
+        if ((flags & Flags.COMPACT_RECORD_CONSTRUCTOR) != 0) return runtime.methodTypeCompactConstructor();
+        return runtime.methodTypeConstructor();
+    }
+
     public MethodInfo.MethodType methodType(long flags, boolean inInterface) {
-        if ((flags & Flags.DEFAULT) != 0) return runtime().methodTypeDefaultMethod();
-        if ((flags & Flags.STATIC) != 0) return runtime().methodTypeStaticMethod();
-        if ((flags & Flags.ABSTRACT) != 0 || inInterface) return runtime().methodTypeAbstractMethod();
+        if ((flags & Flags.DEFAULT) != 0) return runtime.methodTypeDefaultMethod();
+        if ((flags & Flags.STATIC) != 0) return runtime.methodTypeStaticMethod();
+        if ((flags & Flags.ABSTRACT) != 0 || inInterface) return runtime.methodTypeAbstractMethod();
         return runtime.methodTypeMethod();
     }
 

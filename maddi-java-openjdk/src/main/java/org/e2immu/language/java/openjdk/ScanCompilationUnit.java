@@ -357,7 +357,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         MethodInfo singleAbstractMethod = convertType.computeSAM(jcClassDecl.type);
         typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
 
-        if (typeInfo.typeNature().isInterface() || typeInfo. typeNature().isClass() && typeInfo.builder().isAbstract()) {
+        // add synthetic getters and setters for methods annotated with @GetSet
+        if (typeInfo.typeNature().isInterface() || typeInfo.typeNature().isClass() && typeInfo.builder().isAbstract()) {
             createSyntheticFieldsForGetSet.createSyntheticFields(typeInfo);
         }
 
@@ -420,7 +421,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // construction of the method
                 boolean isConstructor = "<init>".equals(methodName);
                 if (isConstructor) {
-                    methodInfo = runtime.newConstructor(currentType);
+                    methodInfo = runtime.newConstructor(currentType, flagHelper.constructorType(methodFlags));
                     currentType.builder().addConstructor(methodInfo);
                     methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
                 } else {
@@ -478,14 +479,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     parameterMap.put(parameterInfo.simpleName(), parameterInfo);
                 }
                 methodInfo.builder().commitParameters();
-
-                // record synthetic constructor?
-                if (methodInfo.isSynthetic() && currentType.typeNature().isRecord()) {
-                    for (ParameterInfo pi : methodInfo.parameters()) {
-                        FieldInfo field = currentType.getFieldByName(pi.name(), true);
-                        field.builder().setInitializer(runtime.newVariableExpression(pi)).commit();
-                    }
-                }
             }
 
             // method name
@@ -499,12 +492,39 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             Block methodBody;
             // method body
             if (methodInfo.isAbstract() && currentType.typeNature().isAnnotation()) {
-                methodBody = runtime.emptyBlock(); // TODO: an idea is to add a "return defaultValue;" statement
+                methodBody = runtime.emptyBlock();
+                // TODO: an idea is to add a "return defaultValue;" statement so that we don't drop the value
             } else {
                 currentMethod = methodInfo;
-                methodBody = parseBlock("-", node.getBody());
+                // the sum of statements in a compact constructor may be > 9 so we need to pad correctly
+                int addToStatementsSize = methodInfo.methodType().isCompactConstructor()
+                                          && currentType.typeNature().isRecord()
+                        ? methodInfo.parameters().size() : 0;
+                methodBody = parseBlock("-", node.getBody(), addToStatementsSize);
                 elementStack.pop();
                 currentMethod = null;
+            }
+            if ((methodInfo.methodType().isSyntheticConstructor() || methodInfo.methodType().isCompactConstructor())
+                && currentType.typeNature().isRecord()) {
+                Block.Builder bb = runtime.newBlockBuilder();
+                bb.addStatements(methodBody.statements());
+                int n = methodBody.statements().size() - 1; // 1 for the synthetic super() statement to be ignored
+                int sum = methodInfo.parameters().size() + methodBody.statements().size();
+                for (ParameterInfo pi : methodInfo.parameters()) {
+                    FieldInfo field = currentType.getFieldByName(pi.name(), true);
+                    Assignment a = runtime.newAssignmentBuilder()
+                            .setValue(runtime.newVariableExpressionBuilder()
+                                    .setSource(runtime.noSource()).setVariable(pi)
+                                    .build())
+                            .setTarget(runtime.newVariableExpressionBuilder().setSource(runtime.noSource())
+                                    .setVariable(runtime.newFieldReference(field)).build())
+                            .build();
+                    bb.addStatement(runtime.newExpressionAsStatementBuilder()
+                            .setSource(runtime.noSource().withIndex(StringUtil.pad(n + pi.index(), sum)))
+                            .setExpression(a)
+                            .build());
+                }
+                methodBody = bb.build();
             }
 
             //overrides
@@ -602,6 +622,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
+        return parseBlock(blockIndex, node, 0, variablesToAdd);
+    }
+
+    private Block parseBlock(String blockIndex, Tree node, int addToStatementsSize, LocalVariable... variablesToAdd) {
         List<JCTree.JCStatement> statements;
         Source source = statementSourceForNode(node);
 
@@ -616,11 +640,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             default -> throw new UnsupportedOperationException("NYI");
         }
-        return parseBlock(blockIndex, statements, statementLabels.get(node), source, variablesToAdd);
+        return parseBlock(blockIndex, statements, addToStatementsSize,
+                statementLabels.get(node), source, variablesToAdd);
     }
 
     private Block parseBlock(String blockIndex,
                              List<JCTree.JCStatement> statements,
+                             int addToStatementsSize,
                              String label,
                              Source source,
                              LocalVariable... variablesToAdd) {
@@ -628,13 +654,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         for (LocalVariable lv : variablesToAdd) {
             localVariableMap.put(lv.simpleName(), lv);
         }
-        int n = statements.size();
+        int n = statements.size() + addToStatementsSize;
         String i = "-".equals(blockIndex) ? "-" : statementIndex() + "." + blockIndex;
         blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i, n));
 
         for (JCTree.JCStatement statement : statements) {
             if (statement instanceof JCTree.JCBlock subBlock) {
-                Block parsedSub = parseBlock("0", subBlock);
+                Block parsedSub = parseBlock("0", subBlock, 0);
                 addStatement(parsedSub);
             } else if (statement instanceof JCTree.JCClassDecl localType) {
                 Statement localTypeCreation = handleLocalType(localType);
@@ -889,6 +915,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     @Override
+    public Void visitYield(YieldTree node, Void unused) {
+        currentExpression = null;
+        scan(node.getValue(), unused);
+        assert currentExpression != null;
+        Source source = statementSourceForNode(node);
+        addStatement(runtime.newYieldBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setExpression(currentExpression)
+                .build());
+        return null;
+    }
+
+    @Override
     public Void visitSwitch(SwitchTree node, Void unused) {
         scan(node.getExpression(), unused);
         Expression selector = currentExpression;
@@ -945,7 +986,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 statementsToParse.addAll(jcCase.stats);
                 statementCount += jcCase.stats.size();
             }
-            Block block = parseBlock("0", statementsToParse, null, sourceForNode(node));
+            Block block = parseBlock("0", statementsToParse, 0,
+                    null, sourceForNode(node));
             s = runtime.newSwitchStatementOldStyleBuilder()
                     .setLabel(statementLabels.get(node))
                     .setSelector(selector)
@@ -1245,6 +1287,36 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 .setSource(sourceForNode(node))
                 .setTarget(target)
                 .setValue(value)
+                .build();
+        return null;
+    }
+
+    @Override
+    public Void visitCompoundAssignment(CompoundAssignmentTree node, Void p) {
+        JCTree.JCAssignOp assignOp = (JCTree.JCAssignOp) node;
+        scan(assignOp.rhs, p);
+        Expression value = currentExpression;
+        scan(assignOp.lhs, p);
+        VariableExpression target = (VariableExpression) currentExpression;
+        Tree.Kind kind = node.getKind();
+        MethodInfo operator = switch (kind) {
+            case PLUS_ASSIGNMENT -> runtime.assignPlusOperatorInt();
+            case MINUS_ASSIGNMENT -> runtime.assignMinusOperatorInt();
+            case MULTIPLY_ASSIGNMENT -> runtime.assignMultiplyOperatorInt();
+            case DIVIDE_ASSIGNMENT -> runtime.assignDivideOperatorInt();
+            case REMAINDER_ASSIGNMENT -> runtime.assignRemainderOperatorInt();
+            case AND_ASSIGNMENT -> runtime.assignAndOperatorInt();
+            case OR_ASSIGNMENT -> runtime.assignOrOperatorInt();
+            case XOR_ASSIGNMENT -> runtime.assignXorOperatorInt();
+            case LEFT_SHIFT_ASSIGNMENT -> runtime.assignLeftShiftOperatorInt();
+            case RIGHT_SHIFT_ASSIGNMENT -> runtime.assignSignedRightShiftOperatorInt();
+            case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT -> runtime.assignUnsignedRightShiftOperatorInt();
+            default -> throw new UnsupportedOperationException("NYI");
+        };
+        currentExpression = runtime.newAssignmentBuilder()
+                .setAssignmentOperator(operator)
+                .setValue(value)
+                .setTarget(target)
                 .build();
         return null;
     }
@@ -2065,7 +2137,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
                 Expression expression = currentExpression;
                 statement = runtime.newExpressionAsStatementBuilder()
-                        .setSource(sourceForNode(e))
+                        .setSource(sourceForNode(e).withIndex(statementIndex() + "." + index + ".0"))
                         .setExpression(expression).build();
             } else {
                 Block block = parseBlock(index, jcCase.body, newVariablesArray);

@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.SwitchExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.statement.SwitchEntry;
 import org.e2immu.language.cst.api.statement.SwitchStatementNewStyle;
 import org.e2immu.language.java.openjdk.CommonTest;
@@ -64,6 +65,10 @@ public class TestSwitchNewStyle extends CommonTest {
                             {System.out.println("all the rest");}}\
                             """,
                     ssn.print(runtime.qualificationQualifyFromPrimaryType()).toString());
+            Statement s0 = ssn.entries().getFirst().statement();
+            assertEquals("0.0.0", s0.source().index());
+            Statement s1 = ssn.entries().get(1).statementAsBlock().statements().get(1);
+            assertEquals("0.1.1", s1.source().index());
         } else fail();
     }
 
