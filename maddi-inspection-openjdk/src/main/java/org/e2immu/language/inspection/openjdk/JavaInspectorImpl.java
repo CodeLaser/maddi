@@ -189,6 +189,16 @@ public class JavaInspectorImpl implements JavaInspector {
         return summary;
     }
 
+    @Override
+    public TypeInfo parse(String fqn, String input) {
+        return parse(Map.of(fqn, input), failFast()).parseResult().firstType();
+    }
+
+    @Override
+    public TypeInfo parse(String fqn, String input, ParseOptions parseOptions) {
+        return parse(Map.of(fqn, input), parseOptions).parseResult().firstType();
+    }
+
     private List<SourceSet> computeScanOrder() {
         G.Builder<SourceSet> builder = new ImmutableGraph.Builder<>(Long::sum);
         for (SourceSet set : inputConfiguration.sourceSets()) {

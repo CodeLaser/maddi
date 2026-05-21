@@ -47,7 +47,7 @@ public class TestApplyGetSetTranslation extends CommonTest {
     @DisplayName("basic setter")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -83,12 +83,12 @@ public class TestApplyGetSetTranslation extends CommonTest {
     @DisplayName("basic builder")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
         {
-            Expression expression = method.methodBody().statements().get(0).expression();
+            Expression expression = method.methodBody().statements().getFirst().expression();
             assertEquals("b.setI(3)", expression.toString());
             Expression translated = expression.translate(new ApplyGetSetTranslation(runtime));
             assertEquals("b.i=3,b", translated.toString());
