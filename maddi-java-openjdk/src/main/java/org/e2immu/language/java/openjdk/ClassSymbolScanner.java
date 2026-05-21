@@ -365,6 +365,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
         String name = ms.getSimpleName().toString();
+        assert (ms.flags() & Flags.BRIDGE) == 0 : "Do not want any bridge method " + ms + " in " + typeInfo;
         MethodInfo method;
         if ("<init>".equals(name)) {
             LOGGER.debug("Adding constructor {} to {}", name, typeInfo);
@@ -740,10 +741,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     Symbol.MethodSymbol theMethod(Symbol.MethodSymbol methodSymbol) {
         boolean isDefault = (methodSymbol.flags() & Flags.DEFAULT) != 0;
+        Symbol.MethodSymbol result;
         if (!isDefault && methodSymbol.baseSymbol() instanceof Symbol.MethodSymbol baseSymbol) {
-            return baseSymbol;
+            result = baseSymbol;
+        } else {
+            result = methodSymbol;
         }
-        return methodSymbol;
+        assert (result.flags() & Flags.BRIDGE) == 0;
+        return result;
     }
 
     @Override

@@ -627,11 +627,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         String simpleName = localType.getSimpleName().toString();
         int index = currentMethod.typeInfo().builder().getAndIncrementAnonymousTypes();
         TypeInfo typeInfo = runtime.newTypeInfo(currentMethod, simpleName, index);
+        elementStack.put(simpleName, typeInfo);
         continueType(typeInfo, localType);
         typeInfo.builder()
                 .setAccess(runtime.accessPrivate())
                 .commit();
-        elementStack.put(simpleName, typeInfo);
         return runtime.newLocalTypeDeclarationBuilder()
                 .setLabel(statementLabels.get(localType))
                 .setTypeInfo(typeInfo)
