@@ -38,7 +38,7 @@ public class TestGetSet extends CommonTest {
             import java.util.ArrayList;
             import java.util.List;
             class X {
-                record R(int i) {}
+                static class R { int i; int i() { return i; } }
                 Object[] objects = new Object[10];
                 List<String> list = new ArrayList<>();
                 double d;
@@ -62,9 +62,9 @@ public class TestGetSet extends CommonTest {
                 X setO2(int i, Object o) { this.objects[i] = o; return this; }
                 X setO3(Object o) { this.objects[0] = o; return this; } // not @GetSet yet
             
-                void setS(Object o, int i) { list.set(i, o); }
-                X setS2(int i, Object o) { this.list.set(i, o); return this; }
-                X setS3(Object o) { this.list.set(0, o); return this; } // not @GetSet yet
+                void setS(Object o, int i) { list.set(i, (String)o); }
+                X setS2(int i, Object o) { this.list.set(i, (String)o); return this; }
+                X setS3(Object o) { this.list.set(0, (String)o); return this; } // not @GetSet yet
             
                 void setD(double d) { this.d = d; }
                 void setRI(int i) { this.r.i = i; }
@@ -84,7 +84,7 @@ public class TestGetSet extends CommonTest {
     @DisplayName("getters and setters")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
@@ -188,13 +188,13 @@ public class TestGetSet extends CommonTest {
     @DisplayName("create variables for @GetSet access")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
         MethodInfo setAdd = X.findUniqueMethod("setAdd", 1);
         {
-            Statement s0 = setAdd.methodBody().statements().get(0);
+            Statement s0 = setAdd.methodBody().statements().getFirst();
             VariableData vdSetAdd0 = VariableDataImpl.of(s0);
             //FIXME do we expect r.i to be known?
             assertEquals("a.b.X.R.set#a.b.X.setAdd(a.b.X.R):0:r, a.b.X.setAdd(a.b.X.R):0:r",
@@ -237,41 +237,41 @@ public class TestGetSet extends CommonTest {
     @DisplayName("create variables for @GetSet access, recursion")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
         MethodInfo getF = X.findUniqueMethod("getF", 1);
         {
-            Statement s0 = getF.methodBody().statements().get(0);
+            Statement s0 = getF.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             assertEquals("""
-                            a.b.X.Pair.f#a.b.X.getF(a.b.X.Pair<F,G>):0:pair, \
-                            a.b.X.getF(a.b.X.Pair<F,G>), \
-                            a.b.X.getF(a.b.X.Pair<F,G>):0:pair\
+                            a.b.X.Pair.f#a.b.X.getF(a.b.X.Pair):0:pair, \
+                            a.b.X.getF(a.b.X.Pair), \
+                            a.b.X.getF(a.b.X.Pair):0:pair\
                             """,
                     vd0.knownVariableNamesToString());
         }
         MethodInfo getF2 = X.findUniqueMethod("getF2", 1);
         {
-            Statement s0 = getF2.methodBody().statements().get(0);
+            Statement s0 = getF2.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             assertEquals("""
-                            a.b.X.Pair.f#a.b.X.getF2(a.b.X.Pair<F,G>):0:pair, \
-                            a.b.X.getF2(a.b.X.Pair<F,G>), \
-                            a.b.X.getF2(a.b.X.Pair<F,G>):0:pair\
+                            a.b.X.Pair.f#a.b.X.getF2(a.b.X.Pair):0:pair, \
+                            a.b.X.getF2(a.b.X.Pair), \
+                            a.b.X.getF2(a.b.X.Pair):0:pair\
                             """,
                     vd0.knownVariableNamesToString());
         }
 
         MethodInfo bnn = X.findUniqueMethod("bothNotNull", 1);
         {
-            Statement s0 = bnn.methodBody().statements().get(0);
+            Statement s0 = bnn.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             assertEquals("""
-                            a.b.X.Pair.f#a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R<X,Y>):0:r, \
-                            a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R<X,Y>):0:r, \
-                            a.b.X.bothNotNull(a.b.X.R<X,Y>):0:r, \
+                            a.b.X.Pair.f#a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R):0:r, \
+                            a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R):0:r, \
+                            a.b.X.bothNotNull(a.b.X.R):0:r, \
                             x\
                             """,
                     vd0.knownVariableNamesToString());
@@ -280,10 +280,10 @@ public class TestGetSet extends CommonTest {
             Statement s1 = bnn.methodBody().statements().get(1);
             VariableData vd1 = VariableDataImpl.of(s1);
             assertEquals("""
-                            a.b.X.Pair.f#a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R<X,Y>):0:r, \
-                            a.b.X.Pair.g#a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R<X,Y>):0:r, \
-                            a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R<X,Y>):0:r, \
-                            a.b.X.bothNotNull(a.b.X.R<X,Y>):0:r, \
+                            a.b.X.Pair.f#a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R):0:r, \
+                            a.b.X.Pair.g#a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R):0:r, \
+                            a.b.X.R.pair#a.b.X.bothNotNull(a.b.X.R):0:r, \
+                            a.b.X.bothNotNull(a.b.X.R):0:r, \
                             x, y\
                             """,
                     vd1.knownVariableNamesToString());
@@ -328,7 +328,7 @@ public class TestGetSet extends CommonTest {
     @DisplayName("array accessor, variable must exist")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
@@ -361,7 +361,7 @@ public class TestGetSet extends CommonTest {
     @DisplayName("list accessor")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse(ABX, INPUT5);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
@@ -394,7 +394,7 @@ public class TestGetSet extends CommonTest {
     @DisplayName("list accessor, arrayList")
     @Test
     public void test5b() {
-        TypeInfo X = javaInspector.parse(INPUT5b);
+        TypeInfo X = javaInspector.parse(ABX, INPUT5b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
@@ -429,15 +429,15 @@ public class TestGetSet extends CommonTest {
     @DisplayName("return list.subList(0, 10).get(index)")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse(ABX, INPUT6);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
         MethodInfo get = X.findUniqueMethod("get", 2);
         VariableData vdLast = VariableDataImpl.of(get.methodBody().lastStatement());
         assertEquals("""
-                a.b.X.get(java.util.List<T>,int), a.b.X.get(java.util.List<T>,int):0:list, \
-                a.b.X.get(java.util.List<T>,int):1:i\
+                a.b.X.get(java.util.List,int), a.b.X.get(java.util.List,int):0:list, \
+                a.b.X.get(java.util.List,int):1:i\
                 """, vdLast.knownVariableNamesToString());
     }
 
@@ -453,7 +453,7 @@ public class TestGetSet extends CommonTest {
                     for(T t: listIn) {
                         List<S> list = stringMap.get(t);
                         if(!list.isEmpty()) {
-                            S s = list.get(0);
+                            S s = list.getFirst();
                             resultMap.put(t, s);
                         }
                     }
@@ -468,7 +468,7 @@ public class TestGetSet extends CommonTest {
     @DisplayName("get/set variable should disappear after merge")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse(ABX, INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
@@ -480,8 +480,8 @@ public class TestGetSet extends CommonTest {
 
         VariableData vd10101 = VariableDataImpl.of(s10101);
         assertEquals("""
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listIn, \
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
+                a.b.X.get(java.util.List,java.util.Map):0:listIn, \
+                a.b.X.get(java.util.List,java.util.Map):1:stringMap, \
                 list, resultMap, s, t\
                 """, vd10101.knownVariableNamesToString());
         VariableInfo vi101010list = vd10101.variableInfo("list");
@@ -489,23 +489,23 @@ public class TestGetSet extends CommonTest {
 
         VariableData vd101 = VariableDataImpl.of(s101);
         assertEquals("""
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listIn, \
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
+                a.b.X.get(java.util.List,java.util.Map):0:listIn, \
+                a.b.X.get(java.util.List,java.util.Map):1:stringMap, \
                 list, resultMap, t\
                 """, vd101.knownVariableNamesToString());
 
         VariableData vd1 = VariableDataImpl.of(s1);
         assertEquals("""
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listIn, \
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
+                a.b.X.get(java.util.List,java.util.Map):0:listIn, \
+                a.b.X.get(java.util.List,java.util.Map):1:stringMap, \
                 resultMap, t\
                 """, vd1.knownVariableNamesToString());
 
         VariableData vdLast = VariableDataImpl.of(get.methodBody().lastStatement());
         assertEquals("""
-                        a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>), \
-                        a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listIn, \
-                        a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
+                        a.b.X.get(java.util.List,java.util.Map), \
+                        a.b.X.get(java.util.List,java.util.Map):0:listIn, \
+                        a.b.X.get(java.util.List,java.util.Map):1:stringMap, \
                         resultMap\
                         """,
                 vdLast.knownVariableNamesToString());
@@ -523,7 +523,7 @@ public class TestGetSet extends CommonTest {
                     for(T t: listB) {
                         List<S> listC = stringMap.get(t);
                         if(!listC.isEmpty()) {
-                            S s = listC.get(0);
+                            S s = listC.getFirst();
                             resultMap.put(t, s);
                         }
                     }
@@ -538,7 +538,7 @@ public class TestGetSet extends CommonTest {
     @DisplayName("get/set variable should disappear after merge; list is local")
     @Test
     public void test8() {
-        TypeInfo X = javaInspector.parse(INPUT8);
+        TypeInfo X = javaInspector.parse(ABX, INPUT8);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
@@ -550,30 +550,30 @@ public class TestGetSet extends CommonTest {
 
         VariableData vd10101 = VariableDataImpl.of(s10101);
         assertEquals("""
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listA, \
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
+                a.b.X.get(java.util.List,java.util.Map):0:listA, \
+                a.b.X.get(java.util.List,java.util.Map):1:stringMap, \
                 listB, listC, resultMap, s, t\
                 """, vd10101.knownVariableNamesToString());
 
         VariableData vd101 = VariableDataImpl.of(s101);
         assertEquals("""
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listA, \
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
+                a.b.X.get(java.util.List,java.util.Map):0:listA, \
+                a.b.X.get(java.util.List,java.util.Map):1:stringMap, \
                 listB, listC, resultMap, t\
                 """, vd101.knownVariableNamesToString());
 
         VariableData vd1 = VariableDataImpl.of(s1);
         assertEquals("""
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listA, \
-                a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
+                a.b.X.get(java.util.List,java.util.Map):0:listA, \
+                a.b.X.get(java.util.List,java.util.Map):1:stringMap, \
                 listB, resultMap, t\
                 """, vd1.knownVariableNamesToString());
 
         VariableData vdLast = VariableDataImpl.of(get.methodBody().lastStatement());
         assertEquals("""
-                        a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>), \
-                        a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):0:listA, \
-                        a.b.X.get(java.util.List<T>,java.util.Map<T,java.util.List<S>>):1:stringMap, \
+                        a.b.X.get(java.util.List,java.util.Map), \
+                        a.b.X.get(java.util.List,java.util.Map):0:listA, \
+                        a.b.X.get(java.util.List,java.util.Map):1:stringMap, \
                         listB, resultMap\
                         """,
                 vdLast.knownVariableNamesToString());

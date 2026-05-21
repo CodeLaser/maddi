@@ -67,7 +67,7 @@ public class TestGetSet2 extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("X", INPUT1);
         new PrepAnalyzer(runtime).doPrimaryType(X);
         MethodInfo method = X.findUniqueMethod("method", 1);
 
@@ -117,7 +117,7 @@ public class TestGetSet2 extends CommonTest {
     @DisplayName("getters in record")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("X", INPUT2);
         new PrepAnalyzer(runtime).doPrimaryType(X);
         assertTrue(X.typeNature().isRecord());
         MethodInfo k = X.findUniqueMethod("k", 0);
