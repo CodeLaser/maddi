@@ -62,9 +62,9 @@ public class TestGetSet extends CommonTest {
                 X setO2(int i, Object o) { this.objects[i] = o; return this; }
                 X setO3(Object o) { this.objects[0] = o; return this; } // not @GetSet yet
             
-                void setS(Object o, int i) { list.set(i, (String)o); }
-                X setS2(int i, Object o) { this.list.set(i, (String)o); return this; }
-                X setS3(Object o) { this.list.set(0, (String)o); return this; } // not @GetSet yet
+                void setS(String o, int i) { list.set(i, o); }
+                X setS2(int i, String o) { this.list.set(i, o); return this; }
+                X setS3(String o) { this.list.set(0, o); return this; } // not @GetSet yet
             
                 void setD(double d) { this.d = d; }
                 void setRI(int i) { this.r.i = i; }
@@ -302,7 +302,7 @@ public class TestGetSet extends CommonTest {
                     @GetSet("variables") Object variable(int i);
                 }
                 record RI(Function<String,Integer> function, Object[] variables) implements R {
-                    Object variable(int i) { return variables[i]; }
+                    public Object variable(int i) { return variables[i]; }
                 }
                 static class Builder {
                     Function<String,Integer> function;

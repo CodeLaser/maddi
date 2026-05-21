@@ -90,7 +90,7 @@ public record CreateSyntheticFieldsForGetSet(Runtime runtime) {
     }
 
     public static final String LIST_GET = "java.util.List.get(int)";
-    public static final String LIST_SET = "java.util.List.set(int,E)";
+    public static final String LIST_SET = "java.util.List.set(int,Object)";
 
     public static boolean isList(MethodInfo methodInfo) {
         return overrideOf(methodInfo, LIST_GET) || overrideOf(methodInfo, LIST_SET);
