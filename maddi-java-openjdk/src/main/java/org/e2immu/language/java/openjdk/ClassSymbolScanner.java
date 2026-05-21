@@ -46,6 +46,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
     private final Map<String, SourceSet> sourceSetMap;
     private final Map<String, SourceSet> sourceSetDirPrefixes;
+    private final ComputeMethodOverrides computeMethodOverrides;
 
     private final Map<String, Info> previouslyLoaded; // Javac qualified name -> typeInfo, methodInfo, fieldInfo
     private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
@@ -78,6 +79,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.previouslyLoaded = previouslyLoaded;
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
+
+        this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
 
         predefinedTypes.put("String", runtime.stringTypeInfo());
         predefinedTypes.put("Object", runtime.objectTypeInfo());
@@ -317,10 +320,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         boolean alwaysLoad = loadMode == LoadMode.LOAD_MEMBERS || loadMode == LoadMode.COMPLETE_SUB;
         if (member instanceof Symbol.MethodSymbol ms && ms.owner == owner) {
             // the check for JLO is actually only for the clone() method
-            boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0 || typeInfo.isJavaLangObject();
+            boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0
+                               || ms.params.isEmpty() && ms.name.toString().equals("clone");
             if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))) {
                 addMethodToType(typeInfo, ms, false);
             }
+
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
             boolean isPublic = (vs.flags() & Flags.PUBLIC) != 0;
             if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))) {
@@ -397,8 +402,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
         }
         ParameterizedType returnType = convert(ms.getReturnType());
+        List<MethodInfo> overrides = computeMethodOverrides
+                .findOverriddenMethods(ms)
+                .stream().map(this::getOrLoadMethod)
+                .toList();
         builder.setReturnType(returnType)
                 .setMethodBody(runtime.emptyBlock())
+                .addOverrides(overrides)
                 .commitParameters();
         // now the fully qualified name has been computed...
 
@@ -729,8 +739,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     Symbol.MethodSymbol theMethod(Symbol.MethodSymbol methodSymbol) {
-        if (methodSymbol.baseSymbol() instanceof Symbol.MethodSymbol ms) {
-            return ms;
+        boolean isDefault = (methodSymbol.flags() & Flags.DEFAULT) != 0;
+        if (!isDefault && methodSymbol.baseSymbol() instanceof Symbol.MethodSymbol baseSymbol) {
+            return baseSymbol;
         }
         return methodSymbol;
     }
