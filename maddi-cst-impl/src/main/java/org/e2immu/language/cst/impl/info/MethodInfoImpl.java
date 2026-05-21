@@ -85,6 +85,11 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     }
 
     @Override
+    public boolean hasBeenInspected() {
+        return inspection.isFinal();
+    }
+
+    @Override
     public String info() {
         return "method";
     }

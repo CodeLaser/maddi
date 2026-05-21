@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import org.e2immu.language.inspection.api.util.RecordSynthetics;
 import org.e2immu.util.internal.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
@@ -63,6 +64,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private final Types types;
     private final Elements elements;
     private final ComputeMethodOverrides computeMethodOverrides;
+    private final CreateSyntheticFieldsForGetSet createSyntheticFieldsForGetSet;
 
     ScanCompilationUnit(Runtime runtime,
                         TypeData typeData,
@@ -89,6 +91,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         this.elements = elements;
         this.flagHelper = flagHelper;
         this.computeMethodOverrides = computeMethodOverrides;
+        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
+
         convertType = classSymbolScanner;
         convertType.startCompilationUnit(this, elementStack);
     }
@@ -181,11 +185,34 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (node.getModule() != null) {
                 scan(node.getModule(), null);
             }
+            for (TypeInfo primary : collectedPrimaryTypes) {
+                recursivelyCommit(primary);
+            }
             compilationUnit.setTypes(collectedPrimaryTypes);
             return null;
         } catch (RuntimeException re) {
             LOGGER.error("Caught exception in compilation unit {}", compilationUnit);
             throw re;
+        }
+    }
+
+    private void recursivelyCommit(TypeInfo typeInfo) {
+        for (FieldInfo fieldInfo : typeInfo.fields()) {
+            if (!fieldInfo.hasBeenInspected()) {
+                if (fieldInfo.builder().initializer() == null) {
+                    fieldInfo.builder().setInitializer(runtime.newEmptyExpression());
+                }
+                fieldInfo.builder().commit();
+            }
+        }
+        for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
+            if (!methodInfo.hasBeenInspected()) {
+                methodInfo.builder().commit();
+                assert methodInfo.parameters().stream().allMatch(Info::hasBeenInspected);
+            }
+        }
+        for (TypeInfo enclosed : typeInfo.subTypes()) {
+            recursivelyCommit(enclosed);
         }
     }
 
@@ -329,6 +356,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
         MethodInfo singleAbstractMethod = convertType.computeSAM(jcClassDecl.type);
         typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
+
+        if (typeInfo.typeNature().isInterface() || typeInfo. typeNature().isClass() && typeInfo.builder().isAbstract()) {
+            createSyntheticFieldsForGetSet.createSyntheticFields(typeInfo);
+        }
 
         Source source = sourceForNode(jcClassDecl, dsb);
         typeInfo.builder()

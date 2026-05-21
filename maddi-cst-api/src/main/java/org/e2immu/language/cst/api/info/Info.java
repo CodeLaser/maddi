@@ -27,6 +27,8 @@ import java.util.stream.Stream;
 
 public interface Info extends Element {
 
+    boolean hasBeenInspected();
+
     String info();
 
     Access access();

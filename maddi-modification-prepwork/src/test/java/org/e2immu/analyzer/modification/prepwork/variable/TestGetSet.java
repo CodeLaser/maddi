@@ -189,6 +189,12 @@ public class TestGetSet extends CommonTest {
     @Test
     public void test2() {
         TypeInfo X = javaInspector.parse(ABX, INPUT2);
+        TypeInfo R = X.findSubType("R");
+        MethodInfo set = R.findUniqueMethod("set", 0);
+        assertEquals("[@GetSet]", set.annotations().toString());
+        FieldInfo syntheticSet = R.getFieldByName("set", true);
+        assertTrue(syntheticSet.isSynthetic());
+
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 
