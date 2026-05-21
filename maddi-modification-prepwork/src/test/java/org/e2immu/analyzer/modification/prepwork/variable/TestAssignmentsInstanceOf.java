@@ -48,11 +48,11 @@ public class TestAssignmentsInstanceOf extends CommonTest {
     @DisplayName("positive instanceof")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("X", INPUT1);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
         MethodInfo method = X.findUniqueMethod("method", 1);
-        IfElseStatement ifElse = (IfElseStatement) method.methodBody().statements().get(0);
+        IfElseStatement ifElse = (IfElseStatement) method.methodBody().statements().getFirst();
         VariableData vd0 = VariableDataImpl.of(ifElse);
         assertEquals("X.method(Exception), X.method(Exception):0:exception, e, java.lang.System.out",
                 vd0.knownVariableNamesToString());
@@ -60,14 +60,14 @@ public class TestAssignmentsInstanceOf extends CommonTest {
         assertEquals("D:0-E, A:[0-E]", vi0.assignments().toString());
         assertEquals("Type RuntimeException", vi0.variable().parameterizedType().toString());
 
-        VariableData vd000 = VariableDataImpl.of(ifElse.block().statements().get(0));
+        VariableData vd000 = VariableDataImpl.of(ifElse.block().statements().getFirst());
         assertEquals("X.method(Exception), X.method(Exception):0:exception, e",
                 vd000.knownVariableNamesToString());
         VariableInfo vi000 = vd0.variableInfo("e");
         assertEquals("D:0-E, A:[0-E]", vi000.assignments().toString());
         assertEquals("Type RuntimeException", vi000.variable().parameterizedType().toString());
 
-        VariableData vd010 = VariableDataImpl.of(ifElse.elseBlock().statements().get(0));
+        VariableData vd010 = VariableDataImpl.of(ifElse.elseBlock().statements().getFirst());
         assertEquals("X.method(Exception):0:exception, e", vd010.knownVariableNamesToString());
         VariableInfo vi010 = vd010.variableInfo("e");
         assertEquals("D:0.1.0, A:[0.1.0]", vi010.assignments().toString());
@@ -98,11 +98,11 @@ public class TestAssignmentsInstanceOf extends CommonTest {
     @DisplayName("negative instanceof")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("X", INPUT2);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
         MethodInfo method = X.findUniqueMethod("method", 1);
-        IfElseStatement ifElse = (IfElseStatement) method.methodBody().statements().get(0);
+        IfElseStatement ifElse = (IfElseStatement) method.methodBody().statements().getFirst();
         VariableData vd0 = VariableDataImpl.of(ifElse);
         assertEquals("X.method(Exception), X.method(Exception):0:exception, e, java.lang.System.out",
                 vd0.knownVariableNamesToString());
@@ -110,7 +110,7 @@ public class TestAssignmentsInstanceOf extends CommonTest {
         assertEquals("D:0-E, A:[0-E]", vi0.assignments().toString());
         assertEquals("Type RuntimeException", vi0.variable().parameterizedType().toString());
 
-        VariableData vd010 = VariableDataImpl.of(ifElse.elseBlock().statements().get(0));
+        VariableData vd010 = VariableDataImpl.of(ifElse.elseBlock().statements().getFirst());
         assertEquals("X.method(Exception), X.method(Exception):0:exception, e",
                 vd010.knownVariableNamesToString());
         VariableInfo vi010 = vd0.variableInfo("e");
@@ -148,7 +148,7 @@ public class TestAssignmentsInstanceOf extends CommonTest {
     @DisplayName("instanceof, negative part")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("X", INPUT3);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
         MethodInfo method = X.findUniqueMethod("method", 3);
@@ -194,7 +194,7 @@ public class TestAssignmentsInstanceOf extends CommonTest {
     @DisplayName("instanceof, negative part; re-use variable name")
     @Test
     public void test3b() {
-        TypeInfo X = javaInspector.parse(INPUT3b);
+        TypeInfo X = javaInspector.parse("X", INPUT3b);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
     }
