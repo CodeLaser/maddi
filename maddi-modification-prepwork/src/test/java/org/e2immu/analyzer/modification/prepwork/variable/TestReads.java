@@ -67,14 +67,14 @@ public class TestReads extends CommonTest {
     @DisplayName("nested while, array access")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("arrayIndexOf", 3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
-        IfElseStatement ie0 = (IfElseStatement) method.methodBody().statements().get(0);
+        IfElseStatement ie0 = (IfElseStatement) method.methodBody().statements().getFirst();
         Statement outerWhile = ie0.elseBlock().statements().get(2);
-        WhileStatement innerWhile = (WhileStatement) outerWhile.block().statements().get(0).block().statements().get(1);
-        IfElseStatement ieInInner = (IfElseStatement) innerWhile.block().statements().get(0);
+        WhileStatement innerWhile = (WhileStatement) outerWhile.block().statements().getFirst().block().statements().get(1);
+        IfElseStatement ieInInner = (IfElseStatement) innerWhile.block().statements().getFirst();
         VariableData vd = VariableDataImpl.of(ieInInner);
         ParameterInfo fromIndex = method.parameters().get(2);
         VariableInfo viFromIndex = vd.variableInfo(fromIndex);
@@ -87,7 +87,7 @@ public class TestReads extends CommonTest {
             package a.b;
             import java.util.Arrays;
             public class X {
-                public static float method(float[] array, float f) {
+                public static float method(Float[] array, float f) {
                    return Arrays.stream(array).filter(v -> {
                        System.out.println("in filter, value "+v);
                        return v == f;
@@ -99,7 +99,7 @@ public class TestReads extends CommonTest {
     @DisplayName("reads in lambdas")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
@@ -113,7 +113,7 @@ public class TestReads extends CommonTest {
         MethodCall mc1 = (MethodCall) returnStatement.expression();
         MethodCall mc2 = (MethodCall) mc1.object();
         MethodCall mc3 = (MethodCall) mc2.object();
-        Lambda lambda = (Lambda) mc3.parameterExpressions().get(0);
+        Lambda lambda = (Lambda) mc3.parameterExpressions().getFirst();
         MethodInfo test = lambda.methodInfo();
         Statement return2 = test.methodBody().lastStatement();
 
@@ -125,7 +125,8 @@ public class TestReads extends CommonTest {
     @Language("java")
     private static final String INPUT3 = """
             package a.b;
-            import java.util.Arrays;import java.util.function.Predicate;
+            import java.util.Arrays;
+            import java.util.function.Predicate;
             public class X {
                 static class Auto implements AutoCloseable {
                     Auto(float f) { }
@@ -133,7 +134,7 @@ public class TestReads extends CommonTest {
                     public void close() {
                     }
                 }
-                public static float method(float[] array, float f) {
+                public static float method(Float[] array, float f) {
                     try(Auto a = new Auto(f)) {
                        return Arrays.stream(array).filter(new Predicate<Float>() {
                            @Override
@@ -153,7 +154,7 @@ public class TestReads extends CommonTest {
     @DisplayName("reads in anonymous type + try/resource")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
@@ -167,7 +168,7 @@ public class TestReads extends CommonTest {
         MethodCall mc1 = (MethodCall) returnStatement.expression();
         MethodCall mc2 = (MethodCall) mc1.object();
         MethodCall mc3 = (MethodCall) mc2.object();
-        ConstructorCall cc = (ConstructorCall) mc3.parameterExpressions().get(0);
+        ConstructorCall cc = (ConstructorCall) mc3.parameterExpressions().getFirst();
         MethodInfo test = cc.anonymousClass().findUniqueMethod("internalEquals", 1);
         Statement return2 = test.methodBody().lastStatement();
 
@@ -205,11 +206,11 @@ public class TestReads extends CommonTest {
     @DisplayName("variant with LVC, that fails")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("X", INPUT4);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
         MethodInfo find = X.findUniqueMethod("find", 1);
-        ParameterInfo sourceDirectory = find.parameters().get(0);
+        ParameterInfo sourceDirectory = find.parameters().getFirst();
         Statement last = find.methodBody().lastStatement();
         VariableData vdLast = VariableDataImpl.of(last);
         VariableInfo viSd = vdLast.variableInfo(sourceDirectory);
@@ -272,7 +273,7 @@ public class TestReads extends CommonTest {
     @DisplayName("copyReadsFromAnonymousMethod for field initializer 'true'")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("X", INPUT5);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
     }

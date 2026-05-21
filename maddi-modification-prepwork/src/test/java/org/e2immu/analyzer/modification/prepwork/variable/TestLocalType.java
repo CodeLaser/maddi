@@ -34,7 +34,7 @@ public class TestLocalType extends CommonTest {
                 A make(String t) {
                     final class C implements A {
                         @Override
-                        void method(String s) {
+                        public void method(String s) {
                             System.out.println(s+t);
                         }
                     }
@@ -45,7 +45,7 @@ public class TestLocalType extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
 

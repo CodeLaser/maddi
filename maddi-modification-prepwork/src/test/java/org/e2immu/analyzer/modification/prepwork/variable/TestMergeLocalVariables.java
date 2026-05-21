@@ -60,7 +60,7 @@ public class TestMergeLocalVariables extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(B);
 
@@ -92,7 +92,7 @@ public class TestMergeLocalVariables extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo B = javaInspector.parse(INPUT2);
+        TypeInfo B = javaInspector.parse("X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(B);
     }
