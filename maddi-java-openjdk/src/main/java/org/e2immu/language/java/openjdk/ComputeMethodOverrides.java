@@ -1,5 +1,6 @@
 package org.e2immu.language.java.openjdk;
 
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -27,6 +28,15 @@ public record ComputeMethodOverrides(Types types, Elements elements) {
                 if (!(member instanceof Symbol.MethodSymbol candidate)) continue;
                 if (candidate.isStatic()) continue;
                 if (!candidate.name.equals(method.name)) continue;
+
+                // Skip bridge methods in supertypes — they are artifacts,
+                // not real declarations. The real method will also appear
+                // in the same class's members and will be found separately.
+                if ((candidate.flags() & Flags.BRIDGE) != 0) continue;
+
+                // Skip synthetic methods — covers GENERATEDCONSTR and
+                // other javac-inserted methods that aren't source declarations
+                if ((candidate.flags() & Flags.SYNTHETIC) != 0) continue;
 
                 // Elements.overrides() handles generic methods correctly
                 if (elements.overrides(method, candidate, owner)) {
