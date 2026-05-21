@@ -397,9 +397,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
         }
         ParameterizedType returnType = convert(ms.getReturnType());
-        builder.setReturnType(returnType);
-
-        builder.commitParameters();
+        builder.setReturnType(returnType)
+                .setMethodBody(runtime.emptyBlock())
+                .commitParameters();
         // now the fully qualified name has been computed...
 
         clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());

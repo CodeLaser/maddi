@@ -38,6 +38,7 @@ import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_W
 import static org.e2immu.language.inspection.integration.JavaInspectorImpl.TEST_PROTOCOL_PREFIX;
 
 public class CommonTest2 {
+    protected static final String ABX = "a.b.X";
     protected JavaInspector javaInspector;
     protected Runtime runtime;
     protected Summary summary;

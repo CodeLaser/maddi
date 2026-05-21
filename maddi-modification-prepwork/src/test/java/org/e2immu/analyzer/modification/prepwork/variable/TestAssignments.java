@@ -26,9 +26,6 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAssignments extends CommonTest {
@@ -59,7 +56,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("basics")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -134,7 +131,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("for-loop, local definition")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -190,7 +187,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("nested for-loops, local definition")
     @Test
     public void test2b() {
-        TypeInfo X = javaInspector.parse(INPUT2b);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2b);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -249,7 +246,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("forEach")
     @Test
     public void test2c() {
-        TypeInfo X = javaInspector.parse(INPUT2c);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2c);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -300,7 +297,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("re-use of variables")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -390,7 +387,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("complex example with nested while-loops")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("X", INPUT4);
         MethodInfo method = X.findUniqueMethod("quickSort", 3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -454,7 +451,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("exit, not all if-else branches")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse(ABX, INPUT5);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -495,7 +492,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("exit, all if-else branches covered")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse(ABX, INPUT6, ALLOW_COMPILATION_ERRORS);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -534,7 +531,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("exit, synchronized")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse(ABX, INPUT7, ALLOW_COMPILATION_ERRORS);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -572,7 +569,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("exit, while(true)")
     @Test
     public void test8() {
-        TypeInfo X = javaInspector.parse(INPUT8);
+        TypeInfo X = javaInspector.parse(ABX, INPUT8, ALLOW_COMPILATION_ERRORS);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -611,7 +608,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("exit, while(real condition)")
     @Test
     public void test8b() {
-        TypeInfo X = javaInspector.parse(INPUT8b);
+        TypeInfo X = javaInspector.parse(ABX, INPUT8b);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -649,7 +646,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("simple re-assigns")
     @Test
     public void test9() {
-        TypeInfo X = javaInspector.parse(INPUT9);
+        TypeInfo X = javaInspector.parse(ABX, INPUT9);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -691,22 +688,10 @@ public class TestAssignments extends CommonTest {
             }
             """;
 
-    public static String method10(Exception exception) {
-        if (exception instanceof RuntimeException e) {
-            return e.getMessage();
-        } else if (exception instanceof FileNotFoundException e) {
-            return "io" + e.getMessage();
-        }
-        if (exception instanceof IOException e) {
-            return "uoe" + e;
-        }
-        return "?";
-    }
-
     @DisplayName("restriction of pattern variables")
     @Test
     public void test10() {
-        TypeInfo X = javaInspector.parse(INPUT10);
+        TypeInfo X = javaInspector.parse(ABX, INPUT10);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -732,22 +717,11 @@ public class TestAssignments extends CommonTest {
             }
             """;
 
-    public static String method11(Exception exception) {
-        if (!(exception instanceof RuntimeException e) || e.getMessage().isEmpty()) {
-            if (exception instanceof IOException e) return "io" + e.getMessage();
-        } else {
-            return e.getMessage();
-        }
-        if (exception instanceof UnsupportedOperationException e) {
-            return "uoe" + e;
-        }
-        return "?";
-    }
 
     @DisplayName("restriction of pattern variables, negative")
     @Test
     public void test11() {
-        TypeInfo X = javaInspector.parse(INPUT11);
+        TypeInfo X = javaInspector.parse(ABX, INPUT11);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -756,6 +730,7 @@ public class TestAssignments extends CommonTest {
 
     @Language("java")
     public static final String INPUT12 = """
+            package a.b;
             import java.util.List;
             class X {
                 private int method(int iIn, int len, List<Integer> list) {
@@ -771,7 +746,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("++ in method call argument")
     @Test
     public void test12() {
-        TypeInfo X = javaInspector.parse(INPUT12);
+        TypeInfo X = javaInspector.parse(ABX, INPUT12);
         MethodInfo method = X.findUniqueMethod("method", 3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -784,6 +759,7 @@ public class TestAssignments extends CommonTest {
 
     @Language("java")
     public static final String INPUT13 = """
+            package a.b;
             import java.util.Random;
             class X {
                 public static int[] getRandomArray(int min, int max, int n) {
@@ -814,7 +790,7 @@ public class TestAssignments extends CommonTest {
     @DisplayName("array element in for-loop")
     @Test
     public void test13() {
-        TypeInfo X = javaInspector.parse(INPUT13);
+        TypeInfo X = javaInspector.parse(ABX, INPUT13);
         MethodInfo method = X.findUniqueMethod("getRandomArray", 3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);

@@ -252,7 +252,7 @@ public class TestCallGraph2 extends CommonTest2 {
 
     @Test
     public void test2() throws IOException {
-        Map<String, String> sourcesByFqn = Map.of("a.b.X", X, "a.b.Y", Y, "d.e.A", A);
+        Map<String, String> sourcesByFqn = Map.of(ABX, X, "a.b.Y", Y, "d.e.A", A);
         R r = init(sourcesByFqn);
 
         assertEquals("""
@@ -322,7 +322,7 @@ public class TestCallGraph2 extends CommonTest2 {
 
     @Test
     public void test4() throws IOException {
-        Map<String, String> sourcesByFqn = Map.of("a.b.X", SOURCE_X, "a.b.Y", SOURCE_Y);
+        Map<String, String> sourcesByFqn = Map.of(ABX, SOURCE_X, "a.b.Y", SOURCE_Y);
         R r = init(sourcesByFqn);
 
         assertEquals("""

@@ -121,6 +121,12 @@ public interface JavaInspector {
         return parseReturnAll(input, "main", failFast()).getFirst();
     }
 
+    // only for testing, uses FAIL_FAST default; OpenJDK/maddi compatible method
+    TypeInfo parse(String fqn, String input);
+
+    // only for testing, OpenJDK/maddi compatible method
+    TypeInfo parse(String fqn, String input, ParseOptions parseOptions);
+
     // only for testing, uses FAIL_FAST default
     default TypeInfo parse(String input, String inputName, String sourceSetName) {
         return parseReturnAll(input, inputName, sourceSetName, failFast()).getFirst();

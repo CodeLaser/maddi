@@ -534,6 +534,15 @@ public class JavaInspectorImpl implements JavaInspector {
         return new InputStreamReader(uri.toURL().openStream(), charset);
     }
 
+    @Override
+    public TypeInfo parse(String fqn, String input) {
+        return parse(input);
+    }
+
+    @Override
+    public TypeInfo parse(String fqn, String input, ParseOptions parseOptions) {
+       return parse(input, parseOptions);
+    }
 
     @Override
     public Summary parse(Map<String, String> sourcesByTestProtocolURIString, ParseOptions parseOptions) {

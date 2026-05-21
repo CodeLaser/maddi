@@ -79,14 +79,14 @@ public class TestAssignmentsSwitch extends CommonTest {
     @DisplayName("clean old-style switch")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         test1Code(X);
     }
 
     @DisplayName("clean old-style switch, unnecessary break after default")
     @Test
     public void test1b() {
-        TypeInfo X = javaInspector.parse(INPUT1b);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1b);
         test1Code(X);
     }
 
@@ -101,12 +101,12 @@ public class TestAssignmentsSwitch extends CommonTest {
 
         VariableInfo inVi = vdMethod.variableInfo(method.parameters().get(0).fullyQualifiedName());
         assertEquals("c", inVi.variable().simpleName());
-        assertEquals("1-E", inVi.reads().toString()); 
+        assertEquals("1-E", inVi.reads().toString());
         assertEquals("D:-, A:[]", inVi.assignments().toString());
 
         VariableInfo bVi = vdMethod.variableInfo(method.parameters().get(1).fullyQualifiedName());
         assertEquals("b", bVi.variable().simpleName());
-        assertEquals("1.0.0-E", bVi.reads().toString()); 
+        assertEquals("1.0.0-E", bVi.reads().toString());
         assertEquals("D:-, A:[]", bVi.assignments().toString());
 
         VariableInfo iVi = vdMethod.variableInfo("i");
@@ -150,7 +150,7 @@ public class TestAssignmentsSwitch extends CommonTest {
     @DisplayName("clean old-style switch, break hidden in if-statement")
     @Test
     public void test1c() {
-        TypeInfo X = javaInspector.parse(INPUT1c);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1c, ALLOW_COMPILATION_ERRORS);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -160,7 +160,7 @@ public class TestAssignmentsSwitch extends CommonTest {
                 vdMethod.knownVariableNamesToString());
 
         VariableInfo iVi = vdMethod.variableInfo("i");
-        assertEquals("2", iVi.reads().toString()); 
+        assertEquals("2", iVi.reads().toString());
         assertEquals("D:0, A:[1.0.0.0.0, 1.0.0.1.0, 1.0.0=M, 1.0.2]", iVi.assignments().toString());
         assertFalse(iVi.hasBeenDefined("2"));
     }
@@ -191,7 +191,7 @@ public class TestAssignmentsSwitch extends CommonTest {
     @DisplayName("clean old-style switch, break and return")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -201,7 +201,7 @@ public class TestAssignmentsSwitch extends CommonTest {
                 vdMethod.knownVariableNamesToString());
 
         VariableInfo iVi = vdMethod.variableInfo("i");
-        assertEquals("2", iVi.reads().toString()); 
+        assertEquals("2", iVi.reads().toString());
         assertEquals("D:0, A:[1.0.0.0.0, 1.0.0.1.0, 1.0.0=M, 1.0.3, 1=M]", iVi.assignments().toString());
         assertTrue(iVi.hasBeenDefined("2"));
     }
@@ -231,7 +231,7 @@ public class TestAssignmentsSwitch extends CommonTest {
     @DisplayName("old-style switch with irrelevant fall-through")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -239,7 +239,7 @@ public class TestAssignmentsSwitch extends CommonTest {
         assertNotNull(vdMethod);
 
         VariableInfo iVi = vdMethod.variableInfo("i");
-        assertEquals("2", iVi.reads().toString()); 
+        assertEquals("2", iVi.reads().toString());
         assertEquals("D:0, A:[1.0.0.0.0, 1.0.0.1.0, 1.0.0=M, 1.0.3, 1=M]", iVi.assignments().toString());
         assertTrue(iVi.hasBeenDefined("2"));
     }
@@ -268,7 +268,7 @@ public class TestAssignmentsSwitch extends CommonTest {
     @DisplayName("old-style switch with real fall-through and overwrite")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse(ABX, INPUT4, ALLOW_COMPILATION_ERRORS);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -276,7 +276,7 @@ public class TestAssignmentsSwitch extends CommonTest {
         assertNotNull(vdMethod);
 
         VariableInfo iVi = vdMethod.variableInfo("i");
-        assertEquals("2", iVi.reads().toString()); 
+        assertEquals("2", iVi.reads().toString());
         assertEquals("D:0, A:[1.0.0.0.0, 1.0.0.1.0, 1.0.0=M, 1.0.3]", iVi.assignments().toString());
         assertFalse(iVi.hasBeenDefined("2"));
     }
@@ -322,7 +322,7 @@ public class TestAssignmentsSwitch extends CommonTest {
     @DisplayName("nested old-style switches, almost return everywhere")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse(ABX, INPUT5);
         MethodInfo method = X.findUniqueMethod("parse", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -377,7 +377,7 @@ public class TestAssignmentsSwitch extends CommonTest {
     @DisplayName("increments in array indices")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse(ABX, INPUT6);
         MethodInfo method = X.findUniqueMethod("parse", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -398,7 +398,7 @@ public class TestAssignmentsSwitch extends CommonTest {
     public static final String INPUT7 = """
             package a.b;
             class X {
-                 private void method(Exception e) {
+                 private void method(Exception e) throws Exception {
                      switch (e) {
                          case IndexOutOfBoundsException i -> {
                              if (i.getCause() != null) {
@@ -419,13 +419,13 @@ public class TestAssignmentsSwitch extends CommonTest {
 
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse(ABX, INPUT7, ALLOW_COMPILATION_ERRORS);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
         SwitchStatementNewStyle ns = (SwitchStatementNewStyle) method.methodBody().statements().getFirst();
         SwitchEntry se0 = ns.entries().getFirst();
-        IfElseStatement ifElse = (IfElseStatement) ((Block)se0.statement()).statements().getFirst();
+        IfElseStatement ifElse = (IfElseStatement) ((Block) se0.statement()).statements().getFirst();
         VariableData vd = VariableDataImpl.of(ifElse);
         VariableInfoContainer vicI = vd.variableInfoContainerOrNull("i");
         assertTrue(vicI.hasMerge());
