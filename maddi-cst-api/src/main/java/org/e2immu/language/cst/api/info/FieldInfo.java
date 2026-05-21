@@ -30,8 +30,6 @@ public interface FieldInfo extends Info {
 
     PropertyValueMap analysisOfInitializer();
 
-    boolean hasBeenInspected();
-
     default int indexInType() {
         int count = 0;
         for (FieldInfo f : owner().fields()) {

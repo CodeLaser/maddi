@@ -57,6 +57,11 @@ public class ParameterInfoImpl implements ParameterInfo {
     }
 
     @Override
+    public boolean hasBeenInspected() {
+        return inspection.isFinal();
+    }
+
+    @Override
     public boolean isUnnamed() {
         return LocalVariableImpl.UNNAMED.equals(name);
     }

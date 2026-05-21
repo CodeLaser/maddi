@@ -15,6 +15,7 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -53,6 +54,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
     private final Map<String, Map<String, TypeParameter>> tmpMethodTypeParameterMap = new HashMap<>();
+    private final CreateSyntheticFieldsForGetSet createSyntheticFieldsForGetSet;
 
     // not thread-safe: set for each compilation unit
     private SourceProvider sourceProvider;
@@ -81,6 +83,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
 
         this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
+        this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
 
         predefinedTypes.put("String", runtime.stringTypeInfo());
         predefinedTypes.put("Object", runtime.objectTypeInfo());
@@ -222,8 +225,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     addMemberToType(newTypeInfo, cs, member, loadMode);
                 }
 
+
                 MethodInfo singleAbstractMethod = computeSAM(cs.type);
                 newTypeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
+
+                if (newTypeInfo.typeNature().isInterface() || newTypeInfo. typeNature().isClass()
+                                                              && newTypeInfo.builder().isAbstract()) {
+                    createSyntheticFieldsForGetSet.createSyntheticFields(newTypeInfo);
+                }
+
                 newTypeInfo.builder().commit(); // everything loaded!
             }
             recursionPrevention.remove(newTypeInfo);
@@ -369,7 +379,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         MethodInfo method;
         if ("<init>".equals(name)) {
             LOGGER.debug("Adding constructor {} to {}", name, typeInfo);
-            method = runtime.newConstructor(typeInfo);
+            boolean isCompact = (ms.flags() & Flags.COMPACT_RECORD_CONSTRUCTOR) != 0;
+            MethodInfo.MethodType methodType = isCompact ? runtime.methodTypeCompactConstructor()
+                    : runtime.methodTypeConstructor();
+            method = runtime.newConstructor(typeInfo, methodType);
             typeInfo.builder().addConstructor(method);
         } else {
             LOGGER.debug("Adding method {} to {}", name, typeInfo);

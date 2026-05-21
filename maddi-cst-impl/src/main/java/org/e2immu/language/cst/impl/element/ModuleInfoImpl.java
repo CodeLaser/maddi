@@ -64,6 +64,11 @@ public class ModuleInfoImpl extends ElementImpl implements ModuleInfo {
     }
 
     @Override
+    public boolean hasBeenInspected() {
+        return true;
+    }
+
+    @Override
     public String info() {
         return "module";
     }
