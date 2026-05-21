@@ -364,7 +364,12 @@ public class MethodAnalyzer {
         boolean first = true;
         for (Statement statement : block.statements()) {
             try {
-                previous = doStatement(methodInfo, statement, previous, first, iv);
+                if (statement instanceof ExplicitConstructorInvocation eci && eci.isSynthetic()) {
+                    assert methodInfo.isConstructor() && first && eci.isSuper()
+                            : "Expect synthetic super() as first statement in constructors";
+                } else {
+                    previous = doStatement(methodInfo, statement, previous, first, iv);
+                }
                 if (first) first = false;
             } catch (Throwable t) {
                 LOGGER.error("Caught exception in statement {}", statement.source());

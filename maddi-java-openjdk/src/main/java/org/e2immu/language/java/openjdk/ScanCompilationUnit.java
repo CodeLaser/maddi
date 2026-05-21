@@ -452,7 +452,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (methodInfo.isSynthetic() && currentType.typeNature().isRecord()) {
                     for (ParameterInfo pi : methodInfo.parameters()) {
                         FieldInfo field = currentType.getFieldByName(pi.name(), true);
-                        field.builder().setInitializer(runtime.newVariableExpression(pi));
+                        field.builder().setInitializer(runtime.newVariableExpression(pi)).commit();
                     }
                 }
             }
@@ -1057,7 +1057,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     currentExpression = runtime.newEmptyExpression();
                 }
                 if (currentMethod == null) {
-                    // field! FIXME this is wrong for lambdas
+                    // field!
                     long flags = variableDecl.getModifiers().flags;
                     boolean isStatic = (flags & Flags.STATIC) != 0;
                     TypeInfo owner = typeStack.getLast();
@@ -1402,16 +1402,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         ParameterizedType type;
         RecordPattern recordPattern;
         List<AnnotationExpression> annotations = new ArrayList<>();
-        if (jcInstanceOf.pattern instanceof JCTree.JCIdent || jcInstanceOf.pattern instanceof JCTree.JCTypeApply) {
-            type = convertTypeWithAnnotations(jcInstanceOf.pattern, dsb, annotations::add);
-            recordPattern = null;
-        } else if (jcInstanceOf.pattern instanceof JCTree.JCPattern p) {
+        if (jcInstanceOf.pattern instanceof JCTree.JCPattern p) {
             RecordPatternResult rpr = parseRecordPattern(p, dsb, annotations);
             type = rpr.type;
             recordPattern = rpr.rp;
             rpr.newVariables.forEach(lv -> elementStack.put(lv.simpleName(), lv));
         } else {
-            throw new UnsupportedOperationException();
+            type = convertTypeWithAnnotations(jcInstanceOf.pattern, dsb, annotations::add);
+            recordPattern = null;
         }
         currentExpression = runtime.newInstanceOfBuilder()
                 .addAnnotations(annotations)

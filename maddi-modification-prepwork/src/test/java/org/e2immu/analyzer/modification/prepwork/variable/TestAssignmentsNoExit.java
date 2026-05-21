@@ -70,7 +70,7 @@ public class TestAssignmentsNoExit extends CommonTest {
     @DisplayName("complicated example with for(;;) and 2 switches")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("readLine", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);

@@ -77,7 +77,9 @@ public class TestRecordPattern extends CommonTest {
     @Test
     public void test2() {
         TypeInfo X = scan("a.b.X2", INPUT2);
-
+        TypeInfo RI = X.findSubType("RI");
+        FieldInfo t = RI.getFieldByName("t", true);
+        assertTrue(t.hasBeenInspected());
     }
 
     @Language("java")

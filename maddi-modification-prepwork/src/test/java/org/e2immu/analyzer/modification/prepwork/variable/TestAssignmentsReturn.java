@@ -47,7 +47,7 @@ public class TestAssignmentsReturn extends CommonTest {
     @DisplayName("if-else with single return")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);

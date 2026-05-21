@@ -63,12 +63,12 @@ public class TestAssignmentsReuse extends CommonTest {
     @DisplayName("variable is used 2x, with different types")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("connect", 3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
         LocalVariableCreation reader = (LocalVariableCreation) method.methodBody().statements().get(4);
-        Statement if300 = method.methodBody().statements().get(3).block().statements().get(0);
+        Statement if300 = method.methodBody().statements().get(3).block().statements().getFirst();
         VariableData vd300 = VariableDataImpl.of(if300);
         assertFalse(vd300.isKnown("out"));
         Statement mc30003 = if300.block().statements().get(3);

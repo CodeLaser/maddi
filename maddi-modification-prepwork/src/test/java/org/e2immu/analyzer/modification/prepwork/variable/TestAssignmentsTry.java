@@ -55,7 +55,7 @@ public class TestAssignmentsTry extends CommonTest {
     @DisplayName("basics of try-catch")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -99,7 +99,7 @@ public class TestAssignmentsTry extends CommonTest {
     @DisplayName("basics of try-catch-finally")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -146,7 +146,7 @@ public class TestAssignmentsTry extends CommonTest {
     @DisplayName("try-catch-finally, exit in catch")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         MethodInfo method = X.findUniqueMethod("method", 2);
         TryStatement ts = (TryStatement) method.methodBody().statements().get(0);
         TryStatement.CatchClause cc = ts.catchClauses().get(0);
@@ -186,24 +186,10 @@ public class TestAssignmentsTry extends CommonTest {
             }
             """;
 
-    static String method(String in, int i) {
-        char c;
-        try (StringWriter sw = new StringWriter()) {
-            c = in.charAt(i);
-            sw.append(c);
-        } catch (IOException e) {
-            return "io" + e;
-        } catch (RuntimeException e) {
-            return "re" + e;
-        }
-        String sw = c + "";
-        return sw;
-    }
-
     @DisplayName("re-use of catch and resource variables")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -260,7 +246,7 @@ public class TestAssignmentsTry extends CommonTest {
                     }
                 }
                 static char method(String in, int i) {
-                    char c;
+                    char c = 0;
                     try {
                         c = get(in, i);
                     } catch (MyException e) {
@@ -278,7 +264,7 @@ public class TestAssignmentsTry extends CommonTest {
 
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse(ABX, INPUT5);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -302,7 +288,7 @@ public class TestAssignmentsTry extends CommonTest {
                     }
                 }
                 static char method(String in, int i) {
-                    char c;
+                    char c = 0;
                     try {
                         c = get(in, i);
                     } catch (MyException e) {
@@ -317,7 +303,7 @@ public class TestAssignmentsTry extends CommonTest {
 
     @Test
     public void test5a() {
-        TypeInfo X = javaInspector.parse(INPUT5a);
+        TypeInfo X = javaInspector.parse(ABX, INPUT5a);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
