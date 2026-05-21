@@ -162,7 +162,7 @@ public class TestClass1 extends CommonTest {
         FieldInfo s = R.getFieldByName("s", true);
         // check that 'java.lang.String' is not a duplicate object
         assertTrue(s.isFinal());
-        assertEquals("s", s.initializer().toString());
+        assertTrue(s.initializer().isEmpty()); // assignment is in synthetic constructor
         assertEquals(runtime.stringParameterizedType(), s.type());
 
         FieldInfo ints = R.getFieldByName("ints", true);

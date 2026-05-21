@@ -18,10 +18,13 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -71,6 +74,11 @@ public class TestRecordConstructor extends CommonTest {
         ParameterInfo pi0 = constructor.parameters().getFirst();
         assertNull(pi0.source());
         assertTrue(pi0.isSynthetic());
+        List<Statement> statements = constructor.methodBody().statements();
+        assertEquals(4, statements.size());
+        assertEquals("assert this.s1!=null;", statements.getFirst().toString());
+        assertEquals("this.s1=s1;", statements.get(1).toString());
+        assertSame(runtime.methodTypeCompactConstructor(), constructor.methodType());
     }
 
     @Language("java")

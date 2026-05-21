@@ -82,6 +82,11 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
         public boolean isStaticInitializer() {
             return this == STATIC_INITIALIZER;
         }
+
+        @Override
+        public boolean isSyntheticConstructor() {
+            return this == SYNTHETIC_CONSTRUCTOR;
+        }
     }
 
     @Override

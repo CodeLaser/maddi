@@ -19,6 +19,7 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -43,7 +44,9 @@ public class TestRecord extends CommonTest {
         assertTrue(syntheticConstructor.isSyntheticConstructor());
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(syntheticConstructor);
-        Statement s0 = syntheticConstructor.methodBody().statements().getFirst();
+        Statement s0 = syntheticConstructor.methodBody().statements().stream()
+                .filter(st -> !(st instanceof ExplicitConstructorInvocation))
+                .findFirst().orElseThrow();
         assertEquals("this.a=a;", s0.toString());
 
         VariableData vd0 = VariableDataImpl.of(s0);

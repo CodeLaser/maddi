@@ -24,7 +24,7 @@ public class TestAssignment extends CommonTest {
     public void test1() {
         TypeInfo C = scan("a.b.C", INPUT1);
         MethodInfo method1 = C.findUniqueMethod("method1", 1);
-        assertEquals("", method1.methodBody().statements().get(1).toString());
+        assertEquals("i+=k;", method1.methodBody().statements().get(1).toString());
     }
 
 }

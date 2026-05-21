@@ -379,9 +379,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         MethodInfo method;
         if ("<init>".equals(name)) {
             LOGGER.debug("Adding constructor {} to {}", name, typeInfo);
-            boolean isCompact = (ms.flags() & Flags.COMPACT_RECORD_CONSTRUCTOR) != 0;
-            MethodInfo.MethodType methodType = isCompact ? runtime.methodTypeCompactConstructor()
-                    : runtime.methodTypeConstructor();
+            MethodInfo.MethodType methodType = flagHelper.constructorType(ms.flags());
             method = runtime.newConstructor(typeInfo, methodType);
             typeInfo.builder().addConstructor(method);
         } else {

@@ -101,6 +101,8 @@ public interface MethodInfo extends Info {
         boolean isDefault();
 
         boolean isStaticInitializer();
+
+        boolean isSyntheticConstructor();
     }
 
     interface MissingData {
