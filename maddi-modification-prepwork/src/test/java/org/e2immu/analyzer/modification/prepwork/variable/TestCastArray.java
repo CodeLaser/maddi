@@ -59,14 +59,14 @@ public class TestCastArray extends CommonTest {
     @DisplayName("variable should exist")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT);
+        TypeInfo X = javaInspector.parse("X", INPUT);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
         MethodInfo put = X.findUniqueMethod("put", 3);
-        ParameterInfo p0 = put.parameters().get(0);
-        Statement s000 = put.methodBody().statements().get(0).block().statements().get(0);
-        Statement s00000 = s000.block().statements().get(0);
-        Statement s000000 = s00000.block().statements().get(0);
+        ParameterInfo p0 = put.parameters().getFirst();
+        Statement s000 = put.methodBody().statements().getFirst().block().statements().getFirst();
+        Statement s00000 = s000.block().statements().getFirst();
+        Statement s000000 = s00000.block().statements().getFirst();
         if (s000000 instanceof ExpressionAsStatement eas) {
             if (eas.expression() instanceof Assignment a) {
                 if (a.variableTarget() instanceof DependentVariable dv) {

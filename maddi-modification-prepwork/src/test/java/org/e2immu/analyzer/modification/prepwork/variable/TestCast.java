@@ -61,7 +61,7 @@ public class TestCast extends CommonTest {
     @DisplayName("field of getter should exist, analysis order")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         List<Info> analysisOrder = analyzer.doPrimaryType(X);
         // Exit should come before ExceptionThrown
@@ -109,7 +109,7 @@ public class TestCast extends CommonTest {
     @DisplayName("field of getter should exist, in one statement")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
         TypeInfo exceptionThrown = X.findSubType("ExceptionThrown");
