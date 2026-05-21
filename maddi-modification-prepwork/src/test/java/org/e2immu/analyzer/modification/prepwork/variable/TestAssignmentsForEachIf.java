@@ -58,21 +58,21 @@ public class TestAssignmentsForEachIf extends CommonTest {
     @DisplayName("debugging a merge issue")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
-        ParameterInfo array = method.parameters().get(0);
+        ParameterInfo array = method.parameters().getFirst();
 
-        Statement s0 = method.methodBody().statements().get(0);
+        Statement s0 = method.methodBody().statements().getFirst();
         VariableData vd0 = VariableDataImpl.of(s0);
         VariableInfo sbVi0 = vd0.variableInfo("sb");
         assertEquals("D:0, A:[0]", sbVi0.assignments().toString());
         assertFalse(vd0.isKnown(array.fullyQualifiedName()));
 
         Statement s1 = method.methodBody().statements().get(1);
-        IfElseStatement s100 = (IfElseStatement) s1.block().statements().get(0);
-        Statement s10000 = s100.block().statements().get(0);
+        IfElseStatement s100 = (IfElseStatement) s1.block().statements().getFirst();
+        Statement s10000 = s100.block().statements().getFirst();
 
         VariableData vd10000 = VariableDataImpl.of(s10000);
         VariableInfo sbVi10000 = vd10000.variableInfo("sb");
@@ -82,8 +82,8 @@ public class TestAssignmentsForEachIf extends CommonTest {
         assertEquals("D:-, A:[]", arrayVi10000.assignments().toString());
         assertEquals("1-E", arrayVi10000.reads().toString());
 
-        IfElseStatement s10010 = (IfElseStatement) s100.elseBlock().statements().get(0);
-        Statement s1001010 = s10010.elseBlock().statements().get(0);
+        IfElseStatement s10010 = (IfElseStatement) s100.elseBlock().statements().getFirst();
+        Statement s1001010 = s10010.elseBlock().statements().getFirst();
 
         VariableData vd1001010 = VariableDataImpl.of(s1001010);
         VariableInfo sbVi1001010 = vd1001010.variableInfo("sb");

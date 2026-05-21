@@ -46,7 +46,7 @@ public class TestAssignmentsEmpty extends CommonTest {
     @DisplayName("merge and empty block")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("method", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -55,7 +55,7 @@ public class TestAssignmentsEmpty extends CommonTest {
 
         assertEquals("a.b.X.method(String[]):0:strings, s", vdMethod.knownVariableNamesToString());
 
-        Statement s0 = method.methodBody().statements().get(0);
+        Statement s0 = method.methodBody().statements().getFirst();
         VariableData vd0 = VariableDataImpl.of(s0);
         assertEquals("a.b.X.method(String[]):0:strings, s", vd0.knownVariableNamesToString());
 

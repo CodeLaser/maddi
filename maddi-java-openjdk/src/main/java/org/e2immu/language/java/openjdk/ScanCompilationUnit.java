@@ -1277,6 +1277,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case BITXOR -> runtime.precedenceBitwiseXor();
             case BITAND -> runtime.precedenceBitwiseAnd();
             case LT, LE, GT, GE -> runtime.precedenceRelational();
+            case SR, SL, USR -> runtime.precedenceShift();
             default -> throw new UnsupportedOperationException();
         };
         ParameterizedType type = convertType.convert(binary.type);

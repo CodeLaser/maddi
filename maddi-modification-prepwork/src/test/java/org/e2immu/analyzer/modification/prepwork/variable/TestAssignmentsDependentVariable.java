@@ -47,12 +47,12 @@ public class TestAssignmentsDependentVariable extends CommonTest {
     @DisplayName("index of creation of dependent variable")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(A);
+        TypeInfo X = javaInspector.parse("a.A", A);
         MethodInfo method = X.findUniqueMethod("m", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
         VariableData vd3 = VariableDataImpl.of((method.methodBody().statements().getLast()));
-        assertEquals("a.A.m(java.util.List<String>):0:strings, x, xCopy, xCopy[0], xCopy[`10-29`], xEnd, xStart",
+        assertEquals("a.A.m(java.util.List):0:strings, x, xCopy, xCopy[0], xCopy[`10-29`], xEnd, xStart",
                 vd3.knownVariableNamesToString());
         VariableInfo viXCopy = vd3.variableInfo("xCopy");
         assertEquals("D:1, A:[1]", viXCopy.assignments().toString());
