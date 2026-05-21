@@ -48,11 +48,11 @@ public class TestReassignment extends CommonTest {
     @DisplayName("two unconditional re-assigns")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
-        Statement s0 = method.methodBody().statements().get(0);
+        Statement s0 = method.methodBody().statements().getFirst();
         VariableData vd0 = VariableDataImpl.of(s0);
         VariableInfo vi0k = vd0.variableInfo("k");
         assertEquals("D:0, A:[0]", vi0k.assignments().toString());
@@ -92,7 +92,7 @@ public class TestReassignment extends CommonTest {
     @DisplayName("one conditional re-assign, with return")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -101,7 +101,7 @@ public class TestReassignment extends CommonTest {
         VariableInfo vi1k = vd1.variableInfo("k");
         assertEquals("D:0, A:[1.0.0, 1.1.0, 1=M]", vi1k.assignments().toString());
 
-        Statement s200 = method.methodBody().statements().get(2).block().statements().get(0);
+        Statement s200 = method.methodBody().statements().get(2).block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(s200);
         VariableInfo vi200k = vd200.variableInfo("k");
         assertEquals("D:0, A:[1.0.0, 1.1.0, 1=M, 2.0.0]", vi200k.assignments().toString());
@@ -137,7 +137,7 @@ public class TestReassignment extends CommonTest {
     @DisplayName("one conditional re-assign, without return")
     @Test
     public void test2b() {
-        TypeInfo X = javaInspector.parse(INPUT2b);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2b);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -146,7 +146,7 @@ public class TestReassignment extends CommonTest {
         VariableInfo vi1k = vd1.variableInfo("k");
         assertEquals("D:0, A:[1.0.0, 1.1.0, 1=M]", vi1k.assignments().toString());
 
-        Statement s200 = method.methodBody().statements().get(2).block().statements().get(0);
+        Statement s200 = method.methodBody().statements().get(2).block().statements().getFirst();
         VariableData vd200 = VariableDataImpl.of(s200);
         VariableInfo vi200k = vd200.variableInfo("k");
         assertEquals("D:0, A:[1.0.0, 1.1.0, 1=M, 2.0.0]", vi200k.assignments().toString());
@@ -185,7 +185,7 @@ public class TestReassignment extends CommonTest {
     @DisplayName("split conditional re-assign")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -235,7 +235,7 @@ public class TestReassignment extends CommonTest {
     @DisplayName("split, partial conditional re-assign")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);
@@ -286,7 +286,7 @@ public class TestReassignment extends CommonTest {
     @DisplayName("split, partial conditional, 2x re-assign")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse(ABX, INPUT5);
         MethodInfo method = X.findUniqueMethod("method", 2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(method);

@@ -1081,7 +1081,7 @@ public class MethodAnalyzer {
                                                   Set<TypeInfo> typeHierarchy,
                                                   VariableInfoMap closure) {
             Statement last = methodInfo.methodBody().lastStatement();
-            if (last != null) {
+            if (last != null && !last.isSynthetic()) {
                 copyReadsFromAnonymousMethod(last.analysis(), localFields, typeHierarchy, closure);
             }
         }

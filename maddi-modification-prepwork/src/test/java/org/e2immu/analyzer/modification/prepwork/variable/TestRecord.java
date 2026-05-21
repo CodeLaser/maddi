@@ -38,12 +38,12 @@ public class TestRecord extends CommonTest {
     @DisplayName("record")
     @Test
     public void test1() {
-        TypeInfo R = javaInspector.parse(INPUT1);
+        TypeInfo R = javaInspector.parse("a.b.R", INPUT1);
         MethodInfo syntheticConstructor = R.findConstructor(2);
         assertTrue(syntheticConstructor.isSyntheticConstructor());
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doMethod(syntheticConstructor);
-        Statement s0 = syntheticConstructor.methodBody().statements().get(0);
+        Statement s0 = syntheticConstructor.methodBody().statements().getFirst();
         assertEquals("this.a=a;", s0.toString());
 
         VariableData vd0 = VariableDataImpl.of(s0);
@@ -77,12 +77,12 @@ public class TestRecord extends CommonTest {
     @DisplayName("modify one component")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
         MethodInfo modifyA = X.findUniqueMethod("modifyA", 1);
         {
-            Statement s0 = modifyA.methodBody().statements().get(0);
+            Statement s0 = modifyA.methodBody().statements().getFirst();
             VariableData vd0 = VariableDataImpl.of(s0);
             // r, a, and r.a should exist in the first statement
             assertEquals("a, a.b.X.R.a#a.b.X.modifyA(a.b.X.R):0:r, a.b.X.modifyA(a.b.X.R):0:r",

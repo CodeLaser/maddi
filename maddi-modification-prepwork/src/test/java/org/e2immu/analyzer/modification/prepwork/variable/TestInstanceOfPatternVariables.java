@@ -58,7 +58,7 @@ public class TestInstanceOfPatternVariables extends CommonTest {
     @DisplayName("field of getter should exist, analysis order")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         analyzer.doPrimaryType(X);
         MethodInfo equals = X.findUniqueMethod("equals", 1);
