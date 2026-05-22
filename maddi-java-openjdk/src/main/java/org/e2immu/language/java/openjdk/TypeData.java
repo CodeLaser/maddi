@@ -9,9 +9,6 @@ import org.e2immu.language.cst.api.info.TypeParameter;
 
 public interface TypeData {
 
-    // extra on top of getType: all types in java.lang, all types in the same package
-    TypeInfo getOrAttemptToLoad(String imported);
-
     TypeInfo getType(String fullyQualifiedName);
 
     void put(TypeInfo typeInfo);
