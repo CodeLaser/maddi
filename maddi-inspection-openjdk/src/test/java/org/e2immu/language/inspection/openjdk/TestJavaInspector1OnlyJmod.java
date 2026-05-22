@@ -51,7 +51,7 @@ public class TestJavaInspector1OnlyJmod {
         TypeInfo X1 = parseResult.firstType();
         assertEquals("a.b.X1", X1.fullyQualifiedName());
         assertTrue(X1.hasBeenInspected());
-        
+
         // test the compiled types manager
         CompiledTypesManager ctm = javaInspector.compiledTypesManager();
 
@@ -65,6 +65,9 @@ public class TestJavaInspector1OnlyJmod {
         assertTrue(printStream.hasBeenInspected());
 
         TypeInfo boxedInteger = ctm.get("java.lang.Integer", null);
-        assertNull(boxedInteger); // no pre-load
+        assertNotNull(boxedInteger); // pre-load
+
+        TypeInfo varHandle = ctm.get("java.lang.invoke.VarHandle", null);
+        assertNull(varHandle); // no pre-load
     }
 }

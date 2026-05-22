@@ -2,10 +2,7 @@ package org.e2immu.language.java.openjdk;
 
 import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.element.JavaDoc;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.Arrays;
@@ -23,14 +20,32 @@ public record ResolveJavaDoc(TypeData typeData) {
 
     JavaDoc.Tag resolve(TypeInfo currentType, MethodInfo currentMethod, JavaDoc.Tag tag) {
         if (tag.sourceOfReference() != null) {
-            if (JavaDoc.TagIdentifier.PARAM.equals(tag.identifier()) && currentMethod != null) {
-                ParameterInfo resolvedReference = resolveParameterInfo(currentMethod, tag.content());
-                return tag.withResolvedReference(resolvedReference);
+            if (JavaDoc.TagIdentifier.PARAM.equals(tag.identifier())) {
+                TypeParameter tpResolved = resolveTypeParameter(currentType, currentMethod, tag.content());
+                if (tpResolved != null) {
+                    return tag.withResolvedReference(tpResolved);
+                }
+
+                if (currentMethod != null) {
+                    ParameterInfo resolvedReference = resolveParameterInfo(currentMethod, tag.content());
+                    return tag.withResolvedReference(resolvedReference);
+                }
+                return tag;
+
             }
             Info resolvedReference = resolveReference(currentType, tag.content());
             return tag.withResolvedReference(resolvedReference);
         }
         return tag;
+    }
+
+    TypeParameter resolveTypeParameter(TypeInfo currentType, MethodInfo currentMethod, String name) {
+        if (currentMethod != null) {
+            return currentMethod.typeParameters().stream()
+                    .filter(tp -> name.equals(tp.simpleName())).findFirst().orElse(null);
+        }
+        return currentType.typeParameters().stream()
+                .filter(tp -> name.equals(tp.simpleName())).findFirst().orElse(null);
     }
 
     ParameterInfo resolveParameterInfo(MethodInfo currentMethod, String name) {
