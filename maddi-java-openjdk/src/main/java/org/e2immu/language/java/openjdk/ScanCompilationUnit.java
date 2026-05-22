@@ -34,7 +34,6 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnit.class);
@@ -104,8 +103,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     // result
-    public Collection<Info> types() {
-        return Stream.concat(collectedModules.stream(), collectedPrimaryTypes.stream()).toList();
+    public List<TypeInfo> types() {
+        return collectedPrimaryTypes;
+    }
+
+    public List<ModuleInfo> modules() {
+        return collectedModules;
     }
 
     // -- Class declarations ----------------------------------------------
@@ -180,8 +183,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addAnnotations(annotations)
                         .setParentClass(runtime.objectParameterizedType())
                         .setAccess(runtime.accessPublic())
-                        .setSource(sourceForNode(node))
-                        .commit();
+                        .setSource(sourceForNode(node));
+                // don't commit yet
                 collectedPrimaryTypes.add(pkgInfoType);
             } else {
                 for (Tree ct : node.getTypeDecls()) {
@@ -191,34 +194,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (node.getModule() != null) {
                 scan(node.getModule(), null);
             }
-            for (TypeInfo primary : collectedPrimaryTypes) {
-                recursivelyCommit(primary);
-            }
             compilationUnit.setTypes(collectedPrimaryTypes);
             return null;
         } catch (RuntimeException re) {
             LOGGER.error("Caught exception in compilation unit {}", compilationUnit);
             throw re;
-        }
-    }
-
-    private void recursivelyCommit(TypeInfo typeInfo) {
-        for (FieldInfo fieldInfo : typeInfo.fields()) {
-            if (!fieldInfo.hasBeenInspected()) {
-                if (fieldInfo.builder().initializer() == null) {
-                    fieldInfo.builder().setInitializer(runtime.newEmptyExpression());
-                }
-                fieldInfo.builder().commit();
-            }
-        }
-        for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
-            if (!methodInfo.hasBeenInspected()) {
-                methodInfo.builder().commit();
-                assert methodInfo.parameters().stream().allMatch(Info::hasBeenInspected);
-            }
-        }
-        for (TypeInfo enclosed : typeInfo.subTypes()) {
-            recursivelyCommit(enclosed);
         }
     }
 
@@ -247,8 +227,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 collectedPrimaryTypes.add(typeInfo);
             }
             continueType(typeInfo, jcClassDecl);
-            LOGGER.debug("Commit {}", typeInfo);
-            typeInfo.builder().commit();
+            // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
         } catch (RuntimeException re) {
             LOGGER.error("Caught exception in type {}", node.getSimpleName());
@@ -376,7 +355,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
         if (docComment != null) {
-            JavaDoc javaDoc = scanJavaDoc.scan(docComment, typeInfo);
+            JavaDoc javaDoc = scanJavaDoc.scan(docComment);
             builder.addComment(javaDoc);
             builder.setJavaDoc(javaDoc);
         }
@@ -557,7 +536,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
             DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
             if (docComment != null) {
-                JavaDoc javaDoc = scanJavaDoc.scan(docComment, methodInfo.typeInfo());
+                JavaDoc javaDoc = scanJavaDoc.scan(docComment);
                 builder.addComment(javaDoc);
                 builder.setJavaDoc(javaDoc);
             }
@@ -567,8 +546,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .setSource(source)
                     .addComments(commentsForNode(source))
                     .setMethodBody(methodBody)
-                    .computeAccess()
-                    .commit();
+                    .computeAccess();
+            // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
         } catch (RuntimeException re) {
             LOGGER.error("Caught exception in method {}", node.getName().toString());

@@ -2,7 +2,6 @@ package org.e2immu.language.inspection.openjdk;
 
 import com.sun.source.util.JavacTask;
 import org.e2immu.language.cst.api.element.CompilationUnit;
-import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.Info;
@@ -245,17 +244,17 @@ public class JavaInspectorImpl implements JavaInspector {
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, previouslyLoaded, true, diagnostics);
-        List<Info> scanned = scanCompilationUnits.scan();
+        ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary
-        for (Info info : scanned) {
-            if (info instanceof TypeInfo typeInfo) {
-                summary.addType(typeInfo);
-                assert typeInfo.hasBeenInspected();
-            } else if (info instanceof ModuleInfo moduleInfo) {
-                summary.putSourceSetToModuleInfo(sourceSet, moduleInfo);
-            }
+        for (TypeInfo typeInfo : scanned.primaryTypes()) {
+            summary.addType(typeInfo);
+            assert typeInfo.hasBeenInspected();
         }
+        if (!scanned.modules().isEmpty()) {
+            summary.putSourceSetToModuleInfo(sourceSet, scanned.modules().getFirst());
+        }
+
         // copy into CTM
         List<TypeInfo> loaded = List.copyOf(scanCompilationUnits.classSymbolScanner().typesLoaded());
         for (TypeInfo typeInfo : loaded) {

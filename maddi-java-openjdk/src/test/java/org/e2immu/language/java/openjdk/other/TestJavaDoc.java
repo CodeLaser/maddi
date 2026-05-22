@@ -21,9 +21,6 @@ import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJavaDoc extends CommonTest {
@@ -78,9 +75,7 @@ public class TestJavaDoc extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = (TypeInfo) scan(false, Map.of("a.b.C", ABC, "a.b.D", ABD), List.of())
-                .stream().filter(ti -> "C".equals(ti.simpleName())).findFirst().orElseThrow();
-        assertEquals("C", typeInfo.simpleName());
+        TypeInfo typeInfo = scan(false, "a.b.C", ABC, "a.b.D", ABD).get("a.b.C");
         JavaDoc javaDoc = typeInfo.javaDoc();
         assertNotNull(javaDoc);
         assertEquals(2, javaDoc.tags().size());
