@@ -289,10 +289,10 @@ public class TestVariableData extends CommonTest {
         // vs maddi parser "4-E, 4.0.0, 4:E, 4;E"
         // the openjdk parser counts the int i,j,l as 3 statements, and therefore makes
         // an inaccurate prediction of the total number of statements
-        if (javaInspector instanceof JavaInspectorImpl) {
-            assertEquals("4-E, 4.0.0, 4:E, 4;E", i4.reads().toString());
-        } else {
+        if (javaInspector.isOpenJdk()) {
             assertEquals("04-E, 04.0.0, 04:E, 04;E", i4.reads().toString());
+        } else {
+            assertEquals("4-E, 4.0.0, 4:E, 4;E", i4.reads().toString());
         }
     }
 

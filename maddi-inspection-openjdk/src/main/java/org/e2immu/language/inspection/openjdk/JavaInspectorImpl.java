@@ -383,4 +383,9 @@ public class JavaInspectorImpl implements JavaInspector {
     public ReloadResult reloadSources(InputConfiguration inputConfiguration, Map<String, String> sourcesByTestProtocolURIString) throws IOException {
         return null;
     }
+
+    @Override
+    public boolean isOpenJdk() {
+        return true;
+    }
 }

@@ -856,5 +856,10 @@ public class JavaInspectorImpl implements JavaInspector {
         sourceFiles.values().stream().flatMap(Collection::stream).forEach(ti ->
                 compiledTypesManager.invalidate(ti));
     }
+
+    @Override
+    public boolean isOpenJdk() {
+        return false;
+    }
 }
 

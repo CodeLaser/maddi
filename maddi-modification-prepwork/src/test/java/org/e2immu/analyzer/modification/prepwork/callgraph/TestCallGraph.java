@@ -61,7 +61,7 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("basics of call graph")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
@@ -104,22 +104,22 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("recursion in lambda")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
-                a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.method(java.util.List<String>), \
-                a.b.X.$0->S->a.b.X.$0.accept(String), a.b.X.method(java.util.List<String>)->S->a.b.X.$0\
+                a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.method(java.util.List), \
+                a.b.X.$0->S->a.b.X.$0.accept(String), a.b.X.method(java.util.List)->S->a.b.X.$0\
                 """, ComputeCallGraph.print(graph));
 
         // NOTE: at the moment, both the lambda method and 'method' are marked recursive
-        assertEquals("[a.b.X.$0.accept(String), a.b.X.method(java.util.List<String>)]",
+        assertEquals("[a.b.X.$0.accept(String), a.b.X.method(java.util.List)]",
                 ccg.recursiveMethods().stream().map(MethodInfo::fullyQualifiedName).sorted().toList().toString());
 
         ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
         List<Info> analysisOrder = cao.go(graph);
         assertEquals("""
-                [a.b.X.$0.accept(String), a.b.X.<init>(), a.b.X.$0, a.b.X.method(java.util.List<String>), a.b.X]\
+                [a.b.X.$0.accept(String), a.b.X.<init>(), a.b.X.$0, a.b.X.method(java.util.List), a.b.X]\
                 """, analysisOrder.toString());
     }
 
@@ -133,11 +133,11 @@ public class TestCallGraph extends CommonTest {
             class X {
                 private List<String> list;
                 X(int i) {
-                    initList(i);
+                    initList(i+"");
                     print();
                     sleep();
                 }
-                private void initList(int i) {
+                private void initList(String i) {
                     list = new ArrayList<>();
                     list.add(i);
                 }
@@ -157,20 +157,20 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("part of construction")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
                 a.b.X->S->a.b.X.<init>(int)
-                a.b.X->S->a.b.X.initList(int)
+                a.b.X->S->a.b.X.initList(String)
                 a.b.X->S->a.b.X.list
                 a.b.X->S->a.b.X.print()
                 a.b.X->S->a.b.X.rest()
                 a.b.X->S->a.b.X.sleep()
-                a.b.X.<init>(int)->R->a.b.X.initList(int)
+                a.b.X.<init>(int)->R->a.b.X.initList(String)
                 a.b.X.<init>(int)->R->a.b.X.print()
                 a.b.X.<init>(int)->R->a.b.X.sleep()
-                a.b.X.list->R->a.b.X.initList(int)
+                a.b.X.list->R->a.b.X.initList(String)
                 a.b.X.list->R->a.b.X.sleep()
                 a.b.X.rest()->R->a.b.X.sleep()\
                 """, graph.toString("\n", ComputeCallGraph::edgeValuePrinter));
@@ -180,7 +180,7 @@ public class TestCallGraph extends CommonTest {
         ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
         List<Info> analysisOrder = cao.go(graph);
         assertEquals("""
-                [a.b.X.initList(int), a.b.X.print(), a.b.X.sleep(), a.b.X.<init>(int), a.b.X.list, a.b.X.rest(), a.b.X]\
+                [a.b.X.initList(String), a.b.X.print(), a.b.X.sleep(), a.b.X.<init>(int), a.b.X.list, a.b.X.rest(), a.b.X]\
                 """, analysisOrder.toString());
     }
 
@@ -200,7 +200,7 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("subtypes in call graph")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
@@ -237,7 +237,7 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("javadoc reference")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse(ABX, INPUT5);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
@@ -258,13 +258,11 @@ public class TestCallGraph extends CommonTest {
     @Language("java")
     private static final String INPUT6 = """
             package a.b;
-            import java.io.IOException;
-            import java.io.InvalidClassException;
             class X {
                 public void m() {
                     try {
                         System.out.println("A");
-                    } catch(IOException | InvalidClassException ioe) {
+                    } catch(AssertionError | RuntimeException ioe) {
                         System.out.println("B");
                     }
                 }
@@ -274,14 +272,14 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("catch clauses")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse(ABX, INPUT6);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), Set.of(), _ -> true);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
                 a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.m(), \
-                a.b.X.m()->R->java.io.IOException, a.b.X.m()->R->java.io.InvalidClassException, \
-                a.b.X.m()->R->java.io.PrintStream.println(String), \
-                a.b.X.m()->R->java.lang.System, a.b.X.m()->R->java.lang.System.out\
+                a.b.X.m()->R->java.io.PrintStream.println(String), a.b.X.m()->R->java.lang.AssertionError, \
+                a.b.X.m()->R->java.lang.RuntimeException, a.b.X.m()->R->java.lang.System, \
+                a.b.X.m()->R->java.lang.System.out\
                 """, ComputeCallGraph.print(graph));
 
         ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
@@ -295,12 +293,11 @@ public class TestCallGraph extends CommonTest {
     private static final String INPUT7 = """
             package a.b;
             import java.io.IOException;
-            import java.io.InvalidClassException;
             class X {
                 public void m(Exception e) {
                     switch(e) {
                         case IOException ioe -> System.out.println("A");
-                        case InvalidClassException ice -> System.out.println("B");
+                        case RuntimeException ice -> System.out.println("B");
                         default -> { }
                     }
                 }
@@ -310,14 +307,14 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("switch cases")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse(ABX, INPUT7);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(), _ -> true);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
                 a.b.X->H->java.lang.Object, a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.m(Exception), \
                 a.b.X.m(Exception)->D->java.lang.Exception, a.b.X.m(Exception)->R->java.io.IOException, \
-                a.b.X.m(Exception)->R->java.io.InvalidClassException, \
-                a.b.X.m(Exception)->R->java.io.PrintStream.println(String), a.b.X.m(Exception)->R->java.lang.System, \
+                a.b.X.m(Exception)->R->java.io.PrintStream.println(String), \
+                a.b.X.m(Exception)->R->java.lang.RuntimeException, a.b.X.m(Exception)->R->java.lang.System, \
                 a.b.X.m(Exception)->R->java.lang.System.out\
                 """, ComputeCallGraph.print(graph));
 
@@ -340,7 +337,7 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("module")
     @Test
     public void test8() {
-        TypeInfo X = javaInspector.parse(INPUT8);
+        TypeInfo X = javaInspector.parse(ABX, INPUT8);
         ModuleInfo moduleInfo = runtime.newModuleInfoBuilder()
                 .setName("a.b.module-info")
                 .addUses(runtime.noSource(), List.of(), "X.I")
@@ -367,7 +364,7 @@ public class TestCallGraph extends CommonTest {
             package a.b;
             class X {
                 @interface Tag {
-                    Class<?> field();
+                    String field();
                 }
                 @Tag(field=B.C)
                 class A {}
@@ -378,7 +375,7 @@ public class TestCallGraph extends CommonTest {
     @DisplayName("subtypes in annotations")
     @Test
     public void test9() {
-        TypeInfo X = javaInspector.parse(INPUT9);
+        TypeInfo X = javaInspector.parse(ABX, INPUT9, ALLOW_COMPILATION_ERRORS);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, Set.of(X), List.of(), _ -> true);
         G<Info> graph = ccg.go().graph();
         assertEquals("""
@@ -387,7 +384,7 @@ public class TestCallGraph extends CommonTest {
                 a.b.X.A->R->a.b.X.B.C, a.b.X.A->S->a.b.X.A.<init>(), a.b.X.B->H->java.lang.Object, \
                 a.b.X.B->S->a.b.X.B.<init>(), a.b.X.B->S->a.b.X.B.C, a.b.X.B.C->D->java.lang.String, \
                 a.b.X.Tag->H->java.lang.Object, a.b.X.Tag->H->java.lang.annotation.Annotation, \
-                a.b.X.Tag->S->a.b.X.Tag.field(), a.b.X.Tag.field()->D->java.lang.Class\
+                a.b.X.Tag->S->a.b.X.Tag.field(), a.b.X.Tag.field()->D->java.lang.String\
                 """, ComputeCallGraph.print(graph));
     }
 }
