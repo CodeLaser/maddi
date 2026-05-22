@@ -1,6 +1,8 @@
 package org.e2immu.language.java.openjdk;
 
+import com.sun.source.doctree.DocCommentTree;
 import com.sun.source.tree.*;
+import com.sun.source.util.DocTrees;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
@@ -65,6 +67,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private final Elements elements;
     private final ComputeMethodOverrides computeMethodOverrides;
     private final CreateSyntheticFieldsForGetSet createSyntheticFieldsForGetSet;
+    private final DocTrees docTrees;
+    private final ScanJavaDoc scanJavaDoc;
 
     ScanCompilationUnit(Runtime runtime,
                         TypeData typeData,
@@ -75,6 +79,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         LineMap lineMap,
                         Elements elements,
                         Types types,
+                        DocTrees docTrees,
                         SourceCodeScan.Result scanResult,
                         ComputeMethodOverrides computeMethodOverrides,
                         FlagHelper flagHelper,
@@ -91,7 +96,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         this.elements = elements;
         this.flagHelper = flagHelper;
         this.computeMethodOverrides = computeMethodOverrides;
+        this.docTrees = docTrees;
         this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
+        this.scanJavaDoc = new ScanJavaDoc(runtime);
 
         convertType = classSymbolScanner;
         convertType.startCompilationUnit(this, elementStack);
@@ -255,15 +262,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         elementStack.push();
 
         // flags: modifiers, type nature
-        flagHelper.type(jcClassDecl.sym, typeInfo.builder());
-        typeInfo.builder().computeAccess();
+        TypeInfo.Builder builder = typeInfo.builder();
+        flagHelper.type(jcClassDecl.sym, builder);
+        builder.computeAccess();
 
         // type parameters
         int index = 0;
         for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
             String name = jcTypeParameter.getName().toString();
             TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
-            typeInfo.builder().addOrSetTypeParameter(tp);
+            builder.addOrSetTypeParameter(tp);
             elementStack.put(name, tp);
             parseTypeBoundsAndCommit(jcClassDecl.sym, tp, jcTypeParameter);
             ++index;
@@ -281,22 +289,22 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     : explicitParentClass;
         }
         assert parentClass != null;
-        typeInfo.builder().setParentClass(parentClass);
+        builder.setParentClass(parentClass);
         if (!jcClassDecl.implementing.isEmpty()) {
             String keyword = typeInfo.isInterface() ? "extends" : "implements";
             Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
             dsb.put(DetailedSources.IMPLEMENTS, source);
             for (JCTree.JCExpression i : jcClassDecl.implementing) {
-                typeInfo.builder().addInterfaceImplemented(convertType.convertTree(i, dsb));
+                builder.addInterfaceImplemented(convertType.convertTree(i, dsb));
             }
         }
         if (typeInfo.typeNature().isAnnotation()) {
             ParameterizedType javaLangAnnotationAnnotation = convertType.convert(jcClassDecl.sym.getInterfaces().getFirst());
-            typeInfo.builder().addInterfaceImplemented(javaLangAnnotationAnnotation);
+            builder.addInterfaceImplemented(javaLangAnnotationAnnotation);
         }
         for (JCTree.JCExpression permits : jcClassDecl.permitting) {
             TypeInfo permitted = convertType.convert(permits.type).typeInfo();
-            typeInfo.builder().addPermittedType(permitted);
+            builder.addPermittedType(permitted);
             dsb.put(permitted, sourceForNode(permits));
         }
 
@@ -313,7 +321,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     fieldInfo = runtime.newFieldInfo(fieldName, false, pt, typeInfo);
                     fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
                             .addFieldModifier(runtime.fieldModifierPrivate());
-                    typeInfo.builder().addField(fieldInfo);
+                    builder.addField(fieldInfo);
                     Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
                             .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
                     typeData.put(varSym, fieldInfo);
@@ -331,7 +339,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                             .map(typeData::getOrLoadMethod)
                             .toList();
                     accessor.builder().addOverrides(overrides).commit();
-                    typeInfo.builder().addMethod(accessor);
+                    builder.addMethod(accessor);
                     typeData.put(rc.accessor, accessor);
                 }
             }
@@ -339,7 +347,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         // annotations
         for (JCTree.JCAnnotation annotation : jcClassDecl.getModifiers().getAnnotations()) {
             AnnotationExpression ae = convertAnnotation(annotation);
-            typeInfo.builder().addAnnotation(ae);
+            builder.addAnnotation(ae);
         }
 
         // members: methods, fields
@@ -360,16 +368,22 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
         }
         MethodInfo singleAbstractMethod = convertType.computeSAM(jcClassDecl.type);
-        typeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
+        builder.setSingleAbstractMethod(singleAbstractMethod);
 
         // add synthetic getters and setters for methods annotated with @GetSet
-        if (typeInfo.typeNature().isInterface() || typeInfo.typeNature().isClass() && typeInfo.builder().isAbstract()) {
+        if (typeInfo.typeNature().isInterface() || typeInfo.typeNature().isClass() && builder.isAbstract()) {
             createSyntheticFieldsForGetSet.createSyntheticFields(typeInfo);
         }
 
+        DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
+        if (docComment != null) {
+            JavaDoc javaDoc = scanJavaDoc.scan(docComment, this);
+            builder.addComment(javaDoc);
+            builder.setJavaDoc(javaDoc);
+        }
+
         Source source = sourceForNode(jcClassDecl, dsb);
-        typeInfo.builder()
-                .addTrailingComments(trailingCommentsForNode(source))
+        builder.addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
                 .setSource(source);
 
@@ -418,35 +432,39 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             MethodInfo methodInfo;
             MethodInfo known = typeData.getMethod(jcMethod.sym);
             boolean isKnown = known != null;
+            MethodInfo.Builder builder;
             if (isKnown) {
                 methodInfo = known;
                 methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
                 methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
+                builder = methodInfo.builder();
             } else {
                 // construction of the method
                 boolean isConstructor = "<init>".equals(methodName);
                 if (isConstructor) {
                     methodInfo = runtime.newConstructor(currentType, flagHelper.constructorType(methodFlags));
+                    builder = methodInfo.builder();
                     currentType.builder().addConstructor(methodInfo);
-                    methodInfo.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+                    builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
                 } else {
                     MethodInfo.MethodType methodType = flagHelper.methodType(methodFlags,
                             currentType.isInterface() || currentType.isAnnotation());
                     methodInfo = runtime.newMethod(currentType, methodName, methodType);
+                    builder = methodInfo.builder();
                     currentType.builder().addMethod(methodInfo);
                 }
                 typeData.put(jcMethod.sym, methodInfo);
 
 
                 // flags
-                flagHelper.method(methodFlags, methodInfo.builder());
+                flagHelper.method(methodFlags, builder);
 
                 // type parameters
                 int index = 0;
                 for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
                     String name = typeParameter.getName().toString();
                     TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
-                    methodInfo.builder().addTypeParameter(tp);
+                    builder.addTypeParameter(tp);
                     elementStack.put(name, tp);
                     parseTypeBoundsAndCommit(jcMethod.sym, tp, typeParameter);
                     ++index;
@@ -456,8 +474,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (!isConstructor) {
                     List<AnnotationExpression> annots = new ArrayList<>();
                     ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb, annots::add);
-                    methodInfo.builder().setReturnType(returnType);
-                    methodInfo.builder().addAnnotations(annots);
+                    builder.setReturnType(returnType)
+                            .addAnnotations(annots);
                 }
 
                 // parameters
@@ -466,7 +484,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     DetailedSources.Builder dsbParam = runtime.newDetailedSourcesBuilder();
                     List<AnnotationExpression> annots = new ArrayList<>();
                     ParameterizedType type = convertTypeWithAnnotations(jcVariableDecl.getType(), dsbParam, annots::add);
-                    ParameterInfo parameterInfo = methodInfo.builder().addParameter(name, type);
+                    ParameterInfo parameterInfo = builder.addParameter(name, type);
                     parameterInfo.builder().addAnnotations(annots);
 
                     // flags
@@ -483,7 +501,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
                     parameterMap.put(parameterInfo.simpleName(), parameterInfo);
                 }
-                methodInfo.builder().commitParameters();
+                builder.commitParameters();
             }
 
             // method name
@@ -491,7 +509,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // annotations
             for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
                 AnnotationExpression ae = convertAnnotation(annotation);
-                methodInfo.builder().addAnnotation(ae);
+                builder.addAnnotation(ae);
             }
 
             Block methodBody;
@@ -538,9 +556,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .map(typeData::getOrLoadMethod)
                     .collect(Collectors.toUnmodifiableSet());
 
+            DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
+            if (docComment != null) {
+                JavaDoc javaDoc = scanJavaDoc.scan(docComment, this);
+                builder.addComment(javaDoc);
+                builder.setJavaDoc(javaDoc);
+            }
+
             Source source = sourceForNode(node, dsb);
-            methodInfo.builder()
-                    .addOverrides(overrides)
+            builder.addOverrides(overrides)
                     .setSource(source)
                     .addComments(commentsForNode(source))
                     .setMethodBody(methodBody)
