@@ -52,7 +52,9 @@ public interface JavaDoc extends MultiLineComment {
         THROWS("throws"),
         USES("uses"),
         VALUE("value"),
-        VERSION("version");
+        VERSION("version"),
+        UNKNOWN_INLINE_TAG("unknownInlineTag"),
+        UNKNOWN_BLOCK_TAG("unknownBlockTag");
 
         public final String identifier;
 
