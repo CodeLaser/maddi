@@ -68,11 +68,8 @@ public class JavaInspectorImpl implements JavaInspector {
         javaCompiler = ToolProvider.getSystemJavaCompiler();
     }
 
-    public static final String JAR_WITH_PATH = "jar-on-classpath";
     public static final String JAR_WITH_PATH_PREFIX = "jar-on-classpath:";
     public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "org/e2immu/annotation";
-
-    public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions(true, false,
             _ -> UNCHANGED, false, false, false);
     public static final ParseOptions DETAILED_SOURCES = new ParseOptionsBuilder().setDetailedSources(true).build();
@@ -258,9 +255,10 @@ public class JavaInspectorImpl implements JavaInspector {
         // copy into CTM
         List<TypeInfo> loaded = List.copyOf(scanCompilationUnits.classSymbolScanner().typesLoaded());
         for (TypeInfo typeInfo : loaded) {
+            // TODO completing is a choice, and may be an unnecessary and expensive operation.
+            //  offer this choice to the user
             if (!typeInfo.hasBeenInspected()) {
                 scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
-                LOGGER.debug("Committed {}", typeInfo);
             }
             compiledTypesManager.addTypeInfo(null, typeInfo);
         }

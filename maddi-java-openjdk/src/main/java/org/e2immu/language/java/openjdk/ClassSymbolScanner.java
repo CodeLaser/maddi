@@ -225,16 +225,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     addMemberToType(newTypeInfo, cs, member, loadMode);
                 }
 
-
                 MethodInfo singleAbstractMethod = computeSAM(cs.type);
                 newTypeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
 
-                if (newTypeInfo.typeNature().isInterface() || newTypeInfo. typeNature().isClass()
+                if (newTypeInfo.typeNature().isInterface() || newTypeInfo.typeNature().isClass()
                                                               && newTypeInfo.builder().isAbstract()) {
                     createSyntheticFieldsForGetSet.createSyntheticFields(newTypeInfo);
                 }
-
-                newTypeInfo.builder().commit(); // everything loaded!
+                // not committing yet
             }
             recursionPrevention.remove(newTypeInfo);
         }
@@ -332,19 +330,25 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             // the check for JLO is actually only for the clone() method
             boolean isPublic = (ms.flags() & Flags.PUBLIC) != 0
                                || ms.params.isEmpty() && ms.name.toString().equals("clone");
-            if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))) {
+            boolean isNonPrivateConstructor = (ms.flags() & Flags.PRIVATE) == 0 && ms.isConstructor();
+            if ((isPublic || isNonPrivateConstructor)
+                && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))
+                && (loadMode == LoadMode.LOAD_MEMBERS || !methodSymbolMap.containsKey(ms))) {
                 addMethodToType(typeInfo, ms, false);
             }
 
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
             boolean isPublic = (vs.flags() & Flags.PUBLIC) != 0;
-            if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))) {
+            if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))
+                && (loadMode == LoadMode.LOAD_MEMBERS || !varSymbolMap.containsKey(vs))) {
                 addFieldToType(typeInfo, vs);
             }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
             boolean isPublic = (cs.flags() & Flags.PUBLIC) != 0;
             if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE
-                                           && typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)) {
+                                           && typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)
+                && (loadMode == LoadMode.LOAD_MEMBERS
+                    || typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)) {
                 addEnclosedTypeToType(typeInfo, cs, loadMode);
             }
         }
@@ -827,7 +831,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
             Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
             loadType(cs, typeInfo, LoadMode.COMPLETE);
-            assert typeInfo.hasBeenInspected();
+            typeInfo.builder().commit();
         }
     }
 
