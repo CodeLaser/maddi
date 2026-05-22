@@ -96,7 +96,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         predefinedTypes.put("Float", runtime.boxedFloatTypeInfo());
         predefinedTypes.put("Short", runtime.boxedShortTypeInfo());
         predefinedTypes.put("Byte", runtime.boxedByteTypeInfo());
-        predefinedTypes.put("Void", runtime.boxedByteTypeInfo());
+        predefinedTypes.put("Void", runtime.boxedVoidTypeInfo());
 
         predefinedTypes.put("Class", runtime.classTypeInfo());
 
@@ -156,7 +156,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
     }
 
-    private TypeInfo primaryType(Symbol.ClassSymbol cs) {
+    TypeInfo primaryType(Symbol.ClassSymbol cs) {
         String simpleName = cs.name.toString();
         assert cs.owner instanceof Symbol.PackageSymbol;
         String packageName = cs.owner.toString();

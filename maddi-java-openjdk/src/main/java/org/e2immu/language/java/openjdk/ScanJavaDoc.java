@@ -131,25 +131,25 @@ public record ScanJavaDoc(Runtime runtime,
         }
 
         // 1. Fully qualified — direct lookup
-        TypeInfo t = typeData.getOrAttemptToLoad(name);
+        TypeInfo t = typeData.getType(name);
         if (t != null) return t;
 
         // 2. Simple name — check current package
         String pkg = compilationUnitTree.getPackageName().toString();
-        t = typeData.getOrAttemptToLoad(pkg + "." + name);
+        t = typeData.getType(pkg + "." + name);
         if (t != null) return t;
 
         // 3. Check imports of current compilation unit
         for (ImportTree imp : compilationUnitTree.getImports()) {
             String imported = imp.getQualifiedIdentifier().toString();
             if (imported.endsWith("." + name)) {
-                t = typeData.getOrAttemptToLoad(imported);
+                t = typeData.getType(imported);
                 if (t != null) return t;
             }
             // wildcard import
             if (imported.endsWith(".*")) {
                 String qualified = imported.replace("*", name);
-                t = typeData.getOrAttemptToLoad(qualified);
+                t = typeData.getType(qualified);
                 if (t != null) return t;
             }
         }
@@ -159,7 +159,7 @@ public record ScanJavaDoc(Runtime runtime,
         if (t != null) return t;
 
         // 5. java.lang implicit import
-        t = typeData.getOrAttemptToLoad("java.lang." + name);
+        t = typeData.getType("java.lang." + name);
         return t; // null if genuinely unresolvable
     }
 }
