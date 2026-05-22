@@ -15,7 +15,6 @@
 package org.e2immu.language.java.openjdk.other;
 
 import org.e2immu.language.cst.api.element.ModuleInfo;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -98,9 +97,9 @@ public class TestModuleInfo extends CommonTest {
         map.put("maddi.openjdk.Scan", SCAN);
         map.put("maddi.support.Support", SUPPORT);
         map.put("module-info", MODULE_INFO);
-        List<Info> list = scan(true, map, List.of());
-        ModuleInfo moduleInfo = list.stream().filter(i -> i instanceof ModuleInfo)
-                .map(i -> (ModuleInfo) i).findFirst().orElseThrow();
+
+        ModuleInfo moduleInfo = scan(true, map, List.of()).modules().getFirst();
+
         List<ModuleInfo.Requires> requires = moduleInfo.requires();
         assertEquals(5, requires.size());
         assertTrue(requires.get(1).isTransitive());

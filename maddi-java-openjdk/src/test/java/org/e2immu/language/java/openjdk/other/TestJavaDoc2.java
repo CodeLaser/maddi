@@ -87,14 +87,14 @@ public class TestJavaDoc2 extends CommonTest {
         assertEquals("5-16:5-24", tag0.source().compact2());
         assertEquals("D", tag0.content());
         assertEquals("5-23:5-23", tag0.sourceOfReference().compact2());
-        assertEquals("a.b.D", ((TypeInfo) tag0.resolvedReference()).fullyQualifiedName());
+        assertEquals("a.b.X.D", ((TypeInfo) tag0.resolvedReference()).fullyQualifiedName());
         TypeInfo D = (TypeInfo) tag0.resolvedReference();
 
         JavaDoc.Tag tag1 = javaDoc.tags().getLast();
         assertEquals(JavaDoc.TagIdentifier.LINK, tag1.identifier());
         assertFalse(tag1.blockTag());
         assertEquals("5-33:5-45", tag1.source().compact2());
-        assertEquals("a.b.D.a()", ((MethodInfo) tag1.resolvedReference()).fullyQualifiedName());
+        assertEquals("a.b.X.D.a()", ((MethodInfo) tag1.resolvedReference()).fullyQualifiedName());
 
         assertEquals("""
                 Line 1
