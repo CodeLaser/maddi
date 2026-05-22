@@ -777,6 +777,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     @Override
+    public Void visitDoWhileLoop(DoWhileLoopTree node, Void unused) {
+        Block block = parseBlock("0", node.getStatement());
+        currentExpression = null;
+        scan(node.getCondition(), unused);
+        Expression condition = currentExpression;
+        addStatement(runtime.newDoBuilder()
+                .setLabel(statementLabels.get(node))
+                .setSource(statementSourceForNode(node))
+                .setBlock(block)
+                .setExpression(condition)
+                .build());
+        return null;
+    }
+
+    @Override
     public Void visitExpressionStatement(ExpressionStatementTree node, Void unused) {
         super.visitExpressionStatement(node, unused);
         if (currentExpression != null) {

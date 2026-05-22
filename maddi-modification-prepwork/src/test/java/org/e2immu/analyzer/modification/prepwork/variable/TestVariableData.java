@@ -50,7 +50,7 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT, JavaInspectorImpl.FAIL_FAST);
+        TypeInfo typeInfo = javaInspector.parse("a.b.C", INPUT);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
@@ -85,7 +85,7 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT2, JavaInspectorImpl.FAIL_FAST);
+        TypeInfo typeInfo = javaInspector.parse("a.b.C", INPUT2);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
@@ -97,14 +97,14 @@ public class TestVariableData extends CommonTest {
         List<VariableInfo> vis = vd.variableInfoStream().toList();
         assertEquals(2, vis.size());
 
-        Statement s0 = method1.methodBody().statements().get(0);
+        Statement s0 = method1.methodBody().statements().getFirst();
         VariableData vd0 = VariableDataImpl.of(s0);
         assertNotNull(vd0);
         Statement s1 = method1.methodBody().statements().get(1);
         VariableData vd1 = s1.analysis().getOrNull(VariableDataImpl.VARIABLE_DATA, VariableData.class);
         assertSame(vd, vd1);
 
-        ParameterInfo pi = method1.parameters().get(0);
+        ParameterInfo pi = method1.parameters().getFirst();
         VariableInfo vi0 = vd.variableInfo(pi.fullyQualifiedName());
         assertEquals("0, 1", vi0.reads().toString());
         assertTrue(vi0.assignments().hasNotYetBeenAssigned());
@@ -139,12 +139,12 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT3, JavaInspectorImpl.FAIL_FAST);
+        TypeInfo typeInfo = javaInspector.parse("a.b.C", INPUT3);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
 
-        VariableData vd0 = method1.methodBody().statements().get(0).analysis().getOrNull(VariableDataImpl.VARIABLE_DATA,
+        VariableData vd0 = method1.methodBody().statements().getFirst().analysis().getOrNull(VariableDataImpl.VARIABLE_DATA,
                 VariableData.class);
 
         VariableData vd = VariableDataImpl.of(method1);
@@ -204,7 +204,7 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT4, JavaInspectorImpl.FAIL_FAST);
+        TypeInfo typeInfo = javaInspector.parse("a.b.C", INPUT4);
         MethodInfo method1 = typeInfo.findUniqueMethod("method1", 1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
@@ -272,10 +272,12 @@ public class TestVariableData extends CommonTest {
 
     @Test
     public void test5() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT5, JavaInspectorImpl.FAIL_FAST);
+        TypeInfo typeInfo = javaInspector.parse("X", INPUT5);
         MethodInfo method1 = typeInfo.findUniqueMethod("run", 0);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doMethod(method1);
+
+        assertEquals(9, method1.methodBody().statements().size());
 
         VariableData vd = VariableDataImpl.of(method1);
         assert vd != null;
@@ -283,7 +285,15 @@ public class TestVariableData extends CommonTest {
         ForStatement fs4 = (ForStatement) method1.methodBody().statements().get(4);
         VariableData vd4 = VariableDataImpl.of(fs4);
         VariableInfo i4 = vd4.variableInfo("i");
-        assertEquals("4-E, 4.0.0, 4:E, 4;E", i4.reads().toString());
+        // openjdk parser "04-E, 04.0.0, 04:E, 04;E"
+        // vs maddi parser "4-E, 4.0.0, 4:E, 4;E"
+        // the openjdk parser counts the int i,j,l as 3 statements, and therefore makes
+        // an inaccurate prediction of the total number of statements
+        if (javaInspector instanceof JavaInspectorImpl) {
+            assertEquals("4-E, 4.0.0, 4:E, 4;E", i4.reads().toString());
+        } else {
+            assertEquals("04-E, 04.0.0, 04:E, 04;E", i4.reads().toString());
+        }
     }
 
 
@@ -319,7 +329,7 @@ public class TestVariableData extends CommonTest {
     @Test
     public void test6() {
 
-        TypeInfo typeInfo = javaInspector.parse(INPUT6);
+        TypeInfo typeInfo = javaInspector.parse(ABX, INPUT6);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doPrimaryType(typeInfo);
         MethodInfo getTemporaryDirectory = typeInfo.findUniqueMethod("getTemporaryDirectory", 0);
@@ -327,7 +337,7 @@ public class TestVariableData extends CommonTest {
         assertEquals("tempDir", tempDir.name());
 
         MethodInfo method = typeInfo.findUniqueMethod("method", 2);
-        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().get(0));
+        VariableData vd0 = VariableDataImpl.of(method.methodBody().statements().getFirst());
         assert vd0 != null;
 
         FieldReference frTempDir = runtime.newFieldReference(tempDir);
@@ -340,7 +350,7 @@ public class TestVariableData extends CommonTest {
             package a.b;
             
             public class X {
-                public String method(String in) {
+                public void method(String in) {
                   {
                      String s = in.toLowerCase();
                      {
@@ -361,7 +371,7 @@ public class TestVariableData extends CommonTest {
     @Test
     public void test7() {
 
-        TypeInfo typeInfo = javaInspector.parse(INPUT7);
+        TypeInfo typeInfo = javaInspector.parse(ABX, INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doPrimaryType(typeInfo);
         MethodInfo method = typeInfo.findUniqueMethod("method", 1);
@@ -373,7 +383,7 @@ public class TestVariableData extends CommonTest {
         TypeInfo t2 = typeInfo.translate(tm).getFirst();
         assertNotSame(typeInfo, t2);
         assertEquals("""
-                public class X{public String method(String in){{String s=in.toLowerCase();{System.out.println(s);}}{String s=in.toUpperCase();{System.out.println(s);}}}}\
+                public class X{public void method(String in){{String s=in.toLowerCase();{System.out.println(s);}}{String s=in.toUpperCase();{System.out.println(s);}}}}\
                 """, t2.print(runtime.qualificationQualifyFromPrimaryType()).toString());
         analyzer.doPrimaryType(t2);
     }
@@ -404,22 +414,22 @@ public class TestVariableData extends CommonTest {
     @DisplayName("scope of pattern variables")
     @Test
     public void test8() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT8);
+        TypeInfo typeInfo = javaInspector.parse(ABX, INPUT8);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doPrimaryType(typeInfo);
         MethodInfo method = typeInfo.findUniqueMethod("method", 1);
 
         IfElseStatement ifElse1 = (IfElseStatement) method.methodBody().statements().get(1);
-        Statement s100 = ifElse1.block().statements().get(0);
+        Statement s100 = ifElse1.block().statements().getFirst();
         assertEquals("a.b.X.method(Exception):0:in, e, s",
                 VariableDataImpl.of(s100).knownVariableNamesToString());
 
-        IfElseStatement ifElse110 = (IfElseStatement) ifElse1.elseBlock().statements().get(0);
-        Statement s11000 = ifElse110.block().statements().get(0);
+        IfElseStatement ifElse110 = (IfElseStatement) ifElse1.elseBlock().statements().getFirst();
+        Statement s11000 = ifElse110.block().statements().getFirst();
         assertEquals("a.b.X.method(Exception):0:in, e1, s",
                 VariableDataImpl.of(s11000).knownVariableNamesToString());
 
-        Statement s11010 = ifElse110.elseBlock().statements().get(0);
+        Statement s11010 = ifElse110.elseBlock().statements().getFirst();
         assertEquals("1.1.0.1.0", s11010.source().index());
         assertEquals("a.b.X.method(Exception):0:in, e2, s",
                 VariableDataImpl.of(s11010).knownVariableNamesToString());
@@ -463,7 +473,7 @@ public class TestVariableData extends CommonTest {
     @DisplayName("scope of pattern variables, now with same variable name")
     @Test
     public void test9() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT9);
+        TypeInfo typeInfo = javaInspector.parse(ABX, INPUT9);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doPrimaryType(typeInfo);
     }
