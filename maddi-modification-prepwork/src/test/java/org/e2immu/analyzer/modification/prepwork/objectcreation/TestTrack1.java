@@ -20,6 +20,7 @@ import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,15 +40,15 @@ public class TestTrack1 extends CommonTest {
             import java.util.List;
             public class X<T> {
                 private static final Logger LOGGER = LoggerFactory.getLogger(X.class);
-                public static List<T> makeList() {
+                public List<T> makeList() {
                     return new LinkedList<>();
                 }
-                public static List<T> makeList2() {
+                public List<T> makeList2() {
                     List<T> list = new LinkedList<>();
                     LOGGER.info("List {}", list);
                     return list;
                 }
-                public static List<T> makeList3(boolean b) {
+                public List<T> makeList3(boolean b) {
                     if(b) {
                         List<T> list = new LinkedList<>();
                         LOGGER.info("List {}", list);
@@ -55,7 +56,7 @@ public class TestTrack1 extends CommonTest {
                     }
                     return null;
                 }
-                public static List<T> makeList4(boolean b) {
+                public List<T> makeList4(boolean b) {
                     if(b) {
                         List<T> list = new LinkedList<>();
                         LOGGER.info("List {}", list);
@@ -69,7 +70,8 @@ public class TestTrack1 extends CommonTest {
     @DisplayName("basics")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1, new JavaInspectorImpl.ParseOptionsBuilder()
+                .setIgnoreModule(true).build());
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime,
                 new PrepAnalyzer.Options.Builder().setTrackObjectCreations(true).build());
         {
@@ -77,17 +79,28 @@ public class TestTrack1 extends CommonTest {
             analyzer.doMethod(makeList);
             VariableData vdMethod = VariableDataImpl.of(makeList);
             assertNotNull(vdMethod);
-            assertEquals("a.b.X.makeList(), oc:10-16:java.util.LinkedList<T>", vdMethod.knownVariableNamesToString());
+            String expect = javaInspector.isOpenJdk() ? "a.b.X.makeList(), oc:10-16:java.util.LinkedList"
+                    : "a.b.X.makeList(), oc:10-16:java.util.LinkedList<T>";
+            assertEquals(expect, vdMethod.knownVariableNamesToString());
         }
         {
             MethodInfo makeList = X.findUniqueMethod("makeList4", 1);
             analyzer.doMethod(makeList);
             VariableData vdMethod = VariableDataImpl.of(makeList);
             assertNotNull(vdMethod);
-            assertEquals("""
-                    a.b.X.LOGGER, a.b.X.makeList4(boolean), a.b.X.makeList4(boolean):0:b, \
-                    oc:27-28:java.util.LinkedList<T>, oc:31-16:java.util.ArrayList<T>\
-                    """, vdMethod.knownVariableNamesToString());
+            String expect;
+            if (javaInspector.isOpenJdk()) {
+                expect = """
+                        a.b.X.LOGGER, a.b.X.makeList4(boolean), a.b.X.makeList4(boolean):0:b, \
+                        oc:27-28:java.util.LinkedList, oc:31-16:java.util.ArrayList\
+                        """;
+            } else {
+                expect = """
+                        a.b.X.LOGGER, a.b.X.makeList4(boolean), a.b.X.makeList4(boolean):0:b, \
+                        oc:27-28:java.util.LinkedList<T>, oc:31-16:java.util.ArrayList<T>\
+                        """;
+            }
+            assertEquals(expect, vdMethod.knownVariableNamesToString());
         }
     }
 }

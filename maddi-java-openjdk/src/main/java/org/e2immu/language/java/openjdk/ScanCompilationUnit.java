@@ -326,6 +326,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .findFirst().orElse(null);
                 if (miInMap == null) {
                     MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
+                    List<MethodInfo> overrides = computeMethodOverrides.findOverriddenMethods(rc.accessor)
+                            .stream()
+                            .map(typeData::getOrLoadMethod)
+                            .toList();
+                    accessor.builder().addOverrides(overrides).commit();
                     typeInfo.builder().addMethod(accessor);
                     typeData.put(rc.accessor, accessor);
                 }

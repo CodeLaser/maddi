@@ -37,6 +37,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CommonTest {
@@ -85,6 +86,7 @@ public class CommonTest {
                 .setLibrary(true).setExternalLibrary(true).build();
 
         URI slf4jApiUri = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+        assertNotNull(slf4jApiUri);
         SourceSet orgSlf4jApi = new SourceSetImpl.Builder().setName("slf4j-api-2.0.17.jar")
                 .setUri(slf4jApiUri)
                 .setExternalLibrary(true)

@@ -5,6 +5,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,5 +82,23 @@ public class TestOverrides extends CommonTest {
         }
 
         assertTrue(mc.methodInfo().overrides().stream().allMatch(mi -> mi.typeInfo().hasBeenInspected()));
+    }
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            class C {
+                interface I { int i(); }
+                record Y(int i) implements I {}
+            }
+            """;
+
+    @DisplayName("subtypes in call graph")
+    @Test
+    public void test4() {
+        TypeInfo X = scan("a.b.C", INPUT3);
+        TypeInfo Y = X.findSubType("Y");
+        MethodInfo i = Y.findUniqueMethod("i", 0);
+        assertTrue(i.isSynthetic());
+        assertEquals("[a.b.C.I.i()]", i.overrides().toString());
     }
 }

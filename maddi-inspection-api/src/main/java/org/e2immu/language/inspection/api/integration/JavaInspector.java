@@ -41,6 +41,10 @@ public interface JavaInspector {
 
     String TEST_PROTOCOL = "test-protocol";
 
+    // used as the marker to distinguish between the different parsers
+    // there are differences in type resolution, #statement prediction, etc.
+    boolean isOpenJdk();
+
     // for tests
     void invalidateAllSources();
 

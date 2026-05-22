@@ -50,6 +50,7 @@ public class TestAlwaysEscapes extends CommonTest {
                     } else {
                         System.out.println(in);
                     }
+                    return 0;
                 }
             }
             """;
@@ -57,11 +58,11 @@ public class TestAlwaysEscapes extends CommonTest {
     @DisplayName("basics")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         {
             MethodInfo method = X.findUniqueMethod("method1", 1);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
             assertFalse(s0.alwaysEscapes());
             Statement s1 = method.methodBody().statements().get(1);
             assertTrue(s1.alwaysEscapes());
@@ -69,20 +70,20 @@ public class TestAlwaysEscapes extends CommonTest {
         {
             MethodInfo method = X.findUniqueMethod("method2", 1);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
-            Statement s000 = s0.block().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
+            Statement s000 = s0.block().statements().getFirst();
             assertTrue(s000.alwaysEscapes());
-            Statement s010 = ((IfElseStatement) s0).elseBlock().statements().get(0);
+            Statement s010 = ((IfElseStatement) s0).elseBlock().statements().getFirst();
             assertTrue(s010.alwaysEscapes());
             assertTrue(s0.alwaysEscapes());
         }
         {
             MethodInfo method = X.findUniqueMethod("method3", 1);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
-            Statement s000 = s0.block().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
+            Statement s000 = s0.block().statements().getFirst();
             assertTrue(s000.alwaysEscapes());
-            Statement s010 = ((IfElseStatement) s0).elseBlock().statements().get(0);
+            Statement s010 = ((IfElseStatement) s0).elseBlock().statements().getFirst();
             assertFalse(s010.alwaysEscapes());
             assertFalse(s0.alwaysEscapes());
         }
@@ -97,10 +98,10 @@ public class TestAlwaysEscapes extends CommonTest {
                     for(int i=0; ; i++) { }
                 }
                 static int method2(String in) {
-                    for(int i=0; ; i++) { break; }
+                    for(int i=0; ; i++) { break; } return 1;
                 }
                 static int method3(String in) {
-                   for(int i=0; ; i++) { System.out.println("?"); return; }
+                   for(int i=0; ; i++) { System.out.println("?"); return 0; }
                 }
             
                 abstract int read();
@@ -129,31 +130,31 @@ public class TestAlwaysEscapes extends CommonTest {
     @DisplayName("loops with condition 'true'")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         {
             MethodInfo method = X.findUniqueMethod("method1", 1);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
             assertTrue(s0.alwaysEscapes());
         }
         {
             MethodInfo method = X.findUniqueMethod("method2", 1);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
-            Statement s000 = s0.block().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
+            Statement s000 = s0.block().statements().getFirst();
             assertFalse(s000.alwaysEscapes());
             assertFalse(s0.alwaysEscapes());
         }
         {
             MethodInfo method = X.findUniqueMethod("method3", 1);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
             assertTrue(s0.alwaysEscapes());
         }
         {
             MethodInfo method = X.findUniqueMethod("method4", 0);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
             Statement s001 = s0.block().statements().get(1);
             assertFalse(s001.alwaysEscapes());
             assertFalse(s0.alwaysEscapes());
@@ -161,7 +162,7 @@ public class TestAlwaysEscapes extends CommonTest {
         {
             MethodInfo method = X.findUniqueMethod("method5", 0);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
             assertTrue(s0.alwaysEscapes());
         }
     }
@@ -171,7 +172,7 @@ public class TestAlwaysEscapes extends CommonTest {
     private static final String INPUT3 = """
             package a.b;
             abstract class X {
-                final Object object = new Object();
+                static final Object object = new Object();
                 static String method1(String in) {
                    synchronized (object) {
                         System.out.println(in);
@@ -184,11 +185,11 @@ public class TestAlwaysEscapes extends CommonTest {
     @DisplayName("synchronized with return")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         {
             MethodInfo method = X.findUniqueMethod("method1", 1);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
             assertTrue(s0.alwaysEscapes());
         }
     }
@@ -198,7 +199,7 @@ public class TestAlwaysEscapes extends CommonTest {
     private static final String INPUT4 = """
             package a.b;
             abstract class X {
-                final Object object = new Object();
+                static final Object object = new Object();
                 static String method1(String in) {
                    try {
                         if(in.isEmpty()) System.out.println("empty");
@@ -213,11 +214,11 @@ public class TestAlwaysEscapes extends CommonTest {
     @DisplayName("try-finally")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
         {
             MethodInfo method = X.findUniqueMethod("method1", 1);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
             assertTrue(s0.alwaysEscapes());
         }
     }
@@ -250,11 +251,11 @@ public class TestAlwaysEscapes extends CommonTest {
     @DisplayName("synchronized in infinite loop")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("X", INPUT5);
         {
             MethodInfo method = X.findUniqueMethod("method1", 0);
             ComputeAlwaysEscapes.go(method);
-            Statement s0 = method.methodBody().statements().get(0);
+            Statement s0 = method.methodBody().statements().getFirst();
             assertTrue(s0.alwaysEscapes());
             Statement s001 = s0.block().statements().get(1);
             assertFalse(s001.alwaysEscapes());
@@ -291,12 +292,12 @@ public class TestAlwaysEscapes extends CommonTest {
     @DisplayName("return in for-each")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse("X", INPUT6);
         {
             MethodInfo method = X.findUniqueMethod("listFiles", 2);
             ComputeAlwaysEscapes.go(method);
             Statement s3 = method.methodBody().statements().get(3);
-            Statement s300 = s3.block().statements().get(0);
+            Statement s300 = s3.block().statements().getFirst();
             assertFalse(s300.alwaysEscapes());
             assertFalse(s3.alwaysEscapes());
         }
@@ -332,7 +333,7 @@ public class TestAlwaysEscapes extends CommonTest {
     @DisplayName("return in finally block")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse(ABX, INPUT7);
         MethodInfo method = X.findUniqueMethod("getResponseCode", 1);
         ComputeAlwaysEscapes.go(method);
         TryStatement s1 = (TryStatement) method.methodBody().statements().get(1);
