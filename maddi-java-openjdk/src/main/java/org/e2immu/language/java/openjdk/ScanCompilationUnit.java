@@ -376,7 +376,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
         if (docComment != null) {
-            JavaDoc javaDoc = scanJavaDoc.scan(docComment);
+            JavaDoc javaDoc = scanJavaDoc.scan(docComment, typeInfo);
             builder.addComment(javaDoc);
             builder.setJavaDoc(javaDoc);
         }
@@ -557,7 +557,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
             DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
             if (docComment != null) {
-                JavaDoc javaDoc = scanJavaDoc.scan(docComment);
+                JavaDoc javaDoc = scanJavaDoc.scan(docComment, methodInfo.typeInfo());
                 builder.addComment(javaDoc);
                 builder.setJavaDoc(javaDoc);
             }

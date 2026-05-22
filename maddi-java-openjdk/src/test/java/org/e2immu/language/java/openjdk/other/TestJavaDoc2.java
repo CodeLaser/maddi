@@ -46,8 +46,9 @@ public class TestJavaDoc2 extends CommonTest {
             
                 /**
                  * Referring to {@linkplain #field}? or to {@link #a}?
-                 * {@see #b(int,java.lang.String)} or {@see a.b.D#b(int,String)} for more info.
                  * @param <T> is the type parameter
+                 * @see #b(int,java.lang.String) or
+                 * @see D#b(int,String) for more info.
                  */
                 class D<T> implements C {
                     String field;
@@ -84,6 +85,8 @@ public class TestJavaDoc2 extends CommonTest {
         assertEquals(JavaDoc.TagIdentifier.LINK, tag0.identifier());
         assertFalse(tag0.blockTag());
         assertEquals("5-16:5-24", tag0.source().compact2());
+        assertEquals("D", tag0.content());
+        assertEquals("5-23:5-23", tag0.sourceOfReference().compact2());
         assertEquals("a.b.D", ((TypeInfo) tag0.resolvedReference()).fullyQualifiedName());
         TypeInfo D = (TypeInfo) tag0.resolvedReference();
 
