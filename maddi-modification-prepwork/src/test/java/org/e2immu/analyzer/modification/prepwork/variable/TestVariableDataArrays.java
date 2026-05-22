@@ -19,12 +19,14 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.DoStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 public class TestVariableDataArrays extends CommonTest {
 
@@ -53,12 +55,12 @@ public class TestVariableDataArrays extends CommonTest {
     @DisplayName("arrays, 1")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse(ABX, INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doPrimaryType(X);
 
         MethodInfo method = X.findUniqueMethod("method", 4);
-        Statement s100 = method.methodBody().statements().get(1).block().statements().get(0);
+        Statement s100 = method.methodBody().statements().get(1).block().statements().getFirst();
         VariableData vd100 = VariableDataImpl.of(s100);
         // the `7-40` refers to the index of pixels[i+j*size]
         assertEquals("""
@@ -69,7 +71,7 @@ public class TestVariableDataArrays extends CommonTest {
                 i, j, npixels, npixels[i]\
                 """, vd100.knownVariableNamesToString());
 
-        Statement s10000 = s100.block().statements().get(0);
+        Statement s10000 = s100.block().statements().getFirst();
         VariableData vd10000 = VariableDataImpl.of(s10000);
         assertEquals("""
                 a.b.X.method(int[],int,int,int):0:pixels, a.b.X.method(int[],int,int,int):0:pixels[`7-40`], \
@@ -102,12 +104,15 @@ public class TestVariableDataArrays extends CommonTest {
     @DisplayName("arrays, 2")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doPrimaryType(X);
 
         MethodInfo method = X.findUniqueMethod("method", 3);
-        Statement s401 = method.methodBody().statements().get(4).block().statements().get(1);
+        Statement s4 = method.methodBody().statements().get(4);
+        assertInstanceOf(DoStatement.class, s4);
+
+        Statement s401 = s4.block().statements().get(1);
         VariableData vd401 = VariableDataImpl.of(s401);
         // the `7-40` refers to the index of pixels[i+j*size]
         String expected = """
@@ -129,7 +134,7 @@ public class TestVariableDataArrays extends CommonTest {
         VariableInfo viAbyte0k = vd401.variableInfo("X.method(byte[][],byte,byte):0:abyte0[k]");
         assertEquals("D:4.0.0, A:[]", viAbyte0k.assignments().toString()); // is the value of 'k'
 
-        Statement s402 = method.methodBody().statements().get(4).block().statements().get(2);
+        Statement s402 = s4.block().statements().get(2);
         VariableData vd402 = VariableDataImpl.of(s402);
         assertEquals(expected, vd402.knownVariableNamesToString());
     }
