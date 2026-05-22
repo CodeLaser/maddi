@@ -3,6 +3,8 @@ package org.e2immu.language.java.openjdk;
 import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
@@ -11,19 +13,31 @@ import java.util.List;
 
 public record ResolveJavaDoc(TypeData typeData) {
 
-    public JavaDoc resolve(TypeInfo currentType, JavaDoc javaDoc) {
+    public JavaDoc resolve(TypeInfo currentType, MethodInfo currentMethod, JavaDoc javaDoc) {
         List<JavaDoc.Tag> tags = javaDoc.tags();
-        List<JavaDoc.Tag> newList = tags.stream().map(t -> resolve(currentType, t))
+        List<JavaDoc.Tag> newList = tags.stream().map(t -> resolve(currentType, currentMethod, t))
                 .collect(TranslationMap.staticToList(tags));
         if (newList == tags) return javaDoc;
         return javaDoc.withTags(newList);
     }
 
-    JavaDoc.Tag resolve(TypeInfo currentType, JavaDoc.Tag tag) {
+    JavaDoc.Tag resolve(TypeInfo currentType, MethodInfo currentMethod, JavaDoc.Tag tag) {
         if (tag.sourceOfReference() != null) {
-            return tag.withResolvedReference(resolveReference(currentType, tag.content()));
+            if (JavaDoc.TagIdentifier.PARAM.equals(tag.identifier()) && currentMethod != null) {
+                ParameterInfo resolvedReference = resolveParameterInfo(currentMethod, tag.content());
+                return tag.withResolvedReference(resolvedReference);
+            }
+            Info resolvedReference = resolveReference(currentType, tag.content());
+            return tag.withResolvedReference(resolvedReference);
         }
         return tag;
+    }
+
+    ParameterInfo resolveParameterInfo(MethodInfo currentMethod, String name) {
+        return currentMethod.parameters().stream()
+                .filter(pi -> name.equals(pi.name()))
+                .findFirst()
+                .orElse(null);
     }
 
     Info resolveReference(TypeInfo currentType, String signature) {
