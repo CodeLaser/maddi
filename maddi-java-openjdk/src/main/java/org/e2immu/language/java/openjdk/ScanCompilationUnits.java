@@ -7,6 +7,7 @@ import com.sun.source.util.JavacTask;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.ModuleInfo;
@@ -20,15 +21,11 @@ import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
-import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
-import javax.tools.JavaFileObject;
+import javax.tools.*;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class ScanCompilationUnits {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
@@ -95,6 +92,8 @@ public class ScanCompilationUnits {
         List<TypeInfo> primaryTypes = new ArrayList<>();
         List<ModuleInfo> modules = new ArrayList<>();
 
+        indexJavaLangForJavaDocParsing();
+
         for (CompilationUnitTree unit : units) {
             LOGGER.info("Compilation unit {}", unit.getSourceFile().getName());
 
@@ -139,15 +138,16 @@ public class ScanCompilationUnits {
 
     private void scanJavaDocsAndCommit(TypeInfo typeInfo) {
         for (TypeInfo sub : typeInfo.subTypes()) {
-            scanJavaDocsAndCommit(sub); // TODO javadoc inside lambdas/anonymous types? we should be able to do that efficiently
+            scanJavaDocsAndCommit(sub);
+            // TODO javadoc inside lambdas/anonymous types? we should be able to do that efficiently
         }
         if (typeInfo.javaDoc() != null) {
-            typeInfo.builder().setJavaDoc(resolveJavaDoc.resolve(typeInfo, typeInfo.javaDoc()));
+            typeInfo.builder().setJavaDoc(resolveJavaDoc.resolve(typeInfo, null, typeInfo.javaDoc()));
         }
         typeInfo.builder().commit();
         for (MethodInfo methodInfo : typeInfo.constructorsAndMethods()) {
             if (methodInfo.javaDoc() != null) {
-                methodInfo.builder().setJavaDoc(resolveJavaDoc.resolve(typeInfo, methodInfo.javaDoc()));
+                methodInfo.builder().setJavaDoc(resolveJavaDoc.resolve(typeInfo, methodInfo, methodInfo.javaDoc()));
             }
             if (!methodInfo.hasBeenInspected()) {
                 methodInfo.builder().commit();
@@ -170,5 +170,29 @@ public class ScanCompilationUnits {
     // for tests
     public ClassSymbolScanner classSymbolScanner() {
         return classSymbolScanner;
+    }
+
+    private void indexJavaLangForJavaDocParsing() throws IOException {
+        JavaFileManager fm = ((BasicJavacTask)task).getContext().get(JavaFileManager.class);
+        JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES,
+                "java.base");
+
+        Iterable<JavaFileObject> files = fm.list(javaBase, "java.lang", Set.of(JavaFileObject.Kind.CLASS),
+                false); // non-recursive — just java.lang, not subpackages
+        Elements elements = task.getElements();
+        for (JavaFileObject file : files) {
+            String binaryName = fm.inferBinaryName(javaBase, file);
+            TypeElement te = elements.getTypeElement(binaryName);
+            if (te instanceof Symbol.ClassSymbol cs) {
+                try {
+                    cs.complete();
+                    if (cs.owner instanceof Symbol.PackageSymbol && null == classSymbolScanner.getType(binaryName)) {
+                        classSymbolScanner.primaryType(cs);
+                    } // else: not a primary type, or already known
+                } catch (Symbol.CompletionFailure e) {
+                    // ignore
+                }
+            }
+        }
     }
 }

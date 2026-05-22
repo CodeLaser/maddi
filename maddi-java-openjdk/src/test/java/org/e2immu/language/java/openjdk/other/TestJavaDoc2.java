@@ -114,10 +114,12 @@ public class TestJavaDoc2 extends CommonTest {
 
         JavaDoc.Tag tag2 = methodInfo.javaDoc().tags().getFirst();
         assertSame(JavaDoc.TagIdentifier.PARAM, tag2.identifier());
-        assertEquals("a.b.C.method(String,String):0:in1", tag2.resolvedReference().toString());
+        assertEquals("in1", tag2.content());
+        assertEquals("a.b.X.C.method(String,String):0:in1", tag2.resolvedReference().toString());
+
         JavaDoc.Tag tag3 = methodInfo.javaDoc().tags().get(1);
         assertSame(JavaDoc.TagIdentifier.PARAM, tag3.identifier());
-        assertEquals("a.b.C.method(String,String):1:in2", tag3.resolvedReference().toString());
+        assertEquals("a.b.X.C.method(String,String):1:in2", tag3.resolvedReference().toString());
         JavaDoc.Tag tag4 = methodInfo.javaDoc().tags().get(2);
         assertSame(JavaDoc.TagIdentifier.RETURN, tag4.identifier());
         JavaDoc.Tag tag5 = methodInfo.javaDoc().tags().get(3);
@@ -125,13 +127,13 @@ public class TestJavaDoc2 extends CommonTest {
         assertEquals("java.lang.RuntimeException", tag5.resolvedReference().toString());
 
         JavaDoc.Tag tagD0 = D.javaDoc().tags().getFirst();
-        assertEquals("a.b.D.field", tagD0.resolvedReference().toString());
+        assertEquals("a.b.X.D.field", tagD0.resolvedReference().toString());
         JavaDoc.Tag tagD1 = D.javaDoc().tags().get(1);
-        assertEquals("a.b.D.a()", tagD1.resolvedReference().toString());
+        assertEquals("a.b.X.D.a()", tagD1.resolvedReference().toString());
         JavaDoc.Tag tagD2 = D.javaDoc().tags().get(2);
-        assertEquals("a.b.D.b(int,String)", tagD2.resolvedReference().toString());
+        assertEquals("a.b.X.D.b(int,String)", tagD2.resolvedReference().toString());
         JavaDoc.Tag tagD3 = D.javaDoc().tags().get(3);
-        assertEquals("a.b.D.b(int,String)", tagD3.resolvedReference().toString());
+        assertEquals("a.b.X.D.b(int,String)", tagD3.resolvedReference().toString());
         JavaDoc.Tag tagD4 = D.javaDoc().tags().get(4);
         assertEquals("T=TP#0 in D", tagD4.resolvedReference().toString());
 

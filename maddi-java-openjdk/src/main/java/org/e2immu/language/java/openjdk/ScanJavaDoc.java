@@ -4,14 +4,11 @@ import com.sun.source.doctree.BlockTagTree;
 import com.sun.source.doctree.DocCommentTree;
 import com.sun.source.doctree.DocTree;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.LineMap;
 import com.sun.source.util.DocSourcePositions;
 import com.sun.tools.javac.tree.DCTree;
 import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.info.Info;
-import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 
 import javax.tools.Diagnostic;
@@ -62,8 +59,10 @@ public record ScanJavaDoc(Runtime runtime,
         String content = content(docTree);
         JavaDoc.TagIdentifier tagId = identifier(docTree);
         Source srcRef = switch (docTree) {
+            case DCTree.DCParam p -> source(docCommentTree, p.name);
             case DCTree.DCLink l -> source(docCommentTree, l.getReference());
             case DCTree.DCThrows t -> source(docCommentTree, t.getExceptionName());
+            case DCTree.DCSee s -> sourceOfList(docCommentTree, s.getReference());
             default -> null;
         };
         Source src = source(docCommentTree, docTree);
@@ -71,6 +70,16 @@ public record ScanJavaDoc(Runtime runtime,
         return runtime.newJavaDocTag(tagId, content, null, src, srcRef, isBlock);
     }
 
+    private Source sourceOfList(DocCommentTree docCommentTree, List<? extends DocTree> reference) {
+        if (reference != null) {
+            for (DocTree dt : reference) {
+                if (dt instanceof DCTree.DCReference) {
+                    return source(docCommentTree, reference.getFirst());
+                }
+            }
+        }
+        return null;
+    }
 
     private JavaDoc.TagIdentifier identifier(DocTree docTree) {
         return JavaDoc.TagIdentifier.valueOf(docTree.getKind().name().toUpperCase());
