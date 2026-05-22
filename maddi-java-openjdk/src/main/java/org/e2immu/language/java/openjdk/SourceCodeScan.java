@@ -318,7 +318,7 @@ public record SourceCodeScan(Runtime runtime) {
                         }
                         if (t instanceof MultiLineComment multiLineComment) {
                             if (multiLineComment.getSource().startsWith("/**")) {
-                                return parseJavaDoc(multiLineComment, source(multiLineComment), context, info, infoBuilder);
+                                return null; // we'll handle these as part of ScanCompilationUnit
                             }
                             boolean addNewline = true; // FIXME
                             return runtime.newMultilineComment(source(multiLineComment), multiLineComment.getSource(),

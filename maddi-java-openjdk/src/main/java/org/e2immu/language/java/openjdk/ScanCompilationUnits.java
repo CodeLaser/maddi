@@ -2,6 +2,7 @@ package org.e2immu.language.java.openjdk;
 
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LineMap;
+import com.sun.source.util.DocTrees;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.Trees;
@@ -110,9 +111,11 @@ public class ScanCompilationUnits {
 
 
             LineMap lineMap = unit.getLineMap();
+            DocTrees docTrees = DocTrees.instance(task);
+
             ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, classSymbolScanner,
-                    compilationUnit, unit, trees, sourcePositions, lineMap, task.getElements(), types, scanResult,
-                    computeMethodOverrides, flagHelper, classSymbolScanner);
+                    compilationUnit, unit, trees, sourcePositions, lineMap, task.getElements(), types,
+                    docTrees, scanResult, computeMethodOverrides, flagHelper, classSymbolScanner);
             scanCompilationUnit.scan(unit, null);
             primaryTypesAndModules.addAll(scanCompilationUnit.types());
         }
