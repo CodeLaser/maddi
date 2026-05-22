@@ -2,10 +2,7 @@ package org.e2immu.language.java.openjdk;
 
 import com.sun.source.doctree.DocCommentTree;
 import com.sun.source.tree.*;
-import com.sun.source.util.DocTrees;
-import com.sun.source.util.SourcePositions;
-import com.sun.source.util.TreePathScanner;
-import com.sun.source.util.Trees;
+import com.sun.source.util.*;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -98,7 +95,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         this.computeMethodOverrides = computeMethodOverrides;
         this.docTrees = docTrees;
         this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
-        this.scanJavaDoc = new ScanJavaDoc(runtime);
+
+        DocSourcePositions docSourcePositions = docTrees.getSourcePositions();
+        this.scanJavaDoc = new ScanJavaDoc(runtime, typeData, docSourcePositions, compilationUnitTree, lineMap);
 
         convertType = classSymbolScanner;
         convertType.startCompilationUnit(this, elementStack);
@@ -377,7 +376,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
         if (docComment != null) {
-            JavaDoc javaDoc = scanJavaDoc.scan(docComment, this);
+            JavaDoc javaDoc = scanJavaDoc.scan(docComment);
             builder.addComment(javaDoc);
             builder.setJavaDoc(javaDoc);
         }
@@ -558,7 +557,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
             DocCommentTree docComment = docTrees.getDocCommentTree(getCurrentPath());
             if (docComment != null) {
-                JavaDoc javaDoc = scanJavaDoc.scan(docComment, this);
+                JavaDoc javaDoc = scanJavaDoc.scan(docComment);
                 builder.addComment(javaDoc);
                 builder.setJavaDoc(javaDoc);
             }
