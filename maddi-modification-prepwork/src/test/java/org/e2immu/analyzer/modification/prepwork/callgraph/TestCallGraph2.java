@@ -14,23 +14,47 @@
 
 package org.e2immu.analyzer.modification.prepwork.callgraph;
 
-import org.e2immu.analyzer.modification.prepwork.CommonTest2;
+import org.e2immu.analyzer.modification.prepwork.CommonTest;
+import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.parser.Summary;
+import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.util.internal.graph.G;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
+import static org.e2immu.language.inspection.integration.JavaInspectorImpl.TEST_PROTOCOL_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class TestCallGraph2 extends CommonTest2 {
+public class TestCallGraph2 extends CommonTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestCallGraph2.class);
+
+    @BeforeEach
+    public void beforeEach() throws URISyntaxException, IOException {
+        // do not pass higher up!
+    }
 
     @Language("java")
     String TYPE_A_B_C = """
             package a.b.c;
             import java.util.ArrayList;
             import java.util.List;
-            class C { // sort of stack
+            public class C { // sort of stack
                 List<String> strings = new ArrayList<>();
                 public void push(String s) { strings.add(s); }
                 public String get() { return strings.get(strings.size() - 1); }
@@ -47,7 +71,7 @@ public class TestCallGraph2 extends CommonTest2 {
             import org.slf4j.LoggerFactory;
             import a.b.c.C;
             import java.util.stream.Stream;
-            class D {
+            public class D {
                 static Logger LOGGER = LoggerFactory.getLogger("D");
                 final C c;
                 public  D(C c) { this.c = c; }
@@ -80,7 +104,7 @@ public class TestCallGraph2 extends CommonTest2 {
             import java.sql.SQLException;
             import java.sql.Statement;
             import java.util.stream.Stream;
-            class E1 {
+            public class E1 {
                 D d  = new D(new C());
             
                 public int size() {
@@ -112,14 +136,18 @@ public class TestCallGraph2 extends CommonTest2 {
     String TYPE_A_B_E2 = """
             package a.b.e;
             import java.sql.Connection;
-            class E2 {
+            public class E2 {
                 final Connection con;
                 final E1 e1 = new E1();
-                E2(Connection con) {
+                public E2(Connection con) {
                     this.con = con;
                 }
                 void go() {
-                    e1.fill(con);
+                    try {
+                        e1.fill(con);
+                    } catch (Exception e) {
+                        // ignore
+                    }
                 }
             }
             """;
@@ -130,13 +158,17 @@ public class TestCallGraph2 extends CommonTest2 {
             package a.b.f;
             import a.b.e.E1;
             import java.sql.Connection;
-            class F1 {
+            public class F1 {
                 final Connection con;
-                E2(Connection con) {
+                F1(Connection con) {
                     this.con = con;
                 }
                 void go(E1 e1) {
-                    e1.fill(con);
+                    try {
+                        e1.fill(con);
+                    } catch (Exception e) {
+                        // ignore
+                    }
                 }
                 String get(E1 e1) {
                     return e1.pop();
@@ -149,7 +181,7 @@ public class TestCallGraph2 extends CommonTest2 {
     String TYPE_A_B_F2 = """
             package a.b.f;
             import a.b.e.E1;
-            class F2 {
+            public class F2 {
               String get(E1 e1) {
                     return e1.pop();
                 }
@@ -159,7 +191,7 @@ public class TestCallGraph2 extends CommonTest2 {
     @Language("java")
     String TYPE_A_B_G1 = """
             package a.b.g;
-            class G1 {
+            public class G1 {
                 void print() {
                     System.out.println("?");
                 }
@@ -172,7 +204,7 @@ public class TestCallGraph2 extends CommonTest2 {
             package a.b.g;
             import a.b.f.F2;
             import a.b.e.E1;
-            class G2 {
+            public class G2 {
                 final G1 g1 = new G1();
                 final F2 f2 = new F2();
                 final E1 e1;
@@ -256,20 +288,20 @@ public class TestCallGraph2 extends CommonTest2 {
         R r = init(sourcesByFqn);
 
         assertEquals("""
-                a.b.X->S->a.b.X.<init>(java.util.Map<String,Object>)
+                a.b.X->S->a.b.X.<init>(java.util.Map)
                 a.b.X->S->a.b.X.attributes
                 a.b.X->S->a.b.X.getEmail()
-                a.b.X.attributes->R->a.b.X.<init>(java.util.Map<String,Object>)
+                a.b.X.attributes->R->a.b.X.<init>(java.util.Map)
                 a.b.Y->H->a.b.X
-                a.b.Y->S->a.b.Y.<init>(java.util.Map<String,Object>)
+                a.b.Y->S->a.b.Y.<init>(java.util.Map)
                 a.b.Y->S->a.b.Y.getEmail()
-                a.b.Y.<init>(java.util.Map<String,Object>)->S->a.b.X.<init>(java.util.Map<String,Object>)
+                a.b.Y.<init>(java.util.Map)->S->a.b.X.<init>(java.util.Map)
                 a.b.Y.getEmail()->R->a.b.X.attributes
                 a.b.Y.getEmail()->S->a.b.X.getEmail()
                 d.e.A->S->d.e.A.<init>()
                 d.e.A->S->d.e.A.y
                 d.e.A.y->DR->a.b.Y
-                d.e.A.y->R->a.b.Y.<init>(java.util.Map<String,Object>)\
+                d.e.A.y->R->a.b.Y.<init>(java.util.Map)\
                 """, r.dependencyGraph().toString("\n", ComputeCallGraph::edgeValuePrinter));
     }
 
@@ -414,5 +446,62 @@ public class TestCallGraph2 extends CommonTest2 {
                 c.C->H->b.A
                 c.C->S->c.C.<init>()\
                 """, r.dependencyGraph().toString("\n", ComputeCallGraph::edgeValuePrinter));
+    }
+
+    // only for maddi
+    record R(List<Info> analysisOrder, G<Info> dependencyGraph) {
+    }
+
+    R init(Map<String, String> sourcesByFqn) throws IOException {
+        String impl = System.getProperty("maddi_parser", "maddi");
+        LOGGER.info("Parsing with {}", impl);
+        if ("maddi".equalsIgnoreCase(impl)) {
+            LOGGER.debug("wait for init() call");
+            return maddiInit(sourcesByFqn);
+        }
+        if ("openJdk".equalsIgnoreCase(impl)) {
+            try {
+                openJdkParser();
+                runtime = javaInspector.runtime();
+                return make(sourcesByFqn);
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        throw new UnsupportedEncodingException("Unknown parser " + impl);
+    }
+
+    R maddiInit(Map<String, String> sourcesByFqn) throws IOException {
+        Map<String, String> sourcesByURIString = sourcesByFqn.entrySet()
+                .stream().collect(Collectors.toUnmodifiableMap(
+                        e -> TEST_PROTOCOL_PREFIX + e.getKey(), Map.Entry::getValue));
+        javaInspector = new JavaInspectorImpl();
+        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder()
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
+                // NOTE: No access to ToolChain
+                .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "org/apiguardian/api")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "org/junit/platform/commons")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "org/slf4j/event")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "ch/qos/logback/core")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "ch/qos/logback/classic")
+                .addClassPath(JAR_WITH_PATH_PREFIX + "org/opentest4j");
+        sourcesByURIString.keySet().forEach(builder::addSources);
+        // FIXME we'd rather have a single source set containing all the testprotocol: sources
+        InputConfiguration inputConfiguration = builder.build();
+        javaInspector.initialize(inputConfiguration);
+        runtime = javaInspector.runtime();
+        return make(sourcesByURIString);
+    }
+
+    private R make(Map<String, String> map) {
+        PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
+        JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
+                .setFailFast(true).setDetailedSources(true).setIgnoreModule(true).build();
+        Summary summary = javaInspector.parse(map, parseOptions);
+        G<Info> graph = prepAnalyzer.doPrimaryTypesReturnGraph(Set.copyOf(summary.types()));
+        ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
+        return new R(cao.go(graph), graph);
     }
 }

@@ -77,7 +77,7 @@ public class CommonTest {
         runtime = javaInspector.runtime();
     }
 
-    private void openJdkParser() throws URISyntaxException, IOException {
+    protected void openJdkParser() throws URISyntaxException, IOException {
 
         Path maddiSupportClasses = Path.of("../maddi-support/build/classes/java/main/");
         assertTrue(Files.isDirectory(maddiSupportClasses));

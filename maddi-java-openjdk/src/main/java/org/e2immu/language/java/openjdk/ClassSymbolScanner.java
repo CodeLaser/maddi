@@ -233,6 +233,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     createSyntheticFieldsForGetSet.createSyntheticFields(newTypeInfo);
                 }
                 // not committing yet
+                newTypeInfo.builder().commit();
             }
             recursionPrevention.remove(newTypeInfo);
         }
@@ -334,14 +335,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             if ((isPublic || isNonPrivateConstructor)
                 && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))
                 && (loadMode == LoadMode.LOAD_MEMBERS || !methodSymbolMap.containsKey(ms))) {
-                addMethodToType(typeInfo, ms, false);
+                MethodInfo methodInfo = addMethodToType(typeInfo, ms, false);
+                if (!methodInfo.hasBeenInspected()) methodInfo.builder().commit();
             }
 
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
             boolean isPublic = (vs.flags() & Flags.PUBLIC) != 0;
             if (isPublic && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))
                 && (loadMode == LoadMode.LOAD_MEMBERS || !varSymbolMap.containsKey(vs))) {
-                addFieldToType(typeInfo, vs);
+                FieldInfo fieldInfo = addFieldToType(typeInfo, vs);
+                if (!fieldInfo.hasBeenInspected()) fieldInfo.builder().commit();
+
             }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
             boolean isPublic = (cs.flags() & Flags.PUBLIC) != 0;
@@ -349,13 +353,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                                            && typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)
                 && (loadMode == LoadMode.LOAD_MEMBERS
                     || typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)) {
-                addEnclosedTypeToType(typeInfo, cs, loadMode);
+                TypeInfo enclosed = addEnclosedTypeToType(typeInfo, cs, loadMode);
+                if (!enclosed.hasBeenInspected()) enclosed.builder().commit();
             }
         }
     }
 
-    private void addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs, LoadMode loadMode) {
-        if (getType(cs.fullname.toString()) != null) return;
+    private TypeInfo addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs, LoadMode loadMode) {
+        TypeInfo inMap = getType(cs.fullname.toString());
+        if (inMap != null) return inMap;
         String name = cs.getSimpleName().toString();
         LOGGER.debug("Adding enclosed type {} to {}", name, typeInfo);
         TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
@@ -363,18 +369,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         typeInfo.builder().addSubType(enclosed);
         // we must do type parameters, interfaces, parent class etc.
         loadType(cs, enclosed, loadMode == LoadMode.COMPLETE ? LoadMode.COMPLETE_SUB : loadMode);
+        return enclosed;
     }
 
-    private void addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
+    private FieldInfo addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
         String name = vs.getSimpleName().toString();
         LOGGER.debug("Adding field {} to {}", name, typeInfo);
         ParameterizedType type = convert(vs.type);
         boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
         FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
+        fieldInfo.builder().setInitializer(runtime.newEmptyExpression());
         typeInfo.builder().addField(fieldInfo);
         flagHelper.field(vs.flags(), fieldInfo.builder());
 
         put(vs, fieldInfo);
+        return fieldInfo;
     }
 
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
@@ -831,7 +840,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
             Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
             loadType(cs, typeInfo, LoadMode.COMPLETE);
-            typeInfo.builder().commit();
+            //     typeInfo.builder().commit();
         }
     }
 
