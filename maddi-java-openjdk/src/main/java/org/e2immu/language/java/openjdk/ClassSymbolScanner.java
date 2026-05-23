@@ -434,7 +434,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         builder.setReturnType(returnType)
                 .setMethodBody(runtime.emptyBlock())
                 .addOverrides(overrides)
-                .commitParameters();
+                .commitParameters()
+                .computeAccess();
         // now the fully qualified name has been computed...
 
         clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
@@ -840,7 +841,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
             Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
             loadType(cs, typeInfo, LoadMode.COMPLETE);
-            //     typeInfo.builder().commit();
         }
     }
 

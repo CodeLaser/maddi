@@ -142,7 +142,7 @@ public class ComputePartOfConstructionFinalField {
 
     private boolean isAssigned(MethodInfo methodInfo, FieldInfo fieldInfo) {
         Statement lastStatement = methodInfo.methodBody().lastStatement();
-        if (lastStatement == null) return false;
+        if (lastStatement == null || lastStatement.isSynthetic()) return false;
         VariableData vd = VariableDataImpl.of(lastStatement);
         assert vd != null;
         return vd.variableInfoContainerStream()
