@@ -41,7 +41,7 @@ public class TestComputePartOfConstruction extends CommonTest {
     @DisplayName("part of construction of CallGraph test 3")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(TestCallGraph.INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, TestCallGraph.INPUT3);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
 
@@ -85,7 +85,7 @@ public class TestComputePartOfConstruction extends CommonTest {
     @DisplayName("final field")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse(ABX, INPUT2);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
 
@@ -124,7 +124,7 @@ public class TestComputePartOfConstruction extends CommonTest {
     @DisplayName("lambda and part of construction")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse(ABX, INPUT3);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
 
@@ -159,7 +159,7 @@ public class TestComputePartOfConstruction extends CommonTest {
     @DisplayName("anonymous type and part of construction")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse(ABX, INPUT4);
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
         prepAnalyzer.doPrimaryType(X);
 
