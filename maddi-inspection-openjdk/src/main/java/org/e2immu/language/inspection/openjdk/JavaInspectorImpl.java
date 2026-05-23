@@ -321,7 +321,7 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             return (JavacTask) javaCompiler.getTask(
                     null, fm, diagnostics,
-                    List.of("-proc:none", "--enable-preview", "--release=25"),
+                    List.of("-proc:none", "--enable-preview", "--release=26"),
                     null,
                     allCompilationUnits
             );
