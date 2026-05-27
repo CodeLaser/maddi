@@ -22,3 +22,10 @@ java {
 dependencies {
     api(project(":maddi-support"))
 }
+tasks.withType<JavaCompile> {
+    options.compilerArgs.addAll(listOf(
+        "-Xplugin:ScanBuild ${layout.buildDirectory.get()}/config.json"
+    ))
+    options.annotationProcessorPath = configurations.annotationProcessor.get() +
+            files("/Users/bnaudts/git/maddi/maddi-run-scanbuild.jar")
+}
