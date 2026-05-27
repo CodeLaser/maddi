@@ -2,8 +2,11 @@ package org.e2immu.analyzer.run.scanbuild;
 
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
+import com.sun.source.util.TaskEvent;
+import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Options;
 
 import javax.tools.JavaFileManager;
 import javax.tools.StandardJavaFileManager;
@@ -11,6 +14,8 @@ import javax.tools.StandardLocation;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ScanBuildPlugin implements Plugin {
 
@@ -27,60 +32,60 @@ public class ScanBuildPlugin implements Plugin {
         try {
             Context context = ((BasicJavacTask) task).getContext();
 
-// Get the file manager via its context key — no cast needed
+            Options options = Options.instance(context);
+            // Print everything in options to find the right keys
+            options.keySet().forEach(k ->
+                    System.err.println("option: '" + k + "' = '" + options.get(k) + "'"));
+
+            // Get the file manager via its context key — no cast needed
             JavaFileManager fm = context.get(JavaFileManager.class);
 
-// Then get locations via reflection to avoid the cast issue entirely
-            StandardJavaFileManager sfm = unwrap(fm);
-            StringBuilder json = new StringBuilder("{\n");
+            for (var method : fm.getClass().getMethods()) {
+                if (method.getName().toLowerCase().contains("location") ||
+                    method.getName().toLowerCase().contains("path") ||
+                    method.getName().toLowerCase().contains("class")) {
+                    System.err.println("method: " + method.getName()
+                                       + " -> " + method.getReturnType().getSimpleName());
+                }
+            }
 
-            // Source directories
-            json.append("  \"sourcePaths\": ");
-            appendPaths(json, sfm.getLocation(StandardLocation.SOURCE_PATH));
+         /*   // Convert to lists for JSON output
+            List<String> classOutputPaths  = toPaths(classOutput);
+            List<String> classPathPaths    = toPaths(classPath);
+            List<String> sourcePathPaths   = toPaths(sourcePath);
+            List<String> modulePathPaths   = toPaths(modulePath);
 
-            // Class output directory
-            json.append(",\n  \"classOutput\": ");
-            appendPaths(json, sfm.getLocation(StandardLocation.CLASS_OUTPUT));
+            // Collect source files via TaskListener
+            List<String> sourceFiles = new ArrayList<>();
+            task.addTaskListener(new TaskListener() {
+                @Override
+                public void started(TaskEvent e) {
+                    if (e.getKind() == TaskEvent.Kind.PARSE) {
+                        sourceFiles.add(e.getSourceFile().toUri().getPath());
+                    }
+                }
 
-            // Classpath — jars and class directories
-            json.append(",\n  \"classPath\": ");
-            appendPaths(json, sfm.getLocation(StandardLocation.CLASS_PATH));
+                @Override
+                public void finished(TaskEvent e) {
+                    if (e.getKind() != TaskEvent.Kind.COMPILATION) return;
+                    writeConfig(outputFile, classOutputPaths, classPathPaths,
+                            sourcePathPaths, modulePathPaths, sourceFiles);
+                }
+            });
 
-            // Module path if used
-            json.append(",\n  \"modulePath\": ");
-            appendPaths(json, sfm.getLocation(StandardLocation.MODULE_PATH));
-
-            // Source files being compiled — from the task listener
-            // (not available at init time, need a task listener for this)
-            json.append(",\n  \"sourceFiles\": []");
-
-            json.append("\n}");
-
-            Files.writeString(Path.of(outputPath), json.toString());
+*/
 
         } catch (Exception e) {
-            System.err.println("ScanBuild: " + e.getMessage());
-            e.printStackTrace();
+            throw new RuntimeException("Problematic", e);
         }
     }
 
-    private StandardJavaFileManager unwrap(JavaFileManager fm) {
-        // Unwrap ClientCodeWrapper by following the 'clientJFM' field
-        try {
-            var field = fm.getClass().getDeclaredField("clientJFM");
-            field.setAccessible(true);
-            JavaFileManager inner = (JavaFileManager) field.get(fm);
-            if (inner instanceof StandardJavaFileManager sfm) return sfm;
-            return unwrap(inner); // recurse in case of multiple wrapping layers
-        } catch (NoSuchFieldException e) {
-            // Not wrapped — try direct cast
-            if (fm instanceof StandardJavaFileManager sfm) return sfm;
-            throw new RuntimeException("Cannot unwrap: " + fm.getClass());
-        } catch (Exception e) {
-            throw new RuntimeException("Unwrap failed", e);
-        }
-    }
-
+List<String> toPaths(Iterable<? extends Path> paths) {
+    if (paths == null) return List.of();
+    List<String> result = new ArrayList<>();
+    paths.forEach(p -> result.add(p.toAbsolutePath().toString()));
+    return result;
+}
     void appendPaths(StringBuilder sb, Iterable<? extends File> location) {
         sb.append("[");
         if (location != null) {
