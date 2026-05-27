@@ -56,6 +56,8 @@ public interface G<T> {
         void add(T from, Iterable<? extends T> tos);
 
         int size();
+
+        Set<T> vertices();
     }
 
     String toString(String delimiter);
