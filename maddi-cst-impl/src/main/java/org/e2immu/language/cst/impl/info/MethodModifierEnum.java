@@ -26,6 +26,7 @@ public enum MethodModifierEnum implements MethodModifier {
     ABSTRACT(KeywordImpl.ABSTRACT),
     DEFAULT(KeywordImpl.DEFAULT),
     FINAL(KeywordImpl.FINAL),
+    NATIVE(KeywordImpl.NATIVE),
     STATIC(KeywordImpl.STATIC),
     SYNCHRONIZED(KeywordImpl.SYNCHRONIZED);
 

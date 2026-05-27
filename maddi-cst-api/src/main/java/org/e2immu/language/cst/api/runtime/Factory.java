@@ -117,6 +117,8 @@ public interface Factory {
 
     MethodModifier methodModifierFinal();
 
+    MethodModifier methodModifierNative();
+
     MethodModifier methodModifierPrivate();
 
     MethodModifier methodModifierProtected();
