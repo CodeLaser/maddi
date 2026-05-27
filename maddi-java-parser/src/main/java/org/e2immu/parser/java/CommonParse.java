@@ -433,6 +433,7 @@ public abstract class CommonParse {
             case STATIC -> runtime.methodModifierStatic();
             case SYNCHRONIZED -> runtime.methodModifierSynchronized();
             case ABSTRACT -> runtime.methodModifierAbstract();
+            case NATIVE -> runtime.methodModifierNative();
             case _DEFAULT -> runtime.methodModifierDefault();
             default -> throw new UnsupportedOperationException("Have " + keyWord.getType());
         };
