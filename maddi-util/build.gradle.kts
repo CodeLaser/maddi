@@ -28,4 +28,12 @@ tasks.withType<JavaCompile> {
     ))
     options.annotationProcessorPath = configurations.annotationProcessor.get() +
             files("/Users/bnaudts/git/maddi/maddi-run-scanbuild.jar")
+    options.compilerArgs.addAll(listOf(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-opens", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED"
+    ))
 }
