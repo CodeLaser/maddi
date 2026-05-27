@@ -295,6 +295,11 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     }
 
     @Override
+    public MethodModifier methodModifierNative() {
+        return MethodModifierEnum.NATIVE;
+    }
+
+    @Override
     public MethodModifier methodModifierPrivate() {
         return MethodModifierEnum.PRIVATE;
     }
