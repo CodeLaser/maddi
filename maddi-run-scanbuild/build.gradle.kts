@@ -21,21 +21,18 @@ java {
     targetCompatibility = JavaVersion.VERSION_25
 }
 dependencies {
-    api(project(":maddi-inspection-api"))
-    implementation(project(":maddi-graph"))
-    implementation(project(":maddi-util"))
-    implementation(project(":maddi-cst-analysis"))
 
-    testImplementation(project(":maddi-cst-impl"))
-    testImplementation(project(":maddi-cst-io"))
-    testImplementation(project(":maddi-cst-print"))
-    testImplementation(project(":maddi-inspection-parser"))
-    testImplementation(project(":maddi-inspection-integration"))
-    testImplementation(project(":maddi-inspection-resource"))
-    testImplementation(project(":maddi-java-bytecode"))
-    testImplementation(project(":maddi-java-parser"))
 }
-tasks.withType<Test> {
-    maxHeapSize = "2G"
-    maxParallelForks = 4
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.addAll(
+        listOf(
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-exports", "jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+
+        )
+    )
 }
