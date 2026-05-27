@@ -84,6 +84,11 @@ public class ImmutableGraph<T> extends GraphImpl<T> implements G<T> {
         }
 
         @Override
+        public Set<T> vertices() {
+            return map.keySet();
+        }
+
+        @Override
         public void addAll(G.Builder<T> other) {
             ((ImmutableGraph.Builder<T>) other).map.forEach((from, m) -> {
                 Map<T, Long> m2 = ensureVertex(from);
