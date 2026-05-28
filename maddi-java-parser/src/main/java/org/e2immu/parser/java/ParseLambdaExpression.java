@@ -236,20 +236,33 @@ public class ParseLambdaExpression extends CommonParse {
             assert lambdaParameters.getFirst() instanceof Delimiter d && Token.TokenType.LPAREN.equals(d.getType());
             // we have a list of parameters, with type
             int i = 1;
+            int parameterIndex = 0;
             while (i < lambdaParameters.size()) {
                 if (lambdaParameters.get(i) instanceof LambdaParameter lp) {
-                    ParameterizedType type;
-                    Lambda.OutputVariant outputVariant;
+                    ParameterizedType type = null;
+                    Lambda.OutputVariant outputVariant = runtime.lambdaOutputVariantEmpty();
                     DetailedSources.Builder detailedSourcesBuilder = context.newDetailedSourcesBuilder();
 
-                    if (lp.get(0) instanceof Token kw && Token.TokenType.VAR.equals(kw.getType())) {
-                        type = forwardType.type().parameters().get(1);
-                        outputVariant = runtime.lambdaOutputVariantEmpty();
-                    } else {
-                        type = parsers.parseType().parse(context, lp.getFirst(), detailedSourcesBuilder);
-                        outputVariant = runtime.lambdaOutputVariantTyped();
+                    int j = 0;
+                    boolean isFinal = false;
+                    while (lp.get(j) instanceof Token token) {
+                        if (Token.TokenType.FINAL.equals(token.getType())) {
+                            isFinal = true;
+                            ++j;
+                        } else if (Token.TokenType.VAR.equals(token.getType())) {
+                            outputVariant = runtime.lambdaOutputVariantVar();
+                            type = sam.getConcreteTypeOfParameter(runtime, parameterIndex);
+                            ++j;
+                        } else break;
                     }
-                    Node lp1 = lp.get(1);
+                    if (j < lp.size() - 1) {
+                        assert type == null;
+                        type = parsers.parseType().parse(context, lp.get(j), detailedSourcesBuilder);
+                        outputVariant = runtime.lambdaOutputVariantTyped();
+                        ++j;
+                    }
+                    assert type != null;
+                    Node lp1 = lp.get(j);
                     ParameterInfo pi;
                     ParameterizedType boxedType = type.ensureBoxed(runtime);
                     if (lp1 instanceof Identifier identifier) {
@@ -261,11 +274,14 @@ public class ParseLambdaExpression extends CommonParse {
 
                     Source source = source(lp);
                     if (detailedSourcesBuilder != null) detailedSourcesBuilder.put(pi.name(), source(lp1));
-                    pi.builder().setSource(detailedSourcesBuilder == null ? source
-                            : source.withDetailedSources(detailedSourcesBuilder.build()));
+                    pi.builder()
+                            .setIsFinal(isFinal)
+                            .setSource(detailedSourcesBuilder == null ? source
+                                    : source.withDetailedSources(detailedSourcesBuilder.build()));
 
                     pi.builder().commit();
                     newContext.variableContext().add(pi);
+                    ++parameterIndex;
                 } else if (lambdaParameters.get(i) instanceof Delimiter) {
                     break;
                 } else throw new Summary.ParseException(context, "Expected LambdaParameter");
