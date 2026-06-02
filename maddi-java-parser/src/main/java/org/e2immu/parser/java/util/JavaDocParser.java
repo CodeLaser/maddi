@@ -20,16 +20,28 @@ import org.e2immu.language.cst.api.runtime.Runtime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-public record JavaDocParser(Runtime runtime) {
+public final class JavaDocParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaDocParser.class);
 
     private static final Pattern BLOCK_TAG = Pattern.compile("^(/\\*\\*|\\s*\\*\\s*)@(\\p{Alpha}+)");
     private static final Pattern INLINE_TAG = Pattern.compile("\\{@(\\p{Alpha}+)\\s+([^}]+)}");
+    private final Runtime runtime;
+
+    private final Map<String, JavaDoc.TagIdentifier> tagIdentifierMap = Arrays.stream(JavaDoc.TagIdentifier.values())
+            .collect(Collectors.toUnmodifiableMap(v -> v.identifier.toLowerCase(), v -> v));
+
+    private JavaDoc.TagIdentifier identifier(String string) {
+        return tagIdentifierMap.get(string.toLowerCase());
+    }
+
+    public JavaDocParser(Runtime runtime) {
+        this.runtime = runtime;
+    }
 
     public JavaDoc extractTags(String comment, Source sourceOfComment) {
         try {
@@ -48,7 +60,7 @@ public record JavaDocParser(Runtime runtime) {
             Matcher blockTagMatchar = BLOCK_TAG.matcher(line);
             String restOfLine;
             if (blockTagMatchar.find()) {
-                JavaDoc.TagIdentifier identifier = JavaDoc.identifier(blockTagMatchar.group(2));
+                JavaDoc.TagIdentifier identifier = identifier(blockTagMatchar.group(2));
                 int endOfTag = blockTagMatchar.end(2);
                 modifiedComment.append(blockTagMatchar.group(1));
                 if (identifier != null) {
@@ -87,11 +99,11 @@ public record JavaDocParser(Runtime runtime) {
             Matcher inlineTagMatcher = INLINE_TAG.matcher(restOfLine);
             while (inlineTagMatcher.find()) {
                 String content = inlineTagMatcher.group(2);
-                JavaDoc.TagIdentifier identifier = JavaDoc.identifier(inlineTagMatcher.group(1));
+                JavaDoc.TagIdentifier identifier = identifier(inlineTagMatcher.group(1));
                 Source sourceOfTag = subSource(sourceOfComment, lineCount, 1 + inlineTagMatcher.start(), inlineTagMatcher.end());
                 Source sourceOfReference = subSource(sourceOfComment, lineCount, 1 + inlineTagMatcher.start(2),
                         inlineTagMatcher.end(2));
-                JavaDoc.Tag tag = runtime().newJavaDocTag(identifier, content, null, sourceOfTag,
+                JavaDoc.Tag tag = runtime.newJavaDocTag(identifier, content, null, sourceOfTag,
                         sourceOfReference, false);
                 inlineTagMatcher.appendReplacement(modifiedComment, "{" + tags.size() + "}");
                 tags.add(tag);

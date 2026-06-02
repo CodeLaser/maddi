@@ -86,7 +86,7 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         @Override
         public Tag rewire(InfoMap infoMap) {
             if (resolvedReference == null) return this;
-            return new TagImpl(tagIdentifier, content, (Info) resolvedReference.rewire(infoMap), source,
+            return new TagImpl(tagIdentifier, content, resolvedReference.rewire(infoMap), source,
                     sourceOfReference, blockTag);
         }
 
