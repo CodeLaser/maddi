@@ -402,6 +402,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         try {
             JCTree.JCMethodDecl jcMethod = (JCTree.JCMethodDecl) node;
             String methodName = node.getName().toString();
+            boolean isConstructor = "<init>".equals(methodName);
             long methodFlags = jcMethod.getModifiers().flags;
             TypeInfo currentType = typeStack.getLast();
             DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
@@ -418,7 +419,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder = methodInfo.builder();
             } else {
                 // construction of the method
-                boolean isConstructor = "<init>".equals(methodName);
                 if (isConstructor) {
                     methodInfo = runtime.newConstructor(currentType, flagHelper.constructorType(methodFlags));
                     builder = methodInfo.builder();
@@ -483,7 +483,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
 
             // method name
-            dsb.put(methodName, sourceOfIdentifier(methodName, jcMethod.pos));
+            String sourceMethodName = isConstructor ? currentType.simpleName(): methodName;
+            dsb.put(methodName, sourceOfIdentifier(sourceMethodName, jcMethod.pos));
+
             // annotations
             for (JCTree.JCAnnotation annotation : jcMethod.getModifiers().getAnnotations()) {
                 AnnotationExpression ae = convertAnnotation(annotation);
@@ -2007,6 +2009,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             scan(arg, unused);
             arguments.add(currentExpression);
         }
+        Expression object;
+        if (newClass.encl != null) {
+            currentExpression = null;
+            scan(newClass.encl, unused);
+            object = currentExpression;
+        } else {
+            object = null;
+        }
         TypeInfo anonymousType;
         ParameterizedType concreteReturnType;
         MethodInfo constructor;
@@ -2054,6 +2064,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             constructor = typeData.getOrLoadMethod(methodSymbol);
         }
         currentExpression = runtime.newConstructorCallBuilder()
+                .setObject(object)
                 .setSource(sourceForNode(node, dsb))
                 .setConstructor(constructor)
                 .setDiamond(diamond)

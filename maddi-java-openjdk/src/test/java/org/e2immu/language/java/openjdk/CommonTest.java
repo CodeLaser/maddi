@@ -121,7 +121,7 @@ public class CommonTest {
 
         return (JavacTask) compiler.getTask(
                 null, fm, diagnostics,
-                List.of("-proc:none", "--enable-preview", "--release=25"),
+                List.of("-proc:none", "--enable-preview", "--release=26"),
                 null,
                 compilationUnits
         );
