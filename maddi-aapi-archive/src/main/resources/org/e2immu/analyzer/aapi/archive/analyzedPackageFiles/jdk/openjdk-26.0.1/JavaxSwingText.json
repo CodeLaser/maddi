@@ -1,0 +1,234 @@
+[
+{"name": "Tjavax.swing.text.JTextComponent", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "SAccessibleJTextComponent(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pthis$0(0)", "data":{"annotatedApi":1}}},
+  {"name": "McaretUpdate(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"annotatedApi":1}}},
+  {"name": "MinsertUpdate(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"annotatedApi":1}}},
+  {"name": "MremoveUpdate(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"annotatedApi":1}}},
+  {"name": "MchangedUpdate(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pe(0)", "data":{"annotatedApi":1}}},
+  {"name": "MgetAccessibleStateSet(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+  {"name": "MgetAccessibleRole(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+  {"name": "MgetAccessibleText(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+  {"name": "MgetIndexAtPoint(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pp(0)", "data":{"annotatedApi":1}}},
+  {"name": "MgetCharacterBounds(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+   {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetCharCount(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetCaretPosition(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetCharacterAttribute(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+   {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MgetSelectionStart(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetSelectionEnd(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetSelectedText(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+  {"name": "MgetAtIndex(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAfterIndex(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetBeforeIndex(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "Ppart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAccessibleEditableText(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+  {"name": "MsetTextContents(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Ps(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "MinsertTextAtIndex(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pindex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Ps(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "MgetTextRange(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+   {"name": "PstartIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "PendIndex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Mdelete(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "PstartIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "PendIndex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Mcut(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "PstartIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "PendIndex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Mpaste(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "PstartIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MreplaceText(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "PstartIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "PendIndex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Ps(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "MselectText(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "PstartIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "PendIndex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MsetAttributes(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "PstartIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "PendIndex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pas(2)", "data":{"annotatedApi":1}}]},
+  {"name": "MgetTextSequenceAt(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+   {"name": "Ppart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetTextSequenceAfter(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+   {"name": "Ppart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetTextSequenceBefore(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+   {"name": "Ppart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Pindex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetTextBounds(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+   {"name": "PstartIndex(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "PendIndex(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "MgetAccessibleAction(39)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+  {"name": "MgetAccessibleActionCount(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetAccessibleActionDescription(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+   {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "MdoAccessibleAction(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Pi(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}}]},
+ {"name": "SDropLocation(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "MgetIndex(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+  {"name": "MgetBias(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+  {"name": "MtoString(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
+ {"name": "SKeyBinding(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Fkey(0)", "data":{"annotatedApi":1}},
+  {"name": "FactionName(1)", "data":{"annotatedApi":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+  {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Pkey(0)", "data":{"annotatedApi":1}},
+   {"name": "PactionName(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]},
+ {"name": "FFOCUS_ACCELERATOR_KEY(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FDEFAULT_KEYMAP(32)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetUI(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MsetUI(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pui(0)", "data":{"annotatedApi":1}}},
+ {"name": "MupdateUI(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MaddCaretListener(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Plistener(0)", "data":{"annotatedApi":1}}},
+ {"name": "MremoveCaretListener(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Plistener(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetCaretListeners(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}},
+ {"name": "MsetDocument(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pdoc(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetDocument(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MsetComponentOrientation(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Po(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetActions(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}},
+ {"name": "MsetMargin(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pm(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetMargin(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MsetNavigationFilter(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pfilter(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetNavigationFilter(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MgetCaret(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MsetCaret(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pc(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetHighlighter(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MsetHighlighter(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ph(0)", "data":{"annotatedApi":1}}},
+ {"name": "MsetKeymap(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pmap(0)", "data":{"annotatedApi":1}}},
+ {"name": "MsetDragEnabled(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetDragEnabled(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetDropMode(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PdropMode(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetDropMode(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MgetDropLocation(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MgetKeymap(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MaddKeymap(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "Pnm(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pparent(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MremoveKeymap(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pnm(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetKeymap(33)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "Pnm(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MloadKeymap(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pmap(0)", "data":{"annotatedApi":1}},
+  {"name": "Pbindings(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}},
+  {"name": "Pactions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}]},
+ {"name": "MgetCaretColor(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetCaretColor(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pc(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSelectionColor(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetSelectionColor(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pc(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSelectedTextColor(40)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetSelectedTextColor(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pc(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetDisabledTextColor(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
+ {"name": "MsetDisabledTextColor(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pc(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MreplaceSelection(44)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pcontent(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetText(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "subs":[
+  {"name": "Poffs(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plen(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MmodelToView(46)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Ppos(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MmodelToView2D(47)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Ppos(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MviewToModel(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ppt(0)", "data":{"annotatedApi":1}}},
+ {"name": "MviewToModel2D(49)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ppt(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mcut(50)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mcopy(51)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mpaste(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MmoveCaretPosition(55)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Ppos(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsetFocusAccelerator(56)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PaKey(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetFocusAccelerator(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mread(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Pin(0)", "data":{"annotatedApi":1}},
+  {"name": "Pdesc(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(59)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pout(0)", "data":{"annotatedApi":1}}},
+ {"name": "MremoveNotify(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetCaretPosition(61)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pposition(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetCaretPosition(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetText(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pt(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MgetText(64)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MgetSelectedText(65)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MisEditable(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetEditable(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pb(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSelectionStart(68)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetSelectionStart(69)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PselectionStart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetSelectionEnd(70)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsetSelectionEnd(71)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "PselectionEnd(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mselect(72)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PselectionStart(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "PselectionEnd(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MselectAll(73)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetToolTipText(74)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Pevent(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetPreferredScrollableViewportSize(75)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MgetScrollableUnitIncrement(76)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PvisibleRect(0)", "data":{"annotatedApi":1}},
+  {"name": "Porientation(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdirection(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetScrollableBlockIncrement(77)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PvisibleRect(0)", "data":{"annotatedApi":1}},
+  {"name": "Porientation(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdirection(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetScrollableTracksViewportWidth(78)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MgetScrollableTracksViewportHeight(79)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mprint(80)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mprint(81)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PheaderFormat(0)", "data":{"annotatedApi":1}},
+  {"name": "PfooterFormat(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mprint(82)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "PheaderFormat(0)", "data":{"annotatedApi":1}},
+  {"name": "PfooterFormat(1)", "data":{"annotatedApi":1}},
+  {"name": "PshowPrintDialog(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pservice(3)", "data":{"annotatedApi":1}},
+  {"name": "Pattributes(4)", "data":{"annotatedApi":1}},
+  {"name": "Pinteractive(5)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetPrintable(83)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "PheaderFormat(0)", "data":{"annotatedApi":1}},
+  {"name": "PfooterFormat(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MgetAccessibleContext(84)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MgetInputMethodRequests(90)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MaddInputMethodListener(91)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Pl(0)", "data":{"annotatedApi":1}}}]}
+]
