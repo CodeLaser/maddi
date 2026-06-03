@@ -45,6 +45,15 @@ public record InputConfigurationImpl(Path workingDirectory,
             "jmod:java.sql",
             "jmod:java.xml",
     };
+    public static final String[] DEFAULT_MODULES_WITHOUT_PREFIX = {
+            "java.base",
+            "java.datatransfer",
+            "java.desktop",
+            "java.logging",
+            "java.net.http",
+            "java.sql",
+            "java.xml",
+    };
 
     static final String NL_TAB = "\n    ";
 
@@ -202,7 +211,7 @@ public record InputConfigurationImpl(Path workingDirectory,
                         .setSourceEncoding(sourceCharset)
                         .setTest(true)
                         .setRestrictToPackages(restrictSourceToPackages)
-                                .setDependencies(allDependencies)
+                        .setDependencies(allDependencies)
                         .build());
             }
             return new InputConfigurationImpl(workingDirectory == null || workingDirectory.isBlank()
@@ -216,6 +225,10 @@ public record InputConfigurationImpl(Path workingDirectory,
         // when DEFAULT_MODULES is used in a test setup
         private String removeJmod(String cpp) {
             if (cpp.startsWith("jmod:")) return cpp.substring(5);
+            int lastIndex = cpp.lastIndexOf('/');
+            if (lastIndex >= 0 && cpp.endsWith(".jar")) {
+                return cpp.substring(lastIndex + 1);
+            }
             return cpp;
         }
 
@@ -294,6 +307,13 @@ public record InputConfigurationImpl(Path workingDirectory,
         @Fluent
         public Builder addClassPath(String... sources) {
             classPathStringParts.addAll(Arrays.asList(sources));
+            return this;
+        }
+
+        @Fluent
+        @Override
+        public Builder addJmodToClassPath(String... sources) {
+            classPathStringParts.addAll(Arrays.stream(sources).map(s -> "jmod:" + s).toList());
             return this;
         }
 
