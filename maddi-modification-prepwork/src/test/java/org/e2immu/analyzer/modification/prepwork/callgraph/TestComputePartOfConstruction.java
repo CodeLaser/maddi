@@ -47,7 +47,7 @@ public class TestComputePartOfConstruction extends CommonTest {
 
         Value.SetOfInfo setOfInfo = X.analysis().getOrNull(PART_OF_CONSTRUCTION, ValueImpl.SetOfInfoImpl.class);
         assertNotNull(setOfInfo);
-        assertEquals("[a.b.X.<init>(int), a.b.X.initList(int)]",
+        assertEquals("[a.b.X.<init>(int), a.b.X.initList(String)]",
                 setOfInfo.infoSet().stream().map(Object::toString).sorted().toList().toString());
 
         FieldInfo list = X.getFieldByName("list", true);

@@ -63,7 +63,7 @@ public class TestLambda extends CommonTest {
         Statement s0 = lambda.methodBody().statements().getFirst();
         var aMap = anyMatch.analysis().getOrNull(VARIABLES_LINKED_TO_OBJECT, ValueImpl.VariableBooleanMapImpl.class);
         assertEquals("""
-                a.b.ii.C1.$1.test(a.b.ii.C1.II):0:ii=false, a.b.ii.C1.method2(java.util.List<a.b.ii.C1.II>,int):0:in=true\
+                a.b.ii.C1.$1.test(a.b.ii.C1.II):0:ii=false, a.b.ii.C1.method2(java.util.List,int):0:in=true\
                 """, aMap.toString());
 
         VariableData vdL0 = VariableDataImpl.of(s0);

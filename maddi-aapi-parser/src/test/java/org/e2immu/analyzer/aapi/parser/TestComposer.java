@@ -157,7 +157,7 @@ public class TestComposer {
                 .filter(mi -> "parallelSort".equals(mi.name())
                               && mi.parameters().size() == 3
                               && mi.parameters().getFirst().parameterizedType().isTypeParameter()).findFirst().orElseThrow();
-        assertEquals("java.util.Arrays.parallelSort(T extends Comparable<? super T>[],int,int)",
+        assertEquals("java.util.Arrays.parallelSort(Comparable[],int,int)",
                 parallelSort.fullyQualifiedName());
 
         Collection<TypeInfo> res = composer.compose(Set.of(arrays));
@@ -173,7 +173,7 @@ public class TestComposer {
                               && mi.parameters().getFirst().parameterizedType().isTypeParameter()).findFirst().orElseThrow();
 
         assertEquals("""
-                org.e2immu.testannotatedapi.JavaUtil.Arrays$.parallelSort(T extends Comparable<? super T>[],int,int)\
+                org.e2immu.testannotatedapi.JavaUtil.Arrays$.parallelSort(Comparable[],int,int)\
                 """, parallelSortCopy.fullyQualifiedName());
 
         TypeParameter tp0 = parallelSortCopy.typeParameters().getFirst();
@@ -209,7 +209,7 @@ public class TestComposer {
         TypeInfo commandLine = javaInspector.compiledTypesManager().getOrLoad("picocli.CommandLine",
                 javaInspector.mainSources());
         MethodInfo call = commandLine.findUniqueMethod("call", 2);
-        assertEquals("picocli.CommandLine.call(C extends java.util.concurrent.Callable<T>,String...)",
+        assertEquals("picocli.CommandLine.call(java.util.concurrent.Callable,String[])",
                 call.fullyQualifiedName());
 
         Collection<TypeInfo> res = composer.compose(Set.of(commandLine));
@@ -222,7 +222,7 @@ public class TestComposer {
         MethodInfo callCopy = commandLineDollar.findUniqueMethod("call", 2);
 
         assertEquals("""
-                org.e2immu.testannotatedapi.Picocli.CommandLine$.call(C extends java.util.concurrent.Callable<T>,String...)\
+                org.e2immu.testannotatedapi.Picocli.CommandLine$.call(java.util.concurrent.Callable,String[])\
                 """, callCopy.fullyQualifiedName());
         assertEquals(2, callCopy.typeParameters().size());
         TypeParameter tp0 = callCopy.typeParameters().getFirst();

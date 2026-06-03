@@ -64,7 +64,7 @@ public class TestImmutable extends CommonTest {
         List<Info> ao = prepWork(X);
         assertEquals("""
                 [a.b.X.<init>(), a.b.X.M.<init>(), a.b.X.M.setI(int), a.b.X.R.<init>(String,int), a.b.X.R.i(), \
-                a.b.X.R.s(), a.b.X.RM.i(), a.b.X.RT.<init>(String,T), a.b.X.RT.s(), a.b.X.RT.t(), a.b.X.M.i, a.b.X.R.i, \
+                a.b.X.R.s(), a.b.X.RM.i(), a.b.X.RT.<init>(String,Object), a.b.X.RT.s(), a.b.X.RT.t(), a.b.X.M.i, a.b.X.R.i, \
                 a.b.X.R.s, a.b.X.RT.s, a.b.X.RT.t, a.b.X.M, a.b.X.R, a.b.X.RT, a.b.X.MF.<init>(a.b.X.M), \
                 a.b.X.RM.<init>(a.b.X.M,int), a.b.X.RM.m(), a.b.X.MF.m, a.b.X.RM.i, a.b.X.RM.m, a.b.X.MF, a.b.X.RM, a.b.X]\
                 """, ao.toString());

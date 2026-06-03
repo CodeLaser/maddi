@@ -183,7 +183,7 @@ public class TestForEachLambda extends CommonTest {
         Statement lambdaAdd = lambda.methodBody().statements().getFirst();
         VariableData vdLambda = VariableDataImpl.of(lambdaAdd);
         assertEquals("""
-                a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.method(java.util.List<a.b.X.II>,a.b.X):1:x\
+                a.b.X.$0.accept(a.b.X.II):0:j, a.b.X.method(java.util.List,a.b.X):1:x\
                 """, vdLambda.knownVariableNamesToString());
         VariableInfo viJ = vdLambda.variableInfo(lambdaMethod.parameters().getFirst());
         assertEquals("0:j∈1:x.set.§$s", viJ.linkedVariables().toString());

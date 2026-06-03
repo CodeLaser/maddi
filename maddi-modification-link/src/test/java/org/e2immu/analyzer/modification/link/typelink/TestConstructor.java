@@ -128,7 +128,7 @@ public class TestConstructor extends CommonTest {
             assertEquals("ii2.method2(4)", methodCall.toString());
             Value.VariableBooleanMap map = methodCall.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
                     ValueImpl.VariableBooleanMapImpl.EMPTY);
-            assertEquals("a.b.X.methodA(java.util.List<a.b.X.II>):0:input=false, ii2=true, iis=false",
+            assertEquals("a.b.X.methodA(java.util.List):0:input=false, ii2=true, iis=false",
                     nice(map.map()));
             assertEquals("[-] --> -", mlvA.toString());
         }

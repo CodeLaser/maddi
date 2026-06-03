@@ -393,7 +393,7 @@ public class TestStream extends CommonTest {
         // test SimpleEntry constructor x, y
         TypeInfo simpleEntry = javaInspector.compiledTypesManager().get(AbstractMap.SimpleEntry.class);
         MethodInfo constructor1 = simpleEntry.findConstructor(2);
-        assertEquals("java.util.AbstractMap.SimpleEntry.<init>(K,V)", constructor1.fullyQualifiedName());
+        assertEquals("java.util.AbstractMap.SimpleEntry.<init>(Object,Object)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis().getOrNull(METHOD_LINKS,
                 MethodLinkedVariablesImpl.class);
         assertEquals("[0:key→this*.§kv.§k, 1:value→this*.§kv.§v] --> -", tlvConstructor1.toString());
@@ -417,7 +417,7 @@ public class TestStream extends CommonTest {
         MethodCall mcReverse1 = (MethodCall) ((LocalVariableCreation) reverse1).localVariable().assignmentExpression();
         Value.VariableBooleanMap tlvMcReverse1 = mcReverse1.analysis().getOrDefault(VARIABLES_LINKED_TO_OBJECT,
                 ValueImpl.VariableBooleanMapImpl.EMPTY);
-        assertEquals("a.b.C.reverse(java.util.Map<X,Y>):0:map=false, entries=true, stream1=false",
+        assertEquals("a.b.C.reverse(java.util.Map):0:map=false, entries=true, stream1=false",
                 nice(tlvMcReverse1.map()));
 
         Links tlvStream1 = viStream1.linkedVariablesOrEmpty();
@@ -448,7 +448,7 @@ public class TestStream extends CommonTest {
         // These are the OBJECTS of the function
         // FIXME need a new version of the algorithm that makes a completion!
         assertEquals("""
-                a.b.C.reverse(java.util.Map<X,Y>):0:map=false, entries=false, stream1=true, stream2=false\
+                a.b.C.reverse(java.util.Map):0:map=false, entries=false, stream1=true, stream2=false\
                 """, tlvMcReverse2.toString());
 
         MethodLinkedVariables mlvReverse = reverse.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);

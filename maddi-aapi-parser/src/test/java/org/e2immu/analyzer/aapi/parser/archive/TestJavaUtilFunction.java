@@ -124,7 +124,7 @@ public class TestJavaUtilFunction extends CommonTest {
     public void testBiConsumerAccept() {
         TypeInfo typeInfo = compiledTypesManager().get(BiConsumer.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("accept", 2);
-        assertEquals("java.util.function.BiConsumer.accept(T,U)", methodInfo.fullyQualifiedName());
+        assertEquals("java.util.function.BiConsumer.accept(Object,Object)", methodInfo.fullyQualifiedName());
         ParameterizedType u = methodInfo.parameters().get(1).parameterizedType();
         assertEquals("Type param U", u.toString());
         assertEquals(0, u.arrays());

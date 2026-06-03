@@ -149,7 +149,7 @@ public class TestList extends CommonTest {
         MethodLinkedVariables mlv = set.analysis().getOrCreate(METHOD_LINKS, () -> tlc.doMethod(set));
         VariableData vd0 = VariableDataImpl.of(set.methodBody().statements().getFirst());
         assertEquals("""
-                a.b.X.set(T,int):0:t, a.b.X.set(T,int):1:index, a.b.X.this, a.b.X.ts, a.b.X.ts[a.b.X.set(T,int):1:index]\
+                a.b.X.set(Object,int):0:t, a.b.X.set(Object,int):1:index, a.b.X.this, a.b.X.ts, a.b.X.ts[a.b.X.set(Object,int):1:index]\
                 """, vd0.knownVariableNamesToString());
 
         VariableInfo viP0 = vd0.variableInfo(p0);
@@ -160,7 +160,7 @@ public class TestList extends CommonTest {
         assertEquals("-", viP1.linkedVariables().toString());
         assertFalse(viP1.isModified());
 
-        VariableInfo viTsIndex = vd0.variableInfo("a.b.X.ts[a.b.X.set(T,int):1:index]");
+        VariableInfo viTsIndex = vd0.variableInfo("a.b.X.ts[a.b.X.set(Object,int):1:index]");
         assertEquals("this.ts[1:index]←0:t", viTsIndex.linkedVariables().toString());
 
         assertEquals("[0:t→this.ts*[1:index],0:t∈this.ts*, -] --> -", mlv.toString());

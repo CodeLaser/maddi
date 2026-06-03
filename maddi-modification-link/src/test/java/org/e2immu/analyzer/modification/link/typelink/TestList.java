@@ -144,11 +144,11 @@ public class TestList extends CommonTest {
         // order of processing
         assertEquals("""
                 [prev, \
-                a.b.X.ts#a.b.X.method(int,a.b.X<K>,K):1:x[a.b.X.method(int,a.b.X<K>,K):0:i], \
-                a.b.X.method(int,a.b.X<K>,K):0:i, \
-                a.b.X.ts#a.b.X.method(int,a.b.X<K>,K):1:x, \
-                a.b.X.method(int,a.b.X<K>,K):1:x, \
-                a.b.X.method(int,a.b.X<K>,K):2:k]\
+                a.b.X.ts#a.b.X.method(int,a.b.X,Object):1:x[a.b.X.method(int,a.b.X,Object):0:i], \
+                a.b.X.method(int,a.b.X,Object):0:i, \
+                a.b.X.ts#a.b.X.method(int,a.b.X,Object):1:x, \
+                a.b.X.method(int,a.b.X,Object):1:x, \
+                a.b.X.method(int,a.b.X,Object):2:k]\
                 """, vd1.knownVariableNames().toString());
 
         VariableInfo prev1 = vd1.variableInfo("prev");
