@@ -25,6 +25,9 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestConstructor extends CommonTest {
@@ -390,7 +393,7 @@ public class TestConstructor extends CommonTest {
                     return this.new Sub(j);
                 }
             
-                static Sub copy(Constructor_10Scope c) {
+                static Sub copy(C c) {
                     return c.new Sub(c.i);
                 }
             }
@@ -403,6 +406,11 @@ public class TestConstructor extends CommonTest {
         if (copy.methodBody().statements().getFirst() instanceof ReturnStatement rs
             && rs.expression() instanceof ConstructorCall cc) {
             assertEquals("c", cc.object().toString());
+        } else fail();
+        MethodInfo getSub = typeInfo.findUniqueMethod("getSub", 1);
+        if (getSub.methodBody().statements().getFirst() instanceof ReturnStatement rs
+            && rs.expression() instanceof ConstructorCall cc) {
+            assertEquals("this", cc.object().toString());
         } else fail();
     }
 
@@ -497,7 +505,7 @@ public class TestConstructor extends CommonTest {
             
             class C {
             
-                private Constructor_13A a;
+                private A a;
                 private final Map<String, Object> map = new HashMap<>();
             
                 void method() {
@@ -727,12 +735,16 @@ public class TestConstructor extends CommonTest {
         assertFalse(cPair.isSynthetic());
         assertEquals("4-9:4-12", cPair.source().detailedSources().detail(cPair.name()).compact2());
 
+        MethodInfo cPair3 = pair.findConstructor(3);
+        assertFalse(cPair3.isSynthetic());
+        assertEquals("9-9:9-12", cPair3.source().detailedSources().detail(cPair3.name()).compact2());
+
         TypeInfo R = X.findSubType("R");
         assertEquals(1, R.constructors().size());
 
         MethodInfo cc = R.findConstructor(1);
         assertTrue(cc.isCompactConstructor());
         assertFalse(cc.isSynthetic());
-        assertEquals("16-16:16-16", cc.source().detailedSources().detail(cc.name()).compact2());
+        assertEquals("15-16:15-16", cc.source().detailedSources().detail(cc.name()).compact2());
     }
 }
