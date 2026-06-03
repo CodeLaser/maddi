@@ -269,6 +269,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                                 bounds.add(upper.withWildcard(runtime.wildcardExtends()));
                             }
                         }
+                    } else if (upperBound instanceof Type.TypeVar tv2) {
+                        ParameterizedType upper = convert(tv2);
+                        if (!upper.isJavaLangObject()) {
+                            bounds.add(upper.withWildcard(runtime.wildcardExtends()));
+                        }
                     } else {
                         throw new UnsupportedOperationException();
                     }
