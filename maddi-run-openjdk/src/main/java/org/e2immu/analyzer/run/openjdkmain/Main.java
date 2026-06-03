@@ -68,6 +68,7 @@ public class Main {
     public static final String SOURCE_PACKAGES = "source-packages";
     public static final String TEST_SOURCE_PACKAGES = "test-source-packages";
 
+    public static final String JMOD = "jmod"; // java jdk modules
     public static final String CLASSPATH = "classpath"; // ~ compileClassPath in Gradle
     public static final String RUNTIME_CLASSPATH = "runtime-classpath";
     public static final String TEST_CLASSPATH = "test-classpath";
@@ -263,6 +264,10 @@ public class Main {
 
         options.addOption(Option.builder("cp").longOpt(CLASSPATH).hasArg().argName("CLASSPATH")
                 .desc("Add classpath components, separated by the Java path separator '"
+                      + File.pathSeparator + "'.").get());
+
+        options.addOption(Option.builder("jm").longOpt(JMOD).hasArg().argName("JMOD")
+                .desc("Add java modules (in the form java.xml, jdk.jcmd) to the class path. Separate by '"
                       + File.pathSeparator + "'. Default, when this option is absent, is '"
                       + Arrays.toString(InputConfigurationImpl.DEFAULT_MODULES) + "'.").get());
 
@@ -296,6 +301,7 @@ public class Main {
         setSplitStringProperty(kvMap, ",", TEST_SOURCE_PACKAGES, builder::addRestrictTestSourceToPackages);
 
         setSplitStringProperty(kvMap, File.pathSeparator, CLASSPATH, builder::addClassPath);
+        setSplitStringProperty(kvMap, File.pathSeparator, JMOD, builder::addJmodToClassPath);
         setSplitStringProperty(kvMap, File.pathSeparator, TEST_CLASSPATH, builder::addTestClassPath);
         setSplitStringProperty(kvMap, File.pathSeparator, RUNTIME_CLASSPATH, builder::addRuntimeClassPath);
         setSplitStringProperty(kvMap, File.pathSeparator, TESTS_RUNTIME_CLASSPATH, builder::addTestRuntimeClassPath);
@@ -327,6 +333,9 @@ public class Main {
 
         String[] classPaths = cmd.getOptionValues(CLASSPATH);
         splitAndAdd(classPaths, File.pathSeparator, builder::addClassPath);
+
+        String[] jmods = cmd.getOptionValues(JMOD);
+        splitAndAdd(jmods, File.pathSeparator, builder::addJmodToClassPath);
 
         String[] restrictSourceToPackages = cmd.getOptionValues(SOURCE_PACKAGES);
         splitAndAdd(restrictSourceToPackages, COMMA, builder::addRestrictSourceToPackages);

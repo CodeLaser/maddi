@@ -101,6 +101,9 @@ public interface InputConfiguration {
         Builder addClassPath(String... sources);
 
         @Fluent
+        Builder addJmodToClassPath(String... sources);
+
+        @Fluent
         Builder addRuntimeClassPath(String... sources);
 
         @Fluent

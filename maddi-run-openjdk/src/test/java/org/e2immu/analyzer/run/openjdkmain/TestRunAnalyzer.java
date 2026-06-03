@@ -43,7 +43,7 @@ public class TestRunAnalyzer {
 
         Main.main(new String[]{
                 "--debug=classpath",
-                "--classpath=jmod/java.base",
+                "--jmod=java.base",
                 "--classpath=" + maddiSupportJar,
                 "--source=" + cstApiPath,
                 "--analysis-steps=prep",
