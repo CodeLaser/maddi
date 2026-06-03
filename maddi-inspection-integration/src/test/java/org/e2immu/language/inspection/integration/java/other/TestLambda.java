@@ -16,6 +16,7 @@ package org.e2immu.language.inspection.integration.java.other;
 
 import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -352,6 +353,59 @@ public class TestLambda extends CommonTest {
          See TestApplyTranslation,1
         */
         javaInspector.parse(INPUT6);
+    }
+
+    @Language("java")
+    private static final String INPUT7 = """
+            package a.b;
+            import java.util.Collection;
+            class C {
+                interface ReceivePack { }
+                interface ReceiveCommand { }
+            
+                interface PreReceiveHook {
+                    void accept(ReceivePack rp, Collection<ReceiveCommand> collection);
+
+                    /** A simple no-op hook. */
+                    PreReceiveHook NULL = (final ReceivePack rp,final Collection<ReceiveCommand> commands) -> {
+                        // Do nothing.
+                    };
+                    PreReceiveHook NULK = (var rp, var commands) -> {
+                        // Do nothing.
+                    };
+                    PreReceiveHook NULM = ( rp,  commands) -> {
+                        // Do nothing.
+                    };
+                }
+            }
+            """;
+
+    @Test
+    public void test7() {
+        TypeInfo C = javaInspector.parse(INPUT7);
+        TypeInfo PreReceiveHook = C.findSubType("PreReceiveHook");
+        FieldInfo NULL = PreReceiveHook.getFieldByName("NULL", true);
+        if (NULL.initializer() instanceof Lambda lambda) {
+            ParameterInfo p0 = lambda.methodInfo().parameters().getFirst();
+            assertTrue(p0.isFinal());
+            assertSame(runtime.lambdaOutputVariantTyped(), lambda.outputVariants().getFirst());
+        } else fail();
+
+        FieldInfo NULK = PreReceiveHook.getFieldByName("NULK", true);
+        if (NULK.initializer() instanceof Lambda lambda) {
+            ParameterInfo p0 = lambda.methodInfo().parameters().getFirst();
+            assertFalse(p0.isFinal());
+            assertSame(runtime.lambdaOutputVariantVar(), lambda.outputVariants().getFirst());
+            assertEquals("Type a.b.C.ReceivePack", p0.parameterizedType().toString());
+        } else fail();
+
+        FieldInfo NULM = PreReceiveHook.getFieldByName("NULM", true);
+        if (NULM.initializer() instanceof Lambda lambda) {
+            ParameterInfo p0 = lambda.methodInfo().parameters().getFirst();
+            assertFalse(p0.isFinal());
+            assertSame(runtime.lambdaOutputVariantEmpty(), lambda.outputVariants().getFirst());
+            assertEquals("Type a.b.C.ReceivePack", p0.parameterizedType().toString());
+        } else fail();
     }
 
 }
