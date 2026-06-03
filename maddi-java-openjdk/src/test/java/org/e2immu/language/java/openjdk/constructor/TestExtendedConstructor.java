@@ -67,20 +67,25 @@ public class TestExtendedConstructor extends CommonTest {
         assertEquals(2, constructorC.methodBody().statements().size());
 
         MethodInfo test = typeInfo.findUniqueMethod("test", 0);
-        if (test.methodBody().statements().get(1) instanceof ReturnStatement rs
+        if (test.methodBody().statements().getFirst() instanceof ReturnStatement rs
             && rs.expression() instanceof ConstructorCall cc) {
             assertNotNull(cc.anonymousClass());
             assertEquals("Type java.util.HashMap<String,String>", cc.anonymousClass().parentClass().toString());
             assertEquals("a.b.C.$0", cc.anonymousClass().fullyQualifiedName());
             MethodInfo constructor = cc.anonymousClass().findConstructor(0);
             assertEquals("a.b.C.$0.<init>()", constructor.fullyQualifiedName());
+            assertEquals("put(\"x\",\"abc\");", constructor.methodBody().statements().getFirst().toString());
         } else fail();
 
         MethodInfo test2 = typeInfo.findUniqueMethod("test2", 0);
-        if (test2.methodBody().statements().get(1) instanceof ReturnStatement rs
+        if (test2.methodBody().statements().getFirst() instanceof ReturnStatement rs
             && rs.expression() instanceof ConstructorCall cc) {
             assertNotNull(cc.anonymousClass());
             assertEquals("Type java.util.HashMap<String,String>", cc.anonymousClass().parentClass().toString());
+            assertEquals("a.b.C.$1", cc.anonymousClass().fullyQualifiedName());
+            MethodInfo constructor = cc.anonymousClass().findConstructor(0);
+            assertEquals("a.b.C.$1.<init>()", constructor.fullyQualifiedName());
+            assertEquals("put(\"y\",\"12345\");", constructor.methodBody().statements().getFirst().toString());
         } else fail();
     }
 

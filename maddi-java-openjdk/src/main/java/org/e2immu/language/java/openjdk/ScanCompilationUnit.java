@@ -761,6 +761,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 typeInfo.builder().addMethod(methodInfo);
                 return null;
             }
+            if (parent instanceof NewClassTree) {
+                throw new UnsupportedOperationException();
+            }
         }
         return super.visitBlock(node, unused);
     }
@@ -2054,13 +2057,32 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 typeData.put(newClass.def.sym.toString(), anonymousType);
 
                 typeStack.addLast(anonymousType);
-                for (JCTree member : anonBody.defs) {
-                    currentMethod = null;
-                    scan(member, unused);
+                if (anonBody.defs.size() >= 2 && anonBody.defs.getFirst() instanceof JCTree.JCMethodDecl
+                    && anonBody.defs.getLast() instanceof JCTree.JCBlock jcBlock) {
+                    // {{ }} extended constructor
+                    MethodInfo c2 = runtime.newConstructor(anonymousType);
+                    c2.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                            .setSource(sourceForNode(node))
+                            .setAccess(runtime.accessPrivate())
+                            .addMethodModifier(runtime.methodModifierPrivate())
+                            .commitParameters();
+                    Block block = parseBlock("-", jcBlock);
+                    c2.builder().setMethodBody(block);
+                    builder.addConstructor(c2);
+                    if (anonBody.defs.size() > 2) {
+                        for (JCTree member : anonBody.defs.subList(2, anonBody.defs.size())) {
+                            currentMethod = null;
+                            scan(member, unused);
+                        }
+                    }
+                } else {
+                    for (JCTree member : anonBody.defs) {
+                        currentMethod = null;
+                        scan(member, unused);
+                    }
                 }
                 typeStack.removeLast();
                 currentMethod = enclosingMethod;
-
                 builder.setSource(sourceForNode(node)).commit();
             } else {
                 throw new UnsupportedOperationException();
