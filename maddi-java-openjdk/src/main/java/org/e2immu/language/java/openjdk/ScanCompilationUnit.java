@@ -483,7 +483,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
 
             // method name
-            String sourceMethodName = isConstructor ? currentType.simpleName(): methodName;
+            String sourceMethodName = isConstructor ? currentType.simpleName() : methodName;
             dsb.put(methodName, sourceOfIdentifier(sourceMethodName, jcMethod.pos));
 
             // annotations
@@ -1922,7 +1922,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             boolean isSyntheticSuperCall = isSuper && isSyntheticSuperCall(methodInvocation, compilationUnitTree);
             Source source = isSyntheticSuperCall ? null : statementSourceForNode(node, dsb);
             Statement statement = runtime.newExplicitConstructorInvocationBuilder()
-                    .setSynthetic(true)
+                    .setSynthetic(isSyntheticSuperCall)
                     .setSource(source)
                     .setIsSuper(isSuper)
                     .setMethodInfo(methodInfo)
@@ -1954,7 +1954,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (pos < 0 || pos + 5 > source.length()) return true; // no source = synthetic
 
             String atPos = source.subSequence(pos, pos + 5).toString();
-            return !atPos.equals("super");
+            return !(atPos.equals("super") || atPos.startsWith("();"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -2017,6 +2017,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         } else {
             object = null;
         }
+        List<ParameterizedType> typeArguments;
+        if (newClass.typeargs == null) {
+            typeArguments = List.of();
+        } else {
+            typeArguments = newClass.typeargs.stream()
+                    .map(expr -> convertType.convertTree(expr, dsb))
+                    .toList();
+        }
         TypeInfo anonymousType;
         ParameterizedType concreteReturnType;
         MethodInfo constructor;
@@ -2071,6 +2079,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 .setConcreteReturnType(concreteReturnType)
                 .setAnonymousClass(anonymousType)
                 .setParameterExpressions(arguments)
+                .setTypeArguments(typeArguments)
                 .build();
         return null;
     }
@@ -2287,13 +2296,23 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     private Source sourceForNode(Tree node, String index) {
-        long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
-        if (endPos == Diagnostic.NOPOS) return runtime.noSource(); // synthetic
         long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
+        if (startPos == Diagnostic.NOPOS) {
+            return runtime.noSource(); // synthetic
+        }
         long startLine = lineMap.getLineNumber(startPos);
         long startCol = lineMap.getColumnNumber(startPos);
-        long endLine = lineMap.getLineNumber(endPos);
-        long endCol = lineMap.getColumnNumber(endPos) - 1; // we work inclusively
+        long endLine;
+        long endCol;
+        long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
+        if (endPos == Diagnostic.NOPOS) {
+            // quirk in javac, super() call only at the moment
+            endLine = startLine;
+            endCol = startCol + 4;
+        } else {
+            endLine = lineMap.getLineNumber(endPos);
+            endCol = lineMap.getColumnNumber(endPos) - 1; // we work inclusively
+        }
         return runtime.newParserSource(index, (int) startLine, (int) startCol, (int) endLine, (int) endCol);
     }
 
