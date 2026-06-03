@@ -472,9 +472,13 @@ public class TestStaticValuesRecord extends CommonTest {
         assertEquals("""
                 new Builder().j=3,new Builder().intList=List.of(0,1),new Builder().stringSet=in,new Builder()\
                 """, lvc0.localVariable().assignmentExpression().translate(tm).toString());
+        // switch to more correct method descriptors (openjdk)
+        // assertEquals("""
+        //         [-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m,\
+        //         method.set←0:in*\
+        //         """, mlv.toString());
         assertEquals("""
-                [-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m,\
-                method.set←0:in*\
+                [-] --> method.i←$_ce1,method.set←0:in*,method.set≻0:in*.§m,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
                 """, mlv.toString());
         // NOTE: in* because of delay, in is linked to field
 
@@ -497,8 +501,12 @@ public class TestStaticValuesRecord extends CommonTest {
                 //"Type a.b.X.R E=new Builder() this.i=3, this.list=List.of(0,1), this.set=in",
                 rVi1.linkedVariables().toString());
 
+        // switch to more correct method descriptors (openjdk)
+        //assertEquals("""
+        //        [-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m,method.set←0:in*\
+        //        """, mlv.toString());
         assertEquals("""
-                [-] --> method.i←$_ce1,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m,method.set←0:in*\
+                [-] --> method.i←$_ce1,method.set←0:in*,method.set≻0:in*.§m,method.list.§$s∋$_ce3,method.list.§$s∋$_ce4,method.set.§m≡0:in*.§m\
                 """, mlv.toString());
     }
 
@@ -897,11 +905,11 @@ public class TestStaticValuesRecord extends CommonTest {
             VariableData vd2 = VariableDataImpl.of(s2);
             assertEquals("""
                     [r, \
-                    a.b.X.method(java.util.Set<T>,java.util.List<T>,T):0:set, \
-                    a.b.X.method(java.util.Set<T>,java.util.List<T>,T):1:list, \
+                    a.b.X.method(java.util.Set,java.util.List,Object):0:set, \
+                    a.b.X.method(java.util.Set,java.util.List,Object):1:list, \
                     set2, \
                     a.b.X.R.s#r, \
-                    a.b.X.method(java.util.Set<T>,java.util.List<T>,T):2:t]\
+                    a.b.X.method(java.util.Set,java.util.List,Object):2:t]\
                     """, vd2.knownVariableNames().toString());
             VariableInfo vi2R = vd2.variableInfo("r");
             assertEquals("""

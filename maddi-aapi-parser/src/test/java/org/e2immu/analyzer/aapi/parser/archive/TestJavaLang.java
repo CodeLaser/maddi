@@ -275,7 +275,7 @@ public class TestJavaLang extends CommonTest {
         TypeInfo typeInfo = compiledTypesManager().get(Iterable.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("forEach", 1);
         assertTrue(methodInfo.overrides().isEmpty());
-        assertEquals("java.lang.Iterable.forEach(java.util.function.Consumer<? super T>)",
+        assertEquals("java.lang.Iterable.forEach(java.util.function.Consumer)",
                 methodInfo.fullyQualifiedName());
         assertTrue(methodInfo.isPublic());
         assertTrue(methodInfo.isDefault());

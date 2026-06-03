@@ -172,7 +172,7 @@ public class TestShallow extends CommonTest {
                 .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
                               && mi.parameters().getFirst().parameterizedType().arrays() == 1)
                 .findFirst().orElseThrow();
-        assertEquals("java.util.List.toArray(T[])", toArrayTs.fullyQualifiedName());
+        assertEquals("java.util.List.toArray(Object[])", toArrayTs.fullyQualifiedName());
         MethodLinkedVariables mlvToArrayTs = linkComputer.doMethod(toArrayTs);
         assertEquals("[-] --> toArray.§ts⊆this.§es", mlvToArrayTs.toString());
 
@@ -187,14 +187,14 @@ public class TestShallow extends CommonTest {
         MethodInfo ofVarargs = list.methodStream().filter(mi ->
                         "of".equals(mi.name()) && mi.parameters().size() == 1 && mi.parameters().getFirst().isVarArgs())
                 .findFirst().orElseThrow();
-        assertEquals("java.util.List.of(E...)", ofVarargs.fullyQualifiedName());
+        assertEquals("java.util.List.of(Object[])", ofVarargs.fullyQualifiedName());
         MethodLinkedVariables mlvOfVarargs = linkComputer.doMethod(ofVarargs);
         assertEquals("[-] --> of.§es⊆0:elements.§es", mlvOfVarargs.toString());
 
         MethodInfo of1 = list.methodStream().filter(mi ->
                         "of".equals(mi.name()) && mi.parameters().size() == 1 && !mi.parameters().getFirst().isVarArgs())
                 .findFirst().orElseThrow();
-        assertEquals("java.util.List.of(E)", of1.fullyQualifiedName());
+        assertEquals("java.util.List.of(Object)", of1.fullyQualifiedName());
         MethodLinkedVariables mlvOf1 = linkComputer.doMethod(of1);
         assertEquals("[-] --> of.§es∋0:e1", mlvOf1.toString());
         assertTrue(mlvOf1.modified().isEmpty());
@@ -244,7 +244,7 @@ public class TestShallow extends CommonTest {
                 .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
                               && mi.parameters().getFirst().parameterizedType().isFunctionalInterface())
                 .findFirst().orElseThrow();
-        assertEquals("java.util.Collection.toArray(java.util.function.IntFunction<T[]>)",
+        assertEquals("java.util.Collection.toArray(java.util.function.IntFunction)",
                 toArrayFunction.fullyQualifiedName());
         MethodLinkedVariables mlvToArrayFunction = linkComputer.doMethod(toArrayFunction);
         // NOTE: this.§es rather than §ts, because of "force"  @Independent(hcReturnValue = true) on the method
@@ -319,7 +319,7 @@ public class TestShallow extends CommonTest {
         // ---
 
         MethodInfo forEachBi = map.findUniqueMethod("forEach", 1);
-        assertEquals("java.util.Map.forEach(java.util.function.BiConsumer<? super K,? super V>)",
+        assertEquals("java.util.Map.forEach(java.util.function.BiConsumer)",
                 forEachBi.fullyQualifiedName());
         MethodLinkedVariables mlvForEachBi = linkComputer.doMethod(forEachBi);
         assertEquals("[this.§kvs⊇Λ0:action] --> -", mlvForEachBi.toString());
@@ -364,7 +364,7 @@ public class TestShallow extends CommonTest {
                 .filter(mi -> "toArray".equals(mi.name()) && mi.parameters().size() == 1
                               && mi.parameters().getFirst().parameterizedType().isFunctionalInterface())
                 .findFirst().orElseThrow();
-        assertEquals("java.util.stream.Stream.toArray(java.util.function.IntFunction<A[]>)",
+        assertEquals("java.util.stream.Stream.toArray(java.util.function.IntFunction)",
                 toArrayFunction.fullyQualifiedName());
         MethodLinkedVariables mlvToArrayFunction = linkComputer.doMethod(toArrayFunction);
         // NOTE: this.§ts rather than §as, because of "force"  @Independent(hcReturnValue = true) on the method
@@ -425,7 +425,7 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
         MethodInfo addAll = collections.findUniqueMethod("addAll", 2);
-        assertEquals("java.util.Collections.addAll(java.util.Collection<? super T>,T...)",
+        assertEquals("java.util.Collections.addAll(java.util.Collection,Object[])",
                 addAll.fullyQualifiedName());
         MethodLinkedVariables mlvC1 = addAll.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(addAll));
         assertEquals("[-, 1:elements.§ts⊆0:c*.§ts] --> -", mlvC1.toString());
@@ -437,7 +437,7 @@ public class TestShallow extends CommonTest {
         LinkComputer linkComputer = new LinkComputerImpl(javaInspector);
         TypeInfo collections = javaInspector.compiledTypesManager().getOrLoad(Collections.class);
         MethodInfo sort = collections.findUniqueMethod("sort", 2);
-        assertEquals("java.util.Collections.sort(java.util.List<T>,java.util.Comparator<? super T>)",
+        assertEquals("java.util.Collections.sort(java.util.List,java.util.Comparator)",
                 sort.fullyQualifiedName());
         MethodLinkedVariables mlvC1 = sort.analysis().getOrCreate(METHOD_LINKS, () -> linkComputer.doMethod(sort));
         assertEquals("[-, -] --> -", mlvC1.toString());

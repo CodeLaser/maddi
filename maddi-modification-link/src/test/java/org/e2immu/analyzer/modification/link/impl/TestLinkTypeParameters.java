@@ -250,16 +250,16 @@ public class TestLinkTypeParameters extends CommonTest {
 
             // r.pair.f
             VariableInfo vi0RPairF = vd0.variableInfo(
-                    "a.b.X.Pair.f#a.b.X.R.pair#a.b.X.reverse3(a.b.X.R<X,Y>):0:r");
+                    "a.b.X.Pair.f#a.b.X.R.pair#a.b.X.reverse3(a.b.X.R):0:r");
             assertEquals("0:r.pair.f→reverse3.g", vi0RPairF.linkedVariables().toString());
 
             // r.pair.g
             VariableInfo vi0RPairG = vd0.variableInfo(
-                    "a.b.X.Pair.g#a.b.X.R.pair#a.b.X.reverse3(a.b.X.R<X,Y>):0:r");
+                    "a.b.X.Pair.g#a.b.X.R.pair#a.b.X.reverse3(a.b.X.R):0:r");
             assertEquals("0:r.pair.g→reverse3.f", vi0RPairG.linkedVariables().toString());
 
             // r.pair
-            VariableInfo vi0Rpair = vd0.variableInfo("a.b.X.R.pair#a.b.X.reverse3(a.b.X.R<X,Y>):0:r");
+            VariableInfo vi0Rpair = vd0.variableInfo("a.b.X.R.pair#a.b.X.reverse3(a.b.X.R):0:r");
             assertEquals("0:r.pair.f→reverse3.g,0:r.pair.g→reverse3.f", vi0Rpair.linkedVariables().toString());
 
             // r

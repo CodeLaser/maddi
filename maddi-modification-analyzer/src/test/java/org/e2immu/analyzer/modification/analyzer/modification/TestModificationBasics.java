@@ -82,7 +82,7 @@ public class TestModificationBasics extends CommonTest {
         Statement s0 = add.methodBody().statements().getFirst();
         MethodCall listAddCall = (MethodCall) s0.expression();
         MethodInfo listAdd = listAddCall.methodInfo();
-        assertEquals("java.util.List.add(E)", listAdd.fullyQualifiedName());
+        assertEquals("java.util.List.add(Object)", listAdd.fullyQualifiedName());
         assertTrue(listAdd.isModifying());
 
         VariableData vd = VariableDataImpl.of(s0);

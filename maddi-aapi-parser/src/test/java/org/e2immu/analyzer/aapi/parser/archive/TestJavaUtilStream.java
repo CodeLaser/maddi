@@ -76,7 +76,7 @@ public class TestJavaUtilStream extends CommonTest {
         TypeInfo typeInfo = compiledTypesManager().get(Stream.class);
         MethodInfo methodInfo = typeInfo.methodStream().filter(m -> "of".equals(m.name())
                 && 0 == m.parameters().getFirst().parameterizedType().arrays()).findFirst().orElseThrow();
-        assertEquals("java.util.stream.Stream.of(T)", methodInfo.fullyQualifiedName());
+        assertEquals("java.util.stream.Stream.of(Object)", methodInfo.fullyQualifiedName());
         assertFalse(methodInfo.allowsInterrupts());
         assertTrue(methodInfo.isStatic());
         assertTrue(methodInfo.isFactoryMethod());

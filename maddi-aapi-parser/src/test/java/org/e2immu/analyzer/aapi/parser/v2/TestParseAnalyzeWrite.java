@@ -150,7 +150,7 @@ public class TestParseAnalyzeWrite {
                 {
                     MethodInfo add = ti.findUniqueMethod("add", 1);
                     ParameterInfo p0 = add.parameters().getFirst();
-                    assertEquals("java.util.Collection.add(E):0:e", p0.fullyQualifiedName());
+                    assertEquals("java.util.Collection.add(Object):0:e", p0.fullyQualifiedName());
                     ShallowAnalyzer.InfoData id0 = rs.dataMap().get(p0);
                     assertSame(FROM_TYPE, id0.origin(INDEPENDENT_PARAMETER));
                     assertTrue(p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.DEPENDENT)

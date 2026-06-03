@@ -52,7 +52,7 @@ public class TestRedundantLinks extends CommonTest {
         assertEquals("0:list.§$s⊇l1.§$s", vi0List.linkedVariables().toString());
 
         VariableData vd1 = VariableDataImpl.of(method.methodBody().statements().get(1));
-        assertEquals("[l1, a.b.X.method(java.util.List<String>):0:list, l2]",
+        assertEquals("[l1, a.b.X.method(java.util.List):0:list, l2]",
                 vd1.knownVariableNames().toString());
         VariableInfo vi1L1 = vd1.variableInfo("l1");
         assertEquals("l1.§$s⊇l2.§$s,l1.§$s⊆0:list.§$s",

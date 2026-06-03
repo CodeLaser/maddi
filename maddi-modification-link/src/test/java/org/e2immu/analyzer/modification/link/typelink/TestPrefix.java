@@ -55,14 +55,14 @@ public class TestPrefix extends CommonTest {
                 .filter(m -> "of".equals(m.name()) && 1 == m.parameters().size()
                              && m.parameters().getFirst().parameterizedType().arrays() == 0)
                 .findFirst().orElseThrow();
-        assertEquals("java.util.stream.Stream.of(T)", of1.fullyQualifiedName());
+        assertEquals("java.util.stream.Stream.of(Object)", of1.fullyQualifiedName());
         MethodLinkedVariables tlvOf1 = of1.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[-] --> of.§ts∋0:t", tlvOf1.toString());
 
         // test SimpleEntry constructor
         TypeInfo simpleEntry = javaInspector.compiledTypesManager().get(AbstractMap.SimpleEntry.class);
         MethodInfo constructor1 = simpleEntry.findConstructor(2);
-        assertEquals("java.util.AbstractMap.SimpleEntry.<init>(K,V)", constructor1.fullyQualifiedName());
+        assertEquals("java.util.AbstractMap.SimpleEntry.<init>(Object,Object)", constructor1.fullyQualifiedName());
         MethodLinkedVariables tlvConstructor1 = constructor1.analysis()
                 .getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals("[0:key→this*.§kv.§k, 1:value→this*.§kv.§v] --> -", tlvConstructor1.toString());

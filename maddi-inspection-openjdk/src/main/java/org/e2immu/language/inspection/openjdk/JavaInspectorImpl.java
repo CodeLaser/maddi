@@ -179,6 +179,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 singleSourceSet(summary, sourcesByFqn, previouslyLoaded, sourceSet, !parseOptions.failFast(),
                         parseOptions.ignoreModule());
             } catch (IOException ioe) {
+                LOGGER.error("Caught exception", ioe);
                 throw new UnsupportedOperationException("TODO error handling");
             }
         }
@@ -292,11 +293,15 @@ public class JavaInspectorImpl implements JavaInspector {
             for (SourceSet classPathPart : inputConfiguration.classPathParts()) {
                 // ignore jmod:, ignore jar-on-classpath: they are handled by the ClassSymbolScanner
                 if (!classPathPart.name().startsWith(JAR_WITH_PATH_PREFIX) && !classPathPart.partOfJdk()) {
-                    File file = Path.of(classPathPart.uri()).toFile();
-                    if (ignoreModule || !classPathPart.isModule()) {
-                        jarsAndClassDirectories.add(file);
-                    } else {
-                        moduleJars.add(file);
+                    try {
+                        File file = Path.of(classPathPart.uri()).toFile();
+                        if (ignoreModule || !classPathPart.isModule()) {
+                            jarsAndClassDirectories.add(file);
+                        } else {
+                            moduleJars.add(file);
+                        }
+                    } catch (IllegalArgumentException iae) {
+                        throw new IOException("Cannot parse classpath part " + classPathPart);
                     }
                 }
             }

@@ -54,7 +54,7 @@ public class TestJavaUtil extends CommonTest {
         TypeInfo typeInfo = compiledTypesManager().get(ArrayList.class);
         TypeInfo collectionTypeInfo = compiledTypesManager().get(Collection.class);
         MethodInfo methodInfo = typeInfo.findConstructor(collectionTypeInfo);
-        assertEquals("java.util.ArrayList.<init>(java.util.Collection<? extends E>)", methodInfo.fullyQualifiedName());
+        assertEquals("java.util.ArrayList.<init>(java.util.Collection)", methodInfo.fullyQualifiedName());
     }
 
 
@@ -240,7 +240,7 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo add = typeInfo.findUniqueMethod("add", 1);
         assertEquals(1, add.overrides().size());
         MethodInfo override = add.overrides().stream().findFirst().orElseThrow();
-        assertEquals("java.util.Collection.add(E)", override.fullyQualifiedName());
+        assertEquals("java.util.Collection.add(Object)", override.fullyQualifiedName());
         assertSame(FALSE, add.analysis().getOrDefault(NON_MODIFYING_METHOD, FALSE));
     }
 
@@ -298,7 +298,7 @@ public class TestJavaUtil extends CommonTest {
         MethodInfo of = typeInfo.methods().stream()
                 .filter(m -> "of".equals(m.name()) && 1 == m.parameters().size() && 0 == m.parameters().getFirst().parameterizedType().arrays())
                 .findFirst().orElseThrow();
-        assertEquals("java.util.List.of(E)", of.toString());
+        assertEquals("java.util.List.of(Object)", of.toString());
         assertTrue(of.overrides().isEmpty());
         assertTrue(of.isNonModifying());
         ParameterInfo e = of.parameters().getFirst();
@@ -554,7 +554,7 @@ public class TestJavaUtil extends CommonTest {
     public void testObjectsHash() {
         TypeInfo typeInfo = compiledTypesManager().get(Objects.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("hash", 1);
-        assertEquals("java.util.Objects.hash(Object...)", methodInfo.fullyQualifiedName());
+        assertEquals("java.util.Objects.hash(Object[])", methodInfo.fullyQualifiedName());
         assertTrue(methodInfo.isStatic());
         assertFalse(methodInfo.isIdentity());
         assertFalse(methodInfo.isFluent());
