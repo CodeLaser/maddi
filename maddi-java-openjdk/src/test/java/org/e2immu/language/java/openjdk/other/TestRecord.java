@@ -106,6 +106,7 @@ public class TestRecord extends CommonTest {
         FieldInfo b = S.getFieldByName("b", true);
         assertTrue(b.hasBeenInspected());
         assertTrue(b.access().isPrivate());
+        assertEquals(2, S.fields().size());
     }
 
 }
