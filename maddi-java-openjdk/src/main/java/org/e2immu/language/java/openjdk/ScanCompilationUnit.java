@@ -297,8 +297,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (inMap == null) {
                     ParameterizedType pt = convertType.convert(rc.type);
                     fieldInfo = runtime.newFieldInfo(fieldName, false, pt, typeInfo);
-                    fieldInfo.builder().addFieldModifier(runtime.fieldModifierFinal())
-                            .addFieldModifier(runtime.fieldModifierPrivate());
+                    fieldInfo.builder()
+                            .addFieldModifier(runtime.fieldModifierFinal())
+                            .addFieldModifier(runtime.fieldModifierPrivate())
+                            .setAccess(runtime.accessPrivate());
                     builder.addField(fieldInfo);
                     Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
                             .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
@@ -1176,9 +1178,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         fieldInfo.builder().addAnnotations(annots);
 
                         flagHelper.field(flags, fieldInfo.builder());
-                        fieldInfo.builder().setSource(sourceForNode(node))
-                                .setInitializer(currentExpression)
-                                .computeAccess();
 
                         // annotations
                         for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
@@ -1188,6 +1187,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
                         fieldInfo.builder()
                                 .setSource(sourceForNode(variableDecl, dsb))
+                                .setInitializer(currentExpression)
+                                .computeAccess()
                                 .commit();
 
                     } // else: non-static record components are dealt with in the type visitor
@@ -1815,14 +1816,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if ("class".equals(fieldAccess.name.toString())) {
                 DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                 ParameterizedType classType = convertType.convertTree(fieldAccess, dsb);
-                ParameterizedType realType;
-                if (fieldAccess.selected instanceof JCTree.JCIdent ident) {
-                    realType = convertType.convert(ident.type);
-                } else if (fieldAccess.selected instanceof JCTree.JCFieldAccess fa) {
-                    realType = convertType.convertTree(fa, dsb);
-                } else {
-                    throw new UnsupportedOperationException();
-                }
+                ParameterizedType realType = convertType.convertTree(fieldAccess.selected, dsb);
                 currentExpression = runtime.newClassExpressionBuilder(realType)
                         .setSource(sourceForNode(node, dsb))
                         .setClassType(classType).build();
@@ -1836,10 +1830,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 assert currentExpression != null;
                 Expression scope = currentExpression;
                 ParameterizedType concreteType = convertType.convert(fieldAccess.type);
-                if ("length".equals(vs.name.toString())) {
+                String fieldName = vs.name.toString();
+                boolean isSuper = false;
+                if ("length".equals(fieldName)) {
                     currentExpression = runtime.newArrayLengthBuilder()
                             .setSource(sourceForNode(node))
                             .setExpression(scope)
+                            .build();
+                } else if ("this".equals(fieldName) || (isSuper = "super".equals(fieldName))) {
+                    DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                    ParameterizedType explicitType = convertType.convertTree(fieldAccess.selected, dsb);
+                    Variable thisVar = runtime.newThis(explicitType, explicitType.typeInfo(), isSuper);
+                    currentExpression = runtime.newVariableExpressionBuilder()
+                            .setSource(sourceForNode(node, dsb))
+                            .setVariable(thisVar)
                             .build();
                 } else {
                     FieldInfo fieldInfo = typeData.getOrLoadField(vs);

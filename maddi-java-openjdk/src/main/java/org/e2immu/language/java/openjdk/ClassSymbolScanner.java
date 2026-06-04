@@ -203,12 +203,22 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, LoadMode loadMode) {
         LOGGER.debug("Enter loadType: {} {}", newTypeInfo.fullyQualifiedName(), loadMode);
-        flagHelper.type(cs, newTypeInfo.builder());
+        TypeInfo.Builder builder = newTypeInfo.builder();
+        flagHelper.type(cs, builder);
         if (recursionPrevention.add(newTypeInfo)) {
-            //The following completely loads 'cs'
+            //The following completely loads 'cs', so leave it here even though it can move nearer to its usage
             List<? extends Element> members = elements.getAllMembers(cs);
 
             if (loadMode != LoadMode.COMPLETE) {
+                // ensure that the enclosing types have at least been lazily loaded; so that we can compute access
+                // as soon as possible
+                if (newTypeInfo.compilationUnitOrEnclosingType().isRight()) {
+                    if (cs.owner instanceof Symbol.ClassSymbol enclosing) {
+                        loadType(enclosing, newTypeInfo.compilationUnitOrEnclosingType().getRight(), LoadMode.LAZILY);
+                    }
+                }
+                builder.computeAccess();
+
                 int index = 0;
                 newTypeParameterMap();
                 List<TypeParameter> created = new ArrayList<>();
@@ -221,18 +231,18 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
                     TypeParameter newTp = created.get(i++);
                     addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
-                    newTypeInfo.builder().addOrSetTypeParameter(newTp);
+                    builder.addOrSetTypeParameter(newTp);
                 }
                 popTypeParameterMap();
 
                 ParameterizedType superType = convert(cs.getSuperclass());
                 ParameterizedType parentClass = superType == null ? runtime.objectParameterizedType() : superType;
                 assert parentClass != null;
-                newTypeInfo.builder().setParentClass(parentClass);
+                builder.setParentClass(parentClass);
 
                 for (Type type : cs.getInterfaces()) {
                     ParameterizedType pt = convert(type);
-                    newTypeInfo.builder().addInterfaceImplemented(pt);
+                    builder.addInterfaceImplemented(pt);
                 }
             }
 
@@ -242,13 +252,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 }
 
                 MethodInfo singleAbstractMethod = computeSAM(cs.type);
-                newTypeInfo.builder().setSingleAbstractMethod(singleAbstractMethod);
+                builder.setSingleAbstractMethod(singleAbstractMethod);
 
                 if (newTypeInfo.typeNature().isInterface() || newTypeInfo.typeNature().isClass()
-                                                              && newTypeInfo.builder().isAbstract()) {
+                                                              && builder.isAbstract()) {
                     createSyntheticFieldsForGetSet.createSyntheticFields(newTypeInfo);
                 }
-                newTypeInfo.builder().commit();
+                builder.commit();
             }
             recursionPrevention.remove(newTypeInfo);
         }
@@ -354,7 +364,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 && (alwaysLoad || loadMode == LoadMode.COMPLETE && !methodSymbolMap.containsKey(ms))
                 && (loadMode == LoadMode.LOAD_MEMBERS || !methodSymbolMap.containsKey(ms))) {
                 MethodInfo methodInfo = addMethodToType(typeInfo, ms, false);
-                if (!methodInfo.hasBeenInspected()) methodInfo.builder().commit();
+                if (!methodInfo.hasBeenInspected()) methodInfo.builder().computeAccess().commit();
             }
 
         } else if (member instanceof Symbol.VarSymbol vs && vs.owner == owner) {
@@ -362,8 +372,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             if (isNotPrivate && (alwaysLoad || loadMode == LoadMode.COMPLETE && !varSymbolMap.containsKey(vs))
                 && (loadMode == LoadMode.LOAD_MEMBERS || !varSymbolMap.containsKey(vs))) {
                 FieldInfo fieldInfo = addFieldToType(typeInfo, vs);
-                if (!fieldInfo.hasBeenInspected()) fieldInfo.builder().commit();
-
+                if (!fieldInfo.hasBeenInspected()) {
+                    fieldInfo.builder().computeAccess().commit();
+                    assert fieldInfo.access() != null;
+                }
             }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
             boolean isNotPrivate = (cs.flags() & Flags.PRIVATE) == 0;
@@ -376,7 +388,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     if (enclosed.packageName().startsWith("com.google.cloud")) {
                         LOGGER.info("Committing {}", enclosed);
                     }
-                    enclosed.builder().commit();
+                    enclosed.builder().computeAccess().commit();
                 }
             }
         }
@@ -428,10 +440,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         int index = 0;
         MethodInfo.Builder builder = method.builder();
 
+        List<TypeParameter> newTypeParameters = new ArrayList<>();
         for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
             TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), method);
             builder.addTypeParameter(newTp);
             putTmpMethodTypeParameter(typeInfo.fullyQualifiedName(), newTp.simpleName(), newTp);
+            newTypeParameters.add(newTp);
+        }
+        int i = 0;
+        for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
+            TypeParameter newTp = newTypeParameters.get(i++);
             addTypeBoundsAndCommit(null, null, typeParameter, newTp);
         }
 
