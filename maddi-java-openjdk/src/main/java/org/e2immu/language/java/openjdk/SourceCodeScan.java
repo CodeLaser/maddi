@@ -170,8 +170,8 @@ public record SourceCodeScan(Runtime runtime) {
             } else if (node instanceof ImplementsList il) {
                 Node implementsKeyword = il.getFirst();
                 result.keywords.put(source(implementsKeyword), implementsKeyword.getSource());
-            } else if (node instanceof ClassOrInterfaceBody body) {
-                for (Node node2 : body.children()) {
+            } else if (node instanceof ClassOrInterfaceBody || node instanceof EnumBody) {
+                for (Node node2 : node.children()) {
                     String string2 = node2.getSource();
                     switch (node2) {
                         case TypeDeclaration sub -> scanTypeDeclaration(sub, result);
