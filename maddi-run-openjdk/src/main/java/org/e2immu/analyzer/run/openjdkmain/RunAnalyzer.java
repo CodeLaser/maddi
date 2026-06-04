@@ -115,7 +115,7 @@ public class RunAnalyzer implements Runnable {
 
         JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
                 .setDetailedSources(true)
-                .setFailFast(true)
+                .setFailFast(false)
                 .setParallel(configuration.generalConfiguration().parallel())
                 .setLombok(inputConfiguration.containsLombok())
                 .setIgnoreModule(true)
