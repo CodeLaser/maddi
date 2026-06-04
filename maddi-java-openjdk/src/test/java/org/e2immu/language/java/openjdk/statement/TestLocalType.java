@@ -39,6 +39,9 @@ public class TestLocalType extends CommonTest {
                             System.out.println(s+t);
                         }
                     }
+                    for(int i=0; i<10; ++i) {
+                        System.out.println("This tests currentMethod != null");
+                    }
                     return new C();
                 }
             }

@@ -196,7 +196,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             compilationUnit.setTypes(collectedPrimaryTypes);
             return null;
-        } catch (RuntimeException re) {
+        } catch (RuntimeException | AssertionError re) {
             LOGGER.error("Caught exception in compilation unit {}", compilationUnit);
             throw re;
         }
@@ -229,7 +229,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             continueType(typeInfo, jcClassDecl);
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
-        } catch (RuntimeException re) {
+        } catch (RuntimeException | AssertionError re) {
             LOGGER.error("Caught exception in type {}", node.getSimpleName());
             throw re;
         }
@@ -553,7 +553,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .computeAccess();
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
-        } catch (RuntimeException re) {
+        } catch (RuntimeException | AssertionError re) {
             LOGGER.error("Caught exception in method {}", node.getName().toString());
             throw re;
         }
@@ -695,8 +695,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         String simpleName = localType.getSimpleName().toString();
         int index = currentMethod.typeInfo().builder().getAndIncrementAnonymousTypes();
         TypeInfo typeInfo = runtime.newTypeInfo(currentMethod, simpleName, index);
+        MethodInfo here = currentMethod;
         elementStack.put(simpleName, typeInfo);
         continueType(typeInfo, localType);
+        currentMethod = here;
         typeInfo.builder()
                 .setAccess(runtime.accessPrivate())
                 .commit();
@@ -861,6 +863,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 LocalVariableCreation.Builder lvcBuilder = null;
                 for (StatementTree statementTree : node.getInitializer()) {
                     Block initBlock = parseBlock("?", statementTree);
+                    assert !initBlock.statements().isEmpty();
                     Statement first = initBlock.statements().getFirst();
                     if (first instanceof LocalVariableCreation f) {
                         LocalVariable lv = f.localVariable();

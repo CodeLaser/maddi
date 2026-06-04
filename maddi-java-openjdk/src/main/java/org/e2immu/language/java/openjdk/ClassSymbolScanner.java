@@ -547,6 +547,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (type instanceof Type.JCPrimitiveType primitiveType) {
             return primitiveType(primitiveType.getKind());
         }
+        if (type instanceof Type.IntersectionClassType ict) {
+            if (ict.supertype_field != null) {
+                return convert(ict.supertype_field);
+            }
+            throw new UnsupportedOperationException("NYI");
+        }
         if (type instanceof Type.ClassType ct) {
             return classType(ct);
         }

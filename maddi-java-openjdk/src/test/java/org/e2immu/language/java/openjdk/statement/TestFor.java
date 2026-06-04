@@ -147,4 +147,27 @@ public class TestFor extends CommonTest {
             } else fail();
         } else fail();
     }
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            class X {
+                public void method(String[] strings) {
+                    for(int j=0, next=j+1; j<strings.length; ++j) {
+                        System.out.println("j = "+j+", next = "+next);
+                    }
+                }
+            }
+            """;
+
+    @Test
+    public void test5() {
+        TypeInfo X = scan("a.b.X", INPUT5);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        ForStatement fs = (ForStatement) method.methodBody().statements().getFirst();
+        assertEquals(1, fs.initializers().size());
+        if (fs.initializers().getFirst() instanceof LocalVariableCreation lvc) {
+            assertEquals(2, lvc.newLocalVariables().size());
+        }
+    }
 }
