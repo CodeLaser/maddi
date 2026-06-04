@@ -196,7 +196,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             compilationUnit.setTypes(collectedPrimaryTypes);
             return null;
-        } catch (RuntimeException | AssertionError re) {
+        } catch (RuntimeException | AssertionError | StackOverflowError re) {
             LOGGER.error("Caught exception in compilation unit {}", compilationUnit);
             throw re;
         }
@@ -229,7 +229,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             continueType(typeInfo, jcClassDecl);
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
-        } catch (RuntimeException | AssertionError re) {
+        } catch (RuntimeException | AssertionError | StackOverflowError re) {
             LOGGER.error("Caught exception in type {}", node.getSimpleName());
             throw re;
         }
@@ -244,15 +244,23 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         flagHelper.type(jcClassDecl.sym, builder);
         builder.computeAccess();
 
-        // type parameters
-        int index = 0;
-        for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
-            String name = jcTypeParameter.getName().toString();
-            TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
-            builder.addOrSetTypeParameter(tp);
-            elementStack.put(name, tp);
-            parseTypeBoundsAndCommit(jcClassDecl.sym, tp, jcTypeParameter);
-            ++index;
+        // type parameters; must be done in 2 stages
+        if (!jcClassDecl.getTypeParameters().isEmpty()) {
+            int index = 0;
+            List<TypeParameter> newTypeParameters = new ArrayList<>();
+            for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
+                String name = jcTypeParameter.getName().toString();
+                TypeParameter tp = runtime.newTypeParameter(index, name, typeInfo);
+                builder.addOrSetTypeParameter(tp);
+                elementStack.put(name, tp);
+                newTypeParameters.add(tp);
+                ++index;
+            }
+            int i = 0;
+            for (JCTree.JCTypeParameter jcTypeParameter : jcClassDecl.getTypeParameters()) {
+                TypeParameter tp = newTypeParameters.get(i++);
+                parseTypeBoundsAndCommit(jcClassDecl.sym, tp, jcTypeParameter);
+            }
         }
 
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
@@ -439,15 +447,23 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // flags
                 flagHelper.method(methodFlags, builder);
 
-                // type parameters
-                int index = 0;
-                for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
-                    String name = typeParameter.getName().toString();
-                    TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
-                    builder.addTypeParameter(tp);
-                    elementStack.put(name, tp);
-                    parseTypeBoundsAndCommit(jcMethod.sym, tp, typeParameter);
-                    ++index;
+                // type parameters; must be done in 2 stages
+                if (!jcMethod.getTypeParameters().isEmpty()) {
+                    int index = 0;
+                    List<TypeParameter> newTypeParameters = new ArrayList<>();
+                    for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
+                        String name = typeParameter.getName().toString();
+                        TypeParameter tp = runtime.newTypeParameter(index, name, methodInfo);
+                        builder.addTypeParameter(tp);
+                        elementStack.put(name, tp);
+                        newTypeParameters.add(tp);
+                        ++index;
+                    }
+                    int i = 0;
+                    for (JCTree.JCTypeParameter typeParameter : jcMethod.getTypeParameters()) {
+                        TypeParameter tp = newTypeParameters.get(i++);
+                        parseTypeBoundsAndCommit(jcMethod.sym, tp, typeParameter);
+                    }
                 }
 
                 // return type
@@ -553,7 +569,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .computeAccess();
             // don't commit yet, happens at the end of ScanCompilationUnits, after JavaDoc resolution
             return null;
-        } catch (RuntimeException | AssertionError re) {
+        } catch (RuntimeException | AssertionError | StackOverflowError re) {
             LOGGER.error("Caught exception in method {}", node.getName().toString());
             throw re;
         }
