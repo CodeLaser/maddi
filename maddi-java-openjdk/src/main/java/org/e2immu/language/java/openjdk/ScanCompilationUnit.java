@@ -1890,20 +1890,28 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             TypeInfo currentType = typeStack.getLast();
             methodName = it.getName().toString();
             if (it instanceof JCTree.JCIdent jcIdent && jcIdent.sym instanceof Symbol.MethodSymbol methodSymbol) {
+                methodInfo = typeData.getOrLoadMethod(methodSymbol);
+
                 if ("super".equals(methodName) || "this".equals(methodName)) {
                     explicitConstructorInvocation = true;
                     object = null;
                     concreteReturnType = runtime.parameterizedTypeReturnTypeOfConstructor();
                 } else {
-                    object = runtime.newVariableExpressionBuilder()
-                            .setVariable(runtime.newThis(currentType.asParameterizedType()))
-                            .setSource(runtime.noSource()).build();
+                    if (methodInfo.isStatic()) {
+                        object = runtime.newTypeExpressionBuilder()
+                                .setParameterizedType(methodInfo.typeInfo().asSimpleParameterizedType())
+                                .setDiamond(runtime.diamondNo())
+                                .build();
+                    } else {
+                        object = runtime.newVariableExpressionBuilder()
+                                .setVariable(runtime.newThis(currentType.asParameterizedType()))
+                                .setSource(runtime.noSource()).build();
+                    }
                     concreteReturnType = convertType.convert(methodInvocation.type);
                     explicitConstructorInvocation = false;
                 }
+                objectIsImplicit = true;
             } else throw new UnsupportedOperationException("NYI");
-            methodInfo = typeData.getOrLoadMethod(methodSymbol);
-            objectIsImplicit = true;
         } else if (methodSelect instanceof MemberSelectTree mst) {
             scan(mst.getExpression(), p);
             object = currentExpression;
