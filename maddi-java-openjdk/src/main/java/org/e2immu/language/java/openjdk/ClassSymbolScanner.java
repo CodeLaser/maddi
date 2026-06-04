@@ -413,7 +413,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         ParameterizedType type = convert(vs.type);
         boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
         FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
-        fieldInfo.builder().setInitializer(runtime.newEmptyExpression());
+        // we might overwrite them, or not...
+        fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
         typeInfo.builder().addField(fieldInfo);
         flagHelper.field(vs.flags(), fieldInfo.builder());
 
@@ -509,6 +510,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             boolean isStatic = vs.isStatic();
             ParameterizedType type = convert(vs.type);
             FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+            // we might overwrite them, or not...
+            fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
             owner.builder().addField(fieldInfo);
             put(vs, fieldInfo);
             return fieldInfo;

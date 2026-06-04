@@ -308,6 +308,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
                             .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
                     typeData.put(varSym, fieldInfo);
+                    builder.addField(fieldInfo);
                 } else {
                     fieldInfo = inMap;
                 }
@@ -317,7 +318,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                             .addFieldModifier(runtime.fieldModifierPrivate());
                 }
                 fieldInfo.builder().setAccess(runtime.accessPrivate());
-                builder.addField(fieldInfo);
 
                 // check presence
                 MethodInfo miInMap = typeInfo.methodStream()

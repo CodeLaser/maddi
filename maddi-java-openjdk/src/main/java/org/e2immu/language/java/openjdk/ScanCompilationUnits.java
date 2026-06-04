@@ -164,6 +164,7 @@ public class ScanCompilationUnits {
                 if (fieldInfo.initializer() == null) {
                     fieldInfo.builder().setInitializer(runtime.newEmptyExpression());
                 }
+                assert fieldInfo.access() != null : "Null access for " + fieldInfo;
                 fieldInfo.builder().commit();
             }
         }
