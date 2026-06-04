@@ -176,4 +176,20 @@ public class TestArray extends CommonTest {
     public void test6() {
         scan("Test", INPUT6);
     }
+
+    @Language("java")
+    private static final String INPUT7 = """
+            class X {
+                int length;
+                public int method() {
+                    return this.length;
+                }
+            }
+            """;
+
+    @DisplayName("length field")
+    @Test
+    public void test7() {
+        scan("X", INPUT7);
+    }
 }
