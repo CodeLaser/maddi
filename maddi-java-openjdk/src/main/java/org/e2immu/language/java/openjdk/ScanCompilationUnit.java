@@ -1907,8 +1907,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             objectIsImplicit = false;
             concreteReturnType = convertType.convert(methodInvocation.type);
             explicitConstructorInvocation = false;
-            if (methodInvocation.meth instanceof JCTree.JCFieldAccess fieldAccess
-                && fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
+            if ("clone".equals(methodName) && object.parameterizedType().arrays() > 0) {
+                methodInfo = runtime.objectTypeInfo().findUniqueMethod("clone", 0);
+            } else if (methodInvocation.meth instanceof JCTree.JCFieldAccess fieldAccess
+                       && fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
                 methodInfo = typeData.getOrLoadMethod(methodSymbol);
             } else throw new UnsupportedOperationException("NYI");
         } else throw new UnsupportedOperationException("NYI");

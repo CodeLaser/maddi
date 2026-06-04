@@ -161,4 +161,19 @@ public class TestArray extends CommonTest {
     public void test5() {
         scan("Test", INPUT5);
     }
+
+    @Language("java")
+    private static final String INPUT6 = """
+            class Test {
+                public static double[] copy(double[] in) {
+                    return in.clone();
+                }
+            }
+            """;
+
+    @DisplayName("clone method on array")
+    @Test
+    public void test6() {
+        scan("Test", INPUT6);
+    }
 }

@@ -93,7 +93,10 @@ public class ScanCompilationUnits {
         List<TypeInfo> primaryTypes = new ArrayList<>();
         List<ModuleInfo> modules = new ArrayList<>();
 
-        indexJavaLangForJavaDocParsing();
+        // only index in the first pass; in the second pass, all predefined objects will be present
+        if (!runtime.objectTypeInfo().hasBeenInspected()) {
+            indexJavaLangForJavaDocParsing();
+        }
 
         int cntUnits = 1;
         for (CompilationUnitTree unit : units) {
@@ -183,6 +186,7 @@ public class ScanCompilationUnits {
         Iterable<JavaFileObject> files = fm.list(javaBase, "java.lang", Set.of(JavaFileObject.Kind.CLASS),
                 false); // non-recursive — just java.lang, not subpackages
         Elements elements = task.getElements();
+        Symbol.ClassSymbol objectCs = null;
         for (JavaFileObject file : files) {
             String binaryName = fm.inferBinaryName(javaBase, file);
             TypeElement te = elements.getTypeElement(binaryName);
@@ -192,10 +196,16 @@ public class ScanCompilationUnits {
                     if (cs.owner instanceof Symbol.PackageSymbol && null == classSymbolScanner.getType(binaryName)) {
                         classSymbolScanner.primaryType(cs);
                     } // else: not a primary type, or already known
+                    if ("java.lang.Object".equals(binaryName)) {
+                        objectCs = cs;
+                    }
                 } catch (Symbol.CompletionFailure e) {
                     // ignore
                 }
             }
+        }
+        if (objectCs != null) {
+            classSymbolScanner.loadType(objectCs, runtime.objectTypeInfo(), ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
         }
     }
 }
