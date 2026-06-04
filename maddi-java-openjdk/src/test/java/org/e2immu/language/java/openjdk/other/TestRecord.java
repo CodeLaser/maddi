@@ -14,6 +14,7 @@
 
 package org.e2immu.language.java.openjdk.other;
 
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
@@ -31,7 +32,9 @@ public class TestRecord extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            public record R(int a, String b) {}
+            public record R(int a, String b) {
+                record S(int a, String b) { }
+            }
             """;
 
     @DisplayName("record")
@@ -45,6 +48,15 @@ public class TestRecord extends CommonTest {
         Statement s1 = syntheticConstructor.methodBody().statements().get(2);
         assertEquals("this.b=b;", s1.toString());
         assertEquals("1", s1.source().index());
+        FieldInfo a = R.getFieldByName("a", true);
+        assertTrue(a.hasBeenInspected());
+        assertTrue(a.access().isPrivate());
+        assertEquals("<empty>", a.initializer().toString());
+
+        TypeInfo S = R.findSubType("S");
+        FieldInfo b = S.getFieldByName("b", true);
+        assertTrue(b.hasBeenInspected());
+        assertTrue(b.access().isPrivate());
     }
 
     @Language("java")
@@ -70,6 +82,30 @@ public class TestRecord extends CommonTest {
         Statement s2 = cc.methodBody().statements().get(2);
         assertEquals("this.a=a;", s2.toString());
         assertEquals("1", s2.source().index());
+    }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            public class C {
+                S s;
+                String method() {
+                    return s.b; // ensure that b is accessed before it has been declared
+                }
+                record S(int a, String b) { }
+            }
+            """;
+
+    @DisplayName("record")
+    @Test
+    public void test3() {
+        TypeInfo C = scan("a.b.C", INPUT3);
+
+        TypeInfo S = C.findSubType("S");
+        FieldInfo b = S.getFieldByName("b", true);
+        assertTrue(b.hasBeenInspected());
+        assertTrue(b.access().isPrivate());
     }
 
 }

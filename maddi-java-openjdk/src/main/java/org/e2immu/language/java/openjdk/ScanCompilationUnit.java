@@ -305,17 +305,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (inMap == null) {
                     ParameterizedType pt = convertType.convert(rc.type);
                     fieldInfo = runtime.newFieldInfo(fieldName, false, pt, typeInfo);
-                    fieldInfo.builder()
-                            .addFieldModifier(runtime.fieldModifierFinal())
-                            .addFieldModifier(runtime.fieldModifierPrivate())
-                            .setAccess(runtime.accessPrivate());
-                    builder.addField(fieldInfo);
                     Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
                             .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
                     typeData.put(varSym, fieldInfo);
                 } else {
                     fieldInfo = inMap;
                 }
+                if (fieldInfo.modifiers().isEmpty()) {
+                    fieldInfo.builder()
+                            .addFieldModifier(runtime.fieldModifierFinal())
+                            .addFieldModifier(runtime.fieldModifierPrivate());
+                }
+                fieldInfo.builder().setAccess(runtime.accessPrivate());
+                builder.addField(fieldInfo);
+
                 // check presence
                 MethodInfo miInMap = typeInfo.methodStream()
                         .filter(mi -> fieldName.equals(mi.name()) && mi.parameters().isEmpty())
@@ -1210,7 +1213,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                 .setInitializer(currentExpression)
                                 .computeAccess()
                                 .commit();
-
+                        assert fieldInfo.access() != null;
                     } // else: non-static record components are dealt with in the type visitor
                 } else {
 

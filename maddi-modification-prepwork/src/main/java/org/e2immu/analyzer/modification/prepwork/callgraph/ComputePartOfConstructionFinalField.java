@@ -99,6 +99,7 @@ public class ComputePartOfConstructionFinalField {
     private Map<FieldInfo, Boolean> computeEffectivelyFinalFields(TypeInfo typeInfo, G<Info> callGraph, Set<MethodInfo> partOfConstruction) {
         Map<FieldInfo, Boolean> effectivelyFinalFieldMap = new HashMap<>();
         for (FieldInfo fieldInfo : typeInfo.fields()) {
+            assert fieldInfo.access() != null : "Field " + fieldInfo + " has null access.";
             boolean isFinal = fieldInfo.isPropertyFinal() || fieldInfo.access().isPrivate();
             Boolean prev = effectivelyFinalFieldMap.put(fieldInfo, isFinal);
             assert prev == null;
