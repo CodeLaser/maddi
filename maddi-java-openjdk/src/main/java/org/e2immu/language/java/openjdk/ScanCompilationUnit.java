@@ -740,7 +740,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .addMethodModifier(runtime.methodModifierPrivate())
                     .addMethodModifier(runtime.methodModifierStatic())
                     .commitParameters();
+            currentMethod = methodInfo;
             Block block = parseBlock("-", jcBlock);
+            currentMethod = null;
             methodInfo.builder().setMethodBody(block);
             typeInfo.builder().addMethod(methodInfo);
             return null;
@@ -1685,14 +1687,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     public Void visitIdentifier(IdentifierTree node, Void p) {
         var element = trees.getElement(getCurrentPath());
         if (element != null) {
-            // Filter out TYPE and PACKAGE identifiers for brevity;
-            // you probably want all of these in a real analyzer.
             String name = node.getName().toString();
             switch (element.getKind()) {
                 case FIELD -> {
                     if (element instanceof Symbol.VarSymbol vs) {
-                        String owner = vs.owner.toString();
-                        TypeInfo typeInfoOwner = typeData.getType(owner);
+                        TypeInfo typeInfoOwner = convertType.convert(vs.owner.type).bestTypeInfo();
                         assert typeInfoOwner != null;
                         boolean isThis = "this".equals(name);
                         boolean isSuper = "super".equals(name);

@@ -200,10 +200,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             if (loadMode != LoadMode.COMPLETE) {
                 int index = 0;
                 newTypeParameterMap();
+                List<TypeParameter> created = new ArrayList<>();
                 for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
                     TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
                     putInLastTypeParameterMap(newTp);
-
+                    created.add(newTp);
+                }
+                int i = 0;
+                for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
+                    TypeParameter newTp = created.get(i++);
                     addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
                     newTypeInfo.builder().addOrSetTypeParameter(newTp);
                 }
@@ -661,6 +666,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         if (type instanceof JCTree.JCWildcard) {
             return runtime.parameterizedTypeWildcard();
+        }
+        if (type instanceof JCTree.JCAnnotatedType at) {
+            // TODO there is no room for this in maddi's model
+            return convertTreeDontSet(at.underlyingType, detailedSourcesBuilder);
         }
         throw new UnsupportedOperationException("NYI");
     }

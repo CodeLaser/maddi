@@ -31,13 +31,15 @@ public record ScanJavaDoc(Runtime runtime,
         for (DocTree dt : docCommentTree.getFullBody()) {
             if (dt instanceof DCTree.DCInlineTag<?>) {
                 JavaDoc.Tag tag = convertTag(docCommentTree, dt);
-                tags.add(tag);
+                if (tag != null) {
+                    tags.add(tag);
+                }
             }
             comment.append(dt);
         }
         for (DocTree dt : docComment.tags) {
             JavaDoc.Tag tag = convertTag(docCommentTree, dt);
-            tags.add(tag);
+            if (tag != null) tags.add(tag);
             comment.append("\n").append(dt);
         }
         return runtime.newJavaDoc(source, comment.toString(), List.copyOf(tags));
@@ -58,6 +60,7 @@ public record ScanJavaDoc(Runtime runtime,
     private JavaDoc.Tag convertTag(DocCommentTree docCommentTree, DocTree docTree) {
         String content = content(docTree);
         JavaDoc.TagIdentifier tagId = identifier(docTree);
+        if (tagId == null) return null;
         Source srcRef = switch (docTree) {
             case DCTree.DCParam p -> source(docCommentTree, p.name);
             case DCTree.DCLink l -> source(docCommentTree, l.getReference());
@@ -82,7 +85,9 @@ public record ScanJavaDoc(Runtime runtime,
     }
 
     private JavaDoc.TagIdentifier identifier(DocTree docTree) {
-        return JavaDoc.TagIdentifier.valueOf(docTree.getKind().name().toUpperCase());
+        String upperCase = docTree.getKind().name().toUpperCase();
+        if ("ERRONEOUS".equals(upperCase)) return null;
+        return JavaDoc.TagIdentifier.valueOf(upperCase);
     }
 
     private Source source(DocCommentTree docComment, DocTree docNode) {
