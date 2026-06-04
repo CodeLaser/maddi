@@ -863,17 +863,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     Block initBlock = parseBlock("?", statementTree);
                     Statement first = initBlock.statements().getFirst();
                     if (first instanceof LocalVariableCreation f) {
+                        LocalVariable lv = f.localVariable();
                         if (lvcBuilder == null) {
-                            lvcBuilder = runtime.newLocalVariableCreationBuilder().setLocalVariable(f.localVariable());
+                            lvcBuilder = runtime.newLocalVariableCreationBuilder().setLocalVariable(lv);
                         } else {
-                            f.localVariableStream().forEach(lvcBuilder::addOtherLocalVariable);
+                            lvcBuilder.addOtherLocalVariable(lv);
                         }
+                        map.put(lv.simpleName(), lv);
                     } else throw new UnsupportedOperationException("NYI");
                 }
                 assert lvcBuilder != null;
                 LocalVariableCreation built = lvcBuilder.build();
                 forBuilder.addInitializer(built);
-                built.localVariableStream().forEach(lv -> map.put(lv.simpleName(), lv));
             } else {
                 for (StatementTree statementTree : node.getInitializer()) {
                     Block initBlock = parseBlock("?", statementTree);
@@ -1832,7 +1833,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 ParameterizedType concreteType = convertType.convert(fieldAccess.type);
                 String fieldName = vs.name.toString();
                 boolean isSuper = false;
-                if ("length".equals(fieldName)) {
+                if ("length".equals(fieldName) && scope.parameterizedType().arrays() > 0) {
                     currentExpression = runtime.newArrayLengthBuilder()
                             .setSource(sourceForNode(node))
                             .setExpression(scope)

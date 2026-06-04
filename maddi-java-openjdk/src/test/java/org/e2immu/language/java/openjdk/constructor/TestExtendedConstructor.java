@@ -89,4 +89,34 @@ public class TestExtendedConstructor extends CommonTest {
         } else fail();
     }
 
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.Collections;
+            import java.util.HashMap;
+            import java.util.Map;
+            
+            interface C {
+            public static final String A = "DbtrNm";
+            	public static final String B = "CdtrNm";
+            	public static final int i = 26;
+            	public static final int j = 32;
+            	public static final int k = 12;
+            
+            	public static final Map<String, Integer> m = Collections.unmodifiableMap(new HashMap<>() {
+            
+            		private static final long serialVersionUID = 1L;
+            		{
+            			put(A, i);
+            			put(B, j);
+            		}
+            	});
+            }""";
+
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
+
+    }
+
 }
