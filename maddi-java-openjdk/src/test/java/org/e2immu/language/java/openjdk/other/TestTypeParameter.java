@@ -241,4 +241,59 @@ public class TestTypeParameter extends CommonTest {
                 process.parameters().getFirst().parameterizedType().toString());
     }
 
+
+    @Language("java")
+    public static final String INPUT7 = """
+            package a.b;
+            class X {
+                interface Filter { }
+                public interface Appender { }
+                public interface Builder <T> {
+                    T build();
+                    default boolean isValid() { return false; }
+                    default String getErrorPrefix() { return ""; }
+                }
+                public abstract class AbstractAppender implements Appender {
+                    public static abstract class Builder <B extends AbstractAppender.Builder<B>>{
+                        public B setName(java.lang.String name) { return null; }
+                        public B setFilter(Filter filter) { return null; }
+                    }
+                 }
+                public class OutputStreamManager { }
+                public class FileManager extends OutputStreamManager { }
+                public abstract class AbstractOutputStreamAppender <M extends OutputStreamManager> extends AbstractAppender {
+                    public static abstract class Builder <B extends AbstractOutputStreamAppender.Builder<B>> extends AbstractAppender.Builder<B> {
+                    }
+                }
+                public final class FileAppender extends AbstractOutputStreamAppender<FileManager> {
+                    public static <B extends FileAppender.Builder<B>> B newBuilder() { 
+                        return null;
+                     }
+                    public static class Builder <B extends FileAppender.Builder<B>> extends AbstractOutputStreamAppender.Builder<B> implements X.Builder<FileAppender> {
+                        @Override
+                        public FileAppender build() {
+                            return null;
+                        }
+                        public B withFileName(java.lang.String fileName){  return null; }
+                    }
+                }
+                void accept(Appender appender) {
+                    // do something
+                }
+                void call(Filter filter) {
+                    accept(FileAppender.newBuilder()
+                    					.withFileName("abc")
+                    					.setName("name")
+                    					.setFilter(filter)
+                    					.build());
+                }
+            }
+            """;
+
+    @Test
+    public void test7() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT7);
+
+    }
+
 }

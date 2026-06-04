@@ -612,7 +612,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private @NotNull TypeParameter findTypeParameter(Symbol.MethodSymbol methodSymbol, String typeParameterName) {
         TypeParameter inStack = findInTypeParameterStack(typeParameterName);
         if (inStack != null) return inStack;
-        MethodInfo owner = getMethod(methodSymbol);
+        MethodInfo owner = getOrLoadMethod(methodSymbol);
         assert owner != null;
 
         TypeParameter typeParameter = owner.typeParameters().stream()
