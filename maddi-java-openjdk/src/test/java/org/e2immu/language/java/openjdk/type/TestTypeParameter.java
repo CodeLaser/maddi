@@ -1,0 +1,383 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.java.openjdk.type;
+
+import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
+import org.e2immu.language.cst.api.expression.Expression;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
+import org.e2immu.language.cst.api.statement.LocalVariableCreation;
+import org.e2immu.language.cst.api.type.ParameterizedType;
+import org.e2immu.language.java.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class TestTypeParameter extends CommonTest {
+
+    @Language("java")
+    public static final String INPUT1 = """
+            package a.b;
+
+            class X {
+               static class ArrayList<T> extends java.util.ArrayList<T> {
+                   // no need for anything here
+               }
+               static class I {
+                   int k;
+               }
+
+               static void set(ArrayList<I[]> iArrayList, int i, int j, int k) {
+                   iArrayList.get(i)[j].k = k;
+               }
+            }
+            """;
+
+    @Test
+    public void test1() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT1);
+        MethodInfo set = typeInfo.findUniqueMethod("set", 4);
+        Expression expression = set.methodBody().lastStatement().expression();
+        assertEquals("iArrayList.get(i)[j].k=k", expression.toString());
+        if (expression instanceof Assignment a) {
+            assertEquals("a.b.X.I.k#`12-8`[a.b.X.set(a.b.X.ArrayList,int,int,int):2:j]",
+                    a.variableTarget().fullyQualifiedName());
+        }
+    }
+
+
+    @Language("java")
+    public static final String INPUT2 = """
+            package b;
+
+            import java.util.List;
+
+            class C {
+                interface D { }
+                interface A {
+                    interface B<T> { }
+                    List<B<D>> get();
+                }
+
+                void m(A a) {
+                    List<A.B<D>> x = a.get();
+                }
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = scan("b.C", INPUT2);
+        MethodInfo m = typeInfo.findUniqueMethod("m", 1);
+        LocalVariableCreation lvc = (LocalVariableCreation) m.methodBody().lastStatement();
+        ParameterizedType list = lvc.localVariable().parameterizedType();
+        assertEquals("java.util.List<b.C.A.B<b.C.D>>", list.fullyQualifiedName());
+        ParameterizedType pt = list.parameters().getFirst();
+        assertEquals("13-14:13-19", lvc.source().detailedSources().detail(pt).compact2());
+
+        //noinspection ALL
+        List<DetailedSources.Builder.TypeInfoSource> tis = (List<DetailedSources.Builder.TypeInfoSource>)
+                lvc.source().detailedSources().associatedObject(pt.typeInfo());
+        assertEquals("13-14:13-16", lvc.source().detailedSources().detail(pt.typeInfo()).compact2());
+        assertEquals(1, tis.size());
+        assertEquals("TypeInfoSource[typeInfo=b.C.A, source=@13:14-13:14]", tis.getFirst().toString());
+        // Note that there is no b.C are, the qualification is A.
+    }
+
+
+    @Language("java")
+    public static final String INPUT3 = """
+            package a.b;
+            class A {
+                public record B<Z extends A>(Z t) {}
+                public record BB<Z extends a.b.A>(Z t) {}
+            }
+            """;
+
+    @Test
+    public void test3() {
+        TypeInfo typeInfo = scan("a.b.A", INPUT3);
+        {
+            TypeInfo clazz = typeInfo.findSubType("B");
+            TypeParameter tp = clazz.typeParameters().getFirst();
+            assertEquals("Z=TP#0 in B [Type a.b.A]", tp.toStringWithTypeBounds());
+            assertEquals("3-21:3-31", tp.source().compact2());
+            ParameterizedType bound = tp.typeBounds().getFirst();
+            assertEquals("3-31:3-31", tp.source().detailedSources().detail(bound).compact2());
+        }
+        {
+            TypeInfo clazz = typeInfo.findSubType("BB");
+            TypeParameter tp = clazz.typeParameters().getFirst();
+            assertEquals("Z=TP#0 in BB [Type a.b.A]", tp.toStringWithTypeBounds());
+            assertEquals("4-22:4-36", tp.source().compact2());
+            ParameterizedType bound = tp.typeBounds().getFirst();
+            assertEquals("4-32:4-36", tp.source().detailedSources().detail(bound).compact2());
+            assertEquals("4-32:4-34", tp.source().detailedSources().detail(bound.typeInfo().packageName()).compact2());
+        }
+    }
+
+    @Language("java")
+    public static final String INPUT4 = """
+            package a.b;
+            class X {
+                interface SofPolicy { }
+                abstract class ZA { }
+                abstract class ZB { }
+                abstract class ZC { }
+                abstract class ZD { }
+                abstract class ZE { }
+                abstract class ZF { }
+                abstract class ZG<A extends ZA> { }
+
+                interface ZH<
+                			E extends ZG<A>,
+                			A extends ZA,
+                			R extends ZB,
+                			F extends ZC,
+                			Y extends ZD,
+                			H extends ZE>
+                		extends SofPolicy {
+                }
+                class ZI<E extends ZG<A>, A extends ZA> { }
+                abstract class ZJ<
+                            T extends ZI<E, A>,
+                			E extends ZG<A>,
+                			A extends ZA,
+                			R extends ZB,
+                			F extends ZC,
+                			Y extends ZD,
+                			H extends ZE>
+                	extends ZH<E, A, R, F, Y, H> {
+                }
+            }
+            """;
+
+    @Test
+    public void test4() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT4);
+
+        for (TypeInfo sub : typeInfo.subTypes()) {
+            for (TypeParameter tp : sub.typeParameters()) {
+                assertTrue(tp.typeBoundsAreSet());
+            }
+        }
+        TypeInfo request = typeInfo.findSubType("ZJ");
+        TypeParameter tp1 = request.typeParameters().get(1);
+        assertEquals("E", tp1.simpleName());
+        assertEquals("[Type ZG<A extends a.b.X.ZA>]", tp1.typeBounds().toString());
+    }
+
+    @Language("java")
+    public static final String INPUT5 = """
+            package a.b;
+            import org.e2immu.annotation.Container;
+            import org.e2immu.annotation.Independent;
+            class X {
+              class Class$<@Independent @Container T> {
+
+              }
+            }
+            """;
+
+    @Test
+    public void test5() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT5);
+        TypeInfo clazz = typeInfo.findSubType("Class$");
+        TypeParameter tp = clazz.typeParameters().getFirst();
+        assertTrue(tp.hasBeenInspected());
+        assertEquals(2, tp.annotations().size());
+    }
+
+    @Language("java")
+    public static final String INPUT5b = """
+            package a.b;
+            import org.e2immu.annotation.Container;
+            import org.e2immu.annotation.Independent;
+            class X {
+              class Class$<@Independent @Container(comment = X.COMMENT) T> {
+
+              }
+              private static final String COMMENT = "comment";
+            }
+            """;
+
+    @Test
+    public void test5b() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT5b);
+        TypeInfo clazz = typeInfo.findSubType("Class$");
+        TypeParameter tp = clazz.typeParameters().getFirst();
+        assertTrue(tp.hasBeenInspected());
+        assertEquals(2, tp.annotations().size());
+    }
+
+
+    @Language("java")
+    public static final String INPUT6 = """
+            package a.b;
+            import org.springframework.lang.Nullable;
+            import java.util.AbstractMap;
+            import java.util.concurrent.ConcurrentMap;
+            import java.util.concurrent.locks.ReentrantLock;
+            class X {
+                static class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> {
+                    protected final class Segment extends ReentrantLock {
+                        public <T> @Nullable T doTask(final int hash, final @Nullable Object key, final Task<T> task) {
+
+                        }
+                    }
+
+                    private abstract class Task<T> {
+                        // not really relevant for this test
+                    }
+                }
+            }
+            """;
+
+    @Test
+    public void test6() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT6);
+        TypeInfo map = typeInfo.findSubType("ConcurrentReferenceHashMap");
+        TypeInfo task = map.findSubType("Task");
+        assertEquals(1, task.typeParameters().size());
+        assertEquals("T=TP#0 in Task []", task.typeParameters().getFirst().toStringWithTypeBounds());
+    }
+
+    @Language("java")
+    public static final String INPUT7 = """
+            package a.b;
+            import java.util.Map;
+            import java.util.stream.Collectors;
+            public class C<K, V> {
+                Map<K, V> map;
+
+                C(Map<K, V> map) { this.map = map; }
+
+                private C<V, K> reverse() {
+                   return new C<>(map.entrySet().stream().collect(Collectors
+                        .toUnmodifiableMap(Map.Entry::getValue, Map.Entry::getKey)));
+                }
+
+                public static <Y, X> C<Y, X> staticReverse(C<X,Y> c) {
+                     C<Y, X> r = c.reverse();
+                    return r;
+                }
+            }
+            """;
+
+    @Test
+    public void test7() {
+        scan("a.b.C", INPUT7);
+    }
+
+
+    @Language("java")
+    public static final String INPUT8 = """
+            package a.b;
+            public class C {
+                interface A { }
+                interface B { }
+                class K { }
+                <T extends K & A & B> T method(T t) {
+                    return t;
+                }
+            }
+            """;
+
+    @Test
+    public void test8() {
+        TypeInfo C = scan("a.b.C", INPUT8);
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        assertEquals("T extends a.b.C.K&a.b.C.A&a.b.C.B", method.returnType().detailedString());
+        List<ParameterizedType> bounds = method.returnType().typeParameter().typeBounds();
+        assertEquals(3, bounds.size());
+        assertEquals("6-6:6-24", method.typeParameters().getFirst().source().compact2());
+        DetailedSources ds = method.typeParameters().getFirst().source().detailedSources();
+        assertEquals("6-16:6-16", ds.detail(bounds.getFirst()).compact2());
+        assertEquals("6-20:6-20", ds.detail(bounds.get(1)).compact2());
+        assertEquals("6-24:6-24", ds.detail(bounds.getLast()).compact2());
+        assertEquals("[@6:18-6:18, @6:22-6:22]", ds.details(DetailedSources.TYPE_BOUND_AMPERSANDS).toString());
+    }
+
+
+    @Language("java")
+    public static final String INPUT9 = """
+            import java.util.Map;
+            import java.util.SortedMap;
+            import java.util.TreeMap;
+
+            public class Function2414123_file1778122 {
+              public static double[][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
+                double[][] returnValue = new double[pairMap.size()][2];
+                SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number>(pairMap);
+                int i = 0;
+                for (Map.Entry<? extends Number, ? extends Number> entry : sortedMap.entrySet()) {
+                  returnValue[i] = new double[] {entry.getKey().doubleValue(), entry.getValue().doubleValue()};
+                  i++;
+                }
+                return returnValue;
+              }
+            }
+            """;
+
+
+    @Language("java")
+    public static final String OUTPUT9 = """
+            import java.util.Map;
+            import java.util.SortedMap;
+            import java.util.TreeMap;
+            public class Function2414123_file1778122 {
+                public static double [][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
+                    double [][] returnValue = new double[pairMap.size()][2];
+                    SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number> (pairMap);
+                    int i = 0;
+                    for(Map.Entry<? extends Number, ? extends Number> entry : sortedMap.entrySet()) {
+                        returnValue[i] = new double[] { entry.getKey().doubleValue(), entry.getValue().doubleValue() };
+                        i++;
+                    }
+                    return returnValue;
+                }
+            }
+            """;
+
+    @DisplayName("Cannot print ? extends Number in constructor type arguments")
+    @Test
+    public void test9() {
+        TypeInfo C = scan("Function2414123_file1778122", INPUT9);
+        MethodInfo method = C.findUniqueMethod("toDoubleArray", 1);
+        assertEquals("java.util.Map<? extends Number,? extends Number>",
+                method.parameters().getFirst().parameterizedType().detailedString());
+        LocalVariableCreation lvc1 = (LocalVariableCreation) method.methodBody().statements().get(1);
+        assertEquals("java.util.SortedMap<Number,Number>",
+                lvc1.localVariable().parameterizedType().detailedString());
+        ConstructorCall cc = (ConstructorCall) lvc1.localVariable().assignmentExpression();
+        assertEquals("java.util.TreeMap<Number,Number>", cc.parameterizedType().detailedString());
+
+        assertEquals("""
+                [double[E], java.util.Map[E], java.lang.Number[E], java.util.SortedMap[E], java.util.TreeMap[E], \
+                int[E], java.util.Map.Entry[E java.util.Map]]\
+                """, method.typesReferenced(_ -> true)
+                .filter(Element.TypeReference::explicit)
+                .distinct().toList().toString());
+    }
+}

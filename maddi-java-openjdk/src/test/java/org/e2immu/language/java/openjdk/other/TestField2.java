@@ -1,0 +1,200 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.java.openjdk.other;
+
+import org.e2immu.language.cst.api.expression.BinaryOperator;
+import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.java.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestField2 extends CommonTest {
+
+
+    @Language("java")
+    String PARENT = """
+            package a.b;
+            public class Parent {
+                public static final String FIELD = "abc";
+            }
+            """;
+
+    @Language("java")
+    String CHILD = """
+            package a.b;
+            public class Child extends Parent {
+                private class Create {
+                    String newString(String k) {
+                        return k + FIELD;
+                    }
+                }
+            }
+            """;
+
+    @Test
+    public void test() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.Parent", PARENT, "a.b.Child", CHILD);
+        TypeInfo child = pr1.get("a.b.Child");
+        TypeInfo create = child.findSubType("Create");
+        MethodInfo newString = create.findUniqueMethod("newString", 1);
+        BinaryOperator bo = (BinaryOperator) newString.methodBody().lastStatement().expression();
+        if (bo.rhs() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+            assertEquals("a.b.Parent.FIELD", fr.fullyQualifiedName());
+            // these are weird names, but that is because we make a source set for each test-protocol class
+            // there is no problem outside test-protocal
+            assertEquals("test-protocol:a.b.Parent::a.b.Parent", fr.fieldInfo().owner().descriptor());
+            assertEquals("test-protocol:a.b.Parent::a.b.Parent:FIELD", fr.fieldInfo().descriptor());
+        } else fail();
+    }
+
+
+    @Language("java")
+    String PARENT1 = """
+            package a.b;
+            public class Parent {
+                public static class Sub {
+
+                }
+            }
+            """;
+
+    @Language("java")
+    String CHILD1 = """
+            package a.b;
+            public class Child {
+                private class Create extends Parent {
+                    Sub sub = new Sub();
+                }
+            }
+            """;
+
+    @Test
+    public void test1() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.Parent", PARENT1, "a.b.Child", CHILD1);
+        TypeInfo child = pr1.get("a.b.Child");
+        TypeInfo create = child.findSubType("Create");
+        FieldInfo sub = create.getFieldByName("sub", true);
+        assertEquals("new Sub()", sub.initializer().toString());
+    }
+
+
+    @Language("java")
+    String PARENT2 = """
+            package a.b;
+            public class Parent {
+                protected int v;
+            }
+            """;
+
+    @Language("java")
+    String CHILD2 = """
+            package a.b;
+            public class Child extends Parent {
+               //nothing
+            }
+            """;
+
+    @Language("java")
+    String USE2 = """
+            package a.c;
+            import a.b.Child;
+            public class Use {
+                void method() {
+                    Child child = new Child();
+                    child.v = 3;
+                }
+            }
+            """;
+
+    @Test
+    public void test2() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.Parent", PARENT2, "a.b.Child", CHILD2,
+                "a.c.Use", USE2);
+        TypeInfo use = pr1.get("a.c.Use");
+        MethodInfo method = use.findUniqueMethod("method", 0);
+
+    }
+
+
+    @Language("java")
+    String PARENT3 = """
+            package a.b;
+            public class Parent {
+                public static final String FIELD = "abc";
+                private static final String ROUNDABOUT = "x" + Child.FIELD;
+            }
+            """;
+
+    @Language("java")
+    String CHILD3 = """
+            package a.b;
+            public class Child extends Parent {
+               // no code needed here
+            }
+            """;
+
+    @Test
+    public void test3() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.Parent", PARENT3, "a.b.Child", CHILD3);
+        TypeInfo parent = pr1.get("a.b.Parent");
+        FieldInfo r = parent.getFieldByName("ROUNDABOUT", true);
+        // important: the current code (20260311) keeps the original scope, even if the owner is Parent
+        assertSame(parent, r.owner());
+        assertEquals("\"x\"+Child.FIELD", r.initializer().toString());
+    }
+
+
+    @Language("java")
+    String I4 = """
+            package a.b;
+            public interface I {
+                String FIELD = "abc";
+            }
+            """;
+
+    @Language("java")
+    String C4 = """
+            package a.b;
+            import static a.b.I.FIELD;
+            public class C {
+               void method() {
+                   System.out.println(FIELD);
+               }
+            }
+            """;
+
+    @Test
+    public void test4() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.I", I4, "a.b.C", C4);
+        TypeInfo C = pr1.get("a.b.C");
+        MethodInfo method = C.findUniqueMethod("method", 0);
+        MethodCall mc = (MethodCall) method.methodBody().statements().getFirst().expression();
+        VariableExpression ve = (VariableExpression) mc.parameterExpressions().getFirst();
+        if (ve.variable() instanceof FieldReference fr) {
+            assertEquals("FIELD", fr.fieldInfo().name());
+            assertTrue(fr.fieldInfo().isStatic());
+            assertTrue(fr.isDefaultScope());
+        }
+    }
+}
