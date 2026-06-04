@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +35,7 @@ import java.util.Set;
 
 public class ScanCompilationUnits {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
+    private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000);
 
     private final Runtime runtime;
     private final SourceCodeScan sourceCodeScan;
@@ -93,8 +95,10 @@ public class ScanCompilationUnits {
 
         indexJavaLangForJavaDocParsing();
 
+        int cntUnits = 1;
         for (CompilationUnitTree unit : units) {
-            LOGGER.info("Compilation unit {}", unit.getSourceFile().getName());
+            TIMED_LOGGER.info("Processed {} compilation units in {}", cntUnits, sourceSet.name());
+            ++cntUnits;
 
             boolean isModule = unit.getModule() != null;
             String packageName;
