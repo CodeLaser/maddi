@@ -67,7 +67,7 @@ public class TestComputePartOfConstruction extends CommonTest {
                     LoopData withException(Exception e);
                 }
             
-                static class LoopDataImpl {
+                static class LoopDataImpl implements LoopData {
                     private Exit exit;
                     LoopDataImpl(Exit exit) {
                         this.exit = exit;

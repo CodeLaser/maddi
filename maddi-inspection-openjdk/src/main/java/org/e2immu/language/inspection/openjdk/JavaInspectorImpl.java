@@ -57,6 +57,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
     private final JavaCompiler javaCompiler;
+    private final Map<String, Info> previouslyLoaded = new HashMap<>();
 
     public JavaInspectorImpl() {
         this(false, false);
@@ -173,7 +174,6 @@ public class JavaInspectorImpl implements JavaInspector {
     public Summary parse(Map<String, String> sourcesByFqn, ParseOptions parseOptions) {
         Summary summary = new SummaryImpl(parseOptions.failFast());
         List<SourceSet> linearization = computeScanOrder(); // from input configuration
-        Map<String, Info> previouslyLoaded = new HashMap<>();
         for (SourceSet sourceSet : linearization) {
             try {
                 singleSourceSet(summary, sourcesByFqn, previouslyLoaded, sourceSet, !parseOptions.failFast(),
@@ -214,21 +214,19 @@ public class JavaInspectorImpl implements JavaInspector {
                                 CompilationUnit compilationUnit,
                                 ParseResult parseResult,
                                 ParseOptions parseOptions) {
-        return List.of();
+        throw new UnsupportedOperationException();
     }
 
     // single file
     @Override
     public List<TypeInfo> parseReturnAll(String input, String inputName, String sourceSetName, ParseOptions parseOptions) {
-        return List.of();
+        throw new UnsupportedOperationException();
     }
 
     // single file
     @Override
     public Summary parse(URI typeInfo, SourceSet sourceSet, ParseOptions parseOptions) {
-        Summary summary = new SummaryImpl(parseOptions.failFast());
-        //
-        return summary;
+        throw new UnsupportedOperationException();
     }
 
     private void singleSourceSet(Summary summary,
