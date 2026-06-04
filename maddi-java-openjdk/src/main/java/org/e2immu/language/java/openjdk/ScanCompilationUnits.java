@@ -23,16 +23,21 @@ import org.slf4j.LoggerFactory;
 
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
-import javax.tools.*;
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardLocation;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class ScanCompilationUnits {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
 
     private final Runtime runtime;
     private final SourceCodeScan sourceCodeScan;
-    private final DiagnosticCollector<JavaFileObject> diagnostics;
+    private final MaddiDiagnosticCollector diagnosticCollector;
     private final JavacTask task;
     private final SourceSet sourceSet;
     private final Trees trees;
@@ -53,9 +58,9 @@ public class ScanCompilationUnits {
                                 SourceSet sourceSet,
                                 Map<String, Info> previouslyLoaded,
                                 boolean detailedSources,
-                                DiagnosticCollector<JavaFileObject> diagnostics) {
+                                MaddiDiagnosticCollector diagnosticCollector) {
         this.runtime = runtime;
-        this.diagnostics = diagnostics;
+        this.diagnosticCollector = diagnosticCollector;
         this.task = task;
         this.sourceSet = sourceSet;
         this.detailedSources = detailedSources;
@@ -68,7 +73,7 @@ public class ScanCompilationUnits {
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
         classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, previouslyLoaded, sourceSet,
-                flagHelper, types, elements);
+                flagHelper, types, elements, diagnosticCollector);
         resolveJavaDoc = new ResolveJavaDoc(classSymbolScanner);
     }
 
@@ -76,18 +81,12 @@ public class ScanCompilationUnits {
         Iterable<? extends CompilationUnitTree> units = task.parse();
         task.analyze();
 
-        if (diagnostics != null) {
-            boolean haveErrors = false;
-            for (Diagnostic<? extends JavaFileObject> d : diagnostics.getDiagnostics()) {
-                if (d.getKind() == Diagnostic.Kind.ERROR) {
-                    LOGGER.info("Error found in {} at line {}, col {}: {}",
-                            d.getSource(),
-                            d.getLineNumber(), d.getColumnNumber(), d.getMessage(Locale.getDefault()));
-                    haveErrors = true;
-                }
+        for (MaddiDiagnosticCollector.MaddiDiagnostic md : diagnosticCollector.diagnostics()) {
+            if (md.diagnosticKind() == MaddiDiagnosticCollector.DiagnosticKind.ERROR) {
+                LOGGER.info("Error found in {} at line {}, col {}: {}", md.path(), md.line(), md.col(), md.msg());
             }
-            if (haveErrors) throw new CompilationProblems();
         }
+        if (diagnosticCollector.isHalt()) throw new CompilationProblems();
 
         List<TypeInfo> primaryTypes = new ArrayList<>();
         List<ModuleInfo> modules = new ArrayList<>();
@@ -173,7 +172,7 @@ public class ScanCompilationUnits {
     }
 
     private void indexJavaLangForJavaDocParsing() throws IOException {
-        JavaFileManager fm = ((BasicJavacTask)task).getContext().get(JavaFileManager.class);
+        JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
         JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES,
                 "java.base");
 
