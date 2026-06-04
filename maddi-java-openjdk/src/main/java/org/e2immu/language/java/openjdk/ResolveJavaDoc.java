@@ -34,7 +34,9 @@ public record ResolveJavaDoc(TypeData typeData) {
 
             }
             Info resolvedReference = resolveReference(currentType, tag.content());
-            return tag.withResolvedReference(resolvedReference);
+            if (resolvedReference != null) {
+                return tag.withResolvedReference(resolvedReference);
+            }
         }
         return tag;
     }
@@ -87,7 +89,7 @@ public record ResolveJavaDoc(TypeData typeData) {
                 .toList();
         return type.methods().stream().filter(mi ->
                         methodName.equals(mi.name()) && mi.parameters().size() == paramTypes.size())
-                .findFirst().orElseThrow(); // FIXME do actual param type check
+                .findFirst().orElse(null); // FIXME do actual param type check
     }
 
     private TypeInfo resolveType(TypeInfo currentType, String name) {

@@ -184,4 +184,63 @@ public class TestSourceCodeScan {
         return c1.getValue();
     }
 
+    @Language("java")
+    public static final String INPUT3 = """
+            package a.b;
+            public enum OutputFormat {
+            	JSON(new JSONWriter()), YAML(new YAMLWriter());
+            
+            	private final SwaggerWriter writer;
+            
+            	OutputFormat(SwaggerWriter writer) {
+            		this.writer = writer;
+            	}
+            
+            	public void write(OpenAPI swagger, File file, boolean prettyPrint) throws IOException {
+            		writer.write(swagger, file, prettyPrint);
+            	}
+            
+            	@FunctionalInterface
+            	interface SwaggerWriter {
+            		void write(OpenAPI swagger, File file, boolean prettyPrint) throws IOException;
+            	}
+            
+            	static class JSONWriter implements SwaggerWriter {
+            
+            		@Override
+            		public void write(OpenAPI swagger, File file, boolean prettyPrint) throws IOException {
+            			ObjectMapper mapper = Json.mapper();
+            			mapper.addMixIn(ServerVariable.class, SwaggerServerVariable.ServerVariableMixin.class);
+            			if (prettyPrint) {
+            				mapper.enable(SerializationFeature.INDENT_OUTPUT);
+            			}
+            			mapper.writeValue(file, swagger);
+            		}
+            	}
+            
+            	static class YAMLWriter implements SwaggerWriter {
+            
+            		@Override
+            		public void write(OpenAPI swagger, File file, boolean prettyPrint) throws IOException {
+            			ObjectMapper mapper = Yaml.mapper();
+            			mapper.addMixIn(ServerVariable.class, SwaggerServerVariable.ServerVariableMixin.class);
+            			mapper.addMixIn(Schema.class, SchemaMixin.class);
+            			mapper.writeValue(file, swagger);
+            		}
+            	}
+            }
+            """;
+
+
+    @Test
+    public void test3() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT3, false);
+
+        Iterator<Map.Entry<Source, String>> kIterator = r.keywords().entrySet().iterator();
+        testKeyword(kIterator, "1-1:1-7", "package");
+        testKeyword(kIterator, "2-1:2-6", "public");
+        testKeyword(kIterator, "2-8:2-11", "enum");
+        testKeyword(kIterator, "2-1:2-6", "public");
+    }
 }

@@ -437,6 +437,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             method = runtime.newMethod(typeInfo, name, methodType);
             typeInfo.builder().addMethod(method);
         }
+        // add this early enough to avoid recursion/infinite loop problems with self-referencing type parameters
+        put(ms, method);
+
         int index = 0;
         MethodInfo.Builder builder = method.builder();
 
@@ -480,7 +483,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // now the fully qualified name has been computed...
 
         clearTmpMethodTypeParameterMap(typeInfo.fullyQualifiedName());
-        put(ms, method);
+
 
         return method;
     }
@@ -893,7 +896,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 TypeElement typeElement = elements.getTypeElement(typeInfo.fullyQualifiedName());
                 Symbol.ClassSymbol cs = (Symbol.ClassSymbol) typeElement;
                 loadType(cs, typeInfo, LoadMode.COMPLETE);
-            } catch (RuntimeException | AssertionError re) {
+            } catch (RuntimeException | AssertionError | StackOverflowError re) {
                 LOGGER.error("Caught exception committing type {}", typeInfo);
                 throw re;
             }
