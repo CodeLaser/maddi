@@ -65,10 +65,9 @@ public class ParseResultImpl implements ParseResult {
         typesBySimpleName.replaceAll((t, ts) -> List.copyOf(ts));
         this.typesBySimpleName = Map.copyOf(typesBySimpleName);
         this.children = Map.copyOf(children);
-        this.packageParts = new HashSet<>();
-        primaryTypesOfPackage.keySet().forEach(s -> {
-            primaryTypes().forEach(pt -> packageParts.addAll(Arrays.asList(pt.packageName().split("\\."))));
-        });
+        this.packageParts = primaryTypesOfPackage.keySet().stream()
+                .flatMap(pkg -> Arrays.stream(pkg.split("\\.")))
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
