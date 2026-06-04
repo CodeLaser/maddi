@@ -15,6 +15,8 @@
 package org.e2immu.language.java.openjdk.constructor;
 
 import org.e2immu.language.cst.api.expression.ConstructorCall;
+import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
@@ -97,11 +99,10 @@ public class TestExtendedConstructor extends CommonTest {
             import java.util.Map;
             
             interface C {
-            public static final String A = "DbtrNm";
-            	public static final String B = "CdtrNm";
+                public static final String A = "A";
+            	public static final String B = "B";
             	public static final int i = 26;
             	public static final int j = 32;
-            	public static final int k = 12;
             
             	public static final Map<String, Integer> m = Collections.unmodifiableMap(new HashMap<>() {
             
@@ -116,7 +117,15 @@ public class TestExtendedConstructor extends CommonTest {
     @Test
     public void test2() {
         TypeInfo typeInfo = scan("a.b.C", INPUT2);
-
+        FieldInfo m = typeInfo.getFieldByName("m", true);
+        if (m.initializer() instanceof MethodCall mc) {
+            ConstructorCall cc = (ConstructorCall) mc.parameterExpressions().getFirst();
+            TypeInfo anon = cc.anonymousClass();
+            assertEquals("a.b.C.$0", anon.fullyQualifiedName());
+            assertEquals(1, anon.constructors().size());
+            assertEquals(1, anon.fields().size());
+            assertEquals(2, anon.constructors().getFirst().methodBody().statements().size());
+        } else fail();
     }
 
 }

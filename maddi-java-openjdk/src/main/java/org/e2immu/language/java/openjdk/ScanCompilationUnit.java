@@ -2061,29 +2061,23 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 MethodInfo enclosingMethod = currentMethod;
                 // note that we use the compiler's notation, not ours
                 typeData.put(newClass.def.sym.toString(), anonymousType);
-
+                currentMethod = null;
                 typeStack.addLast(anonymousType);
-                if (anonBody.defs.size() >= 2 && anonBody.defs.getFirst() instanceof JCTree.JCMethodDecl
-                    && anonBody.defs.getLast() instanceof JCTree.JCBlock jcBlock) {
-                    // {{ }} extended constructor
-                    MethodInfo c2 = runtime.newConstructor(anonymousType);
-                    c2.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
-                            .setSource(sourceForNode(node))
-                            .setAccess(runtime.accessPrivate())
-                            .addMethodModifier(runtime.methodModifierPrivate())
-                            .commitParameters();
-                    Block block = parseBlock("-", jcBlock);
-                    c2.builder().setMethodBody(block);
-                    builder.addConstructor(c2);
-                    if (anonBody.defs.size() > 2) {
-                        for (JCTree member : anonBody.defs.subList(2, anonBody.defs.size())) {
-                            currentMethod = null;
-                            scan(member, unused);
-                        }
-                    }
-                } else {
-                    for (JCTree member : anonBody.defs) {
-                        currentMethod = null;
+                for (JCTree member : anonBody.defs) {
+                    if (member instanceof JCTree.JCMethodDecl md && "<init>".equals(md.name.toString())) {
+                        // ignore default constructor
+                    } else if (member instanceof JCTree.JCBlock jcBlock) {
+                        // {{ }} extended constructor
+                        MethodInfo c2 = runtime.newConstructor(anonymousType);
+                        c2.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
+                                .setSource(sourceForNode(node))
+                                .setAccess(runtime.accessPrivate())
+                                .addMethodModifier(runtime.methodModifierPrivate())
+                                .commitParameters();
+                        Block block = parseBlock("-", jcBlock);
+                        c2.builder().setMethodBody(block);
+                        builder.addConstructor(c2);
+                    } else {
                         scan(member, unused);
                     }
                 }
