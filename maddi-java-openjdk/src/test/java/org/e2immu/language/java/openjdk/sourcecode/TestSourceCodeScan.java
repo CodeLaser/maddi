@@ -241,6 +241,10 @@ public class TestSourceCodeScan {
         testKeyword(kIterator, "1-1:1-7", "package");
         testKeyword(kIterator, "2-1:2-6", "public");
         testKeyword(kIterator, "2-8:2-11", "enum");
-        testKeyword(kIterator, "2-1:2-6", "public");
+        testKeyword(kIterator, "11-2:11-7", "public");
+        testKeyword(kIterator, "16-2:16-10", "interface");
+        testKeyword(kIterator, "20-2:20-7", "static");
+        testKeyword(kIterator, "20-9:20-13", "class");
+        testKeyword(kIterator, "20-26:20-35", "implements");
     }
 }
