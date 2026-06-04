@@ -21,13 +21,13 @@ import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
+import org.e2immu.language.java.openjdk.MaddiDiagnosticCollector;
 import org.e2immu.language.java.openjdk.ScanCompilationUnits;
 import org.e2immu.util.internal.graph.G;
 import org.e2immu.util.internal.graph.ImmutableGraph;
 import org.e2immu.util.internal.graph.op.Linearize;
 import org.e2immu.util.internal.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -237,8 +237,7 @@ public class JavaInspectorImpl implements JavaInspector {
                                  SourceSet sourceSet,
                                  boolean ignoreErrors,
                                  boolean ignoreModule) throws IOException {
-
-        DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
+        MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, previouslyLoaded, true, diagnostics);
@@ -255,6 +254,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
         // copy into CTM
         List<TypeInfo> loaded = List.copyOf(scanCompilationUnits.classSymbolScanner().typesLoaded());
+        LOGGER.info("Committing types of source set {}, {} loaded", sourceSet.name(), loaded.size());
         for (TypeInfo typeInfo : loaded) {
             // TODO completing is a choice, and may be an unnecessary and expensive operation.
             //  offer this choice to the user
@@ -270,7 +270,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private JavacTask createTask(SourceSet sourceSet,
                                  boolean ignoreModule,
                                  Map<String, String> sourcesByFqn,
-                                 @Nullable DiagnosticCollector<JavaFileObject> diagnostics) throws IOException {
+                                 MaddiDiagnosticCollector diagnostics) throws IOException {
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
         if (TEST_PROTOCOL.equals(sourceSet.name())) {

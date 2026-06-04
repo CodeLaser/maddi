@@ -87,7 +87,7 @@ public class CommonTest {
                     .setDependencies(Set.of(javaBase))
                     .build();
 
-            DiagnosticCollector<JavaFileObject> diagnostics = ignoreErrors ? null : new DiagnosticCollector<>();
+            MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
             javacTask = createTask(sourcesByClassName, jars, diagnostics);
 
             InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
@@ -106,7 +106,7 @@ public class CommonTest {
     }
 
     private JavacTask createTask(Map<String, String> sourcesByClassName, List<File> jars,
-                                 DiagnosticCollector<JavaFileObject> diagnostics) throws IOException {
+                                 MaddiDiagnosticCollector diagnostics) throws IOException {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         StandardJavaFileManager fm = compiler.getStandardFileManager(diagnostics, null, null);
 
