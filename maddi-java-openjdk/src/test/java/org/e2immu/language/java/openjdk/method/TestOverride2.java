@@ -30,15 +30,15 @@ public class TestOverride2 extends CommonTest {
     private static final String aA = """
             package a;
             import c.C;
-            class A extends C {
+            public class A extends C {
             }
             """;
     @Language("java")
     private static final String bB = """
             package b;
             import a.A;
-            class B {
-                void m() {
+            public class B {
+                public void m() {
                     A.m();
                 }
             }
@@ -46,8 +46,8 @@ public class TestOverride2 extends CommonTest {
     @Language("java")
     private static final String cC = """
             package c;
-            class C {
-                public static void m();
+            public class C {
+                public static void m() { }
             }
             """;
 

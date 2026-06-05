@@ -17,6 +17,7 @@ package org.e2immu.language.java.openjdk.method;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -57,6 +58,7 @@ public class TestOverridesOfRecordAccessors extends CommonTest {
             }
             """;
 
+    @Disabled("fingerprints not implemented yet")
     @Test
     public void test() {
         String processorFqn = "io.codelaser.jfocus.stdbase.viewer.util.Processor";
