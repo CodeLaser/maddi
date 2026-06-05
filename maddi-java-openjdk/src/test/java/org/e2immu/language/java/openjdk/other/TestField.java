@@ -1,0 +1,155 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.java.openjdk.other;
+
+import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
+import org.e2immu.language.cst.api.expression.Assignment;
+import org.e2immu.language.cst.api.expression.BinaryOperator;
+import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
+import org.e2immu.language.cst.api.statement.Statement;
+import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.java.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestField extends CommonTest {
+
+
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            class C {
+                public final String s;
+                C(String s) {
+                    this.s = s;
+                }
+            }
+            """;
+
+    @Test
+    public void test1() {
+        TypeInfo typeInfo = scan("a.b.C", INPUT1);
+        assertEquals("C", typeInfo.simpleName());
+        MethodInfo C = typeInfo.findConstructor(1);
+        ExpressionAsStatement c0 = (ExpressionAsStatement) C.methodBody().statements().get(0);
+        Assignment a = (Assignment) c0.expression();
+        VariableExpression ve = (VariableExpression) ((FieldReference) a.variableTarget()).scope();
+        assertEquals("5-9:5-12", ve.source().compact2());
+        DetailedSources ds = ve.source().detailedSources();
+        assertNull(ds);
+    }
+
+    @Language("java")
+    private static final String INPUT2 = """
+            package a.b;
+            import java.util.List;
+            class C {
+              List<String> stringList;
+              List<Integer> intList1 = List.of(), intList2, intList3 = null;
+              int i, iArray[], j;
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo typeInfo = scan("a.b.C", INPUT2);
+        assertEquals("C", typeInfo.simpleName());
+
+        FieldInfo stringList = typeInfo.fields().get(0);
+        assertEquals("Type java.util.List<String>", stringList.type().toString());
+        FieldInfo intList1 = typeInfo.fields().get(1);
+        assertEquals("Type java.util.List<Integer>", intList1.type().toString());
+        assertEquals("List.of()", intList1.initializer().toString());
+        FieldInfo intList2 = typeInfo.fields().get(2);
+        assertEquals("Type java.util.List<Integer>", intList2.type().toString());
+        assertTrue(intList2.initializer().isEmpty());
+        FieldInfo intList3 = typeInfo.fields().get(3);
+        assertEquals("Type java.util.List<Integer>", intList2.type().toString());
+        assertEquals("null", intList3.initializer().toString());
+
+        FieldInfo iArray = typeInfo.getFieldByName("iArray", true);
+        assertEquals("Type int[]", iArray.type().toString());
+        FieldInfo j = typeInfo.getFieldByName("j", true);
+        assertEquals("Type int", j.type().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT3 = """
+            package a.b;
+            class B {
+                // max with comment
+                final static int MAX = 3;
+                public boolean m(int j) {
+                  return B.MAX < j;
+                }
+            }
+            """;
+
+    @Test
+    public void test3() {
+        TypeInfo typeInfo = scan("a.b.B", INPUT3);
+        assertEquals("B", typeInfo.simpleName());
+        FieldInfo max = typeInfo.getFieldByName("MAX", true);
+        assertEquals("4-22:4-28", max.source().compact2()); // MAX = 3
+        Source declarationWithout = max.source().detailedSources().detail(DetailedSources.FIELD_DECLARATION);
+        assertEquals("3-5:4-29", declarationWithout.compact2());
+
+        Statement s0 = typeInfo.findUniqueMethod("m", 1).methodBody().statements().getFirst();
+        if (s0.expression() instanceof BinaryOperator bo) {
+            assertEquals("B.MAX", bo.lhs().toString());
+            if (bo.lhs() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+                assertEquals("B", fr.scope().toString());
+                assertEquals("6-14:6-14", fr.scope().source().compact2());
+            } else fail();
+        } else fail("Have " + s0.expression());
+
+    }
+
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            class B {
+                final int min = 5; // min with comment
+                final static int MAX = 3; // max with comment
+                public boolean m(int j) {
+                  return B.MAX < j;
+                }
+            }
+            """;
+
+    @Test
+    public void test4() {
+        TypeInfo typeInfo = scan("a.b.B", INPUT4);
+        assertEquals("B", typeInfo.simpleName());
+
+        FieldInfo min = typeInfo.getFieldByName("min", true);
+        assertEquals(1, min.comments().size());
+        assertEquals(" min with comment", min.comments().getFirst().comment());
+        FieldInfo max = typeInfo.getFieldByName("MAX", true);
+        assertEquals(1, max.comments().size());
+        assertEquals(" max with comment", max.comments().getFirst().comment());
+        MethodInfo m = typeInfo.findUniqueMethod("m", 1);
+        assertTrue(m.comments().isEmpty());
+    }
+}

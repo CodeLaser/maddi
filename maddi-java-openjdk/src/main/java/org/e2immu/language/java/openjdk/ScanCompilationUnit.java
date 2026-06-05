@@ -1183,6 +1183,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 if (currentExpression == null) {
                     currentExpression = runtime.newEmptyExpression();
                 }
+                Expression initializer = currentExpression;
                 if (currentMethod == null) {
                     // field!
                     long flags = variableDecl.getModifiers().flags;
@@ -1210,7 +1211,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
                         fieldInfo.builder()
                                 .setSource(sourceForNode(variableDecl, dsb))
-                                .setInitializer(currentExpression)
+                                .setInitializer(initializer)
                                 .computeAccess()
                                 .commit();
                         assert fieldInfo.access() != null;
