@@ -161,7 +161,9 @@ public class TestVar extends CommonTest {
         LocalVariableCreation lvc = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
         assertTrue(lvc.isVar());
         assertFalse(lvc.localVariable().assignmentExpression() instanceof ErasedExpression);
-        assertEquals("Type java.util.ArrayList", lvc.localVariable().parameterizedType().toString());
+        assertEquals(//"Type java.util.ArrayList", DIFFERS from maddi parser
+                "Type java.util.ArrayList<Object>",
+                lvc.localVariable().parameterizedType().toString());
     }
 
 

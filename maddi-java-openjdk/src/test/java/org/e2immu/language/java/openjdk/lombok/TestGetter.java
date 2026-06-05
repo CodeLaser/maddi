@@ -48,13 +48,15 @@ public class TestGetter extends CommonTest {
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
             MethodInfo getList = typeInfo.findUniqueMethod("getList", 0);
-            assertTrue(getList.isSynthetic());
+            assertTrue(getList.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
+
             assertEquals("org.e2immu.test.X.getList()", getList.fullyQualifiedName());
             assertEquals("{return this.list;}", getList.methodBody().toString());
         }
         {
             MethodInfo i = typeInfo.findUniqueMethod("getI", 0);
-            assertTrue(i.isSynthetic());
+            assertTrue(i.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
+
             assertTrue(i.isStatic());
             assertEquals("org.e2immu.test.X.getI()", i.fullyQualifiedName());
             assertEquals("{return X.i;}", i.methodBody().toString());
@@ -82,7 +84,8 @@ public class TestGetter extends CommonTest {
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
             MethodInfo getList = typeInfo.findUniqueMethod("getList", 0);
-            assertTrue(getList.isSynthetic());
+            assertTrue(getList.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
+
             assertEquals("org.e2immu.test.X.getList()", getList.fullyQualifiedName());
             assertEquals("{return this.list;}", getList.methodBody().toString());
         }

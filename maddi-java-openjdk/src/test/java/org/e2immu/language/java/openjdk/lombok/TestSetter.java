@@ -48,14 +48,16 @@ public class TestSetter extends CommonTest {
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
             MethodInfo m = typeInfo.findUniqueMethod("setList", 1);
-            assertTrue(m.isSynthetic());
+            assertTrue(m.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
+
             assertFalse(m.isStatic());
             assertEquals("org.e2immu.test.X.setList(java.util.List)", m.fullyQualifiedName());
             assertEquals("{this.list=list;}", m.methodBody().toString());
         }
         {
             MethodInfo m = typeInfo.findUniqueMethod("setI", 1);
-            assertTrue(m.isSynthetic());
+            assertTrue(m.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
+
             assertTrue(m.isStatic());
             assertEquals("org.e2immu.test.X.setI(int)", m.fullyQualifiedName());
             assertEquals("{X.i=i;}", m.methodBody().toString());
@@ -85,7 +87,8 @@ public class TestSetter extends CommonTest {
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
             MethodInfo m = typeInfo.findUniqueMethod("setList", 1);
-            assertTrue(m.isSynthetic());
+            assertTrue(m.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
+
             assertFalse(m.isStatic());
             assertEquals("org.e2immu.test.X.setList(java.util.List)", m.fullyQualifiedName());
             assertEquals("{this.list=list;}", m.methodBody().toString());

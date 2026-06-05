@@ -51,6 +51,7 @@ public class TestExceptionTypes extends CommonTest {
     public void test1() {
         TypeInfo x = scan("a.b.X", INPUT1);
         MethodInfo mi = x.findUniqueMethod("openConnection", 2);
+        assertEquals(2, mi.exceptionTypes().size());
         MethodPrinter mp = new MethodPrinterImpl(mi.typeInfo(), mi, true);
         assertEquals("""
                 static HttpURLConnection openConnection(String baseURL,String queryString) throws MalformedURLException,IOException{\

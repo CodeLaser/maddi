@@ -45,7 +45,7 @@ public class TestData extends CommonTest {
     public void test1() {
         TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT1);
         MethodInfo rac = typeInfo.findConstructor(2);
-        assertTrue(rac.isSynthetic());
+        assertTrue(rac.annotations().stream().anyMatch(a -> "Generated".equals(a.typeInfo().simpleName())));
         typeInfo.findUniqueMethod("getC", 0);
         typeInfo.findUniqueMethod("setC", 1);
         typeInfo.findUniqueMethod("getS", 0);

@@ -14,6 +14,7 @@
 
 package org.e2immu.language.java.openjdk.lombok;
 
+import org.e2immu.language.cst.api.expression.StringConstant;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;

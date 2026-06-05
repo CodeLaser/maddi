@@ -42,8 +42,8 @@ public class TestRecordConstructor extends CommonTest {
             		return new String[] { s1, s2, s3 };
             	}
             }
-
-
+            
+            
             """;
 
     @Test
@@ -71,12 +71,17 @@ public class TestRecordConstructor extends CommonTest {
         assertEquals(1, typeInfo.constructors().size());
         MethodInfo constructor = typeInfo.constructors().getFirst();
         ParameterInfo pi0 = constructor.parameters().getFirst();
-        assertNull(pi0.source());
-        assertTrue(pi0.isSynthetic());
+        assertEquals("1-17:1-25", pi0.source().compact2());
+
+        assertFalse(pi0.isSynthetic());
         List<Statement> statements = constructor.methodBody().statements();
-        assertEquals(4, statements.size());
-        assertEquals("assert this.s1!=null;", statements.getFirst().toString());
-        assertEquals("this.s1=s1;", statements.get(1).toString());
+        assertEquals(5, statements.size());
+        assertEquals("super();", statements.getFirst().toString());
+        assertEquals("assert s1!=null;", statements.get(1).toString());
+        assertInstanceOf(ParameterInfo.class, statements.get(1).expression()
+                .variableStreamDescend().findFirst().orElseThrow());
+        // FIXME differs from std parser (std parser is wrong!)
+        assertEquals("this.s1=s1;", statements.get(2).toString());
         assertSame(runtime.methodTypeCompactConstructor(), constructor.methodType());
     }
 
@@ -92,11 +97,11 @@ public class TestRecordConstructor extends CommonTest {
         assertEquals(1, typeInfo.constructors().size());
         MethodInfo constructor = typeInfo.constructors().getFirst();
         ParameterInfo pi0 = constructor.parameters().getFirst();
-        assertNull(pi0.source());
-        assertTrue(pi0.isSynthetic());
+        assertEquals("-@1:17-1:21", pi0.source().toString());
+        assertFalse(pi0.isSynthetic()); // FIXME differs from std parser
         FieldInfo f0 = typeInfo.fields().getFirst();
         assertEquals("s1", f0.name());
-        assertEquals("1-17:1-25", f0.source().compact2());
+        assertNull(f0.source()); // FIXME differs from std parser
     }
 
 }

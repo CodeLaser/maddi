@@ -28,10 +28,10 @@ public class TestBuilder extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package org.e2immu.test;
-
+            
             import lombok.Data;
             import lombok.Builder;
-
+            
             @Data
             @Builder
             public class X {
@@ -44,7 +44,7 @@ public class TestBuilder extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = scan("org.e2immu.test.X", INPUT1);
-        TypeInfo builder = typeInfo.findSubType("Builder");
+        TypeInfo builder = typeInfo.findSubType("XBuilder");
         assertTrue(builder.access().isPublic());
         assertTrue(builder.typeNature().isClass());
         assertTrue(builder.isStatic());
@@ -53,10 +53,13 @@ public class TestBuilder extends CommonTest {
         assertEquals(3, builder.fields().size());
         assertTrue(builder.getFieldByName("s", true).access().isPrivate());
 
-        // setters
-        MethodInfo setS = builder.findUniqueMethod("setS", 1);
-        assertEquals("org.e2immu.test.X.Builder.setS(String)", setS.fullyQualifiedName());
+        // setters (called "s", rather than setS!!)
+        MethodInfo setS = builder.findUniqueMethod("s", 1);
+        assertEquals("org.e2immu.test.X.XBuilder.s(String)", setS.fullyQualifiedName());
         assertEquals("{this.s=s;return this;}", setS.methodBody().toString());
+        assertEquals(2, setS.annotations().size());
+        assertEquals("@SuppressWarnings(\"all\")", setS.annotations().getFirst().toString());
+        assertEquals("@Generated", setS.annotations().getLast().toString());
 
         // build method
         MethodInfo build = builder.findUniqueMethod("build", 0);
