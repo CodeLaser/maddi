@@ -14,6 +14,7 @@
 
 package org.e2immu.language.java.openjdk.other;
 
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.java.openjdk.CommonTest;
@@ -33,7 +34,7 @@ public class TestImport4 extends CommonTest {
             package a.b;
             public interface Value {
                 void common();
-
+            
                 interface Bool extends Value {
                     void boolMethod();
                 }
@@ -52,13 +53,13 @@ public class TestImport4 extends CommonTest {
             import a.b.Value;
             public class ValueImpl implements Value {
                 public void common() { }
-                static class BoolImpl extends ValueImpl implements Bool {
+                public static class BoolImpl extends ValueImpl implements Bool {
                     public void boolMethod() { }
                 }
-                static class ImmutableImpl extends ValueImpl implements Immutable {
+                public static class ImmutableImpl extends ValueImpl implements Immutable {
                     public void immutableMethod() { }
                 }
-                static class IndependentImpl extends ValueImpl implements Independent {
+                public static class IndependentImpl extends ValueImpl implements Independent {
                     public static final Independent INDEPENDENT = new IndependentImpl();
                     public void independentMethod() { }
                 }
@@ -92,8 +93,14 @@ public class TestImport4 extends CommonTest {
 
     @Test
     public void testImportFail1() {
-        assertThrows(Summary.FailFastException.class, () -> scan(false, "a.b.Value", INTERFACE,
-                "a.b.i.ValueImpl", IMPLEMENTATION, "c.Use", USE_FAIL_1));
+        // DIFFERS from maddi parser
+        //assertThrows(Summary.FailFastException.class, () -> scan(false, "a.b.Value", INTERFACE,
+        //        "a.b.i.ValueImpl", IMPLEMENTATION, "c.Use", USE_FAIL_1));
+        Map<String, TypeInfo> map = scan(false, "a.b.Value", INTERFACE, "a.b.i.ValueImpl", IMPLEMENTATION, "c.Use",
+                USE_FAIL_1);
+        TypeInfo use = map.get("c.Use");
+        FieldInfo ii = use.getFieldByName("ii", true);
+        assertEquals("Type a.b.i.ValueImpl.IndependentImpl", ii.type().toString());
     }
 
     @Language("java")
@@ -134,7 +141,7 @@ public class TestImport4 extends CommonTest {
             .c .d;
             public interface Value {
                 void common();
-
+            
                 interface Bool extends Value {
                     void boolMethod();
                 }

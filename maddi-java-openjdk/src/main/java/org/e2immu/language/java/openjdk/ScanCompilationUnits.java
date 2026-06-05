@@ -112,10 +112,9 @@ public class ScanCompilationUnits {
             } else {
                 packageName = "";
             }
-            CompilationUnit compilationUnit = runtime.newCompilationUnitBuilder()
+            CompilationUnit.Builder compilationUnitBuilder = runtime.newCompilationUnitBuilder()
                     .setPackageName(packageName)
-                    .setSourceSet(sourceSet)
-                    .build();
+                    .setSourceSet(sourceSet);
 
             SourceCodeScan.Result scanResult;
             if (detailedSources) {
@@ -125,12 +124,11 @@ public class ScanCompilationUnits {
                 scanResult = SourceCodeScan.EMPTY_RESULT;
             }
 
-
             LineMap lineMap = unit.getLineMap();
             DocTrees docTrees = DocTrees.instance(task);
 
             ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, classSymbolScanner,
-                    compilationUnit, unit, trees, sourcePositions, lineMap, task.getElements(), types,
+                    compilationUnitBuilder, unit, trees, sourcePositions, lineMap, task.getElements(), types,
                     docTrees, scanResult, computeMethodOverrides, flagHelper, classSymbolScanner);
             scanCompilationUnit.scan(unit, null);
             primaryTypes.addAll(scanCompilationUnit.types());
