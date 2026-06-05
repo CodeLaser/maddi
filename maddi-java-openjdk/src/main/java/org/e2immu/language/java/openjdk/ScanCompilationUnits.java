@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class ScanCompilationUnits {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
@@ -98,6 +100,25 @@ public class ScanCompilationUnits {
             indexJavaLangForJavaDocParsing();
         }
 
+        Map<CompilationUnitTree, SourceCodeScan.Result> sourceCodeScans;
+        if (detailedSources) {
+            // highly parallel
+            LOGGER.info("Start source code scans");
+            sourceCodeScans = StreamSupport.stream(units.spliterator(), true)
+                    .collect(Collectors.toUnmodifiableMap(jfo -> jfo,
+                            compilationUnitTree -> {
+                                boolean isModule = compilationUnitTree.getModule() != null;
+                                try {
+                                    CharSequence content = compilationUnitTree.getSourceFile().getCharContent(false);
+                                    return sourceCodeScan.go(content, isModule);
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }));
+            LOGGER.info("... end of source code scans, have {}", sourceCodeScans.size());
+        } else {
+            sourceCodeScans = null;
+        }
         int cntUnits = 1;
         for (CompilationUnitTree unit : units) {
             TIMED_LOGGER.info("Processed {} compilation units in {}", cntUnits, sourceSet.name());
@@ -116,14 +137,7 @@ public class ScanCompilationUnits {
                     .setPackageName(packageName)
                     .setSourceSet(sourceSet);
 
-            SourceCodeScan.Result scanResult;
-            if (detailedSources) {
-                CharSequence content = unit.getSourceFile().getCharContent(false);
-                scanResult = sourceCodeScan.go(content, isModule);
-            } else {
-                scanResult = SourceCodeScan.EMPTY_RESULT;
-            }
-
+            SourceCodeScan.Result scanResult = sourceCodeScans == null ? null : sourceCodeScans.get(unit);
             LineMap lineMap = unit.getLineMap();
             DocTrees docTrees = DocTrees.instance(task);
 

@@ -63,8 +63,8 @@ public class TestField2 extends CommonTest {
             assertEquals("a.b.Parent.FIELD", fr.fullyQualifiedName());
             // these are weird names, but that is because we make a source set for each test-protocol class
             // there is no problem outside test-protocal
-            assertEquals("test-protocol:a.b.Parent::a.b.Parent", fr.fieldInfo().owner().descriptor());
-            assertEquals("test-protocol:a.b.Parent::a.b.Parent:FIELD", fr.fieldInfo().descriptor());
+            assertEquals("source::a.b.Parent", fr.fieldInfo().owner().descriptor());
+            assertEquals("source::a.b.Parent:FIELD", fr.fieldInfo().descriptor());
         } else fail();
     }
 
@@ -103,7 +103,7 @@ public class TestField2 extends CommonTest {
     String PARENT2 = """
             package a.b;
             public class Parent {
-                protected int v;
+                public int v;
             }
             """;
 
@@ -133,7 +133,7 @@ public class TestField2 extends CommonTest {
                 "a.c.Use", USE2);
         TypeInfo use = pr1.get("a.c.Use");
         MethodInfo method = use.findUniqueMethod("method", 0);
-
+        assertEquals(2, method.methodBody().statements().size());
     }
 
 

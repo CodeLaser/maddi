@@ -298,9 +298,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         assert parentClass != null;
         builder.setParentClass(parentClass);
         if (!jcClassDecl.implementing.isEmpty()) {
-            String keyword = typeInfo.isInterface() ? "extends" : "implements";
-            Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
-            dsb.put(DetailedSources.IMPLEMENTS, source);
+            if (scanResult != null) {
+                String keyword = typeInfo.isInterface() ? "extends" : "implements";
+                Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
+                dsb.put(DetailedSources.IMPLEMENTS, source);
+            }
             for (JCTree.JCExpression i : jcClassDecl.implementing) {
                 builder.addInterfaceImplemented(convertType.convertTree(i, dsb));
             }
@@ -1991,9 +1993,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             arguments.add(currentExpression);
         }
         Source src = scanSource(node);
-        dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(src));
-        dsb.putListIfNotNull(DetailedSources.ARGUMENT_COMMAS, scanResult.findArgumentCommas(src));
-
+        if (scanResult != null) {
+            dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(src));
+            dsb.putListIfNotNull(DetailedSources.ARGUMENT_COMMAS, scanResult.findArgumentCommas(src));
+        }
         if (explicitConstructorInvocation) {
             boolean isSuper = "super".equals(methodName);
             boolean isSyntheticSuperCall = isSuper && isSyntheticSuperCall(methodInvocation, compilationUnitTree);
@@ -2405,10 +2408,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     private List<Comment> commentsForNode(Source source) {
-        return scanResult.findComments(source);
+        return scanResult == null ? List.of() : scanResult.findComments(source);
     }
 
     private List<Comment> trailingCommentsForNode(Source source) {
-        return scanResult.findTrailingComments(source);
+        return scanResult == null ? List.of() : scanResult.findTrailingComments(source);
     }
 }
