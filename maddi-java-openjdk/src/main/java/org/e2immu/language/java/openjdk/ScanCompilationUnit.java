@@ -521,6 +521,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
                     parameterMap.put(parameterInfo.simpleName(), parameterInfo);
                 }
+
+                // exception types
+                if (!jcMethod.thrown.isEmpty()) {
+                    jcMethod.thrown.stream()
+                            .map(e -> convertType.convertTree(e, dsb))
+                            .forEach(builder::addExceptionType);
+                }
                 builder.commitParameters();
             }
 
