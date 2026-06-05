@@ -51,7 +51,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private final Deque<BlockData> blockBuilders = new ArrayDeque<>();
     private Expression currentExpression;
     private final Map<StatementTree, String> statementLabels = new IdentityHashMap<>();
-    private final CompilationUnit compilationUnit;
+    private final CompilationUnit.Builder compilationUnitBuilder;
+    private CompilationUnit compilationUnit;
     private final SourcePositions sourcePositions;
     private final LineMap lineMap;
     private final CompilationUnitTree compilationUnitTree;
@@ -68,7 +69,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     ScanCompilationUnit(Runtime runtime,
                         TypeData typeData,
-                        CompilationUnit compilationUnit,
+                        CompilationUnit.Builder compilationUnitBuilder,
                         CompilationUnitTree compilationUnitTree,
                         Trees trees,
                         SourcePositions sourcePositions,
@@ -82,7 +83,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         ClassSymbolScanner classSymbolScanner) {
         this.runtime = runtime;
         this.typeData = typeData;
-        this.compilationUnit = compilationUnit;
+        this.compilationUnitBuilder = compilationUnitBuilder;
         this.trees = trees;
         this.lineMap = lineMap;
         this.sourcePositions = sourcePositions;
@@ -172,6 +173,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     @Override
     public Void visitCompilationUnit(CompilationUnitTree node, Void unused) {
         try {
+            // continue the building of the compilation unit: imports
+            for (ImportTree importTree : node.getImports()) {
+                ImportStatement is = parseImportStatement(importTree);
+                compilationUnitBuilder.addImportStatement(is);
+            }
+            compilationUnit = compilationUnitBuilder.build();
+
+            // now we have one built
             if (node.getTypeDecls().isEmpty()) {
                 // package-info
                 List<AnnotationExpression> annotations = new ArrayList<>();
@@ -200,6 +209,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             LOGGER.error("Caught exception in compilation unit {}", compilationUnit);
             throw re;
         }
+    }
+
+    private ImportStatement parseImportStatement(ImportTree importTree) {
+        boolean isStatic = importTree.isStatic();
+        String im = importTree.getQualifiedIdentifier().toString();
+        Source source = sourceForNode(importTree);
+        return runtime.newImportStatementBuilder()
+                .setSource(source)
+                .addComments(commentsForNode(source))
+                .setImport(im)
+                .setIsStatic(isStatic)
+                .build();
     }
 
     @Override
