@@ -16,19 +16,21 @@ package org.e2immu.analyzer.modification.prepwork.clonebench;
 
 import org.e2immu.analyzer.modification.prepwork.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,8 +67,11 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
         File[] javaFiles = src.listFiles(f -> f.getName().endsWith(".java") && !isProcessed(f.getName()));
         assertNotNull(javaFiles);
         LOGGER.info("Found {} java files in {}", javaFiles.length, directory);
+        SourceSet sourceSet = new SourceSetImpl.Builder().setName(name)
+                .setUri(URI.create("file:/"))
+                .build();
         for (File javaFile : javaFiles) {
-            process(name, analyzer, javaFile, methodHistogram);
+            process(sourceSet, analyzer, javaFile, methodHistogram);
         }
     }
 
@@ -76,12 +81,10 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
         return PROCESSED.matcher(name).matches();
     }
 
-    private void process(String setName, PrepAnalyzer analyzer, File javaFile, Map<String, Integer> methodHistogram)
+    private void process(SourceSet sourceSet, PrepAnalyzer analyzer, File javaFile, Map<String, Integer> methodHistogram)
             throws IOException {
-        String input = Files.readString(javaFile.toPath());
-        LOGGER.info("Start parsing {} in set {}, file of size {}", javaFile, setName, input.length());
-        String className = javaFile.getName().substring(0, javaFile.getName().length() - 5);
-        TypeInfo typeInfo = javaInspector.parse(Map.of(className, input), parseOptions).parseResult().firstType();
+        LOGGER.info("Start parsing {} in set {}", javaFile, sourceSet.name());
+        TypeInfo typeInfo = javaInspector.parse(javaFile.toURI(), sourceSet, parseOptions).parseResult().firstType();
         List<Info> analysisOrder = analyzer.doPrimaryType(typeInfo);
         LOGGER.info("-    analysis order size {}", analysisOrder.size());
         analysisOrder.stream().filter(info -> info instanceof MethodInfo)

@@ -225,8 +225,20 @@ public class JavaInspectorImpl implements JavaInspector {
 
     // single file
     @Override
-    public Summary parse(URI typeInfo, SourceSet sourceSet, ParseOptions parseOptions) {
-        throw new UnsupportedOperationException();
+    public Summary parse(URI javaUri, SourceSet sourceSet, ParseOptions parseOptions) {
+        try {
+            Path javaFile = Path.of(javaUri);
+            String name = javaFile.getFileName().toString();
+            String className = name.substring(0, name.length() - 5);
+            String input = Files.readString(javaFile);
+            Summary summary = new SummaryImpl(parseOptions.failFast());
+            singleSourceSet(summary, Map.of(className, input), previouslyLoaded, sourceSet,
+                    !parseOptions.failFast(), parseOptions.ignoreModule());
+            return summary;
+        } catch (IOException e) {
+            LOGGER.error("Caught exception", e);
+            return null;
+        }
     }
 
     private void singleSourceSet(Summary summary,
