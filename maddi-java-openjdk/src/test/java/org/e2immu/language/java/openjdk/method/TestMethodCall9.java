@@ -33,12 +33,15 @@ public class TestMethodCall9 extends CommonTest {
     private static final String INPUT1 = """
             package a.b;
 
-            import org.springframework.util.function.ThrowingFunction;
             import java.lang.reflect.InvocationTargetException;
             import java.util.List;
             import java.util.Objects;
-
+            import java.util.function.Function;
+            
             class X {
+                interface ThrowingFunction<R, S> {
+                    R apply(S s) throws Exception;
+                }
                 interface Element {
                     String getName();
                 }
@@ -47,7 +50,7 @@ public class TestMethodCall9 extends CommonTest {
                 		.filter(Objects::nonNull)
                 		.map(Element.class::cast)
                 		.filter(e -> childName.equals(e.getName()))
-                		.map(((ThrowingFunction<Element, T>)e -> {
+                		.map(((Function<Element, T>)e -> {
                 			try {
                 				return clazz.getDeclaredConstructor(Element.class).newInstance(e);
                 			} catch (InstantiationException | IllegalAccessException | IllegalArgumentException

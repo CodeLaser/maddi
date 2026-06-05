@@ -102,7 +102,7 @@ public class TestMethodCall12 extends CommonTest {
                 interface Assert <SELF extends Assert<SELF,ACTUAL>, ACTUAL> { }
                 abstract class AbstractAssert<SELF extends AbstractAssert<SELF,ACTUAL>, ACTUAL> implements Assert<SELF,ACTUAL>{ }
                 abstract class AbstractBooleanAssert <SELF extends AbstractBooleanAssert<SELF>> extends AbstractAssert<SELF,Boolean> {
-                    SELF isFalse();
+                    SELF isFalse() { return null; }
                 }
                 static AbstractBooleanAssert<?> assertThat(boolean actual) { return null; }
                 static AbstractBooleanAssert<?> assertThat(Boolean actual) { return null; }
@@ -113,12 +113,14 @@ public class TestMethodCall12 extends CommonTest {
     private static final String ASSERTIONS_I = """
             package c;
 
-            class I extends C {
+            public class I extends C {
                 abstract class AbstractObjectAssert <SELF extends AbstractObjectAssert<SELF,ACTUAL>, ACTUAL> extends AbstractAssert<SELF,ACTUAL> {}
-                interface ComparableAssert <SELF extends ComparableAssert<SELF,ACTUAL>, ACTUAL extends Comparable<? super ACTUAL>> {}
-                abstract class AbstractComparableAssert <SELF extends AbstractComparableAssert<SELF,ACTUAL>, ACTUAL extends Comparable<? super ACTUAL>> extends AbstractObjectAssert<SELF,ACTUAL> implements ComparableAssert<SELF,ACTUAL> {}
+                interface ComparableAssert <SELF extends ComparableAssert<SELF,ACTUAL>, ACTUAL extends Comparable<? super ACTUAL>> {
+                    void isFalse();
+                }
+                public abstract class AbstractComparableAssert <SELF extends AbstractComparableAssert<SELF,ACTUAL>, ACTUAL extends Comparable<? super ACTUAL>> extends AbstractObjectAssert<SELF,ACTUAL> implements ComparableAssert<SELF,ACTUAL> {}
 
-                static <T extends Comparable<? super T>> AbstractComparableAssert<?,T> assertThat(T actual) { return null; }
+                public static <T extends Comparable<? super T>> AbstractComparableAssert<?,T> assertThat(T actual) { return null; }
             }
             """;
 

@@ -209,10 +209,12 @@ public class TestOverload1 extends CommonTest {
                interface IEngineConfiguration { }
                static abstract class StringTemplateResolver {
                    protected ITemplateResource	computeTemplateResource(IEngineConfiguration configuration,
-                       String ownerTemplate, String template, Map<String,Object> templateResolutionAttributes);
+                       String ownerTemplate, String template, Map<String,Object> templateResolutionAttributes) {
+                       return null;
+                   }
                }
                static class ContentTemplate {
-                   String getContent();
+                   String getContent() { return "x"; }
                }
                interface ContentTemplateRepository {
                    Optional<ContentTemplate> findOne(ContentTemplate contentTemplate);

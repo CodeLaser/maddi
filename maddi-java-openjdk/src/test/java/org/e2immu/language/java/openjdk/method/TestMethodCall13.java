@@ -294,7 +294,7 @@ public class TestMethodCall13 extends CommonTest {
                 interface JpaRepository <T, ID> extends CrudRepository<T, ID> {
                 }
                 enum ListStatus { STATUS }
-                class ListEntry extends Serializable {
+                class ListEntry implements Serializable {
                     private ListStatus status;
                     public ListStatus getStatus() {
                         return status;
@@ -338,14 +338,14 @@ public class TestMethodCall13 extends CommonTest {
                 interface Assert <SELF extends Assert<SELF,ACTUAL>, ACTUAL> { }
                 abstract class AbstractAssert<SELF extends AbstractAssert<SELF,ACTUAL>, ACTUAL> implements Assert<SELF,ACTUAL>{ }
                 abstract class AbstractBooleanAssert <SELF extends AbstractBooleanAssert<SELF>> extends AbstractAssert<SELF,Boolean> {
-                    SELF isFalse();
+                    SELF isFalse() { return null; }
                 }
                 static AbstractBooleanAssert<?> assertThat(Boolean actual) { return null; }
                 class SessionType implements Serializable {
                     Boolean getCountInQuota() { return false; }
                 }
                 class ArgumentCaptor<T> {
-                    T getValue();
+                    T getValue() { return null; }
                     static <U, S extends U> ArgumentCaptor<U> forClass(Class<S> clazz) { return null; }
                 }
                 void test() {
