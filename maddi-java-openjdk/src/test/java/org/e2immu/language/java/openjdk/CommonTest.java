@@ -1,6 +1,7 @@
 package org.e2immu.language.java.openjdk;
 
 import com.sun.source.util.JavacTask;
+import lombok.Data;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
@@ -20,6 +21,7 @@ import javax.tools.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +63,7 @@ public class CommonTest {
             SourceSet javaBase = new SourceSetImpl.Builder().setName("java.base").setUri(URI.create("file:/"))
                     .setLibrary(true)
                     .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
+
             SourceSet javaNetHttp = new SourceSetImpl.Builder().setName("java.net.http").setUri(URI.create("file:/"))
                     .setLibrary(true)
                     .setExternalLibrary(true).setPartOfJdk(true).setModule(true).setDependencies(Set.of(javaBase))
@@ -82,8 +85,17 @@ public class CommonTest {
                     .setDependencies(Set.of(javaBase))
                     .build();
 
+            // jupiter test framework
             SourceSet junitJupiter = new SourceSetImpl.Builder().setName("junit-jupiter-api-6.0.3.jar")
                     .setUri(URI.create("file:/")).setLibrary(true).setExternalLibrary(true)
+                    .setDependencies(Set.of(javaBase))
+                    .build();
+
+            // lombok
+            URI lombokUri = Data.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+            // TODO extract the name from the URI
+            SourceSet lombok = new SourceSetImpl.Builder().setName("lombok-1.18.46.jar")
+                    .setUri(lombokUri).setLibrary(true).setExternalLibrary(true)
                     .setDependencies(Set.of(javaBase))
                     .build();
 
@@ -93,13 +105,13 @@ public class CommonTest {
             InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                     .addSourceSets(sourceSet)
                     .addClassPathParts(javaBase, javaNetHttp)
-                    .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter)
+                    .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter, lombok)
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                     javacTask, sourceSet, previouslyLoaded, true, diagnostics);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
-        } catch (IOException io) {
+        } catch (IOException | URISyntaxException io) {
             fail(io);
             return null;
         }
@@ -121,7 +133,8 @@ public class CommonTest {
 
         return (JavacTask) compiler.getTask(
                 null, fm, diagnostics,
-                List.of("-proc:none", "--enable-preview", "--release=26"),
+                List.of( "-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
+                        "--enable-preview", "--release=26"),
                 null,
                 compilationUnits
         );

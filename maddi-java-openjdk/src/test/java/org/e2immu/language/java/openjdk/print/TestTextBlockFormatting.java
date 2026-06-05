@@ -45,7 +45,7 @@ public class TestTextBlockFormatting extends CommonTest {
     public void test1() {
         TypeInfo X = scan("a.b.X", INPUT1);
         MethodInfo methodInfo = X.findUniqueMethod("method", 0);
-        LocalVariableCreation lvc  = (LocalVariableCreation)  methodInfo.methodBody().statements().get(0);
+        LocalVariableCreation lvc  = (LocalVariableCreation)  methodInfo.methodBody().statements().getFirst();
         TextBlock tb = (TextBlock) lvc.localVariable().assignmentExpression();
         assertNotNull(tb.textBlockFormatting());
         String s = print2(X.compilationUnit());

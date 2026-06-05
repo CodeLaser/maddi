@@ -18,7 +18,6 @@ import org.e2immu.language.cst.api.expression.BinaryOperator;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
@@ -30,25 +29,48 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.FileSystem;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodCall7 extends CommonTest {
+
+    @Language("java")
+    private static final String BA = """
+            package b;
+            
+            public interface A {
+                B doNothing();
+            }
+            """;
+
+    @Language("java")
+    private static final String BB = """
+            package b;
+            
+            public interface B extends A {
+                int someMethod();
+            }
+            """;
+
+    @Language("java")
+    private static final String BC = """
+            package b;
+            
+            public class C {
+                public  static B doNothing() {
+                    return null;
+                }
+            }
+            """;
+
     @Language("java")
     private static final String INPUT0 = """
-            package org.e2immu.analyser.resolver.testexample;
-
-            import org.e2immu.language.inspection.integration.java.importhelper.b.B;
-
-            import static org.e2immu.language.inspection.integration.java.importhelper.b.C.doNothing;
-
+            package a;
+            import b.B;
+            import static b.C.doNothing;
             public class MethodCall_70 {
-
                 B method1(B b) {
                     return b.doNothing();
                 }
-
                 B method2() {
                     return doNothing();
                 }
@@ -57,15 +79,15 @@ public class TestMethodCall7 extends CommonTest {
 
     @Test
     public void test0() {
-        scan("org.e2immu.analyser.resolver.testexample.MethodCall_70", INPUT0);
+        scan(false, "b.A", BA, "b.B", BB, "b.C", BC, "a.MethodCall_70", INPUT0);
     }
 
     @Language("java")
     private static final String INPUT1 = """
-            package org.e2immu.analyser.resolver.testexample;
-
+            package a;
+            
             public class MethodCall_71 {
-
+            
                 public void b1(int j) {
                     System.out.println(j + " = j");
                     System.out.println("j = " + j);
@@ -75,7 +97,7 @@ public class TestMethodCall7 extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo mc71 = scan("org.e2immu.analyser.resolver.testexample.MethodCall_71", INPUT1);
+        TypeInfo mc71 = scan("a.MethodCall_71", INPUT1);
         MethodInfo b1 = mc71.findUniqueMethod("b1", 1);
         for (int i = 0; i < 2; i++) {
             ExpressionAsStatement eas0 = (ExpressionAsStatement) b1.methodBody().statements().get(i);
@@ -89,14 +111,14 @@ public class TestMethodCall7 extends CommonTest {
 
     @Language("java")
     private static final String INPUT4 = """
-            package org.e2immu.analyser.resolver.testexample;
-
+            package a;
+            
             public class MethodCall_74 {
-
+            
                 void init(long[] l1, long[] l2) {
-
+            
                 }
-
+            
                 void method() {
                     init(null, null);
                 }
@@ -105,28 +127,29 @@ public class TestMethodCall7 extends CommonTest {
 
     @Test
     public void test4() {
-        scan("org.e2immu.analyser.resolver.testexample.MethodCall_74", INPUT4);
+        scan("a.MethodCall_74", INPUT4);
     }
 
 
     @Language("java")
     private static final String INPUT5 = """
-            package org.e2immu.analyser.resolver.testexample;
-
+            package a;
+            
             public class MethodCall_75 {
-
+            
                String method(Class<?> clazz) {
                     Class[] classes = clazz.getInterfaces();
                     for(Class c: classes) {
                         System.out.println(c);
                     }
+                    return "x";
                }
             }
             """;
 
     @Test
     public void test5() {
-        TypeInfo ti = scan("org.e2immu.analyser.resolver.testexample.MethodCall_75", INPUT5);
+        TypeInfo ti = scan("a.MethodCall_75", INPUT5);
         MethodInfo methodInfo = ti.findUniqueMethod("method", 1);
         LocalVariableCreation lvc = (LocalVariableCreation) methodInfo.methodBody().statements().getFirst();
         LocalVariable classes = lvc.localVariable();
@@ -141,15 +164,16 @@ public class TestMethodCall7 extends CommonTest {
 
     @Language("java")
     private static final String INPUT6 = """
-            package org.e2immu.analyser.resolver.testexample;
-
+            package a;
+            
+            import java.io.IOException;
             import java.net.URI;
             import java.nio.file.*;
             import java.util.Collections;
-
+            
             public class MethodCall_75 {
-
-               String method(URI uri) {
+            
+               String method(URI uri) throws IOException {
                    try (FileSystem fileSystem = FileSystems.newFileSystem(uri, Collections.<String, Object>emptyMap())) {
                         Path basePath = fileSystem.getPath(".").toAbsolutePath();
                         if (!Files.exists(basePath)) {
@@ -165,28 +189,31 @@ public class TestMethodCall7 extends CommonTest {
     @DisplayName("empty varargs")
     @Test
     public void test6() {
-        TypeInfo ti = scan("org.e2immu.analyser.resolver.testexample.MethodCall_75", INPUT6);
+        TypeInfo ti = scan("a.MethodCall_75", INPUT6);
         MethodInfo methodInfo = ti.findUniqueMethod("method", 1);
         TryStatement ts = (TryStatement) methodInfo.methodBody().statements().getFirst();
         assertEquals(1, ts.resources().size());
         LocalVariableCreation lvc = (LocalVariableCreation) ts.resources().getFirst();
         MethodCall nfs = (MethodCall) lvc.localVariable().assignmentExpression();
         Expression arg1 = nfs.parameterExpressions().get(1);
-        assertEquals("Collections.<String,Object> emptyMap()", arg1.toString());
+        if(arg1 instanceof MethodCall mc) {
+            assertEquals(2, mc.typeArguments().size());
+            assertEquals("Collections.<String,Object> emptyMap()", arg1.toString());
+        }
     }
 
 
     @Language("java")
     private static final String INPUT7 = """
-            package org.e2immu.analyser.resolver.testexample;
-
+            package a;
+            
             import java.util.List;
             import java.util.Map;
             import java.util.function.Function;
             import java.util.stream.Collectors;
-
+            
             public class MethodCall_76 {
-
+            
                 interface J {
                     void someMethod();
                 }
@@ -200,51 +227,51 @@ public class TestMethodCall7 extends CommonTest {
                     public String getName() { return name; }
                     public List<J> js() { return List.of(); }
                 }
-
+            
                 Map<String, I> method(List<I> is) {
                     return is.stream().collect(Collectors.toMap(i -> i.getName(), i -> i,
                         (i1, i2)-> new II(i1.getName())));
                 }
-
+            
                 Map<String, I> method2(List<I> is) {
                     return is.stream().collect(Collectors.toMap(I::getName, Function.identity(),
                         (i1, i2)-> new II(i1.getName())));
                 }
-
+            
             }
             """;
 
     @DisplayName("type forwarding")
     @Test
     public void test7() {
-        TypeInfo ti = scan("org.e2immu.analyser.resolver.testexample.MethodCall_76", INPUT7);
+        TypeInfo ti = scan("a.MethodCall_76", INPUT7);
         MethodInfo methodInfo = ti.findUniqueMethod("method", 1);
-        assertEquals("Type java.util.Map<String,org.e2immu.analyser.resolver.testexample.MethodCall_76.I>",
+        assertEquals("Type java.util.Map<String,a.MethodCall_76.I>",
                 methodInfo.methodBody().statements().getFirst().expression().parameterizedType().toString());
     }
 
 
     @Language("java")
     private static final String INPUT8 = """
-            package org.e2immu.analyser.resolver.testexample;
+            package a;
             import java.util.function.Function;
             import java.util.function.ToIntBiFunction;
             import java.util.function.ToIntFunction;
-
+            
             public abstract class MethodCall_77 {
                 interface Constraint {
-
+            
                 }
                 interface Score<S extends Score<S>> {
-
+            
                 }
                 static class SimpleScore implements Score<SimpleScore> {
-
+            
                 }
                 static final Score<SimpleScore> ONE_HARD = new SimpleScore();
-
+            
                 interface Timeslot extends Comparable<Timeslot> {
-
+            
                  }
                 interface Talk {
                     Timeslot getTimeslotStart();
@@ -266,14 +293,14 @@ public class TestMethodCall7 extends CommonTest {
                 interface Factory {
                     <A> BiConstraintStream<A, A> forEachUniquePair(Class<A> clazz, BiJoiner<A,A> j1, BiJoiner<A,A> j2);
                 }
-
+            
                 static <A,Property_ extends Comparable<Property_>> BiJoiner<A,A> overlapping(Function<A,Property_> startMapping,
                    Function<A,Property_> endMapping);
-
+            
                 static class Joiners {
                      static <A,Property_> BiJoiner<A,A> equal(Function<A,Property_> mapping);
                 }
-
+            
                 Constraint method(Factory factory) {
                    return factory
                         .forEachUniquePair(
@@ -284,33 +311,33 @@ public class TestMethodCall7 extends CommonTest {
                        .penalize(ONE_HARD, Talk::overlappingDurationInMinutes)
                        .asConstraint("c");
                 }
-
+            
             }
             """;
 
     @DisplayName("generic helper infinite loop")
     @Test
     public void test8() {
-        TypeInfo ti = scan("org.e2immu.analyser.resolver.testexample.MethodCall_77", INPUT8);
+        TypeInfo ti = scan("a.MethodCall_77", INPUT8);
         MethodInfo methodInfo = ti.findUniqueMethod("method", 1);
         Expression expression = methodInfo.methodBody().statements().getFirst().expression();
         assertEquals("""
-                Type org.e2immu.analyser.resolver.testexample.MethodCall_77.Constraint\
+                Type a.MethodCall_77.Constraint\
                 """, expression.parameterizedType().toString());
         if (expression instanceof MethodCall mc) {
             assertEquals("""
-                    Type org.e2immu.analyser.resolver.testexample.MethodCall_77.BiConstraintBuilder<\
-                    org.e2immu.analyser.resolver.testexample.MethodCall_77.Talk,\
-                    org.e2immu.analyser.resolver.testexample.MethodCall_77.Talk,\
-                    org.e2immu.analyser.resolver.testexample.MethodCall_77.Score<\
-                    org.e2immu.analyser.resolver.testexample.MethodCall_77.SimpleScore>>\
+                    Type a.MethodCall_77.BiConstraintBuilder<\
+                    a.MethodCall_77.Talk,\
+                    a.MethodCall_77.Talk,\
+                    a.MethodCall_77.Score<\
+                    a.MethodCall_77.SimpleScore>>\
                     """, mc.object().parameterizedType().toString());
         } else fail();
     }
 
     @Language("java")
     private static final String INPUT9 = """
-            package org.e2immu.analyser.resolver.testexample;
+            package a;
             import java.util.function.*;
             public abstract class MethodCall_77 {
                 interface Constraint {
@@ -320,7 +347,7 @@ public class TestMethodCall7 extends CommonTest {
                 static class SimpleScore implements Score<SimpleScore> {
                 }
                 static final Score<SimpleScore> ONE_HARD = new SimpleScore();
-
+            
                 interface Timeslot extends Comparable<Timeslot> {
                 }
                 interface Speaker {
@@ -343,7 +370,7 @@ public class TestMethodCall7 extends CommonTest {
                                 BiConstraintCollector<A,B,ResultContainer_,Result_> collector);
                 }
                 interface BiConstraintCollector<A,B,ResultContainer_,Result_>{
-
+            
                 }
                 interface BiConstraintBuilder<A, B, C> {
                     Constraint asConstraint(String string);
@@ -355,10 +382,10 @@ public class TestMethodCall7 extends CommonTest {
                     <A> BiConstraintStream<A, A> forEachUniquePair(Class<A> clazz, BiJoiner<A,A> j1, BiJoiner<A,A> j2);
                     <A> UniConstraintStream<A> forEach(Class<A> sourceClass);
                 }
-
+            
                 static <A,Property_ extends Comparable<Property_>> BiJoiner<A,A> overlapping(Function<A,Property_> startMapping,
                    Function<A,Property_> endMapping);
-
+            
                 static class Joiners {
                      static <A,Property_> BiJoiner<A,A> equal(Function<A,Property_> mapping);
                      static <A,B> BiJoiner<A,B> filtering(BiPredicate<A,B> filter);
@@ -397,13 +424,13 @@ public class TestMethodCall7 extends CommonTest {
                       .penalize(ONE_HARD, (s, d) -> (d - 1) * 8 * 60)
                       .asConstraint("c");
                 }
-
+            
             }
             """;
 
     @DisplayName("method not found")
     @Test
     public void test9() {
-        scan("org.e2immu.analyser.resolver.testexample.MethodCall_77", INPUT9);
+        scan("a.MethodCall_77", INPUT9);
     }
 }
