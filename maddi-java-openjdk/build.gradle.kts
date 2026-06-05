@@ -31,6 +31,9 @@ dependencies {
     implementation(project(":maddi-inspection-resource"))
 
     testImplementation(project(":maddi-cst-impl"))
+
+    testImplementation("org.projectlombok:lombok:1.18.46")
+    testAnnotationProcessor("org.projectlombok:lombok:1.18.46")
 }
 
 tasks.withType<JavaCompile> {

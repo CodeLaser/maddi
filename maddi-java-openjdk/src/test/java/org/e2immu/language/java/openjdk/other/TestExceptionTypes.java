@@ -1,0 +1,62 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package org.e2immu.language.java.openjdk.other;
+
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.MethodPrinter;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.impl.info.MethodPrinterImpl;
+import org.e2immu.language.java.openjdk.CommonTest;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class TestExceptionTypes extends CommonTest {
+    @Language("java")
+    private static final String INPUT1 = """
+            package a.b;
+            import java.io.IOException;
+            import java.net.MalformedURLException;
+            import java.net.URL;
+            import java.net.HttpURLConnection;
+            class X {
+                static HttpURLConnection openConnection(String baseURL, String queryString) throws MalformedURLException,
+                        IOException {
+                    final StringBuilder buff = new StringBuilder();
+                    buff.append(baseURL);
+                    if(queryString != null) { buff.append("?"); buff.append(queryString); }
+                    final URL url = new URL(buff.toString());
+                    return (HttpURLConnection)url.openConnection();
+                }
+            }
+            """;
+
+    // we wrote this test to try to discover the lack of a space between "throws" and "MalformedURLException" during printing.
+
+    // the issue does not appear with one single exception
+    @Test
+    public void test1() {
+        TypeInfo x = scan("a.b.X", INPUT1);
+        MethodInfo mi = x.findUniqueMethod("openConnection", 2);
+        assertEquals(2, mi.exceptionTypes().size());
+        MethodPrinter mp = new MethodPrinterImpl(mi.typeInfo(), mi, true);
+        assertEquals("""
+                static HttpURLConnection openConnection(String baseURL,String queryString) throws MalformedURLException,IOException{\
+                final StringBuilder buff=new StringBuilder();buff.append(baseURL);if(queryString!=null){buff.append("?");\
+                buff.append(queryString);}final URL url=new URL(buff.toString());return (HttpURLConnection)url.openConnection();}\
+                """, mp.print(runtime.qualificationQualifyFromPrimaryType()).toString());
+    }
+}
