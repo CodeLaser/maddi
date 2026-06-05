@@ -268,7 +268,7 @@ public class TestMethodCall7 extends CommonTest {
                 static class SimpleScore implements Score<SimpleScore> {
             
                 }
-                static final Score<SimpleScore> ONE_HARD = new SimpleScore();
+                static final SimpleScore ONE_HARD = new SimpleScore();
             
                 interface Timeslot extends Comparable<Timeslot> {
             
@@ -277,7 +277,7 @@ public class TestMethodCall7 extends CommonTest {
                     Timeslot getTimeslotStart();
                     Timeslot getTimeslotEnd();
                     String getRoom();
-                    int overlappingDurationInMinutes(Talk other) {
+                    default int overlappingDurationInMinutes(Talk other) {
                         return 0;
                     }
                 }
@@ -295,10 +295,12 @@ public class TestMethodCall7 extends CommonTest {
                 }
             
                 static <A,Property_ extends Comparable<Property_>> BiJoiner<A,A> overlapping(Function<A,Property_> startMapping,
-                   Function<A,Property_> endMapping);
+                   Function<A,Property_> endMapping) {
+                      return null;
+                   }
             
                 static class Joiners {
-                     static <A,Property_> BiJoiner<A,A> equal(Function<A,Property_> mapping);
+                     static <A,Property_> BiJoiner<A,A> equal(Function<A,Property_> mapping) { return null; }
                 }
             
                 Constraint method(Factory factory) {
@@ -329,8 +331,7 @@ public class TestMethodCall7 extends CommonTest {
                     Type a.MethodCall_77.BiConstraintBuilder<\
                     a.MethodCall_77.Talk,\
                     a.MethodCall_77.Talk,\
-                    a.MethodCall_77.Score<\
-                    a.MethodCall_77.SimpleScore>>\
+                    a.MethodCall_77.SimpleScore>\
                     """, mc.object().parameterizedType().toString());
         } else fail();
     }
@@ -346,7 +347,7 @@ public class TestMethodCall7 extends CommonTest {
                 }
                 static class SimpleScore implements Score<SimpleScore> {
                 }
-                static final Score<SimpleScore> ONE_HARD = new SimpleScore();
+                static final SimpleScore ONE_HARD = new SimpleScore();
             
                 interface Timeslot extends Comparable<Timeslot> {
                 }
@@ -384,26 +385,26 @@ public class TestMethodCall7 extends CommonTest {
                 }
             
                 static <A,Property_ extends Comparable<Property_>> BiJoiner<A,A> overlapping(Function<A,Property_> startMapping,
-                   Function<A,Property_> endMapping);
+                   Function<A,Property_> endMapping) { return null; }
             
                 static class Joiners {
-                     static <A,Property_> BiJoiner<A,A> equal(Function<A,Property_> mapping);
-                     static <A,B> BiJoiner<A,B> filtering(BiPredicate<A,B> filter);
+                     static <A,Property_> BiJoiner<A,A> equal(Function<A,Property_> mapping) { return null; }
+                     static <A,B> BiJoiner<A,B> filtering(BiPredicate<A,B> filter) { return null; }
                 }
                 static class ConstraintCollectors {
                     static <A,B,Result_,SubResultContainer1_,SubResultContainer2_,SubResult1_,SubResult2_>
                         BiConstraintCollector<A,B,?,Result_>
                         compose(BiConstraintCollector<A,B,SubResultContainer1_,SubResult1_> subCollector1,
                             BiConstraintCollector<A,B,SubResultContainer2_,SubResult2_> subCollector2,
-                            BiFunction<SubResult1_,SubResult2_,Result_> composeFunction);
+                            BiFunction<SubResult1_,SubResult2_,Result_> composeFunction) { return null; }
                     static <A,B,Mapped,Comparable_ extends Comparable<? super Comparable_>>
                         BiConstraintCollector<A,B,?,Mapped>
                         min(BiFunction<A,B,Mapped> groupValueMapping,
-                            Function<Mapped,Comparable_> comparableFunction);
+                            Function<Mapped,Comparable_> comparableFunction){ return null; }
                     static <A,B,Mapped,Comparable_ extends Comparable<? super Comparable_>>
                         BiConstraintCollector<A,B,?,Mapped>
                         max(BiFunction<A,B,Mapped> groupValueMapping,
-                            Function<Mapped,Comparable_> comparableFunction);
+                            Function<Mapped,Comparable_> comparableFunction) { return null; }
                 }
                 Constraint method(Factory factory) {
                    return factory

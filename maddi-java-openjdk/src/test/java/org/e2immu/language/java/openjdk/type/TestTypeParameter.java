@@ -39,7 +39,7 @@ public class TestTypeParameter extends CommonTest {
     @Language("java")
     public static final String INPUT1 = """
             package a.b;
-
+            
             class X {
                static class ArrayList<T> extends java.util.ArrayList<T> {
                    // no need for anything here
@@ -47,7 +47,7 @@ public class TestTypeParameter extends CommonTest {
                static class I {
                    int k;
                }
-
+            
                static void set(ArrayList<I[]> iArrayList, int i, int j, int k) {
                    iArrayList.get(i)[j].k = k;
                }
@@ -70,16 +70,16 @@ public class TestTypeParameter extends CommonTest {
     @Language("java")
     public static final String INPUT2 = """
             package b;
-
+            
             import java.util.List;
-
+            
             class C {
                 interface D { }
                 interface A {
                     interface B<T> { }
                     List<B<D>> get();
                 }
-
+            
                 void m(A a) {
                     List<A.B<D>> x = a.get();
                 }
@@ -149,7 +149,7 @@ public class TestTypeParameter extends CommonTest {
                 abstract class ZE { }
                 abstract class ZF { }
                 abstract class ZG<A extends ZA> { }
-
+            
                 interface ZH<
                 			E extends ZG<A>,
                 			A extends ZA,
@@ -195,14 +195,15 @@ public class TestTypeParameter extends CommonTest {
             import org.e2immu.annotation.Independent;
             class X {
               class Class$<@Independent @Container T> {
-
+            
               }
             }
             """;
 
     @Test
     public void test5() {
-        TypeInfo typeInfo = scan("a.b.X", INPUT5);
+        // ignore errors, because @Container is not applicable to types
+        TypeInfo typeInfo = scan(true,"a.b.X", INPUT5).get("a.b.X");
         TypeInfo clazz = typeInfo.findSubType("Class$");
         TypeParameter tp = clazz.typeParameters().getFirst();
         assertTrue(tp.hasBeenInspected());
@@ -216,7 +217,7 @@ public class TestTypeParameter extends CommonTest {
             import org.e2immu.annotation.Independent;
             class X {
               class Class$<@Independent @Container(comment = X.COMMENT) T> {
-
+            
               }
               private static final String COMMENT = "comment";
             }
@@ -243,10 +244,10 @@ public class TestTypeParameter extends CommonTest {
                 static class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> {
                     protected final class Segment extends ReentrantLock {
                         public <T> @Nullable T doTask(final int hash, final @Nullable Object key, final Task<T> task) {
-
+            
                         }
                     }
-
+            
                     private abstract class Task<T> {
                         // not really relevant for this test
                     }
@@ -270,14 +271,14 @@ public class TestTypeParameter extends CommonTest {
             import java.util.stream.Collectors;
             public class C<K, V> {
                 Map<K, V> map;
-
+            
                 C(Map<K, V> map) { this.map = map; }
-
+            
                 private C<V, K> reverse() {
                    return new C<>(map.entrySet().stream().collect(Collectors
                         .toUnmodifiableMap(Map.Entry::getValue, Map.Entry::getKey)));
                 }
-
+            
                 public static <Y, X> C<Y, X> staticReverse(C<X,Y> c) {
                      C<Y, X> r = c.reverse();
                     return r;
@@ -325,7 +326,7 @@ public class TestTypeParameter extends CommonTest {
             import java.util.Map;
             import java.util.SortedMap;
             import java.util.TreeMap;
-
+            
             public class Function2414123_file1778122 {
               public static double[][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
                 double[][] returnValue = new double[pairMap.size()][2];
@@ -365,7 +366,7 @@ public class TestTypeParameter extends CommonTest {
     public void test9() {
         TypeInfo C = scan("Function2414123_file1778122", INPUT9);
         MethodInfo method = C.findUniqueMethod("toDoubleArray", 1);
-        assertEquals("java.util.Map<? extends Number,? extends Number>",
+        assertEquals("java.util.Map<?,?>",
                 method.parameters().getFirst().parameterizedType().detailedString());
         LocalVariableCreation lvc1 = (LocalVariableCreation) method.methodBody().statements().get(1);
         assertEquals("java.util.SortedMap<Number,Number>",
@@ -374,7 +375,7 @@ public class TestTypeParameter extends CommonTest {
         assertEquals("java.util.TreeMap<Number,Number>", cc.parameterizedType().detailedString());
 
         assertEquals("""
-                [double[E], java.util.Map[E], java.lang.Number[E], java.util.SortedMap[E], java.util.TreeMap[E], \
+                [double[E], java.util.Map[E], java.util.SortedMap[E], java.lang.Number[E], java.util.TreeMap[E], \
                 int[E], java.util.Map.Entry[E java.util.Map]]\
                 """, method.typesReferenced(_ -> true)
                 .filter(Element.TypeReference::explicit)

@@ -34,6 +34,12 @@ dependencies {
 
     testImplementation("org.projectlombok:lombok:1.18.46")
     testAnnotationProcessor("org.projectlombok:lombok:1.18.46")
+
+    testImplementation("org.apiguardian:apiguardian-api:1.1.2")
+    testImplementation("org.assertj:assertj-core:3.27.3")
+    //testImplementation("org.springframework:spring-test:6.1.19")
+    //testImplementation("org.springframework:spring-core:6.1.19")
+    testImplementation("org.mockito:mockito-core:5.23.0")
 }
 
 tasks.withType<JavaCompile> {
@@ -50,6 +56,7 @@ tasks.withType<JavaCompile> {
 
 tasks.test {
     useJUnitPlatform()
+    maxParallelForks = 4
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",

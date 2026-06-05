@@ -46,7 +46,7 @@ public class TestTranslateAnonymousType extends CommonTest {
             import java.nio.file.attribute.BasicFileAttributes;
             import java.util.Set;
             class X {
-                public void method(Path path) {
+                public void method(Path path) throws IOException {
                     Files.walkFileTree(path, Set.of(), Integer.MAX_VALUE, new FileVisitor<Path>() {
                         @Override public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)throws IOException {
                             return FileVisitResult.CONTINUE;
@@ -83,14 +83,14 @@ public class TestTranslateAnonymousType extends CommonTest {
 
         {
             MethodInfo xMethod = X.findUniqueMethod("method", 1);
-            ExpressionAsStatement xEas = (ExpressionAsStatement) xMethod.methodBody().statements().get(0);
+            ExpressionAsStatement xEas = (ExpressionAsStatement) xMethod.methodBody().statements().getFirst();
             MethodCall xMc = (MethodCall) xEas.expression();
             ConstructorCall xCc = (ConstructorCall) xMc.parameterExpressions().get(3);
             TypeInfo xAnon = xCc.anonymousClass();
             assertEquals("a.b.X.$0", xAnon.fullyQualifiedName());
             assertSame(X, xAnon.compilationUnitOrEnclosingType().getRight());
             MethodInfo xPre = xAnon.findUniqueMethod("preVisitDirectory", 2);
-            ParameterInfo xPreDir = xPre.parameters().get(0);
+            ParameterInfo xPreDir = xPre.parameters().getFirst();
             assertSame(xPre, xPreDir.methodInfo());
             assertSame(xAnon, xPreDir.typeInfo());
         }
@@ -98,18 +98,18 @@ public class TestTranslateAnonymousType extends CommonTest {
             TypeInfo translated = X.translate(tm).getFirst();
             assertNotSame(X, translated);
             MethodInfo tMethod = translated.findUniqueMethod("method", 1);
-            ExpressionAsStatement tEas = (ExpressionAsStatement) tMethod.methodBody().statements().get(0);
+            ExpressionAsStatement tEas = (ExpressionAsStatement) tMethod.methodBody().statements().getFirst();
             MethodCall tMc = (MethodCall) tEas.expression();
             ConstructorCall tCc = (ConstructorCall) tMc.parameterExpressions().get(3);
             TypeInfo tAnon = tCc.anonymousClass();
             assertEquals("a.b.X.$0", tAnon.fullyQualifiedName());
             assertSame(translated, tAnon.compilationUnitOrEnclosingType().getRight());
             MethodInfo tPre = tAnon.findUniqueMethod("preVisitDirectory", 2);
-            ParameterInfo tPreDir = tPre.parameters().get(0);
+            ParameterInfo tPreDir = tPre.parameters().getFirst();
             assertSame(tPre, tPreDir.methodInfo());
             assertSame(tAnon, tPreDir.typeInfo());
 
-            Statement s0 = tPre.methodBody().statements().get(0);
+            Statement s0 = tPre.methodBody().statements().getFirst();
             Expression e0 = s0.expression();
             assertEquals("FileVisitResult.SKIP_SIBLINGS", e0.toString());
         }
