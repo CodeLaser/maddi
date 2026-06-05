@@ -1941,11 +1941,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             explicitConstructorInvocation = false;
             if ("clone".equals(methodName) && object.parameterizedType().arrays() > 0) {
                 methodInfo = runtime.objectTypeInfo().findUniqueMethod("clone", 0);
-            } else if (methodInvocation.meth instanceof JCTree.JCFieldAccess fieldAccess
-                       && fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
-                methodInfo = typeData.getOrLoadMethod(methodSymbol);
-            } else throw new UnsupportedOperationException("NYI");
+            } else if (methodInvocation.meth instanceof JCTree.JCFieldAccess fieldAccess) {
+                if (fieldAccess.sym instanceof Symbol.MethodSymbol methodSymbol) {
+                    methodInfo = typeData.getOrLoadMethod(methodSymbol);
+                } else if (fieldAccess.type instanceof Type.ErrorType) {
+                    throw new UnsupportedOperationException("Unresolved method call '" + methodName + "'");
+                } else throw new UnsupportedOperationException("NYI");
+            } else {
+                throw new UnsupportedOperationException("NYI");
+            }
         } else throw new UnsupportedOperationException("NYI");
+
+        List<ParameterizedType> typeArguments = node.getTypeArguments().stream()
+                .map(expr -> convertType.convertTree(expr, dsb))
+                .toList();
 
         List<Expression> arguments = new ArrayList<>(node.getArguments().size());
         for (var arg : node.getArguments()) {
@@ -1978,6 +1987,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .setMethodInfo(methodInfo)
                     .setParameterExpressions(arguments)
                     .setConcreteReturnType(concreteReturnType)
+                    .setTypeArguments(typeArguments)
                     .build();
         }
         return null;
@@ -2057,14 +2067,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         } else {
             object = null;
         }
-        List<ParameterizedType> typeArguments;
-        if (newClass.typeargs == null) {
-            typeArguments = List.of();
-        } else {
-            typeArguments = newClass.typeargs.stream()
-                    .map(expr -> convertType.convertTree(expr, dsb))
-                    .toList();
-        }
+
+        List<ParameterizedType> typeArguments = node.getTypeArguments().stream()
+                .map(expr -> convertType.convertTree(expr, dsb))
+                .toList();
+
         TypeInfo anonymousType;
         ParameterizedType concreteReturnType;
         MethodInfo constructor;

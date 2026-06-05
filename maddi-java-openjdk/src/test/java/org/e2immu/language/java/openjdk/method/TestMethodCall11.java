@@ -73,11 +73,17 @@ public class TestMethodCall11 extends CommonTest {
     @Language("java")
     private static final String INPUT2 = """
             package a.b;
-            import org.springframework.core.io.buffer.DataBuffer;
-            import org.springframework.core.io.support.ResourceRegion;
             import java.util.function.Function;
-
+            
             abstract class X {
+                interface DataBuffer { }
+                interface Resource {
+                    boolean isReadable();
+                }
+                interface ResourceRegion {
+                    Resource getResource();
+                }
+            
                 interface Subscriber<T> {
                     void onComplete();
                     void onError(Throwable t);
@@ -86,10 +92,10 @@ public class TestMethodCall11 extends CommonTest {
                 interface Publisher<T> {
                      void subscribe(Subscriber<? super T> subscriber);
                 }
-                interface Flux<R> { }
+                interface Flux<R> extends Publisher<R> { }
                 static class Mono<T> {
-                    static <T> Mono<T> from(Publisher<? extends T> source);
-                    <R> Flux<R> flatMapMany(Function<? super T, ? extends Publisher<? extends R>> function);
+                    static <T> Mono<T> from(Publisher<? extends T> source) { return null; }
+                    <R> Flux<R> flatMapMany(Function<? super T, ? extends Publisher<? extends R>> function) { return null; }
                 }
                 abstract Flux<DataBuffer> dataBuffer();
                 Flux<DataBuffer> method(Publisher<? extends ResourceRegion> input) {
@@ -107,8 +113,6 @@ public class TestMethodCall11 extends CommonTest {
             }
             """;
 
-    // problem is genericsHelper.translateMap(...), special branch for functional interfaces on Mono.from(input).
-    // works fine if Publisher is not void subscribe(...) method, but e.g. T get();
     @Test
     public void test2() {
         TypeInfo typeInfo = scan("a.b.X", INPUT2);
@@ -162,10 +166,11 @@ public class TestMethodCall11 extends CommonTest {
     @Language("java")
     private static final String INPUT4 = """
             package a.b;
+            import java.util.concurrent.ExecutionException;
             import java.util.concurrent.Future;
             import org.junit.jupiter.api.Assertions;
             class Container {
-                void method(Future<Boolean> f1, Future<Boolean> f2) {
+                void method(Future<Boolean> f1, Future<Boolean> f2) throws InterruptedException, ExecutionException {
                     Assertions.assertTrue(f1.get() ^ f2.get());
                 }
             }
@@ -367,7 +372,7 @@ public class TestMethodCall11 extends CommonTest {
             import java.net.URL;
             class X {
                  abstract class QuicCodecBuilder <B extends QuicCodecBuilder<B>> { }
-                 class QuicServerCodecBuilder extends QuicCodecBuilder<QuicServerCodecBuilder> {
+                 static class QuicServerCodecBuilder extends QuicCodecBuilder<QuicServerCodecBuilder> {
                     QuicServerCodecBuilder tokenHandler(String token) { return this; }
                  }
                  static QuicServerCodecBuilder newQuicServerCodecBuilder() { return new QuicServerCodecBuilder(); }

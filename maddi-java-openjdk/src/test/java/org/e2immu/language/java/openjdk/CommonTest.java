@@ -2,6 +2,7 @@ package org.e2immu.language.java.openjdk;
 
 import com.sun.source.util.JavacTask;
 import lombok.Data;
+import org.assertj.core.api.Assert;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
@@ -99,6 +100,13 @@ public class CommonTest {
                     .setDependencies(Set.of(javaBase))
                     .build();
 
+            // assertJ
+            URI assertJUri = Assert.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+            SourceSet assertJ = new SourceSetImpl.Builder().setName(tail(assertJUri))
+                    .setUri(assertJUri).setLibrary(true).setExternalLibrary(true)
+                    .setDependencies(Set.of(javaBase))
+                    .build();
+
             // lombok
             URI lombokUri = Data.class.getProtectionDomain().getCodeSource().getLocation().toURI();
             SourceSet lombok = new SourceSetImpl.Builder().setName(tail(lombokUri))
@@ -112,7 +120,7 @@ public class CommonTest {
             InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                     .addSourceSets(sourceSet)
                     .addClassPathParts(javaBase, javaNetHttp)
-                    .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter, lombok)
+                    .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter, assertJ, lombok)
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                     javacTask, sourceSet, previouslyLoaded, true, diagnostics);
@@ -123,10 +131,11 @@ public class CommonTest {
             return null;
         }
     }
+
     private static String tail(URI uri) {
         String toString = uri.toString();
         int last = toString.lastIndexOf('/');
-        String name = toString.substring(last+1);
+        String name = toString.substring(last + 1);
         assert name.endsWith(".jar");
         return name;
     }
@@ -147,7 +156,7 @@ public class CommonTest {
 
         return (JavacTask) compiler.getTask(
                 null, fm, diagnostics,
-                List.of( "-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
+                List.of("-processor", "lombok.launch.AnnotationProcessorHider$AnnotationProcessor",
                         "--enable-preview", "--release=26"),
                 null,
                 compilationUnits

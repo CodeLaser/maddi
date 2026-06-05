@@ -35,7 +35,7 @@ public class TestMethodCall8 extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package org.e2immu.test;
-
+            
             public class MethodCall_81 {
                 @FunctionalInterface
                 interface Customizer<T> {
@@ -51,12 +51,12 @@ public class TestMethodCall8 extends CommonTest {
                 interface CorsConfigurer<H extends HttpSecurityBuilder<H>> { }
                 static abstract class CsrfConfigurer<H extends HttpSecurityBuilder<H>>
                         extends AbstractHttpConfigurer<CsrfConfigurer<H>, H> { }
-
+            
                 interface HttpSecurity extends HttpSecurityBuilder<HttpSecurity> {
                     HttpSecurity cors(Customizer<CorsConfigurer<HttpSecurity>> customizer);
                     HttpSecurity csrf(Customizer<CsrfConfigurer<HttpSecurity>> csrfCustomizer) throws Exception;
                 }
-
+            
                 public void method(HttpSecurity httpSecurity) throws Exception {
                     httpSecurity.cors(Customizer.withDefaults())
                             .csrf(AbstractHttpConfigurer::disable);
@@ -74,33 +74,36 @@ public class TestMethodCall8 extends CommonTest {
     @Language("java")
     private static final String INPUT2 = """
             package org.e2immu.test;
-
+            
             public abstract class MethodCall_82 {
                 interface MockMvc {}
                 interface WebApplicationContext {}
                 WebApplicationContext context;
                 interface MockMvcConfigurer { }
                 abstract MockMvcConfigurer springSecurity();
-
+            
                 interface MockMvcBuilder {
                     MockMvc build();
                 }
-
+            
                 interface ConfigurableMockMvcBuilder<B extends ConfigurableMockMvcBuilder<B>> extends MockMvcBuilder {
                     <T extends B> T apply(MockMvcConfigurer configurer);
                     <T extends B> T dispatchOptions(boolean dispatchOptions);
                 }
-
+            
                 static abstract class AbstractMockMvcBuilder<B extends AbstractMockMvcBuilder<B>>
                     implements ConfigurableMockMvcBuilder<B> {
                     @Override
-                    <T extends B> T apply(MockMvcConfigurer configurer);
-                    protected <T extends B> T self();
+                    public <T extends B> T apply(MockMvcConfigurer configurer) { return null; }
+                    protected <T extends B> T self() { return null; }
                     @Override
-                    MockMvc build();
+                    public MockMvc build() { return null; }
                 }
                 static class DefaultMockMvcBuilder extends AbstractMockMvcBuilder<DefaultMockMvcBuilder> {
                     DefaultMockMvcBuilder(WebApplicationContext webAppContext) { }
+                    @Override public<T extends org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder> T dispatchOptions(boolean dispatchOptions) {
+                        return null;
+                    }
                 }
                 static class MockMvcBuilders {
                     static DefaultMockMvcBuilder webAppContextSetup(WebApplicationContext context) {
@@ -124,7 +127,8 @@ public class TestMethodCall8 extends CommonTest {
         MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
         Statement statement = methodInfo.methodBody().lastStatement();
         if (statement.expression() instanceof MethodCall mc) {
-            assertEquals("Type ? extends org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder",
+            // DIFFERS from maddi parser: ? extends org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder
+            assertEquals("Type org.e2immu.test.MethodCall_82.DefaultMockMvcBuilder",
                     mc.object().parameterizedType().toString());
         }
     }
@@ -165,11 +169,11 @@ public class TestMethodCall8 extends CommonTest {
             import java.util.Collection;
             import java.util.Set;
             import static org.assertj.core.api.Assertions.assertThat;
-
+            
             public class MethodCall_82 {
                 static class LanguageDTO { }
-                static abstract class EventDTO {
-                    abstract Set<LanguageDTO> getProposalLanguages();
+                static class EventDTO {
+                    Set<LanguageDTO> getProposalLanguages() { return null; }
                 }
                 void method1() {
                     EventDTO eventDTOResult = new EventDTO();
@@ -196,13 +200,13 @@ public class TestMethodCall8 extends CommonTest {
     @Language("java")
     private static final String INPUT4 = """
             package org.e2immu.test;
-
+            
             public class MethodCall_84 {
                 interface GenericContainer<SELF extends GenericContainer<SELF>> { }
-                static class GreenMailContainer<SELF extends GreenMailContainer<SELF>> extends GenericContainer<SELF> {
+                static class GreenMailContainer<SELF extends GreenMailContainer<SELF>> implements GenericContainer<SELF> {
                     GreenMailContainer() { }
-                    SELF withAuthEnabled(boolean authEnabled) { return this; }
-                    SELF withReuse(boolean reuse) { return this; }
+                    SELF withAuthEnabled(boolean authEnabled) { return (SELF) this; }
+                    SELF withReuse(boolean reuse) { return (SELF) this; }
                 }
                 void method0() {
                     GreenMailContainer<?> gmc = new GreenMailContainer<>().withAuthEnabled(true);
@@ -225,16 +229,20 @@ public class TestMethodCall8 extends CommonTest {
         {
             MethodInfo method = typeInfo.findUniqueMethod("method1", 0);
             LocalVariableCreation lvc = (LocalVariableCreation) method.methodBody().lastStatement();
-            assertEquals("Type param SELF extends org.e2immu.test.MethodCall_84.GreenMailContainer<SELF>",
+            // DIFFERS from maddi parser: Type param SELF extends org.e2immu.test.MethodCall_84.GreenMailContainer<SELF>
+            assertEquals("Type org.e2immu.test.MethodCall_84.GreenMailContainer<?>",
                     lvc.localVariable().parameterizedType().toString());
-            assertEquals(lvc.localVariable().parameterizedType(), lvc.localVariable().assignmentExpression().parameterizedType());
+            assertEquals("Type param SELF extends org.e2immu.test.MethodCall_84.GreenMailContainer<SELF>",
+                    lvc.localVariable().assignmentExpression().parameterizedType().toString());
         }
         {
             MethodInfo method = typeInfo.findUniqueMethod("method3", 0);
             LocalVariableCreation lvc = (LocalVariableCreation) method.methodBody().lastStatement();
-            assertEquals("Type param SELF extends org.e2immu.test.MethodCall_84.GreenMailContainer<SELF>",
+            // DIFFERS from maddi parser!
+            assertEquals("Type org.e2immu.test.MethodCall_84.GreenMailContainer<?>",
                     lvc.localVariable().parameterizedType().toString());
-            assertEquals(lvc.localVariable().parameterizedType(), lvc.localVariable().assignmentExpression().parameterizedType());
+            assertEquals("Type param SELF extends org.e2immu.test.MethodCall_84.GreenMailContainer<SELF>",
+                    lvc.localVariable().assignmentExpression().parameterizedType().toString());
         }
     }
 
@@ -243,7 +251,7 @@ public class TestMethodCall8 extends CommonTest {
     private static final String INPUT5 = """
             package org.e2immu.test;
             import java.util.concurrent.CompletableFuture;
-
+            
             public class MethodCall_85 {
                 interface User { String getEmail(); }
                 interface SendMailService {
@@ -324,9 +332,11 @@ public class TestMethodCall8 extends CommonTest {
         assertEquals("Type java.util.List<java.util.List<String>>", stream.object().parameterizedType().toString());
         assertEquals("Type java.util.stream.Stream<java.util.List<String>>", stream.concreteReturnType().toString());
         MethodReference mrMap0 = (MethodReference) flatMap.parameterExpressions().getFirst();
-        assertEquals("Type java.util.stream.Stream<String>", mrMap0.concreteReturnType().toString());
-        assertEquals("[]", mrMap0.concreteParameterTypes().toString());
-        assertEquals("Type java.util.function.Function<java.util.List<String>,java.util.stream.Stream<String>>",
+        // DIFFERS from maddi parser:
+        assertEquals("Type java.util.stream.Stream<? extends String>", mrMap0.concreteReturnType().toString());
+        // DIFFERS from maddi parser:
+        assertEquals("[Type java.util.List<String>]", mrMap0.concreteParameterTypes().toString());
+        assertEquals("Type java.util.function.Function<java.util.List<String>,java.util.stream.Stream<? extends String>>",
                 mrMap0.parameterizedType().toString());
 
         assertEquals("Type java.util.stream.Stream<String>", flatMap.concreteReturnType().toString());
@@ -366,9 +376,10 @@ public class TestMethodCall8 extends CommonTest {
 
         // that should be enough to make a forward type for the second
         MethodReference mrMap0 = (MethodReference) flatMap.parameterExpressions().getFirst();
-        assertEquals("Type java.util.stream.Stream<String>", mrMap0.concreteReturnType().toString());
-        assertEquals("[]", mrMap0.concreteParameterTypes().toString());
-        assertEquals("Type java.util.function.Function<java.util.List<String>,java.util.stream.Stream<String>>",
+        // DIFFERS from maddi parser:
+        assertEquals("Type java.util.stream.Stream<? extends String>", mrMap0.concreteReturnType().toString());
+        assertEquals("[Type java.util.List<String>]", mrMap0.concreteParameterTypes().toString());
+        assertEquals("Type java.util.function.Function<java.util.List<String>,java.util.stream.Stream<? extends String>>",
                 mrMap0.parameterizedType().toString());
 
         assertEquals("Type java.util.stream.Stream<String>", flatMap.concreteReturnType().toString());
@@ -405,7 +416,8 @@ public class TestMethodCall8 extends CommonTest {
         assertEquals("Type java.util.stream.Stream<String>", map.concreteReturnType().toString());
         MethodReference mrMap0 = (MethodReference) map.parameterExpressions().getFirst();
         assertEquals("Type String", mrMap0.concreteReturnType().toString());
-        assertEquals("[]", mrMap0.concreteParameterTypes().toString());
+        // DIFFERS from maddi parser
+        assertEquals("[Type String]", mrMap0.concreteParameterTypes().toString());
         assertEquals("Type java.util.function.Function<String,String>", mrMap0.parameterizedType().toString());
 
         assertEquals("Type java.util.stream.Stream<String>", flatMap.concreteReturnType().toString());
@@ -418,7 +430,7 @@ public class TestMethodCall8 extends CommonTest {
             import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
             class X {
                 interface I {
-
+            
                 }
                 I generate(int i) {
                     return new I() {};
@@ -428,7 +440,7 @@ public class TestMethodCall8 extends CommonTest {
                 }
                 void test(I ii, Y y) {
                     I i = assertDoesNotThrow(() -> y.generate(ii));
-
+            
                 }
             }
             """;

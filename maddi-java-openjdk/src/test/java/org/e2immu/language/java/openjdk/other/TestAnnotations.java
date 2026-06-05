@@ -732,4 +732,26 @@ public class TestAnnotations extends CommonTest {
         MethodInfo k = typeInfo.findUniqueMethod("k", 0);
         assertTrue(k.isAbstract());
     }
+
+    @Language("java")
+    public static final String INPUT19 = """
+            package a.b;
+            class C {
+                @interface X {
+                    int A = 3;
+                }
+                void method() {
+                    System.out.println(X.A);
+                }
+            }
+            """;
+
+    @Test
+    public void test19() {
+        TypeInfo C = scan("a.b.C", INPUT19);
+        TypeInfo X = C.findSubType("X");
+        FieldInfo A = X.getFieldByName("A", true);
+        assertEquals("3", A.initializer().toString());
+    }
 }
+
