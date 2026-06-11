@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.util.internal.graph.util.TimedLogger;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,8 +33,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ScanCompilationUnits {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
@@ -109,58 +112,71 @@ public class ScanCompilationUnits {
             }
         }
 
-        Map<CompilationUnitTree, SourceCodeScan.Result> sourceCodeScans;
-        if (detailedSources) {
-            // highly parallel
-            LOGGER.info("Start source code scans");
-            sourceCodeScans = StreamSupport.stream(units.spliterator(), true)
-                    .collect(Collectors.toUnmodifiableMap(jfo -> jfo,
-                            compilationUnitTree -> {
-                                boolean isModule = compilationUnitTree.getModule() != null;
-                                try {
-                                    CharSequence content = compilationUnitTree.getSourceFile().getCharContent(false);
-                                    return sourceCodeScan.go(content, isModule);
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }));
-            LOGGER.info("... end of source code scans, have {}", sourceCodeScans.size());
-        } else {
-            sourceCodeScans = null;
-        }
-        int cntUnits = 1;
-        for (CompilationUnitTree unit : units) {
-            TIMED_LOGGER.info("Processed {} compilation units in {}", cntUnits, sourceSet.name());
-            ++cntUnits;
+        int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
+        try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads);
+             ExecutorService task2Executor = Executors.newSingleThreadExecutor()) {
 
-            boolean isModule = unit.getModule() != null;
-            String packageName;
-            if (isModule) {
-                packageName = unit.getModule().getName().toString();
-            } else if (unit.getPackage() != null) {
-                packageName = unit.getPackageName().toString();
-            } else {
-                packageName = "";
+            CompletableFuture<Void> previousTask2 = CompletableFuture.completedFuture(null);
+            AtomicInteger done = new AtomicInteger();
+
+            for (CompilationUnitTree unit : units) {
+                // Task 1 fires immediately, in parallel
+                CompletableFuture<SourceCodeScan.Result> task1 = CompletableFuture.supplyAsync(
+                        () -> doSourceCodeScan(unit), task1Executor);
+
+                // Task 2 waits for: (a) this item's task 1 (the scanResult), AND (b) previous item's task 2 (sequence!)
+                previousTask2 = previousTask2.thenCombineAsync(task1, (_, scanResult) -> {
+                            singleCompilationUnit(unit, scanResult, primaryTypes, modules);
+                            return null; // Void
+                        }, task2Executor)
+                        .thenAccept(_ -> TIMED_LOGGER.info("Done {}", done.incrementAndGet()));
             }
-            CompilationUnit.Builder compilationUnitBuilder = runtime.newCompilationUnitBuilder()
-                    .setPackageName(packageName)
-                    .setSourceSet(sourceSet);
 
-            SourceCodeScan.Result scanResult = sourceCodeScans == null ? null : sourceCodeScans.get(unit);
-            LineMap lineMap = unit.getLineMap();
-            DocTrees docTrees = DocTrees.instance(task);
-
-            ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, classSymbolScanner,
-                    compilationUnitBuilder, unit, trees, sourcePositions, lineMap, task.getElements(), types,
-                    docTrees, scanResult, computeMethodOverrides, flagHelper, classSymbolScanner);
-            scanCompilationUnit.scan(unit, null);
-            primaryTypes.addAll(scanCompilationUnit.types());
-            modules.addAll(scanCompilationUnit.modules());
-        }
-        for (TypeInfo primaryType : primaryTypes) {
-            scanJavaDocsAndCommit(primaryType);
+            previousTask2.join(); // wait for everything to finish
+            LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
+            for (TypeInfo primaryType : primaryTypes) {
+                scanJavaDocsAndCommit(primaryType);
+            }
         }
         return new Result(List.copyOf(primaryTypes), List.copyOf(modules));
+    }
+
+    private SourceCodeScan.@NotNull Result doSourceCodeScan(CompilationUnitTree unit) {
+        boolean isModule = unit.getModule() != null;
+        try {
+            CharSequence content = unit.getSourceFile().getCharContent(false);
+            return sourceCodeScan.go(content, isModule);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void singleCompilationUnit(CompilationUnitTree unit,
+                                       SourceCodeScan.Result scanResult,
+                                       List<TypeInfo> primaryTypes,
+                                       List<ModuleInfo> modules) {
+        boolean isModule = unit.getModule() != null;
+        String packageName;
+        if (isModule) {
+            packageName = unit.getModule().getName().toString();
+        } else if (unit.getPackage() != null) {
+            packageName = unit.getPackageName().toString();
+        } else {
+            packageName = "";
+        }
+        CompilationUnit.Builder compilationUnitBuilder = runtime.newCompilationUnitBuilder()
+                .setPackageName(packageName)
+                .setSourceSet(sourceSet);
+
+        LineMap lineMap = unit.getLineMap();
+        DocTrees docTrees = DocTrees.instance(task);
+
+        ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, classSymbolScanner,
+                compilationUnitBuilder, unit, trees, sourcePositions, lineMap, task.getElements(), types,
+                docTrees, scanResult, computeMethodOverrides, flagHelper, classSymbolScanner);
+        scanCompilationUnit.scan(unit, null);
+        primaryTypes.addAll(scanCompilationUnit.types());
+        modules.addAll(scanCompilationUnit.modules());
     }
 
     private void scanJavaDocsAndCommit(TypeInfo typeInfo) {

@@ -2159,8 +2159,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         } else {
             concreteReturnType = convertType.convertTree(newClass.clazz, dsb);
             anonymousType = null;
-            Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) newClass.constructor;
-            constructor = typeData.getOrLoadMethod(methodSymbol);
+            if (newClass.constructor instanceof Symbol.MethodSymbol ms) {
+                constructor = typeData.getOrLoadMethod(ms);
+            } else {
+                throw new UnsupportedOperationException(
+                        "Compilation error in " + typeStack.getLast() + "? Cannot resolve " + newClass);
+            }
         }
         currentExpression = runtime.newConstructorCallBuilder()
                 .setObject(object)
