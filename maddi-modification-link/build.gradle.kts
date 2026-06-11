@@ -41,8 +41,29 @@ dependencies {
     testImplementation(project(":maddi-java-bytecode"))
     testImplementation(project(":maddi-java-parser"))
     testImplementation(project(":maddi-aapi-parser"))
+
+    testImplementation(project(":maddi-inspection-openjdk"))
+    testImplementation(project(":maddi-java-openjdk"))
+    testImplementation(testFixtures(project(":maddi-java-openjdk")))
 }
+
 tasks.withType<Test> {
     maxHeapSize = "2G"
     maxParallelForks = 4
+
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
+
+    val impl = System.getProperty("maddi_parser", "maddi")
+
+    // Pass it forward down to the worker JVM execution context
+    systemProperty("maddi_parser", impl)
+
+    // Visual logging to your terminal so you always know which version is active
+    logger.lifecycle("Project [${project.name}] executing test suite targeting: $impl")
 }

@@ -30,9 +30,6 @@ public class TestJavaInspector6MultiProject {
     private JavaInspector javaInspector;
     private SourceSet cstApi;
     private SourceSet cstAnalysis;
-    private SourceSet cstImpl;
-    private SourceSet cstImplTest;
-    private SourceSet cstIo;
 
     @BeforeEach
     public void test() throws IOException, URISyntaxException {
@@ -103,7 +100,7 @@ public class TestJavaInspector6MultiProject {
 
         Path cstImplJar = Path.of("../maddi-cst-impl/build/libs/maddi-cst-impl.jar").toRealPath();
         Path cstImplPath = Path.of("../maddi-cst-impl/src/main/java");
-        cstImpl = new SourceSetImpl.Builder()
+        SourceSet cstImpl = new SourceSetImpl.Builder()
                 .setName("maddi-cst-impl.jar")
                 .setSourceDirectories(List.of(cstImplPath))
                 .setUri(cstImplJar.toUri())
@@ -112,7 +109,8 @@ public class TestJavaInspector6MultiProject {
                 .build();
 
         Path cstImplTestPath = Path.of("../maddi-cst-impl/src/test/java");
-        cstImplTest = new SourceSetImpl.Builder()
+        // cannot be referred to
+        SourceSet cstImplTest = new SourceSetImpl.Builder()
                 .setName("maddi-cst-impl test") // cannot be referred to
                 .setSourceDirectories(List.of(cstImplTestPath))
                 .setUri(cstImplTestPath.toUri())
@@ -123,7 +121,7 @@ public class TestJavaInspector6MultiProject {
 
         Path cstIoJar = Path.of("../maddi-cst-io/build/libs/maddi-cst-io.jar").toRealPath();
         Path cstIoPath = Path.of("../maddi-cst-io/src/main/java");
-        cstIo = new SourceSetImpl.Builder()
+        SourceSet cstIo = new SourceSetImpl.Builder()
                 .setName("maddi-cst-io.jar")
                 .setSourceDirectories(List.of(cstIoPath))
                 .setUri(cstImplJar.toUri())

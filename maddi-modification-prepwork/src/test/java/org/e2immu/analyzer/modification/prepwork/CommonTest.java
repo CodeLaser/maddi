@@ -22,23 +22,20 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.e2immu.language.java.openjdk.InputConfigurationSupport;
+import org.e2immu.support.SetOnce;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
 
 public class CommonTest {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(CommonTest.class);
@@ -78,39 +75,16 @@ public class CommonTest {
     }
 
     protected void openJdkParser() throws URISyntaxException, IOException {
-
-        Path maddiSupportClasses = Path.of("../maddi-support/build/classes/java/main/");
-        assertTrue(Files.isDirectory(maddiSupportClasses));
-        SourceSet maddiSupport = new SourceSetImpl.Builder().setName("maddi-support")
-                .setUri(maddiSupportClasses.toUri())
-                .setLibrary(true).setExternalLibrary(true).build();
-
-        URI slf4jApiUri = org.slf4j.Logger.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-        assertNotNull(slf4jApiUri);
-        SourceSet orgSlf4jApi = new SourceSetImpl.Builder().setName("slf4j-api-2.0.17.jar")
-                .setUri(slf4jApiUri)
-                .setExternalLibrary(true)
-                .setModule(true)
-                .build();
-
-        URI annotationsUri = NotNull.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-        SourceSet annotations = new SourceSetImpl.Builder().setName("annotations-26.1.0.jar")
-                .setUri(annotationsUri)
-                .setExternalLibrary(true)
-                .setModule(true)
-                .build();
-
-        URI junitJupiterApi = Test.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-        SourceSet junitJupiter = new SourceSetImpl.Builder().setName("junit-jupiter-api-6.0.3.jar")
-                .setUri(junitJupiterApi)
-                .setExternalLibrary(true)
-                .setModule(true)
-                .build();
+        SourceSet javaBase = InputConfigurationSupport.javaBase();
+        SourceSet orgSlf4j = sourceSetOf(org.slf4j.Logger.class, javaBase);
+        SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
+        SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
+        SourceSet junitJupiter = sourceSetOf(Assertions.class, javaBase);
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(org.e2immu.language.inspection.openjdk.JavaInspectorImpl.TEST_PROTOCOL_SOURCE_SET)
                 .addClassPath("jmod:java.base")
-                .addClassPathParts(maddiSupport, orgSlf4jApi, annotations, junitJupiter)
+                .addClassPathParts(maddiSupport, orgSlf4j, annotations, junitJupiter)
                 .build();
         javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);

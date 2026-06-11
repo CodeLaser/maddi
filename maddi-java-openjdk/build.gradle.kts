@@ -15,7 +15,9 @@
 
 plugins {
     id("java-library-conventions")
+    `java-test-fixtures`
 }
+
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
@@ -32,13 +34,12 @@ dependencies {
 
     testImplementation(project(":maddi-cst-impl"))
 
+    testFixturesImplementation(project(":maddi-inspection-resource"))
+
     testImplementation("org.projectlombok:lombok:1.18.46")
     testAnnotationProcessor("org.projectlombok:lombok:1.18.46")
-
     testImplementation("org.apiguardian:apiguardian-api:1.1.2")
     testImplementation("org.assertj:assertj-core:3.27.3")
-    //testImplementation("org.springframework:spring-test:6.1.19")
-    //testImplementation("org.springframework:spring-core:6.1.19")
     testImplementation("org.mockito:mockito-core:5.23.0")
 }
 

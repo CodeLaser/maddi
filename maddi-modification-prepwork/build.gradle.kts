@@ -36,9 +36,9 @@ dependencies {
     implementation(project(":maddi-java-bytecode"))
     implementation(project(":maddi-java-parser"))
 
-    implementation(project(":maddi-inspection-openjdk"))
-    implementation(project(":maddi-java-openjdk"))
-
+    testImplementation(project(":maddi-inspection-openjdk"))
+    testImplementation(project(":maddi-java-openjdk"))
+    testImplementation(testFixtures(project(":maddi-java-openjdk")))
     testImplementation("ch.qos.logback:logback-classic")
 }
 
