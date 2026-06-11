@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class CommonTest {
@@ -65,54 +66,19 @@ public class CommonTest {
     public ScanCompilationUnits.Result scan(boolean ignoreErrors, Map<String, String> sourcesByClassName, List<File> jars) {
         sourceSet = new SourceSetImpl.Builder().setName("source").setUri(URI.create("file:/")).build();
         try {
-            SourceSet javaBase = new SourceSetImpl.Builder().setName("java.base").setUri(URI.create("file:/"))
-                    .setLibrary(true)
-                    .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
+            SourceSet javaBase = InputConfigurationSupport.javaBase();
 
             SourceSet javaNetHttp = new SourceSetImpl.Builder().setName("java.net.http").setUri(URI.create("file:/"))
                     .setLibrary(true)
                     .setExternalLibrary(true).setPartOfJdk(true).setModule(true).setDependencies(Set.of(javaBase))
                     .build();
 
-            URI slf4jUri = Logger.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            SourceSet orgSlf4j = new SourceSetImpl.Builder().setName(tail(slf4jUri)).setUri(slf4jUri)
-                    .setLibrary(true).setExternalLibrary(true).setDependencies(Set.of(javaBase))
-                    .build();
-
-            // jetbrains annotations
-            URI jetbrainsUri = NotNull.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            SourceSet annotations = new SourceSetImpl.Builder().setName(tail(jetbrainsUri))
-                    .setUri(jetbrainsUri).setLibrary(true).setExternalLibrary(true)
-                    .setDependencies(Set.of(javaBase))
-                    .build();
-
-            // maddi support
-            URI maddiSupportUri = SetOnce.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            SourceSet maddiSupport = new SourceSetImpl.Builder().setName(tail(maddiSupportUri))
-                    .setUri(maddiSupportUri).setLibrary(true).setExternalLibrary(true)
-                    .setDependencies(Set.of(javaBase))
-                    .build();
-
-            // jupiter test framework
-            URI junitJupiterURI = Assertions.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            SourceSet junitJupiter = new SourceSetImpl.Builder().setName(tail(junitJupiterURI))
-                    .setUri(junitJupiterURI).setLibrary(true).setExternalLibrary(true)
-                    .setDependencies(Set.of(javaBase))
-                    .build();
-
-            // assertJ
-            URI assertJUri = Assert.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            SourceSet assertJ = new SourceSetImpl.Builder().setName(tail(assertJUri))
-                    .setUri(assertJUri).setLibrary(true).setExternalLibrary(true)
-                    .setDependencies(Set.of(javaBase))
-                    .build();
-
-            // lombok
-            URI lombokUri = Data.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-            SourceSet lombok = new SourceSetImpl.Builder().setName(tail(lombokUri))
-                    .setUri(lombokUri).setLibrary(true).setExternalLibrary(true)
-                    .setDependencies(Set.of(javaBase))
-                    .build();
+            SourceSet orgSlf4j = sourceSetOf(Logger.class, javaBase);
+            SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
+            SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
+            SourceSet junitJupiter = sourceSetOf(Assertions.class, javaBase);
+            SourceSet assertJ = sourceSetOf(Assert.class, javaBase);
+            SourceSet lombok = sourceSetOf(Data.class, javaBase);
 
             MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
             javacTask = createTask(sourcesByClassName, jars, diagnostics);
@@ -130,14 +96,6 @@ public class CommonTest {
             fail(io);
             return null;
         }
-    }
-
-    private static String tail(URI uri) {
-        String toString = uri.toString();
-        int last = toString.lastIndexOf('/');
-        String name = toString.substring(last + 1);
-        assert name.endsWith(".jar");
-        return name;
     }
 
     private JavacTask createTask(Map<String, String> sourcesByClassName, List<File> jars,
