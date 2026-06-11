@@ -69,6 +69,9 @@ public abstract class CommonTest {
                 .build();
         javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
         javaInspector.initialize(inputConfiguration);
+        javaInspector.preload("java.base::java.util");
+        javaInspector.preload("java.base::java.util.concurrent.atomic");
+
     }
 
     private void maddiParser() throws IOException {

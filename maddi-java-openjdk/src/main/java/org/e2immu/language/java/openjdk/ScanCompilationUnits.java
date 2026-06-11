@@ -52,6 +52,7 @@ public class ScanCompilationUnits {
     private final ClassSymbolScanner classSymbolScanner;
     private final boolean detailedSources;
     private final ResolveJavaDoc resolveJavaDoc;
+    private final List<String> packagesToPreload;
 
     public record Result(List<TypeInfo> primaryTypes, List<ModuleInfo> modules) {
     }
@@ -62,12 +63,14 @@ public class ScanCompilationUnits {
                                 SourceSet sourceSet,
                                 Map<String, Info> previouslyLoaded,
                                 boolean detailedSources,
-                                MaddiDiagnosticCollector diagnosticCollector) {
+                                MaddiDiagnosticCollector diagnosticCollector,
+                                List<String> packagesToPreload) {
         this.runtime = runtime;
         this.diagnosticCollector = diagnosticCollector;
         this.task = task;
         this.sourceSet = sourceSet;
         this.detailedSources = detailedSources;
+        this.packagesToPreload = packagesToPreload;
 
         sourceCodeScan = new SourceCodeScan(runtime);
         trees = Trees.instance(task);
@@ -98,6 +101,12 @@ public class ScanCompilationUnits {
         // only index in the first pass; in the second pass, all predefined objects will be present
         if (!runtime.objectTypeInfo().hasBeenInspected()) {
             indexJavaLangForJavaDocParsing();
+            for (String modulePackage : packagesToPreload) {
+                int sep = modulePackage.indexOf("::");
+                String module = modulePackage.substring(0, sep);
+                String packageName = modulePackage.substring(sep + 2);
+                preload(module, packageName);
+            }
         }
 
         Map<CompilationUnitTree, SourceCodeScan.Result> sourceCodeScans;
@@ -219,6 +228,28 @@ public class ScanCompilationUnits {
         }
         if (objectCs != null) {
             classSymbolScanner.loadType(objectCs, runtime.objectTypeInfo(), ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
+        }
+    }
+
+    private void preload(String module, String packageName) throws IOException {
+        JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
+        JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES, module);
+        Iterable<JavaFileObject> files = fm.list(javaBase, packageName, Set.of(JavaFileObject.Kind.CLASS), false);
+        Elements elements = task.getElements();
+        for (JavaFileObject file : files) {
+            String binaryName = fm.inferBinaryName(javaBase, file);
+            TypeElement te = elements.getTypeElement(binaryName);
+            if (te instanceof Symbol.ClassSymbol cs) {
+                try {
+                    cs.complete();
+                    if (cs.owner instanceof Symbol.PackageSymbol && null == classSymbolScanner.getType(binaryName)) {
+                        TypeInfo pt = classSymbolScanner.primaryType(cs);
+                        classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
+                    }
+                } catch (Symbol.CompletionFailure e) {
+                    // ignore
+                }
+            }
         }
     }
 }
