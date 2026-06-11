@@ -87,6 +87,7 @@ public class FieldPrinterImpl implements FieldPrinter {
         Set<FieldModifier> modifiers = fieldInfo.modifiers();
         List<FieldModifier> list = new ArrayList<>();
         Access access = fieldInfo.access();
+        assert access != null : "No access for " + fieldInfo;
         Access ownerAccess = fieldInfo.owner().access();
 
         /*
