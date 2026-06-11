@@ -89,7 +89,7 @@ public class CommonTest {
                     .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter, assertJ, lombok)
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                    javacTask, sourceSet, previouslyLoaded, true, diagnostics);
+                    javacTask, sourceSet, previouslyLoaded, true, diagnostics, List.of());
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
         } catch (IOException | URISyntaxException io) {

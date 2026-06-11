@@ -48,5 +48,8 @@ public class TestHierarchy extends CommonTest {
         assertEquals("[a.b.C.D, a.b.C.B, a.b.C.A]", E.typeHierarchyExcludingJLOStream().toList().toString());
         assertTrue(B.inHierarchyOf(E));
         assertFalse(E.inHierarchyOf(B));
+
+        TypeInfo jlo = runtime.objectTypeInfo();
+        assertNull(jlo.parentClass());
     }
 }

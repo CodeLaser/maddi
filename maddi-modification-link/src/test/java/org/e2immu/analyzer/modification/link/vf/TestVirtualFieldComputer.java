@@ -24,6 +24,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     @DisplayName("list hierarchy")
     @Test
     public void test1() {
+        javaInspector.parse("A", "class A { }");
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);
 
         TypeInfo list = javaInspector.compiledTypesManager().getOrLoad(List.class);

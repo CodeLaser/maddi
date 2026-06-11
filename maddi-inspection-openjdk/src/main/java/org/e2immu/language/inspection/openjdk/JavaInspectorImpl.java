@@ -58,6 +58,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final boolean allowCreationOfStubTypes;
     private final JavaCompiler javaCompiler;
     private final Map<String, Info> previouslyLoaded = new HashMap<>();
+    private final List<String> preload = new ArrayList<>();
 
     public JavaInspectorImpl() {
         this(false, false);
@@ -154,9 +155,10 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     // do a preload, with a real recursive load as long as we stay in the package
+    // NOTE: module::package java.base::java.util.concurrent
     @Override
     public void preload(String thePackage) {
-
+        preload.add(thePackage);
     }
 
     @Override
@@ -250,7 +252,7 @@ public class JavaInspectorImpl implements JavaInspector {
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                javacTask, sourceSet, previouslyLoaded, true, diagnostics);
+                javacTask, sourceSet, previouslyLoaded, true, diagnostics, preload);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary

@@ -236,10 +236,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 popTypeParameterMap();
 
                 ParameterizedType superType = convert(cs.getSuperclass());
-                ParameterizedType parentClass = superType == null ? runtime.objectParameterizedType() : superType;
-                assert parentClass != null;
-                builder.setParentClass(parentClass);
-
+                if (!newTypeInfo.isJavaLangObject()) {
+                    ParameterizedType parentClass = superType == null ? runtime.objectParameterizedType() : superType;
+                    assert parentClass != null;
+                    builder.setParentClass(parentClass);
+                }
                 for (Type type : cs.getInterfaces()) {
                     ParameterizedType pt = convert(type);
                     builder.addInterfaceImplemented(pt);
