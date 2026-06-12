@@ -187,10 +187,11 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
         }
     }
 
-    private Expression singleExpression() {
+    @Override
+    public Expression singleExpression() {
         List<Statement> statements = methodInfo.methodBody().statements();
         if (statements.size() == 1) {
-            return statements.get(0).expression();
+            return statements.getFirst().expression();
         }
         return null;
     }
