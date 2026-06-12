@@ -58,6 +58,9 @@ public interface Lambda extends Expression {
 
     List<OutputVariant> outputVariants();
 
+    // null when not single expression
+    Expression singleExpression();
+
     Lambda withMethodInfoAndMethodBody(MethodInfo methodInfo);
 
     interface OutputVariant {
