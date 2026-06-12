@@ -14,20 +14,18 @@
 
 package org.e2immu.language.java.openjdk.other;
 
-import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.expression.BinaryOperator;
+import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
-import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -35,121 +33,168 @@ public class TestField extends CommonTest {
 
 
     @Language("java")
-    private static final String INPUT1 = """
+    String PARENT = """
             package a.b;
-            class C {
-                public final String s;
-                C(String s) {
-                    this.s = s;
+            public class Parent {
+                public static final String FIELD = "abc";
+            }
+            """;
+
+    @Language("java")
+    String CHILD = """
+            package a.b;
+            public class Child extends Parent {
+                private class Create {
+                    String newString(String k) {
+                        return k + FIELD;
+                    }
+                }
+            }
+            """;
+
+    @Test
+    public void test() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.Parent", PARENT, "a.b.Child", CHILD);
+        TypeInfo child = pr1.get("a.b.Child");
+        TypeInfo create = child.findSubType("Create");
+        MethodInfo newString = create.findUniqueMethod("newString", 1);
+        BinaryOperator bo = (BinaryOperator) newString.methodBody().lastStatement().expression();
+        if (bo.rhs() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+            assertEquals("a.b.Parent.FIELD", fr.fullyQualifiedName());
+            // these are weird names, but that is because we make a source set for each test-protocol class
+            // there is no problem outside test-protocal
+            assertEquals("source::a.b.Parent", fr.fieldInfo().owner().descriptor());
+            assertEquals("source::a.b.Parent:FIELD", fr.fieldInfo().descriptor());
+        } else fail();
+    }
+
+
+    @Language("java")
+    String PARENT1 = """
+            package a.b;
+            public class Parent {
+                public static class Sub {
+
+                }
+            }
+            """;
+
+    @Language("java")
+    String CHILD1 = """
+            package a.b;
+            public class Child {
+                private class Create extends Parent {
+                    Sub sub = new Sub();
                 }
             }
             """;
 
     @Test
     public void test1() {
-        TypeInfo typeInfo = scan("a.b.C", INPUT1);
-        assertEquals("C", typeInfo.simpleName());
-        MethodInfo C = typeInfo.findConstructor(1);
-        ExpressionAsStatement c0 = (ExpressionAsStatement) C.methodBody().statements().get(0);
-        Assignment a = (Assignment) c0.expression();
-        VariableExpression ve = (VariableExpression) ((FieldReference) a.variableTarget()).scope();
-        assertEquals("5-9:5-12", ve.source().compact2());
-        DetailedSources ds = ve.source().detailedSources();
-        assertNull(ds);
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.Parent", PARENT1, "a.b.Child", CHILD1);
+        TypeInfo child = pr1.get("a.b.Child");
+        TypeInfo create = child.findSubType("Create");
+        FieldInfo sub = create.getFieldByName("sub", true);
+        assertEquals("new Sub()", sub.initializer().toString());
     }
 
+
     @Language("java")
-    private static final String INPUT2 = """
+    String PARENT2 = """
             package a.b;
-            import java.util.List;
-            class C {
-              List<String> stringList;
-              List<Integer> intList1 = List.of(), intList2, intList3 = null;
-              int i, iArray[], j;
+            public class Parent {
+                public int v;
+            }
+            """;
+
+    @Language("java")
+    String CHILD2 = """
+            package a.b;
+            public class Child extends Parent {
+               //nothing
+            }
+            """;
+
+    @Language("java")
+    String USE2 = """
+            package a.c;
+            import a.b.Child;
+            public class Use {
+                void method() {
+                    Child child = new Child();
+                    child.v = 3;
+                }
             }
             """;
 
     @Test
     public void test2() {
-        TypeInfo typeInfo = scan("a.b.C", INPUT2);
-        assertEquals("C", typeInfo.simpleName());
-
-        FieldInfo stringList = typeInfo.fields().get(0);
-        assertEquals("Type java.util.List<String>", stringList.type().toString());
-        FieldInfo intList1 = typeInfo.fields().get(1);
-        assertEquals("Type java.util.List<Integer>", intList1.type().toString());
-        assertEquals("List.of()", intList1.initializer().toString());
-        FieldInfo intList2 = typeInfo.fields().get(2);
-        assertEquals("Type java.util.List<Integer>", intList2.type().toString());
-        assertTrue(intList2.initializer().isEmpty());
-        FieldInfo intList3 = typeInfo.fields().get(3);
-        assertEquals("Type java.util.List<Integer>", intList2.type().toString());
-        assertEquals("null", intList3.initializer().toString());
-
-        FieldInfo iArray = typeInfo.getFieldByName("iArray", true);
-        assertEquals("Type int[]", iArray.type().toString());
-        FieldInfo j = typeInfo.getFieldByName("j", true);
-        assertEquals("Type int", j.type().toString());
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.Parent", PARENT2, "a.b.Child", CHILD2,
+                "a.c.Use", USE2);
+        TypeInfo use = pr1.get("a.c.Use");
+        MethodInfo method = use.findUniqueMethod("method", 0);
+        assertEquals(2, method.methodBody().statements().size());
     }
 
 
     @Language("java")
-    private static final String INPUT3 = """
+    String PARENT3 = """
             package a.b;
-            class B {
-                // max with comment
-                final static int MAX = 3;
-                public boolean m(int j) {
-                  return B.MAX < j;
-                }
+            public class Parent {
+                public static final String FIELD = "abc";
+                private static final String ROUNDABOUT = "x" + Child.FIELD;
+            }
+            """;
+
+    @Language("java")
+    String CHILD3 = """
+            package a.b;
+            public class Child extends Parent {
+               // no code needed here
             }
             """;
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = scan("a.b.B", INPUT3);
-        assertEquals("B", typeInfo.simpleName());
-        FieldInfo max = typeInfo.getFieldByName("MAX", true);
-        assertEquals("4-22:4-28", max.source().compact2()); // MAX = 3
-        Source declarationWithout = max.source().detailedSources().detail(DetailedSources.FIELD_DECLARATION);
-        assertEquals("3-5:4-29", declarationWithout.compact2());
-
-        Statement s0 = typeInfo.findUniqueMethod("m", 1).methodBody().statements().getFirst();
-        if (s0.expression() instanceof BinaryOperator bo) {
-            assertEquals("B.MAX", bo.lhs().toString());
-            if (bo.lhs() instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
-                assertEquals("B", fr.scope().toString());
-                assertEquals("6-14:6-14", fr.scope().source().compact2());
-            } else fail();
-        } else fail("Have " + s0.expression());
-
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.Parent", PARENT3, "a.b.Child", CHILD3);
+        TypeInfo parent = pr1.get("a.b.Parent");
+        FieldInfo r = parent.getFieldByName("ROUNDABOUT", true);
+        // important: the current code (20260311) keeps the original scope, even if the owner is Parent
+        assertSame(parent, r.owner());
+        assertEquals("\"x\"+Child.FIELD", r.initializer().toString());
     }
 
 
     @Language("java")
-    private static final String INPUT4 = """
+    String I4 = """
             package a.b;
-            class B {
-                final int min = 5; // min with comment
-                final static int MAX = 3; // max with comment
-                public boolean m(int j) {
-                  return B.MAX < j;
-                }
+            public interface I {
+                String FIELD = "abc";
+            }
+            """;
+
+    @Language("java")
+    String C4 = """
+            package a.b;
+            import static a.b.I.FIELD;
+            public class C {
+               void method() {
+                   System.out.println(FIELD);
+               }
             }
             """;
 
     @Test
     public void test4() {
-        TypeInfo typeInfo = scan("a.b.B", INPUT4);
-        assertEquals("B", typeInfo.simpleName());
-
-        FieldInfo min = typeInfo.getFieldByName("min", true);
-        assertEquals(1, min.comments().size());
-        assertEquals(" min with comment", min.comments().getFirst().comment());
-        FieldInfo max = typeInfo.getFieldByName("MAX", true);
-        assertEquals(1, max.comments().size());
-        assertEquals(" max with comment", max.comments().getFirst().comment());
-        MethodInfo m = typeInfo.findUniqueMethod("m", 1);
-        assertTrue(m.comments().isEmpty());
+        Map<String, TypeInfo> pr1 = scan(false, "a.b.I", I4, "a.b.C", C4);
+        TypeInfo C = pr1.get("a.b.C");
+        MethodInfo method = C.findUniqueMethod("method", 0);
+        MethodCall mc = (MethodCall) method.methodBody().statements().getFirst().expression();
+        VariableExpression ve = (VariableExpression) mc.parameterExpressions().getFirst();
+        if (ve.variable() instanceof FieldReference fr) {
+            assertEquals("FIELD", fr.fieldInfo().name());
+            assertTrue(fr.fieldInfo().isStatic());
+            assertTrue(fr.isDefaultScope());
+        }
     }
 }
