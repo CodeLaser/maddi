@@ -1215,37 +1215,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
                 Expression initializer = currentExpression;
                 if (currentMethod == null) {
-                    // field!
-                    long flags = variableDecl.getModifiers().flags;
-                    boolean isStatic = (flags & Flags.STATIC) != 0;
-                    TypeInfo owner = typeStack.getLast();
-                    if (!owner.typeNature().isRecord() || isStatic) {
-                        FieldInfo inMap = owner.getFieldByName(name, false);
-                        FieldInfo fieldInfo;
-                        if (inMap == null) {
-                            fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
-                            owner.builder().addField(fieldInfo);
-                            typeData.put(varSymbol, fieldInfo);
-                        } else {
-                            fieldInfo = inMap;
-                        }
-                        fieldInfo.builder().addAnnotations(annots);
-
-                        flagHelper.field(flags, fieldInfo.builder());
-
-                        // annotations
-                        for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
-                            AnnotationExpression ae = convertAnnotation(annotation);
-                            fieldInfo.builder().addAnnotation(ae);
-                        }
-
-                        fieldInfo.builder()
-                                .setSource(sourceForNode(variableDecl, dsb))
-                                .setInitializer(initializer)
-                                .computeAccess()
-                                .commit();
-                        assert fieldInfo.access() != null;
-                    } // else: non-static record components are dealt with in the type visitor
+                    createField(variableDecl, varSymbol, name, type, annots, dsb, initializer);
                 } else {
 
                     // local variable
@@ -1263,6 +1233,51 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
         }
         return null;
+    }
+
+    private void createField(JCTree.JCVariableDecl variableDecl,
+                             Symbol.VarSymbol varSymbol,
+                             String name,
+                             ParameterizedType type,
+                             List<AnnotationExpression> annots,
+                             DetailedSources.Builder dsb,
+                             Expression initializer) {
+        long flags = variableDecl.getModifiers().flags;
+        boolean isStatic = (flags & Flags.STATIC) != 0;
+        TypeInfo owner = typeStack.getLast();
+        if (!owner.typeNature().isRecord() || isStatic) {
+            FieldInfo inMap = owner.getFieldByName(name, false);
+            FieldInfo fieldInfo;
+            if (inMap == null) {
+                fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
+                owner.builder().addField(fieldInfo);
+                typeData.put(varSymbol, fieldInfo);
+            } else {
+                fieldInfo = inMap;
+            }
+            fieldInfo.builder().addAnnotations(annots);
+
+            flagHelper.field(flags, fieldInfo.builder());
+
+            // annotations
+            for (JCTree.JCAnnotation annotation : variableDecl.getModifiers().getAnnotations()) {
+                AnnotationExpression ae = convertAnnotation(annotation);
+                fieldInfo.builder().addAnnotation(ae);
+            }
+
+            // source, source of name
+            Source source = sourceForNode(variableDecl, dsb); // declaration!
+            String s = variableDecl.toString();
+            Source nameSource = source.ofIndex(s, s.indexOf(name), name.length());
+            dsb.put(name, nameSource);
+
+            fieldInfo.builder()
+                    .setSource(source.withDetailedSources(dsb.build()))
+                    .setInitializer(initializer)
+                    .computeAccess()
+                    .commit();
+            assert fieldInfo.access() != null;
+        } // else: non-static record components are dealt with in the type visitor
     }
 
     private boolean sameLvc(LocalVariableCreation lvc1, LocalVariableCreation lvc2) {
@@ -1743,6 +1758,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         var element = trees.getElement(getCurrentPath());
         if (element != null) {
             String name = node.getName().toString();
+            final Source source = sourceForNode(node);
             switch (element.getKind()) {
                 case FIELD -> {
                     if (element instanceof Symbol.VarSymbol vs) {
@@ -1750,17 +1766,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         assert typeInfoOwner != null;
                         boolean isThis = "this".equals(name);
                         boolean isSuper = "super".equals(name);
+                        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                         Variable variable;
                         if (isThis || isSuper) {
                             // TODO explicitly write type
                             variable = runtime.newThis(typeInfoOwner.asParameterizedType(), null, isSuper);
+                            dsb.put(variable, source);
                         } else {
                             FieldInfo fieldInfo = Objects.requireNonNullElseGet(
                                     typeInfoOwner.getFieldByName(name, false), () -> convertType.ensureField(vs));
                             variable = runtime.newFieldReference(fieldInfo);
+                            dsb.put(fieldInfo, source);
                         }
                         currentExpression = runtime.newVariableExpressionBuilder()
-                                .setSource(sourceForNode(node))
+                                .setSource(source.withDetailedSources(dsb.build()))
                                 .setVariable(variable)
                                 .build();
 
@@ -1769,7 +1788,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 case LOCAL_VARIABLE, PARAMETER, BINDING_VARIABLE, RESOURCE_VARIABLE, EXCEPTION_PARAMETER -> {
                     Variable variable = (Variable) elementStack.find(name);
                     currentExpression = runtime.newVariableExpressionBuilder()
-                            .setSource(sourceForNode(node))
+                            .setSource(source)
                             .setVariable(variable)
                             .build();
                 }
@@ -1792,7 +1811,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     if (element instanceof Symbol.VarSymbol vs) {
                         FieldInfo fieldInfo = typeData.getOrLoadField(vs);
                         currentExpression = runtime.newVariableExpressionBuilder()
-                                .setSource(sourceForNode(node))
+                                .setSource(source)
                                 .setVariable(runtime.newFieldReference(fieldInfo))
                                 .build();
                     } else throw new UnsupportedOperationException("NYI");
@@ -1864,7 +1883,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     @Override
     public Void visitMemberSelect(MemberSelectTree node, Void unused) {
-
         if (node instanceof JCTree.JCFieldAccess fieldAccess) {
             // class literal
             if ("class".equals(fieldAccess.name.toString())) {
@@ -1886,24 +1904,30 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 ParameterizedType concreteType = convertType.convert(fieldAccess.type);
                 String fieldName = vs.name.toString();
                 boolean isSuper = false;
+                Source source = sourceForNode(node);
+                DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                String s = node.toString();
+                Source sourceName = source.ofIndex(s, s.lastIndexOf('.') + 1, fieldName.length());
+                dsb.put(fieldName, sourceName);
                 if ("length".equals(fieldName) && scope.parameterizedType().arrays() > 0) {
                     currentExpression = runtime.newArrayLengthBuilder()
-                            .setSource(sourceForNode(node))
+                            .setSource(source.withDetailedSources(dsb.build()))
+                            .setSource(source)
                             .setExpression(scope)
                             .build();
                 } else if ("this".equals(fieldName) || (isSuper = "super".equals(fieldName))) {
-                    DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                     ParameterizedType explicitType = convertType.convertTree(fieldAccess.selected, dsb);
                     Variable thisVar = runtime.newThis(explicitType, explicitType.typeInfo(), isSuper);
                     currentExpression = runtime.newVariableExpressionBuilder()
-                            .setSource(sourceForNode(node, dsb))
+                            .setSource(source.withDetailedSources(dsb.build()))
                             .setVariable(thisVar)
                             .build();
                 } else {
                     FieldInfo fieldInfo = typeData.getOrLoadField(vs);
                     FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
+                    dsb.put(fieldInfo, sourceName);
                     currentExpression = runtime.newVariableExpressionBuilder()
-                            .setSource(sourceForNode(node))
+                            .setSource(source.withDetailedSources(dsb.build()))
                             .setVariable(fr).build();
                 }
                 return null;
