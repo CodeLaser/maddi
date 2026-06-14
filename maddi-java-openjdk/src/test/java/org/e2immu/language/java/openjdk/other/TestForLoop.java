@@ -14,20 +14,26 @@
 
 package org.e2immu.language.java.openjdk.other;
 
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.ForEachStatement;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestForLoop extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-
+            
             class X {
                interface I { String get(); }
                static class Y {
-                   final I data[];
+                   final I data[] = new I[3];
                }
                void method(Y y) {
                    for(var i: y.data) {
@@ -40,6 +46,14 @@ public class TestForLoop extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = scan("a.b.X", INPUT1);
-
+        TypeInfo y = typeInfo.findSubType("Y");
+        FieldInfo data = y.getFieldByName("data", true);
+        assertEquals("Type a.b.X.I[]", data.type().toString());
+        assertEquals("new I[3]", data.initializer().toString());
+        MethodInfo method = typeInfo.findUniqueMethod("method", 1);
+        ForEachStatement fes = (ForEachStatement) method.methodBody().statements().getLast();
+        assertEquals("var i;", fes.initializer().toString());
+        assertTrue(fes.initializer().isVar());
+        assertEquals("Type a.b.X.I", fes.initializer().localVariable().parameterizedType().toString());
     }
 }

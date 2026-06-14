@@ -79,10 +79,10 @@ public class TestSourceCodeScan {
         assertEquals("12-1:12-35", cs.getLast().source().compact2());
         testComment(cIterator, "16-5:19-5", " recursive comment");
         testComment(cIterator, "18-9:18-21", " method comment");
-        testComment(cIterator, "28-40:28-53", " nice list ");
+        testComment(cIterator, "28-40:28-53", " nice list ", " trailing param");
 
         Iterator<Map.Entry<Source, List<Comment>>> tIterator = r.trailingComments().entrySet().iterator();
-        testComment(tIterator, "13-1:40-1", " trailing class comment");
+        testComment(tIterator, "4-1:41-26", " trailing class comment");
 
         Iterator<Map.Entry<Source, String>> kIterator = r.keywords().entrySet().iterator();
         testKeyword(kIterator, "4-1:4-7", "package");
@@ -256,7 +256,6 @@ public class TestSourceCodeScan {
                 int max; //comment for max
             }
             """;
-
 
     @Test
     public void test4() {

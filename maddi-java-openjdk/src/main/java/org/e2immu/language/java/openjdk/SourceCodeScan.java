@@ -54,7 +54,15 @@ public final class SourceCodeScan {
 
         private static List<Comment> findComments(Source source, NavigableMap<Source, List<Comment>> map) {
             Map.Entry<Source, List<Comment>> entry = map.floorEntry(source);
-            if (entry == null) return List.of();
+            if (entry == null) {
+                if (!map.isEmpty()) {
+                    // see TestComments; javac's source of the whole compilation unit differs from the parser's.
+                    // javac does not include the trailing comments, while the parser does.
+                    entry = map.firstEntry();
+                } else {
+                    return List.of();
+                }
+            }
             Source s = entry.getKey();
             boolean accept = s.beginLine() == source.beginLine() && s.beginPos() == source.beginPos();
             return accept ? entry.getValue() : List.of();
@@ -112,18 +120,15 @@ public final class SourceCodeScan {
             addComments(id, false);
             keywords.put(source(id.getFirst()), id.getFirst().toString());
         }
-        Source classSource = null;
-
         for (Node node : cu) {
             if (node instanceof TypeDeclaration td && !(node instanceof EmptyDeclaration)) {
                 scanTypeDeclaration(td);
-                classSource = source(td);
             }
         }
 
         Node lastChild = cu.getLastChild();
-        if (lastChild != null && lastChild.getType().isEOF() && classSource != null) {
-            addTrailingComments(classSource, lastChild);
+        if (lastChild != null && lastChild.getType().isEOF()) {
+            addTrailingComments(source(cu), lastChild);
         }
     }
 
@@ -319,17 +324,25 @@ public final class SourceCodeScan {
                                      && c.source().beginLine() == source.endLine())
                         .filter(c -> seen.add(c.source()))
                         .toList();
-                if (!comments.isEmpty()) this.comments.put(source, comments);
+                if (!comments.isEmpty()) {
+                    List<Comment> prev = this.comments.put(source, comments);
+                    assert prev == null;
+                }
             }
         }
         List<Comment> comments = comments(node).filter(c -> seen.add(c.source())).toList();
-        if (!comments.isEmpty()) this.comments.put(source, comments);
+        if (!comments.isEmpty()) {
+            this.comments.merge(source, comments,
+                    // note the order: the current one is the lookahead, it must come last
+                    (c1, c2) -> Stream.concat(c2.stream(), c1.stream()).toList());
+        }
     }
 
     private void addTrailingComments(Source sourceOwner, Node lastChild) {
         List<Comment> trailingComments = comments(lastChild).filter(c -> seen.add(c.source())).toList();
         if (!trailingComments.isEmpty()) {
-            this.trailingComments.put(sourceOwner, trailingComments);
+            List<Comment> prev = this.trailingComments.put(sourceOwner, trailingComments);
+            assert prev == null;
         }
     }
 

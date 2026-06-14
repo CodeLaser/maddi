@@ -145,11 +145,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder.addRequires(source.withDetailedSources(dsb.build()), comments,
                         moduleName, rd.isStatic(), rd.isTransitive());
             }
-
-            case JCTree.JCExports ed -> {
-                builder.addExports(source, comments, ed.getPackageName().toString(),
-                        ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString());
-            }
+            case JCTree.JCExports ed -> builder.addExports(source, comments, ed.getPackageName().toString(),
+                    ed.moduleNames == null ? null : ed.moduleNames.getFirst().toString());
             case JCTree.JCOpens od -> {
                 String packageName = od.getPackageName().toString();
                 dsb.put(packageName, scanResult.find(packageName, scanSource(od.getPackageName())));
@@ -159,13 +156,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
                 builder.addOpens(source.withDetailedSources(dsb.build()), comments, packageName, moduleName);
             }
-            case JCTree.JCProvides p -> {
-                builder.addProvides(source, comments, p.getServiceName().toString(),
-                        p.implNames == null ? null : p.implNames.getFirst().toString());
-            }
-            case JCTree.JCUses u -> {
-                builder.addUses(source, comments, u.getServiceName().toString());
-            }
+            case JCTree.JCProvides p -> builder.addProvides(source, comments, p.getServiceName().toString(),
+                    p.implNames == null ? null : p.implNames.getFirst().toString());
+            case JCTree.JCUses u -> builder.addUses(source, comments, u.getServiceName().toString());
             case null, default -> throw new UnsupportedOperationException();
         }
     }
@@ -178,6 +171,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 ImportStatement is = parseImportStatement(importTree);
                 compilationUnitBuilder.addImportStatement(is);
             }
+            Source source = sourceForNode(node);
+            compilationUnitBuilder.setSource(source)
+                    .addComments(commentsForNode(source))
+                    .addTrailingComments(trailingCommentsForNode(source));
             compilationUnit = compilationUnitBuilder.build();
 
             // now we have one built
@@ -192,7 +189,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .addAnnotations(annotations)
                         .setParentClass(runtime.objectParameterizedType())
                         .setAccess(runtime.accessPublic())
-                        .setSource(sourceForNode(node));
+                        .setSource(source);
                 // don't commit yet
                 collectedPrimaryTypes.add(pkgInfoType);
             } else {
@@ -2165,9 +2162,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 currentMethod = null;
                 typeStack.addLast(anonymousType);
                 for (JCTree member : anonBody.defs) {
-                    if (member instanceof JCTree.JCMethodDecl md && "<init>".equals(md.name.toString())) {
-                        // ignore default constructor
-                    } else if (member instanceof JCTree.JCBlock jcBlock) {
+                    if (member instanceof JCTree.JCBlock jcBlock) {
                         // {{ }} extended constructor
                         MethodInfo c2 = runtime.newConstructor(anonymousType);
                         c2.builder().setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor())
@@ -2178,9 +2173,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         Block block = parseBlock("-", jcBlock);
                         c2.builder().setMethodBody(block);
                         builder.addConstructor(c2);
-                    } else {
+                    } else if (!(member instanceof JCTree.JCMethodDecl md && "<init>".equals(md.name.toString()))) {
                         scan(member, unused);
-                    }
+                    } // else: ignore default constructor
                 }
                 typeStack.removeLast();
                 currentMethod = enclosingMethod;
@@ -2369,9 +2364,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 operator = runtime.assignMinusOperatorInt();
                 assign = true;
             }
-            default -> {
-                throw new UnsupportedOperationException();
-            }
+            default -> throw new UnsupportedOperationException();
         }
         if (assign) {
             boolean isPlus = opcode == JCTree.Tag.PREINC || opcode == JCTree.Tag.POSTINC;
