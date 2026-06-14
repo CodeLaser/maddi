@@ -31,7 +31,6 @@ public record ResolveJavaDoc(TypeData typeData) {
                     return tag.withResolvedReference(resolvedReference);
                 }
                 return tag;
-
             }
             Info resolvedReference = resolveReference(currentType, tag.content());
             if (resolvedReference != null) {
@@ -76,7 +75,15 @@ public record ResolveJavaDoc(TypeData typeData) {
         int paren = memberSig.indexOf('(');
         if (paren < 0) {
             // Field reference — "D#field"
-            return type.getFieldByName(memberSig, false);
+            FieldInfo fi = type.getFieldByName(memberSig, false);
+            if (fi == null) {
+                // try method, but only accept when the name is unique in the type
+                List<MethodInfo> methods = type.methods().stream()
+                        .filter(m -> memberSig.equals(m.name())).toList();
+                if (methods.size() == 1) return methods.getFirst();
+                return null;
+            }
+            return fi;
         }
         // Method reference — "D#a()" or "D#a(String, int)"
         String methodName = memberSig.substring(0, paren);
