@@ -455,7 +455,6 @@ public class TestFieldAccess extends CommonTest {
             }
             """;
 
-    // NOTE: there is code in ParseFieldDeclaration for exactly
     @Test
     public void test11() {
         TypeInfo typeInfo = scan("a.b.B", INPUT11);
