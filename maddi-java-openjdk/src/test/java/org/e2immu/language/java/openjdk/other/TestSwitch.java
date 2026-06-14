@@ -319,6 +319,7 @@ public class TestSwitch extends CommonTest {
                     switch(o) {
                         case String b:
                             System.out.println("It's a string");
+                        default:
                     }
                 }
             }

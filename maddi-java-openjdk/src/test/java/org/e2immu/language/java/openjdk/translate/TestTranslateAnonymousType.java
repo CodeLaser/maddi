@@ -29,11 +29,15 @@ import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.FileVisitResult;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestTranslateAnonymousType extends CommonTest {
+
+    public TestTranslateAnonymousType() {
+        super(List.of("java.base::java.nio.file"));
+    }
 
     @Language("java")
     public static final String INPUT1 = """

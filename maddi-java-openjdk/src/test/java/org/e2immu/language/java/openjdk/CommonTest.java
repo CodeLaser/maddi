@@ -39,12 +39,18 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class CommonTest {
 
     protected final Runtime runtime;
+    protected final List<String> preload;
     protected JavacTask javacTask;
     protected SourceSet sourceSet;
     protected ClassSymbolScanner classSymbolScanner;
     protected Map<String, Info> previouslyLoaded = new HashMap<>();
 
     public CommonTest() {
+        this(List.of());
+    }
+
+    public CommonTest(List<String> preload) {
+        this.preload = preload;
         this.runtime = new RuntimeImpl();
     }
 
@@ -89,7 +95,8 @@ public class CommonTest {
                     .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter, assertJ, lombok)
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                    javacTask, sourceSet, previouslyLoaded, true, diagnostics, List.of());
+                    javacTask, sourceSet, previouslyLoaded, true, diagnostics,
+                    preload);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
         } catch (IOException | URISyntaxException io) {
