@@ -16,7 +16,6 @@ package org.e2immu.language.java.openjdk.other;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Assignment;
 import org.e2immu.language.cst.api.expression.BinaryOperator;
 import org.e2immu.language.cst.api.expression.VariableExpression;
@@ -286,7 +285,7 @@ public class TestFieldAccess extends CommonTest {
         FieldInfo s = X.getFieldByName("s", true);
         assertEquals("s", s.name());
         assertEquals("4-9:4-24", s.source().detailedSources().detail(DetailedSources.FIELD_DECLARATION).compact2());
-        assertEquals("4-16:4-16", s.source().compact2());
+        assertEquals("4-16:4-23", s.source().compact2());
         assertEquals("4-16:4-16", s.source().detailedSources().detail(s.name()).compact2());
         assertEquals("4-9:4-14", s.source().detailedSources().detail(s.type()).compact2());
 
@@ -380,12 +379,15 @@ public class TestFieldAccess extends CommonTest {
 
         FieldInfo stringList = typeInfo.fields().get(0);
         assertEquals("Type java.util.List<String>", stringList.type().toString());
+
         FieldInfo intList1 = typeInfo.fields().get(1);
         assertEquals("Type java.util.List<Integer>", intList1.type().toString());
         assertEquals("List.of()", intList1.initializer().toString());
+
         FieldInfo intList2 = typeInfo.fields().get(2);
         assertEquals("Type java.util.List<Integer>", intList2.type().toString());
         assertTrue(intList2.initializer().isEmpty());
+
         FieldInfo intList3 = typeInfo.fields().get(3);
         assertEquals("Type java.util.List<Integer>", intList2.type().toString());
         assertEquals("null", intList3.initializer().toString());
@@ -402,7 +404,7 @@ public class TestFieldAccess extends CommonTest {
             package a.b;
             class B {
                 // max with comment
-                final static int MAX = 3;
+                final static int MAX = 3, MIN = 2;
                 public boolean m(int j) {
                   return B.MAX < j;
                 }
@@ -414,9 +416,20 @@ public class TestFieldAccess extends CommonTest {
         TypeInfo typeInfo = scan("a.b.B", INPUT10);
         assertEquals("B", typeInfo.simpleName());
         FieldInfo max = typeInfo.getFieldByName("MAX", true);
+        FieldInfo min = typeInfo.getFieldByName("MIN", true);
+
         assertEquals("4-22:4-28", max.source().compact2()); // MAX = 3
-        Source declarationWithout = max.source().detailedSources().detail(DetailedSources.FIELD_DECLARATION);
-        assertEquals("3-5:4-29", declarationWithout.compact2());
+        assertEquals("4-31:4-37", min.source().compact2()); // MIN = 2
+
+        DetailedSources maxDs = max.source().detailedSources();
+        assertEquals("4-22:4-24", maxDs.detail(max.name()).compact2());
+        // NOTE difference with maddi implementation: comment is not included in FIELD_DECLARATION
+        // NOTE difference with maddi implementation: first field = FIELD_DECLARATION up to first...
+        assertEquals("4-5:4-29", maxDs.detail(DetailedSources.FIELD_DECLARATION).compact2());
+
+        DetailedSources minDs = min.source().detailedSources();
+        assertEquals("4-31:4-33", minDs.detail(min.name()).compact2());
+        assertEquals("4-5:4-38", minDs.detail(DetailedSources.FIELD_DECLARATION).compact2());
 
         Statement s0 = typeInfo.findUniqueMethod("m", 1).methodBody().statements().getFirst();
         if (s0.expression() instanceof BinaryOperator bo) {
@@ -442,6 +455,7 @@ public class TestFieldAccess extends CommonTest {
             }
             """;
 
+    // NOTE: there is code in ParseFieldDeclaration for exactly
     @Test
     public void test11() {
         TypeInfo typeInfo = scan("a.b.B", INPUT11);
