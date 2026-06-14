@@ -69,6 +69,7 @@ public class TestJavaDoc2 extends CommonTest {
             TypeInfo B = pr1.get("b.B");
             JavaDoc.Tag tag = B.javaDoc().tags().getFirst();
             assertEquals("a.A", tag.resolvedReference().toString());
+            assertEquals("4-15:4-17", tag.sourceOfReference().compact2());
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);
             assertEquals("4-15:4-17", detailedSources.detail(tag.resolvedReference()).compact2());
@@ -79,6 +80,8 @@ public class TestJavaDoc2 extends CommonTest {
             TypeInfo B2 = pr1.get("b.B2");
             JavaDoc.Tag tag = B2.javaDoc().tags().getFirst();
             assertEquals("a.A", tag.resolvedReference().toString());
+            assertEquals("4-20:4-22", tag.sourceOfReference().compact2());
+
             DetailedSources detailedSources = tag.source().detailedSources();
             assertNotNull(detailedSources);
             assertEquals("4-20:4-22", detailedSources.detail(tag.resolvedReference()).compact2());
@@ -132,11 +135,16 @@ public class TestJavaDoc2 extends CommonTest {
             assertEquals("T=TP#0 in A.m", tag.resolvedReference().toString());
         }
         {
+            TypeInfo B = pr1.get("b.B");
+            assertEquals("[b.B[I]]", B.typesReferenced(null).toList().toString());
+        }
+        {
             TypeInfo A4 = pr1.get("a.A4");
+            // the 3rd one should be an implicit one from the #m reference
             assertEquals("[void[E], b.B[E], a.A4[I]]", A4.typesReferenced(null).toList().toString());
             JavaDoc.Tag tag = A4.javaDoc().tags().getFirst();
-            assertEquals("[a.A4[I]]", A4.javaDoc().typesReferenced(null).toList().toString());
             assertEquals("a.A4.m(b.B)", tag.resolvedReference().toString());
+            assertEquals("[a.A4[I]]", A4.javaDoc().typesReferenced(null).toList().toString());
         }
     }
 }
