@@ -168,7 +168,7 @@ public class TestTypeParameter extends CommonTest {
                 			F extends ZC,
                 			Y extends ZD,
                 			H extends ZE>
-                	extends ZH<E, A, R, F, Y, H> {
+                	implements ZH<E, A, R, F, Y, H> {
                 }
             }
             """;
@@ -203,7 +203,7 @@ public class TestTypeParameter extends CommonTest {
     @Test
     public void test5() {
         // ignore errors, because @Container is not applicable to types
-        TypeInfo typeInfo = scan(true,"a.b.X", INPUT5).get("a.b.X");
+        TypeInfo typeInfo = scan(true, "a.b.X", INPUT5).get("a.b.X");
         TypeInfo clazz = typeInfo.findSubType("Class$");
         TypeParameter tp = clazz.typeParameters().getFirst();
         assertTrue(tp.hasBeenInspected());
@@ -225,7 +225,8 @@ public class TestTypeParameter extends CommonTest {
 
     @Test
     public void test5b() {
-        TypeInfo typeInfo = scan("a.b.X", INPUT5b);
+        // ignore errors because @Container is not allowed as type parameter annotation
+        TypeInfo typeInfo = scan(true, "a.b.X", INPUT5b).get("a.b.X");
         TypeInfo clazz = typeInfo.findSubType("Class$");
         TypeParameter tp = clazz.typeParameters().getFirst();
         assertTrue(tp.hasBeenInspected());
@@ -236,19 +237,20 @@ public class TestTypeParameter extends CommonTest {
     @Language("java")
     public static final String INPUT6 = """
             package a.b;
-            import org.springframework.lang.Nullable;
+            import org.jetbrains.annotations.Nullable;
             import java.util.AbstractMap;
             import java.util.concurrent.ConcurrentMap;
             import java.util.concurrent.locks.ReentrantLock;
             class X {
-                static class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K, V> {
+                static abstract class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V>
+                                                                       implements ConcurrentMap<K, V> {
                     protected final class Segment extends ReentrantLock {
                         public <T> @Nullable T doTask(final int hash, final @Nullable Object key, final Task<T> task) {
-            
+                            return null;
                         }
                     }
             
-                    private abstract class Task<T> {
+                    public class Task<T> {
                         // not really relevant for this test
                     }
                 }

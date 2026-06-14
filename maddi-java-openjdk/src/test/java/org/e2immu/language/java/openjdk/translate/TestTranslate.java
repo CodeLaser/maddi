@@ -19,8 +19,6 @@ import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.lang.invoke.TypeDescriptor;
-
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestTranslate extends CommonTest {
@@ -28,13 +26,17 @@ public class TestTranslate extends CommonTest {
     @Language("java")
     public static final String INPUT1 = """
             package a.b;
-            import org.springframework.core.convert.ConversionService;
+            import org.jetbrains.annotations.Nullable;
             import java.util.HashMap;
             import java.util.Map;
-
+            import java.lang.invoke.TypeDescriptor;
             import static org.assertj.core.api.Assertions.assertThat;
 
             class X {
+                interface ConversionService {
+                     boolean canConvert(@Nullable TypeDescriptor sourceType, TypeDescriptor targetType);
+                     Object convert(@Nullable Object source, TypeDescriptor targetType);
+                 }
                 // know that: Class implements TypeDescriptor.OfField which extends java.lang.invoke.TypeDescriptor
                 // boolean canConvert(@Nullable TypeDescriptor sourceType, TypeDescriptor targetType);
                 // Object convert(@Nullable Object source, TypeDescriptor targetType);
@@ -51,7 +53,7 @@ public class TestTranslate extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = scan("a.b.X", INPUT1);
+        scan("a.b.X", INPUT1);
         // Original: javaInspector.compiledTypesManager().getOrLoad(Class.class) / getOrLoad(TypeDescriptor.class)
         // — loads types from compiled bytecode. Replaced with classSymbolScanner.getType(), which retrieves
         // types that javac resolved during the preceding scan call. Works here because scanning INPUT1

@@ -72,7 +72,7 @@ public class TestParseResult extends CommonTest {
                         int j();
                     }
                 }
-                static class X {
+                static class Z {
                     interface R {
                         int j();
                     }
@@ -80,6 +80,7 @@ public class TestParseResult extends CommonTest {
             }
             """;
 
+    // NOTE: nested class X -> Z. Maddi parser allows X.X, javac does not
     @DisplayName("findMostLikelyType, partial name")
     @Test
     public void test2() {
@@ -88,13 +89,13 @@ public class TestParseResult extends CommonTest {
         assertEquals(3, parseResult.findMostLikelyType(".r").size());
         assertEquals(3, parseResult.findMostLikelyType("r.").size());
 
-        assertEquals(2, parseResult.findMostLikelyType("X.r").size());
-        assertEquals("a.b.X.R,a.b.X.X.R", parseResult.findMostLikelyType("X.r")
+        assertEquals(1, parseResult.findMostLikelyType("X.r").size());
+        assertEquals("a.b.X.R", parseResult.findMostLikelyType("X.r")
                 .stream().map(TypeInfo::fullyQualifiedName).sorted().collect(Collectors.joining(",")));
 
-        assertEquals("a.b.X.X.R.j(),a.b.X.Y.R.j()", parseResult.findMostLikelyMethod("j")
+        assertEquals("a.b.X.Y.R.j(),a.b.X.Z.R.j()", parseResult.findMostLikelyMethod("j")
                 .stream().map(MethodInfo::fullyQualifiedName).sorted().collect(Collectors.joining(",")));
-        assertEquals("a.b.X.X.R.j(),a.b.X.Y.R.j()", parseResult.findMostLikelyMethod("r.j")
+        assertEquals("a.b.X.Y.R.j(),a.b.X.Z.R.j()", parseResult.findMostLikelyMethod("r.j")
                 .stream().map(MethodInfo::fullyQualifiedName).sorted().collect(Collectors.joining(",")));
         assertEquals("a.b.X.Y.R.j()", parseResult.findMostLikelyMethod("Y.R.j")
                 .stream().map(MethodInfo::fullyQualifiedName).sorted().collect(Collectors.joining(",")));
@@ -109,13 +110,13 @@ public class TestParseResult extends CommonTest {
     private static final String A_B_X_3 = """
             package a.b;
             abstract class X {
-                void method(int i);
-                void method(float i);
+                abstract void method(int i);
+                abstract void method(float i);
                 interface Y {
                     void method(int i);
                     void method(int i, char c);
                 }
-                void methodWithObject(Object o);
+                abstract void methodWithObject(Object o);
             }
             """;
 

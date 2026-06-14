@@ -29,6 +29,7 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -104,6 +105,9 @@ public class ScanCompilationUnits {
             indexJavaLangForJavaDocParsing();
             for (String modulePackage : packagesToPreload) {
                 int sep = modulePackage.indexOf("::");
+                if (sep < 0) {
+                    throw new UnsupportedEncodingException("Format of preload not correct? java.base::java.lang.invoke");
+                }
                 String module = modulePackage.substring(0, sep);
                 String packageName = modulePackage.substring(sep + 2);
                 preload(module, packageName);
@@ -264,9 +268,14 @@ public class ScanCompilationUnits {
             if (te instanceof Symbol.ClassSymbol cs) {
                 try {
                     cs.complete();
-                    if (cs.owner instanceof Symbol.PackageSymbol && null == classSymbolScanner.getType(binaryName)) {
-                        TypeInfo pt = classSymbolScanner.primaryType(cs);
-                        classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
+                    if (cs.owner instanceof Symbol.PackageSymbol) {
+                        TypeInfo pt = classSymbolScanner.getType(binaryName);
+                        if (pt == null) {
+                            pt = classSymbolScanner.primaryType(cs);
+                            classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
+                        } else {
+                            classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.COMPLETE);
+                        }
                     }
                 } catch (Symbol.CompletionFailure e) {
                     // ignore
