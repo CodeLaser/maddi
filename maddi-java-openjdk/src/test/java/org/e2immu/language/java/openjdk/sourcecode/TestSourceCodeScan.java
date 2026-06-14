@@ -263,9 +263,10 @@ public class TestSourceCodeScan {
         SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
         SourceCodeScan.Result r = sourceCodeScan.go(INPUT4, false);
         Iterator<Map.Entry<Source, List<Comment>>> cIterator = r.comments().entrySet().iterator();
-        testComment(cIterator, "4-5:4-12", "comment for min");
+        testComment(cIterator, "3-5:3-12", "comment for min");
+        testComment(cIterator, "4-5:4-12", "comment for max");
 
         Iterator<Map.Entry<Source, List<Comment>>> tcIterator = r.trailingComments().entrySet().iterator();
-        testComment(tcIterator, "2-1:5-1", "comment for max");
+        assertFalse(tcIterator.hasNext());
     }
 }
