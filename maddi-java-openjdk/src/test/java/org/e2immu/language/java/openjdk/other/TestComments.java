@@ -40,10 +40,14 @@ public class TestComments extends CommonTest {
             // comment before import
             import java.util.List;
             /* comment after import */
-
+            
             public class X {
                 void method(List<String> list) {
                     // nothing here
+                }
+                void method2(List<String> list) {
+                    System.out.println(list);
+                    // nothing here neither
                 }
                 // at end of class
             }
@@ -69,8 +73,13 @@ public class TestComments extends CommonTest {
         MethodInfo method = typeInfo.findUniqueMethod("method", 1);
         assertEquals(" nothing here", method.methodBody().trailingComments().getFirst().comment());
 
+        MethodInfo method2 = typeInfo.findUniqueMethod("method2", 1);
+        assertEquals(" nothing here neither", method2.methodBody().trailingComments().getFirst().comment());
+
         assertEquals(" at end of class", typeInfo.trailingComments().getFirst().comment());
+
         assertEquals(" at end of CU", typeInfo.compilationUnit().trailingComments().getFirst().comment());
+        assertEquals(" there are two comments ", typeInfo.compilationUnit().trailingComments().getLast().comment());
     }
 
     @Language("java")
@@ -79,7 +88,7 @@ public class TestComments extends CommonTest {
             // comment\tbefore import
             import java.util.List;
             /* a comment\tafter import */
-
+            
             public class X {
                 void methodWithComments(List<String> list) {
                     // comment pre-block

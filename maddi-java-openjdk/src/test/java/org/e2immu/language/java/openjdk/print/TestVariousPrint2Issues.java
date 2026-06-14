@@ -17,11 +17,12 @@ public class TestVariousPrint2Issues extends CommonTest {
 
     @Language("java")
     private static final String INPUT1 = """
+            import java.io.PrintWriter;
             public class ExceptionHolder_t {
                 private Exception exception;
                 private void getExceptionStackBody() {
                     System.out.println("this is a prettly long line");
-                    getException().printStackTrace(null);
+                    getException().printStackTrace((PrintWriter)null);
                 }
                 public Exception getException() { return this.exception; }
             }

@@ -29,7 +29,8 @@ public record FlagHelper(Runtime runtime) {
         if ((flags & Flags.STATIC) != 0) builder.addMethodModifier(runtime.methodModifierStatic());
         if ((flags & Flags.ABSTRACT) != 0) builder.addMethodModifier(runtime.methodModifierAbstract());
         if ((flags & Flags.DEFAULT) != 0) builder.addMethodModifier(runtime.methodModifierDefault());
-
+        if ((flags & Flags.NATIVE) != 0) builder.addMethodModifier(runtime.methodModifierNative());
+        
         boolean isSynthetic = (flags & Flags.SYNTHETIC) != 0;
         boolean isBridge = (flags & Flags.BRIDGE) != 0;
         boolean isGeneratedConstructor = (flags & Flags.GENERATEDCONSTR) != 0;
