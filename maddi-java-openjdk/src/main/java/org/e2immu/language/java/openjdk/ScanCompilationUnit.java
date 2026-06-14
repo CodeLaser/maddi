@@ -1266,13 +1266,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
 
             // source, source of name
-            Source source = sourceForNode(variableDecl, dsb); // declaration!
-            String s = variableDecl.toString();
-            Source nameSource = source.ofIndex(s, s.indexOf(name), name.length());
+            Source vdSource = sourceForNode(variableDecl); // declaration, but only of one field
+            Source nameSource = sourceOfIdentifier(name, variableDecl.pos);
             dsb.put(name, nameSource);
+            Source nameAndInitSource;
+            if (variableDecl.init != null) {
+                Source s = sourceForNode(variableDecl.init);
+                nameAndInitSource = nameSource.max(s);
+            } else {
+                nameAndInitSource = nameSource;
+            }
+            dsb.put(DetailedSources.FIELD_DECLARATION, vdSource);
 
             fieldInfo.builder()
-                    .setSource(source.withDetailedSources(dsb.build()))
+                    .addComments(commentsForNode(vdSource))
+                    .setSource(nameAndInitSource.withDetailedSources(dsb.build()))
                     .setInitializer(initializer)
                     .computeAccess()
                     .commit();
@@ -2388,7 +2396,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private Source sourceOfIdentifier(String identifier, int pos) {
         long line = lineMap.getLineNumber(pos);
         long begin = lineMap.getColumnNumber(pos);
-        return runtime.newParserSource(null, (int) line, (int) begin, (int) line,
+        return runtime.newParserSource("-", (int) line, (int) begin, (int) line,
                 (int) (begin + identifier.length() - 1));
     }
 
@@ -2408,7 +2416,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private Source statementSourceForNode(Tree node, DetailedSources.Builder dsb) {
         return sourceForNode(node, statementIndex()).withDetailedSources(dsb.build());
     }
-
 
     private Source scanSource(Tree tree) {
         return sourceForNode(tree, "");

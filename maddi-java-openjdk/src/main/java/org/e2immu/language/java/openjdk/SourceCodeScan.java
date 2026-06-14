@@ -2,12 +2,9 @@ package org.e2immu.language.java.openjdk;
 
 import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.element.Source;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.api.parser.Context;
-import org.e2immu.parser.java.util.JavaDocParser;
+import org.jetbrains.annotations.Nullable;
 import org.parsers.java.JavaParser;
 import org.parsers.java.Node;
 import org.parsers.java.Token;
@@ -18,13 +15,13 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.function.Predicate;
 
-public record SourceCodeScan(Runtime runtime) {
+public final class SourceCodeScan {
     private static final Logger LOGGER = LoggerFactory.getLogger(SourceCodeScan.class);
+    private final Runtime runtime;
 
-    public static Result EMPTY_RESULT = new Result(Collections.unmodifiableNavigableMap(new TreeMap<>()),
-            Collections.unmodifiableNavigableMap(new TreeMap<>()),
-            Collections.unmodifiableNavigableMap(new TreeMap<>()),
-            Collections.unmodifiableNavigableMap(new TreeMap<>()));
+    public SourceCodeScan(Runtime runtime) {
+        this.runtime = runtime;
+    }
 
     public record Result(NavigableMap<Source, List<Comment>> comments,
                          NavigableMap<Source, List<Comment>> trailingComments,
@@ -103,19 +100,30 @@ public record SourceCodeScan(Runtime runtime) {
                 Collections.unmodifiableNavigableMap(argumentLists));
     }
 
+    private void addComments(Result result, Node node) {
+        List<Comment> comments = comments(node);
+        if (!comments.isEmpty()) {
+            result.comments.put(source(node), comments);
+        }
+    }
+
+    private void addTrailingComments(Result result, Source sourceOwner, Node lastChild) {
+        List<Comment> trailingComments = comments(lastChild);
+        if (!trailingComments.isEmpty()) {
+            result.trailingComments.put(sourceOwner, trailingComments);
+        }
+    }
+
     private void handleCompilationUnit(JavaParser p, Result result) {
         CompilationUnit cu = p.CompilationUnit();
         PackageDeclaration packageDeclaration = cu.getPackageDeclaration();
         if (packageDeclaration != null) {
-            List<Comment> pkgDeclarationComments = comments(packageDeclaration);
-            if (!pkgDeclarationComments.isEmpty())
-                result.comments.put(source(packageDeclaration), pkgDeclarationComments);
+            addComments(result, packageDeclaration);
             Node pkgDeclaration0 = packageDeclaration.getFirst();
             result.keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
         }
         for (ImportDeclaration id : cu.childrenOfType(ImportDeclaration.class)) {
-            List<Comment> importComments = comments(id);
-            if (!importComments.isEmpty()) result.comments.put(source(id), importComments);
+            addComments(result, id);
             result.keywords.put(source(id.getFirst()), id.getFirst().toString());
         }
         Source classSource = null;
@@ -129,16 +137,12 @@ public record SourceCodeScan(Runtime runtime) {
 
         Node lastChild = cu.getLastChild();
         if (lastChild != null && lastChild.getType().isEOF() && classSource != null) {
-            List<Comment> trailingClassComments = comments(lastChild);
-            if (!trailingClassComments.isEmpty()) {
-                result.trailingComments.put(classSource, trailingClassComments);
-            }
+            addTrailingComments(result, classSource, lastChild);
         }
     }
 
     private void scanModuleDirective(Node md, Result result) {
-        List<Comment> importComments = comments(md);
-        if (!importComments.isEmpty()) result.comments.put(source(md), importComments);
+        addComments(result, md);
         for (Node node : md) {
             switch (node) {
                 case KeyWord _, Name _ -> result.keywords.put(source(node), node.getSource());
@@ -157,8 +161,7 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     private void scanTypeDeclaration(TypeDeclaration td, Result result) {
-        List<Comment> classComments = comments(td);
-        if (!classComments.isEmpty()) result.comments.put(source(td), classComments);
+        addComments(result, td);
 
         for (Node node : td.children()) {
             String string = node.getSource();
@@ -177,27 +180,25 @@ public record SourceCodeScan(Runtime runtime) {
                         case TypeDeclaration sub -> scanTypeDeclaration(sub, result);
                         case ConstructorDeclaration cd -> scanMethodDeclaration(cd, result);
                         case MethodDeclaration md -> scanMethodDeclaration(md, result);
+                        case FieldDeclaration fd -> scanFieldDeclaration(fd, result);
                         default -> {
                         }
                     }
+                }
+                Node lastChild = node.getLastChild();
+                if (lastChild != null) {
+                    addTrailingComments(result, source(td), lastChild);
                 }
             }
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private static void mergeList(Map<Object, Object> map, Object key, Object element) {
-        List<Object> list = (List<Object>) map.get(key);
-        if (list == null) {
-            list = new ArrayList<>();
-            map.put(key, list);
-        }
-        list.add(element);
+    private void scanFieldDeclaration(Node fd, Result result) {
+        addComments(result, fd);
     }
 
     private void scanMethodDeclaration(Node md, Result result) {
-        List<Comment> methodComments = comments(md);
-        if (!methodComments.isEmpty()) result.comments.put(source(md), methodComments);
+        addComments(result, md);
         for (Node node : md.children()) {
             String string = node.getSource();
             LOGGER.debug("In MD: {}: {}", node.getClass(), limit(string));
@@ -206,8 +207,7 @@ public record SourceCodeScan(Runtime runtime) {
                 case FormalParameters fps -> {
                     for (Node param : fps.children()) {
                         if (param instanceof FormalParameter fp) {
-                            List<Comment> fpComments = comments(fp);
-                            if (!fpComments.isEmpty()) result.comments.put(source(fp), fpComments);
+                            addComments(result, fp);
 
                             Map<Object, Object> commaMap = new HashMap<>();
                             Node preceding = param.previousSibling();
@@ -243,15 +243,9 @@ public record SourceCodeScan(Runtime runtime) {
         LOGGER.debug("Scan {}: {}", cb.getClass(), limit(cb.getSource()));
         visit(cb, child -> {
             if (child instanceof Statement st) {
-                List<Comment> statementComments = comments(st);
-                if (!statementComments.isEmpty()) {
-                    result.comments.put(source(st), statementComments);
-                }
-                if (st instanceof CodeBlock sub) {
-                    List<Comment> trailing = comments(sub.getLastChild());
-                    if (!trailing.isEmpty()) {
-                        result.trailingComments.put(source(sub), trailing);
-                    }
+                addComments(result, st);
+                if (st instanceof CodeBlock sub && !sub.isEmpty()) {
+                    addTrailingComments(result, source(sub), sub.getLastChild());
                 }
             }
             if (child instanceof TypeDeclaration td) {
@@ -293,6 +287,17 @@ public record SourceCodeScan(Runtime runtime) {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static void mergeList(Map<Object, Object> map, Object key, Object element) {
+        List<Object> list = (List<Object>) map.get(key);
+        if (list == null) {
+            list = new ArrayList<>();
+            map.put(key, list);
+        }
+        list.add(element);
+    }
+
+
     private void visit(Node node, Predicate<Node> test) {
         if (test.test(node)) {
             for (Node child : node.children()) {
@@ -302,48 +307,35 @@ public record SourceCodeScan(Runtime runtime) {
     }
 
     /*
+    This is the only provider of Comment objects. All visitors must use this method.
+
     Note: we're not using Node.getAllTokens(), because that method recurses down unconditionally
      */
     public List<Comment> comments(Node node) {
-        return comments(node, null, null, null);
-    }
-
-    public List<Comment> comments(Node node, Context context, Info info, Info.Builder<?> infoBuilder) {
         Node.TerminalNode tn = firstTerminal(node);
         if (tn != null) {
             return tn.precedingUnparsedTokens().stream()
-                    .map(t -> {
-                        if (t instanceof SingleLineComment slc) {
-                            return runtime.newSingleLineComment(source(slc), slc.getSource());
-                        }
-                        if (t instanceof MultiLineComment multiLineComment) {
-                            if (multiLineComment.getSource().startsWith("/**")) {
-                                return null; // we'll handle these as part of ScanCompilationUnit
-                            }
-                            boolean addNewline = true; // FIXME
-                            return runtime.newMultilineComment(source(multiLineComment), multiLineComment.getSource(),
-                                    addNewline);
-                        }
-                        return null;
-                    })
+                    .map(this::commentsFromTerminal)
                     .filter(Objects::nonNull)
                     .toList();
         }
         return List.of();
     }
 
-    private Comment parseJavaDoc(MultiLineComment multiLineComment,
-                                 Source source,
-                                 Context context,
-                                 Info info,
-                                 Info.Builder<?> infoBuilder) {
-        JavaDoc javaDoc = new JavaDocParser(runtime).extractTags(multiLineComment.getSource(), source);
-        if (context != null) {
-            context.resolver().addJavadoc(info, infoBuilder, context, javaDoc);
+    private @Nullable Comment commentsFromTerminal(Node.TerminalNode t) {
+        if (t instanceof SingleLineComment slc) {
+            return runtime.newSingleLineComment(source(slc), slc.getSource());
         }
-        return javaDoc;
+        if (t instanceof MultiLineComment multiLineComment) {
+            if (multiLineComment.getSource().startsWith("/**")) {
+                return null;
+            }
+            boolean addNewline = true; // FIXME
+            return runtime.newMultilineComment(source(multiLineComment), multiLineComment.getSource(),
+                    addNewline);
+        }
+        return null;
     }
-
 
     private Node.TerminalNode firstTerminal(Node node) {
         if (node instanceof Node.TerminalNode tn) return tn;
@@ -386,5 +378,29 @@ public record SourceCodeScan(Runtime runtime) {
         return runtime.newParserSource("", s.getBeginLine(), s.getBeginColumn(),
                 e.getEndLine(), e.getEndColumn());
     }
+
+    public Runtime runtime() {
+        return runtime;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) return true;
+        if (obj == null || obj.getClass() != this.getClass()) return false;
+        var that = (SourceCodeScan) obj;
+        return Objects.equals(this.runtime, that.runtime);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(runtime);
+    }
+
+    @Override
+    public String toString() {
+        return "SourceCodeScan[" +
+               "runtime=" + runtime + ']';
+    }
+
 
 }
