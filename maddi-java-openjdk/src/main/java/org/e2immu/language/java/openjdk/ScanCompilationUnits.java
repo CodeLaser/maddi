@@ -43,7 +43,6 @@ public class ScanCompilationUnits {
     private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000);
 
     private final Runtime runtime;
-    private final SourceCodeScan sourceCodeScan;
     private final MaddiDiagnosticCollector diagnosticCollector;
     private final JavacTask task;
     private final SourceSet sourceSet;
@@ -75,7 +74,6 @@ public class ScanCompilationUnits {
         this.detailedSources = detailedSources;
         this.packagesToPreload = packagesToPreload;
 
-        sourceCodeScan = new SourceCodeScan(runtime);
         trees = Trees.instance(task);
         sourcePositions = trees.getSourcePositions();
         types = Types.instance(((BasicJavacTask) task).getContext());
@@ -112,30 +110,38 @@ public class ScanCompilationUnits {
             }
         }
 
-        int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
-        try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads);
-             ExecutorService task2Executor = Executors.newSingleThreadExecutor()) {
+        if (detailedSources) {
+            int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
+            try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads);
+                 ExecutorService task2Executor = Executors.newSingleThreadExecutor()) {
 
-            CompletableFuture<Void> previousTask2 = CompletableFuture.completedFuture(null);
-            AtomicInteger done = new AtomicInteger();
+                CompletableFuture<Void> previousTask2 = CompletableFuture.completedFuture(null);
+                AtomicInteger done = new AtomicInteger();
 
-            for (CompilationUnitTree unit : units) {
-                // Task 1 fires immediately, in parallel
-                CompletableFuture<SourceCodeScan.Result> task1 = CompletableFuture.supplyAsync(
-                        () -> doSourceCodeScan(unit), task1Executor);
+                for (CompilationUnitTree unit : units) {
+                    // Task 1 fires immediately, in parallel
+                    CompletableFuture<SourceCodeScan.Result> task1 = CompletableFuture.supplyAsync(
+                            () -> doSourceCodeScan(unit), task1Executor);
 
-                // Task 2 waits for: (a) this item's task 1 (the scanResult), AND (b) previous item's task 2 (sequence!)
-                previousTask2 = previousTask2.thenCombineAsync(task1, (_, scanResult) -> {
-                            singleCompilationUnit(unit, scanResult, primaryTypes, modules);
-                            return null; // Void
-                        }, task2Executor)
-                        .thenAccept(_ -> TIMED_LOGGER.info("Done {}", done.incrementAndGet()));
+                    // Task 2 waits for: (a) this item's task 1 (the scanResult), AND (b) previous item's task 2 (sequence!)
+                    previousTask2 = previousTask2.thenCombineAsync(task1, (_, scanResult) -> {
+                                singleCompilationUnit(unit, scanResult, primaryTypes, modules);
+                                return null; // Void
+                            }, task2Executor)
+                            .thenAccept(_ -> TIMED_LOGGER.info("Done {}", done.incrementAndGet()));
+                }
+
+                previousTask2.join(); // wait for everything to finish
+                LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
+                for (TypeInfo primaryType : primaryTypes) {
+                    scanJavaDocsAndCommit(primaryType);
+                }
             }
-
-            previousTask2.join(); // wait for everything to finish
-            LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
-            for (TypeInfo primaryType : primaryTypes) {
-                scanJavaDocsAndCommit(primaryType);
+        } else {
+            int done = 0;
+            for (CompilationUnitTree unit : units) {
+                singleCompilationUnit(unit, null, primaryTypes, modules);
+                TIMED_LOGGER.info("Done {}", ++done);
             }
         }
         return new Result(List.copyOf(primaryTypes), List.copyOf(modules));
@@ -145,7 +151,7 @@ public class ScanCompilationUnits {
         boolean isModule = unit.getModule() != null;
         try {
             CharSequence content = unit.getSourceFile().getCharContent(false);
-            return sourceCodeScan.go(content, isModule);
+            return new SourceCodeScan(runtime).go(content, isModule);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

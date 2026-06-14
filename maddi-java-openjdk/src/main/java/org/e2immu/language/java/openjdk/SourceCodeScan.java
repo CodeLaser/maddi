@@ -18,6 +18,11 @@ import java.util.function.Predicate;
 public final class SourceCodeScan {
     private static final Logger LOGGER = LoggerFactory.getLogger(SourceCodeScan.class);
     private final Runtime runtime;
+    private final Set<Source> seen = new HashSet<>();
+    private final NavigableMap<Source, List<Comment>> comments = new TreeMap<>();
+    private final NavigableMap<Source, List<Comment>> trailingComments = new TreeMap<>();
+    private final NavigableMap<Source, String> keywords = new TreeMap<>();
+    private final NavigableMap<Source, Map<Object, Object>> argumentLists = new TreeMap<>();
 
     public SourceCodeScan(Runtime runtime) {
         this.runtime = runtime;
@@ -70,12 +75,6 @@ public final class SourceCodeScan {
     }
 
     public Result go(CharSequence input, boolean isModule) {
-        NavigableMap<Source, List<Comment>> comments = new TreeMap<>();
-        NavigableMap<Source, List<Comment>> trailingComments = new TreeMap<>();
-        NavigableMap<Source, String> keywords = new TreeMap<>();
-        NavigableMap<Source, Map<Object, Object>> argumentLists = new TreeMap<>();
-        Result result = new Result(comments, trailingComments, keywords, argumentLists);
-
         JavaParser p = new JavaParser(input);
         p.setParserTolerant(false);
         if (isModule) {
@@ -85,14 +84,14 @@ public final class SourceCodeScan {
                 for (Node child : mcu.children()) {
                     switch (child) {
                         case RequiresDirective _, ExportsDirective _, OpensDirective _, UsesDirective _,
-                             ProvidesDirective _ -> scanModuleDirective(child, result);
+                             ProvidesDirective _ -> scanModuleDirective(child);
                         default -> {
                         }
                     }
                 }
             } else throw new UnsupportedOperationException("? expected module");
         } else {
-            handleCompilationUnit(p, result);
+            handleCompilationUnit(p);
         }
         return new Result(Collections.unmodifiableNavigableMap(comments),
                 Collections.unmodifiableNavigableMap(trailingComments),
@@ -100,56 +99,48 @@ public final class SourceCodeScan {
                 Collections.unmodifiableNavigableMap(argumentLists));
     }
 
-    private void addComments(Result result, Node node) {
-        List<Comment> comments = comments(node);
-        if (!comments.isEmpty()) {
-            result.comments.put(source(node), comments);
-        }
-    }
-
-    private void addTrailingComments(Result result, Source sourceOwner, Node lastChild) {
+    private void addTrailingComments(Source sourceOwner, Node lastChild) {
         List<Comment> trailingComments = comments(lastChild);
         if (!trailingComments.isEmpty()) {
-            result.trailingComments.put(sourceOwner, trailingComments);
+            this.trailingComments.put(sourceOwner, trailingComments);
         }
     }
 
-    private void handleCompilationUnit(JavaParser p, Result result) {
+    private void handleCompilationUnit(JavaParser p) {
         CompilationUnit cu = p.CompilationUnit();
         PackageDeclaration packageDeclaration = cu.getPackageDeclaration();
         if (packageDeclaration != null) {
-            addComments(result, packageDeclaration);
+            addComments(packageDeclaration, false);
             Node pkgDeclaration0 = packageDeclaration.getFirst();
-            result.keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
+            keywords.put(source(pkgDeclaration0), pkgDeclaration0.getSource());
         }
         for (ImportDeclaration id : cu.childrenOfType(ImportDeclaration.class)) {
-            addComments(result, id);
-            result.keywords.put(source(id.getFirst()), id.getFirst().toString());
+            addComments(id, false);
+            keywords.put(source(id.getFirst()), id.getFirst().toString());
         }
         Source classSource = null;
 
         for (Node node : cu) {
             if (node instanceof TypeDeclaration td && !(node instanceof EmptyDeclaration)) {
-                scanTypeDeclaration(td, result);
+                scanTypeDeclaration(td);
                 classSource = source(td);
             }
         }
 
         Node lastChild = cu.getLastChild();
         if (lastChild != null && lastChild.getType().isEOF() && classSource != null) {
-            addTrailingComments(result, classSource, lastChild);
+            addTrailingComments(classSource, lastChild);
         }
     }
 
-    private void scanModuleDirective(Node md, Result result) {
-        addComments(result, md);
+    private void scanModuleDirective(Node md) {
+        addComments(md, true);
         for (Node node : md) {
             switch (node) {
-                case KeyWord _, Name _ -> result.keywords.put(source(node), node.getSource());
+                case KeyWord _, Name _ -> keywords.put(source(node), node.getSource());
                 case Token t -> {
                     switch (t.getType()) {
-                        case REQUIRES, PROVIDES, USES, EXPORTS, OPENS ->
-                                result.keywords.put(source(node), node.getSource());
+                        case REQUIRES, PROVIDES, USES, EXPORTS, OPENS -> keywords.put(source(node), node.getSource());
                         default -> {
                         }
                     }
@@ -160,54 +151,54 @@ public final class SourceCodeScan {
         }
     }
 
-    private void scanTypeDeclaration(TypeDeclaration td, Result result) {
-        addComments(result, td);
+    private void scanTypeDeclaration(TypeDeclaration td) {
+        addComments(td, false);
 
         for (Node node : td.children()) {
             String string = node.getSource();
             if (node instanceof KeyWord || node instanceof Token && "record".equals(string)) {
-                result.keywords.put(source(node), string);
+                keywords.put(source(node), string);
             } else if (node instanceof ExtendsList el) {
                 Node extendsKeyword = el.getFirst();
-                result.keywords.put(source(extendsKeyword), extendsKeyword.getSource());
+                keywords.put(source(extendsKeyword), extendsKeyword.getSource());
             } else if (node instanceof ImplementsList il) {
                 Node implementsKeyword = il.getFirst();
-                result.keywords.put(source(implementsKeyword), implementsKeyword.getSource());
+                keywords.put(source(implementsKeyword), implementsKeyword.getSource());
             } else if (node instanceof ClassOrInterfaceBody || node instanceof EnumBody) {
                 for (Node node2 : node.children()) {
                     String string2 = node2.getSource();
                     switch (node2) {
-                        case TypeDeclaration sub -> scanTypeDeclaration(sub, result);
-                        case ConstructorDeclaration cd -> scanMethodDeclaration(cd, result);
-                        case MethodDeclaration md -> scanMethodDeclaration(md, result);
-                        case FieldDeclaration fd -> scanFieldDeclaration(fd, result);
+                        case TypeDeclaration sub -> scanTypeDeclaration(sub);
+                        case ConstructorDeclaration cd -> scanMethodDeclaration(cd);
+                        case MethodDeclaration md -> scanMethodDeclaration(md);
+                        case FieldDeclaration fd -> scanFieldDeclaration(fd);
                         default -> {
                         }
                     }
                 }
                 Node lastChild = node.getLastChild();
                 if (lastChild != null) {
-                    addTrailingComments(result, source(td), lastChild);
+                    addTrailingComments(source(td), lastChild);
                 }
             }
         }
     }
 
-    private void scanFieldDeclaration(Node fd, Result result) {
-        addComments(result, fd);
+    private void scanFieldDeclaration(Node fd) {
+        addComments(fd, true);
     }
 
-    private void scanMethodDeclaration(Node md, Result result) {
-        addComments(result, md);
+    private void scanMethodDeclaration(Node md) {
+        addComments(md, false);
         for (Node node : md.children()) {
             String string = node.getSource();
             LOGGER.debug("In MD: {}: {}", node.getClass(), limit(string));
             switch (node) {
-                case KeyWord _ -> result.keywords.put(source(node), string);
+                case KeyWord _ -> keywords.put(source(node), string);
                 case FormalParameters fps -> {
                     for (Node param : fps.children()) {
                         if (param instanceof FormalParameter fp) {
-                            addComments(result, fp);
+                            addComments(fp, true);
 
                             Map<Object, Object> commaMap = new HashMap<>();
                             Node preceding = param.previousSibling();
@@ -219,15 +210,15 @@ public final class SourceCodeScan {
                                 commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
                             }
                             Source formalSource = source(fp);
-                            result.argumentLists.put(formalSource, Map.copyOf(commaMap));
+                            argumentLists.put(formalSource, Map.copyOf(commaMap));
                         } else if (param instanceof Delimiter d && d.getType() == Token.TokenType.RPAREN) {
                             Source methodSource = source(md);
-                            result.argumentLists.put(methodSource, Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
+                            argumentLists.put(methodSource, Map.of(DetailedSources.END_OF_PARAMETER_LIST, source(d)));
                         }
                     }
                 }
-                case ExplicitConstructorInvocation eci -> scanCodeBlock(eci, result);
-                case Statement st -> scanCodeBlock(st, result);
+                case ExplicitConstructorInvocation eci -> scanCodeBlock(eci);
+                case Statement st -> scanCodeBlock(st);
                 default -> {
                 }
             }
@@ -239,28 +230,28 @@ public final class SourceCodeScan {
         return s.substring(0, 99) + "...";
     }
 
-    private void scanCodeBlock(Node cb, Result result) {
+    private void scanCodeBlock(Node cb) {
         LOGGER.debug("Scan {}: {}", cb.getClass(), limit(cb.getSource()));
         visit(cb, child -> {
             if (child instanceof Statement st) {
-                addComments(result, st);
+                addComments(st, true);
                 if (st instanceof CodeBlock sub && !sub.isEmpty()) {
-                    addTrailingComments(result, source(sub), sub.getLastChild());
+                    addTrailingComments(source(sub), sub.getLastChild());
                 }
             }
             if (child instanceof TypeDeclaration td) {
-                scanTypeDeclaration(td, result);
+                scanTypeDeclaration(td);
                 return false;
             }
             if (child instanceof MethodCall || child instanceof AllocationExpression
                 || child instanceof ExplicitConstructorInvocation) {
-                scanCall(result, child);
+                scanCall(child);
             }
             return true;
         });
     }
 
-    private void scanCall(Result result, Node child) {
+    private void scanCall(Node child) {
         Source source;
         if (child instanceof ExplicitConstructorInvocation) {
             // NOTE: specific code to exclude the ';' because OpenJDK sees an ECI as an expression (method call)
@@ -283,7 +274,7 @@ public final class SourceCodeScan {
                 }
             }
             LOGGER.debug("*** ... result is {}", argList);
-            result.argumentLists.put(source, Map.copyOf(argList));
+            argumentLists.put(source, Map.copyOf(argList));
         }
     }
 
@@ -307,11 +298,53 @@ public final class SourceCodeScan {
     }
 
     /*
-    This is the only provider of Comment objects. All visitors must use this method.
+    All visitors must use this method.
+
+    2 situations
+
+    regular:
+
+    // comment about max
+    call(MAX)
+    // comment about min
+    call(MIN)
+
+     alternative:
+
+     call(MAX); // comment about max
+     call(MIN); // (potentially trailing) comment about min
+     */
+
+    private void addComments(Node node, boolean lookahead) {
+        Source source = source(node);
+        if (lookahead) {
+            Node nextSibling = node.nextSibling();
+            if (nextSibling != null) {
+                List<Comment> comments = comments(nextSibling).stream()
+                        .filter(c -> c.source().endLine() == c.source().beginLine()
+                                     && c.source().beginLine() == source.endLine())
+                        .toList();
+                for (Comment comment : comments) {
+                    if (seen.add(comment.source())) {
+                        this.comments.put(source, comments);
+                    }
+                }
+            }
+        }
+        List<Comment> comments = comments(node);
+        for (Comment comment : comments) {
+            if (seen.add(comment.source())) {
+                this.comments.put(source, comments);
+            }
+        }
+    }
+
+    /*
+    This is the only provider of Comment objects.
 
     Note: we're not using Node.getAllTokens(), because that method recurses down unconditionally
      */
-    public List<Comment> comments(Node node) {
+    private List<Comment> comments(Node node) {
         Node.TerminalNode tn = firstTerminal(node);
         if (tn != null) {
             return tn.precedingUnparsedTokens().stream()
