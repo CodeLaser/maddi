@@ -98,7 +98,7 @@ public class TestModuleInfo extends CommonTest {
         map.put("maddi.support.Support", SUPPORT);
         map.put("module-info", MODULE_INFO);
 
-        ModuleInfo moduleInfo = scan(true, map, List.of()).modules().getFirst();
+        ModuleInfo moduleInfo = scan(true, map).modules().getFirst();
 
         List<ModuleInfo.Requires> requires = moduleInfo.requires();
         assertEquals(5, requires.size());

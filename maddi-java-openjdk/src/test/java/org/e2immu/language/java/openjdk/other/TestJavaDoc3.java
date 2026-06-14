@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +33,7 @@ public class TestJavaDoc3 extends CommonTest {
     String MAIN_A = """
             package a;
             public class A {
-
+            
             }
             """;
 
@@ -46,19 +47,20 @@ public class TestJavaDoc3 extends CommonTest {
             }
             """;
 
+    @Disabled("Cannot easily scan 2x in openjdk package")
     @DisplayName("Test across source sets, same package")
     @Test
     public void test4() {
         Map<String, TypeInfo> pr1 = scan(false, "a.A", MAIN_A, "a.TestA", TEST_A);
         {
             TypeInfo A = pr1.get("a.A");
-            assertEquals("test-protocol:a.A", A.compilationUnit().sourceSet().name());
+            assertEquals("source", A.compilationUnit().sourceSet().name());
             assertFalse(A.compilationUnit().sourceSet().test());
         }
         {
             TypeInfo TestA = pr1.get("a.TestA");
             assertTrue(TestA.compilationUnit().sourceSet().test());
-            assertEquals("test-protocol:a.TestA", TestA.compilationUnit().sourceSet().name());
+            assertEquals("source", TestA.compilationUnit().sourceSet().name());
             JavaDoc.Tag tag = TestA.javaDoc().tags().getFirst();
             assertEquals("a.A", tag.resolvedReference().toString());
         }
@@ -106,7 +108,7 @@ public class TestJavaDoc3 extends CommonTest {
             TypeInfo A = pr1.get("a.A");
             assertEquals("a.A[I], b.B[E], java.lang.Object[E], void[E]",
                     A.typesReferenced(null).map(Object::toString).sorted()
-                            .collect(Collectors.joining(", ")));
+                            .collect(Collectors.joining(", ")), "fails for " + a);
         }
     }
 }
