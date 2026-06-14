@@ -67,8 +67,8 @@ public record TextBlockParser(Runtime runtime) {
 
     private static final Pattern INDENT_PATTERN = Pattern.compile("\n([\t ]*)([^\n]*)", Pattern.MULTILINE);
 
-    public Expression parseTextBlock(List<Comment> comments, Source source, StringLiteral sl) {
-        String string1 = stripQuotes(sl.getSource());
+    public Expression parseTextBlock(List<Comment> comments, Source source, String inputString) {
+        String string1 = stripQuotes(inputString);
         String string = replaceBlankLines(string1);
 
         TextBlockFormatting.Builder formatting = runtime.newTextBlockFormattingBuilder();

@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.e2immu.language.cst.api.variable.Variable;
 import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import org.e2immu.language.inspection.api.util.RecordSynthetics;
+import org.e2immu.parser.java.util.TextBlockParser;
 import org.e2immu.util.internal.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -1740,6 +1741,17 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return null;
     }
 
+    private String getRawTextBlock(JCTree.JCLiteral literal) throws IOException {
+        long startPos = sourcePositions.getStartPosition(compilationUnitTree, literal);
+        long endPos = sourcePositions.getEndPosition(compilationUnitTree, literal);
+        if (startPos == Diagnostic.NOPOS || endPos == Diagnostic.NOPOS)
+            return null;
+
+        CharSequence source = compilationUnitTree.getSourceFile().getCharContent(false);
+        return source.subSequence((int) startPos, (int) endPos).toString();
+        // returns """...""" including the delimiters and original whitespace
+    }
+
     @Override
     public Void visitLiteral(LiteralTree node, Void unused) {
         JCTree.JCLiteral literal = (JCTree.JCLiteral) node;
@@ -1757,6 +1769,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case CLASS -> {
                 Tree.Kind kind = literal.typetag.getKindLiteral();
                 if (Tree.Kind.STRING_LITERAL == kind) {
+                    try {
+                        String rawTextBlock = getRawTextBlock(literal);
+                        if (rawTextBlock != null && rawTextBlock.startsWith("\"\"\"") && rawTextBlock.endsWith("\"\"\"")) {
+                            yield new TextBlockParser(runtime).parseTextBlock(comments, source, rawTextBlock);
+                        }
+                    } catch (IOException ioe) {
+                        throw new UnsupportedOperationException("Cannot read sources");
+                    }
                     yield runtime.newStringConstant(comments, source, (String) literal.value);
                 }
                 throw new UnsupportedOperationException("?");

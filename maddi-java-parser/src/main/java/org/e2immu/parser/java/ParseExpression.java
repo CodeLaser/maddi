@@ -928,7 +928,7 @@ public class ParseExpression extends CommonParse {
         }
         if (child instanceof StringLiteral sl) {
             if (Token.TokenType.TEXT_BLOCK_LITERAL.equals(sl.getType())) {
-                return new TextBlockParser(runtime).parseTextBlock(comments, source, sl);
+                return new TextBlockParser(runtime).parseTextBlock(comments, source, sl.getSource());
             }
             String content = sl.getString();
             return runtime.newStringConstant(comments, source, content);
