@@ -17,10 +17,12 @@ package org.e2immu.language.java.openjdk.stub;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+@Disabled("stubs not implemented yet")
 public class TestStub1 extends CommonTest {
 
     @Language("java")

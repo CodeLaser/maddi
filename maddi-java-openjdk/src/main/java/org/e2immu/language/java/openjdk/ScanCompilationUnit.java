@@ -1465,8 +1465,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case MUL -> runtime.multiplyOperatorInt();
             case DIV -> runtime.divideOperatorInt();
             case MOD -> runtime.remainderOperatorInt();
-            case EQ -> runtime.equalsOperatorInt();
-            case NE -> runtime.notEqualsOperatorInt();
+            case EQ -> {
+                if (lhs.isNumeric() && rhs.isNumeric()) {
+                    yield runtime.equalsOperatorInt();
+                }
+                yield runtime.equalsOperatorObject();
+            }
+            case NE -> {
+                if (lhs.isNumeric() && rhs.isNumeric()) {
+                    yield runtime.notEqualsOperatorInt();
+                }
+                yield runtime.notEqualsOperatorObject();
+            }
             case GE -> runtime.greaterEqualsOperatorInt();
             case GT -> runtime.greaterOperatorInt();
             case LE -> runtime.lessEqualsOperatorInt();
