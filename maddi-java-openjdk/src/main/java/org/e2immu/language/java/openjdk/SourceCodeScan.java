@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public final class SourceCodeScan {
     private static final Logger LOGGER = LoggerFactory.getLogger(SourceCodeScan.class);
@@ -97,13 +98,6 @@ public final class SourceCodeScan {
                 Collections.unmodifiableNavigableMap(trailingComments),
                 Collections.unmodifiableNavigableMap(keywords),
                 Collections.unmodifiableNavigableMap(argumentLists));
-    }
-
-    private void addTrailingComments(Source sourceOwner, Node lastChild) {
-        List<Comment> trailingComments = comments(lastChild);
-        if (!trailingComments.isEmpty()) {
-            this.trailingComments.put(sourceOwner, trailingComments);
-        }
     }
 
     private void handleCompilationUnit(JavaParser p) {
@@ -320,22 +314,22 @@ public final class SourceCodeScan {
         if (lookahead) {
             Node nextSibling = node.nextSibling();
             if (nextSibling != null) {
-                List<Comment> comments = comments(nextSibling).stream()
+                List<Comment> comments = comments(nextSibling)
                         .filter(c -> c.source().endLine() == c.source().beginLine()
                                      && c.source().beginLine() == source.endLine())
+                        .filter(c -> seen.add(c.source()))
                         .toList();
-                for (Comment comment : comments) {
-                    if (seen.add(comment.source())) {
-                        this.comments.put(source, comments);
-                    }
-                }
+                if (!comments.isEmpty()) this.comments.put(source, comments);
             }
         }
-        List<Comment> comments = comments(node);
-        for (Comment comment : comments) {
-            if (seen.add(comment.source())) {
-                this.comments.put(source, comments);
-            }
+        List<Comment> comments = comments(node).filter(c -> seen.add(c.source())).toList();
+        if (!comments.isEmpty()) this.comments.put(source, comments);
+    }
+
+    private void addTrailingComments(Source sourceOwner, Node lastChild) {
+        List<Comment> trailingComments = comments(lastChild).filter(c -> seen.add(c.source())).toList();
+        if (!trailingComments.isEmpty()) {
+            this.trailingComments.put(sourceOwner, trailingComments);
         }
     }
 
@@ -344,15 +338,14 @@ public final class SourceCodeScan {
 
     Note: we're not using Node.getAllTokens(), because that method recurses down unconditionally
      */
-    private List<Comment> comments(Node node) {
+    private Stream<Comment> comments(Node node) {
         Node.TerminalNode tn = firstTerminal(node);
         if (tn != null) {
             return tn.precedingUnparsedTokens().stream()
                     .map(this::commentsFromTerminal)
-                    .filter(Objects::nonNull)
-                    .toList();
+                    .filter(Objects::nonNull);
         }
-        return List.of();
+        return Stream.empty();
     }
 
     private @Nullable Comment commentsFromTerminal(Node.TerminalNode t) {
