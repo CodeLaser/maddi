@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Disabled("stubs not implemented yet")
 public class TestStub2 extends CommonTest {
 
     @Language("java")

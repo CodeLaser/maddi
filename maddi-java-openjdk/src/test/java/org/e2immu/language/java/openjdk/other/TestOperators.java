@@ -18,7 +18,6 @@ import org.e2immu.language.cst.api.expression.BinaryOperator;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.element.Symbol;
 import org.e2immu.language.cst.api.statement.IfElseStatement;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -33,13 +32,13 @@ public class TestOperators extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package org.e2immu.analyser.resolver.testexample;
-
+            
             import java.util.HashMap;
             import java.util.Map;
-
+            
             public class Basics_9 {
                 private final Map<String, Integer> map = new HashMap<>();
-
+            
                 public int method1(String k) {
                     Integer v = map.get(k);
                     int r;
@@ -48,6 +47,7 @@ public class TestOperators extends CommonTest {
                         map.put(k, newValue);
                         r = newValue;
                     } else {
+                        assert v != null;
                         r = v;
                     }
                     return r;
@@ -62,25 +62,29 @@ public class TestOperators extends CommonTest {
         if (method1.methodBody().statements().get(2) instanceof IfElseStatement ifElse
             && ifElse.expression() instanceof BinaryOperator bo) {
             assertSame(runtime.equalsOperatorObject(), bo.operator());
+            if (ifElse.elseBlock().statements().getFirst().expression() instanceof BinaryOperator neq) {
+                assertSame(runtime.notEqualsOperatorObject(), neq.operator());
+            } else fail();
         } else fail();
     }
 
     @Language("java")
     private static final String INPUT2 = """
             package org.e2immu.analyser.resolver.testexample;
-
+            
             import java.util.Collection;
             import java.util.HashMap;
             import java.util.Map;
-
+            
             public class X {
-
+            
                 public int method1(Map<String, Integer> map) {
                    assert map instanceof Map;
                    assert map instanceof HashMap<String,Integer>;
                    assert map instanceof Collection<?>; // interface -> still possible
                    assert map instanceof Object;
                    assert map instanceof Exception; // class -> not possible
+                   return 3;
                 }
             }
             """;

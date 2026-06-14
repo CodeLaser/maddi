@@ -1,5 +1,6 @@
 package org.e2immu.language.java.openjdk;
 
+import ch.qos.logback.classic.Level;
 import com.sun.source.util.JavacTask;
 import lombok.Data;
 import org.assertj.core.api.Assert;
@@ -80,6 +81,8 @@ public class CommonTest {
                     .build();
 
             SourceSet orgSlf4j = sourceSetOf(Logger.class, javaBase);
+            SourceSet logBackClassic = sourceSetOf(Level.class);
+            SourceSet logBackCore = sourceSetOf(ch.qos.logback.core.util.CloseUtil.class);
             SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
             SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
             SourceSet junitJupiter = sourceSetOf(Assertions.class, javaBase);
@@ -92,7 +95,8 @@ public class CommonTest {
             InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                     .addSourceSets(sourceSet)
                     .addClassPathParts(javaBase, javaNetHttp)
-                    .addClassPathParts(orgSlf4j, annotations, maddiSupport, junitJupiter, assertJ, lombok)
+                    .addClassPathParts(orgSlf4j, logBackClassic, logBackCore,
+                            annotations, maddiSupport, junitJupiter, assertJ, lombok)
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                     javacTask, sourceSet, previouslyLoaded, true, diagnostics,
