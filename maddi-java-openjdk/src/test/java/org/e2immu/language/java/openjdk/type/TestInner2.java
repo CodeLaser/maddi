@@ -59,15 +59,7 @@ public class TestInner2 extends CommonTest {
             assertEquals("4-9:4-15", te.source().detailedSources()
                     .detail(te.parameterizedType().typeInfo()).compact2());
             TypeInfo a = te.parameterizedType().typeInfo().compilationUnitOrEnclosingType().getRight();
-            assertEquals("4-9:4-15", te.source().detailedSources().detail(a).compact2());
-            
-            //noinspection ALL
-            List<DetailedSources.Builder.TypeInfoSource> tis = (List<DetailedSources.Builder.TypeInfoSource>)
-                    te.source().detailedSources().associatedObject(te.parameterizedType().typeInfo());
-            assertEquals(1, tis.size());
-            assertEquals("""
-                    [TypeInfoSource[typeInfo=a.A, source=@4:9-4:9]]\
-                    """, tis.toString());
+            assertEquals("4-9:4-9", te.source().detailedSources().detail(a).compact2());
         }
     }
 }
