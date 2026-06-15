@@ -15,6 +15,9 @@
 package org.e2immu.language.java.openjdk.other;
 
 import org.e2immu.language.cst.api.element.JavaDoc;
+import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -101,14 +104,35 @@ public class TestJavaDoc3 extends CommonTest {
 
     @DisplayName("Type reference of tag")
     @Test
-    public void test1() {
-        for (String a : new String[]{A, A2}) {
-            Map<String, TypeInfo> pr1 = scan(false, "a.A", a, "b.B", B);
+    public void test1a() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.A", A, "b.B", B);
+        TypeInfo A = pr1.get("a.A");
+        MethodInfo Am = A.findUniqueMethod("m", 1);
 
-            TypeInfo A = pr1.get("a.A");
-            assertEquals("a.A[I], b.B[E], java.lang.Object[E], void[E]",
-                    A.typesReferenced(null).map(Object::toString).sorted()
-                            .collect(Collectors.joining(", ")), "fails for " + a);
-        }
+        JavaDoc.Tag tag1 = Am.javaDoc().tags().getFirst();
+        assertInstanceOf(ParameterInfo.class, tag1.resolvedReference());
+        JavaDoc.Tag tag2 = Am.javaDoc().tags().get(1);
+        assertInstanceOf(FieldInfo.class, tag2.resolvedReference());
+
+        assertEquals("a.A[I], b.B[E], java.lang.Object[E], void[E]",
+                A.typesReferenced(null).map(Object::toString).sorted()
+                        .collect(Collectors.joining(", ")));
+    }
+
+    @DisplayName("Type reference of tag, 2")
+    @Test
+    public void test1b() {
+        Map<String, TypeInfo> pr1 = scan(false, "a.A", A2, "b.B", B);
+        TypeInfo A = pr1.get("a.A");
+        MethodInfo Am = A.findUniqueMethod("m", 1);
+
+        JavaDoc.Tag tag1 = Am.javaDoc().tags().getFirst();
+        assertInstanceOf(ParameterInfo.class, tag1.resolvedReference());
+        JavaDoc.Tag tag2 = Am.javaDoc().tags().get(1);
+        assertInstanceOf(TypeInfo.class, tag2.resolvedReference());
+
+        assertEquals("a.A[I], b.B[E], java.lang.Object[E], void[E]",
+                A.typesReferenced(null).map(Object::toString).sorted()
+                        .collect(Collectors.joining(", ")));
     }
 }
