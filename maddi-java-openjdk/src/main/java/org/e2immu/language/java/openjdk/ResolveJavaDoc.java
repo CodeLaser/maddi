@@ -1,14 +1,17 @@
 package org.e2immu.language.java.openjdk;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.ImportStatement;
 import org.e2immu.language.cst.api.element.JavaDoc;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.*;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.Arrays;
 import java.util.List;
 
-public record ResolveJavaDoc(TypeData typeData) {
+public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
 
     public JavaDoc resolve(TypeInfo currentType, MethodInfo currentMethod, JavaDoc javaDoc) {
         List<JavaDoc.Tag> tags = javaDoc.tags();
@@ -32,9 +35,11 @@ public record ResolveJavaDoc(TypeData typeData) {
                 }
                 return tag;
             }
-            Info resolvedReference = resolveReference(currentType, tag.content());
+            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+            Info resolvedReference = resolveReference(currentType, tag.content(), tag.sourceOfReference(), dsb);
             if (resolvedReference != null) {
-                return tag.withResolvedReference(resolvedReference);
+                return tag.withResolvedReference(resolvedReference)
+                        .withSource(tag.source().withDetailedSources(dsb.build()));
             }
         }
         return tag;
@@ -56,20 +61,20 @@ public record ResolveJavaDoc(TypeData typeData) {
                 .orElse(null);
     }
 
-    Info resolveReference(TypeInfo currentType, String signature) {
+    Info resolveReference(TypeInfo currentType, String signature, Source source, DetailedSources.Builder dsb) {
         int hash = signature.indexOf('#');
 
         if (hash < 0) {
             // Type reference only — "D" or "java.util.List"
             String typeName = signature.trim();
             // look up in your type table by simple or qualified name
-            return resolveType(currentType, typeName);
+            return resolveType(currentType, typeName, source, dsb);
         }
         // Member reference — "D#a()" or "D#field"
         String typeName = signature.substring(0, hash).trim();
         String memberSig = signature.substring(hash + 1).trim();
 
-        TypeInfo type = resolveType(currentType, typeName);
+        TypeInfo type = resolveType(currentType, typeName, source, dsb);
         if (type == null) return null;
 
         int paren = memberSig.indexOf('(');
@@ -99,7 +104,7 @@ public record ResolveJavaDoc(TypeData typeData) {
                 .findFirst().orElse(null); // FIXME do actual param type check
     }
 
-    private TypeInfo resolveType(TypeInfo currentType, String name) {
+    private TypeInfo resolveType(TypeInfo currentType, String name, Source source, DetailedSources.Builder dsb) {
         if (name.isEmpty()) {
             // "#a()" with no type — member of the current class
             return currentType;
@@ -107,40 +112,82 @@ public record ResolveJavaDoc(TypeData typeData) {
 
         // 1. Fully qualified — direct lookup
         TypeInfo t = typeData.getType(name);
-        if (t != null) return t;
+        if (t != null) {
+            detailedSourcesOfType(name, source, dsb, t);
+            return t;
+        }
 
         // 2. Simple name — check current package
         String pkg = currentType.packageName();
-        t = typeData.getType(pkg + "." + name);
-        if (t != null) return t;
+        String fqn = pkg + "." + name;
+        t = typeData.getType(fqn);
+        if (t != null) {
+            detailedSourcesOfType(fqn, source, dsb, t);
+            return t;
+        }
 
         // 3. Check imports of current compilation unit
         for (ImportStatement imp : currentType.primaryType().compilationUnit().importStatements()) {
             String imported = imp.importString();
             if (imported.endsWith("." + name)) {
                 t = typeData.getType(imported);
-                if (t != null) return t;
+                if (t != null) {
+                    detailedSourcesOfType(name, source, dsb, t);
+                    return t;
+                }
             }
             // wildcard import
             if (imported.endsWith(".*")) {
                 String qualified = imported.replace("*", name);
                 t = typeData.getType(qualified);
-                if (t != null) return t;
+                if (t != null) {
+                    detailedSourcesOfType(name, source, dsb, t);
+                    return t;
+                }
             }
         }
 
         // 4. Inner class of current type
         t = currentType.findSubType(name, false);
-        if (t != null) return t;
+        if (t != null) {
+            detailedSourcesOfType(name, source, dsb, t);
+            return t;
+        }
 
         // 5. Sibling class of current type
         if (currentType.compilationUnitOrEnclosingType().isRight()) {
             t = currentType.compilationUnitOrEnclosingType().getRight().findSubType(name, false);
-            if (t != null) return t;
+            if (t != null) {
+                detailedSourcesOfType(name, source, dsb, t);
+                return t;
+            }
         }
 
         // 6. java.lang implicit import
         t = typeData.getType("java.lang." + name);
+        detailedSourcesOfType(name, source, dsb, t);
         return t; // null if genuinely unresolvable
+    }
+
+    private static void detailedSourcesOfType(String nameIn, Source source, DetailedSources.Builder dsb, TypeInfo tIn) {
+        String name = nameIn;
+        TypeInfo t = tIn;
+        while (true) {
+            dsb.put(t, source.ofIndex(name, 0, name.length()));
+            int lastDot = name.lastIndexOf('.');
+            if (lastDot <= 0) break;
+            name = name.substring(0, lastDot);
+
+            if (t.packageName().equals(name)) {
+                dsb.put(t.packageName(), source.ofIndex(name, 0, name.length()));
+                break;
+            }
+            dsb.put(t, source.ofIndex(name, 0, name.length()));
+            if (t.compilationUnitOrEnclosingType().isRight()) {
+                t = t.compilationUnitOrEnclosingType().getRight();
+            } else {
+                break;
+            }
+        }
     }
 }

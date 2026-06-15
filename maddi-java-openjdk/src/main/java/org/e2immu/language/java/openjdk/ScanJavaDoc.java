@@ -1,11 +1,10 @@
 package org.e2immu.language.java.openjdk;
 
-import com.sun.source.doctree.BlockTagTree;
-import com.sun.source.doctree.DocCommentTree;
-import com.sun.source.doctree.DocTree;
+import com.sun.source.doctree.*;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.LineMap;
 import com.sun.source.util.DocSourcePositions;
+import com.sun.source.util.DocTreeScanner;
 import com.sun.tools.javac.tree.DCTree;
 import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.element.Source;
@@ -23,26 +22,73 @@ public record ScanJavaDoc(Runtime runtime,
                           LineMap lineMap) {
 
     public JavaDoc scan(DocCommentTree docCommentTree) {
-        DCTree.DCDocComment docComment = (DCTree.DCDocComment) docCommentTree;
+        Source source = source(docCommentTree, docCommentTree);
+        MyScanner myScanner = new MyScanner(docCommentTree);
+        myScanner.scan(docCommentTree, null);
+        return runtime.newJavaDoc(source, myScanner.comment.toString(), List.copyOf(myScanner.tags));
+    }
+
+    class MyScanner extends DocTreeScanner<Void, Void> {
+        final DocCommentTree docCommentTree;
 
         StringBuilder comment = new StringBuilder();
-        Source source = source(docCommentTree, docCommentTree);
         List<JavaDoc.Tag> tags = new ArrayList<>();
-        for (DocTree dt : docCommentTree.getFullBody()) {
-            if (dt instanceof DCTree.DCInlineTag<?>) {
-                JavaDoc.Tag tag = convertTag(docCommentTree, dt);
-                if (tag != null) {
-                    tags.add(tag);
+        int countBlockTags;
+
+        MyScanner(DocCommentTree docCommentTree) {
+            this.docCommentTree = docCommentTree;
+        }
+
+        @Override
+        public Void scan(DocTree node, Void unused) {
+            switch (node) {
+                case null -> {
+                }
+                case BlockTagTree btt -> {
+                    if (countBlockTags == 0 && !comment.isEmpty()) comment.append("\n");
+                    ++countBlockTags;
+                    JavaDoc.Tag tag = convertTag(docCommentTree, node);
+                    if (tag != null) tags.add(tag);
+                    appendBlockTagInfo(btt, comment);
+                    // Recurse into children to pick up text via TextTree case
+                    super.scan(node, unused);
+                    comment.append("\n");
+                }
+                case InlineTagTree _ -> {
+                    JavaDoc.Tag tag = convertTag(docCommentTree, node);
+                    if (tag != null) tags.add(tag);
+                    comment.append(node); // e.g. "{@link Foo}"
+                }
+                case TextTree tt -> comment.append(tt.getBody());
+                default -> super.scan(node, unused);
+            }
+            return null;
+        }
+
+        private void appendBlockTagInfo(BlockTagTree btt, StringBuilder comment) {
+            switch (btt) {
+                case ParamTree pt -> {
+                    comment.append("@param ");
+                    if (pt.isTypeParameter()) comment.append("<");
+                    comment.append(pt.getName());
+                    if (pt.isTypeParameter()) comment.append(">");
+                    if (!pt.getDescription().isEmpty()) comment.append(" ");
+                }
+                case ThrowsTree tt -> {
+                    comment.append("@throws ");
+                    comment.append(tt.getExceptionName());
+                    if (!tt.getDescription().isEmpty()) comment.append(" ");
+                }
+                case ReturnTree _, DeprecatedTree _, SinceTree _, AuthorTree _, VersionTree _, SeeTree _,
+                     UnknownBlockTagTree _ -> {
+                    comment.append("@").append(btt.getTagName()).append(" ");
+                }
+                default -> {
+                    comment.append("@").append(btt.getKind().toString()
+                            .toLowerCase().replace("_", "")).append(" ");
                 }
             }
-            comment.append(dt);
         }
-        for (DocTree dt : docComment.tags) {
-            JavaDoc.Tag tag = convertTag(docCommentTree, dt);
-            if (tag != null) tags.add(tag);
-            comment.append("\n").append(dt);
-        }
-        return runtime.newJavaDoc(source, comment.toString(), List.copyOf(tags));
     }
 
     private String content(DocTree docTree) {

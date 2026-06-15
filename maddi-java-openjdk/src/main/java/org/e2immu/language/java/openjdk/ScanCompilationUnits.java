@@ -83,7 +83,7 @@ public class ScanCompilationUnits {
         flagHelper = new FlagHelper(runtime);
         classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, previouslyLoaded, sourceSet,
                 flagHelper, types, elements, diagnosticCollector);
-        resolveJavaDoc = new ResolveJavaDoc(classSymbolScanner);
+        resolveJavaDoc = new ResolveJavaDoc(runtime, classSymbolScanner);
     }
 
     public Result scan() throws IOException {
