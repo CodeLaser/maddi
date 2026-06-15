@@ -54,8 +54,13 @@ public class TestInner2 extends CommonTest {
         TypeInfo b = result.get("a.B");
         MethodInfo m = b.findUniqueMethod("m", 0);
         MethodCall mc = (MethodCall) m.methodBody().statements().getFirst().expression();
-        if(mc.object() instanceof TypeExpression te) {
+        if (mc.object() instanceof TypeExpression te) {
             assertEquals("4-9:4-15", te.source().compact2());
+            assertEquals("4-9:4-15", te.source().detailedSources()
+                    .detail(te.parameterizedType().typeInfo()).compact2());
+            TypeInfo a = te.parameterizedType().typeInfo().compilationUnitOrEnclosingType().getRight();
+            assertEquals("4-9:4-15", te.source().detailedSources().detail(a).compact2());
+            
             //noinspection ALL
             List<DetailedSources.Builder.TypeInfoSource> tis = (List<DetailedSources.Builder.TypeInfoSource>)
                     te.source().detailedSources().associatedObject(te.parameterizedType().typeInfo());
