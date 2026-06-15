@@ -612,7 +612,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             return runtime.newParameterizedType(typeParameter, 0, null);
         }
-        if ("none".equals(type.toString())) return null; // parent of Object
+        if ("none".equals(type.toString()) || type instanceof Type.PackageType) return null; // parent of Object
         throw new UnsupportedOperationException("NYI");
     }
 
@@ -644,56 +644,61 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     @Override
     public ParameterizedType convertTree(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
-        ParameterizedType pt = convertTreeDontSet(type, detailedSourcesBuilder);
-        assert pt != null;
-        Source source = sourceProvider.sourceForNode(type);
-        detailedSourcesBuilder.put(pt, source);
-        // FIXME do we need the following ?
-        if (pt.typeInfo() != null && pt.parameters().isEmpty() && pt.arrays() == 0) {
-            detailedSourcesBuilder.put(pt.typeInfo(), source);
+        if (type == null) {
+            return runtime.voidParameterizedType();
         }
+        Source source = sourceProvider.sourceForNode(type);
+        ParameterizedType pt = convertTreeDontSet(type, detailedSourcesBuilder, source);
+        assert pt != null;
+        detailedSourcesBuilder.put(pt, source);
         return pt;
     }
 
-    private ParameterizedType convertTreeDontSet(Tree type, DetailedSources.Builder detailedSourcesBuilder) {
-        if (type == null) return runtime.voidParameterizedType();
+    private ParameterizedType convertTreeDontSet(Tree type, DetailedSources.Builder dsb, Source source) {
         if (type instanceof JCTree.JCPrimitiveTypeTree ptt) {
             TypeKind primitiveTypeKind = ptt.typetag.getPrimitiveTypeKind();
             if (primitiveTypeKind != null) {
-                return primitiveType(primitiveTypeKind);
+                ParameterizedType primitive = primitiveType(primitiveTypeKind);
+                dsb.put(primitive.typeInfo(), source);
+                return primitive;
             }
+            throw new UnsupportedOperationException("Unknown primitive type kind " + ptt.typetag);
         }
         if (type instanceof JCTree.JCIdent identifier) {
+            if (identifier.type instanceof Type.PackageType) return null;
             if (identifier.type instanceof Type.ClassType ct) {
-                return classType(ct);
-            } else if (identifier.type instanceof Type.TypeVar tv) {
+                ParameterizedType pt = classType(ct);
+                assert pt.typeInfo() != null;
+                dsb.put(pt.typeInfo(), source);
+                return pt;
+            }
+            if (identifier.type instanceof Type.TypeVar tv) {
                 if (tv.isCaptured()) {
                     ParameterizedType pt = convert(tv.getUpperBound());
                     return pt.withWildcard(runtime.wildcardExtends());
                 }
                 String typeParameterName = identifier.getName().toString();
                 TypeParameter tp = (TypeParameter) elementStack.find(typeParameterName);
+                dsb.put(tp, source);
                 return runtime.newParameterizedType(tp, 0, null);
-            } else {
-                throw new UnsupportedOperationException("NYI");
             }
+            throw new UnsupportedOperationException("Unknown identifier type " + identifier.type);
         }
         if (type instanceof JCTree.JCFieldAccess fieldAccess) {
+            if (fieldAccess.type instanceof Type.PackageType) return null;
             // enclosing type notation
-            String name = fieldAccess.name.toString();
-            // recursively descend, but ignore result
-            // FIXME   convertTree(fieldAccess.getExpression(), detailedSourcesBuilder);
             ParameterizedType pt = convert(fieldAccess.type);
-            if (!"class".equals(name) && pt.typeInfo() != null) {
-                String packageName = pt.typeInfo().packageName();
-                detailedSourcesBuilder.put(packageName, sourceProvider.sourceForNode(fieldAccess.getExpression()));
-            }// else: java.lang.String.class
+            assert pt != null;
+            TypeInfo ti = pt.typeInfo();
+            assert ti != null;
+            dsb.put(ti, source);
+            iterateUpToPackageLevel(dsb, fieldAccess, ti);
             return pt;
         }
         if (type instanceof JCTree.JCTypeApply apply) {
-            ParameterizedType base = convertTree(apply.getType(), detailedSourcesBuilder);
+            ParameterizedType base = convertTree(apply.getType(), dsb);
             List<ParameterizedType> parameters = apply.getTypeArguments().stream()
-                    .map(ta -> convertTree(ta, detailedSourcesBuilder)).toList();
+                    .map(ta -> convertTree(ta, dsb)).toList();
             return runtime.newParameterizedType(base.typeInfo(), parameters);
         }
         if (type instanceof JCTree.JCArrayTypeTree att) {
@@ -703,9 +708,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 ++n;
                 t = att2.elemtype;
             }
-            ParameterizedType withoutArray = convertTree(t, detailedSourcesBuilder);
+            ParameterizedType withoutArray = convertTree(t, dsb);
             ParameterizedType withArray = withoutArray.copyWithArrays(withoutArray.arrays() + n);
-            detailedSourcesBuilder.putWithArrayToWithoutArray(withArray, withoutArray);
+            dsb.putWithArrayToWithoutArray(withArray, withoutArray);
             return withArray;
         }
         if (type instanceof JCTree.JCWildcard) {
@@ -713,9 +718,43 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         if (type instanceof JCTree.JCAnnotatedType at) {
             // TODO there is no room for this in maddi's model
-            return convertTreeDontSet(at.underlyingType, detailedSourcesBuilder);
+            return convertTreeDontSet(at.underlyingType, dsb, source);
         }
         throw new UnsupportedOperationException("NYI");
+    }
+
+    /*
+    important: we backtrack over 'ti' rather than computing the actual type, because it may be different!
+    see TestFullyQualified,4, where X.II.J is not the default way of writing, X.I.J is.
+     */
+    private void iterateUpToPackageLevel(DetailedSources.Builder dsb, JCTree.JCFieldAccess fieldAccess, TypeInfo ti) {
+        JCTree.JCExpression expression = fieldAccess.getExpression();
+        while (true) {
+            Source expressionSource = sourceProvider.sourceForNode(expression);
+            if (expression.type instanceof Type.PackageType) {
+                String packageName = ti.packageName();
+                dsb.put(packageName, expressionSource);
+                break;
+            }
+            if (expression instanceof JCTree.JCIdent) {
+                if (ti.compilationUnitOrEnclosingType().isRight()) {
+                    ti = ti.compilationUnitOrEnclosingType().getRight();
+                    dsb.put(ti, expressionSource);
+                }// else: .class
+                break;
+            }
+            if (expression instanceof JCTree.JCFieldAccess fa) {
+                if(ti.compilationUnitOrEnclosingType().isRight()) {
+                    ti = ti.compilationUnitOrEnclosingType().getRight();
+                    dsb.put(ti, expressionSource);
+                    expression = fa.getExpression();
+                } else {
+                    break;// .class
+                }
+            } else {
+                break;
+            }
+        }
     }
 
     private ParameterizedType classType(Type.ClassType ct) {
