@@ -97,11 +97,13 @@ public class TestTypeParameter extends CommonTest {
         assertEquals("13-14:13-19", lvc.source().detailedSources().detail(pt).compact2());
 
         //noinspection ALL
-        List<DetailedSources.Builder.TypeInfoSource> tis = (List<DetailedSources.Builder.TypeInfoSource>)
-                lvc.source().detailedSources().associatedObject(pt.typeInfo());
+        //List<DetailedSources.Builder.TypeInfoSource> tis = (List<DetailedSources.Builder.TypeInfoSource>)
+        //        lvc.source().detailedSources().associatedObject(pt.typeInfo());
         assertEquals("13-14:13-16", lvc.source().detailedSources().detail(pt.typeInfo()).compact2());
-        assertEquals(1, tis.size());
-        assertEquals("TypeInfoSource[typeInfo=b.C.A, source=@13:14-13:14]", tis.getFirst().toString());
+        //assertEquals(1, tis.size());
+        //assertEquals("TypeInfoSource[typeInfo=b.C.A, source=@13:14-13:14]", tis.getFirst().toString());
+        TypeInfo A = pt.typeInfo().compilationUnitOrEnclosingType().getRight();
+        assertEquals("13-14:13-14", lvc.source().detailedSources().detail(A).compact2());
         // Note that there is no b.C are, the qualification is A.
     }
 
