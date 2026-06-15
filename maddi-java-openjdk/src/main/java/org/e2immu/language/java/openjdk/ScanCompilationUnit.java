@@ -405,26 +405,49 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     private void parseTypeBoundsAndCommit(Symbol owner, TypeParameter tp, JCTree.JCTypeParameter jcTypeParameter) {
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-        List<ParameterizedType> typeBounds = jcTypeParameter.getBounds().stream()
-                .map(e -> parseTypeBoundCheckSelfReference(owner, tp, e, dsb))
-                .toList();
+        List<ParameterizedType> typeBounds = new ArrayList<>();
+        JCTree.JCExpression prev = null;
+        for (JCTree.JCExpression expression : jcTypeParameter.getBounds()) {
+            ParameterizedType bound = parseTypeBoundCheckSelfReference(owner, tp, expression, prev, dsb);
+            typeBounds.add(bound);
+            prev = expression;
+        }
         List<AnnotationExpression> annotationExpressions = jcTypeParameter.annotations.stream()
                 .map(this::convertAnnotation).toList();
         tp.builder()
                 .setSource(sourceForNode(jcTypeParameter, dsb))
                 .addAnnotations(annotationExpressions)
-                .setTypeBounds(typeBounds)
+                .setTypeBounds(List.copyOf(typeBounds))
                 .commit();
     }
 
     private ParameterizedType parseTypeBoundCheckSelfReference(Symbol owner,
                                                                TypeParameter tp,
                                                                JCTree.JCExpression expression,
+                                                               JCTree.JCExpression prev,
                                                                DetailedSources.Builder dsb) {
         if (expression.type.tsym == owner) {
             LOGGER.debug("Self-reference");
             return runtime.newParameterizedType(tp.getOwner().getLeft(),
                     List.of(runtime.newParameterizedType(tp, 0, null)));
+        }
+        // detailed sources... rather involved, because they must be read from the sources
+        if (prev != null) {
+            try {
+                CharSequence source = compilationUnitTree.getSourceFile().getCharContent(false);
+                long afterPrev = sourcePositions.getEndPosition(compilationUnitTree, prev);
+                long beforeBound = sourcePositions.getStartPosition(compilationUnitTree, expression);
+                for (long pos = afterPrev; pos < beforeBound; pos++) {
+                    char c = source.charAt((int) pos);
+                    if (c == '&') {
+                        Source ampersandSource = sourceForNode("", pos, pos + 1);
+                        dsb.put(DetailedSources.TYPE_BOUND_AMPERSANDS, ampersandSource);
+                        break;
+                    }
+                }
+            } catch (IOException ioe) {
+                throw new UnsupportedOperationException("Cannot read sources?");
+            }
         }
         return convertType.convertTree(expression, dsb);
     }
@@ -2444,8 +2467,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return sourceForNode(tree, "");
     }
 
-    private Source sourceForNode(Tree node, String index) {
-        long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
+    private Source sourceForNode(String index, long startPos, long endPos) {
         if (startPos == Diagnostic.NOPOS) {
             return runtime.noSource(); // synthetic
         }
@@ -2453,7 +2475,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         long startCol = lineMap.getColumnNumber(startPos);
         long endLine;
         long endCol;
-        long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
         if (endPos == Diagnostic.NOPOS) {
             // quirk in javac, super() call only at the moment
             endLine = startLine;
@@ -2463,6 +2484,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             endCol = lineMap.getColumnNumber(endPos) - 1; // we work inclusively
         }
         return runtime.newParserSource(index, (int) startLine, (int) startCol, (int) endLine, (int) endCol);
+    }
+
+    private Source sourceForNode(Tree node, String index) {
+        long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
+        long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
+        return sourceForNode(index, startPos, endPos);
     }
 
     private List<Comment> commentsForNode(Source source) {

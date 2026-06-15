@@ -172,7 +172,7 @@ public record ResolveJavaDoc(Runtime runtime, TypeData typeData) {
     private static void detailedSourcesOfType(String nameIn, Source source, DetailedSources.Builder dsb, TypeInfo tIn) {
         String name = nameIn;
         TypeInfo t = tIn;
-        while (true) {
+        while (t != null) {
             dsb.put(t, source.ofIndex(name, 0, name.length()));
             int lastDot = name.lastIndexOf('.');
             if (lastDot <= 0) break;
