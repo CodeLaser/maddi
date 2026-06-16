@@ -2042,6 +2042,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         ParameterizedType concreteReturnType;
         MethodInfo methodInfo;
 
+        // TestLambda,6 and TestAnonymousType,5 show the importance of evaluating arguments before the return type
+        List<ParameterizedType> typeArguments = node.getTypeArguments().stream()
+                .map(expr -> convertType.convertTree(expr, dsb))
+                .toList();
+
+        List<Expression> arguments = new ArrayList<>(node.getArguments().size());
+        for (var arg : node.getArguments()) {
+            currentExpression = null;
+            scan(arg, p);
+            arguments.add(currentExpression);
+        }
+
         if (methodSelect instanceof IdentifierTree it) {
             TypeInfo currentType = typeStack.getLast();
             methodName = it.getName().toString();
@@ -2088,16 +2100,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
         } else throw new UnsupportedOperationException("NYI");
 
-        List<ParameterizedType> typeArguments = node.getTypeArguments().stream()
-                .map(expr -> convertType.convertTree(expr, dsb))
-                .toList();
-
-        List<Expression> arguments = new ArrayList<>(node.getArguments().size());
-        for (var arg : node.getArguments()) {
-            currentExpression = null;
-            scan(arg, p);
-            arguments.add(currentExpression);
-        }
         Source src = scanSource(node);
         if (scanResult != null) {
             dsb.putIfNotNull(DetailedSources.END_OF_ARGUMENT_LIST, scanResult.findEndOfArgumentList(src));

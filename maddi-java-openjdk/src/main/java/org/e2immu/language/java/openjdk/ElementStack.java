@@ -25,6 +25,7 @@ public class ElementStack {
     }
 
     public Element find(String name) {
+        assert name != null && !name.isBlank();
         for (Map<String, Element> map : elementStack.reversed()) {
             Element v = map.get(name);
             if (v != null) return v;
