@@ -4,7 +4,6 @@ import com.sun.source.util.JavacTask;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.ImportComputer;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.output.Formatter;
 import org.e2immu.language.cst.api.output.OutputBuilder;
@@ -18,7 +17,6 @@ import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.api.resource.SourceFile;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
 import org.e2immu.language.java.openjdk.InfoByFqn;
@@ -188,6 +186,23 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
+    public Summary parseMultiSourceSet(Map<SourceSet, Map<String, String>> sourcesByFqnBySourceSet, ParseOptions parseOptions) {
+        Summary summary = new SummaryImpl(parseOptions.failFast());
+        List<SourceSet> linearization = computeScanOrder(); // from input configuration
+        for (SourceSet sourceSet : linearization) {
+            try {
+                Map<String, String> sourcesByFqn = sourcesByFqnBySourceSet.get(sourceSet);
+                singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
+                        parseOptions.ignoreModule());
+            } catch (IOException ioe) {
+                LOGGER.error("Caught exception", ioe);
+                throw new UnsupportedOperationException("TODO error handling");
+            }
+        }
+        return summary;
+    }
+
+    @Override
     public TypeInfo parse(String fqn, String input) {
         return parse(Map.of(fqn, input), failFast()).parseResult().firstType();
     }
@@ -284,7 +299,7 @@ public class JavaInspectorImpl implements JavaInspector {
                                  MaddiDiagnosticCollector diagnostics) throws IOException {
         List<File> sources = new ArrayList<>();
         Map<String, String> sourcesByClassName;
-        if (TEST_PROTOCOL.equals(sourceSet.name())) {
+        if (sourceSet.name().startsWith(TEST_PROTOCOL)) {
             sourcesByClassName = sourcesByFqn;
         } else {
             sourcesByClassName = Map.of();

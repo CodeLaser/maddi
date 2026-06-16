@@ -199,13 +199,15 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, LoadMode loadMode) {
+        if (cs == null) return;
+        if (newTypeInfo.hasBeenInspected()) return;
         LOGGER.debug("Enter loadType: {} {}", newTypeInfo.fullyQualifiedName(), loadMode);
         TypeInfo.Builder builder = newTypeInfo.builder();
-        flagHelper.type(cs, builder);
+
         if (recursionPrevention.add(newTypeInfo)) {
             //The following completely loads 'cs', so leave it here even though it can move nearer to its usage
             List<? extends Element> members = elements.getAllMembers(cs);
-
+            flagHelper.type(cs, builder);
             if (loadMode != LoadMode.COMPLETE) {
                 // ensure that the enclosing types have at least been lazily loaded; so that we can compute access
                 // as soon as possible

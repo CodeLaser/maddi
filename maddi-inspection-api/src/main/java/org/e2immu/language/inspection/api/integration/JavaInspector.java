@@ -120,6 +120,9 @@ public interface JavaInspector {
     // only for testing
     Summary parse(Map<String, String> sourcesByTestProtocolURIString, ParseOptions parseOptions);
 
+    // only for testing (openjdk)
+    Summary parseMultiSourceSet(Map<SourceSet, Map<String, String>> sourcesByFqnBySourceSet, ParseOptions parseOptions);
+
     // only for testing, uses FAIL_FAST default
     default TypeInfo parse(String input) {
         return parseReturnAll(input, "main", failFast()).getFirst();
