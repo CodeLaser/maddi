@@ -440,6 +440,11 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
+    public Summary parseMultiSourceSet(Map<SourceSet, Map<String, String>> sourcesByFqnBySourceSet, ParseOptions parseOptions) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<TypeInfo> parse(String input, CompilationUnit compilationUnit, ParseResult parseResult, ParseOptions parseOptions) {
         SourceFile sourceFile = new SourceFile("main", compilationUnit.uri(), compilationUnit.sourceSet(),
                 MD5FingerPrint.compute(input));

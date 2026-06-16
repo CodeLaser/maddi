@@ -13,7 +13,6 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -32,7 +31,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -139,7 +137,9 @@ public class ScanCompilationUnits {
                 previousTask2.join(); // wait for everything to finish
                 LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
                 for (TypeInfo primaryType : primaryTypes) {
-                    scanJavaDocsAndCommit(primaryType);
+                    if (!primaryType.hasBeenInspected()) {
+                        scanJavaDocsAndCommit(primaryType);
+                    }
                 }
             }
         } else {
