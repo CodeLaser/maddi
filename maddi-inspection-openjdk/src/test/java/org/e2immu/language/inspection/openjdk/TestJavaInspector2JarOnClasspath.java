@@ -1,18 +1,22 @@
 package org.e2immu.language.inspection.openjdk;
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Map;
 
+import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.e2immu.language.inspection.openjdk.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,8 +29,11 @@ public class TestJavaInspector2JarOnClasspath {
     @BeforeEach
     public void test() throws IOException {
         javaInspector = new JavaInspectorImpl();
+        SourceSet sourceSet = new SourceSetImpl.Builder()
+                .setName(TEST_PROTOCOL).setUri(URI.create("file:/")).build();
+
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .addSourceSets(JavaInspectorImpl.TEST_PROTOCOL_SOURCE_SET)
+                .addSourceSets(sourceSet)
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                 .addClassPath(JAR_WITH_PATH_PREFIX + "maddi-support-0.8.2.jar")
                 .addClassPath(JAR_WITH_PATH_PREFIX + "slf4j-api-2.0.17.jar")

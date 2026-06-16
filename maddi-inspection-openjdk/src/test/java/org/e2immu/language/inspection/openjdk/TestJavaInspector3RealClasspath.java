@@ -14,13 +14,16 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Map;
 
+import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,8 +55,13 @@ public class TestJavaInspector3RealClasspath {
         SourceSet slf4j = new SourceSetImpl.Builder().setName(SLF4J_API_JAR).setUri(slf4jJar.toURI())
                 .setLibrary(true).setExternalLibrary(true).build();
 
+        SourceSet sourceSet = new SourceSetImpl.Builder()
+                .setName(TEST_PROTOCOL).setUri(URI.create("file:/"))
+                .setDependencies(List.of(commonsCli, maddiSupport, slf4j))
+                .build();
+
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .addSourceSets(JavaInspectorImpl.TEST_PROTOCOL_SOURCE_SET)
+                .addSourceSets(sourceSet)
                 .addClassPath("jmod:java.base", "jmod:java.sql")
                 .addClassPathParts(commonsCli, maddiSupport, slf4j)
                 .build();

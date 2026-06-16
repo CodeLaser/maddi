@@ -48,8 +48,6 @@ import static org.e2immu.language.inspection.api.integration.JavaInspector.Inval
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
     private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000L);
-    public static final SourceSet TEST_PROTOCOL_SOURCE_SET = new SourceSetImpl.Builder()
-            .setName(TEST_PROTOCOL).setUri(URI.create("file:/")).build();
 
     private Runtime runtime;
     private Map<SourceFile, List<TypeInfo>> sourceFiles;
