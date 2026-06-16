@@ -52,6 +52,11 @@ public class TestRecordConstructor extends CommonTest {
         // identical signature, therefore: main constructor
         assertEquals(1, typeInfo.constructors().size());
         MethodInfo constructor = typeInfo.constructors().getFirst();
+        assertFalse(constructor.isSynthetic());
+
+        FieldInfo s1 = typeInfo.getFieldByName("s1", true);
+        assertEquals("1-17:1-25", s1.source().compact2());
+
         ParameterInfo pi0 = constructor.parameters().getFirst();
         assertEquals("3-11:3-19", pi0.source().compact2());
     }
@@ -80,7 +85,7 @@ public class TestRecordConstructor extends CommonTest {
         assertEquals("assert s1!=null;", statements.get(1).toString());
         assertInstanceOf(ParameterInfo.class, statements.get(1).expression()
                 .variableStreamDescend().findFirst().orElseThrow());
-        // FIXME differs from std parser (std parser is wrong!)
+        // NOTE differs from std parser (std parser is wrong!)
         assertEquals("this.s1=s1;", statements.get(2).toString());
         assertSame(runtime.methodTypeCompactConstructor(), constructor.methodType());
     }
@@ -97,11 +102,11 @@ public class TestRecordConstructor extends CommonTest {
         assertEquals(1, typeInfo.constructors().size());
         MethodInfo constructor = typeInfo.constructors().getFirst();
         ParameterInfo pi0 = constructor.parameters().getFirst();
-        assertEquals("-@1:17-1:21", pi0.source().toString());
-        assertFalse(pi0.isSynthetic()); // FIXME differs from std parser
+        assertEquals("-@1:17-1:25", pi0.source().toString());
+        assertFalse(pi0.isSynthetic()); // NOTE differs from std parser
         FieldInfo f0 = typeInfo.fields().getFirst();
         assertEquals("s1", f0.name());
-        assertNull(f0.source()); // FIXME differs from std parser
+        assertEquals("-@1:17-1:25", f0.source().toString());
     }
 
 }
