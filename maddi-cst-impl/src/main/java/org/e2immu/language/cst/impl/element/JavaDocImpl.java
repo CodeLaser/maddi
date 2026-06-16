@@ -18,10 +18,17 @@ import org.e2immu.language.cst.api.element.*;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.output.Formatter;
+import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.DescendMode;
 import org.e2immu.language.cst.api.variable.Variable;
+import org.e2immu.language.cst.impl.output.GuideImpl;
+import org.e2immu.language.cst.impl.output.OutputBuilderImpl;
+import org.e2immu.language.cst.impl.output.SpaceEnum;
+import org.e2immu.language.cst.impl.output.TextImpl;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -235,6 +242,20 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
             return new ElementImpl.TypeReference(typeInfo, trn, qualifier);
         }
         return null;
+    }
+
+    @Override
+    protected OutputBuilder multilinePrint() {
+        GuideImpl.GuideGenerator gg = GuideImpl.generatorForMultilineComment();
+        String text = "/**\n" + comment() + "\n/";
+        String[] split = text.split("\n");
+        OutputBuilder firstLine = new OutputBuilderImpl().add(new TextImpl(split[0]));
+        OutputBuilder joinedText = Stream.concat(Stream.of(firstLine), Arrays.stream(split).skip(1)
+                        .map(line -> new OutputBuilderImpl()
+                                .add(new TextImpl(Formatter.HARD_SPACE + "*" + (line.isBlank() ? ""
+                                        : (line.equals("/") ? "/" : " " + line.trim()))))))
+                .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, gg));
+        return new OutputBuilderImpl().add(joinedText);
     }
 
     @Override

@@ -1221,39 +1221,44 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     @Override
     public Void visitVariable(VariableTree node, Void p) {
-        if (node instanceof JCTree.JCVariableDecl variableDecl) {
-            DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-            if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
-                String name = varSymbol.toString();
+        try {
+            if (node instanceof JCTree.JCVariableDecl variableDecl) {
+                DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
+                    String name = varSymbol.toString();
 
-                List<AnnotationExpression> annots = new ArrayList<>();
-                ParameterizedType type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
+                    List<AnnotationExpression> annots = new ArrayList<>();
+                    ParameterizedType type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
 
-                currentExpression = null;
-                scan(node.getInitializer(), p);
-                if (currentExpression == null) {
-                    currentExpression = runtime.newEmptyExpression();
-                }
-                Expression initializer = currentExpression;
-                if (currentMethod == null) {
-                    createField(variableDecl, varSymbol, name, type, annots, dsb, initializer);
-                } else {
-
-                    // local variable
-                    Statement prev = lastStatement();
-                    LocalVariableCreation prevLvc = prev instanceof LocalVariableCreation lvc2 ? lvc2 : null;
-                    LocalVariableCreation lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, prevLvc,
-                            annots);
-                    if (prevLvc != null && sameLvc(prevLvc, lvc)) {
-                        LocalVariableCreation merged = prevLvc.withAdditionalLocalVariable(lvc);
-                        replaceLastStatement(merged);
+                    currentExpression = null;
+                    scan(node.getInitializer(), p);
+                    if (currentExpression == null) {
+                        currentExpression = runtime.newEmptyExpression();
+                    }
+                    Expression initializer = currentExpression;
+                    if (currentMethod == null) {
+                        createField(variableDecl, varSymbol, name, type, annots, dsb, initializer);
                     } else {
-                        addStatement(lvc);
+
+                        // local variable
+                        Statement prev = lastStatement();
+                        LocalVariableCreation prevLvc = prev instanceof LocalVariableCreation lvc2 ? lvc2 : null;
+                        LocalVariableCreation lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, prevLvc,
+                                annots);
+                        if (prevLvc != null && sameLvc(prevLvc, lvc)) {
+                            LocalVariableCreation merged = prevLvc.withAdditionalLocalVariable(lvc);
+                            replaceLastStatement(merged);
+                        } else {
+                            addStatement(lvc);
+                        }
                     }
                 }
             }
+            return null;
+        } catch (RuntimeException | AssertionError e) {
+            LOGGER.error("Caught exception in visitVariable " + node + "; source " + sourceForNode(node));
+            throw e;
         }
-        return null;
     }
 
     private void createField(JCTree.JCVariableDecl variableDecl,
@@ -1941,68 +1946,73 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     @Override
     public Void visitMemberSelect(MemberSelectTree node, Void unused) {
-        if (node instanceof JCTree.JCFieldAccess fieldAccess) {
-            // class literal
-            if ("class".equals(fieldAccess.name.toString())) {
-                DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-                ParameterizedType classType = convertType.convertTree(fieldAccess, dsb);
-                ParameterizedType realType = convertType.convertTree(fieldAccess.selected, dsb);
-                currentExpression = runtime.newClassExpressionBuilder(realType)
-                        .setSource(sourceForNode(node, dsb))
-                        .setClassType(classType).build();
-                return null;
-            }
-
-            // static field access, no need to generate a TypeExpression
-            if (fieldAccess.sym instanceof Symbol.VarSymbol vs) {
-                currentExpression = null;
-                scan(fieldAccess.getExpression(), unused);
-                assert currentExpression != null;
-                Expression scope = currentExpression;
-                ParameterizedType concreteType = convertType.convert(fieldAccess.type);
-                String fieldName = vs.name.toString();
-                boolean isSuper = false;
-                Source source = sourceForNode(node);
-                DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-                String s = node.toString();
-                Source sourceName = source.ofIndex(s, s.lastIndexOf('.') + 1, fieldName.length());
-                dsb.put(fieldName, sourceName);
-                if ("length".equals(fieldName) && scope.parameterizedType().arrays() > 0) {
-                    currentExpression = runtime.newArrayLengthBuilder()
-                            .setSource(source.withDetailedSources(dsb.build()))
-                            .setSource(source)
-                            .setExpression(scope)
-                            .build();
-                } else if ("this".equals(fieldName) || (isSuper = "super".equals(fieldName))) {
-                    ParameterizedType explicitType = convertType.convertTree(fieldAccess.selected, dsb);
-                    Variable thisVar = runtime.newThis(explicitType, explicitType.typeInfo(), isSuper);
-                    currentExpression = runtime.newVariableExpressionBuilder()
-                            .setSource(source.withDetailedSources(dsb.build()))
-                            .setVariable(thisVar)
-                            .build();
-                } else {
-                    FieldInfo fieldInfo = typeData.getOrLoadField(vs);
-                    FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
-                    dsb.put(fieldInfo, sourceName);
-                    currentExpression = runtime.newVariableExpressionBuilder()
-                            .setSource(source.withDetailedSources(dsb.build()))
-                            .setVariable(fr).build();
+        try {
+            if (node instanceof JCTree.JCFieldAccess fieldAccess) {
+                // class literal
+                if ("class".equals(fieldAccess.name.toString())) {
+                    DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                    ParameterizedType classType = convertType.convertTree(fieldAccess, dsb);
+                    ParameterizedType realType = convertType.convertTree(fieldAccess.selected, dsb);
+                    currentExpression = runtime.newClassExpressionBuilder(realType)
+                            .setSource(sourceForNode(node, dsb))
+                            .setClassType(classType).build();
+                    return null;
                 }
-                return null;
+
+                // static field access, no need to generate a TypeExpression
+                if (fieldAccess.sym instanceof Symbol.VarSymbol vs) {
+                    currentExpression = null;
+                    scan(fieldAccess.getExpression(), unused);
+                    assert currentExpression != null;
+                    Expression scope = currentExpression;
+                    ParameterizedType concreteType = convertType.convert(fieldAccess.type);
+                    String fieldName = vs.name.toString();
+                    boolean isSuper = false;
+                    Source source = sourceForNode(node);
+                    DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                    String s = node.toString();
+                    Source sourceName = source.ofIndex(s, s.lastIndexOf('.') + 1, fieldName.length());
+                    dsb.put(fieldName, sourceName);
+                    if ("length".equals(fieldName) && scope.parameterizedType().arrays() > 0) {
+                        currentExpression = runtime.newArrayLengthBuilder()
+                                .setSource(source.withDetailedSources(dsb.build()))
+                                .setSource(source)
+                                .setExpression(scope)
+                                .build();
+                    } else if ("this".equals(fieldName) || (isSuper = "super".equals(fieldName))) {
+                        ParameterizedType explicitType = convertType.convertTree(fieldAccess.selected, dsb);
+                        Variable thisVar = runtime.newThis(explicitType, explicitType.typeInfo(), isSuper);
+                        currentExpression = runtime.newVariableExpressionBuilder()
+                                .setSource(source.withDetailedSources(dsb.build()))
+                                .setVariable(thisVar)
+                                .build();
+                    } else {
+                        FieldInfo fieldInfo = typeData.getOrLoadField(vs);
+                        FieldReference fr = runtime.newFieldReference(fieldInfo, scope, concreteType);
+                        dsb.put(fieldInfo, sourceName);
+                        currentExpression = runtime.newVariableExpressionBuilder()
+                                .setSource(source.withDetailedSources(dsb.build()))
+                                .setVariable(fr).build();
+                    }
+                    return null;
+                }
+                if (fieldAccess.sym instanceof Symbol.ClassSymbol) {
+                    DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+                    ParameterizedType type = convertType.convertTree(node, dsb);
+                    currentExpression = runtime.newTypeExpressionBuilder()
+                            .setParameterizedType(type)
+                            .setDiamond(runtime.diamondNo())
+                            .setSource(sourceForNode(node, dsb))
+                            .build();
+                    return null;
+                }
             }
-            if (fieldAccess.sym instanceof Symbol.ClassSymbol) {
-                DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-                ParameterizedType type = convertType.convertTree(node, dsb);
-                currentExpression = runtime.newTypeExpressionBuilder()
-                        .setParameterizedType(type)
-                        .setDiamond(runtime.diamondNo())
-                        .setSource(sourceForNode(node, dsb))
-                        .build();
-                return null;
-            }
+            super.visitMemberSelect(node, unused);
+            return null;
+        } catch (RuntimeException | AssertionError e) {
+            LOGGER.error("Caught exception in visitMemberSelect " + node + "; source " + sourceForNode(node));
+            throw e;
         }
-        super.visitMemberSelect(node, unused);
-        return null;
     }
 
     @Override
