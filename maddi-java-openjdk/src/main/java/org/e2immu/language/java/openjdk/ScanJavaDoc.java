@@ -22,8 +22,8 @@ public record ScanJavaDoc(Runtime runtime,
                           LineMap lineMap) {
 
     public JavaDoc scan(DocCommentTree docCommentTree) {
-        Source source = source(docCommentTree, docCommentTree);
         MyScanner myScanner = new MyScanner(docCommentTree);
+        Source source = myScanner.source(docCommentTree);
         myScanner.scan(docCommentTree, null);
         return runtime.newJavaDoc(source, myScanner.comment.toString(), List.copyOf(myScanner.tags));
     }
@@ -33,7 +33,9 @@ public record ScanJavaDoc(Runtime runtime,
 
         StringBuilder comment = new StringBuilder();
         List<JavaDoc.Tag> tags = new ArrayList<>();
+        // the following 2 are needed to compute the gap between the initial text, and the block tags
         int countBlockTags;
+        int lastTextLine;
 
         MyScanner(DocCommentTree docCommentTree) {
             this.docCommentTree = docCommentTree;
@@ -45,9 +47,13 @@ public record ScanJavaDoc(Runtime runtime,
                 case null -> {
                 }
                 case BlockTagTree btt -> {
-                    if (countBlockTags == 0 && !comment.isEmpty()) comment.append("\n");
+                    if (countBlockTags == 0 && !comment.isEmpty()) {
+                        Source source = source(node);
+                        int diff = source.endLine() - lastTextLine;
+                        comment.append("\n".repeat(diff));
+                    }
                     ++countBlockTags;
-                    JavaDoc.Tag tag = convertTag(docCommentTree, node);
+                    JavaDoc.Tag tag = convertTag(node);
                     if (tag != null) tags.add(tag);
                     appendBlockTagInfo(btt, comment);
                     // Recurse into children to pick up text via TextTree case
@@ -55,11 +61,15 @@ public record ScanJavaDoc(Runtime runtime,
                     comment.append("\n");
                 }
                 case InlineTagTree _ -> {
-                    JavaDoc.Tag tag = convertTag(docCommentTree, node);
+                    JavaDoc.Tag tag = convertTag(node);
                     if (tag != null) tags.add(tag);
                     comment.append(node); // e.g. "{@link Foo}"
                 }
-                case TextTree tt -> comment.append(tt.getBody());
+                case TextTree tt -> {
+                    comment.append(tt.getBody());
+                    Source source = source(node);
+                    lastTextLine = source.endLine();
+                }
                 default -> super.scan(node, unused);
             }
             return null;
@@ -89,61 +99,62 @@ public record ScanJavaDoc(Runtime runtime,
                 }
             }
         }
-    }
 
-    private String content(DocTree docTree) {
-        return switch (docTree) {
-            case DCTree.DCAuthor a -> a.getName().toString();
-            case DCTree.DCThrows t -> t.getExceptionName().getSignature();
-            case DCTree.DCLink l -> l.getReference().getSignature();
-            case DCTree.DCParam p -> p.getName().toString();
-            case DCTree.DCSee s -> s.getReference().stream().map(this::content)
-                    .collect(Collectors.joining("; "));
-            default -> docTree.toString();
-        };
-    }
 
-    private JavaDoc.Tag convertTag(DocCommentTree docCommentTree, DocTree docTree) {
-        String content = content(docTree);
-        JavaDoc.TagIdentifier tagId = identifier(docTree);
-        if (tagId == null) return null;
-        Source srcRef = switch (docTree) {
-            case DCTree.DCParam p -> source(docCommentTree, p.name);
-            case DCTree.DCLink l -> source(docCommentTree, l.getReference());
-            case DCTree.DCThrows t -> source(docCommentTree, t.getExceptionName());
-            case DCTree.DCSee s -> sourceOfList(docCommentTree, s.getReference());
-            default -> null;
-        };
-        Source src = source(docCommentTree, docTree);
-        boolean isBlock = docTree instanceof BlockTagTree;
-        return runtime.newJavaDocTag(tagId, content, null, src, srcRef, isBlock);
-    }
+        private String content(DocTree docTree) {
+            return switch (docTree) {
+                case DCTree.DCAuthor a -> a.getName().toString();
+                case DCTree.DCThrows t -> t.getExceptionName().getSignature();
+                case DCTree.DCLink l -> l.getReference().getSignature();
+                case DCTree.DCParam p -> p.getName().toString();
+                case DCTree.DCSee s -> s.getReference().stream().map(this::content)
+                        .collect(Collectors.joining("; "));
+                default -> docTree.toString();
+            };
+        }
 
-    private Source sourceOfList(DocCommentTree docCommentTree, List<? extends DocTree> reference) {
-        if (reference != null) {
-            for (DocTree dt : reference) {
-                if (dt instanceof DCTree.DCReference) {
-                    return source(docCommentTree, reference.getFirst());
+        private JavaDoc.Tag convertTag(DocTree docTree) {
+            String content = content(docTree);
+            JavaDoc.TagIdentifier tagId = identifier(docTree);
+            if (tagId == null) return null;
+            Source srcRef = switch (docTree) {
+                case DCTree.DCParam p -> source(p.name);
+                case DCTree.DCLink l -> source(l.getReference());
+                case DCTree.DCThrows t -> source(t.getExceptionName());
+                case DCTree.DCSee s -> sourceOfList(s.getReference());
+                default -> null;
+            };
+            Source src = source(docTree);
+            boolean isBlock = docTree instanceof BlockTagTree;
+            return runtime.newJavaDocTag(tagId, content, null, src, srcRef, isBlock);
+        }
+
+        private Source sourceOfList(List<? extends DocTree> reference) {
+            if (reference != null) {
+                for (DocTree dt : reference) {
+                    if (dt instanceof DCTree.DCReference) {
+                        return source(reference.getFirst());
+                    }
                 }
             }
+            return null;
         }
-        return null;
-    }
 
-    private JavaDoc.TagIdentifier identifier(DocTree docTree) {
-        String upperCase = docTree.getKind().name().toUpperCase();
-        if ("ERRONEOUS".equals(upperCase)) return null;
-        return JavaDoc.TagIdentifier.valueOf(upperCase);
-    }
+        private JavaDoc.TagIdentifier identifier(DocTree docTree) {
+            String upperCase = docTree.getKind().name().toUpperCase();
+            if ("ERRONEOUS".equals(upperCase)) return null;
+            return JavaDoc.TagIdentifier.valueOf(upperCase);
+        }
 
-    private Source source(DocCommentTree docComment, DocTree docNode) {
-        long startPos = docSourcePositions.getStartPosition(compilationUnitTree, docComment, docNode);
-        long endPos = docSourcePositions.getEndPosition(compilationUnitTree, docComment, docNode);
-        if (startPos == Diagnostic.NOPOS) return runtime.noSource(); // no position available
-        long startLine = lineMap.getLineNumber(startPos);
-        long startCol = lineMap.getColumnNumber(startPos);
-        long endLine = lineMap.getLineNumber(endPos);
-        long endCol = lineMap.getColumnNumber(endPos) - 1; // inclusive
-        return runtime().newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
+        private Source source(DocTree docNode) {
+            long startPos = docSourcePositions.getStartPosition(compilationUnitTree, docCommentTree, docNode);
+            long endPos = docSourcePositions.getEndPosition(compilationUnitTree, docCommentTree, docNode);
+            if (startPos == Diagnostic.NOPOS) return runtime.noSource(); // no position available
+            long startLine = lineMap.getLineNumber(startPos);
+            long startCol = lineMap.getColumnNumber(startPos);
+            long endLine = lineMap.getLineNumber(endPos);
+            long endCol = lineMap.getColumnNumber(endPos) - 1; // inclusive
+            return runtime().newParserSource("-", (int) startLine, (int) startCol, (int) endLine, (int) endCol);
+        }
     }
 }

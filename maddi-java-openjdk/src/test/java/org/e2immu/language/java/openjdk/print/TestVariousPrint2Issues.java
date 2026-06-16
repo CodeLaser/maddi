@@ -1,5 +1,6 @@
 package org.e2immu.language.java.openjdk.print;
 
+import org.e2immu.language.cst.api.element.JavaDoc;
 import org.e2immu.language.cst.api.element.MultiLineComment;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -83,6 +84,15 @@ public class TestVariousPrint2Issues extends CommonTest {
     public void test2() {
         TypeInfo X = scan("ConfigUtil", INPUT2);
         MethodInfo getCharset = X.findUniqueMethod("getCharset", 0);
+        JavaDoc javaDoc = getCharset.javaDoc();
+        assertEquals("""
+                line 1
+                line 2
+                
+                line 4
+                
+                @return a new char set\
+                """, javaDoc.comment());
         Statement s2 = getCharset.methodBody().statements().get(2);
         MultiLineComment mlc = (MultiLineComment) s2.comments().getFirst();
         assertEquals(" one\n         on two lines\n         ", mlc.comment());
