@@ -547,7 +547,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         parameterInfo.builder().addAnnotation(ae);
                     }
                     Source source;
-                    if (isConstructor && currentType.typeNature().isRecord()) {
+                    if (isConstructor && currentType.typeNature().isRecord()
+                        && (methodInfo.isCompactConstructor() || methodInfo.isSynthetic())) {
                         Source base = sourceForNode(jcVariableDecl);
                         String string = jcVariableDecl.toString();
                         source = extendSource(base, string, name).withDetailedSources(dsbParam.build());
@@ -2464,7 +2465,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     private Source sourceOfIdentifier(String identifier, int pos) {
         long line = lineMap.getLineNumber(pos);
-        long begin = lineMap.getColumnNumber(pos);
+        long begin = getExactColumn(pos, line);
         return runtime.newParserSource("-", (int) line, (int) begin, (int) line,
                 (int) (begin + identifier.length() - 1));
     }
@@ -2495,7 +2496,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             return runtime.noSource(); // synthetic
         }
         long startLine = lineMap.getLineNumber(startPos);
-        long startCol = lineMap.getColumnNumber(startPos);
+        long startCol = getExactColumn(startPos, startLine);
         long endLine;
         long endCol;
         if (endPos == Diagnostic.NOPOS) {
@@ -2504,7 +2505,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             endCol = startCol + 4;
         } else {
             endLine = lineMap.getLineNumber(endPos);
-            endCol = lineMap.getColumnNumber(endPos) - 1; // we work inclusively
+            endCol = getExactColumn(endPos, endLine) - 1; // we work inclusively
         }
         return runtime.newParserSource(index, (int) startLine, (int) startCol, (int) endLine, (int) endCol);
     }
@@ -2542,5 +2543,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
         endPos += 1 + sub.length();
         return runtime.newParserSource(base.index(), base.beginLine(), base.beginPos(), endLine, endPos);
+    }
+
+    // use this instead of lineMap.getColumnNumber(offset), which uses 8 spaces for a TAB
+    // we want to see a single character.
+    private int getExactColumn(long startOffset, long lineNumber) {
+        if (startOffset == javax.tools.Diagnostic.NOPOS) return -1;
+        // 1. Find the character offset where this specific line starts
+        long lineStartOffset = lineMap.getStartPosition(lineNumber);
+        // 2. The true character column is simply the absolute offset minus the line's start offset
+        // Adding 1 makes it 1-indexed to match standard compiler behavior
+        return (int) (startOffset - lineStartOffset) + 1;
     }
 }
