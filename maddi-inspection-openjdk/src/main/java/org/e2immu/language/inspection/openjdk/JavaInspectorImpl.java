@@ -21,6 +21,7 @@ import org.e2immu.language.inspection.api.resource.SourceFile;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.language.inspection.resource.SummaryImpl;
 import org.e2immu.language.java.openjdk.InMemoryJavaFileObject;
+import org.e2immu.language.java.openjdk.InfoByFqn;
 import org.e2immu.language.java.openjdk.MaddiDiagnosticCollector;
 import org.e2immu.language.java.openjdk.ScanCompilationUnits;
 import org.e2immu.util.internal.graph.G;
@@ -57,7 +58,7 @@ public class JavaInspectorImpl implements JavaInspector {
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
     private final JavaCompiler javaCompiler;
-    private final Map<String, Info> previouslyLoaded = new HashMap<>();
+    private final InfoByFqn infoByFqn = new InfoByFqn();
     private final List<String> preload = new ArrayList<>();
 
     public JavaInspectorImpl() {
@@ -178,7 +179,7 @@ public class JavaInspectorImpl implements JavaInspector {
         List<SourceSet> linearization = computeScanOrder(); // from input configuration
         for (SourceSet sourceSet : linearization) {
             try {
-                singleSourceSet(summary, sourcesByFqn, previouslyLoaded, sourceSet, !parseOptions.failFast(),
+                singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),
                         parseOptions.ignoreModule());
             } catch (IOException ioe) {
                 LOGGER.error("Caught exception", ioe);
@@ -234,7 +235,7 @@ public class JavaInspectorImpl implements JavaInspector {
             String className = name.substring(0, name.length() - 5);
             String input = Files.readString(javaFile);
             Summary summary = new SummaryImpl(parseOptions.failFast());
-            singleSourceSet(summary, Map.of(className, input), previouslyLoaded, sourceSet,
+            singleSourceSet(summary, Map.of(className, input), infoByFqn, sourceSet,
                     !parseOptions.failFast(), parseOptions.ignoreModule());
             return summary;
         } catch (IOException e) {
@@ -245,14 +246,14 @@ public class JavaInspectorImpl implements JavaInspector {
 
     private void singleSourceSet(Summary summary,
                                  Map<String, String> sourcesByFqn,
-                                 Map<String, Info> previouslyLoaded,
+                                 InfoByFqn infoByFqn,
                                  SourceSet sourceSet,
                                  boolean ignoreErrors,
                                  boolean ignoreModule) throws IOException {
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                javacTask, sourceSet, previouslyLoaded, true, diagnostics, preload);
+                javacTask, sourceSet, infoByFqn, true, diagnostics, preload);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary

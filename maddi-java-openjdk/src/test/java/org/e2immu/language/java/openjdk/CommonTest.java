@@ -41,10 +41,10 @@ public class CommonTest {
 
     protected final Runtime runtime;
     protected final List<String> preload;
+    protected final InfoByFqn infoByFqn = new InfoByFqn();
     protected JavacTask javacTask;
     protected SourceSet sourceSet;
     protected ClassSymbolScanner classSymbolScanner;
-    protected Map<String, Info> previouslyLoaded = new HashMap<>();
 
     public CommonTest() {
         this(List.of());
@@ -97,7 +97,7 @@ public class CommonTest {
                             annotations, maddiSupport, junitJupiter, assertJ, lombok)
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                    javacTask, sourceSet, previouslyLoaded, true, diagnostics,
+                    javacTask, sourceSet, infoByFqn, true, diagnostics,
                     preload);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
