@@ -230,7 +230,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             TypeInfo known = typeData.getType(fullyQualifiedName);
             String simpleName = node.getSimpleName().toString();
 
-            if (known != null && known.compilationUnit().equals(compilationUnit)) {
+            if (known != null && known.compilationUnit().sourceSet().equals(compilationUnit.sourceSet())) {
                 typeInfo = known; // was already created because of the order
             } else {
                 if (typeStack.isEmpty()) {

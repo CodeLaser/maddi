@@ -26,16 +26,19 @@ public class InfoByFqn {
     void put(String fqn, TypeInfo typeInfo, SourceSet sourceSetOfCurrentTask) {
         TypeInfo prev = singleTypeByFqn.put(fqn, typeInfo);
         List<TypeInfo> list;
-        if (typeInfo.compilationUnit().sourceSet().equals(sourceSetOfCurrentTask)) {
-            if (prev != null && !prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())) {
-                singleTypeByFqn.remove(fqn);
-                multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
-            } else if (prev == null && ((list = multiTypeByFqn.get(fqn)) != null)) {
+        // NOTE that the sourceSet can be null, when the type was not properly loaded
+        if (sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet())) {
+            if (prev != null) {
+                if (!prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())) {
+                    singleTypeByFqn.remove(fqn);
+                    multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
+                } else {
+                    throw new UnsupportedOperationException("Duplicating type " + typeInfo);
+                }
+            } else if ((list = multiTypeByFqn.get(fqn)) != null) {
                 multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
-            } else {
-                throw new UnsupportedOperationException("Duplicating type " + typeInfo);
-            }
-        } else {
+            } // else: not a problem, first time
+        } else if (prev != null) {
             throw new UnsupportedOperationException("Duplicating type " + typeInfo);
         }
     }

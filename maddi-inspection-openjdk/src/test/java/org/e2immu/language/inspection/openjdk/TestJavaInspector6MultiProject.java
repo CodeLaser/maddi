@@ -35,6 +35,13 @@ public class TestJavaInspector6MultiProject {
     public void test() throws IOException, URISyntaxException {
         javaInspector = new JavaInspectorImpl();
 
+        URI slf4jApiUri = Logger.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+        SourceSet orgSlf4jApi = new SourceSetImpl.Builder().setName("slf4j-api-2.0.17.jar")
+                .setUri(slf4jApiUri)
+                .setExternalLibrary(true)
+                .setModule(true)
+                .build();
+
         Path maddiSupportJar = Path.of("../maddi-support/build/libs/maddi-support-0.8.2.jar").toRealPath();
         Path maddiSupportSrc = Path.of("../maddi-support/src/main/java");
         SourceSet maddiSupport = new SourceSetImpl.Builder()
@@ -53,7 +60,7 @@ public class TestJavaInspector6MultiProject {
                 .setUri(maddiUtilJar.toUri())
                 .setLibrary(true)
                 .setModule(true)
-                .setDependencies(List.of(maddiSupport))
+                .setDependencies(List.of(maddiSupport, orgSlf4jApi))
                 .build();
 
         Path cstApiJar = Path.of("../maddi-cst-api/build/libs/maddi-cst-api.jar").toRealPath();
@@ -67,12 +74,6 @@ public class TestJavaInspector6MultiProject {
                 .setDependencies(List.of(maddiSupport))
                 .build();
 
-        URI slf4jApiUri = Logger.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-        SourceSet orgSlf4jApi = new SourceSetImpl.Builder().setName("slf4j-api-2.0.17.jar")
-                .setUri(slf4jApiUri)
-                .setExternalLibrary(true)
-                .setModule(true)
-                .build();
 
         URI annotationsUri = NotNull.class.getProtectionDomain().getCodeSource().getLocation().toURI();
         SourceSet annotations = new SourceSetImpl.Builder().setName("annotations-26.1.0.jar")

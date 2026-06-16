@@ -43,6 +43,7 @@ public class TestJavaInspector5RealClasspathModule {
                 .setSourceDirectories(List.of(cstApiPath))
                 .setUri(URI.create("file:/")) // not important here
                 .setModule(true)
+                .setDependencies(List.of(maddiSupport))
                 .build();
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(cstApi)
