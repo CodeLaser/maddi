@@ -165,7 +165,7 @@ public final class SourceCodeScan {
                 keywords.put(source(implementsKeyword), implementsKeyword.getSource());
             } else if (node instanceof ClassOrInterfaceBody || node instanceof EnumBody) {
                 for (Node node2 : node.children()) {
-                    String string2 = node2.getSource();
+                    //String string2 = node2.getSource();
                     switch (node2) {
                         case TypeDeclaration sub -> scanTypeDeclaration(sub);
                         case ConstructorDeclaration cd -> scanMethodDeclaration(cd);

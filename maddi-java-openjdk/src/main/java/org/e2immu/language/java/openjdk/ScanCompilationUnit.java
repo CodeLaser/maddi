@@ -318,13 +318,17 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         // record components: fields and accessors
         if (typeInfo.typeNature().isRecord()) {
             RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
+            int i = 0;
             for (Symbol.RecordComponent rc : jcClassDecl.sym.getRecordComponents()) {
                 String fieldName = rc.name.toString();
+                // we may have to skip a constructor... but we try to use the tree elements for the source
+                while (!(jcClassDecl.defs.get(i) instanceof JCTree.JCVariableDecl definition)) ++i;
                 FieldInfo fieldInfo;
                 // check presence
                 FieldInfo inMap = typeInfo.getFieldByName(fieldName, false);
+                DetailedSources.Builder dsbField = runtime.newDetailedSourcesBuilder();
                 if (inMap == null) {
-                    ParameterizedType pt = convertType.convert(rc.type);
+                    ParameterizedType pt = convertType.convertTree(definition.getType(), dsbField);
                     fieldInfo = runtime.newFieldInfo(fieldName, false, pt, typeInfo);
                     Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
                             .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
@@ -338,8 +342,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                             .addFieldModifier(runtime.fieldModifierFinal())
                             .addFieldModifier(runtime.fieldModifierPrivate());
                 }
-                fieldInfo.builder().setAccess(runtime.accessPrivate());
-
+                Source source = sourceForNode(definition, dsbField);
+                fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
                 // check presence
                 MethodInfo miInMap = typeInfo.methodStream()
                         .filter(mi -> fieldName.equals(mi.name()) && mi.parameters().isEmpty())
@@ -354,6 +358,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     builder.addMethod(accessor);
                     typeData.put(rc.accessor, accessor);
                 }
+                ++i;
             }
         }
         // annotations
@@ -541,7 +546,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         AnnotationExpression ae = convertAnnotation(annotation);
                         parameterInfo.builder().addAnnotation(ae);
                     }
-                    parameterInfo.builder().setSource(sourceForNode(jcVariableDecl, dsbParam)).commit();
+                    Source source;
+                    if (isConstructor && currentType.typeNature().isRecord()) {
+                        Source base = sourceForNode(jcVariableDecl);
+                        String string = jcVariableDecl.toString();
+                        source = extendSource(base, string, name).withDetailedSources(dsbParam.build());
+                    } else {
+                        source = sourceForNode(jcVariableDecl, dsbParam);
+                    }
+                    parameterInfo.builder().setSource(source).commit();
                     parameterMap.put(parameterInfo.simpleName(), parameterInfo);
                 }
 
@@ -2508,5 +2521,26 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     private List<Comment> trailingCommentsForNode(Source source) {
         return scanResult == null ? List.of() : scanResult.findTrailingComments(source);
+    }
+
+    private Source extendSource(Source base, String all, String sub) {
+        int startInAll = base.endPos() - base.beginPos() + 2;
+        int startSub = all.indexOf(sub, startInAll);
+        if (startSub < 0) {
+            assert all.endsWith(sub);
+            return base;
+        }
+        String inBetween = all.substring(startInAll, startSub);
+        int endLine = base.endLine();
+        int endPos = base.endPos();
+        for (char c : inBetween.toCharArray()) {
+            if (c == ' ') endPos++;
+            if (c == '\n') {
+                endLine++;
+                endPos = 1;
+            }
+        }
+        endPos += 1 + sub.length();
+        return runtime.newParserSource(base.index(), base.beginLine(), base.beginPos(), endLine, endPos);
     }
 }
