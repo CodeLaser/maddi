@@ -50,8 +50,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final ComputeMethodOverrides computeMethodOverrides;
     private final MaddiDiagnosticCollector diagnosticCollector;
 
-    private final Map<String, Info> previouslyLoaded; // Javac qualified name -> typeInfo, methodInfo, fieldInfo
-    private final Map<String, TypeInfo> singleTypeForFQN = new HashMap<>();
+    private final InfoByFqn infoByFqn; // Javac qualified name -> typeInfo, methodInfo, fieldInfo
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
     private final Map<Symbol.VarSymbol, FieldInfo> varSymbolMap = new IdentityHashMap<>();
     private final Map<String, Map<String, TypeParameter>> tmpMethodTypeParameterMap = new HashMap<>();
@@ -70,7 +69,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     public ClassSymbolScanner(Runtime runtime,
                               InputConfiguration inputConfiguration,
-                              Map<String, Info> previouslyLoaded,
+                              InfoByFqn infoByFqn,
                               SourceSet sourceSetOfCurrentTask,
                               FlagHelper flagHelper,
                               Types types,
@@ -80,7 +79,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.flagHelper = flagHelper;
         this.elements = elements;
         this.types = types;
-        this.previouslyLoaded = previouslyLoaded;
+        this.infoByFqn = Objects.requireNonNull(infoByFqn);
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
         this.diagnosticCollector = maddiDiagnosticCollector;
@@ -152,9 +151,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 return inMap;
             }
             case Symbol.MethodSymbol _ -> throw new UnsupportedOperationException("Should have been picked up earlier");
-            case null, default -> {
-                throw new UnsupportedOperationException();
-            }
+            case null, default -> throw new UnsupportedOperationException();
         }
     }
 
@@ -744,7 +741,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 break;
             }
             if (expression instanceof JCTree.JCFieldAccess fa) {
-                if(ti.compilationUnitOrEnclosingType().isRight()) {
+                if (ti.compilationUnitOrEnclosingType().isRight()) {
                     ti = ti.compilationUnitOrEnclosingType().getRight();
                     dsb.put(ti, expressionSource);
                     expression = fa.getExpression();
@@ -834,25 +831,30 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return sourceSetMap.get(name);
     }
 
+    record TypeDistance(TypeInfo typeInfo, int distance) implements Comparable<TypeDistance> {
+        @Override
+        public int compareTo(@NotNull ClassSymbolScanner.TypeDistance o) {
+            int c = Integer.compare(distance, o.distance);
+            if (c != 0) return c;
+            return typeInfo.compilationUnit().sourceSet().name()
+                    .compareTo(o.typeInfo.compilationUnit().sourceSet().name());
+        }
+    }
+
     @Override
     public TypeInfo getType(String fullyQualifiedName) {
-        if (previouslyLoaded != null) {
-            TypeInfo typeInfo = (TypeInfo) previouslyLoaded.get(fullyQualifiedName);
-            if (typeInfo != null) return typeInfo;
-        }
-        return singleTypeForFQN.get(fullyQualifiedName);
+        return infoByFqn.getType(fullyQualifiedName, sourceSetOfCurrentTask);
     }
 
     @Override
     public void put(TypeInfo typeInfo) {
-        TypeInfo prev = singleTypeForFQN.put(typeInfo.fullyQualifiedName(), typeInfo);
-        assert prev == null : "Duplicating TypeInfo " + typeInfo;
+        String fqn = typeInfo.fullyQualifiedName();
+        infoByFqn.put(fqn, typeInfo, sourceSetOfCurrentTask);
     }
 
     @Override
     public void put(String anonymousTypeName, TypeInfo typeInfo) {
-        TypeInfo prev = singleTypeForFQN.put(anonymousTypeName, typeInfo);
-        assert prev == null : "Duplicating TypeInfo " + typeInfo;
+        infoByFqn.put(anonymousTypeName, typeInfo, sourceSetOfCurrentTask);
     }
 
     @Override
@@ -882,18 +884,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             fromSymbol = methodSymbolMap.get(methodSymbol);
         }
         if (fromSymbol != null) return fromSymbol;
-        if (previouslyLoaded != null) {
-            if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
-                TypeInfo typeInfo = convert(cs.type).typeInfo();
-                String methodFqn = typeInfo.fullyQualifiedName() + "." + methodSymbol.name + "("
-                                   + methodSymbol.params.stream()
-                                           .map(vs -> convert(types.erasure(vs.type)).printForMethodFQN())
-                                           .collect(Collectors.joining(","))
-                                   + ")";
-                return (MethodInfo) previouslyLoaded.get(methodFqn);
-            } else throw new UnsupportedOperationException("?");
+
+        if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo typeInfo = convert(cs.type).typeInfo();
+            String methodDescriptor = typeInfo.descriptor() + "." + methodSymbol.name + "("
+                                      + methodSymbol.params.stream()
+                                              .map(vs -> convert(types.erasure(vs.type)).descriptor())
+                                              .collect(Collectors.joining(","))
+                                      + ")";
+            return infoByFqn.getMethod(methodDescriptor);
         }
-        return null;
+        throw new UnsupportedOperationException("?");
     }
 
     @Override
@@ -914,13 +915,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     public FieldInfo getField(Symbol.VarSymbol varSymbol) {
         FieldInfo fromSymbol = varSymbolMap.get(varSymbol);
         if (fromSymbol != null) return fromSymbol;
-        if (previouslyLoaded != null) {
-            if (varSymbol.owner instanceof Symbol.ClassSymbol cs) {
-                TypeInfo typeInfo = convert(cs.type).typeInfo();
-                String fieldFqn = typeInfo.fullyQualifiedName() + "." + varSymbol.name.toString();
-                return (FieldInfo) previouslyLoaded.get(fieldFqn);
-            }
+
+        if (varSymbol.owner instanceof Symbol.ClassSymbol cs) {
+            TypeInfo typeInfo = convert(cs.type).typeInfo();
+            String fieldDescriptor = typeInfo.descriptor() + ":" + varSymbol.name.toString();
+            return infoByFqn.getField(fieldDescriptor);
         }
+
         return null;
     }
 
@@ -930,7 +931,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     public Collection<TypeInfo> typesLoaded() {
-        return singleTypeForFQN.values();
+        return infoByFqn.typesLoaded();
     }
 
     public void commitType(TypeInfo typeInfo) {
@@ -946,14 +947,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
     }
 
-    public void mergeIntoPreviouslyLoaded() {
-        assert previouslyLoaded != null;
-        for (TypeInfo ti : singleTypeForFQN.values()) {
-            LOGGER.debug("Copy {} into previously loaded, inspected? {}", ti, ti.hasBeenInspected());
-        }
-        previouslyLoaded.putAll(singleTypeForFQN);
-        varSymbolMap.values().forEach(fi -> previouslyLoaded.put(fi.fullyQualifiedName(), fi));
-        methodSymbolMap.values().forEach(mi -> previouslyLoaded.put(mi.fullyQualifiedName(), mi));
+    public void copySymbolMaps() {
+        varSymbolMap.values().forEach(infoByFqn::put);
+        methodSymbolMap.values().forEach(infoByFqn::put);
     }
 
 }

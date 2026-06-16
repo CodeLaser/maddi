@@ -64,7 +64,7 @@ public class ScanCompilationUnits {
                                 InputConfiguration inputConfiguration,
                                 JavacTask task,
                                 SourceSet sourceSet,
-                                Map<String, Info> previouslyLoaded,
+                                InfoByFqn infoByFqn,
                                 boolean detailedSources,
                                 MaddiDiagnosticCollector diagnosticCollector,
                                 List<String> packagesToPreload) {
@@ -81,7 +81,7 @@ public class ScanCompilationUnits {
         Elements elements = task.getElements();
         computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         flagHelper = new FlagHelper(runtime);
-        classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, previouslyLoaded, sourceSet,
+        classSymbolScanner = new ClassSymbolScanner(runtime, inputConfiguration, infoByFqn, sourceSet,
                 flagHelper, types, elements, diagnosticCollector);
         resolveJavaDoc = new ResolveJavaDoc(runtime, classSymbolScanner);
     }
@@ -224,7 +224,7 @@ public class ScanCompilationUnits {
     }
 
     public void mergeIntoPreviouslyLoaded() {
-        classSymbolScanner.mergeIntoPreviouslyLoaded();
+        classSymbolScanner.copySymbolMaps();
     }
 
     // for tests
