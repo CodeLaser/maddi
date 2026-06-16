@@ -121,7 +121,7 @@ public class JsonStreaming {
                     restrictToPackages.add(jsonNode.asText());
                 }
             }
-            Set<SourceSet> dependencies = new HashSet<>();
+            List<SourceSet> dependencies = new ArrayList<>();
             JsonNode dependenciesNode = node.get("dependencies");
             if (dependenciesNode != null) {
                 for (JsonNode subNode : dependenciesNode) {
@@ -141,7 +141,7 @@ public class JsonStreaming {
                     .setTest(test).setLibrary(library).setExternalLibrary(externalLibrary)
                     .setPartOfJdk(partOfJdk).setModule(partOfJdk)
                     .setRestrictToPackages(Set.copyOf(restrictToPackages))
-                    .setDependencies(Set.copyOf(dependencies))
+                    .setDependencies(List.copyOf(dependencies))
                     .build();
             String fingerPrintToString = getString(node, "fingerPrint", "");
             if (!fingerPrintToString.isBlank()) {

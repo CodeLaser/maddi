@@ -163,9 +163,9 @@ public record AnalyzerPropertyComputer(
         Map<String, SourceSet> allSourceSetsByName = result.allSourceSetsByName();
         for (String name : linearization) {
             Map<V<String>, Long> edges = graph.edges(new V<>(name));
-            Set<SourceSet> dependencies = edges == null ? Set.of() : edges.keySet()
+            List<SourceSet> dependencies = edges == null ? List.of() : edges.keySet()
                     .stream().map(v -> allSourceSetsByName.get(v.t()))
-                    .filter(Objects::nonNull).collect(Collectors.toUnmodifiableSet());
+                    .filter(Objects::nonNull).toList();
             SourceSet sourceSet = allSourceSetsByName.get(name);
             if (sourceSet == null) {
                 LOGGER.warn("Don't know source set {}", name);

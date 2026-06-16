@@ -104,9 +104,11 @@ public interface SourceSet {
         return Set.of();
     }
 
-    // which sourceSets must be present for this source set to compile/run/resolve?
-    default Set<SourceSet> dependencies() {
-        return Set.of();
+    /* which sourceSets must be present for this source set to compile/run/resolve?
+    The order is important: first come first served, on class-by-class basis
+     */
+    default List<SourceSet> dependencies() {
+        return List.of();
     }
 
     /**
@@ -146,7 +148,7 @@ public interface SourceSet {
         return false;
     }
 
-    default SourceSet withDependencies(Set<SourceSet> dependencies) {
+    default SourceSet withDependencies(List<SourceSet> dependencies) {
         throw new UnsupportedOperationException();
     }
 

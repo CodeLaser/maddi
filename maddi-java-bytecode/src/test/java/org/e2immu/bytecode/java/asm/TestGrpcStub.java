@@ -46,11 +46,11 @@ public class TestGrpcStub {
         Resources cp = new ResourcesImpl(Path.of("."));
         SourceSet base = addJmod("java.base", cp);
         SourceSet logging = addJmod("java.logging", cp);
-        SourceSet guava = addJar("guava-33.3.0-jre", cp, Set.of(base, logging));
-        SourceSet api = addJar("grpc-api-1.67.1", cp, Set.of(base, logging));
-        SourceSet set67 = addJar("grpc-stub-1.67.1", cp, Set.of(base, logging, guava, api));
+        SourceSet guava = addJar("guava-33.3.0-jre", cp, List.of(base, logging));
+        SourceSet api = addJar("grpc-api-1.67.1", cp, List.of(base, logging));
+        SourceSet set67 = addJar("grpc-stub-1.67.1", cp, List.of(base, logging, guava, api));
         set67.computePriorityDependencies();
-        SourceSet set73 = addJar("grpc-stub-1.73.0", cp, Set.of(base, logging, guava, api));
+        SourceSet set73 = addJar("grpc-stub-1.73.0", cp, List.of(base, logging, guava, api));
         set73.computePriorityDependencies();
 
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(base, cp);
@@ -70,7 +70,7 @@ public class TestGrpcStub {
                 .setName("want67")
                 .setUri(URI.create("file:/"))
                 .setTest(true)
-                .setDependencies(Set.of(set67))
+                .setDependencies(List.of(set67))
                 .build();
         want67.computePriorityDependencies();
 
@@ -100,7 +100,7 @@ public class TestGrpcStub {
                 .setName("want73")
                 .setUri(URI.create("file:/"))
                 .setTest(true)
-                .setDependencies(Set.of(set73))
+                .setDependencies(List.of(set73))
                 .build();
         want73.computePriorityDependencies();
 
@@ -163,7 +163,7 @@ public class TestGrpcStub {
         return jmodBase;
     }
 
-    private static SourceSet addJar(String name, Resources cp, Set<SourceSet> dependencies) throws IOException {
+    private static SourceSet addJar(String name, Resources cp, List<SourceSet> dependencies) throws IOException {
         String path = "src/test/resources/" + name + ".jar";
         URI uri = URI.create("jar:file:" + path + "!/");
         SourceSet sourceSet = new SourceSetImpl.Builder()

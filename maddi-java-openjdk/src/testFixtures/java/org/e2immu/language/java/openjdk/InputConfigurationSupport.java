@@ -29,7 +29,7 @@ public class InputConfigurationSupport {
         return new SourceSetImpl.Builder().setName(tail(uri)).setUri(uri)
                 .setLibrary(true)
                 .setExternalLibrary(true)
-                .setDependencies(Arrays.stream(dependencies).collect(Collectors.toUnmodifiableSet()))
+                .setDependencies(Arrays.stream(dependencies).toList())
                 .build();
     }
 }

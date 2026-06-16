@@ -52,7 +52,7 @@ public class TestStreaming {
                 .setSourceDirectories(List.of(Path.of("/home/y")))
                 .setUri(URI.create("file:/home/y"))
                 .setTest(true)
-                .setDependencies(Set.of(sourceSet))
+                .setDependencies(List.of(sourceSet))
                 .build();
 
         sourceSet2.setAnalysisFingerPrint(MD5FingerPrint.compute("there"));

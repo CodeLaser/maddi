@@ -53,7 +53,7 @@ public class TestJavaInspector6MultiProject {
                 .setUri(maddiUtilJar.toUri())
                 .setLibrary(true)
                 .setModule(true)
-                .setDependencies(Set.of(maddiSupport))
+                .setDependencies(List.of(maddiSupport))
                 .build();
 
         Path cstApiJar = Path.of("../maddi-cst-api/build/libs/maddi-cst-api.jar").toRealPath();
@@ -64,7 +64,7 @@ public class TestJavaInspector6MultiProject {
                 .setUri(cstApiJar.toUri())
                 .setLibrary(true)
                 .setModule(true)
-                .setDependencies(Set.of(maddiSupport))
+                .setDependencies(List.of(maddiSupport))
                 .build();
 
         URI slf4jApiUri = Logger.class.getProtectionDomain().getCodeSource().getLocation().toURI();
@@ -95,7 +95,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstAnalysisPath))
                 .setUri(cstAnalysisJar.toUri())
                 .setModule(true)
-                .setDependencies(Set.of(cstApi, maddiSupport, orgSlf4jApi))
+                .setDependencies(List.of(cstApi, maddiSupport, orgSlf4jApi))
                 .build();
 
         Path cstImplJar = Path.of("../maddi-cst-impl/build/libs/maddi-cst-impl.jar").toRealPath();
@@ -105,7 +105,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstImplPath))
                 .setUri(cstImplJar.toUri())
                 .setModule(true)
-                .setDependencies(Set.of(cstApi, cstAnalysis, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
+                .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, maddiUtil, orgSlf4jApi, annotations))
                 .build();
 
         Path cstImplTestPath = Path.of("../maddi-cst-impl/src/test/java");
@@ -115,7 +115,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstImplTestPath))
                 .setUri(cstImplTestPath.toUri())
                 .setModule(false)
-                .setDependencies(Set.of(cstApi, cstAnalysis, cstImpl, maddiSupport, maddiUtil, orgSlf4jApi,
+                .setDependencies(List.of(cstApi, cstAnalysis, cstImpl, maddiSupport, maddiUtil, orgSlf4jApi,
                         annotations, junitJupiter))
                 .build();
 
@@ -126,7 +126,7 @@ public class TestJavaInspector6MultiProject {
                 .setSourceDirectories(List.of(cstIoPath))
                 .setUri(cstImplJar.toUri())
                 .setModule(true)
-                .setDependencies(Set.of(cstApi, cstAnalysis, maddiSupport, orgSlf4jApi, annotations))
+                .setDependencies(List.of(cstApi, cstAnalysis, maddiSupport, orgSlf4jApi, annotations))
                 .build();
 
         assertTrue(Files.isReadable(maddiUtilJar));
