@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -28,6 +29,34 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestRecordConstructor extends CommonTest {
+
+    @Language("java")
+    private static final String INPUT0 = """
+            public class X {
+            \tpublic static final int NUMBER_OF_COLUMNS = 3;
+            }
+            """;
+
+    @Test
+    public void test0() {
+        TypeInfo typeInfo = scan("X", INPUT0);
+        FieldInfo noc = typeInfo.getFieldByName("NUMBER_OF_COLUMNS", true);
+        assertEquals("2-26:2-46", noc.source().compact2());
+    }
+
+    @Language("java")
+    private static final String INPUT0b = """
+            public class X {
+                public static final int NUMBER_OF_COLUMNS = 3;
+            }
+            """;
+
+    @Test
+    public void test0b() {
+        TypeInfo typeInfo = scan("X", INPUT0b);
+        FieldInfo noc = typeInfo.getFieldByName("NUMBER_OF_COLUMNS", true);
+        assertEquals("2-29:2-49", noc.source().compact2());
+    }
 
     @Language("java")
     private static final String INPUT1 = """
@@ -42,8 +71,6 @@ public class TestRecordConstructor extends CommonTest {
             		return new String[] { s1, s2, s3 };
             	}
             }
-            
-            
             """;
 
     @Test
@@ -54,11 +81,45 @@ public class TestRecordConstructor extends CommonTest {
         MethodInfo constructor = typeInfo.constructors().getFirst();
         assertFalse(constructor.isSynthetic());
 
+        FieldInfo noc = typeInfo.getFieldByName("NUMBER_OF_COLUMNS", true);
+        assertEquals("2-26:2-46", noc.source().compact2());
+
         FieldInfo s1 = typeInfo.getFieldByName("s1", true);
         assertEquals("1-17:1-25", s1.source().compact2());
 
         ParameterInfo pi0 = constructor.parameters().getFirst();
         assertEquals("3-11:3-19", pi0.source().compact2());
+    }
+
+    @Language("java")
+    private static final String INPUT1b = """
+            public record X(String s1, String s2, String s3) {
+                public static final int NUMBER_OF_COLUMNS = 3;
+                public X(String s1, String s2, String s3) {
+            		this.s1 = s1 == null ? "": s1;
+            		this.s2 = s2 == null ? "": s2;
+            		this.s3 = s3 == null ? "": s3;
+            	}
+            	public String[] getArrayOfValues() {
+            		return new String[] { s1, s2, s3 };
+            	}
+            }
+            """;
+
+    @DisplayName("test 1, no tabs")
+    @Test
+    public void test1bis() {
+        TypeInfo typeInfo = scan("X", INPUT1b);
+        // identical signature, therefore: main constructor
+        assertEquals(1, typeInfo.constructors().size());
+        MethodInfo constructor = typeInfo.constructors().getFirst();
+        assertFalse(constructor.isSynthetic());
+
+        FieldInfo s1 = typeInfo.getFieldByName("s1", true);
+        assertEquals("1-17:1-25", s1.source().compact2());
+
+        ParameterInfo pi0 = constructor.parameters().getFirst();
+        assertEquals("3-14:3-22", pi0.source().compact2());
     }
 
     @Language("java")
