@@ -36,7 +36,7 @@ public class SourceSetImpl implements SourceSet {
     private final boolean runtimeOnly;
     private final boolean isModule;
     private final Set<String> restrictToPackages;
-    private final Set<SourceSet> dependencies;
+    private final List<SourceSet> dependencies;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<FingerPrint> analysisFingerPrint = new SetOnce<>();
     private final SetOnce<Map<SourceSet, Integer>> priorityDependencies = new SetOnce<>();
@@ -47,7 +47,7 @@ public class SourceSetImpl implements SourceSet {
                           boolean test, boolean library, boolean externalLibrary, boolean partOfJdk,
                           boolean isModule, boolean runtimeOnly,
                           Set<String> restrictToPackages,
-                          Set<SourceSet> dependencies) {
+                          List<SourceSet> dependencies) {
         this.name = Objects.requireNonNull(name);
         this.sourceDirectories = sourceDirectories;
         this.uri = Objects.requireNonNull(uri);
@@ -142,7 +142,7 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
-    public Set<SourceSet> dependencies() {
+    public List<SourceSet> dependencies() {
         return dependencies;
     }
 
@@ -201,7 +201,7 @@ public class SourceSetImpl implements SourceSet {
     }
 
     @Override
-    public SourceSet withDependencies(Set<SourceSet> dependencies) {
+    public SourceSet withDependencies(List<SourceSet> dependencies) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
                 externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies);
     }
@@ -242,7 +242,7 @@ public class SourceSetImpl implements SourceSet {
         private boolean runtimeOnly;
         private boolean isModule;
         private Set<String> restrictToPackages = Set.of();
-        private Set<SourceSet> dependencies = Set.of();
+        private List<SourceSet> dependencies = List.of();
 
         public Builder() {
         }
@@ -276,7 +276,7 @@ public class SourceSetImpl implements SourceSet {
             return this;
         }
 
-        public Builder setDependencies(Set<SourceSet> dependencies) {
+        public Builder setDependencies(List<SourceSet> dependencies) {
             this.dependencies = dependencies;
             return this;
         }

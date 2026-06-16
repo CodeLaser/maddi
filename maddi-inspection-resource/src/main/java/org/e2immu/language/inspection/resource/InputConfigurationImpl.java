@@ -82,7 +82,7 @@ public record InputConfigurationImpl(Path workingDirectory,
                         .build()).toList();
         List<SourceSet> modifiedSourceSets = sourceSets.stream().map(set ->
                         set.withDependencies(Stream.concat(set.dependencies().stream(), support.stream())
-                                .collect(Collectors.toUnmodifiableSet())))
+                                .toList()))
                 .toList();
         return new InputConfigurationImpl(workingDirectory, modifiedSourceSets,
                 Stream.concat(classPathParts.stream(), support.stream()).toList(),
@@ -186,8 +186,8 @@ public record InputConfigurationImpl(Path workingDirectory,
                         .build());
             }
             for (SourceSetNamePath sourceDir : sourceDirs) {
-                Set<SourceSet> allDependencies = Stream.concat(classPathParts.stream(),
-                        sourceSets.stream()).collect(Collectors.toUnmodifiableSet());
+                List<SourceSet> allDependencies = Stream.concat(classPathParts.stream(),
+                        sourceSets.stream()).toList();
                 URI uri = createURI(sourceDir.path);
                 List<Path> list = uri.getScheme().equals("file") ? List.of(Path.of(sourceDir.path)) : List.of();
                 sourceSets.add(new SourceSetImpl.Builder()
@@ -200,8 +200,8 @@ public record InputConfigurationImpl(Path workingDirectory,
                         .build());
             }
             for (SourceSetNamePath sourceDir : testSourceDirs) {
-                Set<SourceSet> allDependencies = Stream.concat(classPathParts.stream(),
-                        sourceSets.stream()).collect(Collectors.toUnmodifiableSet());
+                List<SourceSet> allDependencies = Stream.concat(classPathParts.stream(),
+                        sourceSets.stream()).toList();
                 URI uri = createURI(sourceDir.path);
                 List<Path> list = uri.getScheme().equals("file") ? List.of(Path.of(sourceDir.path)) : List.of();
                 sourceSets.add(new SourceSetImpl.Builder()

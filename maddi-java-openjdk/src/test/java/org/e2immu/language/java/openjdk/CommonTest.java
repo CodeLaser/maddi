@@ -75,7 +75,7 @@ public class CommonTest {
 
             SourceSet javaNetHttp = new SourceSetImpl.Builder().setName("java.net.http").setUri(URI.create("file:/"))
                     .setLibrary(true)
-                    .setExternalLibrary(true).setPartOfJdk(true).setModule(true).setDependencies(Set.of(javaBase))
+                    .setExternalLibrary(true).setPartOfJdk(true).setModule(true).setDependencies(List.of(javaBase))
                     .build();
 
             SourceSet orgSlf4j = sourceSetOf(Logger.class, javaBase);

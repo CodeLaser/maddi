@@ -454,8 +454,7 @@ public class JavaInspectorImpl implements JavaInspector {
     public List<TypeInfo> parseReturnAll(String input, String inputName, String sourceSetName, ParseOptions parseOptions) {
         Summary failFastSummary = new SummaryImpl(true);
         try {
-            Set<SourceSet> dependencies = inputConfiguration.classPathParts().stream()
-                    .collect(Collectors.toUnmodifiableSet());
+            List<SourceSet> dependencies = inputConfiguration.classPathParts().stream().toList();
             SourceSet dummy = new SourceSetImpl.Builder()
                     .setName(sourceSetName)
                     .setUri(URI.create("file:" + sourceSetName))
