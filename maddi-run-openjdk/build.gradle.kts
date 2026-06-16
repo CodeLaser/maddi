@@ -50,13 +50,17 @@ dependencies {
 }
 
 application {
-    mainClass = "org.e2immu.analyzer.run.main.Main"
- //   applicationDefaultJvmArgs = listOf("-enableassertions", "-Xmx24G")
+    mainClass = "org.e2immu.analyzer.run.openjdkmain.Main"
+    applicationDefaultJvmArgs = listOf("-enableassertions", "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED")
 }
 
 run {
     if(project.hasProperty("jvmArgs")) {
-        application.applicationDefaultJvmArgs = (project.property("jvmArgs") as String).split("\\s+")
+        application.applicationDefaultJvmArgs += (project.property("jvmArgs") as String).split("\\s+")
     }
 }
 

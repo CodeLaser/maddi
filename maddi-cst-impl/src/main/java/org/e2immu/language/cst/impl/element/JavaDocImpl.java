@@ -244,11 +244,21 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
         return null;
     }
 
+    private static final Pattern STAR = Pattern.compile("^\\s*\\*\\s?");
+
+    // still here while we retain the maddi-parser
+    @Deprecated
+    private static boolean linesStartWithStar(String[] split) {
+        int cnt = (int) Arrays.stream(split).filter(line -> STAR.matcher(line).find()).count();
+        return cnt > 1;
+    }
+
     @Override
     protected OutputBuilder multilinePrint() {
         GuideImpl.GuideGenerator gg = GuideImpl.generatorForMultilineComment();
         String text = "/**\n" + comment() + "\n/";
         String[] split = text.split("\n");
+        if (linesStartWithStar(split)) return super.multilinePrint(); // maddi-parsed, rather than openjdk
         OutputBuilder firstLine = new OutputBuilderImpl().add(new TextImpl(split[0]));
         OutputBuilder joinedText = Stream.concat(Stream.of(firstLine), Arrays.stream(split).skip(1)
                         .map(line -> new OutputBuilderImpl()
