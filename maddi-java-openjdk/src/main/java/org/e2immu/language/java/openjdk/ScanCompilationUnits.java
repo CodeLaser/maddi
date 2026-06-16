@@ -113,6 +113,7 @@ public class ScanCompilationUnits {
                 preload(module, packageName);
             }
         }
+        String sourceSetName = sourceSet.name();
 
         if (detailedSources) {
             int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
@@ -129,7 +130,7 @@ public class ScanCompilationUnits {
 
                     // Task 2 waits for: (a) this item's task 1 (the scanResult), AND (b) previous item's task 2 (sequence!)
                     previousTask2 = previousTask2.thenCombineAsync(task1, (_, scanResult) -> {
-                                singleCompilationUnit(unit, scanResult, primaryTypes, modules);
+                                singleCompilationUnit(sourceSetName, unit, scanResult, primaryTypes, modules);
                                 return null; // Void
                             }, task2Executor)
                             .thenAccept(_ -> TIMED_LOGGER.info("Done {}", done.incrementAndGet()));
@@ -144,7 +145,7 @@ public class ScanCompilationUnits {
         } else {
             int done = 0;
             for (CompilationUnitTree unit : units) {
-                singleCompilationUnit(unit, null, primaryTypes, modules);
+                singleCompilationUnit(sourceSetName, unit, null, primaryTypes, modules);
                 TIMED_LOGGER.info("Done {}", ++done);
             }
         }
@@ -161,7 +162,8 @@ public class ScanCompilationUnits {
         }
     }
 
-    private void singleCompilationUnit(CompilationUnitTree unit,
+    private void singleCompilationUnit(String sourceSetName,
+                                       CompilationUnitTree unit,
                                        SourceCodeScan.Result scanResult,
                                        List<TypeInfo> primaryTypes,
                                        List<ModuleInfo> modules) {
@@ -184,7 +186,12 @@ public class ScanCompilationUnits {
         ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, classSymbolScanner,
                 compilationUnitBuilder, unit, trees, sourcePositions, lineMap, task.getElements(), types,
                 docTrees, scanResult, computeMethodOverrides, flagHelper, classSymbolScanner);
-        scanCompilationUnit.scan(unit, null);
+        try {
+            scanCompilationUnit.scan(unit, null);
+        } catch (RuntimeException | AssertionError e) {
+            LOGGER.error("Caught exception in source set {}", sourceSet.name());
+            throw e;
+        }
         primaryTypes.addAll(scanCompilationUnit.types());
         modules.addAll(scanCompilationUnit.modules());
     }

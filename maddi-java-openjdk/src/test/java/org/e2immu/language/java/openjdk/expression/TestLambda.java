@@ -14,6 +14,7 @@
 
 package org.e2immu.language.java.openjdk.expression;
 
+import org.e2immu.language.cst.api.expression.Cast;
 import org.e2immu.language.cst.api.expression.Lambda;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -302,63 +303,32 @@ public class TestLambda extends CommonTest {
         assertNotNull(typeInfo);
     }
 
-
     @Language("java")
     private static final String INPUT6 = """
             package a.b;
-
-            import org.assertj.core.api.AbstractThrowableAssert;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-            class C {
-                static class MyException extends RuntimeException {
-                    long errorCode;
-                    MyException(long ec) {
-                        this.errorCode = ec;
-                    }
-                    static final long EC = 5;
-                 }
-                void throwsTheException() {
-                    throw new MyException(MyException.EC);
-                }
-                void method1() {
-                    MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
-                    AbstractThrowableAssert<?,a.b.C.MyException> notNull = assertThat(exception).isNotNull();
-                    notNull.extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
-                }
-                // check that the result of isNotNull is correctly forwarded to extracting
-                // we need the method "SELF AbstractAssert.isNotNull()"
-                // note: AbstractAssert implements Assert
-                void method2() {
-                    MyException exception = assertThrows(MyException.class, ()-> throwsTheException());
-                    AbstractThrowableAssert<?,a.b.C.MyException> ata = assertThat(exception);
-                    ata.isNotNull().extracting(ex -> ex.errorCode).isEqualTo(MyException.EC);
-                }
+            public class X {
+               interface I { int k(); }
+               public static <T> T passThrough(T object) {
+                   return object;
+               }
+               int method() {
+                  I i = passThrough((a.b.X.I) () -> 4);
+                  return i.k();
+               }
             }
             """;
 
-   // @Test
-   // public void test6() {
-        /*
-         the problem at the moment is that the return type of the method call ata.isNotNull() is
-         "? extends AbstractThrowableAssert"
-         rather than
-         "AbstractThrowableAssert<?,a.b.C.MyException>"
-
-         in extra, we find ACTUAL = TP#1 in ATA = MyException, which is good
-                   we find SELF = TP#0 in ATA = ? extends ATA, which is good
-         The problem seems to be that SELF needs combining with ACTUAL
-
-         The definition of ATA is
-         public abstract class AbstractThrowableAssert<SELF extends AbstractThrowableAssert<SELF, ACTUAL>, ACTUAL extends Throwable>
-            extends AbstractObjectAssert<SELF, ACTUAL> { ... }
-         so it is clear that ACTUAL needs to be combined with SELF
-
-         See TestApplyTranslation,1
-        */
-       // TypeInfo typeInfo = oneClass("a.b.C", INPUT6);
-   // }
+    // similar to TestAnonymousType,5; fix is in methodInvocation
+    @DisplayName("Lambda argument for method call")
+    @Test
+    public void test6() {
+        TypeInfo X = scan("a.b.X", INPUT6);
+        MethodInfo mi = X.findUniqueMethod("method", 0);
+        if (mi.methodBody().statements().getFirst() instanceof LocalVariableCreation lvc
+            && lvc.localVariable().assignmentExpression() instanceof MethodCall mc
+            && mc.parameterExpressions().getFirst() instanceof Cast cast) {
+            assertInstanceOf(Lambda.class, cast.expression());
+        } else fail();
+    }
 
 }

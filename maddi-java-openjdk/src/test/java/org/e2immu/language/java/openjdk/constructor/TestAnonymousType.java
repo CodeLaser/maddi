@@ -214,4 +214,37 @@ public class TestAnonymousType extends CommonTest {
         MethodCall callSuper = (MethodCall) readLvc.localVariable().assignmentExpression();
         assertEquals("java.io.FilterInputStream.read()", callSuper.methodInfo().fullyQualifiedName());
     }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            public class X {
+               interface I { int k(); }
+               public static <T> T passThrough(T object) {
+                   return object;
+               }
+               int method() {
+                  I i = passThrough(new I() {
+                      @Override public int k() {
+                          return 4;
+                      }
+                  });
+                  return i.k();
+               }
+            }
+            """;
+
+    // similar to TestLambda,6; fix is in methodInvocation
+    @DisplayName("New anonymous class as argument for method call")
+    @Test
+    public void test5() {
+        TypeInfo X = scan("a.b.X", INPUT5);
+        MethodInfo mi = X.findUniqueMethod("method", 0);
+        if (mi.methodBody().statements().getFirst() instanceof LocalVariableCreation lvc
+            && lvc.localVariable().assignmentExpression() instanceof MethodCall mc
+            && mc.parameterExpressions().getFirst() instanceof ConstructorCall cc) {
+            assertNotNull(cc.anonymousClass());
+        } else fail();
+    }
 }
