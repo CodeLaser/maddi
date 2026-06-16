@@ -108,8 +108,9 @@ public class TestExtendedConstructor extends CommonTest {
             
             		private static final long serialVersionUID = 1L;
             		{
+                        int k = 3;
             			put(A, i);
-            			put(B, j);
+            			put(B, j+k);
             		}
             	});
             }""";
@@ -124,7 +125,7 @@ public class TestExtendedConstructor extends CommonTest {
             assertEquals("a.b.C.$0", anon.fullyQualifiedName());
             assertEquals(1, anon.constructors().size());
             assertEquals(1, anon.fields().size());
-            assertEquals(2, anon.constructors().getFirst().methodBody().statements().size());
+            assertEquals(3, anon.constructors().getFirst().methodBody().statements().size());
         } else fail();
     }
 

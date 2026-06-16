@@ -307,6 +307,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 if (!classPathPart.name().startsWith(JAR_WITH_PATH_PREFIX) && !classPathPart.partOfJdk()) {
                     try {
                         File file = Path.of(classPathPart.uri()).toFile();
+                        if(file.getName().contains("hessian-3")) continue;
                         if (ignoreModule || !classPathPart.isModule()) {
                             jarsAndClassDirectories.add(file);
                         } else {

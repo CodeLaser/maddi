@@ -846,7 +846,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         .setAccess(runtime.accessPrivate())
                         .addMethodModifier(runtime.methodModifierPrivate())
                         .commitParameters();
+                currentMethod = methodInfo;
                 Block block = parseBlock("-", node);
+                currentMethod = null;
                 methodInfo.builder().setMethodBody(block);
                 typeInfo.builder().addMethod(methodInfo);
                 return null;
@@ -2249,7 +2251,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                 .setAccess(runtime.accessPrivate())
                                 .addMethodModifier(runtime.methodModifierPrivate())
                                 .commitParameters();
+                        currentMethod = c2;
                         Block block = parseBlock("-", jcBlock);
+                        currentMethod = null;
                         c2.builder().setMethodBody(block);
                         builder.addConstructor(c2);
                     } else if (!(member instanceof JCTree.JCMethodDecl md && "<init>".equals(md.name.toString()))) {
