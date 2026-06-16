@@ -130,7 +130,7 @@ public class ScanCompilationUnits {
 
                     // Task 2 waits for: (a) this item's task 1 (the scanResult), AND (b) previous item's task 2 (sequence!)
                     previousTask2 = previousTask2.thenCombineAsync(task1, (_, scanResult) -> {
-                                singleCompilationUnit(sourceSetName, unit, scanResult, primaryTypes, modules);
+                                singleCompilationUnit(unit, scanResult, primaryTypes, modules);
                                 return null; // Void
                             }, task2Executor)
                             .thenAccept(_ -> TIMED_LOGGER.info("Done {}", done.incrementAndGet()));
@@ -145,7 +145,7 @@ public class ScanCompilationUnits {
         } else {
             int done = 0;
             for (CompilationUnitTree unit : units) {
-                singleCompilationUnit(sourceSetName, unit, null, primaryTypes, modules);
+                singleCompilationUnit(unit, null, primaryTypes, modules);
                 TIMED_LOGGER.info("Done {}", ++done);
             }
         }
@@ -162,8 +162,7 @@ public class ScanCompilationUnits {
         }
     }
 
-    private void singleCompilationUnit(String sourceSetName,
-                                       CompilationUnitTree unit,
+    private void singleCompilationUnit(CompilationUnitTree unit,
                                        SourceCodeScan.Result scanResult,
                                        List<TypeInfo> primaryTypes,
                                        List<ModuleInfo> modules) {
