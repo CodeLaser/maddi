@@ -237,10 +237,6 @@ public class ScanCompilationUnits {
         }
     }
 
-    public void mergeIntoPreviouslyLoaded() {
-        classSymbolScanner.copySymbolMaps();
-    }
-
     // for tests
     public ClassSymbolScanner classSymbolScanner() {
         return classSymbolScanner;
