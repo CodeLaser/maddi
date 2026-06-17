@@ -424,8 +424,18 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     MethodInfo addMethodToType(TypeInfo typeInfo, Symbol.MethodSymbol ms, boolean synthetic) {
+        if (typeInfo.hasBeenInspected()) {
+            LOGGER.error("Type {} has been committed, yet we're trying to add a method to its builder",
+                    typeInfo.descriptor());
+            LOGGER.error("Method to add: {}", ms.toString());
+            LOGGER.error("Current methods + constructors:\n{}",
+                    typeInfo.constructorAndMethodStream()
+                            .map(Info::descriptor)
+                            .collect(Collectors.joining("\n")));
+            throw new UnsupportedOperationException();
+        }
         String name = ms.getSimpleName().toString();
-        assert (ms.flags() & Flags.BRIDGE) == 0 : "Do not want any bridge method " + ms + " in " + typeInfo;
+        //  assert (ms.flags() & Flags.BRIDGE) == 0 : "Do not want any bridge method " + ms + " in " + typeInfo;
         MethodInfo method;
         if ("<init>".equals(name)) {
             LOGGER.debug("Adding constructor {} to {}", name, typeInfo);
@@ -784,14 +794,30 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             } else {
                 typeInfo = lazilyLoadTypeFromClassFile(cs);
             }
-        } else if (topLevelClassSymbolsOfSources != null
-                   && topLevelClassSymbolsOfSources.containsKey(topCs = primary(cs))
-                   && cs.sourcefile != null
-                   && !known.compilationUnit().uri().equals(topCs.sourcefile.toUri())) {
-            // so if the source file does not agree with known, we must load the class file
-            typeInfo = lazilyLoadTypeFromClassFile(cs);
         } else {
-            typeInfo = known;
+            CompilationUnit knownCu = known.compilationUnit();
+            if (topLevelClassSymbolsOfSources != null
+                && topLevelClassSymbolsOfSources.containsKey(topCs = primary(cs))) {
+                // ct/cs is one of the source files that we are parsing at the moment
+                if (cs.sourcefile != null
+                    && !knownCu.uri().equals(topCs.sourcefile.toUri())) {
+                    // so if the source file does not agree with known, we must load the class file
+                    typeInfo = lazilyLoadTypeFromClassFile(cs);
+                } else {
+                    typeInfo = known;
+                }
+            } else if (knownCu.sourceSet() != null // badly loaded type
+                       && !knownCu.sourceSet().partOfJdk()
+                       && knownCu.sourceSet().externalLibrary()
+                       && (topCs = primary(cs)).classfile != null
+                       && !knownCu.uri().equals(topCs.classfile.toUri())) {
+                // we'll be overwriting the existing type in InfoByFqn
+                // this will only happen when the 'known' is known from the compilation of a previous source set
+                // in the current source set, the javac analysis will have selected the first.
+                typeInfo = lazilyLoadTypeFromClassFile(cs);
+            } else {
+                typeInfo = known;
+            }
         }
         return typeInfo;
     }
@@ -912,16 +938,32 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
         if (fromSymbol != null) return fromSymbol;
 
+        // now check methods from previous source sets
+        // FIXME this is slow, we may want to speed this up? e.g. hashmap name+size
         if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
             TypeInfo typeInfo = convert(cs.type).typeInfo();
-            String methodDescriptor = typeInfo.descriptor() + "." + methodSymbol.name + "("
-                                      + methodSymbol.params.stream()
-                                              .map(vs -> convert(types.erasure(vs.type)).descriptor())
-                                              .collect(Collectors.joining(","))
-                                      + ")";
-            return infoByFqn.getMethod(methodDescriptor);
+            if (methodSymbol.isConstructor()) {
+                return typeInfo.constructors().stream().filter(c -> sameTypes(c.parameters(), methodSymbol.params))
+                        .findFirst().orElse(null);
+            }
+            String methodName = methodSymbol.name.toString();
+            return typeInfo.methodStream()
+                    .filter(mi -> mi.name().equals(methodName) && sameTypes(mi.parameters(), methodSymbol.params))
+                    .findFirst().orElse(null);
         }
         throw new UnsupportedOperationException("?");
+    }
+
+    private boolean sameTypes(List<ParameterInfo> parameters, List<Symbol.VarSymbol> params) {
+        if (parameters.size() != params.size()) return false;
+        int i = 0;
+        for (ParameterInfo pi : parameters) {
+            String erased = pi.parameterizedType().erasedForFQN().fullyQualifiedName();
+            Symbol.VarSymbol vs = params.get(i++);
+            String erased2 = convert(types.erasure(vs.type)).fullyQualifiedName();
+            if (!erased.equals(erased2)) return false;
+        }
+        return true;
     }
 
     @Override
@@ -945,8 +987,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
         if (varSymbol.owner instanceof Symbol.ClassSymbol cs) {
             TypeInfo typeInfo = convert(cs.type).typeInfo();
-            String fieldDescriptor = typeInfo.descriptor() + ":" + varSymbol.name.toString();
-            return infoByFqn.getField(fieldDescriptor);
+            String fieldName = varSymbol.name.toString();
+            return typeInfo.getFieldByName(fieldName, false);
         }
 
         return null;
@@ -973,10 +1015,4 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
         }
     }
-
-    public void copySymbolMaps() {
-        varSymbolMap.values().forEach(infoByFqn::put);
-        methodSymbolMap.values().forEach(infoByFqn::put);
-    }
-
 }

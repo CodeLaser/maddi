@@ -289,8 +289,6 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             compiledTypesManager.addTypeInfo(null, typeInfo);
         }
-
-        scanCompilationUnits.mergeIntoPreviouslyLoaded();
     }
 
     private JavacTask createTask(SourceSet sourceSet,

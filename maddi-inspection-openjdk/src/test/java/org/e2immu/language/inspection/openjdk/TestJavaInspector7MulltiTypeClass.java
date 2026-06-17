@@ -113,6 +113,6 @@ public class TestJavaInspector7MulltiTypeClass {
         TypeInfo Y = parseResult.findType("a.b.Y");
         MethodInfo method = Y.findUniqueMethod("method", 1);
         MethodCall mc = ((MethodCall) method.methodBody().statements().getFirst().expression());
-        assertEquals("test-protocol2::a.b.X1.method(java.lang.String)", mc.methodInfo().descriptor());
+        assertEquals("test-protocol2::a.b.X1.method()", mc.methodInfo().descriptor());
     }
 }

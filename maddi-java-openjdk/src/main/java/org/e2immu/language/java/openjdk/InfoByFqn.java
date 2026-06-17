@@ -15,18 +15,7 @@ public class InfoByFqn {
 
     private final Map<String, TypeInfo> singleTypeByFqn = new HashMap<>();
     private final Map<String, List<TypeInfo>> multiTypeByFqn = new HashMap<>();
-    private final Map<String, MethodInfo> methodByDescriptor = new HashMap<>();
-    private final Map<String, FieldInfo> fieldByDescriptor = new HashMap<>();
 
-    void put(FieldInfo fieldInfo) {
-        fieldByDescriptor.put(fieldInfo.descriptor(), fieldInfo);
-    }
-
-    void put(MethodInfo methodInfo) {
-        methodByDescriptor.put(methodInfo.descriptor(), methodInfo);
-    }
-
-    // works for anonymous types
     void put(String fqn, TypeInfo typeInfo, SourceSet sourceSetOfCurrentTask) {
         TypeInfo prev = singleTypeByFqn.put(fqn, typeInfo);
         List<TypeInfo> list;
@@ -36,25 +25,23 @@ public class InfoByFqn {
                 if (!prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())) {
                     singleTypeByFqn.remove(fqn);
                     multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
-          //          LOGGER.info("Create multi: {}", typeInfo.descriptor());
+                    LOGGER.info("Create multi: {}", typeInfo.descriptor());
                 } else {
                     throw new UnsupportedOperationException("Duplicating type " + typeInfo);
                 }
             } else if ((list = multiTypeByFqn.get(fqn)) != null) {
                 multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
-          //      LOGGER.info("Appended to multi: {}", typeInfo.descriptor());
-            } else {
-         //       LOGGER.info("Put in single (==): {}", typeInfo.descriptor());
+                LOGGER.info("Appended to multi: {}", typeInfo.descriptor());
+                // } else {
+                //   LOGGER.info("Put in single (==): {}", typeInfo.descriptor());
             }
         } else if (prev != null) {
-            throw new UnsupportedOperationException("Duplicating type " + typeInfo);
-        } else {
-        //    LOGGER.info("Put in single (!=): {}", typeInfo.descriptor());
+            LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
+                    prev.compilationUnit().sourceSet(), typeInfo.compilationUnit().sourceSet());
+            assert !prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet());
+            //} else {
+            //  LOGGER.info("Put in single (!=): {}", typeInfo.descriptor());
         }
-    }
-
-    void merge(InfoByFqn other) {
-
     }
 
     TypeInfo getType(String fullyQualifiedName, SourceSet sourceSetOfCurrentTask) {
@@ -69,14 +56,6 @@ public class InfoByFqn {
                 .findFirst()
                 .map(ClassSymbolScanner.TypeDistance::typeInfo)
                 .orElseThrow();
-    }
-
-    MethodInfo getMethod(String methodDescriptor) {
-        return methodByDescriptor.get(methodDescriptor);
-    }
-
-    FieldInfo getField(String fieldDescriptor) {
-        return fieldByDescriptor.get(fieldDescriptor);
     }
 
     public Collection<TypeInfo> typesLoaded() {
