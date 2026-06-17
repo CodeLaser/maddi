@@ -370,7 +370,6 @@ public class TestMethodCall13 extends CommonTest {
             package a.b;
             import java.util.Set;
             import static org.junit.jupiter.api.Assertions.*;
-            import static org.mockito.Mockito.*;
             class C {
                 static String contains(String substring) { return substring; }
                 interface Constants {
