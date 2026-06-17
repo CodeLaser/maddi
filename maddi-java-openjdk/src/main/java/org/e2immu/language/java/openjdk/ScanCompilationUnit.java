@@ -2521,6 +2521,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private Source sourceForNode(Tree node, String index) {
         long startPos = sourcePositions.getStartPosition(compilationUnitTree, node);
         long endPos = sourcePositions.getEndPosition(compilationUnitTree, node);
+        if (startPos == 0 && endPos == 0) return runtime.noSource(); // empty source file, for example
         return sourceForNode(index, startPos, endPos);
     }
 

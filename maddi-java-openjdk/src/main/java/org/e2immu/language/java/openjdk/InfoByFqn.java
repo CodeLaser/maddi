@@ -16,7 +16,14 @@ public class InfoByFqn {
     private final Map<String, TypeInfo> singleTypeByFqn = new HashMap<>();
     private final Map<String, List<TypeInfo>> multiTypeByFqn = new HashMap<>();
 
+    private final Set<TypeInfo> loadedForThisSourceSet = new HashSet<>();
+
+    void startOfNewSourceSet() {
+        loadedForThisSourceSet.clear();
+    }
+
     void put(String fqn, TypeInfo typeInfo, SourceSet sourceSetOfCurrentTask) {
+        loadedForThisSourceSet.add(typeInfo);
         TypeInfo prev = singleTypeByFqn.put(fqn, typeInfo);
         List<TypeInfo> list;
         // NOTE that the sourceSet can be null, when the type was not properly loaded
@@ -59,9 +66,7 @@ public class InfoByFqn {
     }
 
     public Collection<TypeInfo> typesLoaded() {
-        return Stream.concat(singleTypeByFqn.values().stream(),
-                        multiTypeByFqn.values().stream().flatMap(Collection::stream))
-                .toList();
+        return loadedForThisSourceSet;
     }
 
     private ClassSymbolScanner.TypeDistance distance(TypeInfo typeInfo,
