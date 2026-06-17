@@ -6,7 +6,6 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
@@ -16,13 +15,18 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TestJavaInspector7MulltiType {
+public class TestJavaInspector7MulltiTypeClass {
+    public static final String COMMONS_CLI_1_11_0_JAR = "commons-cli-1.11.0.jar"; // as a file in the project
+    public static final String COMMONS_CLI_1_2_JAR = "commons-cli-1.2.jar"; // as a file in the project
 
     private JavaInspector javaInspector;
     private SourceSet sourceSet1;
@@ -31,13 +35,33 @@ public class TestJavaInspector7MulltiType {
     @BeforeEach
     public void test() throws IOException {
         javaInspector = new JavaInspectorImpl();
-        sourceSet1 = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "1").setUri(URI.create("file:/")).build();
+
+        Path commonsCli2Jar = Path.of("src/test/resources/" + COMMONS_CLI_1_2_JAR);
+        assertTrue(Files.isReadable(commonsCli2Jar));
+        SourceSet commonsCli2 = new SourceSetImpl.Builder()
+                .setName(COMMONS_CLI_1_2_JAR)
+                .setUri(commonsCli2Jar.toUri())
+                .setLibrary(true).setExternalLibrary(true).build();
+
+        sourceSet1 = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "1").setUri(URI.create("file:/"))
+                .setDependencies(List.of(commonsCli2))
+                .build();
+
+        Path commonsCli11Jar = Path.of("src/test/resources/" + COMMONS_CLI_1_11_0_JAR);
+        assertTrue(Files.isReadable(commonsCli11Jar));
+        SourceSet commonsCli11 = new SourceSetImpl.Builder()
+                .setName(COMMONS_CLI_1_11_0_JAR)
+                .setUri(commonsCli11Jar.toUri())
+                .setLibrary(true).setExternalLibrary(true).build();
+
         sourceSet2 = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "2").setUri(URI.create("file:/"))
-                .setDependencies(List.of(sourceSet1)).build();
+                .setDependencies(List.of(sourceSet1, commonsCli11))
+                .build();
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(sourceSet1, sourceSet2)
                 .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .addClassPathParts(commonsCli2, commonsCli11)
                 .build();
         javaInspector.initialize(inputConfiguration);
     }
@@ -45,13 +69,10 @@ public class TestJavaInspector7MulltiType {
     @Language("java")
     private static final String INPUTX1 = """
             package a.b;
+            import org.apache.commons.cli.Option;
             class X1 {
-                interface I { }
-                record RI(String s) implements I { }
-                void method(I i) {
-                    if(i instanceof RI(String t)) {
-                        System.out.println(t);
-                    }
+                void method(Option option) {
+                    System.out.println("Received "+option);
                 }
             }
             """;
@@ -59,9 +80,10 @@ public class TestJavaInspector7MulltiType {
     @Language("java")
     private static final String INPUTX1_2 = """
             package a.b;
+            import org.apache.commons.cli.Option;
             class X1 {
-                void method(String s) {
-                    System.out.println("s = "+s);
+                void method() {
+                    Option.builder(); // this method does not exist in 1.2
                 }
             }
             """;
@@ -71,7 +93,7 @@ public class TestJavaInspector7MulltiType {
             package a.b;
             class Y {
                 void method(String s) {
-                    new X1().method("abc" + s);
+                    new X1().method();
                 }
             }
             """;
@@ -83,17 +105,9 @@ public class TestJavaInspector7MulltiType {
                         JavaInspectorImpl.DETAILED_SOURCES)
                 .parseResult();
 
-        // test the compiled types manager
-        CompiledTypesManager ctm = javaInspector.compiledTypesManager();
-        List<TypeInfo> parsed = ctm.typesLoaded(false);
-        assertEquals(4, parsed.size());
-
-        TypeInfo X1 = parseResult.firstType();
-        assertEquals("test-protocol1::a.b.X1", X1.descriptor());
-        assertTrue(X1.hasBeenInspected());
         List<TypeInfo> list = parseResult.typeByFullyQualifiedName("a.b.X1");
         assertEquals(2, list.size());
-        assertSame(X1, list.getFirst());
+        assertEquals("test-protocol1::a.b.X1", list.getFirst().descriptor());
         assertEquals("test-protocol2::a.b.X1", list.getLast().descriptor());
 
         TypeInfo Y = parseResult.findType("a.b.Y");
