@@ -9,7 +9,13 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.IdentityHashMap;
+
 public interface ConvertType {
+    // must be set before scanning of compilation unit starts
+    void setTopLevelClassSymbolsOfSources(IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources);
+
+    // must be set as soon as the element stack is known
     void startCompilationUnit(SourceProvider sourceProvider, ElementStack elementStack);
 
     // general method, returns null when 'cs' is not a functional type

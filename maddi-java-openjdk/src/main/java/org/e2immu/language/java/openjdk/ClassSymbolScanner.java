@@ -59,6 +59,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     // not thread-safe: set for each compilation unit
     private SourceProvider sourceProvider;
     private ElementStack elementStack;
+    private IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources;
 
     public enum LoadMode {
         LOAD_MEMBERS, // load everything immediately, and commit
@@ -131,10 +132,10 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         sourceSetDirPrefixes = Map.copyOf(prefixes);
     }
 
-    TypeInfo type(Symbol.ClassSymbol cs) {
+    TypeInfo lazilyLoadTypeFromClassFile(Symbol.ClassSymbol cs) {
         switch (cs.owner) {
             case Symbol.PackageSymbol _ -> {
-                return primaryType(cs);
+                return lazilyLoadPrimaryTypeFromClassFile(cs);
             }
             case Symbol.ClassSymbol enclosedSymbol -> {
                 TypeInfo owner = convert(enclosedSymbol.type).typeInfo();
@@ -155,7 +156,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
     }
 
-    TypeInfo primaryType(Symbol.ClassSymbol cs) {
+    TypeInfo lazilyLoadPrimaryTypeFromClassFile(Symbol.ClassSymbol cs) {
         String simpleName = cs.name.toString();
         assert cs.owner instanceof Symbol.PackageSymbol;
         String packageName = cs.owner.toString();
@@ -490,6 +491,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     @Override
+    public void setTopLevelClassSymbolsOfSources(IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources) {
+        this.topLevelClassSymbolsOfSources = topLevelClassSymbolsOfSources;
+    }
+
+    @Override
     public void startCompilationUnit(SourceProvider sourceProvider, ElementStack elementStack) {
         this.elementStack = elementStack;
         this.sourceProvider = sourceProvider;
@@ -757,26 +763,36 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     private ParameterizedType classType(Type.ClassType ct) {
-        String fullyQualifiedType = ct.tsym.toString();
-        TypeInfo known = getType(fullyQualifiedType);
-        TypeInfo typeInfo;
-        if (known == null) {
-            // on-demand loading; should be replaced by import handling?
-            if (ct.tsym instanceof Symbol.ClassSymbol cs) {
-                if (cs.owner instanceof Symbol.MethodSymbol) {
-                    typeInfo = (TypeInfo) elementStack.find(cs.getSimpleName().toString());
-                } else {
-                    typeInfo = type(cs);
-                }
-            } else throw new UnsupportedOperationException("NYI");
-        } else {
-            typeInfo = known;
-        }
+        TypeInfo typeInfo = classTypeInfo(ct);
         if (ct.getTypeArguments().isEmpty()) {
             return typeInfo.asSimpleParameterizedType();
         }
         List<ParameterizedType> typeParameters = ct.getTypeArguments().stream().map(this::convert).toList();
         return runtime.newParameterizedType(typeInfo, typeParameters);
+    }
+
+    private TypeInfo classTypeInfo(Type.ClassType ct) {
+        String fullyQualifiedType = ct.tsym.toString();
+        TypeInfo known = getType(fullyQualifiedType);
+        Symbol.ClassSymbol cs = (Symbol.ClassSymbol) ct.tsym;
+        TypeInfo typeInfo;
+        if (known == null) {
+            // on-demand loading; should be replaced by import handling?
+            if (cs.owner instanceof Symbol.MethodSymbol) {
+                typeInfo = (TypeInfo) elementStack.find(cs.getSimpleName().toString());
+            } else {
+                typeInfo = lazilyLoadTypeFromClassFile(cs);
+            }
+        } else if (topLevelClassSymbolsOfSources != null
+                   && topLevelClassSymbolsOfSources.containsKey(cs)
+                   && cs.sourcefile != null
+                   && !known.compilationUnit().uri().equals(cs.sourcefile.toUri())) {
+            // so if the source file does not agree with known, we must load the class file
+            typeInfo = lazilyLoadTypeFromClassFile(cs);
+        } else {
+            typeInfo = known;
+        }
+        return typeInfo;
     }
 
     private ParameterizedType primitiveType(TypeKind primitiveTypeKind) {

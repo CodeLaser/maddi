@@ -9,6 +9,7 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.BasicJavacTask;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -30,12 +31,15 @@ import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public class ScanCompilationUnits {
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanCompilationUnits.class);
@@ -111,9 +115,17 @@ public class ScanCompilationUnits {
                 preload(module, packageName);
             }
         }
-        String sourceSetName = sourceSet.name();
-
+        IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols
+                = StreamSupport.stream(units.spliterator(), false)
+                .flatMap(unit -> unit.getTypeDecls().stream()
+                        .filter(td -> td instanceof JCTree.JCClassDecl)
+                        .map(td -> ((JCTree.JCClassDecl) td).sym))
+                .collect(Collectors.toMap(cs -> cs, _ -> true, (_, _) -> {
+                            throw new RuntimeException();
+                        },
+                        IdentityHashMap::new));
         if (detailedSources) {
+            LOGGER.info("Collected {} class symbols for source set {}", topLevelClassSymbols.size(), sourceSet.name());
             int nThreads = java.lang.Runtime.getRuntime().availableProcessors();
             try (ExecutorService task1Executor = Executors.newFixedThreadPool(nThreads);
                  ExecutorService task2Executor = Executors.newSingleThreadExecutor()) {
@@ -128,7 +140,7 @@ public class ScanCompilationUnits {
 
                     // Task 2 waits for: (a) this item's task 1 (the scanResult), AND (b) previous item's task 2 (sequence!)
                     previousTask2 = previousTask2.thenCombineAsync(task1, (_, scanResult) -> {
-                                singleCompilationUnit(unit, scanResult, primaryTypes, modules);
+                                singleCompilationUnit(unit, scanResult, primaryTypes, modules, topLevelClassSymbols);
                                 return null; // Void
                             }, task2Executor)
                             .thenAccept(_ -> TIMED_LOGGER.info("Done {}", done.incrementAndGet()));
@@ -136,17 +148,17 @@ public class ScanCompilationUnits {
 
                 previousTask2.join(); // wait for everything to finish
                 LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
-                for (TypeInfo primaryType : primaryTypes) {
-                    if (!primaryType.hasBeenInspected()) {
-                        scanJavaDocsAndCommit(primaryType);
-                    }
-                }
             }
         } else {
             int done = 0;
             for (CompilationUnitTree unit : units) {
-                singleCompilationUnit(unit, null, primaryTypes, modules);
+                singleCompilationUnit(unit, null, primaryTypes, modules, topLevelClassSymbols);
                 TIMED_LOGGER.info("Done {}", ++done);
+            }
+        }
+        for (TypeInfo primaryType : primaryTypes) {
+            if (!primaryType.hasBeenInspected()) {
+                scanJavaDocsAndCommit(primaryType);
             }
         }
         return new Result(List.copyOf(primaryTypes), List.copyOf(modules));
@@ -165,7 +177,8 @@ public class ScanCompilationUnits {
     private void singleCompilationUnit(CompilationUnitTree unit,
                                        SourceCodeScan.Result scanResult,
                                        List<TypeInfo> primaryTypes,
-                                       List<ModuleInfo> modules) {
+                                       List<ModuleInfo> modules,
+                                       IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols) {
         boolean isModule = unit.getModule() != null;
         String packageName;
         if (isModule) {
@@ -177,14 +190,15 @@ public class ScanCompilationUnits {
         }
         CompilationUnit.Builder compilationUnitBuilder = runtime.newCompilationUnitBuilder()
                 .setPackageName(packageName)
+                .setURI(unit.getSourceFile().toUri())
                 .setSourceSet(sourceSet);
 
         LineMap lineMap = unit.getLineMap();
         DocTrees docTrees = DocTrees.instance(task);
-
         ScanCompilationUnit scanCompilationUnit = new ScanCompilationUnit(runtime, classSymbolScanner,
                 compilationUnitBuilder, unit, trees, sourcePositions, lineMap, task.getElements(), types,
-                docTrees, scanResult, computeMethodOverrides, flagHelper, classSymbolScanner);
+                docTrees, scanResult, computeMethodOverrides, flagHelper, classSymbolScanner,
+                topLevelClassSymbols);
         try {
             scanCompilationUnit.scan(unit, null);
         } catch (RuntimeException | AssertionError e) {
@@ -248,7 +262,7 @@ public class ScanCompilationUnits {
                 try {
                     cs.complete();
                     if (cs.owner instanceof Symbol.PackageSymbol && null == classSymbolScanner.getType(binaryName)) {
-                        classSymbolScanner.primaryType(cs);
+                        classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
                     } // else: not a primary type, or already known
                     if ("java.lang.Object".equals(binaryName)) {
                         objectCs = cs;
@@ -277,7 +291,7 @@ public class ScanCompilationUnits {
                     if (cs.owner instanceof Symbol.PackageSymbol) {
                         TypeInfo pt = classSymbolScanner.getType(binaryName);
                         if (pt == null) {
-                            pt = classSymbolScanner.primaryType(cs);
+                            pt = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
                             classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
                         } else {
                             classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.COMPLETE);
