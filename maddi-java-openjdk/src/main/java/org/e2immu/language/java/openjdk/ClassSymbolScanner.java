@@ -503,6 +503,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     @Override
     public void setTopLevelClassSymbolsOfSources(IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources) {
         this.topLevelClassSymbolsOfSources = topLevelClassSymbolsOfSources;
+        this.infoByFqn.startOfNewSourceSet();
     }
 
     @Override
