@@ -309,8 +309,8 @@ public class JavaInspectorImpl implements JavaInspector {
         }
 
         try (StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null)) {
-            Iterable<? extends JavaFileObject> allCompilationUnits = computeCompilationUnits(ignoreModule, sources,
-                    sourcesByClassName, fm);
+            Iterable<? extends JavaFileObject> allCompilationUnits = computeCompilationUnits(sourceSet, ignoreModule,
+                    sources, sourcesByClassName, fm);
             boolean hasModuleInfo = hasModuleInfo(allCompilationUnits);
 
             List<File> jarsAndClassDirectories = new ArrayList<>();
@@ -361,7 +361,8 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     private static @NotNull Iterable<? extends JavaFileObject> computeCompilationUnits
-            (boolean ignoreModule,
+            (SourceSet sourceSet,
+             boolean ignoreModule,
              List<File> sources,
              Map<String, String> sourcesByClassName, StandardJavaFileManager fm) throws IOException {
         List<File> allSources = new LinkedList<>();
@@ -376,14 +377,12 @@ public class JavaInspectorImpl implements JavaInspector {
         }
         // Wrap each source string in an InMemoryJavaFileObject
         List<JavaFileObject> inMemory = sourcesByClassName.entrySet().stream()
-                .map(e -> new InMemoryJavaFileObject(e.getKey(), e.getValue()))
+                .map(e -> new InMemoryJavaFileObject(sourceSet.name(), e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
         Iterable<? extends JavaFileObject> compilationUnits = fm.getJavaFileObjects(allSources.toArray(new File[0]));
-        Iterable<? extends JavaFileObject> allCompilationUnits
-                = Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
+        return Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
                         inMemory.stream())
                 .toList();
-        return allCompilationUnits;
     }
 
     private boolean hasModuleInfo(Iterable<? extends JavaFileObject> allCompilationUnits) {

@@ -81,7 +81,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         SourceCodeScan.Result scanResult,
                         ComputeMethodOverrides computeMethodOverrides,
                         FlagHelper flagHelper,
-                        ClassSymbolScanner classSymbolScanner) {
+                        ClassSymbolScanner classSymbolScanner,
+                        IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols) {
         this.runtime = runtime;
         this.typeData = typeData;
         this.compilationUnitBuilder = compilationUnitBuilder;
@@ -101,6 +102,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         this.scanJavaDoc = new ScanJavaDoc(runtime, typeData, docSourcePositions, compilationUnitTree, lineMap);
 
         convertType = classSymbolScanner;
+        convertType.setTopLevelClassSymbolsOfSources(topLevelClassSymbols);
         convertType.startCompilationUnit(this, elementStack);
     }
 

@@ -31,7 +31,6 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
@@ -107,7 +106,8 @@ public class CommonTest {
         }
     }
 
-    private JavacTask createTask(Map<String, String> sourcesByClassName, List<File> jars,
+    private JavacTask createTask(Map<String, String> sourcesByClassName,
+                                 List<File> jars,
                                  MaddiDiagnosticCollector diagnostics) throws IOException {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         StandardJavaFileManager fm = compiler.getStandardFileManager(diagnostics, null, null);
@@ -118,7 +118,7 @@ public class CommonTest {
 
         // Wrap each source string in an InMemoryJavaFileObject
         List<JavaFileObject> compilationUnits = sourcesByClassName.entrySet().stream()
-                .map(e -> new InMemoryJavaFileObject(e.getKey(), e.getValue()))
+                .map(e -> new InMemoryJavaFileObject("source", e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
 
         return (JavacTask) compiler.getTask(
