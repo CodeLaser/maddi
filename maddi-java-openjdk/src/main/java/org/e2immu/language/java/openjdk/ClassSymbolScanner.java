@@ -776,6 +776,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         TypeInfo known = getType(fullyQualifiedType);
         Symbol.ClassSymbol cs = (Symbol.ClassSymbol) ct.tsym;
         TypeInfo typeInfo;
+        Symbol.ClassSymbol topCs;
         if (known == null) {
             // on-demand loading; should be replaced by import handling?
             if (cs.owner instanceof Symbol.MethodSymbol) {
@@ -784,15 +785,23 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 typeInfo = lazilyLoadTypeFromClassFile(cs);
             }
         } else if (topLevelClassSymbolsOfSources != null
-                   && topLevelClassSymbolsOfSources.containsKey(cs)
+                   && topLevelClassSymbolsOfSources.containsKey(topCs = primary(cs))
                    && cs.sourcefile != null
-                   && !known.compilationUnit().uri().equals(cs.sourcefile.toUri())) {
+                   && !known.compilationUnit().uri().equals(topCs.sourcefile.toUri())) {
             // so if the source file does not agree with known, we must load the class file
             typeInfo = lazilyLoadTypeFromClassFile(cs);
         } else {
             typeInfo = known;
         }
         return typeInfo;
+    }
+
+    private static Symbol.ClassSymbol primary(Symbol.ClassSymbol csIn) {
+        Symbol.ClassSymbol cs = csIn;
+        while (cs.owner instanceof Symbol.ClassSymbol owner) {
+            cs = owner;
+        }
+        return cs;
     }
 
     private ParameterizedType primitiveType(TypeKind primitiveTypeKind) {
