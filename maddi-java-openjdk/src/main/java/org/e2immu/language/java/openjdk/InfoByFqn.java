@@ -4,11 +4,15 @@ import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Stream;
 
 public class InfoByFqn {
+    private static final Logger LOGGER = LoggerFactory.getLogger(InfoByFqn.class);
+
     private final Map<String, TypeInfo> singleTypeByFqn = new HashMap<>();
     private final Map<String, List<TypeInfo>> multiTypeByFqn = new HashMap<>();
     private final Map<String, MethodInfo> methodByDescriptor = new HashMap<>();
@@ -32,14 +36,20 @@ public class InfoByFqn {
                 if (!prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())) {
                     singleTypeByFqn.remove(fqn);
                     multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
+                    LOGGER.info("Create multi: {}", typeInfo.descriptor());
                 } else {
                     throw new UnsupportedOperationException("Duplicating type " + typeInfo);
                 }
             } else if ((list = multiTypeByFqn.get(fqn)) != null) {
                 multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
-            } // else: not a problem, first time
+                LOGGER.info("Appended to multi: {}", typeInfo.descriptor());
+            } else {
+                LOGGER.info("Put in single (==): {}", typeInfo.descriptor());
+            }
         } else if (prev != null) {
             throw new UnsupportedOperationException("Duplicating type " + typeInfo);
+        } else {
+            LOGGER.info("Put in single (!=): {}", typeInfo.descriptor());
         }
     }
 

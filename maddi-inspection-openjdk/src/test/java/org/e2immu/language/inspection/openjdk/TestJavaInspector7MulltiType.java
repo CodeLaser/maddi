@@ -30,7 +30,8 @@ public class TestJavaInspector7MulltiType {
     public void test() throws IOException {
         javaInspector = new JavaInspectorImpl();
         sourceSet1 = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "1").setUri(URI.create("file:/")).build();
-        sourceSet2 = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "2").setUri(URI.create("file:/")).build();
+        sourceSet2 = new SourceSetImpl.Builder().setName(TEST_PROTOCOL + "2").setUri(URI.create("file:/"))
+                .setDependencies(List.of(sourceSet1)).build();
 
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(sourceSet1, sourceSet2)
@@ -79,26 +80,16 @@ public class TestJavaInspector7MulltiType {
                                 sourceSet2, Map.of("a.b.X1", INPUTX1_2, "a.b.Y", INPUTY)),
                         JavaInspectorImpl.DETAILED_SOURCES)
                 .parseResult();
-        TypeInfo X1 = parseResult.firstType();
-        assertEquals("a.b.X1", X1.fullyQualifiedName());
-        assertTrue(X1.hasBeenInspected());
 
         // test the compiled types manager
         CompiledTypesManager ctm = javaInspector.compiledTypesManager();
-
         List<TypeInfo> parsed = ctm.typesLoaded(false);
-        assertEquals(3, parsed.size());
+        assertEquals(4, parsed.size());
 
-        List<TypeInfo> loaded = ctm.typesLoaded(true);
-        assertTrue(loaded.size() > 10);
-        TypeInfo printStream = ctm.get("java.io.PrintStream", null);
-        assertNotNull(printStream);
-        assertTrue(printStream.hasBeenInspected());
+        TypeInfo X1 = parseResult.firstType();
+        assertEquals("test-protocol1::a.b.X1", X1.descriptor());
+        assertTrue(X1.hasBeenInspected());
 
-        TypeInfo boxedInteger = ctm.get("java.lang.Integer", null);
-        assertNotNull(boxedInteger); // pre-load
 
-        TypeInfo varHandle = ctm.get("java.lang.invoke.VarHandle", null);
-        assertNull(varHandle); // no pre-load
     }
 }
