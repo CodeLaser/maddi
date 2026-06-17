@@ -284,7 +284,7 @@ public class JavaInspectorImpl implements JavaInspector {
         for (TypeInfo typeInfo : loaded) {
             // TODO completing is a choice, and may be an unnecessary and expensive operation.
             //  offer this choice to the user
-            if (!typeInfo.hasBeenInspected()) {
+            if (typeInfo.isPrimaryType() && !typeInfo.hasBeenInspected()) {
                 scanCompilationUnits.classSymbolScanner().commitType(typeInfo);
             }
             compiledTypesManager.addTypeInfo(null, typeInfo);

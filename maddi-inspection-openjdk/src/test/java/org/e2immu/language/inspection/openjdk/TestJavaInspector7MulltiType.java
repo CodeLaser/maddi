@@ -1,6 +1,8 @@
 package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.expression.MethodCall;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
@@ -89,7 +91,14 @@ public class TestJavaInspector7MulltiType {
         TypeInfo X1 = parseResult.firstType();
         assertEquals("test-protocol1::a.b.X1", X1.descriptor());
         assertTrue(X1.hasBeenInspected());
+        List<TypeInfo> list = parseResult.typeByFullyQualifiedName("a.b.X1");
+        assertEquals(2, list.size());
+        assertSame(X1, list.getFirst());
+        assertEquals("test-protocol2::a.b.X1", list.getLast().descriptor());
 
-
+        TypeInfo Y = parseResult.findType("a.b.Y");
+        MethodInfo method = Y.findUniqueMethod("method", 1);
+        MethodCall mc = ((MethodCall) method.methodBody().statements().getFirst().expression());
+        assertEquals("test-protocol2::a.b.X1.method(java.lang.String)", mc.methodInfo().descriptor());
     }
 }
