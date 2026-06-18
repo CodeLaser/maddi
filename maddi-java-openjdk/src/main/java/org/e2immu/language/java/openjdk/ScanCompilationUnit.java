@@ -396,18 +396,21 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             Source source = sourceForNode(definition, dsbField);
             fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
-            // check presence
-            MethodInfo miInMap = typeInfo.methodStream()
-                    .filter(mi -> fieldName.equals(mi.name()) && mi.parameters().isEmpty())
-                    .findFirst().orElse(null);
-            if (miInMap == null) {
+
+            String list =
+                    jcClassDecl.sym.getEnclosedElements().stream()
+                            .filter(e -> e instanceof Symbol.MethodSymbol)
+                            .map(e -> e.name.toString()+" "+((e.flags() & Flags.RECORD)!=0)+" "+((e.flags() & Flags.GENERATED_MEMBER)!=0))
+                            .collect(Collectors.joining("\n"));
+
+            if (notPresent(typeInfo, fieldName, 0)
+                && hasSyntheticMethod(jcClassDecl, fieldName, 0)) {
                 MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
                 List<MethodInfo> overrides = computeMethodOverrides.findOverriddenMethods(rc.accessor)
                         .stream()
                         .map(typeData::getOrLoadMethod)
                         .toList();
-                accessor.builder().addOverrides(overrides);
-                // we cannot yet commit the accessors, they may be overridden later! TestRecord,4
+                accessor.builder().addOverrides(overrides).commit();
                 // NOTE: we (currently) deviate from the Java spec here, we're not actually overriding.
                 builder.addMethod(accessor);
                 typeData.put(rc.accessor, accessor);
@@ -415,9 +418,31 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             ++i;
         }
         // we also must add synthetic equals(), hashCode(), toString(), because javac will expect them to be there
-        builder.addMethod(recordSynthetics.createToString())
-                .addMethod(recordSynthetics.createEquals())
-                .addMethod(recordSynthetics.createHashCode());
+        if (notPresent(typeInfo, "toString", 0)
+            && hasSyntheticMethod(jcClassDecl, "toString", 0)) {
+            builder.addMethod(recordSynthetics.createToString());
+        }
+        if (notPresent(typeInfo, "equals", 1)
+            && hasSyntheticMethod(jcClassDecl, "equals", 1)) {
+            builder.addMethod(recordSynthetics.createEquals());
+        }
+        if (notPresent(typeInfo, "hashCode", 0)
+            && hasSyntheticMethod(jcClassDecl, "hashCode", 0)) {
+            builder.addMethod(recordSynthetics.createHashCode());
+        }
+    }
+
+    private boolean notPresent(TypeInfo typeInfo, String name, int numParams) {
+        return typeInfo.methodStream()
+                .noneMatch(mi -> name.equals(mi.name()) && numParams == mi.parameters().size());
+    }
+
+    private boolean hasSyntheticMethod(JCTree.JCClassDecl jcClassDecl, String name, int numParams) {
+        return jcClassDecl.sym.getEnclosedElements().stream()
+                .anyMatch(m -> m instanceof Symbol.MethodSymbol ms
+                               && ms.name.toString().equals(name)
+                               && ms.params.size() == numParams
+                               && (ms.flags() & Flags.GENERATED_MEMBER) != 0);
     }
 
     private void parseTypeBoundsAndCommit(Symbol owner, TypeParameter tp, JCTree.JCTypeParameter jcTypeParameter) {
@@ -489,9 +514,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (isKnown) {
                 methodInfo = known;
                 builder = methodInfo.builder();
-                // in case of redefining a synthetic record method (accessor, toString, ...)
-                builder.setSynthetic(false);
-                flagHelper.method(methodFlags, builder);
                 methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
                 methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
             } else {
