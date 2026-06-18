@@ -1,10 +1,7 @@
 package org.e2immu.language.java.openjdk;
 
 import com.sun.source.tree.Tree;
-import com.sun.tools.javac.code.Flags;
-import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.code.*;
 import com.sun.tools.javac.tree.JCTree;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.DetailedSources;
@@ -152,7 +149,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 return inMap;
             }
             case Symbol.MethodSymbol _ -> throw new UnsupportedOperationException("Should have been picked up earlier");
-            case null, default -> throw new UnsupportedOperationException();
+
+            case null -> {
+                throw new UnsupportedOperationException("Null owner for type " + cs.fullname);
+            }
+            default -> {
+                if (cs.owner.kind == Kinds.Kind.NIL) {
+                    throw new UnsupportedOperationException("Type " + cs.fullname + " not found");
+                }
+                throw new UnsupportedOperationException();
+            }
         }
     }
 

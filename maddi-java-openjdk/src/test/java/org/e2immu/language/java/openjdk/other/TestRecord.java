@@ -109,4 +109,26 @@ public class TestRecord extends CommonTest {
         assertEquals(2, S.fields().size());
     }
 
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            public record C(String output) {
+               @Override
+               public String output() {
+                   System.out.println("print!");
+                   return output;
+               }
+            }
+            """;
+
+    @DisplayName("override of record accessor")
+    @Test
+    public void test4() {
+        TypeInfo C = scan("a.b.C", INPUT4);
+        MethodInfo output = C.findUniqueMethod("output", 0);
+        assertEquals("java.lang.Override", output.annotations().getFirst().typeInfo().fullyQualifiedName());
+        assertTrue(output.hasBeenInspected());
+        // NOTE: contrary to the Java spec, we're not overriding
+        assertTrue(output.overrides().isEmpty());
+    }
 }

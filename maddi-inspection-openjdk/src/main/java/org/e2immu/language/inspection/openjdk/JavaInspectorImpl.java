@@ -265,6 +265,10 @@ public class JavaInspectorImpl implements JavaInspector {
                                  boolean ignoreModule) throws IOException {
         MaddiDiagnosticCollector diagnostics = new MaddiDiagnosticCollector(ignoreErrors);
         JavacTask javacTask = createTask(sourceSet, ignoreModule, sourcesByFqn, diagnostics);
+        if (javacTask == null) {
+            LOGGER.warn("Have no sources in source set {}", sourceSet.name());
+            return;
+        }
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                 javacTask, sourceSet, infoByFqn, true, diagnostics, preload);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
@@ -309,7 +313,13 @@ public class JavaInspectorImpl implements JavaInspector {
         try (StandardJavaFileManager fm = javaCompiler.getStandardFileManager(diagnostics, null, null)) {
             Iterable<? extends JavaFileObject> allCompilationUnits = computeCompilationUnits(sourceSet, ignoreModule,
                     sources, sourcesByClassName, fm);
-            boolean hasModuleInfo = hasModuleInfo(allCompilationUnits);
+            boolean hasModuleInfo = false;
+            boolean haveSources = false;
+            for (JavaFileObject jfo : allCompilationUnits) {
+                if (jfo.toUri().getPath().endsWith("module-info.java")) hasModuleInfo = true;
+                haveSources = true;
+            }
+            if (!haveSources) return null;
 
             List<File> jarsAndClassDirectories = new ArrayList<>();
             List<File> moduleJars = new ArrayList<>();
@@ -383,13 +393,6 @@ public class JavaInspectorImpl implements JavaInspector {
                 .toList();
     }
 
-    private boolean hasModuleInfo(Iterable<? extends JavaFileObject> allCompilationUnits) {
-        for (JavaFileObject jfo : allCompilationUnits) {
-            if (jfo.toUri().getPath().endsWith("module-info.java")) return true;
-        }
-        return false;
-    }
-
     @Override
     public Runtime runtime() {
         return runtime;
@@ -406,7 +409,7 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public ReloadResult reloadSources(InputConfiguration inputConfiguration, Map<String, String> sourcesByTestProtocolURIString) throws IOException {
+    public ReloadResult reloadSources(InputConfiguration inputConfiguration, Map<String, String> sourcesByTestProtocolURIString) {
         return null;
     }
 
