@@ -846,6 +846,7 @@ public class MethodAnalyzer {
         final VariableData currentVariableData;
         final MethodInfo currentMethod;
         final InternalVariables internalVariables;
+        final IdentityHashMap<Element, Boolean> visitedAnonymous = new IdentityHashMap<>();
 
         Visitor(String index, Set<String> knownVariableNames, Element statement, VariableData previousVariableData,
                 VariableData currentVariableData, MethodInfo currentMethod, InternalVariables internalVariables) {
@@ -895,13 +896,15 @@ public class MethodAnalyzer {
         public boolean beforeExpression(Expression expressionIn) {
             Expression e = expressionIn.translate(applyGetSetTranslation);
             if (e instanceof Lambda lambda) {
-                // we plan to catch all variables that we already know, but not to introduce NEW variables
-                VariableInfoMap variableInfoMap = ensureLocalVariableNamesOfEnclosingType(lambda.methodInfo().typeInfo());
-                if (!prepAnalyzer.options.doNotRecurseIntoAnonymous()) {
-                    prepAnalyzer.doType(lambda.methodInfo().typeInfo());
+                if (visitedAnonymous.put(lambda, true) == null) {
+                    // we plan to catch all variables that we already know, but not to introduce NEW variables
+                    VariableInfoMap variableInfoMap = ensureLocalVariableNamesOfEnclosingType(lambda.methodInfo().typeInfo());
+                    if (!prepAnalyzer.options.doNotRecurseIntoAnonymous()) {
+                        prepAnalyzer.doType(lambda.methodInfo().typeInfo());
+                    }
+                    copyReadsFromAnonymousMethod(lambda.methodInfo(), Set.of(), Set.of(lambda.methodInfo().typeInfo()),
+                            variableInfoMap);
                 }
-                copyReadsFromAnonymousMethod(lambda.methodInfo(), Set.of(), Set.of(lambda.methodInfo().typeInfo()),
-                        variableInfoMap);
                 return false;
             }
 
@@ -909,8 +912,12 @@ public class MethodAnalyzer {
                 // important: check anonymous type first, it can have constructor != null
                 TypeInfo anonymousClass = cc.anonymousClass();
                 if (anonymousClass != null) {
-                    handleInnerClass(anonymousClass);
-                    return true; // so that the arguments get processed; the current visitor ignores the anonymous class
+                    if (visitedAnonymous.put(cc, true) == null) {
+                        handleInnerClass(anonymousClass);
+                        return true; // so that the arguments get processed; the current visitor ignores the anonymous class
+                    }
+                    // don't need to do the arguments again neither
+                    return false;
                 }
                 if (prepAnalyzer.trackObjectCreations()) {
                     ObjectCreationVariable ocv = new ObjectCreationVariableImpl(currentMethod, cc.source().compact(),

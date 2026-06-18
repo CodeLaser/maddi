@@ -18,6 +18,7 @@ import org.e2immu.analyzer.modification.prepwork.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.ReturnVariableImpl;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
+import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -27,7 +28,7 @@ import org.e2immu.language.cst.api.statement.IfElseStatement;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.variable.FieldReference;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -476,6 +477,76 @@ public class TestVariableData extends CommonTest {
         TypeInfo typeInfo = javaInspector.parse(ABX, INPUT9);
         PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
         analyzer.doPrimaryType(typeInfo);
+    }
+
+
+    @Language("java")
+    private static final String INPUT10 = """
+            package a.b;
+            import java.util.function.Function;
+            class C {
+                String EMBEDDING_STORE = "es";
+                String EMBEDDING_MODEL = "em";
+                interface ContentRetriever { }
+                interface Query { }
+                static class EmbeddingStoreContentRetriever {
+                    static Builder builder() { return new Builder(); }
+                    static class Builder {
+                        String embeddingStore;
+                        String embeddingModel;
+                        int maxResults;
+                        double minScore;
+                        Builder embeddingStore(String embeddingStore) {
+                            this.embeddingStore = embeddingStore;
+                            return this;
+                        }
+                        Builder embeddingModel(String embeddingModel) {
+                            this.embeddingModel = embeddingModel;
+                            return this;
+                        }
+                        Builder maxResults(int maxResults) { this.maxResults = maxResults; return this; }
+                        Builder dynamicMaxResults(Function<Query, Integer> function) { return this; }
+                        Builder minScore(double minScore) { this.minScore = minScore; return this; }
+                        Builder dynamicMinScore(Function<Query, Double> function) { return this; }
+                        ContentRetriever build() {
+                            return null;
+                        }
+                    }
+                }
+                void method1() {
+                    ContentRetriever contentRetriever = EmbeddingStoreContentRetriever.builder()
+                        .embeddingStore(EMBEDDING_STORE)
+                        .embeddingModel(EMBEDDING_MODEL)
+                        .maxResults(10) // static value
+                        .dynamicMaxResults((query) -> 1) // should override static
+                        .minScore(0.1) // static value
+                        .dynamicMinScore(new Function<a.b.C.Query, Double>() {
+                            @Override public Double apply(a.b.C.Query query) {
+                                return 0.0;
+                            }
+                        }) // should override static
+                        .build();
+                }
+            }
+            """;
+
+    // issue: setter in chain is replaced by comma expression, and then the lambda is analyzed multiple times
+    @Test
+    public void test10() {
+        TypeInfo typeInfo = javaInspector.parse("a.b.C", INPUT10);
+        TypeInfo EmbeddingStoreContentRetriever = typeInfo.findSubType("EmbeddingStoreContentRetriever");
+        TypeInfo Builder = EmbeddingStoreContentRetriever.findSubType("Builder");
+        MethodInfo embeddingStore = Builder.findUniqueMethod("embeddingStore", 1);
+        MethodInfo minScore = Builder.findUniqueMethod("minScore", 1);
+
+        MethodInfo method1 = typeInfo.findUniqueMethod("method1", 0);
+        PrepAnalyzer analyzer = new PrepAnalyzer(javaInspector.runtime());
+        analyzer.doMethod(method1);
+
+        Value.FieldValue fvEs = embeddingStore.analysis().getOrNull(PropertyImpl.GET_SET_FIELD, null);
+        assertEquals("embeddingStore", fvEs.field().name());
+        Value.FieldValue fvMin = minScore.analysis().getOrNull(PropertyImpl.GET_SET_FIELD, null);
+        assertEquals("minScore", fvMin.field().name());
     }
 
 }
