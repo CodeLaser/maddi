@@ -802,7 +802,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         elementStack.put(simpleName, typeInfo);
         continueType(typeInfo, localType);
         currentMethod = here;
-        // we won't have a chance later to commit. Do this for synthetic record fields/methods
+        // we won't have a chance later to commit, since we're not keeping track of these types at top level
+        // see TestRecord,5
+        recursivelyCommit(typeInfo);
+
+        return runtime.newLocalTypeDeclarationBuilder()
+                .setLabel(statementLabels.get(localType))
+                .setTypeInfo(typeInfo)
+                .setSource(statementSourceForNode(localType))
+                .build();
+    }
+
+    private void recursivelyCommit(TypeInfo typeInfo) {
         typeInfo.fields()
                 .stream().filter(fi -> !fi.hasBeenInspected())
                 .forEach(fi -> {
@@ -812,14 +823,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         typeInfo.constructorAndMethodStream()
                 .filter(mi -> !mi.hasBeenInspected())
                 .forEach(mi -> mi.builder().commit());
+        typeInfo.subTypes().stream().filter(st -> !st.hasBeenInspected()).forEach(this::recursivelyCommit);
         typeInfo.builder()
                 .setAccess(runtime.accessPrivate())
                 .commit();
-        return runtime.newLocalTypeDeclarationBuilder()
-                .setLabel(statementLabels.get(localType))
-                .setTypeInfo(typeInfo)
-                .setSource(statementSourceForNode(localType))
-                .build();
     }
 
     @Override

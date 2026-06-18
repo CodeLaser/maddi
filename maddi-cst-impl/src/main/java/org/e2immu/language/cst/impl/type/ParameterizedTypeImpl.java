@@ -515,6 +515,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         for (ParameterizedType parameter : originalType.parameters()) {
             ParameterizedType recursive;
             if (parameter.isTypeParameter()) {
+                assert i < parameters.size();
                 ParameterizedType pt = parameters.get(i);
                 if (pt != null && pt.isUnboundWildcard() && !parameter.typeParameter().typeBounds().isEmpty()) {
                     // replace '?' by '? extends X', with 'X' the first type bound, see TypeParameter_3

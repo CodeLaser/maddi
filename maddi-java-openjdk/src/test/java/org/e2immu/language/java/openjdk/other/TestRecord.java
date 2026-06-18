@@ -152,7 +152,9 @@ public class TestRecord extends CommonTest {
             package a.b;
             public record R(int a, String b) {
                void method() {
-                   record X(int c, int d) { }
+                   record X(int c, int d) {
+                       record Y(int e) { }
+                   }
                    X x = new X(a, b.length());
                    System.out.println("x");
                }
@@ -168,5 +170,8 @@ public class TestRecord extends CommonTest {
         assertTrue(ltd.typeInfo().typeNature().isRecord());
         FieldInfo c = ltd.typeInfo().getFieldByName("c", true);
         assertEquals("<empty>", c.initializer().toString());
+        TypeInfo Y = ltd.typeInfo().findSubType("Y");
+        FieldInfo e = Y.getFieldByName("e", true);
+        assertEquals("<empty>", e.initializer().toString());
     }
 }
