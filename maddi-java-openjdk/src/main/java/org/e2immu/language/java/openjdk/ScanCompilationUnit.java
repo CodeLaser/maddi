@@ -319,49 +319,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         // record components: fields and accessors
         if (typeInfo.typeNature().isRecord()) {
-            RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
-            int i = 0;
-            for (Symbol.RecordComponent rc : jcClassDecl.sym.getRecordComponents()) {
-                String fieldName = rc.name.toString();
-                // we may have to skip a constructor... but we try to use the tree elements for the source
-                while (!(jcClassDecl.defs.get(i) instanceof JCTree.JCVariableDecl definition)) ++i;
-                FieldInfo fieldInfo;
-                // check presence
-                FieldInfo inMap = typeInfo.getFieldByName(fieldName, false);
-                DetailedSources.Builder dsbField = runtime.newDetailedSourcesBuilder();
-                if (inMap == null) {
-                    ParameterizedType pt = convertType.convertTree(definition.getType(), dsbField);
-                    fieldInfo = runtime.newFieldInfo(fieldName, false, pt, typeInfo);
-                    Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
-                            .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
-                    typeData.put(varSym, fieldInfo);
-                    builder.addField(fieldInfo);
-                } else {
-                    fieldInfo = inMap;
-                }
-                if (fieldInfo.modifiers().isEmpty()) {
-                    fieldInfo.builder()
-                            .addFieldModifier(runtime.fieldModifierFinal())
-                            .addFieldModifier(runtime.fieldModifierPrivate());
-                }
-                Source source = sourceForNode(definition, dsbField);
-                fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
-                // check presence
-                MethodInfo miInMap = typeInfo.methodStream()
-                        .filter(mi -> fieldName.equals(mi.name()) && mi.parameters().isEmpty())
-                        .findFirst().orElse(null);
-                if (miInMap == null) {
-                    MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
-                    List<MethodInfo> overrides = computeMethodOverrides.findOverriddenMethods(rc.accessor)
-                            .stream()
-                            .map(typeData::getOrLoadMethod)
-                            .toList();
-                    accessor.builder().addOverrides(overrides).commit();
-                    builder.addMethod(accessor);
-                    typeData.put(rc.accessor, accessor);
-                }
-                ++i;
-            }
+            handleRecordType(typeInfo, jcClassDecl, builder);
         }
         // annotations
         for (JCTree.JCAnnotation annotation : jcClassDecl.getModifiers().getAnnotations()) {
@@ -408,6 +366,54 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         typeStack.removeLast();
         elementStack.pop();
+    }
+
+    private void handleRecordType(TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl, TypeInfo.Builder builder) {
+        RecordSynthetics recordSynthetics = new RecordSynthetics(runtime, typeInfo);
+        int i = 0;
+        for (Symbol.RecordComponent rc : jcClassDecl.sym.getRecordComponents()) {
+            String fieldName = rc.name.toString();
+            // we may have to skip a constructor... but we try to use the tree elements for the source
+            while (!(jcClassDecl.defs.get(i) instanceof JCTree.JCVariableDecl definition)) ++i;
+            FieldInfo fieldInfo;
+            // check presence
+            FieldInfo inMap = typeInfo.getFieldByName(fieldName, false);
+            DetailedSources.Builder dsbField = runtime.newDetailedSourcesBuilder();
+            if (inMap == null) {
+                ParameterizedType pt = convertType.convertTree(definition.getType(), dsbField);
+                fieldInfo = runtime.newFieldInfo(fieldName, false, pt, typeInfo);
+                Symbol.VarSymbol varSym = (Symbol.VarSymbol) jcClassDecl.sym.members()
+                        .findFirst(rc.name, sym -> sym.getKind() == ElementKind.FIELD);
+                typeData.put(varSym, fieldInfo);
+                builder.addField(fieldInfo);
+            } else {
+                fieldInfo = inMap;
+            }
+            if (fieldInfo.modifiers().isEmpty()) {
+                fieldInfo.builder()
+                        .addFieldModifier(runtime.fieldModifierFinal())
+                        .addFieldModifier(runtime.fieldModifierPrivate());
+            }
+            Source source = sourceForNode(definition, dsbField);
+            fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
+            // check presence
+            MethodInfo miInMap = typeInfo.methodStream()
+                    .filter(mi -> fieldName.equals(mi.name()) && mi.parameters().isEmpty())
+                    .findFirst().orElse(null);
+            if (miInMap == null) {
+                MethodInfo accessor = recordSynthetics.createAccessor(fieldInfo);
+                List<MethodInfo> overrides = computeMethodOverrides.findOverriddenMethods(rc.accessor)
+                        .stream()
+                        .map(typeData::getOrLoadMethod)
+                        .toList();
+                accessor.builder().addOverrides(overrides);
+                // we cannot yet commit the accessors, they may be overridden later! TestRecord,4
+                // NOTE: we (currently) deviate from the Java spec here, we're not actually overriding.
+                builder.addMethod(accessor);
+                typeData.put(rc.accessor, accessor);
+            }
+            ++i;
+        }
     }
 
     private void parseTypeBoundsAndCommit(Symbol owner, TypeParameter tp, JCTree.JCTypeParameter jcTypeParameter) {
@@ -597,25 +603,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             if ((methodInfo.methodType().isSyntheticConstructor() || methodInfo.methodType().isCompactConstructor())
                 && currentType.typeNature().isRecord()) {
-                Block.Builder bb = runtime.newBlockBuilder();
-                bb.addStatements(methodBody.statements());
-                int n = methodBody.statements().size() - 1; // 1 for the synthetic super() statement to be ignored
-                int sum = methodInfo.parameters().size() + methodBody.statements().size();
-                for (ParameterInfo pi : methodInfo.parameters()) {
-                    FieldInfo field = currentType.getFieldByName(pi.name(), true);
-                    Assignment a = runtime.newAssignmentBuilder()
-                            .setValue(runtime.newVariableExpressionBuilder()
-                                    .setSource(runtime.noSource()).setVariable(pi)
-                                    .build())
-                            .setTarget(runtime.newVariableExpressionBuilder().setSource(runtime.noSource())
-                                    .setVariable(runtime.newFieldReference(field)).build())
-                            .build();
-                    bb.addStatement(runtime.newExpressionAsStatementBuilder()
-                            .setSource(runtime.noSource().withIndex(StringUtil.pad(n + pi.index(), sum)))
-                            .setExpression(a)
-                            .build());
-                }
-                methodBody = bb.build();
+                methodBody = syntheticOrCompactConstructorInRecords(methodBody, methodInfo, currentType);
             }
 
             //overrides
@@ -643,6 +631,28 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             LOGGER.error("Caught exception in method {}", node.getName().toString());
             throw re;
         }
+    }
+
+    private Block syntheticOrCompactConstructorInRecords(Block methodBody, MethodInfo methodInfo, TypeInfo currentType) {
+        Block.Builder bb = runtime.newBlockBuilder();
+        bb.addStatements(methodBody.statements());
+        int n = methodBody.statements().size() - 1; // 1 for the synthetic super() statement to be ignored
+        int sum = methodInfo.parameters().size() + methodBody.statements().size();
+        for (ParameterInfo pi : methodInfo.parameters()) {
+            FieldInfo field = currentType.getFieldByName(pi.name(), true);
+            Assignment a = runtime.newAssignmentBuilder()
+                    .setValue(runtime.newVariableExpressionBuilder()
+                            .setSource(runtime.noSource()).setVariable(pi)
+                            .build())
+                    .setTarget(runtime.newVariableExpressionBuilder().setSource(runtime.noSource())
+                            .setVariable(runtime.newFieldReference(field)).build())
+                    .build();
+            bb.addStatement(runtime.newExpressionAsStatementBuilder()
+                    .setSource(runtime.noSource().withIndex(StringUtil.pad(n + pi.index(), sum)))
+                    .setExpression(a)
+                    .build());
+        }
+        return bb.build();
     }
 
     // -- Annotations ---------------------------------------------
