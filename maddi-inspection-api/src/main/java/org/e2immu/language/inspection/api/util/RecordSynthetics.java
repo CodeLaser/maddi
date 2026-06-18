@@ -93,4 +93,48 @@ public class RecordSynthetics {
         runtime.setGetSetField(methodInfo, fieldInfo, false, -1, false);
         return methodInfo;
     }
+
+    public MethodInfo createToString() {
+        MethodInfo javaLangObjectToString = runtime.objectTypeInfo().findUniqueMethod("toString", 0);
+        MethodInfo methodInfo = runtime.newMethod(typeInfo, "toString", runtime.methodTypeMethod());
+        methodInfo.builder()
+                .setSynthetic(true)
+                .setReturnType(runtime.stringParameterizedType())
+                .setMethodBody(runtime.emptyBlock())
+                .addOverrides(List.of(javaLangObjectToString))
+                .addMethodModifier(runtime.methodModifierPublic())
+                .computeAccess();
+        // not commiting yet
+        return methodInfo;
+    }
+
+    public MethodInfo createEquals() {
+        MethodInfo javaLangObjectEquals = runtime.objectTypeInfo().findUniqueMethod("equals", 1);
+        MethodInfo methodInfo = runtime.newMethod(typeInfo, "equals", runtime.methodTypeMethod());
+        ParameterInfo pi = methodInfo.builder().addParameter("o", runtime.objectParameterizedType());
+        pi.builder().setIsFinal(false).setVarArgs(false).commit();
+        methodInfo.builder()
+                .setSynthetic(true)
+                .setReturnType(runtime.stringParameterizedType())
+                .setMethodBody(runtime.emptyBlock())
+                .addOverrides(List.of(javaLangObjectEquals))
+                .addMethodModifier(runtime.methodModifierPublic())
+                .computeAccess();
+        // not commiting yet
+        return methodInfo;
+    }
+
+    public MethodInfo createHashCode() {
+        MethodInfo javaLangHashCode = runtime.objectTypeInfo().findUniqueMethod("hashCode", 0);
+        MethodInfo methodInfo = runtime.newMethod(typeInfo, "hashCode", runtime.methodTypeMethod());
+        methodInfo.builder()
+                .setSynthetic(true)
+                .setReturnType(runtime.intParameterizedType())
+                .setMethodBody(runtime.emptyBlock())
+                .addOverrides(List.of(javaLangHashCode))
+                .addMethodModifier(runtime.methodModifierPublic())
+                .computeAccess();
+        // not commiting yet
+        return methodInfo;
+    }
 }

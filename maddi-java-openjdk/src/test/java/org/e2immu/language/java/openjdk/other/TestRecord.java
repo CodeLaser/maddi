@@ -130,5 +130,18 @@ public class TestRecord extends CommonTest {
         assertTrue(output.hasBeenInspected());
         // NOTE: contrary to the Java spec, we're not overriding
         assertTrue(output.overrides().isEmpty());
+        assertFalse(output.isSynthetic());
+
+        MethodInfo toString = C.findUniqueMethod("toString", 0);
+        assertTrue(toString.isSynthetic());
+        assertEquals("[java.lang.Object.toString()]", toString.overrides().toString());
+
+        MethodInfo equals = C.findUniqueMethod("equals", 1);
+        assertTrue(equals.isSynthetic());
+        assertEquals("[java.lang.Object.equals(Object)]", equals.overrides().toString());
+
+        MethodInfo hashCode = C.findUniqueMethod("hashCode", 0);
+        assertTrue(hashCode.isSynthetic());
+        assertEquals("[java.lang.Object.hashCode()]", hashCode.overrides().toString());
     }
 }
