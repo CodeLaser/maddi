@@ -11,6 +11,7 @@ import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.ToolChain;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.language.java.openjdk.InputConfigurationSupport;
 import org.e2immu.support.SetOnce;
 import org.jetbrains.annotations.NotNull;
@@ -21,11 +22,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
 
 
@@ -62,8 +65,12 @@ public abstract class CommonTest {
         SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
         SourceSet junitJupiter = sourceSetOf(Assertions.class, javaBase);
 
+        SourceSet sources = new SourceSetImpl.Builder().setName(TEST_PROTOCOL).setUri(URI.create("file:/"))
+                .setDependencies(List.of(javaBase, orgSlf4j, annotations, maddiSupport, junitJupiter))
+                .build();
+
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .addSourceSets(org.e2immu.language.inspection.openjdk.JavaInspectorImpl.TEST_PROTOCOL_SOURCE_SET)
+                .addSourceSets(sources)
                 .addClassPath("jmod:java.base")
                 .addClassPathParts(maddiSupport, orgSlf4j, annotations, junitJupiter)
                 .build();

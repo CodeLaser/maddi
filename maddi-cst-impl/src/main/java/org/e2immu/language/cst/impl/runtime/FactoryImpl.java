@@ -44,6 +44,7 @@ import org.e2immu.language.cst.impl.type.*;
 import org.e2immu.language.cst.impl.variable.*;
 import org.e2immu.support.Either;
 import org.e2immu.util.internal.util.IntUtil;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Function;
@@ -854,6 +855,13 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     @Override
     public ParameterizedType newParameterizedType(TypeParameter typeParameter, int arrays, Wildcard wildCard) {
         return new ParameterizedTypeImpl(null, typeParameter, List.of(), arrays, wildCard);
+    }
+
+    @Override
+    public ParameterizedType newIntersectionType(@Nullable TypeParameter typeParameter,
+                                                 List<ParameterizedType> intersectionTypes) {
+        return new ParameterizedTypeImpl(null, typeParameter, intersectionTypes, 0,
+                WildcardEnum.EXTENDS_INTERSECTION);
     }
 
     @Override
