@@ -20,4 +20,8 @@ public interface Wildcard {
     boolean isExtends();
 
     boolean isSuper();
+
+    boolean isExtendsNoIntersection();
+
+    boolean isExtendsIntersection();
 }

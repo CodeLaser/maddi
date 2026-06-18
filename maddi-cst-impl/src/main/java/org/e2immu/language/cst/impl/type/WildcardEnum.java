@@ -17,7 +17,7 @@ package org.e2immu.language.cst.impl.type;
 import org.e2immu.language.cst.api.type.Wildcard;
 
 public enum WildcardEnum implements Wildcard {
-    EXTENDS, SUPER, UNBOUND,
+    EXTENDS, EXTENDS_INTERSECTION, SUPER, UNBOUND,
     ;
 
     @Override
@@ -27,7 +27,17 @@ public enum WildcardEnum implements Wildcard {
 
     @Override
     public boolean isExtends() {
+        return this == EXTENDS || this == EXTENDS_INTERSECTION;
+    }
+
+    @Override
+    public boolean isExtendsNoIntersection() {
         return this == EXTENDS;
+    }
+
+    @Override
+    public boolean isExtendsIntersection() {
+        return this == EXTENDS_INTERSECTION;
     }
 
     @Override

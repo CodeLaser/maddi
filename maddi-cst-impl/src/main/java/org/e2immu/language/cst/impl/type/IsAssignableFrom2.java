@@ -45,6 +45,41 @@ public record IsAssignableFrom2(Predefined runtime) {
         boolean hierarchy = testHierarchy(to, from, visited);
         if (hierarchy) return true;
 
+        boolean typeParameter = testTypeParameter(to, from, visited);
+        if (typeParameter) return true;
+
+        return typeIntersection(to, from, visited);
+    }
+
+    private boolean typeIntersection(ParameterizedType to, ParameterizedType from, Set<ParameterizedType> visited) {
+        if (from.wildcard() == WildcardEnum.EXTENDS_INTERSECTION && from.arrays() == 0) {
+            return from.parameters().stream().anyMatch(p -> test(to, p, visited));
+        }
+        if (to.wildcard() == WildcardEnum.EXTENDS_INTERSECTION && to.arrays() == 0) {
+            return to.parameters().stream().anyMatch(p -> test(p, from, visited));
+        }
+        return false;
+    }
+
+    private boolean testTypeParameter(ParameterizedType to, ParameterizedType from, Set<ParameterizedType> visited) {
+        if (from.arrays() == 0 && from.typeParameter() != null && from.wildcard() != WildcardEnum.EXTENDS_INTERSECTION) {
+            ParameterizedType upperBound = from.typeParameter().typeBounds().isEmpty()
+                    ? runtime.objectParameterizedType()
+                    : from.typeParameter().typeBounds().getFirst();
+            return test(to, upperBound, visited);
+        }
+        if (to.arrays() == 0 && to.typeParameter() != null && to.wildcard() != WildcardEnum.EXTENDS_INTERSECTION) {
+            if (from.arrays() == 0 && from.wildcard() == WildcardEnum.SUPER) {
+                ParameterizedType lowerBound;
+                if (from.typeParameter() != null) {
+                    lowerBound = from.typeParameter().typeBounds().isEmpty() ? runtime.objectParameterizedType()
+                            : from.typeParameter().typeBounds().getFirst();
+                } else {
+                    lowerBound = from.withWildcard(null); // the actual type, but without the wildcard
+                }
+                return test(lowerBound, to, visited);
+            }
+        }
         return false;
     }
 
@@ -53,7 +88,9 @@ public record IsAssignableFrom2(Predefined runtime) {
             if (to.typeInfo().isInterface()) {
                 if (!from.typeInfo().interfacesImplemented().isEmpty()) {
                     for (ParameterizedType fromI : from.typeInfo().interfacesImplemented()) {
-                        if (fromI.typeInfo() == to.typeInfo()) return testTypeArgumentCompatibility(to, fromI);
+                        if (fromI.typeInfo() == to.typeInfo()) {
+                            return testTypeArgumentCompatibility(to, fromI, visited);
+                        }
                     }
                     Set<ParameterizedType> visitedNotNull = visited == null ? new HashSet<>() : visited;
                     for (ParameterizedType fromI : from.typeInfo().interfacesImplemented()) {
@@ -68,7 +105,7 @@ public record IsAssignableFrom2(Predefined runtime) {
                 ParameterizedType current = from;
                 while (!current.isJavaLangObject()) {
                     if (current.typeInfo() == to.typeInfo()) {
-                        return testTypeArgumentCompatibility(to, current);
+                        return testTypeArgumentCompatibility(to, current, visited);
                     }
                     current = current.typeInfo().parentClass();
                 }
@@ -77,7 +114,9 @@ public record IsAssignableFrom2(Predefined runtime) {
         return false;
     }
 
-    private boolean testTypeArgumentCompatibility(ParameterizedType to, ParameterizedType from) {
+    private boolean testTypeArgumentCompatibility(ParameterizedType to,
+                                                  ParameterizedType from,
+                                                  Set<ParameterizedType> visited) {
         if (to.parameters().isEmpty() || from.parameters().isEmpty()) return true;
         int i = 0;
         for (ParameterizedType toParameter : to.parameters()) {
@@ -85,19 +124,19 @@ public record IsAssignableFrom2(Predefined runtime) {
             if (toParameter.isUnboundWildcard()) continue; // always good
             if (toParameter.wildcard() == WildcardEnum.EXTENDS) {
                 if (fromParameter.wildcard() == WildcardEnum.EXTENDS) {
-                    if (!test(toParameter, fromParameter)) return false;
+                    if (!test(toParameter, fromParameter, visited)) return false;
                 } else if (fromParameter.wildcard() == WildcardEnum.SUPER) {
                     return false;
                 } else { // concrete type
-                    if (!test(toParameter, fromParameter)) return false;
+                    if (!test(toParameter, fromParameter, visited)) return false;
                 }
             } else if (toParameter.wildcard() == WildcardEnum.SUPER) {
                 if (fromParameter.wildcard() == WildcardEnum.SUPER) {
-                    if (!test(fromParameter, toParameter)) return false;
+                    if (!test(fromParameter, toParameter, visited)) return false;
                 } else if (fromParameter.wildcard() == WildcardEnum.EXTENDS) {
                     return false;
                 } else { // concrete type
-                    if (!test(fromParameter, toParameter)) return false;
+                    if (!test(fromParameter, toParameter, visited)) return false;
                 }
             } else {
                 if (!toParameter.equals(fromParameter)) return false;
@@ -109,7 +148,9 @@ public record IsAssignableFrom2(Predefined runtime) {
 
     private static final Set<String> OCS = Set.of("java.lang.Cloneable", "java.io.Serializable", "java.lang.Object");
 
-    private boolean testArrayAssignability(ParameterizedType to, ParameterizedType from, Set<ParameterizedType> visited) {
+    private boolean testArrayAssignability(ParameterizedType to,
+                                           ParameterizedType from,
+                                           Set<ParameterizedType> visited) {
         if (from.arrays() > 0) {
             if (to.arrays() == 0 && to.typeInfo() != null && OCS.contains(to.typeInfo().fullyQualifiedName())) {
                 return true;

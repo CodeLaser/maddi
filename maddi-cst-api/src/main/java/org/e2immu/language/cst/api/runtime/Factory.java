@@ -30,6 +30,7 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.cst.api.variable.*;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -339,6 +340,15 @@ public interface Factory {
     ParameterizedType newParameterizedType(TypeInfo typeInfo, int arrays);
 
     ParameterizedType newParameterizedType(TypeParameter typeParameter, int arrays, Wildcard wildCard);
+
+    /**
+     * Create an intersectionType
+     *
+     * @param typeParameter     when null, we have ? extends A & B, otherwise T extends A & B
+     * @param intersectionTypes the list of types to possibly extend
+     * @return an intersection type
+     */
+    ParameterizedType newIntersectionType(@Nullable TypeParameter typeParameter, List<ParameterizedType> intersectionTypes);
 
     ParameterizedType newParameterizedType(TypeInfo typeInfo, int arrays, Wildcard wildCard,
                                            List<ParameterizedType> parameters);
