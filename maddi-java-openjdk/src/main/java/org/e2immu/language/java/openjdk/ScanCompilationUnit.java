@@ -414,6 +414,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             ++i;
         }
+        // we also must add synthetic equals(), hashCode(), toString(), because javac will expect them to be there
+        builder.addMethod(recordSynthetics.createToString())
+                .addMethod(recordSynthetics.createEquals())
+                .addMethod(recordSynthetics.createHashCode());
     }
 
     private void parseTypeBoundsAndCommit(Symbol owner, TypeParameter tp, JCTree.JCTypeParameter jcTypeParameter) {
@@ -484,9 +488,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             MethodInfo.Builder builder;
             if (isKnown) {
                 methodInfo = known;
+                builder = methodInfo.builder();
+                // in case of redefining a synthetic record method (accessor, toString, ...)
+                builder.setSynthetic(false);
+                flagHelper.method(methodFlags, builder);
                 methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
                 methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
-                builder = methodInfo.builder();
             } else {
                 // construction of the method
                 if (isConstructor) {
