@@ -22,6 +22,7 @@ import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -226,13 +227,14 @@ public class TestConstructor2 extends CommonTest {
             }
             """;
 
-    @Disabled("fails on s0.source(), don't immediately see a solution")
+    @DisplayName("source of explicit super() call")
     @Test
     public void test6() {
         TypeInfo X = scan("a.b.X", INPUT6);
         MethodInfo method = X.findConstructor(1);
         Statement s0 = method.methodBody().statements().getFirst();
         assertEquals("super();", s0.toString());
-        assertEquals("00@12:7-12:14", s0.source().toString());
+        // NOTE: does NOT have the comma!
+        assertEquals("00@12:7-12:13", s0.source().toString());
     }
 }

@@ -119,6 +119,9 @@ public final class SourceCodeScan {
         for (ImportDeclaration id : cu.childrenOfType(ImportDeclaration.class)) {
             addComments(id, false);
             keywords.put(source(id.getFirst()), id.getFirst().toString());
+            if (id.get(1) instanceof KeyWord kwStatic) {
+                keywords.put(source(kwStatic), kwStatic.toString());
+            }
         }
         for (Node node : cu) {
             if (node instanceof TypeDeclaration td && !(node instanceof EmptyDeclaration)) {
@@ -155,32 +158,55 @@ public final class SourceCodeScan {
 
         for (Node node : td.children()) {
             String string = node.getSource();
-            if (node instanceof KeyWord || node instanceof Token && "record".equals(string)) {
-                keywords.put(source(node), string);
-            } else if (node instanceof ExtendsList el) {
-                Node extendsKeyword = el.getFirst();
-                keywords.put(source(extendsKeyword), extendsKeyword.getSource());
-            } else if (node instanceof ImplementsList il) {
-                Node implementsKeyword = il.getFirst();
-                keywords.put(source(implementsKeyword), implementsKeyword.getSource());
-            } else if (node instanceof ClassOrInterfaceBody || node instanceof EnumBody) {
-                for (Node node2 : node.children()) {
-                    //String string2 = node2.getSource();
-                    switch (node2) {
-                        case TypeDeclaration sub -> scanTypeDeclaration(sub);
-                        case ConstructorDeclaration cd -> scanMethodDeclaration(cd);
-                        case MethodDeclaration md -> scanMethodDeclaration(md);
-                        case FieldDeclaration fd -> scanFieldDeclaration(fd);
-                        default -> {
+            switch (node) {
+                case Modifiers modifiers -> scanModifiers(modifiers);
+                case KeyWord _ -> keywords.put(source(node), string);
+                case Token _ when "record".equals(string) -> keywords.put(source(node), string);
+                case ExtendsList el -> {
+                    Node extendsKeyword = el.getFirst();
+                    keywords.put(source(extendsKeyword), extendsKeyword.getSource());
+                }
+                case ImplementsList il -> {
+                    Node implementsKeyword = il.getFirst();
+                    keywords.put(source(implementsKeyword), implementsKeyword.getSource());
+                }
+                case ClassOrInterfaceBody _, EnumBody _, AnnotationTypeBody _ -> {
+                    for (Node node2 : node.children()) {
+                        String string2 = node2.getSource();
+                        switch (node2) {
+                            case TypeDeclaration sub -> scanTypeDeclaration(sub);
+                            case ConstructorDeclaration cd -> scanMethodDeclaration(cd);
+                            case MethodDeclaration _, AnnotationMethodDeclaration _ -> scanMethodDeclaration(node2);
+                            case FieldDeclaration fd -> scanFieldDeclaration(fd);
+                            default -> {
+                            }
                         }
                     }
+                    Node lastChild = node.getLastChild();
+                    if (lastChild != null) {
+                        addTrailingComments(source(td), lastChild);
+                    }
                 }
-                Node lastChild = node.getLastChild();
-                if (lastChild != null) {
-                    addTrailingComments(source(td), lastChild);
+                default -> {
                 }
             }
         }
+    }
+
+    private void scanModifiers(Modifiers modifiers) {
+        for (Node node : modifiers.children()) {
+            String string = node.getSource();
+            switch (node) {
+                case Annotation _ -> scanAnnotation(node);
+                case KeyWord _ -> keywords.put(source(node), string);
+                default -> {
+                }
+            }
+        }
+    }
+
+    private void scanAnnotation(Node node) {
+        // what to do?
     }
 
     private void scanFieldDeclaration(Node fd) {
@@ -193,6 +219,11 @@ public final class SourceCodeScan {
             String string = node.getSource();
             LOGGER.debug("In MD: {}: {}", node.getClass(), limit(string));
             switch (node) {
+                case DefaultValue _ -> {
+                    if (node.getFirst() instanceof KeyWord kw) {
+                        keywords.put(source(kw), kw.getSource());
+                    }
+                }
                 case KeyWord _ -> keywords.put(source(node), string);
                 case FormalParameters fps -> {
                     for (Node param : fps.children()) {

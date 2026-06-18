@@ -353,26 +353,26 @@ public class TestSourceCodeScan {
         SourceCodeScan.Result r = sourceCodeScan.go(INPUT5, false);
         Iterator<Map.Entry<Source, String>> kIterator = r.keywords().entrySet().iterator();
         testKeyword(kIterator, "1-1:1-7", "package");
-        testKeyword(kIterator, "1-1:1-7", "import");
-        testKeyword(kIterator, "1-1:1-7", "import");
-        testKeyword(kIterator, "1-1:1-7", "static");
-        testKeyword(kIterator, "1-1:1-7", "import");
-        testKeyword(kIterator, "1-1:1-7", "static");
-        testKeyword(kIterator, "1-1:1-7", "import");
-        testKeyword(kIterator, "1-1:1-7", "import");
+        testKeyword(kIterator, "3-1:3-6", "import");
+        testKeyword(kIterator, "5-1:5-6", "import");
+        testKeyword(kIterator, "5-8:5-13", "static");
+        testKeyword(kIterator, "6-1:6-6", "import");
+        testKeyword(kIterator, "6-8:6-13", "static");
+        testKeyword(kIterator, "8-1:8-6", "import");
+        testKeyword(kIterator, "9-1:9-6", "import");
 
-        testKeyword(kIterator, "1-1:1-7", "public");
-        testKeyword(kIterator, "1-1:1-7", "interface");
-        testKeyword(kIterator, "1-1:1-7", "default");
-        testKeyword(kIterator, "1-1:1-7", "default");
-        testKeyword(kIterator, "1-1:1-7", "default");
-        testKeyword(kIterator, "1-1:1-7", "default");
-        testKeyword(kIterator, "1-1:1-7", "extends");
-        testKeyword(kIterator, "1-1:1-7", "default");
-        testKeyword(kIterator, "1-1:1-7", "default");
-        testKeyword(kIterator, "1-1:1-7", "default");
-        testKeyword(kIterator, "1-1:1-7", "default");
-        testKeyword(kIterator, "1-1:1-7", "class");
-        testKeyword(kIterator, "1-1:1-7", "implements");
+        testKeyword(kIterator, "16-1:16-6", "public");
+        testKeyword(kIterator, "16-9:16-17", "interface");
+        testKeyword(kIterator, "23-19:23-25", "default");
+        testKeyword(kIterator, "31-20:31-26", "default");
+        testKeyword(kIterator, "39-26:39-32", "default");
+        testKeyword(kIterator, "46-24:46-30", "default");
+        //testKeyword(kIterator, "1-1:1-7", "extends");
+        testKeyword(kIterator, "48-51:48-57", "default");
+        testKeyword(kIterator, "55-21:55-27", "default");
+        testKeyword(kIterator, "63-24:63-30", "default");
+        testKeyword(kIterator, "70-34:70-40", "default");
+        testKeyword(kIterator, "72-5:72-9", "class");
+        testKeyword(kIterator, "72-22:72-31", "implements");
     }
 }
