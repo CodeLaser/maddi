@@ -381,6 +381,7 @@ public class MethodAnalyzer {
 
     void doInitializerExpression(FieldInfo fieldInfo) {
         Expression expression = fieldInfo.initializer();
+        assert expression != null : "Field " + fieldInfo + " has a null initializer";
         VariableDataImpl.Builder vdb = new VariableDataImpl.Builder();
         if (!expression.isEmpty()) {
             InternalVariables iv = new InternalVariables();

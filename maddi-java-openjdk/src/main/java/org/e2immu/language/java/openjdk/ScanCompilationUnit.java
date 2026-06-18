@@ -1260,17 +1260,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             if (node instanceof JCTree.JCVariableDecl variableDecl) {
                 DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
                 if (variableDecl.sym instanceof Symbol.VarSymbol varSymbol) {
-                    String name = varSymbol.toString();
-
-                    List<AnnotationExpression> annots = new ArrayList<>();
-                    ParameterizedType type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
-
                     currentExpression = null;
                     scan(node.getInitializer(), p);
                     if (currentExpression == null) {
                         currentExpression = runtime.newEmptyExpression();
                     }
                     Expression initializer = currentExpression;
+                    List<AnnotationExpression> annots = new ArrayList<>();
+                    // must come after evaluation of initializer (when it creates a lambda, anonymous type)
+                    ParameterizedType type = convertTypeWithAnnotations(variableDecl.vartype, dsb, annots::add);
+                    String name = varSymbol.toString();
                     if (currentMethod == null) {
                         createField(variableDecl, varSymbol, name, type, annots, dsb, initializer);
                     } else {
