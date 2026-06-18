@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.IfElseStatement;
+import org.e2immu.language.cst.api.statement.LocalTypeDeclaration;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -143,5 +144,29 @@ public class TestRecord extends CommonTest {
         MethodInfo hashCode = C.findUniqueMethod("hashCode", 0);
         assertTrue(hashCode.isSynthetic());
         assertEquals("[java.lang.Object.hashCode()]", hashCode.overrides().toString());
+    }
+
+
+    @Language("java")
+    private static final String INPUT5 = """
+            package a.b;
+            public record R(int a, String b) {
+               void method() {
+                   record X(int c, int d) { }
+                   X x = new X(a, b.length());
+                   System.out.println("x");
+               }
+            }
+            """;
+
+    @DisplayName("inline record")
+    @Test
+    public void test5() {
+        TypeInfo R = scan("a.b.R", INPUT5);
+        MethodInfo method = R.findUniqueMethod("method", 0);
+        LocalTypeDeclaration ltd = (LocalTypeDeclaration) method.methodBody().statements().getFirst();
+        assertTrue(ltd.typeInfo().typeNature().isRecord());
+        FieldInfo c = ltd.typeInfo().getFieldByName("c", true);
+        assertEquals("<empty>", c.initializer().toString());
     }
 }

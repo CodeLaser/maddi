@@ -802,6 +802,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         elementStack.put(simpleName, typeInfo);
         continueType(typeInfo, localType);
         currentMethod = here;
+        // we won't have a chance later to commit. Do this for synthetic record fields/methods
+        typeInfo.fields()
+                .stream().filter(fi -> !fi.hasBeenInspected())
+                .forEach(fi -> {
+                    if (fi.initializer() == null) fi.builder().setInitializer(runtime.newEmptyExpression());
+                    fi.builder().commit();
+                });
+        typeInfo.constructorAndMethodStream()
+                .filter(mi -> !mi.hasBeenInspected())
+                .forEach(mi -> mi.builder().commit());
         typeInfo.builder()
                 .setAccess(runtime.accessPrivate())
                 .commit();
