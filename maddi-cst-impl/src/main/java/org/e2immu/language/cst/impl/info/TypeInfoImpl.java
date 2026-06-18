@@ -480,10 +480,20 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         return "java.lang.Character".equals(this.fullyQualifiedName);
     }
 
+    private static final Set<String> PRIMITIVE_TYPE_NAMES_EXCL_VOID =
+            Set.of("byte", "short", "int", "long", "char", "float", "double", "boolean");
+
     @Override
     public boolean isPrimitiveExcludingVoid() {
-        return this.isByte() || this.isShort() || this.isInt() || this.isLong() ||
-               this.isChar() || this.isFloat() || this.isDouble() || this.isBoolean();
+        return PRIMITIVE_TYPE_NAMES_EXCL_VOID.contains(fullyQualifiedName);
+    }
+
+    private static final Set<String> PRIMITIVE_TYPE_NAMES =
+            Set.of("byte", "short", "int", "long", "char", "float", "double", "boolean", "void");
+
+    @Override
+    public boolean isPrimitive() {
+        return PRIMITIVE_TYPE_NAMES.contains(fullyQualifiedName);
     }
 
     @Override

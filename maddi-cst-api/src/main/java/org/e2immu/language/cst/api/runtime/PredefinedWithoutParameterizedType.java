@@ -88,6 +88,8 @@ public interface PredefinedWithoutParameterizedType {
 
     boolean isPrefixOperator(MethodInfo operator);
 
+    boolean isPrimitiveWidening(TypeInfo typeInfo, TypeInfo typeInfo1);
+
     MethodInfo leftShiftOperatorInt();
 
     MethodInfo lessEqualsOperatorInt();

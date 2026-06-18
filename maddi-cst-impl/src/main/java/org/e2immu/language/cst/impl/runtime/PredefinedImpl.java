@@ -424,6 +424,22 @@ public class PredefinedImpl implements Predefined {
     }
 
     @Override
+    public boolean isPrimitiveWidening(TypeInfo to, TypeInfo from) {
+        if (to == from) return true;
+        if (to == shortTypeInfo) return from == byteTypeInfo;
+        if (to == intTypeInfo) return from == byteTypeInfo || from == charTypeInfo || from == shortTypeInfo;
+        if (to == longTypeInfo)
+            return from == byteTypeInfo || from == charTypeInfo || from == shortTypeInfo || from == intTypeInfo;
+        if (to == floatTypeInfo)
+            return from == byteTypeInfo || from == charTypeInfo || from == shortTypeInfo || from == intTypeInfo
+                   || from == longTypeInfo;
+        if (to == doubleTypeInfo)
+            return from == byteTypeInfo || from == charTypeInfo || from == shortTypeInfo || from == intTypeInfo
+                   || from == longTypeInfo || from == floatTypeInfo;
+        return false;
+    }
+
+    @Override
     public MethodInfo prePostFixToAssignment(MethodInfo operator) {
         if (operator == postfixDecrementOperatorInt || operator == prefixDecrementOperatorInt) {
             return assignMinusOperatorInt;

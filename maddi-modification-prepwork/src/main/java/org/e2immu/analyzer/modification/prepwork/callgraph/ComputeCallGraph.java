@@ -391,6 +391,7 @@ public class ComputeCallGraph {
     }
 
     private void addType(Info from, ParameterizedType pt, long edgeValue) {
+        // FIXME here use the new isAssignableFrom in runtime
         if (!from.typeInfo().asParameterizedType().isAssignableFrom(runtime, pt)) {
             TypeInfo best = pt.bestTypeInfo();
             if (best != null) {

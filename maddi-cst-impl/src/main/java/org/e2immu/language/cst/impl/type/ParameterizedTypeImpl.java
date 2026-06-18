@@ -315,6 +315,11 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
+    public boolean isReferenceType() {
+        return typeInfo == null || !typeInfo.isPrimitive() && arrays == 0;
+    }
+
+    @Override
     public boolean isPrimitiveStringClass() {
         return arrays == 0 && typeInfo != null
                && (typeInfo.isPrimitiveExcludingVoid() || typeInfo.isJavaLangString() || typeInfo.isJavaLangClass());

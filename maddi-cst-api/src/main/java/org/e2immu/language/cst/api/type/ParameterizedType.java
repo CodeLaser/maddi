@@ -38,6 +38,8 @@ public interface ParameterizedType {
 
     boolean equalsFQN(ParameterizedType from);
 
+    boolean isReferenceType();
+
     ParameterizedType rewire(InfoMap infoMap, Map<TypeParameter, TypeParameter> rewiredTypeParameters);
 
     default ParameterizedType rewire(InfoMap infoMap) {
