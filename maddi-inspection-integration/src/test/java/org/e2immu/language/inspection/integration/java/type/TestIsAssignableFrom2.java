@@ -126,11 +126,11 @@ public class TestIsAssignableFrom2 extends CommonTest {
         assertTrue(runtime.isAssignableFrom(boxedLongPt, longPt));
         assertFalse(runtime.isAssignableFrom(intPt, boxedLongPt));
         assertFalse(runtime.isAssignableFrom(boxedLongPt, intPt));
+        assertFalse(runtime.isAssignableFrom(boxedLongPt, integerPt));
 
         assertTrue(runtime.isAssignableFrom(objectPt, nullPt));
         assertFalse(runtime.isAssignableFrom(nullPt, objectPt));
         assertTrue(runtime.isAssignableFrom(objectPt, stringPt));
-        assertFalse(runtime.isAssignableFrom(objectPt, stringPt));
 
         assertTrue(runtime.isAssignableFrom(objectPt, objectPt));
 

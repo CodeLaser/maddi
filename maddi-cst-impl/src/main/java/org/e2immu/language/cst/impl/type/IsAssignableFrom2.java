@@ -103,7 +103,7 @@ public record IsAssignableFrom2(Predefined runtime) {
             } else {
                 if (to.isJavaLangObject()) return true;
                 ParameterizedType current = from;
-                while (!current.isJavaLangObject()) {
+                while (current != null) {
                     if (current.typeInfo() == to.typeInfo()) {
                         return testTypeArgumentCompatibility(to, current, visited);
                     }
