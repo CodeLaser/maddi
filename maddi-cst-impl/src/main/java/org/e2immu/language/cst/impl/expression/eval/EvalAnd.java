@@ -565,11 +565,11 @@ public class EvalAnd {
     private Action analyseInstanceOf(Expression prev, Expression value) {
         // a instanceof A && a instanceof B
         if (value instanceof InstanceOf i1 && prev instanceof InstanceOf i2 && i1.expression().equals(i2.expression())) {
-            if (i1.testType().isAssignableFrom(runtime, i2.testType())) {
+            if (runtime.isAssignableFrom(i1.testType(), i2.testType())) {
                 // i1 is the most generic, so skip
                 return Action.SKIP;
             }
-            if (i2.testType().isAssignableFrom(runtime, i1.testType())) {
+            if (runtime.isAssignableFrom(i2.testType(), i1.testType())) {
                 // i2 is the most generic, so keep current
                 return Action.REPLACE;
             }
@@ -580,11 +580,11 @@ public class EvalAnd {
         // is written as: a instanceof A && (null==a||!(a instanceof B))
         InstanceOf negI1 = isNegationOfInstanceOf(value);
         if (negI1 != null && prev instanceof InstanceOf i2 && negI1.expression().equals(i2.expression())) {
-            if (negI1.testType().isAssignableFrom(runtime, i2.testType())) {
+            if (runtime.isAssignableFrom(negI1.testType(), i2.testType())) {
                 // B is the most generic, so we have a contradiction
                 return Action.FALSE;
             }
-            if (i2.testType().isAssignableFrom(runtime, negI1.testType())) {
+            if (runtime.isAssignableFrom(i2.testType(), negI1.testType())) {
                 // i1 is the most generic, i2 is more specific; we keep what we have
                 return Action.ADD;
             }
@@ -595,11 +595,11 @@ public class EvalAnd {
         // !(a instanceof A) && a instanceof B
         InstanceOf negI2 = isNegationOfInstanceOf(prev);
         if (value instanceof InstanceOf i1 && negI2 != null && negI2.expression().equals(i1.expression())) {
-            if (negI2.testType().isAssignableFrom(runtime, i1.testType())) {
+            if (runtime.isAssignableFrom(negI2.testType(), i1.testType())) {
                 // B is the most generic, so we have a contradiction
                 return Action.FALSE;
             }
-            if (i1.testType().isAssignableFrom(runtime, negI2.testType())) {
+            if (runtime.isAssignableFrom(i1.testType(), negI2.testType())) {
                 // i1 is the most generic, i2 is more specific; we keep what we have
                 return Action.ADD;
             }
