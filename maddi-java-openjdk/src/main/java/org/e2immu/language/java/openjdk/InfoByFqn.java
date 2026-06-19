@@ -1,8 +1,6 @@
 package org.e2immu.language.java.openjdk;
 
 import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +63,7 @@ public class InfoByFqn {
                 .orElseThrow();
     }
 
-    public Collection<TypeInfo> typesLoaded() {
+    public Collection<TypeInfo> typesLoadedForThisSourceSet() {
         return loadedForThisSourceSet;
     }
 

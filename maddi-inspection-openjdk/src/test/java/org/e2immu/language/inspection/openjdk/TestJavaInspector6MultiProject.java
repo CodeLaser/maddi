@@ -63,6 +63,14 @@ public class TestJavaInspector6MultiProject {
                 .setDependencies(List.of(maddiSupport, orgSlf4jApi))
                 .build();
 
+
+        URI annotationsUri = NotNull.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+        SourceSet annotations = new SourceSetImpl.Builder().setName("annotations-26.1.0.jar")
+                .setUri(annotationsUri)
+                .setExternalLibrary(true)
+                .setModule(true)
+                .build();
+
         Path cstApiJar = Path.of("../maddi-cst-api/build/libs/maddi-cst-api.jar").toRealPath();
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");
         cstApi = new SourceSetImpl.Builder()
@@ -71,16 +79,9 @@ public class TestJavaInspector6MultiProject {
                 .setUri(cstApiJar.toUri())
                 .setLibrary(true)
                 .setModule(true)
-                .setDependencies(List.of(maddiSupport))
+                .setDependencies(List.of(maddiSupport, annotations))
                 .build();
 
-
-        URI annotationsUri = NotNull.class.getProtectionDomain().getCodeSource().getLocation().toURI();
-        SourceSet annotations = new SourceSetImpl.Builder().setName("annotations-26.1.0.jar")
-                .setUri(annotationsUri)
-                .setExternalLibrary(true)
-                .setModule(true)
-                .build();
 
         URI junitJupiterApi = Test.class.getProtectionDomain().getCodeSource().getLocation().toURI();
         SourceSet junitJupiter = new SourceSetImpl.Builder().setName("junit-jupiter-api-6.0.3.jar")
