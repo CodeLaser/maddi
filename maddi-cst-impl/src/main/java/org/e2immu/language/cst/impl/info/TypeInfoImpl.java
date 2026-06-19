@@ -38,6 +38,7 @@ import org.e2immu.support.EventuallyFinalOnDemand;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -145,6 +146,9 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
 
     @Override
     public MethodInfo findUniqueMethod(String methodName, int numberOfParameters) {
+        if (hasBeenInspected()) {
+            return inspection.get().methodMap().get(methodName, numberOfParameters, null);
+        }
         List<MethodInfo> list = methods().stream()
                 .filter(mi -> methodName.equals(mi.name()) && mi.parameters().size() == numberOfParameters)
                 .toList();
@@ -154,6 +158,16 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
                                              + fullyQualifiedName);
         }
         return list.getFirst();
+    }
+
+    @Override
+    public MethodInfo findUniqueMethod(String methodName, int numParams, Supplier<String> paramFqnCsv) {
+        return inspection.get().methodMap().get(methodName, numParams, paramFqnCsv);
+    }
+
+    @Override
+    public boolean hasMethodMap() {
+        return inspection.get().methodMap() != null;
     }
 
     @Override
@@ -632,11 +646,6 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
     @Override
     public boolean isAtLeastImmutableHC() {
         return analysis().getOrDefault(PropertyImpl.IMMUTABLE_TYPE, ValueImpl.ImmutableImpl.MUTABLE).isAtLeastImmutableHC();
-    }
-
-    @Override
-    public boolean fieldsAccessedInRestOfPrimaryType() {
-        return inspection.get().fieldsAccessedInRestOfPrimaryType();
     }
 
     @Override

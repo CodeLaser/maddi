@@ -362,7 +362,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         Source source = sourceForNode(jcClassDecl, dsb);
         builder.addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
-                .setSource(source);
+                .setSource(source)
+                .commitMethods();
 
         typeStack.removeLast();
         elementStack.pop();
@@ -400,7 +401,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             String list =
                     jcClassDecl.sym.getEnclosedElements().stream()
                             .filter(e -> e instanceof Symbol.MethodSymbol)
-                            .map(e -> e.name.toString()+" "+((e.flags() & Flags.RECORD)!=0)+" "+((e.flags() & Flags.GENERATED_MEMBER)!=0))
+                            .map(e -> e.name.toString() + " " + ((e.flags() & Flags.RECORD) != 0) + " " + ((e.flags() & Flags.GENERATED_MEMBER) != 0))
                             .collect(Collectors.joining("\n"));
 
             if (notPresent(typeInfo, fieldName, 0)

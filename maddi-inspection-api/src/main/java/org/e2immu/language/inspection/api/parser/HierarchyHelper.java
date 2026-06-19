@@ -20,11 +20,6 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 
 public interface HierarchyHelper {
 
-
-    IsMyself isMyself(TypeInfo me, ParameterizedType type);
-
-    IsMyself isMyself(TypeInfo me, TypeInfo bestType);
-
     boolean nonStaticallyEnclosingTypesContains(TypeInfo me, TypeInfo target);
 
     boolean parentalHierarchyContains(TypeInfo me, TypeInfo target);
