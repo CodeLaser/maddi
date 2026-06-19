@@ -32,6 +32,7 @@ dependencies {
     implementation(project(":maddi-inspection-resource"))
 
     testImplementation(project(":maddi-cst-impl"))
+    testImplementation(testFixtures(project(":maddi-java-openjdk")))
 }
 
 tasks.withType<JavaCompile> {

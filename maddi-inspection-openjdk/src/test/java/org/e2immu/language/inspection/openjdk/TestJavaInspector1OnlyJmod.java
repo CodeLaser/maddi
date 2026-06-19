@@ -54,7 +54,7 @@ public class TestJavaInspector1OnlyJmod {
     public void test1() {
         ParseResult parseResult = javaInspector.parse(Map.of("a.b.X1", INPUT1), JavaInspectorImpl.DETAILED_SOURCES)
                 .parseResult();
-        TypeInfo X1 = parseResult.firstType();
+        TypeInfo X1 = parseResult.findType("a.b.X1");
         assertEquals("a.b.X1", X1.fullyQualifiedName());
         assertTrue(X1.hasBeenInspected());
 
@@ -66,6 +66,7 @@ public class TestJavaInspector1OnlyJmod {
 
         List<TypeInfo> loaded = ctm.typesLoaded(true);
         assertTrue(loaded.size() > 10);
+
         TypeInfo printStream = ctm.get("java.io.PrintStream", null);
         assertNotNull(printStream);
         assertTrue(printStream.hasBeenInspected());
