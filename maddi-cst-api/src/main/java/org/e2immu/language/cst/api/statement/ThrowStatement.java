@@ -18,6 +18,10 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The {@code throw expression;} statement; the thrown value is {@link Statement#expression()}. Always
+ * escapes (see {@link Statement#alwaysEscapes()}).
+ */
 public interface ThrowStatement extends Statement {
     interface Builder extends Statement.Builder<Builder> {
 
@@ -35,5 +39,9 @@ public interface ThrowStatement extends Statement {
         return NAME;
     }
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     ThrowStatement withSource(Source newSource);
 }

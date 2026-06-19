@@ -34,34 +34,70 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+/**
+ * The colon-form {@code switch (selector) { case X: ...; default: ...; }} statement with fall-through.
+ * The selector is {@link Statement#expression()} and the whole body is a single primary
+ * {@link Statement#block()}; the {@code case}/{@code default} labels are kept separately as
+ * {@link #switchLabels()}, each pointing (via {@link SwitchLabel#startFromPosition()}) at the statement
+ * in that block where its code begins.
+ *
+ * <p>Contrast with {@link SwitchStatementNewStyle}, the arrow form, which has no fall-through and models
+ * each arm as a self-contained {@link SwitchEntry}.
+ */
 public interface SwitchStatementOldStyle extends Statement {
 
     // selector == expression()
 
+    /**
+     * A single {@code case}/{@code default} label, anchored at a position within the switch body block.
+     */
     interface SwitchLabel {
         SwitchLabel rewire(InfoMap infoMap);
 
+        /**
+         * @return the index, within the switch body {@link Statement#block()}, of the first statement
+         * guarded by this label.
+         */
         int startFromPosition();
 
+        /**
+         * @return the case value, or an {@code EmptyExpression} for {@code default}.
+         */
         Expression literal();
 
-        // null when absent
+        /**
+         * @return the record/type pattern of a pattern label (Java 21), or {@code null} when absent.
+         */
         RecordPattern patternVariable();
 
         Stream<TypeReference> typesReferenced(Predicate<Element> predicate);
 
-        // EmptyExpression when absent (Java 21)
+        /**
+         * @return the {@code when} guard expression (Java 21), or an {@code EmptyExpression} when absent.
+         */
         Expression whenExpression();
 
         OutputBuilder print(Qualification qualification);
 
         SwitchLabel translate(TranslationMap translationMap);
 
+        /**
+         * @return an immutable copy of this label anchored at a different position; this instance is
+         * unchanged.
+         */
         SwitchLabel withStartPosition(int newStartPosition);
     }
 
+    /**
+     * Variant of {@link Statement#withBlocks(List)} that also replaces the switch labels.
+     *
+     * @return a new statement; this instance is unchanged
+     */
     Statement withBlocks(List<Block> tSubBlocks, List<SwitchLabel> switchLabels);
 
+    /**
+     * @return the {@code case}/{@code default} labels, in source order.
+     */
     List<SwitchLabel> switchLabels();
 
     interface Builder extends Statement.Builder<Builder> {
@@ -85,6 +121,10 @@ public interface SwitchStatementOldStyle extends Statement {
         return NAME;
     }
 
+    /**
+     * @return a map from statement index (within the body block) to the labels anchored there; a helper
+     * used by analysis and by {@code print()}.
+     */
     // helper method, useful for analysis; used by print()
     Map<String, List<SwitchLabel>> switchLabelMap();
 }

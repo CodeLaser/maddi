@@ -142,6 +142,11 @@ public class ImportStatementImpl extends StatementImpl implements ImportStatemen
     }
 
     @Override
+    public Statement withSource(Source newSource) {
+        return new ImportStatementImpl(comments(), newSource, importString, isStatic);
+    }
+
+    @Override
     public Statement rewire(InfoMap infoMap) {
         return this;
     }

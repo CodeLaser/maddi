@@ -447,6 +447,12 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
     }
 
     @Override
+    public TryStatement withSource(Source newSource) {
+        return new TryStatementImpl(comments(), newSource, annotations(), label(), resources, block, catchClauses,
+                finallyBlock);
+    }
+
+    @Override
     public Statement rewire(InfoMap infoMap) {
         return new TryStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 resources.stream().map(s -> s.rewire(infoMap)).toList(),

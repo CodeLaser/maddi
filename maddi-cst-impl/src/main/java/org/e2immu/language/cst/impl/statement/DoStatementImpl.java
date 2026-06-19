@@ -162,6 +162,11 @@ public class DoStatementImpl extends StatementImpl implements DoStatement {
     }
 
     @Override
+    public DoStatement withSource(Source newSource) {
+        return new DoStatementImpl(comments(), newSource, annotations(), label(), expression, block);
+    }
+
+    @Override
     public Statement rewire(InfoMap infoMap) {
         return new DoStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 expression.rewire(infoMap), block.rewire(infoMap));

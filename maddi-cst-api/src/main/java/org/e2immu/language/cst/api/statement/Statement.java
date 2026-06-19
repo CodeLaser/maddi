@@ -17,6 +17,7 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.annotation.NotNull;
 import org.e2immu.language.cst.api.element.Element;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.InfoMap;
@@ -117,6 +118,15 @@ public interface Statement extends Element {
      * @return a new statement; this instance is unchanged
      */
     Statement withBlocks(List<Block> tSubBlocks);
+
+    /**
+     * Return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged. Every concrete statement supports this; some narrow the return type covariantly.
+     *
+     * @param source the replacement source
+     * @return a new statement with the given source
+     */
+    Statement withSource(Source source);
 
     /**
      * Fluent builder shared by all statement builders. {@code build()} is narrowed covariantly by each

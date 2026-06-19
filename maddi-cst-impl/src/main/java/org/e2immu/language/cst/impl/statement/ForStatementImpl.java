@@ -56,7 +56,7 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
         this.block = block;
         this.initializers = initializers;
         assert initializers.isEmpty()
-               || initializers.get(0) instanceof LocalVariableCreation && initializers.size() == 1
+               || initializers.getFirst() instanceof LocalVariableCreation && initializers.size() == 1
                || initializers.stream().allMatch(i -> i instanceof Expression);
         this.updaters = updaters;
         this.expression = expression;
@@ -65,7 +65,7 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
     @Override
     public Statement withBlocks(List<Block> tSubBlocks) {
         return new ForStatementImpl(comments(), source(), annotations(), label(), initializers, expression, updaters,
-                tSubBlocks.get(0));
+                tSubBlocks.getFirst());
     }
 
     public static class Builder extends StatementImpl.Builder<ForStatement.Builder> implements ForStatement.Builder {
@@ -227,6 +227,11 @@ public class ForStatementImpl extends StatementImpl implements ForStatement {
     @Override
     public ForStatement withInitializers(List<Element> elements) {
         return new ForStatementImpl(comments(), source(), annotations(), label(), elements, expression, updaters, block);
+    }
+
+    @Override
+    public ForStatement withSource(Source newSource) {
+        return new ForStatementImpl(comments(), newSource, annotations(), label(), initializers, expression, updaters, block);
     }
 
     @Override

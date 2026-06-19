@@ -18,10 +18,21 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The {@code assert condition;} or {@code assert condition : message;} statement. The asserted condition
+ * is {@link Statement#expression()} and the optional detail message is {@link #message()}.
+ */
 public interface AssertStatement extends Statement {
 
+    /**
+     * @return the detail-message expression (the part after {@code :}), or {@code null} when absent.
+     */
     Expression message();
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     AssertStatement withSource(Source newSource);
 
     interface Builder extends Statement.Builder<Builder> {

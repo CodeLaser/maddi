@@ -196,6 +196,11 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
     }
 
     @Override
+    public IfElseStatement withSource(Source newSource) {
+        return new IfElseStatementImpl(comments(), newSource, annotations(), label(), expression, block, elseBlock);
+    }
+
+    @Override
     public Statement rewire(InfoMap infoMap) {
         return new IfElseStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 expression.rewire(infoMap), block.rewire(infoMap), elseBlock.rewire(infoMap));

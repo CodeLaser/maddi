@@ -17,6 +17,10 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The {@code synchronized (monitor) body} statement. The monitor expression is
+ * {@link Statement#expression()} and the guarded body is the primary {@link Statement#block()}.
+ */
 public interface SynchronizedStatement extends Statement {
     interface Builder extends Statement.Builder<Builder> {
         @Fluent

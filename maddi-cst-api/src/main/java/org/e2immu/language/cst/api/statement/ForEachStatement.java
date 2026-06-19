@@ -17,7 +17,15 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The enhanced {@code for (var item : iterable) body} loop. The loop variable is declared by
+ * {@link #initializer()}, the iterated expression is {@link Statement#expression()}, and the body is the
+ * primary {@link Statement#block()}.
+ */
 public interface ForEachStatement extends LoopStatement {
+    /**
+     * @return the declaration of the loop variable (the {@code var item} part).
+     */
     LocalVariableCreation initializer();
 
     interface Builder extends Statement.Builder<Builder> {

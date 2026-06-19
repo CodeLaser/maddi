@@ -18,8 +18,16 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The {@code yield expression;} statement, which produces the value of an enclosing switch expression.
+ * The yielded value is {@link Statement#expression()}.
+ */
 public interface YieldStatement extends Statement {
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     YieldStatement withSource(Source newSource);
 
     interface Builder extends Statement.Builder<Builder> {

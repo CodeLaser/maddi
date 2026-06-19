@@ -23,24 +23,53 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * A local variable declaration statement, for example {@code int i = 0;} or {@code final var a = b, c = d;}.
+ *
+ * <p>The first declared variable is {@link #localVariable()}; any further variables sharing the same
+ * declaration (the {@code c} in {@code int b, c;}) are {@link #otherLocalVariables()}.
+ * {@link #localVariableStream()} streams all of them. Each {@link LocalVariable} carries its own type and
+ * (optional) initialiser.
+ */
 public interface LocalVariableCreation extends Statement {
 
+    /**
+     * @return {@code true} if the declaration is {@code final} (or, in Kotlin, {@code val}).
+     */
     boolean isFinal();
 
+    /**
+     * A declaration modifier. In Java the only modifier is {@code final}; {@code var} is represented as
+     * the absence of an explicit type ({@link #isWithoutTypeSpecification()}).
+     */
     interface Modifier {
         boolean isFinal(); // the only one in Java; in Kotlin, this represents "val"
 
         boolean isWithoutTypeSpecification(); // Java "var"
     }
 
+    /**
+     * @return {@code true} if the type was written as {@code var} (inferred) rather than spelled out.
+     */
     boolean isVar();
 
     Set<Modifier> modifiers();
 
+    /**
+     * @return the first (or only) variable declared here.
+     */
     LocalVariable localVariable();
 
+    /**
+     * @return the additional variables sharing this declaration ({@code b, c} → {@code c} here), empty
+     * for a single declaration.
+     */
     List<LocalVariable> otherLocalVariables();
 
+    /**
+     * @return a stream of all variables declared here: {@link #localVariable()} followed by
+     * {@link #otherLocalVariables()}.
+     */
     Stream<LocalVariable> localVariableStream();
 
     /**
@@ -52,6 +81,9 @@ public interface LocalVariableCreation extends Statement {
         return localVariableStream().collect(Collectors.toUnmodifiableSet());
     }
 
+    /**
+     * @return {@code true} when exactly one variable is declared (no {@link #otherLocalVariables()}).
+     */
     default boolean hasSingleDeclaration() {
         return otherLocalVariables().isEmpty();
     }
@@ -76,8 +108,19 @@ public interface LocalVariableCreation extends Statement {
         return NAME;
     }
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     LocalVariableCreation withSource(Source newSource);
 
+    /**
+     * Return an immutable copy of this declaration with one more variable appended (to
+     * {@link #otherLocalVariables()}), taken from the given single declaration.
+     *
+     * @param singleLvc a single-variable declaration whose variable is added here
+     * @return a new statement; this instance is unchanged
+     */
     LocalVariableCreation withAdditionalLocalVariable(LocalVariableCreation singleLvc);
 
 }

@@ -18,6 +18,10 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * An expression used as a statement, for example {@code foo();} or {@code i++;}. The wrapped expression
+ * is {@link Statement#expression()}.
+ */
 public interface ExpressionAsStatement extends Statement {
 
     interface Builder extends Statement.Builder<Builder> {
@@ -34,5 +38,9 @@ public interface ExpressionAsStatement extends Statement {
         return NAME;
     }
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     ExpressionAsStatement withSource(Source newSource);
 }

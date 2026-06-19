@@ -23,23 +23,47 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * One arm of an arrow-form switch ({@link SwitchStatementNewStyle}): the labels on the left of the
+ * {@code ->} together with the code on its right. A {@code SwitchEntry} is an {@link Element}, not a
+ * {@link Statement}. Entries are {@link Comparable} so they can be ordered (for example {@code default}
+ * last).
+ */
 public interface SwitchEntry extends Comparable<SwitchEntry>, Element {
-    // EmptyExpression for 'default', NullConstant for 'null'
 
+    /**
+     * @return the case labels of this arm. A single {@code EmptyExpression} represents {@code default};
+     * a {@code NullConstant} represents the {@code null} label.
+     */
     List<Expression> conditions();
-    // or null, when absent (Java 21)
 
+    /**
+     * @return the record/type pattern of a pattern-matching label (Java 21), or {@code null} when the
+     * arm has no pattern.
+     */
     RecordPattern patternVariable();
 
+    /**
+     * @return the arm's code as a block (wrapping {@link #statement()} when it is a single statement).
+     */
     Block statementAsBlock();
 
-    // EmptyExpression when absent (Java 21)
+    /**
+     * @return the {@code when} guard expression (Java 21), or an {@code EmptyExpression} when absent.
+     */
     Expression whenExpression();
 
+    /**
+     * @return the arm's code (an expression-, throw-, or block statement).
+     */
     Statement statement();
 
     SwitchEntry translate(TranslationMap translationMap);
 
+    /**
+     * @return an immutable copy of this entry with its {@link #statement()} replaced; this instance is
+     * unchanged.
+     */
     SwitchEntry withStatement(Statement statement);
 
     interface Builder extends Element.Builder<Builder> {

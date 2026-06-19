@@ -20,12 +20,30 @@ import org.e2immu.language.cst.api.expression.Expression;
 
 import java.util.List;
 
+/**
+ * The classic {@code for (init; condition; update) body} loop. The condition is
+ * {@link Statement#expression()} and the body is the primary {@link Statement#block()}; the init and
+ * update clauses are {@link #initializers()} and {@link #updaters()}.
+ */
 public interface ForStatement extends LoopStatement {
-    // can be either a LocalVariableCreation (Statement) or any expression
+    /**
+     * @return the init clause elements. Each is either a {@link LocalVariableCreation} (when the loop
+     * declares a variable) or an {@link Expression} (an expression statement); hence the common
+     * {@link Element} supertype.
+     */
     List<Element> initializers();
 
+    /**
+     * @return the update clause expressions, evaluated after each iteration.
+     */
     List<Expression> updaters();
 
+    /**
+     * Return an immutable copy of this loop with its init clause replaced.
+     *
+     * @param elements the replacement initializers (see {@link #initializers()})
+     * @return a new statement; this instance is unchanged
+     */
     ForStatement withInitializers(List<Element> elements);
 
     interface Builder extends Statement.Builder<Builder> {

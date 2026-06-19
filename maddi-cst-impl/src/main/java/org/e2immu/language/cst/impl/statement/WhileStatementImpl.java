@@ -53,7 +53,7 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
 
     @Override
     public Statement withBlocks(List<Block> tSubBlocks) {
-        return new WhileStatementImpl(comments(), source(), annotations(), label(), expression, tSubBlocks.get(0));
+        return new WhileStatementImpl(comments(), source(), annotations(), label(), expression, tSubBlocks.getFirst());
     }
 
     public static class Builder extends StatementImpl.Builder<WhileStatement.Builder> implements WhileStatement.Builder {
@@ -157,6 +157,11 @@ public class WhileStatementImpl extends StatementImpl implements WhileStatement 
             return translationMap.postTranslationHandler(this, List.of(newWhile));
         }
         return List.of(this);
+    }
+
+    @Override
+    public WhileStatement withSource(Source newSource) {
+        return new WhileStatementImpl(comments(), newSource, annotations(), label(), expression, block);
     }
 
     @Override

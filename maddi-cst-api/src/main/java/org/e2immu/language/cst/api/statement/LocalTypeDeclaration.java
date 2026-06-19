@@ -18,10 +18,21 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.TypeInfo;
 
+/**
+ * A type declaration appearing as a statement inside a method body (a local/inner class, interface,
+ * record or enum). The declared type is {@link #typeInfo()}.
+ */
 public interface LocalTypeDeclaration extends Statement {
 
+    /**
+     * @return the type declared by this statement.
+     */
     TypeInfo typeInfo();
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     LocalTypeDeclaration withSource(Source newSource);
 
     interface Builder extends Statement.Builder<Builder> {

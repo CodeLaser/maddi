@@ -17,8 +17,16 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The {@code if (condition) ... else ...} statement. The condition is {@link Statement#expression()}, the
+ * {@code if} branch is the primary {@link Statement#block()}, and the {@code else} branch is
+ * {@link #elseBlock()} (which may be empty when there is no {@code else}).
+ */
 public interface IfElseStatement extends Statement {
 
+    /**
+     * @return the {@code else} branch; an empty block when the statement has no {@code else}.
+     */
     Block elseBlock();
 
     interface Builder extends Statement.Builder<Builder> {
