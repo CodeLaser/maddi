@@ -379,7 +379,7 @@ public class TestTypeParameter extends CommonTest {
         assertEquals("java.util.TreeMap<Number,Number>", cc.parameterizedType().detailedString());
 
         assertEquals("""
-                [double[E], java.util.Map[E], java.util.SortedMap[E], java.lang.Number[E], java.util.TreeMap[E], \
+                [double[E], java.util.Map[E], java.lang.Number[E], java.util.SortedMap[E], java.util.TreeMap[E], \
                 int[E], java.util.Map.Entry[E java.util.Map]]\
                 """, method.typesReferenced(_ -> true)
                 .filter(Element.TypeReference::explicit)

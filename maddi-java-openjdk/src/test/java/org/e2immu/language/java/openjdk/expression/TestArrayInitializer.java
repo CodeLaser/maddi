@@ -17,6 +17,7 @@ package org.e2immu.language.java.openjdk.expression;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.expression.ArrayInitializer;
 import org.e2immu.language.cst.api.expression.ClassExpression;
+import org.e2immu.language.cst.api.expression.ConstructorCall;
 import org.e2immu.language.cst.api.expression.MethodCall;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
