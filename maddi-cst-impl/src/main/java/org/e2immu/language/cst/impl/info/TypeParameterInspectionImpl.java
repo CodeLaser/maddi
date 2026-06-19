@@ -21,6 +21,7 @@ import org.e2immu.language.cst.impl.type.TypeParameterImpl;
 import java.util.ArrayList;
 import java.util.List;
 
+// Note: we store the bounds as separate types, rather than as an intersection type
 public class TypeParameterInspectionImpl extends InspectionImpl implements TypeParameterInspection {
 
     private final List<ParameterizedType> typeBounds;

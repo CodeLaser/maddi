@@ -9,6 +9,7 @@ import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -232,12 +233,12 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     TypeParameter newTp = runtime.newTypeParameter(index++, typeParameter.getSimpleName().toString(), newTypeInfo);
                     putInLastTypeParameterMap(newTp);
                     created.add(newTp);
+                    builder.addOrSetTypeParameter(newTp);
                 }
                 int i = 0;
                 for (Symbol.TypeVariableSymbol typeParameter : cs.getTypeParameters()) {
                     TypeParameter newTp = created.get(i++);
                     addTypeBoundsAndCommit(cs, newTypeInfo, typeParameter, newTp);
-                    builder.addOrSetTypeParameter(newTp);
                 }
                 popTypeParameterMap();
 
@@ -286,7 +287,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     if (upperBound.tsym == cs) {
                         // self reference, as in java.lang.Enum<E extends Enum<E>>
                         bounds.add(runtime.newParameterizedType(newTypeInfo,
-                                List.of(runtime.newParameterizedType(newTp, 0, null))));
+                                newTp.typeInfo().typeParameters().stream().map(NamedType::asParameterizedType).toList()));
                     } else if (upperBound instanceof Type.ClassType ct) {
                         if (ct instanceof Type.IntersectionClassType ict) {
                             for (Type type : ict.getExplicitComponents()) {
