@@ -30,10 +30,7 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,7 +56,7 @@ public class ScanCompilationUnits {
     private final ResolveJavaDoc resolveJavaDoc;
     private final List<String> packagesToPreload;
 
-    public record Result(List<TypeInfo> primaryTypes, List<ModuleInfo> modules) {
+    public record Result(List<TypeInfo> primaryTypes, List<ModuleInfo> modules, List<TypeInfo> preloads) {
     }
 
     public ScanCompilationUnits(Runtime runtime,
@@ -103,8 +100,9 @@ public class ScanCompilationUnits {
         List<ModuleInfo> modules = new ArrayList<>();
 
         // only index in the first pass; in the second pass, all predefined objects will be present
+        List<TypeInfo> preloads;
         if (!runtime.objectTypeInfo().hasBeenInspected()) {
-            indexJavaLangForJavaDocParsing();
+            preloads = new LinkedList<>(indexJavaLangForJavaDocParsing());
             for (String modulePackage : packagesToPreload) {
                 int sep = modulePackage.indexOf("::");
                 if (sep < 0) {
@@ -112,8 +110,10 @@ public class ScanCompilationUnits {
                 }
                 String module = modulePackage.substring(0, sep);
                 String packageName = modulePackage.substring(sep + 2);
-                preload(module, packageName);
+                preloads.addAll(preload(module, packageName));
             }
+        } else {
+            preloads = List.of();
         }
         IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbols
                 = StreamSupport.stream(units.spliterator(), false)
@@ -161,7 +161,7 @@ public class ScanCompilationUnits {
                 scanJavaDocsAndCommit(primaryType);
             }
         }
-        return new Result(List.copyOf(primaryTypes), List.copyOf(modules));
+        return new Result(List.copyOf(primaryTypes), List.copyOf(modules), List.copyOf(preloads));
     }
 
     private SourceCodeScan.@NotNull Result doSourceCodeScan(CompilationUnitTree unit) {
@@ -205,7 +205,8 @@ public class ScanCompilationUnits {
             LOGGER.error("Caught exception in source set {}", sourceSet.name());
             throw e;
         }
-        primaryTypes.addAll(scanCompilationUnit.types());
+        List<TypeInfo> scanned = scanCompilationUnit.types();
+        primaryTypes.addAll(scanned);
         modules.addAll(scanCompilationUnit.modules());
     }
 
@@ -242,7 +243,7 @@ public class ScanCompilationUnits {
         return classSymbolScanner;
     }
 
-    private void indexJavaLangForJavaDocParsing() throws IOException {
+    private List<TypeInfo> indexJavaLangForJavaDocParsing() throws IOException {
         JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
         JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES,
                 "java.base");
@@ -251,6 +252,7 @@ public class ScanCompilationUnits {
                 false); // non-recursive — just java.lang, not subpackages
         Elements elements = task.getElements();
         Symbol.ClassSymbol objectCs = null;
+        List<TypeInfo> list = new LinkedList<>();
         for (JavaFileObject file : files) {
             String binaryName = fm.inferBinaryName(javaBase, file);
             TypeElement te = elements.getTypeElement(binaryName);
@@ -258,7 +260,8 @@ public class ScanCompilationUnits {
                 try {
                     cs.complete();
                     if (cs.owner instanceof Symbol.PackageSymbol && null == classSymbolScanner.getType(binaryName)) {
-                        classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
+                        TypeInfo ti = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
+                        list.add(ti);
                     } // else: not a primary type, or already known
                     if ("java.lang.Object".equals(binaryName)) {
                         objectCs = cs;
@@ -272,14 +275,15 @@ public class ScanCompilationUnits {
             classSymbolScanner.loadType(objectCs, runtime.objectTypeInfo(), ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
             assert runtime.objectTypeInfo().hasBeenInspected();
         }
+        return list;
     }
 
-    private void preload(String module, String packageName) throws IOException {
-        LOGGER.info("Preloading {}::{}", module, packageName);
-        JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
+    private List<TypeInfo> preload(String module, String packageName) throws IOException {
+        LOGGER.info("Preloading {}::{}", module, packageName);  JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
         JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES, module);
         Iterable<JavaFileObject> files = fm.list(javaBase, packageName, Set.of(JavaFileObject.Kind.CLASS), false);
         Elements elements = task.getElements();
+        List<TypeInfo> list = new LinkedList<>();
         for (JavaFileObject file : files) {
             String binaryName = fm.inferBinaryName(javaBase, file);
             TypeElement te = elements.getTypeElement(binaryName);
@@ -297,11 +301,13 @@ public class ScanCompilationUnits {
                         if (!pt.hasBeenInspected()) {
                             pt.builder().commit();
                         }
+                        list.add(pt);
                     }
                 } catch (Symbol.CompletionFailure e) {
                     // ignore
                 }
             }
         }
+        return list;
     }
 }

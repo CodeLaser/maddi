@@ -13,6 +13,8 @@ import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -23,6 +25,7 @@ import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJavaInspector7MulltiTypeSource {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestJavaInspector7MulltiTypeSource.class);
 
     private JavaInspector javaInspector;
     private SourceSet sourceSet1;
@@ -86,6 +89,7 @@ public class TestJavaInspector7MulltiTypeSource {
         // test the compiled types manager
         CompiledTypesManager ctm = javaInspector.compiledTypesManager();
         List<TypeInfo> parsed = ctm.typesLoaded(false);
+        LOGGER.info("Parsed: {}", parsed);
         assertEquals(4, parsed.size());
 
         TypeInfo X1 = parseResult.firstType();
