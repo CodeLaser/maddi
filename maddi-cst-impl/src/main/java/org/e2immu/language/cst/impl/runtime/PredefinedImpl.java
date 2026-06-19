@@ -29,6 +29,7 @@ import org.e2immu.language.cst.impl.info.InspectionImpl;
 import org.e2immu.language.cst.impl.info.MethodInfoImpl;
 import org.e2immu.language.cst.impl.info.TypeInfoImpl;
 import org.e2immu.language.cst.impl.info.TypeNatureEnum;
+import org.e2immu.language.cst.impl.type.IsAssignableFrom2;
 import org.e2immu.language.cst.impl.type.ParameterizedTypeImpl;
 
 import java.net.URI;
@@ -119,6 +120,8 @@ public class PredefinedImpl implements Predefined {
 
     private final TypeInfo stringTypeInfo = new TypeInfoImpl(JAVA_LANG, "String");
     private final ParameterizedType stringParameterizedType = stringTypeInfo.asSimpleParameterizedType();
+
+    private final IsAssignableFrom2 isAssignableFrom2;
 
     public ParameterizedType stringParameterizedType() {
         return stringParameterizedType;
@@ -321,6 +324,7 @@ public class PredefinedImpl implements Predefined {
             objects.add(ti);
         }
         predefinedObjects = List.copyOf(objects);
+        isAssignableFrom2 = new IsAssignableFrom2(this);
     }
 
     @Override
@@ -830,4 +834,10 @@ public class PredefinedImpl implements Predefined {
     public ParameterizedType parameterizedTypeWildcard() {
         return ParameterizedTypeImpl.WILDCARD_PARAMETERIZED_TYPE;
     }
+
+    @Override
+    public boolean isAssignableFrom(ParameterizedType target, ParameterizedType from) {
+        return isAssignableFrom2.test(target, from);
+    }
+
 }

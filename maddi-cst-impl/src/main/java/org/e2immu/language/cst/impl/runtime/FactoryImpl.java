@@ -60,7 +60,6 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     private final BooleanConstant constantTrue;
     private final BooleanConstant constantFalse;
     private final Map<MethodInfo, Precedence> precedenceMap = new HashMap<>();
-    private final IsAssignableFrom2 isAssignableFrom2;
 
     public FactoryImpl() {
         zero = new IntConstantImpl(List.of(), noSource(), intParameterizedType(), 0);
@@ -96,8 +95,6 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
         precedenceMap.put(andOperatorBool(), PrecedenceEnum.LOGICAL_AND);
         precedenceMap.put(orOperatorBool(), PrecedenceEnum.LOGICAL_OR);
         precedenceMap.put(xorOperatorBool(), PrecedenceEnum.XOR);
-
-        isAssignableFrom2 = new IsAssignableFrom2(this);
     }
 
     @Override
@@ -246,11 +243,6 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     public int isAssignableFromCovariantErasure(ParameterizedType target, ParameterizedType from) {
         return new IsAssignableFrom(this, target, from)
                 .execute(false, false, IsAssignableFrom.Mode.COVARIANT_ERASURE);
-    }
-
-    @Override
-    public boolean isAssignableFrom(ParameterizedType target, ParameterizedType from) {
-        return isAssignableFrom2.test(target, from);
     }
 
     @Override

@@ -602,13 +602,11 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         if (isBoxedExcludingVoid() && other.isPrimitiveExcludingVoid()) return other;
         if (other.isBoxedExcludingVoid() && isPrimitiveExcludingVoid()) return this;
 
-        if (isAssignableFrom(runtime, other)) {
+        if (runtime.isAssignableFrom(this, other)) {
             return other;
         }
         return this;
     }
-
-    /*
 
     /*
     HashMap<K, V> implements Map<K, V>
@@ -668,10 +666,11 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             Map<NamedType, ParameterizedType> add = new HashMap<>();
             res.forEach((nt, pt) -> {
                 if (nt instanceof TypeParameter s && !s.typeBounds().isEmpty()
-                    && s.typeBounds().stream().noneMatch(stb -> stb.typeParameter() != null && res.containsKey(stb.typeParameter()))) {
-                    s.typeBounds().stream().filter(stb -> stb.typeParameter() != null).forEach(stb -> {
-                        add.put(stb.typeParameter(), pt);
-                    });
+                    && s.typeBounds().stream().noneMatch(stb -> stb.typeParameter() != null
+                                                                && res.containsKey(stb.typeParameter()))) {
+                    s.typeBounds().stream()
+                            .filter(stb -> stb.typeParameter() != null)
+                            .forEach(stb -> add.put(stb.typeParameter(), pt));
                 }
             });
             if (add.isEmpty()) break;

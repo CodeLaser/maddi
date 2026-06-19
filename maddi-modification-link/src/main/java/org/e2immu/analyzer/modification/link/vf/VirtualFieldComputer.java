@@ -377,7 +377,7 @@ public class VirtualFieldComputer {
                     return parameterizedType.parameters().getFirst();
                 }
                 ParameterizedType m2Pt = m2.asParameterizedType();
-                if (m2Pt.isAssignableFrom(runtime, parameterizedType)) {
+                if (runtime.isAssignableFrom(m2Pt, parameterizedType)) {
                     var map = genericsHelper.mapInTermsOfParametersOfSuperType(typeInfo, m2Pt);
                     return map.entrySet().stream().findFirst().orElseThrow().getValue();
                 }

@@ -83,4 +83,5 @@ public interface Predefined extends PredefinedWithoutParameterizedType {
      */
     ParameterizedType widestTypeUnbox(ParameterizedType t1, ParameterizedType t2);
 
+    boolean isAssignableFrom(ParameterizedType target, ParameterizedType from);
 }
