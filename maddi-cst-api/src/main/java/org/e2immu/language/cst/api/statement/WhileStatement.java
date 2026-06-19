@@ -17,6 +17,10 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The {@code while (condition) body} loop. The condition is {@link Statement#expression()} and the body
+ * is the primary {@link Statement#block()}.
+ */
 public interface WhileStatement extends LoopStatement {
 
     interface Builder extends Statement.Builder<Builder> {

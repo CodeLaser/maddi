@@ -319,6 +319,12 @@ public class SwitchStatementOldStyleImpl extends StatementImpl implements Switch
     }
 
     @Override
+    public SwitchStatementOldStyle withSource(Source newSource) {
+        return new SwitchStatementOldStyleImpl(comments(), newSource, annotations(), label(), selector, block,
+                switchLabels);
+    }
+
+    @Override
     public Statement rewire(InfoMap infoMap) {
         return new SwitchStatementOldStyleImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 selector.rewire(infoMap), block.rewire(infoMap),

@@ -17,8 +17,16 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Source;
 
+/**
+ * The {@code break;} or {@code break label;} statement. The optional target is
+ * {@link BreakOrContinueStatement#goToLabel()}.
+ */
 public interface BreakStatement extends BreakOrContinueStatement {
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     BreakStatement withSource(Source newSource);
 
     interface Builder extends Statement.Builder<Builder> {

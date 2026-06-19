@@ -20,12 +20,24 @@ import org.e2immu.language.cst.api.expression.Expression;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * The arrow-form {@code switch (selector) { case ... -> ...; }} statement (Java 14+), modelled as a list
+ * of {@link SwitchEntry entries}. The selector is {@link Statement#expression()}; this statement has no
+ * primary {@link Statement#block()} (each entry carries its own block, surfaced through
+ * {@link Statement#otherBlocksStream()}).
+ *
+ * <p>Contrast with {@link SwitchStatementOldStyle}, which models the colon form with fall-through using
+ * a single block and a list of {@code SwitchLabel}s.
+ */
 public interface SwitchStatementNewStyle extends Statement {
 
     // selector == expression()
     // block = null
     // otherBlocks = each of the individual blocks?
 
+    /**
+     * @return the entries (the {@code case ... -> ...} arms), in source order.
+     */
     List<SwitchEntry> entries();
 
     interface Builder extends Statement.Builder<Builder> {

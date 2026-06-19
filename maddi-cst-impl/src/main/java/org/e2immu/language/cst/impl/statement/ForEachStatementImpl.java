@@ -72,7 +72,7 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
     @Override
     public Statement withBlocks(List<Block> tSubBlocks) {
         return new ForEachStatementImpl(comments(), source(), annotations(), label(), initializer, expression,
-                tSubBlocks.get(0));
+                tSubBlocks.getFirst());
     }
 
     public static class Builder extends StatementImpl.Builder<ForEachStatement.Builder> implements ForEachStatement.Builder {
@@ -189,6 +189,11 @@ public class ForEachStatementImpl extends StatementImpl implements ForEachStatem
             return translationMap.postTranslationHandler(this, List.of(fs));
         }
         return List.of(this);
+    }
+
+    @Override
+    public ForEachStatement withSource(Source newSource) {
+        return new ForEachStatementImpl(comments(), newSource, annotations(), label(), initializer, expression, block);
     }
 
     @Override

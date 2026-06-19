@@ -116,6 +116,11 @@ public class EmptyStatementImpl extends StatementImpl implements EmptyStatement 
     }
 
     @Override
+    public EmptyStatement withSource(Source newSource) {
+        return new EmptyStatementImpl(comments(), newSource, annotations(), label());
+    }
+
+    @Override
     public Statement rewire(InfoMap infoMap) {
         return new EmptyStatementImpl(comments(), source(), rewireAnnotations(infoMap), label());
     }

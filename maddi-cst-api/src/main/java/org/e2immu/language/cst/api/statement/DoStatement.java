@@ -17,6 +17,10 @@ package org.e2immu.language.cst.api.statement;
 import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The {@code do body while (condition);} loop, which executes its body at least once. The condition is
+ * {@link Statement#expression()} and the body is the primary {@link Statement#block()}.
+ */
 public interface DoStatement extends LoopStatement {
 
     interface Builder extends Statement.Builder<Builder> {

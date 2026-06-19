@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.statement;
 
+/**
+ * The empty statement, a lone {@code ;}. It has no expression and no blocks.
+ */
 public interface EmptyStatement extends Statement {
 
     interface Builder extends Statement.Builder<Builder> {

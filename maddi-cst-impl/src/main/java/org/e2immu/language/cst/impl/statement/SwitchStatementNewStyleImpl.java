@@ -83,13 +83,11 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
     @Override
     public void visit(Predicate<Element> predicate) {
         selector.visit(predicate);
-        int i = 0;
         for (SwitchEntry entry : entries) {
             entry.conditions().forEach(e -> e.visit(predicate));
             if (entry.patternVariable() != null) entry.patternVariable().visit(predicate);
             entry.whenExpression().visit(predicate);
             entry.statement().visit(predicate);
-            i++;
         }
     }
 
@@ -163,6 +161,11 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
         return List.of(this);
     }
 
+
+    @Override
+    public SwitchStatementNewStyle withSource(Source newSource) {
+        return new SwitchStatementNewStyleImpl(comments(), newSource, annotations(), label(), selector, entries);
+    }
 
     @Override
     public Statement rewire(InfoMap infoMap) {

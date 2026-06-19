@@ -163,6 +163,11 @@ public class SynchronizedStatementImpl extends StatementImpl implements Synchron
     }
 
     @Override
+    public SynchronizedStatement withSource(Source newSource) {
+        return new SynchronizedStatementImpl(comments(), newSource, annotations(), label(), expression, block);
+    }
+
+    @Override
     public Statement rewire(InfoMap infoMap) {
         return new SynchronizedStatementImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 expression.rewire(infoMap), block.rewire(infoMap));

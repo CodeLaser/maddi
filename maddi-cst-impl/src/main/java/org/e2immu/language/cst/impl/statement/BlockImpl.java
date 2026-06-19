@@ -254,6 +254,11 @@ public class BlockImpl extends StatementImpl implements Block {
     }
 
     @Override
+    public Block withSource(Source newSource) {
+        return new BlockImpl(comments(), newSource, annotations(), label(), statements, trailingComments);
+    }
+
+    @Override
     public Block rewire(InfoMap infoMap) {
         return new BlockImpl(comments(), source(), rewireAnnotations(infoMap), label(),
                 statements.stream().map(s -> s.rewire(infoMap)).toList(), trailingComments);

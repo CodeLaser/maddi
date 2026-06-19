@@ -18,8 +18,17 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * The {@code return;} or {@code return expression;} statement. The returned value, when present, is
+ * {@link Statement#expression()} (and {@code null} for a bare {@code return}). Always escapes
+ * (see {@link Statement#alwaysEscapes()}).
+ */
 public interface ReturnStatement extends Statement {
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     ReturnStatement withSource(Source newSource);
 
     interface Builder extends Statement.Builder<Builder> {

@@ -21,14 +21,32 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 
 import java.util.List;
 
+/**
+ * An explicit constructor invocation as the first statement of a constructor body: {@code this(...)} or
+ * {@code super(...)}. {@link #isSuper()} distinguishes the two, {@link #methodInfo()} is the invoked
+ * constructor, and {@link #parameterExpressions()} are its arguments.
+ */
 public interface ExplicitConstructorInvocation extends Statement {
 
+    /**
+     * @return {@code true} for {@code super(...)}, {@code false} for {@code this(...)}.
+     */
     boolean isSuper();
 
+    /**
+     * @return the constructor being invoked.
+     */
     MethodInfo methodInfo();
 
+    /**
+     * @return the argument expressions passed to the constructor, in order.
+     */
     List<Expression> parameterExpressions();
 
+    /**
+     * @return an immutable copy of this statement with a different {@link Source}; this instance is
+     * unchanged.
+     */
     ExplicitConstructorInvocation withSource(Source newSource);
 
     interface Builder extends Statement.Builder<Builder> {
