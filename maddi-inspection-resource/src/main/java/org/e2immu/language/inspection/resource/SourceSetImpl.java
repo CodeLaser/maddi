@@ -208,6 +208,7 @@ public class SourceSetImpl implements SourceSet {
 
     @Override
     public Map<SourceSet, Integer> priorityDependencies() {
+        assert priorityDependencies.isSet() : "Priority dependencies of source set " + name + " have not yet been set";
         return priorityDependencies.get();
     }
 

@@ -43,11 +43,11 @@ public class EvalInstanceOf {
         if (value instanceof VariableExpression ve) {
             ParameterizedType type = ve.variable().parameterizedType();
             // trivial cast to same or higher type
-            if (testType.isAssignableFrom(runtime, type)) {
+            if (runtime.isAssignableFrom(testType, type)) {
                 return runtime.constantTrue();
             }
             // see TestOperators for examples
-            if (!testType.typeInfo().isInterface() && !type.isAssignableFrom(runtime, testType)) {
+            if (!testType.typeInfo().isInterface() && !runtime.isAssignableFrom(type, testType)) {
                 return runtime.constantFalse();
             }
             // keep as is
@@ -55,7 +55,7 @@ public class EvalInstanceOf {
         }
         Instance instance;
         if ((instance = value.asInstanceOf(Instance.class)) != null) {
-            boolean isAssignable = testType.isAssignableFrom(runtime, instance.parameterizedType());
+            boolean isAssignable = runtime.isAssignableFrom(testType, instance.parameterizedType());
             return runtime.newBoolean(isAssignable);
         }
         return instanceOf;
