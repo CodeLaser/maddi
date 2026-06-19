@@ -98,6 +98,7 @@ public class RunAnalyzer implements Runnable {
         JavaInspector javaInspector = new JavaInspectorImpl(true, false);
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
         javaInspector.initialize(inputConfiguration);
+        javaInspector.preload("java.base::java.util");
         AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
 
         List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();

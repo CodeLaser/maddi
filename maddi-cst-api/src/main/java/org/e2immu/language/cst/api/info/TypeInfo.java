@@ -27,10 +27,12 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
 import org.e2immu.support.Either;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public interface TypeInfo extends NamedType, Info {
@@ -88,7 +90,11 @@ public interface TypeInfo extends NamedType, Info {
     // comments trailing the last method or field in the type's body
     List<Comment> trailingComments();
 
-    MethodInfo findUniqueMethod(String methodName, int n);
+    MethodInfo findUniqueMethod(String methodName, int numParams);
+
+    MethodInfo findUniqueMethod(String methodName, int numParams, Supplier<String> paramFqnCsv);
+
+    boolean hasMethodMap();
 
     MethodInfo findConstructor(int i);
 
@@ -273,15 +279,14 @@ public interface TypeInfo extends NamedType, Info {
 
         @Fluent
         Builder hierarchyIsDone();
+
+        @Fluent
+        Builder commitMethods();
     }
 
     boolean isAtLeastImmutableHC();
 
     OutputBuilder print(Qualification qualification, boolean doTypeDeclaration);
-
-    // as part of type resolution
-    boolean fieldsAccessedInRestOfPrimaryType();
-
 
     default Stream<TypeInfo> recursiveSubTypeStream() {
         return Stream.concat(Stream.of(this), subTypes().stream().flatMap(TypeInfo::recursiveSubTypeStream));
@@ -390,5 +395,4 @@ public interface TypeInfo extends NamedType, Info {
     default boolean inHierarchyOf(TypeInfo typeInfo) {
         return equals(typeInfo) || typeInfo.typeHierarchyExcludingJLOStream().anyMatch(this::equals);
     }
-
 }

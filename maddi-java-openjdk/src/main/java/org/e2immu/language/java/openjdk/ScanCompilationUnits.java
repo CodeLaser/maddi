@@ -270,10 +270,12 @@ public class ScanCompilationUnits {
         }
         if (objectCs != null) {
             classSymbolScanner.loadType(objectCs, runtime.objectTypeInfo(), ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
+            assert runtime.objectTypeInfo().hasBeenInspected();
         }
     }
 
     private void preload(String module, String packageName) throws IOException {
+        LOGGER.info("Preloading {}::{}", module, packageName);
         JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
         JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES, module);
         Iterable<JavaFileObject> files = fm.list(javaBase, packageName, Set.of(JavaFileObject.Kind.CLASS), false);
@@ -291,6 +293,9 @@ public class ScanCompilationUnits {
                             classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
                         } else {
                             classSymbolScanner.loadType(cs, pt, ClassSymbolScanner.LoadMode.COMPLETE);
+                        }
+                        if (!pt.hasBeenInspected()) {
+                            pt.builder().commit();
                         }
                     }
                 } catch (Symbol.CompletionFailure e) {

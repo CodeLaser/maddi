@@ -18,6 +18,7 @@ import org.e2immu.language.cst.api.element.Comment;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
+import org.e2immu.language.cst.impl.info.util.MethodMapImpl;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -33,12 +34,12 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
     private final List<ParameterizedType> interfacesImplemented;
     private final List<TypeParameter> typeParameters;
     private final List<TypeInfo> subTypes;
-    private final boolean fieldsAccessedInRestOfPrimaryType;
     private final MethodInfo enclosingMethod;
     private final List<TypeInfo> permittedWhenSealed;
     private final Set<TypeInfo> superTypesExcludingJavaLangObject;
     private final int anonymousTypes;
     private final List<Comment> trailingComments;
+    private final MethodMap methodMap;
 
     public TypeInspectionImpl(Inspection inspection,
                               Set<TypeModifier> typeModifiers,
@@ -51,12 +52,12 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
                               List<ParameterizedType> interfacesImplemented,
                               List<TypeParameter> typeParameters,
                               List<TypeInfo> subTypes,
-                              boolean fieldsAccessedInRestOfPrimaryType,
                               MethodInfo enclosingMethod,
                               List<TypeInfo> permittedWhenSealed,
                               Set<TypeInfo> superTypesExcludingJavaLangObject,
                               int anonymousTypes,
-                              List<Comment> trailingComments) {
+                              List<Comment> trailingComments,
+                              MethodMap methodMap) {
         super(inspection.access(), inspection.comments(), inspection.source(), inspection.isSynthetic(),
                 inspection.annotations(), inspection.javaDoc());
         this.typeModifiers = typeModifiers;
@@ -69,12 +70,12 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         this.subTypes = subTypes;
         this.fields = fields;
         this.typeParameters = typeParameters;
-        this.fieldsAccessedInRestOfPrimaryType = fieldsAccessedInRestOfPrimaryType;
         this.enclosingMethod = enclosingMethod;
         this.permittedWhenSealed = permittedWhenSealed;
         this.superTypesExcludingJavaLangObject = superTypesExcludingJavaLangObject;
         this.anonymousTypes = anonymousTypes;
         this.trailingComments = trailingComments;
+        this.methodMap = methodMap == null ? new MethodMapImpl(methods) : methodMap;
     }
 
     @Override
@@ -148,6 +149,11 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
     }
 
     @Override
+    public MethodMap methodMap() {
+        return methodMap;
+    }
+
+    @Override
     public List<FieldInfo> fields() {
         return fields;
     }
@@ -173,8 +179,8 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         private TypeNature typeNature;
         private MethodInfo singleAbstractMethod;
         private final TypeInfoImpl typeInfo;
-        private boolean fieldsAccessedInRestOfPrimaryType;
         private MethodInfo enclosingMethod;
+        private MethodMap methodMap;
 
         private volatile boolean hierarchyDone;
 
@@ -204,11 +210,6 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         @Override
         public List<TypeInfo> permittedWhenSealed() {
             return permittedWhenSealed;
-        }
-
-        @Override
-        public boolean fieldsAccessedInRestOfPrimaryType() {
-            return fieldsAccessedInRestOfPrimaryType;
         }
 
         public Builder(TypeInfoImpl typeInfo) {
@@ -262,6 +263,17 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         }
 
         @Override
+        public MethodMap methodMap() {
+            return methodMap;
+        }
+
+        @Override
+        public TypeInfo.Builder commitMethods() {
+            methodMap = new MethodMapImpl(methods);
+            return this;
+        }
+
+        @Override
         public List<FieldInfo> fields() {
             return fields;
         }
@@ -311,8 +323,8 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
             TypeInspection ti = new TypeInspectionImpl(this, Set.copyOf(typeModifiers), List.copyOf(methods),
                     List.copyOf(constructors), List.copyOf(fields), parentClass, typeNature, singleAbstractMethod,
                     List.copyOf(interfacesImplemented), List.copyOf(typeParameters), sortedSubTypes,
-                    fieldsAccessedInRestOfPrimaryType, enclosingMethod, List.copyOf(permittedWhenSealed),
-                    superTypesExcludingJavaLangObject(), anonymousTypes, List.copyOf(trailingComments));
+                    enclosingMethod, List.copyOf(permittedWhenSealed),
+                    superTypesExcludingJavaLangObject(), anonymousTypes, List.copyOf(trailingComments), methodMap);
             if (ti.parentClass() == null
                 && !typeInfo.isJavaLangObject()
                 && typeNature != TypeNatureEnum.PRIMITIVE) {
@@ -464,11 +476,6 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
             this.trailingComments.addAll(comments);
             return this;
         }
-    }
-
-    @Override
-    public boolean fieldsAccessedInRestOfPrimaryType() {
-        return fieldsAccessedInRestOfPrimaryType;
     }
 
     private static boolean isAbstract(TypeNature typeNature, Set<TypeModifier> typeModifiers) {

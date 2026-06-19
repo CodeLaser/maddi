@@ -15,19 +15,22 @@
 package org.e2immu.language.cst.impl.info;
 
 import org.e2immu.language.cst.api.element.Comment;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.info.TypeModifier;
+import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.TypeNature;
-import org.e2immu.language.cst.api.info.TypeParameter;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public interface TypeInspection extends Inspection {
+
+    interface MethodMap {
+        MethodInfo get(String name, int numParams, Supplier<String> paramFqnCsv);
+    }
+
+    MethodMap methodMap();
 
     List<FieldInfo> fields();
 
@@ -57,8 +60,6 @@ public interface TypeInspection extends Inspection {
     List<TypeInfo> subTypes();
 
     Set<TypeModifier> modifiers();
-
-    boolean fieldsAccessedInRestOfPrimaryType();
 
     MethodInfo enclosingMethod();
 

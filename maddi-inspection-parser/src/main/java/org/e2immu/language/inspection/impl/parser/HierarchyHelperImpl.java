@@ -55,36 +55,6 @@ public class HierarchyHelperImpl implements HierarchyHelper {
     }
 
     @Override
-    public IsMyself isMyself(TypeInfo me, ParameterizedType type) {
-        TypeInfo bestType = type.bestTypeInfo();
-        return isMyself(me, bestType);
-    }
-
-    @Override
-    public IsMyself isMyself(TypeInfo me, TypeInfo bestType) {
-        if (bestType == null) return IsMyselfEnum.NO;
-        if (me.equals(bestType)) return IsMyselfEnum.YES;
-        TypeInfo primaryVariable = bestType.primaryType();
-        TypeInfo primaryMyself = me.primaryType();
-        if (primaryMyself.equals(primaryVariable)) {
-            if (bestType.isInterface()) return IsMyselfEnum.NO;
-
-            // in the same compilation unit, analysed at the same time
-            boolean inHierarchy = parentalHierarchyContains(bestType, me) ||
-                                  parentalHierarchyContains(me, bestType) ||
-                                  nonStaticallyEnclosingTypesContains(bestType, me) ||
-                                  nonStaticallyEnclosingTypesContains(me, bestType);
-            if (inHierarchy) return IsMyselfEnum.YES;
-            // must be symmetrical: see e.g. Basics_24
-            if (me.fieldsAccessedInRestOfPrimaryType()
-                || bestType.fieldsAccessedInRestOfPrimaryType()) {
-                return IsMyselfEnum.PTA;
-            }
-        }
-        return IsMyselfEnum.NO;
-    }
-
-    @Override
     public boolean nonStaticallyEnclosingTypesContains(TypeInfo me, TypeInfo target) {
         if (me.compilationUnitOrEnclosingType().isLeft()) return false;
         if (me.isStatic()) return false;

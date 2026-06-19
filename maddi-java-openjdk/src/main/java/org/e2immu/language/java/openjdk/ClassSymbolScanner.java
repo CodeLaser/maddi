@@ -946,7 +946,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (fromSymbol != null) return fromSymbol;
 
         // now check methods from previous source sets
-        // FIXME this is slow, we may want to speed this up? e.g. hashmap name+size
         if (methodSymbol.owner instanceof Symbol.ClassSymbol cs) {
             TypeInfo typeInfo = convert(cs.type).typeInfo();
             if (methodSymbol.isConstructor()) {
@@ -954,6 +953,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         .findFirst().orElse(null);
             }
             String methodName = methodSymbol.name.toString();
+            int numParams = methodSymbol.params.size();
+            if (typeInfo.hasMethodMap()) {
+                return typeInfo.findUniqueMethod(methodName, numParams, () ->
+                        methodSymbol.params.stream().map(vs -> convert(types.erasure(vs.type)).fullyQualifiedName())
+                                .collect(Collectors.joining(","))
+                );
+            }
             return typeInfo.methodStream()
                     .filter(mi -> mi.name().equals(methodName) && sameTypes(mi.parameters(), methodSymbol.params))
                     .findFirst().orElse(null);
