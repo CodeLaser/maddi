@@ -1007,7 +1007,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     }
 
     public Collection<TypeInfo> typesLoaded() {
-        return infoByFqn.typesLoaded();
+        return infoByFqn.typesLoadedForThisSourceSet();
     }
 
     public void commitType(TypeInfo typeInfo) {

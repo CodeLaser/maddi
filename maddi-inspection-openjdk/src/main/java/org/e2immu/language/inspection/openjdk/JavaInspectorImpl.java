@@ -283,7 +283,9 @@ public class JavaInspectorImpl implements JavaInspector {
         }
 
         // copy into CTM
-        List<TypeInfo> loaded = List.copyOf(scanCompilationUnits.classSymbolScanner().typesLoaded());
+        List<TypeInfo> loaded = Stream.concat(Stream.concat(scanned.primaryTypes().stream(),
+                        scanCompilationUnits.classSymbolScanner().typesLoaded().stream()),
+                scanned.preloads().stream()).toList();
         LOGGER.info("Committing types of source set {}, {} loaded", sourceSet.name(), loaded.size());
         for (TypeInfo typeInfo : loaded) {
             // TODO completing is a choice, and may be an unnecessary and expensive operation.
