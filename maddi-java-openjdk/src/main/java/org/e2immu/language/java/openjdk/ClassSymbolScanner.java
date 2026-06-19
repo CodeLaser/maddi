@@ -151,9 +151,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             case Symbol.MethodSymbol _ -> throw new UnsupportedOperationException("Should have been picked up earlier");
 
-            case null -> {
-                throw new UnsupportedOperationException("Null owner for type " + cs.fullname);
-            }
+            case null -> throw new UnsupportedOperationException("Null owner for type " + cs.fullname);
             default -> {
                 if (cs.owner.kind == Kinds.Kind.NIL) {
                     throw new UnsupportedOperationException("Type " + cs.fullname + " not found");
@@ -574,23 +572,28 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     @Override
     public ParameterizedType convert(Type type) {
+        return convert(type, null);
+    }
+
+    private ParameterizedType convert(Type type, Set<Type> visited) {
         if (type instanceof Type.JCPrimitiveType primitiveType) {
             return primitiveType(primitiveType.getKind());
         }
         if (type instanceof Type.IntersectionClassType ict) {
             if (ict.supertype_field != null) {
-                return convert(ict.supertype_field);
+                return convert(ict.supertype_field, visited);
             }
             throw new UnsupportedOperationException("NYI");
         }
         if (type instanceof Type.ClassType ct) {
-            return classType(ct);
+            return classType(ct, visited);
         }
         if (type instanceof Type.JCVoidType) {
             return runtime.voidParameterizedType();
         }
         if (type instanceof Type.ArrayType at) {
-            ParameterizedType base = convert(at.elemtype);
+            ParameterizedType base = convert(at.elemtype, visited);
+            assert base != null;
             return base.copyWithArrays(base.arrays() + 1);
         }
         if (type instanceof Type.CapturedType ct && ct.wildcard.isUnbound()) {
@@ -602,7 +605,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             boolean isExtends = wildcardType.isExtendsBound();
             Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
-            ParameterizedType base = convert(wildcardType.type);
+            ParameterizedType base = convert(wildcardType.type, visited);
+            assert base != null;
             if (base.isTypeParameter()) {
                 return runtime.newParameterizedType(base.typeParameter(), 0, wildCard);
             }
@@ -622,8 +626,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 } else throw new UnsupportedOperationException();
             } else if (typeVar.isCaptured()) {
                 if (typeVar.getUpperBound() != null) {
-                    TypeInfo upper = convert(typeVar.getUpperBound()).typeInfo();
-                    return runtime.newParameterizedType(upper, 0, runtime.wildcardExtends(), List.of());
+                    Set<Type> visitedNotNull = visited == null ? new HashSet<>() : visited;
+                    if (visitedNotNull.add(typeVar)) {
+                        ParameterizedType upperPt = convert(typeVar.getUpperBound(), visitedNotNull);
+                        assert upperPt != null;
+                        TypeInfo upper = upperPt.typeInfo();
+                        return runtime.newParameterizedType(upper, 0, runtime.wildcardExtends(), List.of());
+                    }
+                    return runtime.parameterizedTypeWildcard();
                 } else {
                     throw new UnsupportedOperationException();
                 }
@@ -690,7 +700,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (type instanceof JCTree.JCIdent identifier) {
             if (identifier.type instanceof Type.PackageType) return null;
             if (identifier.type instanceof Type.ClassType ct) {
-                ParameterizedType pt = classType(ct);
+                ParameterizedType pt = classType(ct, null);
                 assert pt.typeInfo() != null;
                 dsb.put(pt.typeInfo(), source);
                 return pt;
@@ -794,12 +804,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         }
     }
 
-    private ParameterizedType classType(Type.ClassType ct) {
+    private ParameterizedType classType(Type.ClassType ct, Set<Type> visited) {
         TypeInfo typeInfo = classTypeInfo(ct);
         if (ct.getTypeArguments().isEmpty()) {
             return typeInfo.asSimpleParameterizedType();
         }
-        List<ParameterizedType> typeParameters = ct.getTypeArguments().stream().map(this::convert).toList();
+        List<ParameterizedType> typeParameters = ct.getTypeArguments().stream()
+                .map(ta -> convert(ta, visited))
+                .toList();
         return runtime.newParameterizedType(typeInfo, typeParameters);
     }
 
