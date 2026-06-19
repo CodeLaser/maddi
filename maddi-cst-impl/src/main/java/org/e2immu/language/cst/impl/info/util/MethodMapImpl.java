@@ -57,7 +57,7 @@ public class MethodMapImpl implements TypeInspection.MethodMap {
 
     private static @NotNull String key(MethodInfo methodInfo) {
         return methodInfo.parameters().stream()
-                .map(pi -> pi.parameterizedType().fullyQualifiedName())
+                .map(pi -> pi.parameterizedType().erasedForFQN().fullyQualifiedName())
                 .collect(Collectors.joining(","));
     }
 
