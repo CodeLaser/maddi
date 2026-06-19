@@ -743,6 +743,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             // TODO there is no room for this in maddi's model
             return convertTreeDontSet(at.underlyingType, dsb, source);
         }
+        if (type instanceof JCTree.JCTypeIntersection intersection) {
+            List<ParameterizedType> bounds = intersection.getBounds().stream()
+                    .map(e -> convertTree(e, dsb)).toList();
+            return runtime.newIntersectionType(null, bounds);
+        }
         throw new UnsupportedOperationException("NYI");
     }
 

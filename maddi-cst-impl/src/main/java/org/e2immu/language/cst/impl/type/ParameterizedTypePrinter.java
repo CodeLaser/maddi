@@ -65,6 +65,9 @@ public class ParameterizedTypePrinter {
                                       boolean withoutArrays,
                                       boolean printTypeBounds) {
         OutputBuilder outputBuilder = new OutputBuilderImpl();
+        if (parameterizedType.isIntersectionType()) {
+            return intersectionType(qualification, parameterizedType, printTypeBounds);
+        }
         Wildcard w = parameterizedType.wildcard();
         if (w != null) {
             if (w.isUnbound()) {
@@ -173,6 +176,30 @@ public class ParameterizedTypePrinter {
             }
             outputBuilder.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
         }
+        return outputBuilder;
+    }
+
+    private static OutputBuilder intersectionType(Qualification qualification,
+                                                  ParameterizedType parameterizedType,
+                                                  boolean printTypeBounds) {
+        OutputBuilder outputBuilder = new OutputBuilderImpl();
+        if (parameterizedType.typeParameter() != null) {
+            outputBuilder
+                    .add(parameterizedType.typeParameter().print(qualification, printTypeBounds))
+                    .add(SpaceEnum.ONE);
+        }
+        if (parameterizedType.wildcard() != null) {
+            assert parameterizedType.wildcard().isExtendsIntersection();
+            outputBuilder
+                    .add(new TextImpl("?"))
+                    .add(SpaceEnum.ONE)
+                    .add(KeywordImpl.EXTENDS)
+                    .add(SpaceEnum.ONE);
+        }
+        outputBuilder.add(parameterizedType.parameters().stream()
+                .map(pt -> print(qualification, pt, false, DiamondEnum.SHOW_ALL,
+                        false, false))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.AND_TYPES)));
         return outputBuilder;
     }
 }
