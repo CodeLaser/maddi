@@ -736,8 +736,17 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             dsb.putWithArrayToWithoutArray(withArray, withoutArray);
             return withArray;
         }
-        if (type instanceof JCTree.JCWildcard) {
-            return runtime.parameterizedTypeWildcard();
+        if (type instanceof JCTree.JCWildcard wc) {
+            if (wc.type.isUnbound()) {
+                return runtime.parameterizedTypeWildcard();
+            }
+            boolean isExtends = wc.type.isExtendsBound();
+            Wildcard wildCard = isExtends ? runtime.wildcardExtends() : runtime.wildcardSuper();
+            ParameterizedType base = convertTree(wc.getBound(), dsb);
+            if (base.isTypeParameter()) {
+                return runtime.newParameterizedType(base.typeParameter(), 0, wildCard);
+            }
+            return runtime.newParameterizedType(base.typeInfo(), 0, wildCard, List.of());
         }
         if (type instanceof JCTree.JCAnnotatedType at) {
             // TODO there is no room for this in maddi's model

@@ -2215,28 +2215,41 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     @Override
     public Void visitNewArray(NewArrayTree node, Void unused) {
         JCTree.JCNewArray newArray = (JCTree.JCNewArray) node;
-
+        List<Expression> dimensions = new ArrayList<>();
+        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
+        ParameterizedType elementType = newArray.elemtype == null ? null : convertType.convertTree(newArray.elemtype, dsb);
+        ArrayInitializer arrayInitializer;
         if (newArray.getInitializers() != null) {
             List<Expression> expressions = new ArrayList<>(newArray.getInitializers().size());
+            ParameterizedType commonType = null;
             for (JCTree.JCExpression e : newArray.getInitializers()) {
                 scan(e, unused);
                 expressions.add(currentExpression);
+                commonType = commonType == null ? currentExpression.parameterizedType()
+                        : runtime.commonType(commonType, currentExpression.parameterizedType());
             }
-            currentExpression = runtime.newArrayInitializerBuilder()
+            arrayInitializer = runtime.newArrayInitializerBuilder()
                     .setSource(sourceForNode(node))
-                    .setCommonType(convertType.convert(newArray.type))
+                    .setCommonType(commonType)
                     .setExpressions(expressions)
                     .build();
-            return null;
+            ParameterizedType type = convertType.convert(newArray.type);
+            for (int i = 0; i < type.arrays(); ++i) {
+                dimensions.add(runtime.newEmptyExpression());
+            }
+            if (elementType == null) {
+                currentExpression = arrayInitializer;
+                // see TestArrayInitializer; String[]names = {"a", "b"}
+                return null;
+            } // else see TestTypeParameter; double[] doubles = new double[] { 0.1, 0.2 }
+        } else {
+            for (var dim : newArray.dims) {
+                scan(dim, unused);
+                Expression dimension = currentExpression;
+                dimensions.add(dimension);
+            }
+            arrayInitializer = null;
         }
-        List<Expression> dimensions = new ArrayList<>();
-        for (var dim : newArray.dims) {
-            scan(dim, unused);
-            Expression dimension = currentExpression;
-            dimensions.add(dimension);
-        }
-        DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
-        ParameterizedType elementType = convertType.convertTree(newArray.elemtype, dsb);
         ParameterizedType concreteReturnType = elementType.copyWithArrays(dimensions.size());
         MethodInfo constructor = runtime.newArrayCreationConstructor(concreteReturnType);
         currentExpression = runtime.newConstructorCallBuilder()
@@ -2245,6 +2258,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 .setConcreteReturnType(concreteReturnType)
                 .setDiamond(runtime.diamondNo())
                 .setParameterExpressions(dimensions)
+                .setArrayInitializer(arrayInitializer)
                 .build();
         return null;
     }
