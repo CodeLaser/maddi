@@ -14,6 +14,11 @@
 
 package org.e2immu.language.cst.api.statement;
 
+/**
+ * Common super-interface for the looping statements: {@link WhileStatement}, {@link DoStatement},
+ * {@link ForStatement} and {@link ForEachStatement}. A loop always has a body, so
+ * {@link #hasSubBlocks()} is fixed to {@code true}; the body is the primary {@link Statement#block()}.
+ */
 public interface LoopStatement extends Statement {
 
     @Override
