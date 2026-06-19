@@ -14,6 +14,7 @@ import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.*;
 import org.e2immu.language.cst.api.type.Diamond;
+import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
 import org.e2immu.language.cst.api.variable.LocalVariable;
@@ -470,9 +471,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                                                JCTree.JCExpression prev,
                                                                DetailedSources.Builder dsb) {
         if (expression.type.tsym == owner) {
-            LOGGER.debug("Self-reference");
+            // self-reference! we must check, otherwise there'll be loops
             return runtime.newParameterizedType(tp.getOwner().getLeft(),
-                    List.of(runtime.newParameterizedType(tp, 0, null)));
+                    tp.typeInfo().typeParameters().stream().map(NamedType::asParameterizedType).toList());
         }
         // detailed sources... rather involved, because they must be read from the sources
         if (prev != null) {
