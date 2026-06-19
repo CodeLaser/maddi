@@ -70,6 +70,7 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
         SourceSet sourceSet = new SourceSetImpl.Builder().setName(name)
                 .setUri(URI.create("file:/"))
                 .build();
+        sourceSet.computePriorityDependencies();
         for (File javaFile : javaFiles) {
             process(sourceSet, analyzer, javaFile, methodHistogram);
         }

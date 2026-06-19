@@ -487,13 +487,20 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         List<ParameterizedType> newParameters = new ArrayList<>(formalType.parameters().size());
         int i = 0;
         for (ParameterizedType param : formalType.parameters()) {
-            ParameterizedType formalInParentType = parentType.parameters().get(i);
             ParameterizedType result;
-            if (formalInParentType.typeInfo() != null) {
-                result = formalInParentType;
-            } else if (formalInParentType.typeParameter() != null) {
-                result = map.get(formalInParentType.typeParameter());
+            if (i < parentType.parameters().size()) {
+                ParameterizedType formalInParentType = parentType.parameters().get(i);
+                if (formalInParentType.typeInfo() != null) {
+                    result = formalInParentType;
+                } else if (formalInParentType.typeParameter() != null) {
+                    result = map.get(formalInParentType.typeParameter());
+                } else {
+                    result = param;
+                }
             } else {
+                // parentType carries fewer type arguments than the declaration has formal parameters
+                // (raw usage, or a self-referential bound represented with too few arguments); keep the
+                // formal parameter rather than indexing out of bounds.
                 result = param;
             }
             newParameters.add(result == null ? param : result);

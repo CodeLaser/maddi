@@ -51,15 +51,17 @@ dependencies {
 
 application {
     mainClass = "org.e2immu.analyzer.run.openjdkmain.Main"
-    applicationDefaultJvmArgs = listOf("-enableassertions", "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    applicationDefaultJvmArgs = listOf(
+        "-enableassertions", "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED")
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
 }
 
 run {
-    if(project.hasProperty("jvmArgs")) {
+    if (project.hasProperty("jvmArgs")) {
         application.applicationDefaultJvmArgs += (project.property("jvmArgs") as String).split("\\s+")
     }
 }
@@ -84,6 +86,7 @@ tasks.withType<JavaCompile> {
 tasks.test {
     useJUnitPlatform()
     jvmArgs(
+        "-Xmx6G",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
