@@ -402,4 +402,34 @@ public class TestTypeParameter extends CommonTest {
         MethodInfo method = C.findUniqueMethod("method", 1);
         assertEquals("Type param T extends Number&Comparable<T>&java.io.Serializable", method.returnType().toString());
     }
+
+    // self-reference via a captured wildcard: e.getDeclaringClass() on a receiver of type Enum<?> has type
+    // Class<CAP> with CAP extends Enum<CAP>. Converting that captured, self-referential upper bound used to
+    // recurse forever in the openjdk parser (ClassSymbolScanner.convert, ~line 629); the fix breaks the
+    // cycle by returning an unbound wildcard. This test documents and confirms that fix: the snippet now
+    // scans without looping, and the captured bound is represented as a wildcard.
+    @Language("java")
+    public static final String INPUT11 = """
+            package a.b;
+            class X {
+                Class<?> m(Enum<?> e) {
+                    return e.getDeclaringClass();
+                }
+            }
+            """;
+
+    @Test
+    public void test11() {
+        // reaching this point at all confirms there is no infinite recursion while scanning
+        TypeInfo X = scan("a.b.X", INPUT11);
+        MethodInfo m = X.findUniqueMethod("m", 1);
+        Expression returnExpression = m.methodBody().lastStatement().expression();
+        ParameterizedType type = returnExpression.parameterizedType();
+        // e.getDeclaringClass() is Class<CAP> with CAP extends Enum<CAP>; the self-referential captured
+        // bound is broken into an unbound wildcard, yielding Class<?>
+        assertEquals("Class<?>", type.detailedString());
+        assertEquals("java.lang.Class", type.typeInfo().fullyQualifiedName());
+        assertEquals(1, type.parameters().size());
+        assertTrue(type.parameters().getFirst().isUnboundWildcard());
+    }
 }

@@ -49,6 +49,7 @@ public class ParseJavacList {
                         .setLibrary(true)
                         .setExternalLibrary(true)
                         .setPartOfJdk(true)
+                        .setModule(true)
                         .build()));
         for (JavacListToSourceSets.JSourceSet js : result.jSourceSets()) {
             builder.addSourceSets(js.sourceSet());
