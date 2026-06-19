@@ -113,6 +113,11 @@ public record IsAssignableFrom2(Predefined runtime) {
                                                   ParameterizedType from,
                                                   Set<Pair> visited) {
         if (to.parameters().isEmpty() || from.parameters().isEmpty()) return true;
+        assert to.parameters().size() == from.parameters().size()
+                : """
+                We want to know when this occurs, and whether
+                it is legitimate rather than obscuring errors elsewhere
+                """;
         int i = 0;
         for (ParameterizedType toParameter : to.parameters()) {
             ParameterizedType fromParameter = from.parameters().get(i++);
@@ -164,7 +169,7 @@ public record IsAssignableFrom2(Predefined runtime) {
                 // arrays are covariant for reference component types only; primitive component types
                 // are invariant (int[] is not assignable to long[]), so require identity there.
                 if (toComponent.arrays() == 0 && fromComponent.arrays() == 0
-                        && (toComponent.isPrimitiveExcludingVoid() || fromComponent.isPrimitiveExcludingVoid())) {
+                    && (toComponent.isPrimitiveExcludingVoid() || fromComponent.isPrimitiveExcludingVoid())) {
                     return toComponent.equals(fromComponent);
                 }
                 return test(toComponent, fromComponent, visited);

@@ -6,7 +6,6 @@ import org.e2immu.language.inspection.resource.SourceSetImpl;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.stream.Collectors;
 
 public class InputConfigurationSupport {
 
@@ -25,8 +24,17 @@ public class InputConfigurationSupport {
     }
 
     public static SourceSet sourceSetOf(Class<?> clazz, SourceSet... dependencies) throws URISyntaxException {
+        return sourceSetOf(clazz, false, dependencies);
+    }
+
+    public static SourceSet sourceSetModuleOf(Class<?> clazz, SourceSet... dependencies) throws URISyntaxException {
+        return sourceSetOf(clazz, true, dependencies);
+    }
+
+    private static SourceSet sourceSetOf(Class<?> clazz, boolean isModule, SourceSet... dependencies) throws URISyntaxException {
         URI uri = clazz.getProtectionDomain().getCodeSource().getLocation().toURI();
         return new SourceSetImpl.Builder().setName(tail(uri)).setUri(uri)
+                .setModule(isModule)
                 .setLibrary(true)
                 .setExternalLibrary(true)
                 .setDependencies(Arrays.stream(dependencies).toList())
