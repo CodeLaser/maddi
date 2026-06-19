@@ -80,10 +80,10 @@ public class CommonType {
         if (bestType == null || pt2BestType == null) {
             return runtime.objectParameterizedType(); // no common type
         }
-        if (pt1.isAssignableFrom(runtime, pt2)) {
+        if (runtime.isAssignableFrom(pt1, pt2)) {
             return pt1;
         }
-        if (pt2.isAssignableFrom(runtime, pt1)) {
+        if (runtime.isAssignableFrom(pt2, pt1)) {
             return pt2;
         }
         // go into the hierarchy
@@ -97,7 +97,7 @@ public class CommonType {
         if (common.size() > 1) {
             common.sort(Comparator.comparingInt(hierarchy::get));
         }
-        TypeInfo commonSuperType = common.get(0);
+        TypeInfo commonSuperType = common.getFirst();
         if (commonSuperType.equals(bestType)) {
             return pt1;
         }

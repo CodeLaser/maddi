@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetModuleOf;
 import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,9 +38,9 @@ public class TestJavaInspector5RealClasspathModule {
         javaInspector = new JavaInspectorImpl();
 
         SourceSet javaBase = InputConfigurationSupport.javaBase();
-        SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
-        SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
-        SourceSet maddiUtil = sourceSetOf(StringUtil.class, javaBase);
+        SourceSet annotations = sourceSetModuleOf(NotNull.class, javaBase);
+        SourceSet maddiSupport = sourceSetModuleOf(SetOnce.class, javaBase);
+        SourceSet maddiUtil = sourceSetModuleOf(StringUtil.class, javaBase);
 
         Path cstApiPath = Path.of("../maddi-cst-api/src/main/java");
         assertTrue(Files.isDirectory(cstApiPath));

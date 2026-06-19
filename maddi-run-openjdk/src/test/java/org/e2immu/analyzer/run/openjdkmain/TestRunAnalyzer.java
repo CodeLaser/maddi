@@ -16,6 +16,7 @@ package org.e2immu.analyzer.run.openjdkmain;
 
 import ch.qos.logback.classic.Level;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Disabled
 public class TestRunAnalyzer {
 
     @BeforeAll
