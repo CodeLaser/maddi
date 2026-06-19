@@ -14,6 +14,15 @@
 
 package org.e2immu.language.cst.api.statement;
 
+/**
+ * Common super-interface for the jump statements {@link BreakStatement} and {@link ContinueStatement}.
+ */
 public interface BreakOrContinueStatement extends Statement {
+
+    /**
+     * @return the label this {@code break}/{@code continue} jumps to (the {@code L} in {@code break L;}),
+     * or {@code null} when it targets the innermost enclosing loop/switch. Distinct from
+     * {@link Statement#label()}, which is the label attached <em>to</em> this statement.
+     */
     String goToLabel();
 }
