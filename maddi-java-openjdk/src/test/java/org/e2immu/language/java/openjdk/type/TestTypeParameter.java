@@ -331,7 +331,7 @@ public class TestTypeParameter extends CommonTest {
             import java.util.SortedMap;
             import java.util.TreeMap;
             
-            public class Function2414123_file1778122 {
+            public class C {
               public static double[][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
                 double[][] returnValue = new double[pairMap.size()][2];
                 SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number>(pairMap);
@@ -351,7 +351,7 @@ public class TestTypeParameter extends CommonTest {
             import java.util.Map;
             import java.util.SortedMap;
             import java.util.TreeMap;
-            public class Function2414123_file1778122 {
+            public class C {
                 public static double [][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
                     double [][] returnValue = new double[pairMap.size()][2];
                     SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number> (pairMap);
@@ -368,9 +368,9 @@ public class TestTypeParameter extends CommonTest {
     @DisplayName("Cannot print ? extends Number in constructor type arguments")
     @Test
     public void test9() {
-        TypeInfo C = scan("Function2414123_file1778122", INPUT9);
+        TypeInfo C = scan("C", INPUT9);
         MethodInfo method = C.findUniqueMethod("toDoubleArray", 1);
-        assertEquals("java.util.Map<?,?>",
+        assertEquals("java.util.Map<? extends Number,? extends Number>",
                 method.parameters().getFirst().parameterizedType().detailedString());
         LocalVariableCreation lvc1 = (LocalVariableCreation) method.methodBody().statements().get(1);
         assertEquals("java.util.SortedMap<Number,Number>",
@@ -384,5 +384,22 @@ public class TestTypeParameter extends CommonTest {
                 """, method.typesReferenced(_ -> true)
                 .filter(Element.TypeReference::explicit)
                 .distinct().toList().toString());
+        String printed = print2(C.compilationUnit());
+        assertEquals(OUTPUT9, printed);
+    }
+
+    @Language("java")
+    public static final String INPUT10 = """
+            import java.io.Serializable;
+            class C<T extends Number & Comparable<T> & Serializable> {
+                T method(String s) { return null; }
+            }
+            """;
+
+    @Test
+    public void test10() {
+        TypeInfo C = scan("a.b.C", INPUT10);
+        MethodInfo method = C.findUniqueMethod("method", 1);
+        assertEquals("Type param T extends Number&Comparable<T>&java.io.Serializable", method.returnType().toString());
     }
 }

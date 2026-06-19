@@ -853,7 +853,7 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
     public ParameterizedType newIntersectionType(@Nullable TypeParameter typeParameter,
                                                  List<ParameterizedType> intersectionTypes) {
         return new ParameterizedTypeImpl(null, typeParameter, intersectionTypes, 0,
-                WildcardEnum.EXTENDS_INTERSECTION);
+                typeParameter != null ? WildcardEnum.EXTENDS_INTERSECTION : null);
     }
 
     @Override

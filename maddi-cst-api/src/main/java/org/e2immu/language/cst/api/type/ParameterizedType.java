@@ -134,6 +134,11 @@ public interface ParameterizedType {
 
     int numericIsAssignableFrom(Predefined runtime, ParameterizedType other);
 
+    default boolean isIntersectionType() {
+        return !parameters().isEmpty() && typeInfo() == null
+               && (typeParameter() == null || wildcard() != null && wildcard().isExtendsIntersection());
+    }
+
     boolean isBoolean();
 
     boolean isBooleanOrBoxedBoolean();
