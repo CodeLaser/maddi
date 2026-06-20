@@ -17,7 +17,15 @@ package org.e2immu.language.cst.api.expression;
 import org.e2immu.language.cst.api.type.Diamond;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
+/**
+ * A bare type used in expression position — the type-name qualifier of a static member access, e.g. the
+ * {@code Integer} in {@code Integer.MAX_VALUE} or {@code Math} in {@code Math.max(...)}. Contrast with
+ * {@link ClassExpression} ({@code X.class}).
+ */
 public interface TypeExpression extends Expression {
+    /**
+     * @return the referenced type.
+     */
     ParameterizedType parameterizedType();
 
     String NAME = "typeExpression";

@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * An {@code int} literal; its {@code constant()} is the {@link Integer} value.
+ */
 public interface IntConstant extends Numeric, ConstantExpression<Integer> {
 
     String NAME = "intConstant";

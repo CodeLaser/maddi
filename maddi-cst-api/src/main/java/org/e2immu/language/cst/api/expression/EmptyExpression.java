@@ -14,12 +14,27 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A placeholder for an absent expression, so that "no expression" can be represented without {@code null}
+ * (for example a missing {@code switch} guard, the value of a {@code return;}, or a {@code default}
+ * label). Always reports {@link #isEmpty()}; the several predicates and {@link #msg()} distinguish why it
+ * is empty.
+ */
 public interface EmptyExpression extends Expression {
 
+    /**
+     * @return {@code true} when this stands for the {@code default} case label.
+     */
     boolean isDefaultExpression();
 
+    /**
+     * @return {@code true} when this stands for the (absent) value of a {@code void} return.
+     */
     boolean isNoReturnValue();
 
+    /**
+     * @return {@code true} when this stands for a genuinely absent expression.
+     */
     boolean isNoExpression();
 
     @Override
@@ -27,6 +42,9 @@ public interface EmptyExpression extends Expression {
         return true;
     }
 
+    /**
+     * @return a short message describing which kind of emptiness this is.
+     */
     String msg();
 
     String NAME = "emptyExpression";

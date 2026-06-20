@@ -20,11 +20,25 @@ import org.e2immu.language.cst.api.element.RecordPattern;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 
+/**
+ * An {@code expression instanceof TestType} test, including pattern-matching forms
+ * ({@code x instanceof String s} or a record pattern). The result type is {@code boolean}.
+ */
 public interface InstanceOf extends Expression {
+    /**
+     * @return the expression being tested.
+     */
     Expression expression();
 
+    /**
+     * @return the binding pattern ({@code s} in {@code instanceof String s}, or a record pattern), or
+     * {@code null} for a plain type test.
+     */
     RecordPattern patternVariable();
 
+    /**
+     * @return the type tested against.
+     */
     ParameterizedType testType();
 
     interface Builder extends Element.Builder<Builder> {

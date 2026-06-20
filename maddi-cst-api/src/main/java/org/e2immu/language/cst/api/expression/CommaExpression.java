@@ -19,8 +19,16 @@ import org.e2immu.annotation.Fluent;
 
 import java.util.List;
 
+/**
+ * A sequence of expressions evaluated in order, the value being that of the last. Java has no comma
+ * operator in general expression position (only in {@code for} clauses); this node is used by the
+ * analyzer to represent such sequencing.
+ */
 public interface CommaExpression extends Expression {
 
+    /**
+     * @return the sub-expressions, in evaluation order; the last one supplies the value.
+     */
     List<Expression> expressions();
 
     interface Builder extends Expression.Builder<Builder> {

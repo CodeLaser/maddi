@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A {@code long} literal; its {@code constant()} is the {@link Long} value.
+ */
 public interface LongConstant extends Numeric, ConstantExpression<Long> {
     String NAME = "longConstant";
 

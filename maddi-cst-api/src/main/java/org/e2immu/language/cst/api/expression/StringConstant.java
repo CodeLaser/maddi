@@ -14,6 +14,10 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A string literal constant. Its {@code constant()} is the {@link String} value. Extended by
+ * {@code TextBlock} for the triple-quoted form.
+ */
 public interface StringConstant extends ConstantExpression<String> {
     String NAME = "stringConstant";
 

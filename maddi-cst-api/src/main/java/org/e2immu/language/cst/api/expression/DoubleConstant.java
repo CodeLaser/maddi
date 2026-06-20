@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A {@code double} literal; its {@code constant()} is the {@link Double} value.
+ */
 public interface DoubleConstant extends Numeric, ConstantExpression<Double> {
 
     String NAME = "doubleConstant";

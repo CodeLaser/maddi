@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A {@code float} literal; its {@code constant()} is the {@link Float} value.
+ */
 public interface FloatConstant extends Numeric, ConstantExpression<Float> {
     String NAME = "floatConstant";
 

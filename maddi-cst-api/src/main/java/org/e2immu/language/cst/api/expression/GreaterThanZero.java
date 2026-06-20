@@ -16,18 +16,41 @@ package org.e2immu.language.cst.api.expression;
 
 import org.e2immu.language.cst.api.runtime.Runtime;
 
+/**
+ * The canonical form for all numeric inequalities: {@code expression >= 0} (or {@code > 0}). Every
+ * {@code <}, {@code <=}, {@code >}, {@code >=} comparison is normalised into this single shape so the
+ * analyzer reasons about inequalities uniformly.
+ */
 public interface GreaterThanZero extends Expression {
+    /**
+     * @return the expression compared against zero.
+     */
     Expression expression();
 
+    /**
+     * @return {@code true} for {@code >= 0} (allows equality), {@code false} for strict {@code > 0}.
+     */
     boolean allowEquals();
 
+    /**
+     * Decompose into the form {@code x < b} / {@code x > b}: split {@link #expression()} into a variable
+     * part {@code x} and a numeric bound {@code b}.
+     *
+     * @return the decomposition (see {@link XB})
+     */
     XB extract(Runtime runtime);
 
+    /**
+     * Result of {@link #extract(Runtime)}: the inequality rewritten as {@code x < b} or {@code x > b}.
+     */
     interface XB {
+        /** @return the variable (non-constant) part. */
         Expression x();
 
+        /** @return the numeric bound. */
         double b();
 
+        /** @return {@code true} when the relation is {@code x < b}, {@code false} when {@code x > b}. */
         boolean lessThan();
     }
 

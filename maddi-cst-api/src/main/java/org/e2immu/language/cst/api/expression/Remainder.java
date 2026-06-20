@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * Remainder, {@code lhs % rhs} (numeric).
+ */
 public interface Remainder extends BinaryOperator {
     String NAME = "remainder";
 

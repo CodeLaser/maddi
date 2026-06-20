@@ -18,12 +18,28 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
+/**
+ * An infix binary operation {@code lhs op rhs}. The operator itself is identified by a
+ * {@link MethodInfo} (so operators are modelled like methods on their operand types). Implemented by
+ * {@code Sum}, {@code Product}, {@code Divide}, {@code Remainder}, {@code Equals} and
+ * {@code StringConcat}; note that boolean {@code &&}/{@code ||} are modelled separately as {@code And}
+ * and {@code Or}.
+ */
 public interface BinaryOperator extends Expression {
 
+    /**
+     * @return the left-hand operand.
+     */
     Expression lhs();
 
+    /**
+     * @return the right-hand operand.
+     */
     Expression rhs();
 
+    /**
+     * @return the operator, represented as a {@link MethodInfo}.
+     */
     MethodInfo operator();
 
     Precedence precedence();

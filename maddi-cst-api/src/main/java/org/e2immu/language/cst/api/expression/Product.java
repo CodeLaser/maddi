@@ -15,6 +15,9 @@
 package org.e2immu.language.cst.api.expression;
 
 
+/**
+ * Multiplication, {@code lhs * rhs} (numeric).
+ */
 public interface Product extends BinaryOperator {
     String NAME = "product";
 

@@ -22,23 +22,57 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.List;
 
+/**
+ * An object or array creation: {@code new Type(args)}, {@code new Type[n]}/{@code new Type[]{...}}, an
+ * anonymous class instantiation {@code new Type(){ ... }}, or a qualified {@code outer.new Inner(...)}.
+ * The created type is the overall {@link Expression#parameterizedType()}.
+ */
 public interface ConstructorCall extends Expression {
+    /**
+     * @return the invoked constructor, or {@code null} for an array creation.
+     */
     MethodInfo constructor();
 
+    /**
+     * @return the qualifying instance for an inner-class creation ({@code outer.new Inner()}), otherwise
+     * {@code null}.
+     */
     Expression object();
 
+    /**
+     * @return the constructor arguments, in order.
+     */
     List<Expression> parameterExpressions();
 
+    /**
+     * @return explicit type arguments, empty when none.
+     */
     List<ParameterizedType> typeArguments();
 
+    /**
+     * @return the anonymous class body for {@code new Type(){ ... }}, otherwise {@code null}.
+     */
     TypeInfo anonymousClass();
 
+    /**
+     * @return the brace initialiser for an array creation ({@code new int[]{1,2}}), otherwise
+     * {@code null}.
+     */
     ArrayInitializer arrayInitializer();
 
+    /**
+     * @return an immutable copy with a different anonymous-class body.
+     */
     ConstructorCall withAnonymousClass(TypeInfo newAnonymous);
 
+    /**
+     * @return an immutable copy with different constructor arguments.
+     */
     ConstructorCall withParameterExpressions(List<Expression> newParameterExpressions);
 
+    /**
+     * @return how the generic type arguments are written: explicit, diamond {@code <>}, or absent.
+     */
     Diamond diamond();
 
     interface Builder extends Expression.Builder<Builder> {

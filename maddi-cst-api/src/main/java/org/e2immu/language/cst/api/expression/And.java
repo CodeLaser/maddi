@@ -19,7 +19,14 @@ import org.e2immu.language.cst.api.element.Element;
 
 import java.util.List;
 
+/**
+ * Boolean conjunction of two or more operands ({@code a && b && ...}). Modelled as a flat list rather
+ * than a nested {@link BinaryOperator} so the analyzer can normalise and simplify boolean formulae.
+ */
 public interface And extends Expression {
+    /**
+     * @return the conjuncts, in canonical order.
+     */
     List<Expression> expressions();
 
     interface Builder extends Element.Builder<Builder> {

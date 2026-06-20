@@ -16,8 +16,16 @@ package org.e2immu.language.cst.api.expression;
 
 import org.e2immu.language.cst.api.output.element.TextBlockFormatting;
 
+/**
+ * A text block (triple-quoted multi-line string literal). It is a {@link StringConstant} whose
+ * {@code constant()} is the resolved string value; {@link #textBlockFormatting()} preserves the original
+ * formatting (indentation, line breaks) for faithful printing.
+ */
 public interface TextBlock extends StringConstant {
 
+    /**
+     * @return the original formatting details, used to reproduce the literal on output.
+     */
     TextBlockFormatting textBlockFormatting();
 
 }

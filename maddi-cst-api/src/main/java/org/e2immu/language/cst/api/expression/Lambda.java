@@ -25,21 +25,42 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.List;
 
+/**
+ * A lambda expression, {@code (params) -> body}. It is represented through a synthetic
+ * {@link MethodInfo}: the lambda's parameters and body are that method's parameters and body, and the
+ * lambda's type is the functional interface it implements. The many default methods are conveniences over
+ * that synthetic method.
+ */
 public interface Lambda extends Expression {
+    /**
+     * @return the synthetic method holding the lambda's parameters and body.
+     */
     MethodInfo methodInfo();
 
+    /**
+     * @return the lambda body as a {@link Block} (single-expression bodies are wrapped in a block).
+     */
     default Block methodBody() {
         return methodInfo().methodBody();
     }
 
+    /**
+     * @return the lambda's parameters.
+     */
     default List<ParameterInfo> parameters() {
         return methodInfo().parameters();
     }
 
+    /**
+     * @return the functional interface type, e.g. {@code Function} in {@code Function<A,B>}.
+     */
     default TypeInfo abstractFunctionalTypeInfo() {
         return concreteFunctionalType().typeInfo();
     }
 
+    /**
+     * @return the functional interface as instantiated here, e.g. {@code Function<A,B>}.
+     */
     default ParameterizedType concreteFunctionalType() {
         return methodInfo().typeInfo().interfacesImplemented().get(0);
     }
@@ -48,21 +69,40 @@ public interface Lambda extends Expression {
         return implementation();
     }
 
+    /**
+     * @return the synthetic implementing type (the anonymous class that the synthetic method belongs to).
+     */
     default ParameterizedType implementation() {
         return methodInfo().typeInfo().asSimpleParameterizedType();
     }
 
+    /**
+     * @return the lambda's return type (the body's result type).
+     */
     default ParameterizedType concreteReturnType() {
         return methodInfo().returnType();
     }
 
+    /**
+     * @return per-parameter print styles (see {@link OutputVariant}); controls how each parameter is
+     * rendered: implicit, explicitly typed, or {@code var}.
+     */
     List<OutputVariant> outputVariants();
 
-    // null when not single expression
+    /**
+     * @return the body expression when the lambda is of the {@code x -> expr} single-expression form,
+     * otherwise {@code null}.
+     */
     Expression singleExpression();
 
+    /**
+     * @return an immutable copy backed by a different synthetic method (and hence body).
+     */
     Lambda withMethodInfoAndMethodBody(MethodInfo methodInfo);
 
+    /**
+     * How one lambda parameter is rendered on output: nothing, an explicit type, or {@code var}.
+     */
     interface OutputVariant {
         boolean isEmpty();
 

@@ -16,7 +16,14 @@ package org.e2immu.language.cst.api.expression;
 
 import org.e2immu.language.cst.api.element.Element;
 
+/**
+ * An explicitly parenthesised expression, {@code ( inner )}. Preserved so the original parentheses can be
+ * reproduced on output; the wrapped expression is {@link #inner()}.
+ */
 public interface EnclosedExpression extends Expression, ExpressionWrapper {
+    /**
+     * @return the parenthesised inner expression.
+     */
     Expression inner();
 
     interface Builder extends Element.Builder<Builder> {

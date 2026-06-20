@@ -19,8 +19,15 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
+/**
+ * A class literal, {@code SomeType.class}. Treated as a constant whose {@code constant()} value is the
+ * referenced {@link ParameterizedType}; the overall expression type is {@code Class<SomeType>}.
+ */
 public interface ClassExpression extends ConstantExpression<ParameterizedType> {
 
+    /**
+     * @return the referenced type (the {@code String} in {@code String.class}).
+     */
     // String.class -> String
     ParameterizedType type();
 

@@ -14,8 +14,14 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A boolean literal ({@code true}/{@code false}); its {@code constant()} is the {@link Boolean} value.
+ */
 public interface BooleanConstant extends ConstantExpression<Boolean> {
 
+    /**
+     * @return the opposite boolean constant.
+     */
     BooleanConstant negate();
 
     @Override

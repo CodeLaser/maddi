@@ -17,12 +17,25 @@ package org.e2immu.language.cst.api.expression;
 
 import org.e2immu.language.cst.api.runtime.Runtime;
 
+/**
+ * Addition, {@code lhs + rhs} (numeric). In the analyzer's canonical form a sum is normalised so its
+ * left-hand side holds the constant/numeric part; the helpers below expose that split.
+ */
 public interface Sum extends BinaryOperator {
 
+    /**
+     * @return the numeric (constant) part of the left-hand side, or {@code null} when there is none.
+     */
     Double numericPartOfLhs();
 
+    /**
+     * @return the left-hand side with its numeric part removed (the symbolic remainder).
+     */
     Expression nonNumericPartOfLhs(Runtime runtime);
 
+    /**
+     * @return the expression {@code this == 0}, useful for turning a sum into a (in)equality condition.
+     */
     Expression isZero(Runtime runtime);
 
     String NAME = "sum";

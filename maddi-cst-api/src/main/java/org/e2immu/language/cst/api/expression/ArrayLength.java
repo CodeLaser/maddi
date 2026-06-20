@@ -16,7 +16,14 @@ package org.e2immu.language.cst.api.expression;
 
 import org.e2immu.language.cst.api.element.Element;
 
+/**
+ * The array {@code .length} access, {@code scope.length}. Modelled as its own node (rather than a field
+ * access) because {@code length} is not a real field. The result type is {@code int}.
+ */
 public interface ArrayLength extends Expression {
+    /**
+     * @return the array expression whose length is read.
+     */
     Expression scope();
 
     interface Builder extends Element.Builder<Builder> {

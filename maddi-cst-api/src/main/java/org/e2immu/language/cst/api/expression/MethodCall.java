@@ -22,26 +22,63 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.List;
 
+/**
+ * A method invocation, {@code object.method(args)}. Operators are also modelled as method calls (see
+ * {@link BinaryOperator}). It is a {@link org.e2immu.language.cst.api.expression.util.OneVariable} because
+ * the call may stand for a single variable (a getter), which the analyzer exploits.
+ */
 public interface MethodCall extends Expression, OneVariable {
+    /**
+     * @return the invoked method.
+     */
     MethodInfo methodInfo();
 
+    /**
+     * @return the receiver expression ({@code object} in {@code object.method(...)}); see also
+     * {@link #objectIsImplicit()}.
+     */
     Expression object();
 
+    /**
+     * @return the argument expressions, in order.
+     */
     List<Expression> parameterExpressions();
 
+    /**
+     * @return analysis-time modification-time markers used to distinguish calls that observe different
+     * states of mutable objects.
+     */
     String modificationTimes();
 
+    /**
+     * @return {@code true} when the receiver was not written in source (an implicit {@code this} or the
+     * enclosing type), so it should not be printed.
+     */
     boolean objectIsImplicit();
 
+    /**
+     * @return the return type as instantiated at this call site (after type-argument inference).
+     */
     ParameterizedType concreteReturnType();
 
+    /**
+     * @return the explicit type arguments ({@code obj.<String>method()}), empty when none.
+     */
     List<ParameterizedType> typeArguments();
 
+    /**
+     * @return an immutable copy with a different receiver (and explicit implicitness flag).
+     */
     MethodCall withObject(Expression object, boolean objectIsImplicit);
 
+    /**
+     * @return an immutable copy with a different receiver.
+     */
     MethodCall withObject(Expression object);
 
-    // make a copy, with different parameters
+    /**
+     * @return an immutable copy with different argument expressions.
+     */
     MethodCall withParameterExpressions(List<Expression> parameterExpressions);
 
     interface Builder extends Element.Builder<Builder> {

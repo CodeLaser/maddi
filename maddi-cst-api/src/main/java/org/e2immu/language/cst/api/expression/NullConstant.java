@@ -14,6 +14,10 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * The {@code null} literal. Unlike the other literals it is not a {@link ConstantExpression} (it wraps no
+ * value); it is recognised through {@link #isNullConstant()}.
+ */
 public interface NullConstant extends Expression {
 
     @Override

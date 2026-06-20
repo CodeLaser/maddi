@@ -14,6 +14,10 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A {@code char} literal; its {@code constant()} is the {@link Character} value. Note it is not
+ * {@link Numeric} (characters are not treated as numeric values in the CST).
+ */
 public interface CharConstant extends ConstantExpression<Character> {
     String NAME = "charConstant";
 
