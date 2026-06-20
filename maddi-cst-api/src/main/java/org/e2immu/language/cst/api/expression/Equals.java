@@ -14,6 +14,10 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * Equality, {@code lhs == rhs}. In canonical form the operands are ordered; for value equality of
+ * objects see also the dedicated handling of {@code equals(...)} calls.
+ */
 public interface Equals extends BinaryOperator {
     String NAME = "equals";
 

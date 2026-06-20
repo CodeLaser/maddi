@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A {@code short} literal; its {@code constant()} is the {@link Short} value.
+ */
 public interface ShortConstant extends Numeric, ConstantExpression<Short> {
     String NAME = "shortConstant";
 

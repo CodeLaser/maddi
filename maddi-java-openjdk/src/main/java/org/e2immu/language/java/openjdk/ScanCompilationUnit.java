@@ -518,6 +518,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder = methodInfo.builder();
                 methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
                 methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
+                // FIXME issue: when already known, a number of source details are missed out! (e.g. return type)
+
             } else {
                 // construction of the method
                 if (isConstructor) {

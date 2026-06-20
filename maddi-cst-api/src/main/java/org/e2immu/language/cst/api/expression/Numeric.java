@@ -14,13 +14,31 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * Mixin for expressions that carry a numeric value, implemented by the numeric constants
+ * ({@code ByteConstant}, {@code ShortConstant}, {@code IntConstant}, {@code LongConstant},
+ * {@code FloatConstant}, {@code DoubleConstant}). Provides the value in boxed ({@link #number()}) and
+ * {@code double} ({@link #doubleValue()}) form and the two numeric inversions.
+ */
 public interface Numeric extends Expression {
+    /**
+     * @return the value as a boxed {@link Number} of the matching primitive type.
+     */
     Number number();
 
+    /**
+     * @return the value widened to {@code double} (lossy for large {@code long} values).
+     */
     double doubleValue();
 
+    /**
+     * @return the arithmetic negation ({@code -x}) of this value.
+     */
     Expression negate();
 
+    /**
+     * @return the bitwise complement ({@code ~x}) of this value.
+     */
     Expression bitwiseNegation();
 
     @Override

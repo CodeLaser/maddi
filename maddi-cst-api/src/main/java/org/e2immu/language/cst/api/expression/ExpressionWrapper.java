@@ -14,8 +14,20 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * Mixin for expressions that wrap a single inner expression, such as {@code EnclosedExpression}
+ * (parentheses), {@code Negation} and {@code BitwiseNegation}. Note this interface does not itself extend
+ * {@link Expression}; implementors do.
+ */
 public interface ExpressionWrapper {
+    /**
+     * @return the wrapped inner expression.
+     */
     Expression expression();
 
+    /**
+     * @return a rank distinguishing the wrapper kinds, used when normalising nested wrappers into a
+     * canonical order.
+     */
     int wrapperOrder();
 }

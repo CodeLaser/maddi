@@ -16,6 +16,13 @@ package org.e2immu.language.cst.api.expression;
 
 import org.e2immu.language.cst.api.info.InfoMap;
 
+/**
+ * A compile-time constant expression wrapping a value of type {@code T}. Implemented by the literal
+ * expressions: {@code BooleanConstant}, the numeric constants (which also implement {@link Numeric}),
+ * {@code CharConstant}, {@link StringConstant}, and {@code ClassExpression} ({@code X.class}).
+ *
+ * @param <T> the type of the wrapped constant value
+ */
 public interface ConstantExpression<T> extends Expression {
 
     @Override
@@ -23,8 +30,14 @@ public interface ConstantExpression<T> extends Expression {
         return true;
     }
 
+    /**
+     * @return the wrapped constant value.
+     */
     T constant();
 
+    /**
+     * Constants are self-contained, so rewiring returns the same instance.
+     */
     @Override
     default Expression rewire(InfoMap infoMap) {
         return this;

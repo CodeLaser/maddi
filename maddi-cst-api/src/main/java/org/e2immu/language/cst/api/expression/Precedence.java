@@ -14,9 +14,19 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * Operator precedence, used by {@link Expression#precedence()} to decide when a sub-expression must be
+ * parenthesised while printing. A higher {@link #value()} binds more tightly.
+ */
 public interface Precedence {
+    /**
+     * @return the precedence level; higher binds more tightly.
+     */
     int value();
 
+    /**
+     * @return {@code true} when this precedence binds more tightly than {@code other}.
+     */
     default boolean greaterThan(Precedence other) {
         return value() > other.value();
     }

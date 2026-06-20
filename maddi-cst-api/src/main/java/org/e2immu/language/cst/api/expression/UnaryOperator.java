@@ -16,9 +16,20 @@ package org.e2immu.language.cst.api.expression;
 
 import org.e2immu.language.cst.api.info.MethodInfo;
 
+/**
+ * A prefix unary operation {@code op expression}. The operator is identified by a {@link MethodInfo}.
+ * Implemented by {@code Negation} ({@code -x}/{@code !x}) and {@code BitwiseNegation} ({@code ~x}); both
+ * also implement {@link ExpressionWrapper} since they wrap a single operand.
+ */
 public interface UnaryOperator extends Expression {
+    /**
+     * @return the single operand.
+     */
     Expression expression();
 
+    /**
+     * @return the operator, represented as a {@link MethodInfo}.
+     */
     MethodInfo operator();
 
     Precedence precedence();

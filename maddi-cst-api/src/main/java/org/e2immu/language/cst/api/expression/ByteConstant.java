@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * A {@code byte} literal; its {@code constant()} is the {@link Byte} value.
+ */
 public interface ByteConstant extends Numeric, ConstantExpression<Byte> {
     String NAME = "byteConstant";
 

@@ -14,6 +14,10 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * String concatenation, {@code lhs + rhs} where at least one operand is a {@code String}. Modelled
+ * separately from numeric {@link Sum} because the {@code +} has different (string) semantics.
+ */
 public interface StringConcat extends BinaryOperator {
     String NAME = "stringConcat";
 

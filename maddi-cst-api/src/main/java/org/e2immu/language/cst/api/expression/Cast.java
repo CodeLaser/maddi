@@ -18,7 +18,14 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
+/**
+ * A cast expression, {@code (TargetType) expression}. The target type is the overall
+ * {@link Expression#parameterizedType()}; the operand is {@link #expression()}.
+ */
 public interface Cast extends Expression {
+    /**
+     * @return the expression being cast.
+     */
     Expression expression();
 
     interface Builder extends Element.Builder<Builder> {

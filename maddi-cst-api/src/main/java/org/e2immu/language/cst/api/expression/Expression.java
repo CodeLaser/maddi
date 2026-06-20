@@ -20,20 +20,46 @@ import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
+/**
+ * An expression in the common syntax tree.
+ *
+ * <p>Every expression is an {@link Element} (carrying a {@link Source source}, comments and annotations)
+ * and additionally has a static {@link #parameterizedType() type}. Expressions are {@link Comparable},
+ * which the analyzer uses to keep symbolic values in a canonical form. See the
+ * {@code org.e2immu.language.cst.api.expression} package documentation for the shared families
+ * (constants, operators, wrappers) and conventions.
+ */
 public interface Expression extends Comparable<Expression>, Element {
 
+    /**
+     * @return a short kind tag (concrete expressions return their {@code NAME} constant); {@code "?"}
+     * when unset.
+     */
     default String name() {
         return "?";
     }
 
+    /**
+     * @return the static type of this expression.
+     */
     ParameterizedType parameterizedType();
 
+    /**
+     * @return the operator precedence used when printing, so sub-expressions are parenthesised correctly.
+     */
     Precedence precedence();
 
-    // "external": helps to compare expressions of different types
+    /**
+     * @return a rank used to order expressions of <em>different</em> kinds in the canonical form
+     * ("external" comparison). Ties between same-kind expressions are broken by
+     * {@link #internalCompareTo(Expression)}.
+     */
     int order();
 
-    // "internal" as: how do two expressions of the same type compare to each other?
+    /**
+     * @return the comparison between this and {@code expression}, which are of the <em>same</em> kind
+     * ("internal" comparison); see {@link #order()}.
+     */
     int internalCompareTo(Expression expression);
 
     // convenience methods
@@ -66,6 +92,10 @@ public interface Expression extends Comparable<Expression>, Element {
         return false;
     }
 
+    /**
+     * @return the numeric value as a {@link Double} when this expression is a numeric constant, otherwise
+     * {@code null}.
+     */
     default Double numericValue() {
         return null;
     }
@@ -74,13 +104,28 @@ public interface Expression extends Comparable<Expression>, Element {
         return parameterizedType().isNumeric();
     }
 
+    /**
+     * @return the condition when this expression is an inline conditional ({@code c ? a : b}), otherwise
+     * {@code null}.
+     */
     default Expression conditionOfInlineConditional() {
         return null;
     }
 
+    /**
+     * Source-to-source rewrite under the given map; returns a single expression (contrast with
+     * {@link org.e2immu.language.cst.api.statement.Statement#translate}, which may expand to several).
+     */
     Expression translate(TranslationMap translationMap);
 
+    /**
+     * Clone this expression into a new {@code Info} graph, relinking references through the map.
+     */
     Expression rewire(InfoMap infoMap);
 
+    /**
+     * @return an immutable copy of this expression with a different {@link Source}; this instance is
+     * unchanged.
+     */
     Expression withSource(Source source);
 }

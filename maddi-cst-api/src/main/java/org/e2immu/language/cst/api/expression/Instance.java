@@ -14,8 +14,12 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * An analyzer-synthesised value standing for "some instance of a given type" whose exact value is not
+ * known (the abstract result of, for example, a constructor call or an opaque method return). It does not
+ * correspond to written source; it is produced during analysis.
+ */
 // expression type used in e2immu analyzer
-
 public interface Instance extends Expression {
     String NAME = "instance";
 

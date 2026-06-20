@@ -22,12 +22,27 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * A switch expression, {@code switch (selector) { case ... -> value; ... }}, which yields a value. Like
+ * the arrow-form switch statement it is modelled as a list of
+ * {@link org.e2immu.language.cst.api.statement.SwitchEntry SwitchEntry} arms; the result type is the
+ * overall {@link Expression#parameterizedType()}.
+ */
 public interface SwitchExpression extends Expression {
 
+    /**
+     * @return the value being switched on.
+     */
     Expression selector();
 
+    /**
+     * @return the arms (each producing a value, via {@code -> value} or {@code yield}).
+     */
     List<SwitchEntry> entries();
 
+    /**
+     * @return an immutable copy with a different selector; this instance is unchanged.
+     */
     SwitchExpression withSelector(Expression newSelector);
 
     interface Builder extends Element.Builder<Builder> {

@@ -23,23 +23,46 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.List;
 
+/**
+ * An annotation use, {@code @SomeAnnotation(key = value, ...)}. Modelled as an expression so it can be
+ * attached to any {@link Element}. The annotation type is {@link #typeInfo()} and its arguments are the
+ * {@link #keyValuePairs()}; the {@code extractXxx} helpers read individual attribute values.
+ */
 public interface AnnotationExpression extends Expression {
 
+    /**
+     * One {@code key = value} attribute of an annotation.
+     */
     interface KV {
+        /**
+         * @return the attribute name.
+         */
         String key();
 
-        /* in Java, that would be "value" */
+        /**
+         * @return {@code true} when this is the default attribute (in Java, the one named {@code value}),
+         * which may be written without {@code key =}.
+         */
         boolean keyIsDefault();
 
         KV rewire(InfoMap infoMap);
 
         KV translate(TranslationMap translationMap);
 
+        /**
+         * @return the attribute value expression.
+         */
         Expression value();
     }
 
+    /**
+     * @return the annotation type.
+     */
     TypeInfo typeInfo();
 
+    /**
+     * @return the {@code key = value} attributes, in order.
+     */
     List<KV> keyValuePairs();
 
     interface Builder extends Element.Builder<Builder> {

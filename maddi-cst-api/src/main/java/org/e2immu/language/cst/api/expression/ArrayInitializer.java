@@ -20,7 +20,14 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.List;
 
+/**
+ * An array initialiser, the brace-enclosed element list {@code { e0, e1, ... }} (as in
+ * {@code new int[]{1, 2, 3}} or a field initialiser). The builder also records the common element type.
+ */
 public interface ArrayInitializer extends Expression {
+    /**
+     * @return the element expressions, in order.
+     */
     List<Expression> expressions();
 
     String NAME = "arrayInitializer";

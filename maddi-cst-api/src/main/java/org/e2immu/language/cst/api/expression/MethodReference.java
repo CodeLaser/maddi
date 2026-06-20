@@ -20,13 +20,30 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.List;
 
+/**
+ * A method reference, {@code scope::method} (including constructor references {@code Type::new}). Its
+ * type is the functional interface it targets; the concrete parameter/return types record how that
+ * interface's type parameters are instantiated here.
+ */
 public interface MethodReference extends Expression {
+    /**
+     * @return the qualifier before {@code ::} (a type or an instance expression).
+     */
     Expression scope();
 
+    /**
+     * @return the referenced method (or constructor).
+     */
     MethodInfo methodInfo();
 
+    /**
+     * @return the parameter types of the targeted functional-interface method, as instantiated here.
+     */
     List<ParameterizedType> concreteParameterTypes();
 
+    /**
+     * @return the return type of the targeted functional-interface method, as instantiated here.
+     */
     ParameterizedType concreteReturnType();
 
     interface Builder extends Expression.Builder<Builder> {

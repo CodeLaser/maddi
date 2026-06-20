@@ -18,11 +18,23 @@ import org.e2immu.annotation.Fluent;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.runtime.Factory;
 
+/**
+ * The ternary conditional expression, {@code condition ? ifTrue : ifFalse}.
+ */
 public interface InlineConditional extends Expression {
+    /**
+     * @return the value when {@link #condition()} is true.
+     */
     Expression ifTrue();
 
+    /**
+     * @return the value when {@link #condition()} is false.
+     */
     Expression ifFalse();
 
+    /**
+     * @return the boolean condition.
+     */
     Expression condition();
 
     interface Builder extends Element.Builder<Builder> {

@@ -14,6 +14,9 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * Division, {@code lhs / rhs} (numeric).
+ */
 public interface Divide extends BinaryOperator {
     String NAME = "divide";
 

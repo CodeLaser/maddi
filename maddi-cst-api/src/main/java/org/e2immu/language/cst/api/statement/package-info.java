@@ -13,7 +13,7 @@
  */
 
 /**
- * Statement nodes of the concrete syntax tree (CST).
+ * Statement nodes of the common syntax tree (CST).
  *
  * <p>Every node here is a {@link org.e2immu.language.cst.api.statement.Statement}, which extends
  * {@link org.e2immu.language.cst.api.element.Element} and therefore also carries a

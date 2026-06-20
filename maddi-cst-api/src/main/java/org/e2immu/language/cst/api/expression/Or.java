@@ -20,7 +20,14 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 
 import java.util.List;
 
+/**
+ * Boolean disjunction of two or more operands ({@code a || b || ...}). Like {@link And}, a flat list so
+ * boolean formulae can be normalised and simplified.
+ */
 public interface Or extends Expression {
+    /**
+     * @return the disjuncts, in canonical order.
+     */
     List<Expression> expressions();
 
     interface Builder extends Element.Builder<Builder> {

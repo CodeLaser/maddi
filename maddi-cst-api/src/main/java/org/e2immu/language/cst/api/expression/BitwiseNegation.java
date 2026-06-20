@@ -14,6 +14,10 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * Bitwise complement of its single operand, {@code ~x} (integral). Both a {@link UnaryOperator} and an
+ * {@link ExpressionWrapper}.
+ */
 public interface BitwiseNegation extends UnaryOperator, ExpressionWrapper {
 
     String NAME = "bitwiseNegation";

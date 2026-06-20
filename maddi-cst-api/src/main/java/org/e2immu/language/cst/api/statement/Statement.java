@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * A statement in the concrete syntax tree.
+ * A statement in the common syntax tree (CST).
  *
  * <p>Every statement is an {@link Element} (so it has a {@link org.e2immu.language.cst.api.element.Source
  * source}, comments and annotations) and exposes its nested blocks through a uniform block model. See the

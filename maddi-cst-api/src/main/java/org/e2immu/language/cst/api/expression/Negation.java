@@ -14,6 +14,10 @@
 
 package org.e2immu.language.cst.api.expression;
 
+/**
+ * Negation of its single operand: arithmetic {@code -x} for numeric operands and logical {@code !x} for
+ * boolean operands. Both a {@link UnaryOperator} and an {@link ExpressionWrapper}.
+ */
 public interface Negation extends UnaryOperator, ExpressionWrapper {
 
     @Override
