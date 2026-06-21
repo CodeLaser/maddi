@@ -14,5 +14,6 @@
 
 package org.e2immu.language.cst.api.element;
 
+/** Marker interface for single-line comments of the form {@code // …}. */
 public interface SingleLineComment extends Comment {
 }

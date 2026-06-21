@@ -19,8 +19,17 @@ import org.e2immu.language.cst.api.translate.TranslationMap;
 
 import java.util.List;
 
+/**
+ * A structured {@code /** … *}{@code /} Javadoc comment, parsed into a list of {@link Tag} entries.
+ * <p>
+ * Extends {@link MultiLineComment} with structured access to block and inline Javadoc tags
+ * (e.g. {@code @param}, {@code @return}, {@code {@link …}}) via {@link #tags()}.
+ * References inside tags (e.g. the type in {@code @throws} or {@code {@link}}) are resolved
+ * to the corresponding {@link Element} during inspection.
+ */
 public interface JavaDoc extends MultiLineComment {
 
+    /** All recognised Javadoc block and inline tag kinds. */
     enum TagIdentifier {
         AUTHOR("author"),
         CODE("code"),
@@ -58,44 +67,65 @@ public interface JavaDoc extends MultiLineComment {
             this.identifier = identifier;
         }
 
+        /** Returns {@code true} if this tag carries a code reference (e.g. {@code @see}, {@code {@link}}). */
         public boolean isReference() {
             return this == SEE || this == LINK || this == LINK_PLAIN || this == THROWS;
         }
 
+        /**
+         * Returns the number of leading arguments when this tag is used as a block tag.
+         * {@code @param} and {@code @throws} each take one argument (the parameter/type name).
+         */
         public int argumentsAsBlockTag() {
             if (this == PARAM || this == THROWS || isReference()) return 1;
             return 0;
         }
     }
 
+    /** A single parsed tag inside a Javadoc comment. */
     interface Tag {
+        /** Returns the kind of this tag. */
         TagIdentifier identifier();
 
+        /** Returns {@code true} if this is a block tag (starts at column 1 with {@code @}). */
         boolean blockTag();
 
+        /** Returns the source position of this tag. */
         Source source();
 
+        /** Returns the source position of the reference argument inside this tag, if any. */
         Source sourceOfReference();
 
+        /** Returns the CST element the reference in this tag was resolved to, or {@code null}. */
         Element resolvedReference();
 
+        /** Returns the text content of this tag. */
         String content();
 
         Tag rewire(InfoMap infoMap);
 
         Tag translate(TranslationMap translationMap);
 
+        /** Returns a copy of this tag with the given resolved reference. */
         Tag withResolvedReference(Element resolvedReference);
 
+        /** Returns a copy of this tag with the given source position. */
         Tag withSource(Source source);
     }
 
+    /** Returns the list of all tags in this Javadoc comment, in source order. */
     List<Tag> tags();
 
+    /** Returns a translated copy of this Javadoc comment as described by {@code translationMap}. */
     JavaDoc translate(TranslationMap translationMap);
 
+    /** Returns a copy of this Javadoc comment with a different tag list. */
     JavaDoc withTags(List<Tag> newTags);
 
+    /**
+     * Returns the raw Javadoc text with inline tag references replaced by placeholders,
+     * for use in serialisation or diff computation.
+     */
     String commentWithPlaceholders();
 
 }

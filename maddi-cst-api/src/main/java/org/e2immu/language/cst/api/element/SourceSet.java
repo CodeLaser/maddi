@@ -23,18 +23,28 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Possible situations.
+ * Describes a named collection of source files or a compiled library that the analyser can inspect.
  * <p>
- * There are quite a few external libraries that contain java sources in the .jar file.
- * If an external library has no sources, they can be generated using a decompiler. Either way, they should end up
- * in the sourceDirectory() for the modification analyzer to be able to produce Annotated-API files.
+ * A {@code SourceSet} is one of:
+ * <ul>
+ *   <li><b>Project sources</b> — Java files in a directory tree; {@link #parsedFromSource()} is {@code true}.</li>
+ *   <li><b>External library</b> — a JAR or JMod on the classpath; {@link #externalLibrary()} is {@code true}.
+ *       Sources may optionally be provided (from the JAR itself or a decompiler output) so that
+ *       Annotated-API files can be generated.</li>
+ *   <li><b>JDK module</b> — a JDK module treated as an external library with {@link #partOfJdk()} {@code true}.</li>
+ * </ul>
+ * <p>
+ * Source sets form a dependency graph via {@link #dependencies()}: dependent sets are inspected
+ * in dependency order so that types they export are resolved before the dependent set is parsed.
  */
 public interface SourceSet {
 
+    /** Returns the character encoding used to read source files (defaults to UTF-8). */
     default Charset sourceEncoding() {
         return StandardCharsets.UTF_8;
     }
 
+    /** Returns the logical name of this source set (e.g. {@code "main"}, {@code "test"}, or a library name). */
     String name();
 
     /**
@@ -67,45 +77,55 @@ public interface SourceSet {
      */
     URI uri();
 
+    /** Returns {@code true} if this source set provides Java source files (not a pre-compiled library). */
     default boolean parsedFromSource() {
         return !externalLibrary();
     }
 
+    /** Returns {@code true} if this source set contains test sources. */
     default boolean test() {
         return false;
     }
 
     /**
-     * only relevant when external library is true
-     *
-     * @return if the source set is a library which is needed at runtime, but not at compile time.
+     * Returns {@code true} if this is an external library that is only needed at runtime,
+     * not at compile time (e.g. a runtime-only dependency in Gradle).
      */
     default boolean runtimeOnly() {
         return false;
     }
 
+    /** Returns {@code true} if this source set is a library (external or internal). */
     default boolean library() {
         return false;
     }
 
+    /** Returns {@code true} if this source set is an external library (JAR, JMod, or decompiled). */
     default boolean externalLibrary() {
         return false;
     }
 
+    /** Returns {@code true} if this source set is part of the JDK. Implies {@link #externalLibrary()}. */
     default boolean partOfJdk() {
         return false;
     }
 
+    /** Returns {@code true} if this source set represents a Java module ({@code module-info.java}). */
     default boolean isModule() {
         return false;
     }
 
+    /**
+     * Returns a set of package name prefixes to which inspection of this source set is restricted.
+     * An empty set means no restriction (all packages are inspected).
+     */
     default Set<String> restrictToPackages() {
         return Set.of();
     }
 
-    /* which sourceSets must be present for this source set to compile/run/resolve?
-    The order is important: first come first served, on class-by-class basis
+    /**
+     * Returns the source sets that must be resolved before this one can be inspected or compiled.
+     * The order matters: on a class-by-class basis, earlier entries take priority over later ones.
      */
     default List<SourceSet> dependencies() {
         return List.of();
@@ -142,27 +162,40 @@ public interface SourceSet {
     default void setAnalysisFingerPrint(FingerPrint fingerPrint) {
     }
 
-    // helper methods
-
+    /**
+     * Returns {@code true} if a type in the given package and with the given name should be
+     * accepted for inspection from this source set (respects {@link #restrictToPackages()}).
+     */
     default boolean acceptSource(String packageName, String typeName) {
         return false;
     }
 
+    /** Returns a copy of this source set with the given dependency list. */
     default SourceSet withDependencies(List<SourceSet> dependencies) {
         throw new UnsupportedOperationException();
     }
 
+    /** Returns a copy of this source set with updated source directories and URI. */
     default SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
         throw new UnsupportedOperationException();
     }
 
+    /** Returns a copy of this source set with updated source directories. */
     default SourceSet withSourceDirectories(List<Path> sourceDirectories) {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Pre-computes the transitive dependency priority order used by {@link #priorityDependencies()}.
+     * Should be called once after the full dependency graph is assembled.
+     */
     default void computePriorityDependencies() {
     }
 
+    /**
+     * Returns a map from dependency source sets to their priority level (lower = higher priority),
+     * as computed by {@link #computePriorityDependencies()}.
+     */
     default Map<SourceSet, Integer> priorityDependencies() {
         return Map.of();
     }

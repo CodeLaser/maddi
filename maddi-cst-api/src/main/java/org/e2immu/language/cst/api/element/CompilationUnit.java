@@ -20,32 +20,54 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import java.net.URI;
 import java.util.List;
 
+/**
+ * Represents a single Java source file — the top-level unit of compilation in the CST.
+ * <p>
+ * A compilation unit declares a package, an optional list of import statements, and one or
+ * more top-level type declarations ({@link TypeInfo}). It also carries a {@link SourceSet}
+ * that identifies where the source was loaded from, and an optional {@link FingerPrint} for
+ * change detection.
+ * <p>
+ * Top-level types are set after construction via {@link #setTypes} (write-once), because the
+ * {@code CompilationUnit} must exist before the types that belong to it can reference it.
+ */
 public interface CompilationUnit extends Element {
 
+    /** Returns a shallow copy of this compilation unit (same types list, new wrapper object). */
     CompilationUnit copy();
 
+    /** Returns the URI identifying the source file (e.g. a {@code file://} path or test-protocol URI). */
     URI uri();
 
+    /** Returns the declared package name, or an empty string for the default package. */
     String packageName();
 
+    /** Returns the import declarations in source order. */
     List<ImportStatement> importStatements();
 
+    /** Returns the source set this compilation unit was loaded from. */
     SourceSet sourceSet();
 
+    /** Returns the source fingerprint used for change detection, or {@code null} if not yet set. */
     FingerPrint fingerPrintOrNull();
 
+    /** Returns comments that appear after the last type declaration (at the end of the file). */
     List<Comment> trailingComments();
 
-    // important: set once
+    /**
+     * Sets the top-level types declared in this file. Must be called exactly once, after
+     * the types have been inspected and linked back to this compilation unit.
+     */
     void setTypes(List<TypeInfo> types);
 
-    // must be set before calling this method
+    /** Returns the top-level types declared in this file. {@link #setTypes} must have been called first. */
     List<TypeInfo> types();
 
     /**
-     * Can be set only once! If set during building phase, this method may not be called.
+     * Sets the source fingerprint. Can be called only once; calling it again throws.
+     * If a fingerprint was already set via the builder, this method must not be called.
      *
-     * @param fingerPrint the fingerprint to be set
+     * @param fingerPrint the fingerprint to set
      */
     void setFingerPrint(FingerPrint fingerPrint);
 
@@ -57,7 +79,7 @@ public interface CompilationUnit extends Element {
         @Fluent
         Builder setURI(URI uri);
 
-        // to avoid having to catch exceptions in PredefinedImpl
+        /** Convenience variant of {@link #setURI} that parses the URI from a string. */
         @Fluent
         Builder setURIString(String s);
 
@@ -76,13 +98,13 @@ public interface CompilationUnit extends Element {
         CompilationUnit build();
     }
 
-    // helper method here, set==null for primitives
+    /** Returns {@code true} if this compilation unit belongs to the JDK. The source set is {@code null} for primitives. */
     default boolean partOfJdk() {
         SourceSet set = sourceSet();
         return set == null || set.partOfJdk();
     }
 
-    // helper method here, set==null for primitives;  partOfJdk() implies externalLibrary()
+    /** Returns {@code true} if this compilation unit belongs to an external library. {@link #partOfJdk()} implies this. */
     default boolean externalLibrary() {
         SourceSet set = sourceSet();
         assert set != null;

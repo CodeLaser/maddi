@@ -14,5 +14,9 @@
 
 package org.e2immu.language.cst.api.element;
 
+/**
+ * Marker interface for block comments of the form {@code /* … *}{@code /}.
+ * {@link JavaDoc} ({@code /** … *}{@code /}) is a structured sub-type of this interface.
+ */
 public interface MultiLineComment extends Comment {
 }

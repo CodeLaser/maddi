@@ -16,12 +16,21 @@ package org.e2immu.language.cst.api.element;
 
 import org.e2immu.annotation.Fluent;
 
+/**
+ * Represents a single {@code import} declaration inside a {@link CompilationUnit}.
+ */
 public interface ImportStatement extends Element {
 
+    /**
+     * Returns the fully-qualified name (or wildcard name) being imported,
+     * e.g. {@code "java.util.List"} or {@code "java.util.*"}.
+     */
     String importString();
 
+    /** Returns {@code true} if this is a {@code static} import. */
     boolean isStatic();
 
+    /** Returns {@code true} if this is a wildcard import (the import string ends with {@code .*}). */
     default boolean isStar() {
         return importString().endsWith(".*");
     }

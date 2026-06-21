@@ -18,60 +18,99 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.cst.api.variable.Variable;
 
+/**
+ * Callback interface for recursively visiting CST nodes via {@link Element#visit(Visitor)}.
+ * <p>
+ * Each node kind has a {@code before*} / {@code after*} pair. The {@code before*} method
+ * returns {@code true} to continue descending into child nodes, or {@code false} to skip
+ * them. All methods have no-op default implementations, so implementors only need to
+ * override the hooks they care about.
+ * <p>
+ * The traversal order is: module → statements → expressions → variables (scope chains).
+ */
 public interface Visitor {
 
+    /**
+     * Called before visiting a {@link ModuleInfo}.
+     * @return {@code true} to descend into the module's directives; {@code false} to skip.
+     */
     default boolean beforeModule(ModuleInfo moduleInfo) {
-        return true; // go deeper;
+        return true;
     }
 
+    /** Called after all children of a {@link ModuleInfo} have been visited. */
     default void afterModule() {
-        // do nothing
     }
 
+    /**
+     * Called before visiting a {@link Statement}.
+     * @return {@code true} to descend into the statement's sub-elements; {@code false} to skip.
+     */
     default boolean beforeStatement(Statement statement) {
-        return true; // go deeper
+        return true;
     }
 
+    /** Called after all children of a {@link Statement} have been visited. */
     default void afterStatement(Statement statement) {
-        // do nothing
     }
 
+    /**
+     * Called when entering the {@code n}-th sub-block (e.g. the then-branch or else-branch of
+     * an {@code if}) to allow the visitor to track block nesting.
+     */
     default void startSubBlock(int n) {
-        // do nothing
     }
 
+    /** Called when leaving the {@code n}-th sub-block. */
     default void endSubBlock(int n) {
-        // do nothing
     }
 
+    /**
+     * Called before visiting an {@link Expression}.
+     * @return {@code true} to descend into the expression's sub-expressions; {@code false} to skip.
+     */
     default boolean beforeExpression(Expression expression) {
-        return true; // go deeper
+        return true;
     }
 
+    /** Called after all children of an {@link Expression} have been visited. */
     default void afterExpression(Expression expression) {
-        // do nothing
     }
 
+    /**
+     * Called before visiting a {@link Variable} (including variables inside scope chains).
+     * @return {@code true} to descend further into the variable's scope; {@code false} to stop.
+     */
     default boolean beforeVariable(Variable variable) {
         return true;
     }
 
+    /** Called after a {@link Variable} and its scope have been visited. */
     default void afterVariable(Variable variable) {
-        // do nothing
     }
 
+    /**
+     * Called before visiting a {@link JavaDoc} comment.
+     * @return {@code true} to descend into the Javadoc's tags; {@code false} to skip.
+     */
     default boolean beforeJavaDoc(JavaDoc javaDoc) {
         return true;
     }
 
+    /** Called after a {@link JavaDoc} comment has been visited. */
     default void afterJavaDoc(JavaDoc javaDoc) {
-        // do nothing
     }
 
+    /**
+     * Catch-all hook called before visiting any {@link Element} not covered by the more
+     * specific hooks above.
+     * @return {@code true} to descend into the element's children; {@code false} to skip.
+     */
     default boolean beforeElement(Element element) {
         return true;
     }
 
+    /** Catch-all hook called after any {@link Element} not covered by the more specific hooks above. */
     default void afterElement(Element element) {
     }
 }
