@@ -16,9 +16,22 @@ package org.e2immu.language.cst.api.variable;
 
 import org.e2immu.language.cst.api.expression.Expression;
 
+/**
+ * A variable representing an array-element access such as {@code a[i]}.
+ * <p>
+ * The variable is modelled as a pair of an array variable and an index expression.
+ * Nested accesses (e.g. {@code a[i][j]}) are represented as a {@code DependentVariable}
+ * whose {@link #arrayVariable()} is itself a {@code DependentVariable}.
+ */
 public interface DependentVariable extends Variable {
+
+    /** Returns the variable that holds the array being indexed. */
     Variable arrayVariable();
 
+    /**
+     * Returns the outermost non-{@code DependentVariable} in nested array accesses —
+     * the variable that actually holds the array object.
+     */
     default Variable arrayVariableBase() {
         Variable av = arrayVariable();
         while (av instanceof DependentVariable dv) {
@@ -27,10 +40,16 @@ public interface DependentVariable extends Variable {
         return av;
     }
 
+    /**
+     * Returns the variable used as the index, or {@code null} if the index is a constant
+     * expression that is not backed by a variable.
+     */
     Variable indexVariable();
 
+    /** Returns the expression that evaluates to the array being indexed. */
     Expression arrayExpression();
 
+    /** Returns the expression that evaluates to the index. */
     Expression indexExpression();
 
     @Override

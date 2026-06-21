@@ -16,10 +16,30 @@ package org.e2immu.language.cst.api.variable;
 
 import org.e2immu.language.cst.api.info.TypeInfo;
 
+/**
+ * The pseudo-variable representing the {@code this} or {@code super} reference.
+ * <p>
+ * Every non-static method implicitly has a {@code This} variable bound to the enclosing type.
+ * Inner classes can carry a qualified {@code this} (e.g. {@code Outer.this}), which is
+ * expressed by setting {@link #explicitlyWriteType()} to the outer type.
+ * When the reference is {@code super} rather than {@code this}, {@link #writeSuper()} returns
+ * {@code true}.
+ */
 public interface This extends Variable {
+
+    /** Returns the type this pseudo-variable refers to. */
     TypeInfo typeInfo();
 
+    /**
+     * Returns the type that should be written explicitly in front of {@code .this} for a
+     * qualified reference (e.g. {@code Outer} in {@code Outer.this}),
+     * or {@code null} when no explicit qualification is needed.
+     */
     TypeInfo explicitlyWriteType();
 
+    /**
+     * Returns {@code true} if this pseudo-variable should be printed as {@code super}
+     * rather than {@code this}.
+     */
     boolean writeSuper();
 }

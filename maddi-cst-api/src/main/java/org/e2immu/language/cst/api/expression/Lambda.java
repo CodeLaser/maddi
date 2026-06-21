@@ -59,7 +59,7 @@ public interface Lambda extends Expression {
     }
 
     /**
-     * @return the functional interface as instantiated here, e.g. {@code Function<A,B>}.
+     * @return the functional interface as instantiated here, e.g. {@code Function<String,Integer>}.
      */
     default ParameterizedType concreteFunctionalType() {
         return methodInfo().typeInfo().interfacesImplemented().get(0);

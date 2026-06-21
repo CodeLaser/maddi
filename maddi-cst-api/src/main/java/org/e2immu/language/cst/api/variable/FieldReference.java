@@ -17,28 +17,44 @@ package org.e2immu.language.cst.api.variable;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.FieldInfo;
 
+/**
+ * A variable representing a field access of the form {@code scope.fieldName} or a bare
+ * {@code fieldName} that implicitly refers to {@code this.fieldName} or {@code SomeType.fieldName}.
+ * <p>
+ * The scope may be any expression — a variable reference, a method call, or even another
+ * {@code FieldReference} — which allows chains such as {@code a.b.c} to be represented as
+ * nested {@code FieldReference} instances.
+ */
 public interface FieldReference extends Variable {
+
+    /** Returns the {@link FieldInfo} metadata for the field being accessed. */
     FieldInfo fieldInfo();
 
     /**
-     * when null, the scope is implicitly an instance of "this"
-     *
-     * @return the scope of the field, as in "scope.field" or "someMethod().field"
+     * Returns the scope expression qualifying this field access (the left-hand side of the dot),
+     * or {@code null} when the scope is implicitly the current instance ({@code this}).
      */
     Expression scope();
 
     /**
-     * @return not-null when the <code>scope()</code> expression is a variable
+     * Returns the scope as a {@link Variable} when {@link #scope()} is a
+     * {@link org.e2immu.language.cst.api.expression.VariableExpression}, or {@code null} otherwise.
      */
     Variable scopeVariable();
 
+    /**
+     * Returns {@code true} if the scope resolves transitively to {@code this} —
+     * including chains like {@code this.someField.anotherField}.
+     */
     boolean scopeIsRecursivelyThis();
 
     /**
-     * True when the source code does not contain a scope; the field is referenced directly without '.'
+     * Returns {@code true} when no explicit {@code .} qualifier appears in the source;
+     * the field is written as a bare name.
      */
     boolean isDefaultScope();
 
+    /** Returns {@code true} if the immediate scope is the {@code this} pseudo-variable. */
     boolean scopeIsThis();
 
     @Override

@@ -33,7 +33,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
- * Represents an element in the Abstract Syntax Tree.
+ * Represents an element in the Common Syntax Tree.
  * Each element has a
  * <ol>
  *     <li>Source: non-essential client-facing information about where in the source this element sits, meant

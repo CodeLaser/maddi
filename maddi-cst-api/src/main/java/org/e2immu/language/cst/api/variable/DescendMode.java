@@ -14,7 +14,17 @@
 
 package org.e2immu.language.cst.api.variable;
 
+/**
+ * Controls whether variable traversal should recurse into the scope of a variable.
+ * <p>
+ * Used when collecting the set of variables referenced by an expression: {@link #isYes()}
+ * means collect variables transitively from scopes (e.g. the scope of a {@link FieldReference}),
+ * while {@link #isNo()} means collect only the top-level variable without descending.
+ */
 public interface DescendMode {
-    boolean isYes(); // all variables, recursively
-    boolean isNo(); // all variables, no recursive descend
+    /** Returns {@code true} if traversal should recurse into variable scopes. */
+    boolean isYes();
+
+    /** Returns {@code true} if traversal should stop at the top-level variable. */
+    boolean isNo();
 }
