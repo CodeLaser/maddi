@@ -16,33 +16,77 @@ package org.e2immu.language.cst.api.info;
 
 import java.util.Set;
 
-/*
-is used for rewiring, objects change but their fqn stays
-for methods and parameters, we're having to add the object before its FQN has been fully computed
+/**
+ * Bidirectional registry used during the <em>rewiring</em> protocol, which deep-copies a set
+ * of {@link TypeInfo} objects while remapping all internal cross-references to their copies.
+ * <p>
+ * Rewiring is driven by {@link TypeInfo#rewirePhase0} through {@link TypeInfo#rewirePhase3}
+ * (see those methods for the phase breakdown). An {@code InfoMap} is populated incrementally:
+ * each phase registers the newly created shells or rewired members before the next phase
+ * starts looking them up.
+ * <p>
+ * Lookup methods throw if the requested object is not registered, except where explicitly
+ * documented as returning {@code null}.
  */
 public interface InfoMap {
-    // can only be done once for each typeInfo object
+
+    /**
+     * Registers a new (rewired) copy of {@code typeInfo} with the same fully qualified name.
+     * May be called at most once per original {@code TypeInfo} object.
+     */
     void put(TypeInfo typeInfo);
 
+    /** Registers a mapping from an original method to its rewired copy. */
     void put(MethodInfo original, MethodInfo rewired);
 
+    /**
+     * Registers a new (rewired) copy of {@code fieldInfo} with the same owner and name.
+     * The rewired copy must already be registered via its owning type before this is called.
+     */
     void put(FieldInfo fieldInfo);
 
+    /** Registers a mapping from an original parameter to its rewired copy. */
     void put(ParameterInfo original, ParameterInfo rewired);
 
+    /**
+     * Drives the full rewiring of all registered types (phases 1–3) and returns the
+     * set of rewired primary types.
+     */
     Set<TypeInfo> rewireAll();
 
-    // do not recurse, error if absent
+    /**
+     * Returns the rewired copy of {@code typeInfo}.
+     * Does not recurse through enclosing types; throws if not registered.
+     */
     TypeInfo typeInfo(TypeInfo typeInfo);
 
-    // only to be used in phase 3, inside expressions
+    /**
+     * Returns the rewired copy of {@code typeInfo}, trying the full enclosing-type chain
+     * if a direct mapping is absent. For use inside phase-3 expression rewiring only.
+     */
     TypeInfo typeInfoRecurseAllPhases(TypeInfo typeInfo);
 
+    /**
+     * Returns the rewired copy of {@code typeInfo}, or {@code null} if not registered.
+     * Used during phase 0 to check whether a type has already been registered.
+     */
     TypeInfo typeInfoNullIfAbsent(TypeInfo typeInfo);
 
+    /**
+     * Returns the rewired copy of {@code methodInfo}.
+     * Throws if not registered.
+     */
     MethodInfo methodInfo(MethodInfo methodInfo);
 
+    /**
+     * Returns the rewired copy of {@code fieldInfo}.
+     * Throws if not registered.
+     */
     FieldInfo fieldInfo(FieldInfo fieldInfo);
 
+    /**
+     * Returns the rewired copy of {@code parameterInfo}.
+     * Throws if not registered.
+     */
     ParameterInfo parameterInfo(ParameterInfo parameterInfo);
 }

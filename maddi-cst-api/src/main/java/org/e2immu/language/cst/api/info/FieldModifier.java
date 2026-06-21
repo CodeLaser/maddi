@@ -14,24 +14,36 @@
 
 package org.e2immu.language.cst.api.info;
 
-import org.e2immu.language.cst.api.output.element.Keyword;
-
+/**
+ * A modifier that can appear on a field declaration:
+ * {@code public}, {@code private}, {@code protected},
+ * {@code static}, {@code final}, {@code volatile}, or {@code transient}.
+ */
 public interface FieldModifier extends Modifier {
+
+    /** Returns {@code true} if this modifier controls visibility ({@code public}, {@code protected}, or {@code private}). */
     default boolean isAccessModifier() {
         return isPublic() || isPrivate() || isProtected();
     }
 
+    /** Returns {@code true} if this is the {@code static} modifier. */
     boolean isStatic();
 
+    /** Returns {@code true} if this is the {@code final} modifier. */
     boolean isFinal();
 
+    /** Returns {@code true} if this is the {@code volatile} modifier. */
     boolean isVolatile();
 
+    /** Returns {@code true} if this is the {@code transient} modifier (excluded from serialisation). */
     boolean isTransient();
 
+    /** Returns {@code true} if this is the {@code public} modifier. */
     boolean isPublic();
 
+    /** Returns {@code true} if this is the {@code private} modifier. */
     boolean isPrivate();
 
+    /** Returns {@code true} if this is the {@code protected} modifier. */
     boolean isProtected();
 }

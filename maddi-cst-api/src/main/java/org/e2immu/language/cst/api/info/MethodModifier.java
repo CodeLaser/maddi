@@ -17,26 +17,40 @@ package org.e2immu.language.cst.api.info;
 import org.e2immu.language.cst.api.output.OutputBuilder;
 import org.e2immu.language.cst.api.output.element.Keyword;
 
+/**
+ * A modifier that can appear on a method or constructor declaration:
+ * {@code public}, {@code private}, {@code protected}, {@code abstract},
+ * {@code default}, {@code synchronized}, {@code final}, or {@code static}.
+ */
 public interface MethodModifier extends Modifier {
 
+    /** Returns {@code true} if this modifier controls visibility ({@code public}, {@code protected}, or {@code private}). */
    default boolean isAccessModifier() {
        return isPublic() || isPrivate() || isProtected();
    }
 
+    /** Returns {@code true} if this is the {@code public} modifier. */
     boolean isPublic();
 
+    /** Returns {@code true} if this is the {@code private} modifier. */
     boolean isPrivate();
 
+    /** Returns {@code true} if this is the {@code protected} modifier. */
     boolean isProtected();
 
+    /** Returns {@code true} if this is the {@code abstract} modifier. */
     boolean isAbstract();
 
+    /** Returns {@code true} if this is the {@code default} modifier (interface default methods). */
     boolean isDefault();
 
+    /** Returns {@code true} if this is the {@code synchronized} modifier. */
     boolean isSynchronized();
 
+    /** Returns {@code true} if this is the {@code final} modifier. */
     boolean isFinal();
 
+    /** Returns {@code true} if this is the {@code static} modifier. */
     boolean isStatic();
 
 }
