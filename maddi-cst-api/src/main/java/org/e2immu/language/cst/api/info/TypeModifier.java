@@ -14,23 +14,37 @@
 
 package org.e2immu.language.cst.api.info;
 
+/**
+ * A modifier that can appear on a type declaration:
+ * {@code public}, {@code private}, {@code protected}, {@code abstract},
+ * {@code final}, {@code static}, {@code sealed}, or {@code non-sealed}.
+ */
 public interface TypeModifier extends Modifier {
+    /** Returns {@code true} if this is the {@code public} modifier. */
     boolean isPublic();
 
+    /** Returns {@code true} if this is the {@code private} modifier. */
     boolean isPrivate();
 
+    /** Returns {@code true} if this is the {@code protected} modifier. */
     boolean isProtected();
 
+    /** Returns {@code true} if this is the {@code abstract} modifier. */
     boolean isAbstract();
 
+    /** Returns {@code true} if this is the {@code final} modifier. */
     boolean isFinal();
 
+    /** Returns {@code true} if this is the {@code static} modifier (nested types only). */
     boolean isStatic();
 
+    /** Returns {@code true} if this is the {@code sealed} modifier. */
     boolean isSealed();
 
+    /** Returns {@code true} if this is the {@code non-sealed} modifier. */
     boolean isNonSealed();
 
+    /** Returns {@code true} if this modifier controls visibility ({@code public}, {@code protected}, or {@code private}). */
     default boolean isAccessModifier() {
         return isPrivate() || isProtected() || isPublic();
     }

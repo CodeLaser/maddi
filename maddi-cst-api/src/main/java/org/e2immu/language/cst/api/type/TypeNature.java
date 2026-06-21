@@ -16,43 +16,62 @@ package org.e2immu.language.cst.api.type;
 
 import org.e2immu.language.cst.api.output.element.Keyword;
 
+/**
+ * Classifies the kind of a type declaration: {@code class}, {@code interface},
+ * {@code enum}, {@code record}, or {@code @interface} (annotation).
+ * <p>
+ * Implementations are typically a closed enum. The default methods all return {@code false}
+ * so that new natures can be added without breaking existing implementations.
+ */
 public interface TypeNature {
+
+    /** Returns {@code true} if this nature is {@code class}. */
     default boolean isClass() {
         return false;
     }
 
+    /** Returns {@code true} if this nature is {@code enum}. */
     default boolean isEnum() {
         return false;
     }
 
+    /** Returns {@code true} if this nature is {@code interface}. */
     default boolean isInterface() {
         return false;
     }
 
+    /** Returns {@code true} if this nature is {@code record}. */
     default boolean isRecord() {
         return false;
     }
 
+    /**
+     * Returns {@code true} if types of this nature are implicitly static (i.e. not inner classes).
+     * True for all natures except non-static nested {@code class}.
+     */
     default boolean isStatic() {
         return false;
-    } // is true for all but inner classes in Java
+    }
 
+    /** Returns {@code true} if this nature is {@code @interface} (annotation type). */
     default boolean isAnnotation() {
         return false;
     }
 
-    /*
-    A stub type is created during parsing, because both source and byte code are missing.
-    The type's inspection data gets filled up as well as possible, so that we don't have to stop
-    parsing.
+    /**
+     * Returns {@code true} if this type is a stub — created during parsing because both
+     * source and bytecode are unavailable. Inspection data is filled in as far as possible
+     * so that parsing can continue without stopping.
      */
     default boolean isStub() {
         return false;
     }
 
+    /** Returns {@code true} if this type represents a {@code package-info.java} compilation unit. */
     default boolean isPackageInfo() {
         return false;
     }
 
+    /** Returns the {@link Keyword} token used to print the type-nature keyword in source form. */
     Keyword keyword();
 }

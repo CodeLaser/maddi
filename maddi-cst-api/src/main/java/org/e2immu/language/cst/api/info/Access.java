@@ -14,31 +14,49 @@
 
 package org.e2immu.language.cst.api.info;
 
+/**
+ * Represents the effective visibility of an {@link Info} element.
+ * <p>
+ * Levels are ordered from most to least restrictive: for Java,
+ * {@code private == 0}, {@code package == 1}, {@code protected == 2}, {@code public == 3}.
+ * Comparisons should use {@link #level()} or the convenience methods {@link #ge} / {@link #le}.
+ */
 public interface Access {
 
-    /*
-    returns values starting from 0, with 0 being the most restrictive.
-    In the case of Java, this is private==0, package==1, protected==2, public==3
+    /**
+     * Returns a numeric accessibility level, with {@code 0} being the most restrictive.
+     * For Java: {@code private=0}, {@code package=1}, {@code protected=2}, {@code public=3}.
      */
     int level();
 
+    /**
+     * Returns the most restrictive of {@code this} and {@code other}.
+     * Used to propagate the access of an enclosing type onto its members.
+     */
     Access combine(Access other);
 
+    /** Returns the least restrictive (most accessible) of {@code this} and {@code other}. */
     Access max(Access other);
 
+    /** Returns {@code true} if this access level is at least as permissive as {@code other}. */
     default boolean ge(Access other) {
         return level() >= other.level();
     }
 
+    /** Returns {@code true} if this access level is at most as permissive as {@code other}. */
     default boolean le(Access other) {
         return level() <= other.level();
     }
 
+    /** Returns {@code true} if this element has {@code public} visibility. */
     boolean isPublic();
 
+    /** Returns {@code true} if this element has {@code private} visibility. */
     boolean isPrivate();
 
+    /** Returns {@code true} if this element has {@code protected} visibility. */
     boolean isProtected();
 
+    /** Returns {@code true} if this element has package-private (default) visibility. */
     boolean isPackage();
 }
