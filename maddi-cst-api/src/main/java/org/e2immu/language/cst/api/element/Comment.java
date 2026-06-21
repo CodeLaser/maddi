@@ -17,8 +17,20 @@ package org.e2immu.language.cst.api.element;
 import org.e2immu.language.cst.api.info.InfoMap;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 
+/**
+ * Base interface for source comments that are attached to CST elements and preserved during
+ * parsing and printing.
+ * <p>
+ * Concrete sub-types are {@link SingleLineComment} ({@code // …}) and
+ * {@link MultiLineComment} ({@code /* … *}{@code /}), with {@link JavaDoc} ({@code /** … *}{@code /})
+ * extending {@code MultiLineComment}.
+ * <p>
+ * Non-JavaDoc comments carry no type or variable references, so {@link #rewire} and {@link #translate}
+ * always return {@code this}.
+ */
 public interface Comment extends Element {
 
+    /** Returns the raw text of the comment as it appears in source. */
     String comment();
 
     default Comment rewire(InfoMap infoMap) {

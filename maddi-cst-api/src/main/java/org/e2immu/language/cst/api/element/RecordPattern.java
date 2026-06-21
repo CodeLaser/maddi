@@ -20,23 +20,49 @@ import org.e2immu.language.cst.api.variable.LocalVariable;
 
 import java.util.List;
 
+/**
+ * Represents a pattern used in an {@code instanceof} type test or a {@code switch} entry.
+ * <p>
+ * Three mutually exclusive forms exist:
+ * <ol>
+ *   <li><b>Unnamed pattern</b> ({@code _} with no type) — {@link #unnamedPattern()} is {@code true},
+ *       all other fields are null / empty.</li>
+ *   <li><b>Type pattern</b> (e.g. {@code Circle c} or {@code Circle _}) — {@link #localVariable()} is
+ *       set; {@link #recordType()} and {@link #patterns()} are null / empty.</li>
+ *   <li><b>Record deconstruction pattern</b> (e.g. {@code Box<String>(Point p, Color c)}) —
+ *       {@link #recordType()} and {@link #patterns()} are set; {@link #localVariable()} is null.</li>
+ * </ol>
+ */
 public interface RecordPattern extends Element {
-    // situation 1
 
-    boolean unnamedPattern(); // "_" without a type specification
+    /** Returns {@code true} for the bare unnamed wildcard pattern {@code _} (no type annotation). */
+    boolean unnamedPattern();
 
-    // situation 2
+    /**
+     * Returns the local variable bound by a type pattern (e.g. {@code Circle c} or {@code Circle _}),
+     * or {@code null} for unnamed and record-deconstruction patterns.
+     */
+    LocalVariable localVariable();
 
-    LocalVariable localVariable(); // "Circle c" or "Circle _", "var _", but not "_"
+    /**
+     * Returns the record type being deconstructed in a record-deconstruction pattern
+     * (e.g. {@code Box<String>} in {@code Box<String>(…)}), or {@code null} otherwise.
+     */
+    ParameterizedType recordType();
 
-    // situation 3
-
-    ParameterizedType recordType(); // Box<String>(...)
-
+    /**
+     * Returns the nested component patterns for a record-deconstruction pattern,
+     * or an empty list for type and unnamed patterns.
+     */
     List<RecordPattern> patterns();
 
+    /**
+     * Returns the type being matched by this pattern — the declared type for a type pattern,
+     * or the record type for a deconstruction pattern.
+     */
     ParameterizedType parameterizedType();
 
+    /** Returns a translated copy of this pattern as described by {@code translationMap}. */
     RecordPattern translate(TranslationMap translationMap);
 
     interface Builder extends Element.Builder<Builder> {

@@ -15,14 +15,16 @@
 package org.e2immu.language.cst.api.element;
 
 /**
- * Represents any object that can be serialized using the cst-io system that can be used to determine
- * whether a source or set of sources has changed.
- * Typical implementation is an MD-5 hash.
+ * An opaque hash computed from a source file or an entire {@link SourceSet}, used to detect
+ * whether the source has changed between analysis runs. A typical implementation uses an MD5
+ * digest of the file contents.
  * <p>
- * Only relevant methods are <code>Object.equals()</code> and <code>Object.toString()</code>.
+ * Only {@link Object#equals} and {@link Object#toString} are meaningful for comparing
+ * or logging fingerprints.
  */
 public interface FingerPrint {
 
+    /** Returns {@code true} for the sentinel value that represents the absence of a fingerprint. */
     boolean isNoFingerPrint();
 
 }
