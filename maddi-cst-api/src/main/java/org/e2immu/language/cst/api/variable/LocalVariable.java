@@ -18,29 +18,49 @@ import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.translate.TranslationMap;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 
-/*
-value held by the local variable at the time of creation.
-can be null (not known, not relevant)
+/**
+ * A variable declared inside a method body, initialiser block, for-loop, catch clause,
+ * or similar local scope.
+ * <p>
+ * This interface covers named locals, pattern variables (from {@code instanceof} or
+ * {@code switch}), and Java 22 unnamed variables ({@code _}).  Parameters are
+ * represented by {@link org.e2immu.language.cst.api.info.ParameterInfo} rather than by
+ * this interface.
+ * <p>
+ * A {@code LocalVariable} may carry the value it was initialised with via
+ * {@link #assignmentExpression()}; this is set during inspection from the
+ * {@link org.e2immu.language.cst.api.statement.LocalVariableCreation} statement and
+ * may be {@code null} when the value is not known or not relevant.
  */
 public interface LocalVariable extends Variable {
 
+    /**
+     * Returns {@code true} if this is a Java 22 unnamed variable ({@code _}),
+     * which may not be read after its declaration.
+     */
     boolean isUnnamed();
 
+    /**
+     * Returns the initialisation expression recorded at creation time, {@code EmptyExpression} when absent,
+     * or {@code null} if not yet resolved.
+     */
     Expression assignmentExpression();
 
+    /** Returns a translated copy of this local variable as described by {@code translationMap}. */
     LocalVariable translate(TranslationMap translationMap);
 
+    /** Returns an immutable copy of this local variable with a different declared type. */
     LocalVariable withType(ParameterizedType type);
 
     /**
      * @param name the new name
-     * @return a new local variable object, with the new name
+     * @return an immutable copy of this local variable with the given name
      */
     LocalVariable withName(String name);
 
     /**
      * @param expression the new assignment expression
-     * @return a new local variable object, with the new assignment expression
+     * @return an immutable copy of this local variable with the given initialisation expression
      */
     LocalVariable withAssignmentExpression(Expression expression);
 }
