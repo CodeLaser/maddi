@@ -19,6 +19,7 @@ import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.support.SetOnce;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -50,7 +51,7 @@ public class SourceSetImpl implements SourceSet {
                           List<SourceSet> dependencies) {
         this.name = Objects.requireNonNull(name);
         this.sourceDirectories = sourceDirectories;
-        this.uri = Objects.requireNonNull(uri);
+        this.uri = Objects.requireNonNull(uri, "Must have a URI in a source set");
         Objects.requireNonNull(uri.getScheme(), "The URI of source set " + name + " must have a non-null scheme");
         this.sourceEncoding = sourceEncoding;
         this.test = test;
@@ -65,6 +66,38 @@ public class SourceSetImpl implements SourceSet {
         assert !runtimeOnly || externalLibrary : "Runtime-only can only be true for external libraries: " + name;
         assert !partOfJdk || externalLibrary : "Parts of the JDK are also external libraries: " + name;
         assert !partOfJdk || isModule : "Parts of the JDK are always modules: " + name;
+    }
+
+    public static SourceSet javaBase() {
+        return new Builder().setName("java.base").setUri(URI.create("file:/"))
+                .setLibrary(true)
+                .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
+    }
+
+    public static SourceSet sourceSetModuleOf(Class<?> clazz, SourceSet... dependencies) throws URISyntaxException {
+        return sourceSetOf(clazz, true, dependencies);
+    }
+
+    public static SourceSet sourceSetOf(Class<?> clazz, SourceSet... dependencies) throws URISyntaxException {
+        return sourceSetOf(clazz, false, dependencies);
+    }
+
+    private static SourceSet sourceSetOf(Class<?> clazz, boolean isModule, SourceSet... dependencies) throws URISyntaxException {
+        URI uri = clazz.getProtectionDomain().getCodeSource().getLocation().toURI();
+        return new Builder().setName(tail(uri)).setUri(uri)
+                .setModule(isModule)
+                .setLibrary(true)
+                .setExternalLibrary(true)
+                .setDependencies(Arrays.stream(dependencies).toList())
+                .build();
+    }
+
+    public static String tail(URI uri) {
+        String toString = uri.toString();
+        int last = toString.lastIndexOf('/');
+        String name = toString.substring(last + 1);
+        assert name.endsWith(".jar");
+        return name;
     }
 
     @Override

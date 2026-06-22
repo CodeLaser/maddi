@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
+import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetOf;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class CommonTest {
@@ -70,7 +70,7 @@ public class CommonTest {
     public ScanCompilationUnits.Result scan(boolean ignoreErrors, Map<String, String> sourcesByClassName) {
         sourceSet = new SourceSetImpl.Builder().setName("source").setUri(URI.create("file:/")).build();
         try {
-            SourceSet javaBase = InputConfigurationSupport.javaBase();
+            SourceSet javaBase = SourceSetImpl.javaBase();
 
             SourceSet javaNetHttp = new SourceSetImpl.Builder().setName("java.net.http").setUri(URI.create("file:/"))
                     .setLibrary(true)

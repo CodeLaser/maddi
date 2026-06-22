@@ -15,7 +15,6 @@
 
 plugins {
     id("java-library-conventions")
-    `java-test-fixtures`
 }
 
 java {
@@ -33,8 +32,6 @@ dependencies {
     implementation(project(":maddi-inspection-resource"))
 
     testImplementation(project(":maddi-cst-impl"))
-
-    testFixturesImplementation(project(":maddi-inspection-resource"))
 
     testImplementation("org.projectlombok:lombok:1.18.46")
     testAnnotationProcessor("org.projectlombok:lombok:1.18.46")

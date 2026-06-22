@@ -330,15 +330,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         Symbol.ModuleSymbol module = findModule(cs);
         if (module != null) {
             if (module.isUnnamed()) {
-                LOGGER.debug("?");
-            } else {
-                SourceSet known = getSourceSet(module.name.toString());
-                if (known == null) {
-                    // FIXME when the source is a module... currently not implemented
-                    return sourceSetOfCurrentTask;
-                }
-                return known;
+                return sourceSetOfCurrentTask;
             }
+            SourceSet known = getSourceSet(module.name.toString());
+            if (known == null) {
+                // FIXME when the source is a module... currently not implemented
+                return sourceSetOfCurrentTask;
+            }
+            return known;
         }
         if ("file".equals(uri.getScheme())) {
             SourceSet dir = sourceSetDirPrefixes.entrySet().stream()
