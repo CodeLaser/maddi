@@ -447,17 +447,20 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         String name = ms.getSimpleName().toString();
         //  assert (ms.flags() & Flags.BRIDGE) == 0 : "Do not want any bridge method " + ms + " in " + typeInfo;
         MethodInfo method;
+        boolean isConstructor;
         if ("<init>".equals(name)) {
             LOGGER.debug("Adding constructor {} to {}", name, typeInfo);
             MethodInfo.MethodType methodType = flagHelper.constructorType(ms.flags());
             method = runtime.newConstructor(typeInfo, methodType);
             typeInfo.builder().addConstructor(method);
+            isConstructor = true;
         } else {
             LOGGER.debug("Adding method {} to {}", name, typeInfo);
             MethodInfo.MethodType methodType = flagHelper.methodType(ms.flags(),
                     typeInfo.isInterface() || typeInfo.isAnnotation());
             method = runtime.newMethod(typeInfo, name, methodType);
             typeInfo.builder().addMethod(method);
+            isConstructor = false;
         }
         // add this early enough to avoid recursion/infinite loop problems with self-referencing type parameters
         put(ms, method);
@@ -492,7 +495,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 parameterInfo.builder().commit();
             }
         }
-        ParameterizedType returnType = convert(ms.getReturnType());
+        ParameterizedType returnType = isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()
+                : convert(ms.getReturnType());
         List<MethodInfo> overrides = computeMethodOverrides
                 .findOverriddenMethods(ms)
                 .stream().map(this::getOrLoadMethod)

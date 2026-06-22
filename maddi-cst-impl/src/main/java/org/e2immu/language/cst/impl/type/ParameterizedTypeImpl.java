@@ -38,7 +38,17 @@ import java.util.stream.Stream;
 
 public class ParameterizedTypeImpl implements ParameterizedType {
     public static final ParameterizedType NULL_CONSTANT = new ParameterizedTypeImpl();
-    public static final ParameterizedType RETURN_TYPE_OF_CONSTRUCTOR = new ParameterizedTypeImpl();
+    public static final ParameterizedType RETURN_TYPE_OF_CONSTRUCTOR = new ParameterizedTypeImpl() {
+        @Override
+        public String toString() {
+            return "<return type of constructor>";
+        }
+
+        @Override
+        public String descriptor() {
+            return "<return type of constructor>";
+        }
+    };
     public static final ParameterizedType NO_TYPE_GIVEN_IN_LAMBDA = new ParameterizedTypeImpl();
     public static final ParameterizedType WILDCARD_PARAMETERIZED_TYPE = new ParameterizedTypeImpl(WildcardEnum.UNBOUND);
     public static final ParameterizedType TYPE_OF_EMPTY_EXPRESSION = new ParameterizedTypeImpl();

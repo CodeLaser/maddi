@@ -560,11 +560,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 }
 
                 // return type
-                if (!isConstructor) {
+                if (isConstructor) {
+                    builder.setReturnType(runtime.parameterizedTypeReturnTypeOfConstructor());
+                } else {
                     List<AnnotationExpression> annots = new ArrayList<>();
                     ParameterizedType returnType = convertTypeWithAnnotations(node.getReturnType(), dsb, annots::add);
-                    builder.setReturnType(returnType)
-                            .addAnnotations(annots);
+                    builder.setReturnType(returnType).addAnnotations(annots);
                 }
 
                 // parameters
