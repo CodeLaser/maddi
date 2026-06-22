@@ -24,6 +24,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
+import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -177,12 +178,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             } catch (Symbol.CompletionFailure completionFailure) {
                 diagnosticCollector.reportMissingClassFile(completionFailure);
             }
-            internal = cs.packge().toString().startsWith("jdk.internal.");
             URI uri;
             CompilationUnit cu;
             if (cs.classfile == null) {
-                cu = runtime.newCompilationUnitStub(cs.packge().toString());
+                LOGGER.warn("Creating stub type for {}", cs);
+                cu = runtime.newCompilationUnitStub(packageName);
+                internal = false;
             } else {
+                internal = cs.packge().toString().startsWith("jdk.internal.");
                 if (internal) {
                     uri = URI.create("jrt:/internal/");
                 } else {
@@ -317,6 +320,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+\\.jar)!/.*");
 
     private SourceSet ensureSourceSet(Symbol.ClassSymbol cs, URI uri) {
+        // NOTE: cs.sourcefile is NOT a reliable "compiled from source in the current task" signal: javac
+        // also populates it from the SourceFile debug attribute of a .class file (a synthetic name-only
+        // SourceFileObject). The authoritative provenance is cs.classfile: a real .class for a binary
+        // type, a .java (or null) for a source type of the current task.
+        boolean fromClassFile = cs.classfile != null && cs.classfile.getKind() == JavaFileObject.Kind.CLASS;
+        if (!fromClassFile) {
+            return sourceSetOfCurrentTask;
+        }
         Matcher m = JAR_FILE.matcher(uri.toString());
         if (m.matches()) {
             String jarName = m.group(2);

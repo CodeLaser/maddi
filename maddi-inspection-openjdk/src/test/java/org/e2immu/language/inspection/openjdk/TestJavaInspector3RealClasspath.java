@@ -1,5 +1,6 @@
 package org.e2immu.language.inspection.openjdk;
 
+import org.e2immu.annotation.ImmutableContainer;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -11,6 +12,7 @@ import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
