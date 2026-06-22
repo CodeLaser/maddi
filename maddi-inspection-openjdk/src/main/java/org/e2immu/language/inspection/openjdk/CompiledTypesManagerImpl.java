@@ -55,4 +55,13 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     public boolean isPackagePart(String string) {
         return packageParts.contains(string);
     }
+
+    // FIXME direct dependencies here!
+    @Override
+    public List<TypeInfo> primaryTypesInPackageEnsureLoaded(String packageName, SourceSet sourceSetOfRequest) {
+        return typesLoaded.values().stream()
+                .filter(ti -> ti.isPrimaryType() && ti.packageName().equals(packageName)
+                              && sourceSetOfRequest.dependencies().contains(ti.compilationUnit().sourceSet()))
+                .toList();
+    }
 }

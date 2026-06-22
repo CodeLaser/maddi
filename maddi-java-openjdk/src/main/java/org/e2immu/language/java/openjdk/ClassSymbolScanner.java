@@ -327,24 +327,19 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             return known;
         }
-        Symbol.ModuleSymbol module = findModule(cs);
-        if (module != null) {
-            if (module.isUnnamed()) {
-                return sourceSetOfCurrentTask;
-            }
-            SourceSet known = getSourceSet(module.name.toString());
-            if (known == null) {
-                // FIXME when the source is a module... currently not implemented
-                return sourceSetOfCurrentTask;
-            }
-            return known;
-        }
         if ("file".equals(uri.getScheme())) {
             SourceSet dir = sourceSetDirPrefixes.entrySet().stream()
                     .filter(e -> uri.getPath().startsWith(e.getKey()))
                     .map(Map.Entry::getValue)
                     .findFirst().orElse(null);
             if (dir != null) return dir;
+        }
+        Symbol.ModuleSymbol module = findModule(cs);
+        if (module != null && !module.isUnnamed()) {
+            SourceSet known = getSourceSet(module.name.toString());
+            if (known != null) {
+                return known;
+            }
         }
         return sourceSetOfCurrentTask;
     }

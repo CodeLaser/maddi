@@ -60,10 +60,14 @@ public record IsAssignableFrom2(Predefined runtime) {
     }
 
     private boolean typeIntersection(ParameterizedType to, ParameterizedType from, Set<Pair> visited) {
-        if (from.wildcard() == WildcardEnum.EXTENDS_INTERSECTION && from.arrays() == 0) {
+        // intersection-ness is defined by ParameterizedType.isIntersectionType(): a bare intersection
+        // (no associated type parameter) qualifies even with a null wildcard, so do not test the
+        // EXTENDS_INTERSECTION wildcard directly here.
+        if (from.isIntersectionType() && from.arrays() == 0) {
+            // a value of type A & B is assignable to S if any component is (A & B <: S)
             return from.parameters().stream().anyMatch(p -> test(to, p, visited));
         }
-        if (to.wildcard() == WildcardEnum.EXTENDS_INTERSECTION && to.arrays() == 0) {
+        if (to.isIntersectionType() && to.arrays() == 0) {
             // 'from' is assignable to an intersection A & B only if it is assignable to every component
             return to.parameters().stream().allMatch(p -> test(p, from, visited));
         }
