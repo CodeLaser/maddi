@@ -54,6 +54,7 @@ public class TestExplicitConstructorInvocation extends CommonTest {
         if (c0.methodBody().statements().getFirst() instanceof ExplicitConstructorInvocation eci) {
             assertFalse(eci.isSuper());
             assertEquals("Map.of()", eci.parameterExpressions().getFirst().toString());
+            assertSame(runtime.parameterizedTypeReturnTypeOfConstructor(), c0.returnType());
         }
         MethodInfo c1 = typeInfo.findConstructor(1);
         assertEquals("13-5:15-5", c1.source().compact2());

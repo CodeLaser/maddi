@@ -53,7 +53,10 @@ public class TestConstructor extends CommonTest {
 
     @Test
     public void test1() {
-        scan("a.b.C", INPUT1);
+       TypeInfo C = scan("a.b.C", INPUT1);
+       MethodInfo sc  = C.findConstructor(0);
+       assertTrue(sc.isSynthetic());
+       assertSame(runtime.parameterizedTypeReturnTypeOfConstructor(), sc.returnType());
     }
 
     @Language("java")
