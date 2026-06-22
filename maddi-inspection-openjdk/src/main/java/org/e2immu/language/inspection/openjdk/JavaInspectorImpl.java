@@ -358,6 +358,14 @@ public class JavaInspectorImpl implements JavaInspector {
             if (!moduleJars.isEmpty()) {
                 fm.setLocation(StandardLocation.MODULE_PATH, moduleJars);
             }
+            // When the compilation is restricted to a subset of packages (see accept()), only the accepted
+            // files are passed as compilation units and scanned into the CST. Put the source roots on the
+            // source path so javac can still resolve references into the excluded source packages by
+            // parsing them on demand. (No effect for the in-memory test protocol, which has no source dirs.)
+            boolean restricting = sourceSet.restrictToPackages() != null && !sourceSet.restrictToPackages().isEmpty();
+            if (restricting && !sources.isEmpty()) {
+                fm.setLocation(StandardLocation.SOURCE_PATH, sources);
+            }
             if (!ignoreModule && hasModuleInfo && moduleJars.isEmpty()) {
                 LOGGER.warn("The source set {} declares a module but no module path was provided.", sourceSet.name());
             }
@@ -392,7 +400,65 @@ public class JavaInspectorImpl implements JavaInspector {
         Iterable<? extends JavaFileObject> compilationUnits = fm.getJavaFileObjects(allSources.toArray(new File[0]));
         return Stream.concat(StreamSupport.stream(compilationUnits.spliterator(), false),
                         inMemory.stream())
+                .filter(jfo -> accept(sourceSet, jfo))
                 .toList();
+    }
+
+    /*
+    Decide, before javac parses anything, whether a source file should be part of the compilation, given
+    this source set's package restriction (SourceSet.restrictToPackages()). Delegates the package-matching
+    semantics to the single source of truth, SourceSet.acceptSource(packageName, typeName).
+
+    Note: code is pretty slow but not expected to be used in large set-ups.
+     */
+    private static boolean accept(SourceSet sourceSet, JavaFileObject jfo) {
+        Set<String> restrict = sourceSet.restrictToPackages();
+        if (restrict == null || restrict.isEmpty()) return true;
+        String fqn = inferFullyQualifiedName(sourceSet, jfo);
+        if (fqn == null) {
+            LOGGER.warn("Cannot infer package of {}; keeping it despite the package restriction", jfo.toUri());
+            return true;
+        }
+        int lastDot = fqn.lastIndexOf('.');
+        String packageName = lastDot < 0 ? "" : fqn.substring(0, lastDot);
+        String typeName = lastDot < 0 ? fqn : fqn.substring(lastDot + 1);
+        return sourceSet.acceptSource(packageName, typeName);
+    }
+
+    /*
+    Infer the primary type's fully qualified name from a source file object, before it is parsed.
+    In-memory sources (test protocol) encode it in their URI as mem:///<sourceSet>/<a/b/C>.java; file
+    sources encode it as the file path below one of the source directories. Returns null when it cannot
+    be determined.
+     */
+    private static String inferFullyQualifiedName(SourceSet sourceSet, JavaFileObject jfo) {
+        URI uri = jfo.toUri();
+        if ("mem".equals(uri.getScheme())) {
+            String path = uri.getPath(); // /<sourceSet>/a/b/C.java
+            String prefix = "/" + sourceSet.name() + "/";
+            if (path == null || !path.startsWith(prefix) || !path.endsWith(".java")) return null;
+            return path.substring(prefix.length(), path.length() - ".java".length()).replace('/', '.');
+        }
+        if (!"file".equals(uri.getScheme())) return null;
+        Path file = Path.of(uri).toAbsolutePath().normalize();
+        if (!file.getFileName().toString().endsWith(".java")) return null;
+        for (Path dir : sourceSet.sourceDirectories()) {
+            Path abs = dir.toAbsolutePath().normalize();
+            if (file.startsWith(abs)) {
+                Path rel = abs.relativize(file);
+                StringBuilder fqn = new StringBuilder();
+                for (int i = 0; i < rel.getNameCount(); i++) {
+                    String segment = rel.getName(i).toString();
+                    if (i == rel.getNameCount() - 1) {
+                        segment = segment.substring(0, segment.length() - ".java".length());
+                    }
+                    if (!fqn.isEmpty()) fqn.append('.');
+                    fqn.append(segment);
+                }
+                return fqn.toString();
+            }
+        }
+        return null;
     }
 
     @Override
