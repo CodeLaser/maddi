@@ -44,7 +44,6 @@ dependencies {
 
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-java-openjdk"))
-    testImplementation(testFixtures(project(":maddi-java-openjdk")))
 }
 
 tasks.withType<Test> {

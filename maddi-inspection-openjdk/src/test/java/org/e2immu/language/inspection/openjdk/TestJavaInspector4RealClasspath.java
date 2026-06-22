@@ -7,7 +7,6 @@ import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.language.java.openjdk.InputConfigurationSupport;
 import org.e2immu.support.SetOnce;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +20,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
+import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,7 +32,7 @@ public class TestJavaInspector4RealClasspath {
     public void test() throws IOException, URISyntaxException {
         javaInspector = new JavaInspectorImpl();
 
-        SourceSet javaBase = InputConfigurationSupport.javaBase();
+        SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
         SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
 

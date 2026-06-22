@@ -11,6 +11,7 @@ import java.util.*;
 public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private final SourceSet javaBase;
     private final Map<String, TypeInfo> typesLoaded = new HashMap<>();
+    private final Set<String> packageParts = new HashSet<>();
 
     public CompiledTypesManagerImpl(SourceSet javaBase) {
         this.javaBase = javaBase;
@@ -29,12 +30,13 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     @Override
     public void addTypeInfo(SourceFile sourceFile, TypeInfo typeInfo) {
         typesLoaded.put(typeInfo.fullyQualifiedName(), typeInfo);
+        packageParts.addAll(Arrays.asList(typeInfo.packageName().split("\\.")));
     }
 
     @Override
     public List<TypeInfo> typesLoaded(Boolean compiled) {
         return typesLoaded.values().stream().filter(ti -> compiled == null
-                                                 || ti.compilationUnit().sourceSet().externalLibrary() == compiled)
+                                                          || ti.compilationUnit().sourceSet().externalLibrary() == compiled)
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
                 .toList();
     }
@@ -47,5 +49,10 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     @Override
     public void preload(String thePackage) {
         // TODO
+    }
+
+    @Override
+    public boolean isPackagePart(String string) {
+        return packageParts.contains(string);
     }
 }

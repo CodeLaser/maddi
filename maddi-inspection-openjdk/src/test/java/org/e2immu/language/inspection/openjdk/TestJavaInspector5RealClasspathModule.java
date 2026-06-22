@@ -8,7 +8,6 @@ import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.language.java.openjdk.InputConfigurationSupport;
 import org.e2immu.support.SetOnce;
 import org.e2immu.util.internal.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
@@ -23,8 +22,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetModuleOf;
-import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
+import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetModuleOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,7 +35,7 @@ public class TestJavaInspector5RealClasspathModule {
     public void test() throws IOException, URISyntaxException {
         javaInspector = new JavaInspectorImpl();
 
-        SourceSet javaBase = InputConfigurationSupport.javaBase();
+        SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet annotations = sourceSetModuleOf(NotNull.class, javaBase);
         SourceSet maddiSupport = sourceSetModuleOf(SetOnce.class, javaBase);
         SourceSet maddiUtil = sourceSetModuleOf(StringUtil.class, javaBase);

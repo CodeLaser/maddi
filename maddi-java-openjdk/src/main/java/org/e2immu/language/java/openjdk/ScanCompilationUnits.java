@@ -29,7 +29,6 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -106,11 +105,12 @@ public class ScanCompilationUnits {
             for (String modulePackage : packagesToPreload) {
                 int sep = modulePackage.indexOf("::");
                 if (sep < 0) {
-                    throw new UnsupportedEncodingException("Format of preload not correct? java.base::java.lang.invoke");
+                   preloads.addAll(preloadClassPath(modulePackage));
+                } else {
+                    String module = modulePackage.substring(0, sep);
+                    String packageName = modulePackage.substring(sep + 2);
+                    preloads.addAll(preloadJdk(module, packageName));
                 }
-                String module = modulePackage.substring(0, sep);
-                String packageName = modulePackage.substring(sep + 2);
-                preloads.addAll(preload(module, packageName));
             }
         } else {
             preloads = List.of();
@@ -278,14 +278,29 @@ public class ScanCompilationUnits {
         return list;
     }
 
-    private List<TypeInfo> preload(String module, String packageName) throws IOException {
-        LOGGER.info("Preloading {}::{}", module, packageName);  JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
-        JavaFileManager.Location javaBase = fm.getLocationForModule(StandardLocation.SYSTEM_MODULES, module);
-        Iterable<JavaFileObject> files = fm.list(javaBase, packageName, Set.of(JavaFileObject.Kind.CLASS), false);
+    // preload a package from a named module on the system module path (the JDK)
+    private List<TypeInfo> preloadJdk(String module, String packageName) throws IOException {
+        JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
+        JavaFileManager.Location locationForModule =
+                Objects.requireNonNull(fm.getLocationForModule(StandardLocation.SYSTEM_MODULES, module),
+                        "Cannot find location for module '" + module + "', package '" + packageName + "'");
+        return preload(locationForModule, packageName);
+    }
+
+    // preload a package from the classpath (including JARs); classpath types live in the unnamed module
+    private List<TypeInfo> preloadClassPath(String packageName) throws IOException {
+        return preload(StandardLocation.CLASS_PATH, packageName);
+    }
+
+    private List<TypeInfo> preload(JavaFileManager.Location location, String packageName) throws IOException {
+        LOGGER.info("Preloading {}::{}", location, packageName);
+        JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
+        Iterable<JavaFileObject> files = fm.list(location, packageName, Set.of(JavaFileObject.Kind.CLASS), false);
         Elements elements = task.getElements();
         List<TypeInfo> list = new LinkedList<>();
         for (JavaFileObject file : files) {
-            String binaryName = fm.inferBinaryName(javaBase, file);
+            String binaryName = fm.inferBinaryName(location, file);
+            if (binaryName == null) continue; // e.g. module-info.class, or a name that cannot be inferred
             TypeElement te = elements.getTypeElement(binaryName);
             if (te instanceof Symbol.ClassSymbol cs) {
                 try {

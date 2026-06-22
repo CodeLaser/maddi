@@ -12,7 +12,6 @@ import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.ToolChain;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
-import org.e2immu.language.java.openjdk.InputConfigurationSupport;
 import org.e2immu.support.SetOnce;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -29,7 +28,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-import static org.e2immu.language.java.openjdk.InputConfigurationSupport.sourceSetOf;
+import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetOf;
 
 
 public abstract class CommonTest {
@@ -59,7 +58,7 @@ public abstract class CommonTest {
     }
 
     protected void openJdkParser() throws URISyntaxException, IOException {
-        SourceSet javaBase = InputConfigurationSupport.javaBase();
+        SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet orgSlf4j = sourceSetOf(org.slf4j.Logger.class, javaBase);
         SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
         SourceSet maddiSupport = sourceSetOf(SetOnce.class, javaBase);
