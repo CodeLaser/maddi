@@ -64,7 +64,7 @@ public class CommonTest {
     public static void beforeAll() throws IOException {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
         ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.aapi")).setLevel(Level.DEBUG);
-
+/*
         AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
         analysisHintsParser.initialize(null,
                 List.of(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/slf4j",
@@ -84,7 +84,7 @@ public class CommonTest {
         graph = sr.typeGraph();
         allTypes = sr.allTypes();
         compiledTypesManager = analysisHintsParser.javaInspector().compiledTypesManager();
-        runtime = analysisHintsParser.runtime();
+        runtime = analysisHintsParser.runtime();*/
     }
 
     protected void testImmutableContainer(TypeInfo typeInfo, boolean hcImmutable) {

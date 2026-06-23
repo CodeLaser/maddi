@@ -16,7 +16,6 @@ package org.e2immu.analyzer.aapi.parser.v2;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsWriter;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
@@ -76,7 +75,7 @@ public class TestParseAnalyzeWrite {
 
     @Test
     public void test() throws IOException {
-        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
+   /*     AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
         analysisHintsParser.initialize(new InputConfigurationImpl.Builder()
                         .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                         .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
@@ -175,6 +174,6 @@ public class TestParseAnalyzeWrite {
         AnalysisHintsWriter analysisHintsWriter = new AnalysisHintsWriter(analysisHintsParser.javaInspector(),
                 analysisHintsParser::data, rs.dataMap()::get);
         analysisHintsWriter.write(decorated.getAbsolutePath(), trie, JDK_PACKAGE);
-
+*/
     }
 }

@@ -26,8 +26,6 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleAbstractTypeResolver;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.runtime.LanguageConfiguration;
 import org.e2immu.language.cst.impl.runtime.LanguageConfigurationImpl;
@@ -57,7 +55,7 @@ public class JsonStreaming {
         SimpleAbstractTypeResolver resolver = new SimpleAbstractTypeResolver();
         resolver.addMapping(SourceSet.class, SourceSetImpl.class);
         resolver.addMapping(InputConfiguration.class, InputConfigurationImpl.class);
-        resolver.addMapping(AnnotatedAPIConfiguration.class, AnnotatedAPIConfigurationImpl.class);
+     //   resolver.addMapping(AnnotatedAPIConfiguration.class, AnnotatedAPIConfigurationImpl.class);
         resolver.addMapping(LanguageConfiguration.class, LanguageConfigurationImpl.class);
 
         module.setAbstractTypes(resolver);

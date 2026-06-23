@@ -29,6 +29,7 @@ import org.e2immu.language.inspection.api.resource.SourceFile;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -141,6 +142,10 @@ public interface JavaInspector {
     List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException;
 
     void preload(String thePackage);
+
+    default void preload(String... packages) {
+        Arrays.stream(packages).forEach(this::preload);
+    }
 
     // main parse method, from sources specified in InputConfiguration
     default Summary parse(ParseOptions parseOptions) {

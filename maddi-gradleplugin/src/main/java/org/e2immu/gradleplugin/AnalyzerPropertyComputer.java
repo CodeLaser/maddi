@@ -15,7 +15,6 @@
 package org.e2immu.gradleplugin;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
 import org.e2immu.analyzer.run.config.GeneralConfiguration;
 import org.e2immu.analyzer.run.config.util.JavaModules;
 import org.e2immu.analyzer.run.config.util.JsonStreaming;
@@ -126,12 +125,12 @@ public record AnalyzerPropertyComputer(
         GeneralConfiguration generalConfiguration = Main.generalConfiguration(generalMap);
         // Annotated API
         Map<String, String> aapiMap = makeAnnotatedAPIMap(extension);
-        AnnotatedAPIConfiguration annotatedAPIConfiguration = Main.annotatedAPIConfiguration(aapiMap);
+      //  AnnotatedAPIConfiguration annotatedAPIConfiguration = Main.annotatedAPIConfiguration(aapiMap);
         // Input
         InputConfiguration inputConfiguration = makeInputConfiguration(project, extension);
 
         return new org.e2immu.analyzer.run.config.Configuration.Builder()
-                .setAnnotatedAPIConfiguration(annotatedAPIConfiguration)
+    //            .setAnnotatedAPIConfiguration(annotatedAPIConfiguration)
                 .setGeneralConfiguration(generalConfiguration)
                 .setLanguageConfiguration(languageConfiguration)
                 .setInputConfiguration(inputConfiguration)

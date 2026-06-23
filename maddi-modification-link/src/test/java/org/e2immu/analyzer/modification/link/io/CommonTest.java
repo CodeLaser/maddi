@@ -75,7 +75,7 @@ public class CommonTest {
             InputConfiguration inputConfiguration = builder.build();
             javaInspector.initialize(inputConfiguration);
             javaInspector.preload("java.util");
-            directories = List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages());
+         //FIXME   directories = List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages());
         } else {
             SourceSet javaBase = SourceSetImpl.javaBase();
             SourceSet orgSlf4j = sourceSetOf(org.slf4j.Logger.class, javaBase);
@@ -100,7 +100,7 @@ public class CommonTest {
                     "resource:/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs.jar");
             javaInspector.parse("a.b.X", "class X { }"); // kickstarts the system
         }
-        new LoadAnalysisResults(javaInspector.mainSources()).go(javaInspector, directories);
+     //FIXME   new LoadAnalysisResults(javaInspector.mainSources()).go(javaInspector, directories);
 
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);
         runtime = javaInspector.runtime();

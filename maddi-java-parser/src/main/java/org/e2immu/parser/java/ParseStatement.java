@@ -584,8 +584,9 @@ public class ParseStatement extends CommonParse {
         }
         if (detailedSourcesBuilder != null) {
             addCommaList(commas, detailedSourcesBuilder, DetailedSources.LOCAL_VARIABLE_COMMAS);
-            detailedSourcesBuilder.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS,
-                    assignmentOperators.stream().map(o -> o == null ? null : source(o)).toList());
+            // FIXME should use SUCCEEDING_EQUALS
+            //detailedSourcesBuilder.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS,
+            //        assignmentOperators.stream().map(o -> o == null ? null : source(o)).toList());
         }
         lvcModifiers.forEach(builder::addModifier);
         return builder

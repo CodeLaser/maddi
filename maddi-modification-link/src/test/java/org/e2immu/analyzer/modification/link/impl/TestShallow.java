@@ -101,7 +101,7 @@ public class TestShallow extends CommonTest {
         analyzer.doPrimaryType(X);
 
         // run the shallow analyzer to detect the annotations
-        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
+        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser(null); // FIXME
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, true);
         shallowAnalyzer.go(List.of(X));
 

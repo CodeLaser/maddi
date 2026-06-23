@@ -44,7 +44,7 @@ public class CommonTest {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(CommonTest.class);
     protected static final String ABX = "a.b.X";
     protected static final JavaInspector.ParseOptions ALLOW_COMPILATION_ERRORS
-            = new org.e2immu.language.inspection.openjdk.JavaInspector.ParseOptions.Builder().build();
+            = new JavaInspector.ParseOptions.Builder().build();
 
     protected JavaInspector javaInspector;
     protected Runtime runtime;
