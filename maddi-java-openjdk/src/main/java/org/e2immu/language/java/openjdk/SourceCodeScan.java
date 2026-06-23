@@ -170,6 +170,13 @@ public final class SourceCodeScan {
                     Node implementsKeyword = il.getFirst();
                     keywords.put(source(implementsKeyword), implementsKeyword.getSource());
                 }
+                case PermitsList pl -> {
+                    Node permitsKeyword = pl.getFirst();
+                    keywords.put(source(permitsKeyword), permitsKeyword.getSource());
+                }
+                case TypeParameters tps -> {
+                    scanTypeParameters(tps);
+                }
                 case ClassOrInterfaceBody _, EnumBody _, AnnotationTypeBody _ -> {
                     for (Node node2 : node.children()) {
                         String string2 = node2.getSource();
@@ -209,8 +216,57 @@ public final class SourceCodeScan {
         // what to do?
     }
 
+    private void scanTypeParameters(Node tps) {
+        for (Node node : tps.children()) {
+            String string = node.getSource();
+            if (node instanceof TypeParameter || node instanceof Identifier) {
+                addComments(node, true);
+                Map<Object, Object> commaMap = new HashMap<>();
+                Node preceding = node.previousSibling();
+                if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                    commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                }
+                Node succeeding = node.nextSibling();
+                if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                    commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                }
+                Source source = source(node);
+                argumentLists.put(source, Map.copyOf(commaMap));
+            }
+        }
+    }
+
+
     private void scanFieldDeclaration(Node fd) {
         addComments(fd, true);
+
+        for (Node node : fd.children()) {
+            String string = node.getSource();
+            if (node instanceof VariableDeclarator vd) {
+                Map<Object, Object> commaMap = new HashMap<>();
+                Node preceding = vd.previousSibling();
+                if (preceding != null && preceding.getType() == Token.TokenType.COMMA) {
+                    commaMap.put(DetailedSources.PRECEDING_COMMA, source(preceding));
+                }
+                Node succeeding = vd.nextSibling();
+                if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
+                    commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
+                }
+                Source source = source(vd);
+                argumentLists.put(source, Map.copyOf(commaMap));
+                for (Node n : vd.children()) {
+                    if (n instanceof Identifier) {
+                        Map<Object, Object> eqMap = new HashMap<>();
+                        Node succeedingEq = n.nextSibling();
+                        if (succeedingEq != null && succeedingEq.getType() == Token.TokenType.ASSIGN) {
+                            eqMap.put(DetailedSources.SUCCEEDING_EQUALS, source(succeedingEq));
+                            Source sourceId = source(n);
+                            argumentLists.put(sourceId, Map.copyOf(eqMap));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void scanMethodDeclaration(Node md) {
@@ -225,6 +281,7 @@ public final class SourceCodeScan {
                     }
                 }
                 case KeyWord _ -> keywords.put(source(node), string);
+                case TypeParameters tps -> scanTypeParameters(tps);
                 case FormalParameters fps -> {
                     for (Node param : fps.children()) {
                         if (param instanceof FormalParameter fp) {
