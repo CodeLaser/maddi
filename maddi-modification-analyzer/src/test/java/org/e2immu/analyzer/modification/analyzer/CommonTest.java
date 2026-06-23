@@ -60,8 +60,8 @@ public abstract class CommonTest {
         InputConfiguration inputConfiguration = builder.build();
         javaInspector.initialize(inputConfiguration);
 
-        new LoadAnalysisResults(javaInspector.mainSources()).go(javaInspector,
-                List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages()));
+        // FIXME
+        new LoadAnalysisResults(javaInspector.runtime(), javaInspector.javaBase()).go(List.of());
 
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);
         runtime = javaInspector.runtime();

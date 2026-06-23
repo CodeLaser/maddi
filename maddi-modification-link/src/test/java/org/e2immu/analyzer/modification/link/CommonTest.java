@@ -95,8 +95,9 @@ public abstract class CommonTest {
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);
         runtime = javaInspector.runtime();
 
-        new LoadAnalysisResults(javaInspector.mainSources()).go(javaInspector,
-                List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages()));
+        new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources()).go(
+                // FIXME the default set in aapi
+              List.of());
 
         prepAnalyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
     }

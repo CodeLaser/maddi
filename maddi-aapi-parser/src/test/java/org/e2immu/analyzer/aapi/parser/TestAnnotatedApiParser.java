@@ -16,16 +16,25 @@ package org.e2immu.analyzer.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import org.e2immu.annotation.Immutable;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
+import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
+import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,24 +47,45 @@ public class TestAnnotatedApiParser {
     }
 
     @Test
-    public void test() throws IOException {
-        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
-        analysisHintsParser.initialize(null,
-                List.of(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/slf4j",
-                        JavaInspectorImpl.E2IMMU_SUPPORT),
-                List.of("src/test/java/org/e2immu/analyzer/aapi/parser"),
-                List.of("example."));
+    public void test() throws IOException, URISyntaxException {
+        SourceSet javaBase = SourceSetImpl.javaBase();
+        SourceSet maddiSupport = SourceSetImpl.sourceSetModuleOf(Immutable.class);
+        JavaInspectorFactory javaInspectorFactory = new JavaInspectorFactory() {
+            @Override
+            public List<SourceSet> dependencies() {
+                return List.of(maddiSupport);
+            }
+
+            @Override
+            public JavaInspector withSources(SourceSet sourceSet) throws IOException {
+                JavaInspector javaInspector = new JavaInspectorImpl();
+                javaInspector.preload("java.base::java.util");
+                InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                        .addSourceSets(sourceSet)
+                        .addClassPathParts(javaBase, maddiSupport)
+                        .build();
+                javaInspector.initialize(inputConfiguration);
+                return javaInspector;
+            }
+        };
+        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser(javaInspectorFactory);
+        JavaInspector javaInspector = analysisHintsParser.go(new AnalysisHints.Builder()
+                .setLibraryName("example")
+                .setAnalysisResultsDir(Path.of("build/"))
+                .setHintsPath(Path.of("src/test/java/org/e2immu/analyzer/aapi/parser"))
+                .setPackagePrefix("org.e2immu.analyzer.aapi.parser.example")
+                .build());
         List<TypeInfo> types = analysisHintsParser.typesParsed();
         assertEquals(2, types.size());
         TypeInfo t1 = types.stream()
                 .filter(ti -> "org.e2immu.analyzer.aapi.parser.example.popular.OrgSlf4J".equals(ti.fullyQualifiedName()))
                 .findFirst().orElseThrow();
         String uri = t1.compilationUnitOrEnclosingType().getLeft().uri().toString();
-        assertTrue(uri.endsWith("example/popular/OrgSlf4J.java"), "Have: "+uri);
+        assertTrue(uri.endsWith("example/popular/OrgSlf4J.java"), "Have: " + uri);
 
         assertEquals(2, analysisHintsParser.getWarnings());
 
-        Runtime runtime = analysisHintsParser.runtime();
+        Runtime runtime = javaInspector.runtime();
         TypeInfo string = runtime.stringTypeInfo();
         TypeInfo charInfo = runtime.charTypeInfo();
         MethodInfo charConstructor = string.constructors().stream()

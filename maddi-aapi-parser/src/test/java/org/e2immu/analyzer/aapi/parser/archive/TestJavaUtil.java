@@ -223,9 +223,7 @@ public class TestJavaUtil extends CommonTest {
         assertTrue(typeInfo.isInterface());
         assertFalse(typeInfo.isAtLeastImmutableHC());
         ParameterizedType collection = typeInfo.interfacesImplemented().getFirst();
-        String expectImplemented = ToolChain.currentJdkMainVersion() < 21
-                ? "Type java.util.Collection<E>"
-                : "Type java.util.SequencedCollection<E>";
+        String expectImplemented = "Type java.util.SequencedCollection<E>";
         assertEquals(expectImplemented, collection.toString());
         assertEquals("E=TP#0 in List", collection.parameters().getFirst().typeParameter().toString());
 
@@ -478,7 +476,7 @@ public class TestJavaUtil extends CommonTest {
     public void testTreeMapFirstEntry() {
         TypeInfo typeInfo = compiledTypesManager().get(TreeMap.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("firstEntry", 0);
-        int expectOverrides = ToolChain.currentJdkMainVersion() < 21 ? 1 : 2;
+        int expectOverrides = 2;
         assertEquals(expectOverrides, methodInfo.overrides().size());
         Set<String> overrideNames = methodInfo.overrides().stream()
                 .map(MethodInfo::fullyQualifiedName).collect(Collectors.toUnmodifiableSet());
@@ -705,9 +703,7 @@ public class TestJavaUtil extends CommonTest {
         assertSame(DEPENDENT, typeInfo.analysis().getOrDefault(INDEPENDENT_TYPE, DEPENDENT));
         assertSame(TRUE, typeInfo.analysis().getOrDefault(CONTAINER_TYPE, FALSE));
 
-        String expect = ToolChain.currentJdkMainVersion() < 21
-                ? "AbstractMap,Cloneable,Map,NavigableMap,Serializable,SortedMap"
-                : "AbstractMap,Cloneable,Map,NavigableMap,SequencedMap,Serializable,SortedMap";
+        String expect = "AbstractMap,Cloneable,Map,NavigableMap,SequencedMap,Serializable,SortedMap";
         assertEquals(expect,
                 typeInfo.superTypesExcludingJavaLangObject().stream()
                         .map(TypeInfo::simpleName).sorted().collect(Collectors.joining(",")));

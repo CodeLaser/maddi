@@ -14,7 +14,7 @@
 
 package org.e2immu.analyzer.modification.link.io;
 
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
+import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
@@ -61,7 +61,7 @@ public class TestWriteAnalysis {
         methodInfo.analysis().set(PropertyImpl.DEFAULTS_ANALYZER, ValueImpl.BoolImpl.TRUE);
         typeInfo.builder().addMethod(methodInfo);
 
-        WriteAnalysis wa = new WriteAnalysis(runtime);
+        WriteAnalysisResults wa = new WriteAnalysisResults(runtime);
         Trie<TypeInfo> trie = new Trie<>();
         trie.add(new String[]{"org", "e2immu"}, typeInfo);
         File dir = new File("build");

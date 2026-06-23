@@ -15,58 +15,62 @@
 package org.e2immu.analyzer.aapi.parser;
 
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
+import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.language.cst.api.analysis.Message;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.analysis.PropertyImpl;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
 import org.e2immu.util.internal.util.Trie;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.nio.file.Files;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /*
 From analysis hints to machine-readable analysis results in json format.
+Process:
+    - AnalysisHintsParser (here)
+    - ShallowAnalyzer (in modification-common)
+    - WriteAnalysisResults (in modification-prepwork)
+    - AnalysisHintsWriter (here, to update the hints file), uses AnalysisHintsComposer
  */
 public class AnalysisHintsCompiler {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(AnalysisHintsCompiler.class);
 
-    public static final String AAPI_DIR =
-            "../maddi-aapi-archive/src/main/java/org/e2immu/analyzer/aapi/archive/v2";
-    public static final String APF_DIR =
-            "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles";
+    private final CompilerVisitor compilerVisitor;
+    private final JavaInspectorFactory javaInspectorFactory;
 
-    private final RunVisitor runVisitor;
-    private final JavaInspector javaInspector;
-
-    public AnalysisHintsCompiler(JavaInspector javaInspector) {
-        this(javaInspector, null);
+    public AnalysisHintsCompiler(JavaInspectorFactory javaInspectorFactory) {
+        this(javaInspectorFactory, null);
     }
 
-    public AnalysisHintsCompiler(JavaInspector javaInspector, RunVisitor runVisitor) {
-        this.runVisitor = runVisitor;
-        this.javaInspector = javaInspector;
+    public AnalysisHintsCompiler(JavaInspectorFactory javaInspectorFactory, CompilerVisitor compilerVisitor) {
+        this.compilerVisitor = compilerVisitor;
+        this.javaInspectorFactory = javaInspectorFactory;
     }
 
     public List<Message> go(AnalysisHints analysisHints) throws IOException {
         LOGGER.info("Compiling analysis hints {}", analysisHints);
-        if (runVisitor != null) runVisitor.setContext(analysisHints);
+        if (compilerVisitor != null) compilerVisitor.setContext(analysisHints);
 
-        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser(javaInspector);
-        analysisHintsParser.initialize(jre.path(),
-                classPath,
-                List.of(AAPI_DIR),
-                List.of(subDirIn));
-        if (runVisitor != null) {
-            runVisitor.afterAnnotatedApiParsing(analysisHintsParser.javaInspector());
+        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser(javaInspectorFactory);
+        JavaInspector javaInspector = analysisHintsParser.go(analysisHints);
+        if (compilerVisitor != null) {
+            compilerVisitor.afterAnnotatedApiParsing(javaInspector);
         }
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(analysisHintsParser.runtime(), analysisHintsParser,
-                true, runVisitor == null ? null : runVisitor.debugVisitor());
+        Runtime runtime = javaInspector.runtime();
+
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, analysisHintsParser,
+                true, compilerVisitor == null ? null : compilerVisitor.debugVisitor());
         ShallowAnalyzer.Result rs = shallowAnalyzer.go(analysisHintsParser.types());
 
         Set<Element> hasAnnotations = analysisHintsParser.infos();
@@ -79,26 +83,24 @@ public class AnalysisHintsCompiler {
         });
 
         Set<TypeInfo> writeOut = new HashSet<>(analysisHintsParser.types());
-        if (runVisitor != null) runVisitor.writeAnalysis(writeOut);
-        WriteAnalysis wa = new WriteAnalysis(analysisHintsParser.runtime(), writeOut::contains);
+        if (compilerVisitor != null) compilerVisitor.writeAnalysis(writeOut);
+        WriteAnalysisResults wa = new WriteAnalysisResults(runtime, writeOut::contains);
         Trie<TypeInfo> trie = new Trie<>();
         for (TypeInfo ti : analysisHintsParser.types()) {
             if (ti.isPrimaryType()) {
                 trie.add(ti.packageName().split("\\."), ti);
             }
         }
-        File dir = new File(APF_DIR);
-        File subDirOutFile = new File(dir, subDirOut);
+        File subDirOutFile = analysisHints.analysisResultsDir().toFile();
         wa.write(subDirOutFile.getAbsolutePath(), trie);
 
-        AnalysisHintsWriter analysisHintsWriter = new AnalysisHintsWriter(analysisHintsParser.javaInspector(),
-                analysisHintsParser::data, i -> rs.dataMap().get(i));
-        File decorated = new File("build/decorated");
-        File subDirDeco = new File(decorated, subDirOut);
-        if (subDirDeco.mkdirs()) {
-            LOGGER.info("Created directory {}", subDirDeco);
+        if (analysisHints.updatedHintsPath() != null) {
+            AnalysisHintsWriter analysisHintsWriter = new AnalysisHintsWriter(javaInspector,
+                    analysisHintsParser::data, i -> rs.dataMap().get(i));
+            Files.createDirectories(analysisHints.updatedHintsPath());
+            analysisHintsWriter.write(analysisHints.updatedHintsPath().toAbsolutePath().toString(),
+                    trie, "org.e2immu");
         }
-        analysisHintsWriter.write(subDirDeco.getAbsolutePath(), trie, "org.e2immu");
         return rs.messages();
     }
 }

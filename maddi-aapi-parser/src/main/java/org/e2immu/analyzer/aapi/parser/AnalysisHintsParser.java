@@ -48,18 +48,16 @@ public class AnalysisHintsParser implements AnnotationProvider {
 
     private final List<TypeInfo> typesParsed = new ArrayList<>();
     private final Map<Element, Data> infoMap = new LinkedHashMap<>();
-    private final List<String> analysisResultDirectories;
     private final JavaInspectorFactory javaInspectorFactory;
     private int warnings;
     private int annotatedTypes;
     private int annotations;
 
-    public AnalysisHintsParser(JavaInspectorFactory javaInspectorFactory, List<String> analysisResultDirectories) {
+    public AnalysisHintsParser(JavaInspectorFactory javaInspectorFactory) {
         this.javaInspectorFactory = javaInspectorFactory;
-        this.analysisResultDirectories = analysisResultDirectories;
     }
 
-    public void go(AnalysisHints analysisHints) throws IOException {
+    public JavaInspector go(AnalysisHints analysisHints) throws IOException {
         // construct a java inspector
         SourceSet sourceSet = analysisHints.toSourceSet(javaInspectorFactory.dependencies());
         JavaInspector javaInspector = javaInspectorFactory.withSources(sourceSet);
@@ -68,12 +66,14 @@ public class AnalysisHintsParser implements AnnotationProvider {
         ParseResult parseResult = javaInspector.parse(new JavaInspector.ParseOptions.Builder().build()).parseResult();
 
         // load the analysis results on all (relevant/loaded) library and JDK types
-        new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources()).go(analysisResultDirectories);
+        new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources())
+                .go(analysisHints.preloadAnalysisResultsDirs());
 
         // then process the hint files
         parseResult.primaryTypes().forEach(pt -> process(javaInspector.compiledTypesManager(), pt));
         LOGGER.info("Finished parsing, annotated {} types, counted {} annotations, issued {} warning(s)",
                 annotatedTypes, annotations, warnings);
+        return javaInspector;
     }
 
     private void process(CompiledTypesManager compiledTypesManager, TypeInfo typeInfo) {

@@ -21,7 +21,7 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
+import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -102,11 +102,11 @@ public class TestWriteAnalysis2 extends CommonTest {
         assertEquals(OUTPUT1, s);
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(X.fullyQualifiedName().split("\\."), X);
-        WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
+        WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
         Codec codec = new LinkCodec(javaInspector).codec();
-        writeAnalysis.write(dest, typeTrie, codec);
+        writeAnalysisResults.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());
         assertEquals(JSON1, written);
     }
@@ -193,17 +193,17 @@ public class TestWriteAnalysis2 extends CommonTest {
         assertEquals(OUTPUT2, s);
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(X.fullyQualifiedName().split("\\."), X);
-        WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
+        WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
         Codec codec = new LinkCodec(javaInspector).codec();
-        writeAnalysis.write(dest, typeTrie, codec);
+        writeAnalysisResults.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABX.json").toPath());
         // assertEquals(JSON2, written);
 
         javaInspector.invalidateAllSources();
         TypeInfo X2 = javaInspector.parse(INPUT2);
-        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.mainSources());
+        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources());
         load.go(codec, written);
 
         MethodInfo setAdd2 = X2.findUniqueMethod("setAdd", 1);
@@ -249,17 +249,17 @@ public class TestWriteAnalysis2 extends CommonTest {
 
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(C.fullyQualifiedName().split("\\."), C);
-        WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
+        WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
         Codec codec = new LinkCodec(javaInspector).codec();
-        writeAnalysis.write(dest, typeTrie, codec);
+        writeAnalysisResults.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABC.json").toPath());
         LOGGER.info("Wrote {}", written);
 
         javaInspector.invalidateAllSources();
         TypeInfo CC = javaInspector.parse(INPUT3);
-        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.mainSources());
+        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources());
         load.go(codec, written);
 
         MethodInfo reverseCC = CC.findUniqueMethod("reverse", 0);
@@ -315,18 +315,18 @@ public class TestWriteAnalysis2 extends CommonTest {
 
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(C.fullyQualifiedName().split("\\."), C);
-        WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
+        WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
         Codec codec = new LinkCodec(javaInspector).codec();
-        writeAnalysis.write(dest, typeTrie, codec);
+        writeAnalysisResults.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABC.json").toPath());
 
         LOGGER.info("Encoded: {}", written);
 
         javaInspector.invalidateAllSources();
         TypeInfo CC = javaInspector.parse(INPUT4);
-        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.mainSources());
+        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources());
         load.go(codec, written);
 
 

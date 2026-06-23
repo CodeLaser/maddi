@@ -38,17 +38,17 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class WriteAnalysis {
-    private static final Logger LOGGER = LoggerFactory.getLogger(WriteAnalysis.class);
+public class WriteAnalysisResults {
+    private static final Logger LOGGER = LoggerFactory.getLogger(WriteAnalysisResults.class);
 
     private final Runtime runtime;
     private final Predicate<TypeInfo> typePredicate;
 
-    public WriteAnalysis(Runtime runtime) {
+    public WriteAnalysisResults(Runtime runtime) {
         this(runtime, ti -> true);
     }
 
-    public WriteAnalysis(Runtime runtime, Predicate<TypeInfo> typePredicate) {
+    public WriteAnalysisResults(Runtime runtime, Predicate<TypeInfo> typePredicate) {
         this.runtime = runtime;
         this.typePredicate = typePredicate;
     }
@@ -95,7 +95,7 @@ public class WriteAnalysis {
         if (subDir.mkdirs()) {
             LOGGER.info("Created {}", subDir);
         }
-        String compressedPackages = Arrays.stream(packageParts).map(WriteAnalysis::capitalize)
+        String compressedPackages = Arrays.stream(packageParts).map(WriteAnalysisResults::capitalize)
                 .collect(Collectors.joining());
         File outputFile = new File(subDir, compressedPackages + ".json");
         LOGGER.info("Writing {} type(s) to {}", list.size(), outputFile.getAbsolutePath());

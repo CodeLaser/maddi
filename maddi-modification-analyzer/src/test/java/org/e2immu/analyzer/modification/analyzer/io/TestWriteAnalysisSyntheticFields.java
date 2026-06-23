@@ -18,7 +18,7 @@ import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.io.LinkCodec;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
+import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
 import org.e2immu.language.cst.api.analysis.Codec;
@@ -40,7 +40,6 @@ import java.util.List;
 
 import static org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl.METHOD_LINKS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestWriteAnalysisSyntheticFields extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestWriteAnalysisSyntheticFields.class);
@@ -93,11 +92,11 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
 
         Trie<TypeInfo> typeTrie = new Trie<>();
         typeTrie.add(Try.fullyQualifiedName().split("\\."), Try);
-        WriteAnalysis writeAnalysis = new WriteAnalysis(runtime);
+        WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(runtime);
         File dest = new File("build/json");
         if (dest.mkdirs()) LOGGER.info("Created {}", dest);
         Codec codec = new LinkCodec(javaInspector).codec();
-        writeAnalysis.write(dest, typeTrie, codec);
+        writeAnalysisResults.write(dest, typeTrie, codec);
         String written = Files.readString(new File(dest, "ABTry.json").toPath());
 
         LOGGER.info("Encoded: {}", written);
@@ -105,7 +104,7 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
         javaInspector.invalidateAllSources();
         TypeInfo Try1 = javaInspector.parse(INPUT1);
         TypeInfo TryDataImpl1 = Try1.findSubType("TryDataImpl");
-        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.mainSources());
+        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources());
         load.go(codec, written);
 
         MethodInfo exception1 = TryDataImpl1.findUniqueMethod("exception", 0);

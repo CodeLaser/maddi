@@ -15,7 +15,6 @@
 package org.e2immu.analyzer.run.main;
 
 import ch.qos.logback.classic.Level;
-import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
 import org.e2immu.analyzer.aapi.parser.AnalysisHintsComposer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
@@ -25,7 +24,7 @@ import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
-import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
+import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysisResults;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.Info;
@@ -66,7 +65,7 @@ public class RunAnalyzer implements Runnable {
     @Override
     public void run() {
         try {
-            AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
+          /*  AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
             if (ac.annotatedApiTargetDir() != null) {
                 runComposer();
                 return;
@@ -74,7 +73,7 @@ public class RunAnalyzer implements Runnable {
             if (ac.analyzedAnnotatedApiTargetDir() != null) {
                 runShallowAnalyzer();
                 return;
-            }
+            }*/
             runAnalyzer();
         } catch (Summary.FailFastException ffe) {
             Throwable cause = ffe.getCause();
@@ -98,7 +97,7 @@ public class RunAnalyzer implements Runnable {
         JavaInspector javaInspector = new JavaInspectorImpl(true, true);
         InputConfiguration inputConfiguration = configuration.inputConfiguration();
         javaInspector.initialize(inputConfiguration);
-        AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
+      //  AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
 
         List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
         boolean modification = analysisSteps.contains(Main.AS_MODIFICATION);
@@ -108,7 +107,7 @@ public class RunAnalyzer implements Runnable {
                 sourceSetOfRequest = inputConfiguration.sourceSets().stream().findAny().orElse(null);
                 LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
             }
-            new LoadAnalysisResults(sourceSetOfRequest).go(javaInspector, ac.analyzedAnnotatedApiDirs());
+     //FIXME       new LoadAnalysisResults(sourceSetOfRequest).go(javaInspector, ac.analyzedAnnotatedApiDirs());
         } else {
             LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
         }
@@ -185,8 +184,8 @@ public class RunAnalyzer implements Runnable {
                 Trie<TypeInfo> trie = new Trie<>();
                 LOGGER.info("Writing results for {} types to {}", summary.types().size(), targetDir);
                 summary.types().forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
-                WriteAnalysis writeAnalysis = new WriteAnalysis(javaInspector.runtime());
-                writeAnalysis.write(targetDir, trie);
+                WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(javaInspector.runtime());
+                writeAnalysisResults.write(targetDir, trie);
             } else {
                 LOGGER.warn("Not writing out results, " + Main.ANALYSIS_RESULTS_DIR + " is empty");
             }
@@ -203,7 +202,7 @@ public class RunAnalyzer implements Runnable {
         LOGGER.info("Heap Memory Usage: {} MB initial, {} MB used, {} MB committed, {} MB max",
                 heapUsage.getInit() / MB, heapUsage.getUsed() / MB, heapUsage.getCommitted() / MB, heapUsage.getMax() / MB);
     }
-
+/*
     private void runShallowAnalyzer() throws IOException {
         AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
         AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
@@ -216,8 +215,8 @@ public class RunAnalyzer implements Runnable {
         ShallowAnalyzer.Result rs = shallowAnalyzer.go(analysisHintsParser.typesParsed());
         LOGGER.info("Shallow analyzer found {} types", rs.allTypes().size());
         analysisHintsParser.types().forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
-        WriteAnalysis writeAnalysis = new WriteAnalysis(analysisHintsParser.runtime());
-        writeAnalysis.write(ac.analyzedAnnotatedApiTargetDir(), trie);
+        WriteAnalysisResults writeAnalysisResults = new WriteAnalysisResults(analysisHintsParser.runtime());
+        writeAnalysisResults.write(ac.analyzedAnnotatedApiTargetDir(), trie);
 
         LOGGER.info("End of e2immu main, AAPI->AAAPI shallow analyzer.");
     }
@@ -253,7 +252,7 @@ public class RunAnalyzer implements Runnable {
 
         LOGGER.info("End of e2immu main, AAPI skeleton generation mode.");
     }
-
+*/
     record PackageFilter(List<String> acceptedPackages) implements Predicate<Info> {
 
         @Override
