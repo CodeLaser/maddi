@@ -295,14 +295,19 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             ParameterizedType explicitParentClass = convertType.convertTree(jcClassDecl.extending, dsb);
             parentClass = explicitParentClass.isVoid() ? runtime.objectParameterizedType()
                     : explicitParentClass;
+            if (scanResult != null && jcClassDecl.extending != null) {
+                Source source = scanResult.find("extends", sourceForNode(jcClassDecl.extending));
+                dsb.put(DetailedSources.EXTENDS, source);
+            }
         }
         assert parentClass != null;
         builder.setParentClass(parentClass);
         if (!jcClassDecl.implementing.isEmpty()) {
             if (scanResult != null) {
-                String keyword = typeInfo.isInterface() ? "extends" : "implements";
+                boolean isExtends = typeInfo.isInterface();
+                String keyword = isExtends ? "extends" : "implements";
                 Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
-                dsb.put(DetailedSources.IMPLEMENTS, source);
+                dsb.put(isExtends ? DetailedSources.EXTENDS : DetailedSources.IMPLEMENTS, source);
             }
             for (JCTree.JCExpression i : jcClassDecl.implementing) {
                 builder.addInterfaceImplemented(convertType.convertTree(i, dsb));
@@ -316,6 +321,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             TypeInfo permitted = convertType.convert(permits.type).typeInfo();
             builder.addPermittedType(permitted);
             dsb.put(permitted, sourceForNode(permits));
+        }
+        if (scanResult != null && !jcClassDecl.permitting.isEmpty()) {
+            Source source = scanResult.find("permits", sourceForNode(jcClassDecl.permitting.getFirst()));
+            dsb.put(DetailedSources.PERMITS, source);
         }
 
         // record components: fields and accessors
@@ -653,6 +662,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder.setJavaDoc(javaDoc);
             }
 
+            if (scanResult != null) {
+                // position of the closing ')' of the formal-parameter list, keyed by the method source
+                dsb.putIfNotNull(DetailedSources.END_OF_PARAMETER_LIST,
+                        scanResult.findEndOfParameterList(scanSource(node)));
+            }
             Source source = sourceForNode(node, dsb);
             builder.addOverrides(overrides)
                     .setSource(source)

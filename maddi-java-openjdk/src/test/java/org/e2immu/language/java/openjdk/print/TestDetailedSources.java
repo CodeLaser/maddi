@@ -52,4 +52,29 @@ public class TestDetailedSources extends CommonTest {
                 r.imports().stream().map(ImportComputer.ImportDetails::importString)
                         .collect(Collectors.joining(", ")));
     }
+
+    @Language("java")
+    public static final String INPUT_END_OF_PARAMETER_LIST = """
+            package a.b;
+            class X {
+                int method(String s, int k) {
+                    return k;
+                }
+                X(int a) {
+                }
+            }
+            """;
+
+    @Test
+    public void testEndOfParameterList() {
+        TypeInfo X = scan("a.b.X", INPUT_END_OF_PARAMETER_LIST);
+
+        MethodInfo method = X.findUniqueMethod("method", 2);
+        DetailedSources ds = method.source().detailedSources();
+        assertEquals("3-31:3-31", ds.detail(DetailedSources.END_OF_PARAMETER_LIST).compact2());
+
+        MethodInfo constructor = X.constructors().getFirst();
+        DetailedSources dsc = constructor.source().detailedSources();
+        assertEquals("6-12:6-12", dsc.detail(DetailedSources.END_OF_PARAMETER_LIST).compact2());
+    }
 }

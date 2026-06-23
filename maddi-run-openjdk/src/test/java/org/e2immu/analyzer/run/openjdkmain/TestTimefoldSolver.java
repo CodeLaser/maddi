@@ -21,9 +21,15 @@ public class TestTimefoldSolver {
     public void test() throws IOException {
         Main.main(new String[]{
                 "--input-configuration=./src/test/resources/inputConfiguration/timefold-solver.json"
-                //,"--parallel"
                 , "--analysis-steps=prep"
-                //,"--debug=memory",
+        });
+    }
+
+    @Test
+    public void test2() throws IOException {
+        Main.main(new String[]{
+                "--input-configuration=./src/test/resources/inputConfiguration/timefold-solver2.json"
+                , "--analysis-steps=prep"
         });
     }
 }

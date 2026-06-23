@@ -14,6 +14,7 @@
 
 package org.e2immu.language.java.openjdk.other;
 
+import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -46,6 +47,8 @@ public class TestSealed extends CommonTest {
         assertTrue(typeInfo.typeNature().isClass());
         assertTrue(typeInfo.isSealed());
         assertEquals("[a.b.Sealed_0.Sub1, a.b.Sealed_0.Sub2]", typeInfo.permittedWhenSealed().toString());
+        DetailedSources ds = typeInfo.source().detailedSources();
+        assertEquals("3-30:3-36", ds.detail(DetailedSources.PERMITS).compact2());
 
         TypeInfo sub1 = typeInfo.findSubType("Sub1");
         assertEquals("Type a.b.Sealed_0", sub1.parentClass().toString());
