@@ -17,7 +17,11 @@ package org.e2immu.analyzer.modification.prepwork.callgraph;
 import org.e2immu.analyzer.modification.prepwork.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.language.cst.api.info.Info;
+import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.api.parser.Summary;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
@@ -39,7 +43,7 @@ import java.util.stream.Collectors;
 
 import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static org.e2immu.language.inspection.integration.JavaInspectorImpl.TEST_PROTOCOL_PREFIX;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestCallGraph2 extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestCallGraph2.class);
@@ -234,17 +238,23 @@ public class TestCallGraph2 extends CommonTest {
          D.stream() should come after a.b.c.C.strings#a.b.d.D.c
          while it comes after C.strings, it is before D.c (which is to be expected?)
          */
-        assertEquals("""
-                [a.b.c.C.<init>(), a.b.c.C.asList(), a.b.c.C.get(), a.b.c.C.pop(), a.b.c.C.push(String), \
-                a.b.c.C.size(), a.b.e.E1.<init>(), a.b.e.E2.<init>(java.sql.Connection), \
-                a.b.f.F1.<init>(java.sql.Connection), a.b.f.F2.<init>(), a.b.g.G1.<init>(), a.b.g.G1.print(), \
-                a.b.c.C.strings, a.b.d.D.pop(), a.b.d.D.push(String), a.b.d.D.size(), a.b.d.D.stream(), a.b.g.G1, \
-                a.b.c.C, a.b.d.D.LOGGER, a.b.e.E1.fill(java.sql.Connection), a.b.e.E1.pop(), a.b.e.E1.size(), \
-                a.b.e.E1.stream(), a.b.d.D.<init>(a.b.c.C), a.b.e.E2.go(), a.b.g.G2.go(), a.b.g.G2.go2(), \
-                a.b.d.D.c, a.b.e.E2.con, a.b.g.G2.g1, a.b.d.D, a.b.e.E1.d, a.b.e.E1, a.b.e.E2.e1, \
-                a.b.f.F1.get(a.b.e.E1), a.b.f.F1.go(a.b.e.E1), a.b.f.F2.get(a.b.e.E1), a.b.g.G2.<init>(a.b.e.E1), \
-                a.b.e.E2, a.b.f.F1.con, a.b.f.F2, a.b.g.G2.e1, a.b.f.F1, a.b.g.G2.f2, a.b.g.G2]\
-                """, r.analysisOrder().toString());
+        if (openJdkParser) {
+            assertEquals("""
+                    [a.b.c.C.<init>(), a.b.c.C.asList(), a.b.c.C.get(), a.b.c.C.pop(), a.b.c.C.push(String), a.b.c.C.size(), a.b.e.E1.<init>(), a.b.f.F2.<init>(), a.b.g.G1.<init>(), a.b.g.G1.print(), java.sql.Connection, java.sql.Connection.createStatement(), java.sql.ResultSet, java.sql.ResultSet.getString(String), java.sql.ResultSet.next(), java.sql.SQLException, java.sql.Statement, java.sql.Statement.executeQuery(String), a.b.c.C.strings, a.b.d.D.pop(), a.b.d.D.push(String), a.b.d.D.size(), a.b.d.D.stream(), a.b.e.E2.<init>(java.sql.Connection), a.b.f.F1.<init>(java.sql.Connection), a.b.g.G1, a.b.c.C, a.b.d.D.LOGGER, a.b.e.E1.fill(java.sql.Connection), a.b.e.E1.pop(), a.b.e.E1.size(), a.b.e.E1.stream(), a.b.d.D.<init>(a.b.c.C), a.b.e.E2.go(), a.b.g.G2.go(), a.b.g.G2.go2(), a.b.d.D.c, a.b.e.E2.con, a.b.g.G2.g1, a.b.d.D, a.b.e.E1.d, a.b.e.E1, a.b.e.E2.e1, a.b.f.F1.get(a.b.e.E1), a.b.f.F1.go(a.b.e.E1), a.b.f.F2.get(a.b.e.E1), a.b.g.G2.<init>(a.b.e.E1), a.b.e.E2, a.b.f.F1.con, a.b.f.F2, a.b.g.G2.e1, a.b.f.F1, a.b.g.G2.f2, a.b.g.G2]\
+                    """, r.analysisOrder.toString());
+        } else {
+            assertEquals("""
+                    [a.b.c.C.<init>(), a.b.c.C.asList(), a.b.c.C.get(), a.b.c.C.pop(), a.b.c.C.push(String), \
+                    a.b.c.C.size(), a.b.e.E1.<init>(), a.b.e.E2.<init>(java.sql.Connection), \
+                    a.b.f.F1.<init>(java.sql.Connection), a.b.f.F2.<init>(), a.b.g.G1.<init>(), a.b.g.G1.print(), \
+                    a.b.c.C.strings, a.b.d.D.pop(), a.b.d.D.push(String), a.b.d.D.size(), a.b.d.D.stream(), a.b.g.G1, \
+                    a.b.c.C, a.b.d.D.LOGGER, a.b.e.E1.fill(java.sql.Connection), a.b.e.E1.pop(), a.b.e.E1.size(), \
+                    a.b.e.E1.stream(), a.b.d.D.<init>(a.b.c.C), a.b.e.E2.go(), a.b.g.G2.go(), a.b.g.G2.go2(), \
+                    a.b.d.D.c, a.b.e.E2.con, a.b.g.G2.g1, a.b.d.D, a.b.e.E1.d, a.b.e.E1, a.b.e.E2.e1, \
+                    a.b.f.F1.get(a.b.e.E1), a.b.f.F1.go(a.b.e.E1), a.b.f.F2.get(a.b.e.E1), a.b.g.G2.<init>(a.b.e.E1), \
+                    a.b.e.E2, a.b.f.F1.con, a.b.f.F2, a.b.g.G2.e1, a.b.f.F1, a.b.g.G2.f2, a.b.g.G2]\
+                    """, r.analysisOrder.toString());
+        }
     }
 
 
@@ -286,6 +296,14 @@ public class TestCallGraph2 extends CommonTest {
     public void test2() throws IOException {
         Map<String, String> sourcesByFqn = Map.of(ABX, X, "a.b.Y", Y, "d.e.A", A);
         R r = init(sourcesByFqn);
+
+        TypeInfo y = r.parseResult.findType("a.b.Y");
+        MethodInfo yConstructor = y.findConstructor(1);
+        assertEquals(1, yConstructor.methodBody().statements().size());
+        if(yConstructor.methodBody().statements().getFirst() instanceof ExplicitConstructorInvocation eci) {
+            assertEquals("a.b.X.<init>(java.util.Map)", eci.methodInfo().fullyQualifiedName());
+            assertFalse(eci.isSynthetic());
+        } else fail();
 
         assertEquals("""
                 a.b.X->S->a.b.X.<init>(java.util.Map)
@@ -440,16 +458,26 @@ public class TestCallGraph2 extends CommonTest {
     public void testImportPriority() throws IOException {
         Map<String, String> sourcesByFqn = Map.of("a.A", A6, "b.A", B6, "c.C", C6);
         R r = init(sourcesByFqn);
-        assertEquals("""
-                a.A->S->a.A.<init>()
-                b.A->S->b.A.<init>()
-                c.C->H->b.A
-                c.C->S->c.C.<init>()\
-                """, r.dependencyGraph().toString("\n", ComputeCallGraph::edgeValuePrinter));
+        String depGraph = r.dependencyGraph().toString("\n", ComputeCallGraph::edgeValuePrinter);
+        if(openJdkParser) {
+            assertEquals("""
+                    a.A->S->a.A.<init>()
+                    b.A->S->b.A.<init>()
+                    c.C->H->b.A
+                    c.C->S->c.C.<init>()
+                    c.C.<init>()->S->b.A.<init>()\
+                    """, depGraph);
+        } else {
+            assertEquals("""
+                    a.A->S->a.A.<init>()
+                    b.A->S->b.A.<init>()
+                    c.C->H->b.A
+                    c.C->S->c.C.<init>()\
+                    """, depGraph);
+        }
     }
 
-    // only for maddi
-    record R(List<Info> analysisOrder, G<Info> dependencyGraph) {
+    record R(ParseResult parseResult, List<Info> analysisOrder, G<Info> dependencyGraph) {
     }
 
     R init(Map<String, String> sourcesByFqn) throws IOException {
@@ -462,6 +490,7 @@ public class TestCallGraph2 extends CommonTest {
         if ("openJdk".equalsIgnoreCase(impl)) {
             try {
                 openJdkParser();
+                openJdkParser = true;
                 runtime = javaInspector.runtime();
                 return make(sourcesByFqn);
             } catch (URISyntaxException e) {
@@ -502,6 +531,6 @@ public class TestCallGraph2 extends CommonTest {
         Summary summary = javaInspector.parse(map, parseOptions);
         G<Info> graph = prepAnalyzer.doPrimaryTypesReturnGraph(Set.copyOf(summary.types()));
         ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
-        return new R(cao.go(graph), graph);
+        return new R(summary.parseResult(), cao.go(graph), graph);
     }
 }

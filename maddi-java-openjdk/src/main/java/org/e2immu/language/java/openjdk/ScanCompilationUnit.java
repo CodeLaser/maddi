@@ -2215,7 +2215,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         // verify by checking what's actually in the source at call.pos
         try {
             CharSequence source = unit.getSourceFile().getCharContent(false);
-            int pos = call.pos;
+            int pos = call.meth.pos;
 
             // Check if "super" actually appears at this position in the source
             if (pos < 0 || pos + 5 > source.length()) return true; // no source = synthetic

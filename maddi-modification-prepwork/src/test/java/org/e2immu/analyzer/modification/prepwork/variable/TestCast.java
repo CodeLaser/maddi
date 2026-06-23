@@ -28,7 +28,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestCast extends CommonTest {
 
@@ -65,11 +66,21 @@ public class TestCast extends CommonTest {
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime);
         List<Info> analysisOrder = analyzer.doPrimaryType(X);
         // Exit should come before ExceptionThrown
-        assertEquals("""
-               a.b.X.<init>(), a.b.X.ExceptionThrown.<init>(Exception), a.b.X.ExceptionThrown.exception(), \
-               a.b.X.Exit, a.b.X.I.<init>(), a.b.X.Interface.exception(), a.b.X.ExceptionThrown.exception, \
-               a.b.X.Interface, a.b.X.ExceptionThrown, a.b.X.I.exception(), a.b.X.I.exit, a.b.X.I, a.b.X\
-               """, analysisOrder.stream().map(Info::fullyQualifiedName).collect(Collectors.joining(", ")));
+        String analysisOrderToString = analysisOrder.stream().map(Info::fullyQualifiedName).collect(Collectors.joining(", "));
+        if (openJdkParser) {
+            assertEquals("""
+                    a.b.X.<init>(), a.b.X.ExceptionThrown.<init>(Exception), a.b.X.ExceptionThrown.equals(Object), \
+                    a.b.X.ExceptionThrown.exception(), a.b.X.ExceptionThrown.hashCode(), a.b.X.ExceptionThrown.toString(), \
+                    a.b.X.Exit, a.b.X.I.<init>(), a.b.X.Interface.exception(), a.b.X.ExceptionThrown.exception, \
+                    a.b.X.Interface, a.b.X.ExceptionThrown, a.b.X.I.exception(), a.b.X.I.exit, a.b.X.I, a.b.X\
+                    """, analysisOrderToString);
+        } else {
+            assertEquals("""
+                    a.b.X.<init>(), a.b.X.ExceptionThrown.<init>(Exception), a.b.X.ExceptionThrown.exception(), \
+                    a.b.X.Exit, a.b.X.I.<init>(), a.b.X.Interface.exception(), a.b.X.ExceptionThrown.exception, \
+                    a.b.X.Interface, a.b.X.ExceptionThrown, a.b.X.I.exception(), a.b.X.I.exit, a.b.X.I, a.b.X\
+                    """, analysisOrderToString);
+        }
 
         TypeInfo exceptionThrown = X.findSubType("ExceptionThrown");
         MethodInfo exceptionAccessor = exceptionThrown.findUniqueMethod("exception", 0);

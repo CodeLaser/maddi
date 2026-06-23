@@ -226,4 +226,41 @@ public class TestExplicitConstructorInvocation extends CommonTest {
         scan("a.b.X", INPUT4);
     }
 
+    @Language("java")
+    String X = """
+            package a.b;
+            import java.util.Map;
+            abstract class X {
+                protected final Map<String, Object> attributes;
+                X(Map<String,Object> attributes) {
+                    this.attributes = attributes;
+                }
+                public abstract String getEmail();
+            }
+            """;
+    @Language("java")
+    String Y = """
+            package a.b;
+            import java.util.Map;
+            public class Y extends X {
+                public Y(Map<String,Object> attributes) { super(attributes); }
+                @Override
+                public String getEmail() {
+                    return (String) attributes.get("email");
+                }
+            }
+            """;
+
+    @Test
+    public void test5() {
+        var pr = scan(false, "a.b.X", X, "a.b.Y", Y);
+        TypeInfo y = pr.get("a.b.Y");
+        MethodInfo yConstructor = y.findConstructor(1);
+        assertEquals(1, yConstructor.methodBody().statements().size());
+        if (yConstructor.methodBody().statements().getFirst() instanceof ExplicitConstructorInvocation eci) {
+            assertEquals("a.b.X.<init>(java.util.Map)", eci.methodInfo().fullyQualifiedName());
+            assertFalse(eci.isSynthetic());
+        } else fail();
+    }
+
 }

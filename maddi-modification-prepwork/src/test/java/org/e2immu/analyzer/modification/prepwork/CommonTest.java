@@ -49,6 +49,7 @@ public class CommonTest {
     protected JavaInspector javaInspector;
     protected Runtime runtime;
     protected final String[] extraClassPath;
+    protected boolean openJdkParser;
 
     protected CommonTest() {
         this(new String[]{});
@@ -78,6 +79,7 @@ public class CommonTest {
     }
 
     protected void openJdkParser() throws URISyntaxException, IOException {
+        openJdkParser = true;
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet orgSlf4j = sourceSetOf(org.slf4j.Logger.class, javaBase);
         SourceSet annotations = sourceSetOf(NotNull.class, javaBase);
