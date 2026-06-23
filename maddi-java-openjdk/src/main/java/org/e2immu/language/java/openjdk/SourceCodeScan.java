@@ -73,6 +73,23 @@ public final class SourceCodeScan {
             return map == null ? null : (Source) map.get(DetailedSources.END_OF_ARGUMENT_LIST);
         }
 
+        // keyed by the source of the method/constructor declaration
+        public Source findEndOfParameterList(Source sourceOfMethodOrConstructor) {
+            Map<Object, Object> map = argumentLists.get(sourceOfMethodOrConstructor);
+            return map == null ? null : (Source) map.get(DetailedSources.END_OF_PARAMETER_LIST);
+        }
+
+        // keyed by the source of a list element: a formal parameter, type parameter, or field declarator
+        public Source findPrecedingComma(Source elementSource) {
+            Map<Object, Object> map = argumentLists.get(elementSource);
+            return map == null ? null : (Source) map.get(DetailedSources.PRECEDING_COMMA);
+        }
+
+        public Source findSucceedingComma(Source elementSource) {
+            Map<Object, Object> map = argumentLists.get(elementSource);
+            return map == null ? null : (Source) map.get(DetailedSources.SUCCEEDING_COMMA);
+        }
+
         @SuppressWarnings("unchecked")
         public List<Source> findArgumentCommas(Source sourceOfMethodCallConstructorCall) {
             Map<Object, Object> map = argumentLists.get(sourceOfMethodCallConstructorCall);
