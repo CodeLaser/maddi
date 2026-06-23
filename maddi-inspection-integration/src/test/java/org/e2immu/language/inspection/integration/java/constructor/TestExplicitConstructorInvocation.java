@@ -21,9 +21,8 @@ import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.Statement;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
-import org.e2immu.language.inspection.resource.ParseResultImpl;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
+import org.e2immu.language.inspection.resource.ParseResultImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -159,7 +158,7 @@ public class TestExplicitConstructorInvocation extends CommonTest {
 
     @Test
     public void test3() {
-        JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder().setDetailedSources(true).build();
+        JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder().setDetailedSources(true).build();
         TypeInfo typeInfo = javaInspector.parse(INPUT3, options);
         {
             MethodInfo constructor = typeInfo.findConstructor(1);

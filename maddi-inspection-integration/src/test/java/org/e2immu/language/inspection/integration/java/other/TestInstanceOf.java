@@ -15,7 +15,6 @@
 package org.e2immu.language.inspection.integration.java.other;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.expression.InstanceOf;
 import org.e2immu.language.cst.api.info.MethodInfo;

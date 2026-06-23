@@ -51,7 +51,7 @@ public class TestCompilationProblem {
                 .build();
         javaInspector.initialize(inputConfiguration);
         try {
-            javaInspector.parse(new JavaInspectorImpl.ParseOptionsBuilder().setFailFast(true).setDetailedSources(true).build());
+            javaInspector.parse(new JavaInspector.ParseOptions.Builder().setFailFast(true).setDetailedSources(true).build());
         } catch (Summary.FailFastException ff) {
             Summary.ParseException e = (Summary.ParseException) ff.getCause();
             LOGGER.error("Parse exception", e.getCause() == null ? e : e.getCause());
@@ -74,7 +74,7 @@ public class TestCompilationProblem {
                 .build();
         javaInspector.initialize(inputConfiguration);
         try {
-            Summary summary = javaInspector.parse(new JavaInspectorImpl.ParseOptionsBuilder().setFailFast(false).setDetailedSources(true).build());
+            Summary summary = javaInspector.parse(new JavaInspector.ParseOptions.Builder().setFailFast(false).setDetailedSources(true).build());
             assertEquals(1, summary.parseExceptions().size());
             Summary.ParseException e = summary.parseExceptions().getFirst();
             assertTrue(e.uri().toString().endsWith("compilationError/a/Faulty.java"));

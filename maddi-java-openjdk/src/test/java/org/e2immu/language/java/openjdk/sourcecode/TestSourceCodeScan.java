@@ -605,4 +605,51 @@ public class TestSourceCodeScan {
         assertEquals("3-11:3-11", equalsSigns.getFirst().compact2());
     }
 
+    // renders all comma sources recorded under the given key, across the whole compilation unit, in
+    // argumentLists (TreeMap) order
+    private static String commas(SourceCodeScan.Result r, Object key) {
+        return findDetail(r, key).stream().map(Source::compact2).collect(Collectors.joining(", "));
+    }
+
+    @Language("java")
+    public static final String INPUT11 = """
+            package a.b;
+            interface I extends A, B, C {
+            }
+            sealed interface J extends D, E permits P1, P2 {
+            }
+            class K implements F, G, H {
+                Map<String, Integer> f;
+                void m() throws X, Y, Z {
+                }
+            }
+            final class P1 implements J {
+            }
+            final class P2 implements J {
+            }
+            """;
+
+    /*
+    Exercises the list-comma keys recorded "in much the same way as ARGUMENT_COMMAS": a List<Source> of the
+    separating commas, keyed by the list node. EXTENDS_COMMAS spans two declarations (I and J); the single
+    type argument list, single permits list, single implements list and single throws list cover the rest.
+    The scanner is purely syntactic, so the referenced types need not exist.
+    */
+    @Test
+    public void test11() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT11, false);
+
+        // I extends A, B, C  (commas 2-22, 2-25) ; J extends D, E (comma 4-29)
+        assertEquals("2-22:2-22, 2-25:2-25, 4-29:4-29", commas(r, DetailedSources.EXTENDS_COMMAS));
+        // K implements F, G, H  (commas 6-21, 6-24)
+        assertEquals("6-21:6-21, 6-24:6-24", commas(r, DetailedSources.IMPLEMENTS_COMMAS));
+        // J permits P1, P2  (comma 4-43)
+        assertEquals("4-43:4-43", commas(r, DetailedSources.PERMITS_COMMAS));
+        // Map<String, Integer>  (comma 7-15)
+        assertEquals("7-15:7-15", commas(r, DetailedSources.TYPE_ARGUMENT_COMMAS));
+        // m() throws X, Y, Z  (commas 8-22, 8-25)
+        assertEquals("8-22:8-22, 8-25:8-25", commas(r, DetailedSources.THROWS_COMMAS));
+    }
+
 }

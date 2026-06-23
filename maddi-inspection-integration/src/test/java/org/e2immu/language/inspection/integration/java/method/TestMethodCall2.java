@@ -14,22 +14,9 @@
 
 package org.e2immu.language.inspection.integration.java.method;
 
-import org.e2immu.language.cst.api.expression.Lambda;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.FieldInfo;
-import org.e2immu.language.cst.api.info.MethodInfo;
-import org.e2immu.language.cst.api.info.ParameterInfo;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.ReturnStatement;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-
-import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class TestMethodCall2 extends CommonTest {
 

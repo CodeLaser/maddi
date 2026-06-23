@@ -14,8 +14,8 @@
 
 package org.e2immu.language.inspection.integration.java.stub;
 
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.Summary;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -40,7 +40,7 @@ public class TestStub1 extends CommonTest {
     @Test
     public void test() {
         assertThrows(Summary.FailFastException.class, () ->
-                javaInspector.parse(INPUT1, new JavaInspectorImpl.ParseOptionsBuilder()
+                javaInspector.parse(INPUT1, new JavaInspector.ParseOptions.Builder()
                         .setFailFast(true).build()));
     }
 

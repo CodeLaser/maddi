@@ -16,7 +16,7 @@ package org.e2immu.language.inspection.integration.java.lombok;
 
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ public class TestLogger extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(true).build());
         FieldInfo fieldInfo = typeInfo.getFieldByName("log", true);
         assertEquals("org.slf4j.Logger", fieldInfo.type().typeInfo().fullyQualifiedName());
         assertEquals("LoggerFactory.getLogger(X.class)", fieldInfo.initializer().toString());
@@ -66,7 +66,7 @@ public class TestLogger extends CommonTest {
     @Test
     public void test2() {
         TypeInfo typeInfo = javaInspector.parse(INPUT2,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(true).build());
         FieldInfo fieldInfo = typeInfo.getFieldByName("log", true);
         assertEquals("java.util.logging.Logger", fieldInfo.type().typeInfo().fullyQualifiedName());
         assertEquals("Logger.getLogger(X.class.getName())", fieldInfo.initializer().toString());

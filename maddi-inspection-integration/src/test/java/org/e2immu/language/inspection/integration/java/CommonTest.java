@@ -72,7 +72,7 @@ public abstract class CommonTest {
                 .addClassPath(JAR_WITH_PATH_PREFIX + "org/mockito")
                 .build();
         javaInspector.initialize(inputConfiguration);
-        javaInspector.parse(new JavaInspectorImpl.ParseOptionsBuilder()
+        javaInspector.parse(new JavaInspector.ParseOptions.Builder()
                 .setFailFast(true)
                 .setLombok(false)
                 .setDetailedSources(true).build());

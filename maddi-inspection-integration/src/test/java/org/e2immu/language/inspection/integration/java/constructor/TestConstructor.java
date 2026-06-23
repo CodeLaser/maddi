@@ -20,6 +20,7 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.ReturnStatement;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -708,7 +709,7 @@ public class TestConstructor extends CommonTest {
     @DisplayName("parameter-less record constructor")
     @Test
     public void test21() {
-        TypeInfo X = javaInspector.parse(INPUT21, new JavaInspectorImpl.ParseOptionsBuilder()
+        TypeInfo X = javaInspector.parse(INPUT21, new JavaInspector.ParseOptions.Builder()
                 .setDetailedSources(true).build());
 
         TypeInfo pair = X.findSubType("Pair");

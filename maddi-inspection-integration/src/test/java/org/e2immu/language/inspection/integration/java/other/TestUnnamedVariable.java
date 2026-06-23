@@ -17,17 +17,12 @@ package org.e2immu.language.inspection.integration.java.other;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.statement.ForEachStatement;
-import org.e2immu.language.cst.api.statement.LocalVariableCreation;
-import org.e2immu.language.cst.api.statement.Statement;
-import org.e2immu.language.inspection.api.parser.ErasedExpression;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestUnnamedVariable extends CommonTest {
 

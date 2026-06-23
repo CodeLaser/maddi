@@ -18,7 +18,7 @@ import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ public class TestConstructor extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(true).build());
         MethodInfo nac = typeInfo.findConstructor(0);
         assertTrue(nac.isSynthetic());
     }
@@ -58,7 +58,7 @@ public class TestConstructor extends CommonTest {
     @Test
     public void test1neg() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(false).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(false).build());
         assertThrows(NoSuchElementException.class, () -> typeInfo.findConstructor(0));
     }
 
@@ -84,7 +84,7 @@ public class TestConstructor extends CommonTest {
     @Test
     public void test2() {
         TypeInfo typeInfo = javaInspector.parse(INPUT2,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(true).build());
         FieldInfo variableClazz = typeInfo.getFieldByName("variableClazz", true);
         assertFalse(variableClazz.isPropertyNotNull());
         FieldInfo clazz = typeInfo.getFieldByName("clazz", true);
@@ -108,7 +108,7 @@ public class TestConstructor extends CommonTest {
     @Test
     public void test2neg() {
         TypeInfo typeInfo = javaInspector.parse(INPUT2,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(false).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(false).build());
         assertThrows(NoSuchElementException.class, () -> typeInfo.findConstructor(2));
     }
 
@@ -135,7 +135,7 @@ public class TestConstructor extends CommonTest {
     @Test
     public void test3() {
         TypeInfo typeInfo = javaInspector.parse(INPUT3,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(true).build());
 
         MethodInfo aac = typeInfo.findConstructor(6);
         assertTrue(aac.isSynthetic());

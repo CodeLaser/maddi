@@ -98,7 +98,7 @@ public class TestJavaInspector3RealClasspath {
 
     @Test
     public void test1() {
-        JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder()
+        JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder()
                 .setFailFast(true).setDetailedSources(true).build();
         ParseResult parseResult = javaInspector.parse(Map.of("a.b.C", INPUT1), options).parseResult();
         TypeInfo C = parseResult.findType("a.b.C");

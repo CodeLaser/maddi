@@ -1,6 +1,7 @@
 package org.e2immu.language.java.openjdk.print;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -135,5 +136,69 @@ public class TestDetailedSources extends CommonTest {
         // field without initialiser: no SUCCEEDING_EQUALS
         FieldInfo y = X.getFieldByName("y", true);
         assertNull(y.source().detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS));
+    }
+
+    private static String commas(DetailedSources ds, Object key) {
+        return ds.details(key).stream().map(Source::compact2).collect(Collectors.joining(", "));
+    }
+
+    @Language("java")
+    public static final String INPUT_K = """
+            package a.b;
+            public class K implements java.io.Serializable, Cloneable, java.util.RandomAccess {
+                java.util.Map<String, Integer> f;
+                void m() throws java.io.IOException, RuntimeException {
+                }
+            }
+            """;
+
+    @Test
+    public void testImplementsThrowsTypeArgumentCommas() {
+        TypeInfo K = scan("a.b.K", INPUT_K);
+
+        // class K implements ..., ..., ...  (commas 2-47, 2-58)
+        assertEquals("2-47:2-47, 2-58:2-58", commas(K.source().detailedSources(), DetailedSources.IMPLEMENTS_COMMAS));
+
+        // void m() throws ..., ...  (comma 4-40)
+        MethodInfo m = K.findUniqueMethod("m", 0);
+        assertEquals("4-40:4-40", commas(m.source().detailedSources(), DetailedSources.THROWS_COMMAS));
+
+        // Map<String, Integer> f : the type-argument comma (3-25) sits on the field type's own source
+        FieldInfo f = K.getFieldByName("f", true);
+        Source typeSource = f.source().detailedSources().detail(f.type());
+        assertEquals("3-25:3-25", commas(typeSource.detailedSources(), DetailedSources.TYPE_ARGUMENT_COMMAS));
+    }
+
+    @Language("java")
+    public static final String INPUT_I = """
+            package a.b;
+            public interface I extends java.io.Serializable, Cloneable, java.util.RandomAccess {
+            }
+            """;
+
+    @Test
+    public void testExtendsCommas() {
+        TypeInfo I = scan("a.b.I", INPUT_I);
+        // interface I extends ..., ..., ...  (commas 2-48, 2-59)
+        assertEquals("2-48:2-48, 2-59:2-59", commas(I.source().detailedSources(), DetailedSources.EXTENDS_COMMAS));
+    }
+
+    @Language("java")
+    public static final String INPUT_J = """
+            package a.b;
+            public sealed interface J permits P1, P2 {
+            }
+            final class P1 implements J {
+            }
+            final class P2 implements J {
+            }
+            """;
+
+    @Test
+    public void testPermitsCommas() {
+        // three top-level types in one unit, so look J up by FQN rather than relying on declaration order
+        TypeInfo J = scan(false, "a.b.J", INPUT_J).get("a.b.J");
+        // sealed interface J permits P1, P2  (comma 2-37)
+        assertEquals("2-37:2-37", commas(J.source().detailedSources(), DetailedSources.PERMITS_COMMAS));
     }
 }

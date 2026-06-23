@@ -17,7 +17,7 @@ package org.e2immu.language.inspection.integration.java.lombok;
 import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -45,7 +45,7 @@ public class TestGetter extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(true).build());
         FieldInfo fieldInfo = typeInfo.getFieldByName("list", true);
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {
@@ -80,7 +80,7 @@ public class TestGetter extends CommonTest {
     @Test
     public void test2() {
         TypeInfo typeInfo = javaInspector.parse(INPUT2,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(true).build());
         FieldInfo fieldInfo = typeInfo.getFieldByName("list", true);
         assertEquals("java.util.List", fieldInfo.type().typeInfo().fullyQualifiedName());
         {

@@ -692,6 +692,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         Source source = sourceProvider.sourceForNode(type);
         ParameterizedType pt = convertTreeDontSet(type, detailedSourcesBuilder, source);
         assert pt != null;
+        if (type instanceof JCTree.JCTypeApply) {
+            // attach the type-argument commas to this parameterized type's own source, so nested generics
+            // (each a distinct parameterized type) keep their own lists
+            List<Source> commas = sourceProvider.typeArgumentCommas(source);
+            if (commas != null) {
+                DetailedSources.Builder b = runtime.newDetailedSourcesBuilder();
+                b.putList(DetailedSources.TYPE_ARGUMENT_COMMAS, commas);
+                source = source.withDetailedSources(b.build()); // FIXME check merge?
+            }
+        }
         detailedSourcesBuilder.put(pt, source);
         return pt;
     }
