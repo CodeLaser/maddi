@@ -52,7 +52,7 @@ public class TestRun {
 
     @Test
     public void test() throws IOException {
-        Run run = new Run(new RunVisitor() {
+        AnalysisHintsCompiler analysisHintsCompiler = new AnalysisHintsCompiler(new RunVisitor() {
             private String libIn;
             private ToolChain.JRE jre;
 
@@ -194,7 +194,7 @@ public class TestRun {
                 };
             }
         });
-        List<Message> messages = run.go();
+        List<Message> messages = analysisHintsCompiler.go();
         LOGGER.info("Have {} message(s)", messages.size());
         messages.forEach(m -> {
             LOGGER.info("{} {}: {}", m.level(), m.info(), m.message());

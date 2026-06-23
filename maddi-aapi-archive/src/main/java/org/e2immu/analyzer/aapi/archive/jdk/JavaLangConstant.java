@@ -13,15 +13,16 @@
  */
 
 package org.e2immu.analyzer.aapi.archive.jdk;
-
-import org.e2immu.annotation.*;
+import org.e2immu.annotation.ImmutableContainer;
+import org.e2immu.annotation.Independent;
+import org.e2immu.annotation.NotNull;
 
 import java.lang.constant.ConstantDesc;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-class JavaLangConstant {
-    final static String PACKAGE_NAME = "java.lang.constant";
+public class JavaLangConstant {
+    public static final String PACKAGE_NAME = "java.lang.constant";
 
     @ImmutableContainer
     @Independent
@@ -30,12 +31,13 @@ class JavaLangConstant {
         Object resolveConstantDesc(MethodHandles.Lookup lookup);
     }
 
+    //public interface Constable
+    //@Container[M]
     @ImmutableContainer
     @Independent
-    interface Constable$ {
-
+    class Constable$ {
+        //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotNull
-        Optional<? extends ConstantDesc> describeConstable();
+        Optional<? extends ConstantDesc> describeConstable() { return null; }
     }
 }
-

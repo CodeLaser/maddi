@@ -102,7 +102,7 @@ public class RunRewireTests {
             if (dependentPrimaryTypes.contains(ti)) return REWIRE;
             return UNCHANGED;
         };
-        JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
+        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
                 .setLombok(inputConfiguration.containsLombok())
                 .setDetailedSources(true)
                 .setFailFast(true)

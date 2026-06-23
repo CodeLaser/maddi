@@ -35,10 +35,14 @@ dependencies {
     implementation(project(":maddi-cst-io"))
     implementation(project(":maddi-cst-print"))
     implementation(project(":maddi-inspection-parser"))
-    implementation(project(":maddi-inspection-integration"))
     implementation(project(":maddi-inspection-resource"))
-    implementation(project(":maddi-java-bytecode"))
-    implementation(project(":maddi-java-parser"))
+
+    implementation(project(":maddi-inspection-integration"))
+    testImplementation(project(":maddi-java-bytecode"))
+    testImplementation(project(":maddi-java-parser"))
+
+    testImplementation(project(":maddi-inspection-openjdk"))
+    testImplementation(project(":maddi-java-openjdk"))
 
     implementation("ch.qos.logback:logback-classic")
 
@@ -52,4 +56,20 @@ dependencies {
 
 tasks.withType<Test> {
     maxHeapSize = "2G"
+
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
+
+    val impl = System.getProperty("maddi_parser", "maddi")
+
+    // Pass it forward down to the worker JVM execution context
+    systemProperty("maddi_parser", impl)
+
+    // Visual logging to your terminal so you always know which version is active
+    logger.lifecycle("Project [${project.name}] executing test suite targeting: $impl")
 }

@@ -70,7 +70,7 @@ public class TestTrack1 extends CommonTest {
     @DisplayName("basics")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse("a.b.X", INPUT1, new JavaInspectorImpl.ParseOptionsBuilder()
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1, new JavaInspector.ParseOptions.Builder()
                 .setIgnoreModule(true).build());
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime,
                 new PrepAnalyzer.Options.Builder().setTrackObjectCreations(true).build());

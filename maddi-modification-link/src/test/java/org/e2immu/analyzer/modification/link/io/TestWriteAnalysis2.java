@@ -20,7 +20,7 @@ import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.Util;
 import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.language.cst.api.analysis.Codec;
@@ -84,6 +84,10 @@ public class TestWriteAnalysis2 extends CommonTest {
              {"name": "MgetN(1)", "data":{"getSetField":["Fn(0)",false,false],"methodLinks":[[["R",["Ta.b.X","MgetN(1)"]],[["R",["Ta.b.X","MgetN(1)"]],"←",["F",["Ta.b.X","Fn(0)"]]]],[]],"nonModifyingMethod":1}}]}
             ]
             """;
+
+    public TestWriteAnalysis2() {
+        super(false);
+    }
 
     @DisplayName("basics")
     @Test
@@ -199,7 +203,7 @@ public class TestWriteAnalysis2 extends CommonTest {
 
         javaInspector.invalidateAllSources();
         TypeInfo X2 = javaInspector.parse(INPUT2);
-        LoadAnalyzedPackageFiles load = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
+        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.mainSources());
         load.go(codec, written);
 
         MethodInfo setAdd2 = X2.findUniqueMethod("setAdd", 1);
@@ -255,7 +259,7 @@ public class TestWriteAnalysis2 extends CommonTest {
 
         javaInspector.invalidateAllSources();
         TypeInfo CC = javaInspector.parse(INPUT3);
-        LoadAnalyzedPackageFiles load = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
+        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.mainSources());
         load.go(codec, written);
 
         MethodInfo reverseCC = CC.findUniqueMethod("reverse", 0);
@@ -322,7 +326,7 @@ public class TestWriteAnalysis2 extends CommonTest {
 
         javaInspector.invalidateAllSources();
         TypeInfo CC = javaInspector.parse(INPUT4);
-        LoadAnalyzedPackageFiles load = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
+        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.mainSources());
         load.go(codec, written);
 
 

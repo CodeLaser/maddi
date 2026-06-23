@@ -8,7 +8,7 @@ Internally,
 .. e2immu parses the sources, and loads class files
 .. the method call graph is computed to provide statistics, to be added as comments
 .. the shallow analyzer precomputes defaults, to be added as comments (prefixed `//?`)
-.. finally, the `Composer` and `DecoratorImpl` are used to write out the files.
+.. finally, the `AnalysisHintsComposer` and `DecoratorImpl` are used to write out the files.
 
 . the user changes defaults by adding real annotations
 . the user confirms defaults by removing the `?` in the default comments
@@ -19,7 +19,7 @@ Therefore, at any time, the `process-annotated-apis` plugin goal can be called
 .. e2immu loads the annotated API files
 .. the shallow analyzer takes the manual interventions into account
 .. confirmations are kept, defaults are removed where manual overrides are present, ripple effects of the manual overrides are written as comments, using the `//>>` prefix
-.. again, the `Composer` and `DecoratorImpl` are used to overwrite the files.
+.. again, the `AnalysisHintsComposer` and `DecoratorImpl` are used to overwrite the files.
 
 . once the AAPIs are in good shape, the `compile-annotated-apis` plugin will write analyzed package files to be used by the normal e2immu `run-analyzer` goal.
 

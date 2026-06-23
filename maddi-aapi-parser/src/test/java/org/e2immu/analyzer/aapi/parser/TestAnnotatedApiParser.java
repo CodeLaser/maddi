@@ -39,13 +39,13 @@ public class TestAnnotatedApiParser {
 
     @Test
     public void test() throws IOException {
-        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
-        annotatedApiParser.initialize(null,
+        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
+        analysisHintsParser.initialize(null,
                 List.of(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/slf4j",
                         JavaInspectorImpl.E2IMMU_SUPPORT),
                 List.of("src/test/java/org/e2immu/analyzer/aapi/parser"),
                 List.of("example."));
-        List<TypeInfo> types = annotatedApiParser.typesParsed();
+        List<TypeInfo> types = analysisHintsParser.typesParsed();
         assertEquals(2, types.size());
         TypeInfo t1 = types.stream()
                 .filter(ti -> "org.e2immu.analyzer.aapi.parser.example.popular.OrgSlf4J".equals(ti.fullyQualifiedName()))
@@ -53,9 +53,9 @@ public class TestAnnotatedApiParser {
         String uri = t1.compilationUnitOrEnclosingType().getLeft().uri().toString();
         assertTrue(uri.endsWith("example/popular/OrgSlf4J.java"), "Have: "+uri);
 
-        assertEquals(2, annotatedApiParser.getWarnings());
+        assertEquals(2, analysisHintsParser.getWarnings());
 
-        Runtime runtime = annotatedApiParser.runtime();
+        Runtime runtime = analysisHintsParser.runtime();
         TypeInfo string = runtime.stringTypeInfo();
         TypeInfo charInfo = runtime.charTypeInfo();
         MethodInfo charConstructor = string.constructors().stream()
@@ -65,7 +65,7 @@ public class TestAnnotatedApiParser {
         assertEquals("java.lang.String.<init>(char[])", charConstructor.fullyQualifiedName());
         // the annotations have not been copied, they're in a map!!
         assertEquals(0, charConstructor.annotations().size());
-        List<AnnotationExpression> charInfoAnnots = annotatedApiParser.annotations(charConstructor);
+        List<AnnotationExpression> charInfoAnnots = analysisHintsParser.annotations(charConstructor);
         assertEquals(1, charInfoAnnots.size());
         assertEquals("Independent", charInfoAnnots.getFirst().typeInfo().simpleName());
     }

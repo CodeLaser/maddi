@@ -65,8 +65,8 @@ public class CommonTest {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
         ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.aapi")).setLevel(Level.DEBUG);
 
-        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
-        annotatedApiParser.initialize(null,
+        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
+        analysisHintsParser.initialize(null,
                 List.of(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/slf4j",
                         JavaInspectorImpl.E2IMMU_SUPPORT,
                         JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api",
@@ -75,16 +75,16 @@ public class CommonTest {
                         "jmod:java.desktop"),
                 List.of("../maddi-aapi-archive/src/main/java/org/e2immu/analyzer/aapi/archive/v2"),
                 List.of());
-        javaInspector = annotatedApiParser.javaInspector();
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(annotatedApiParser.runtime(), annotatedApiParser,
+        javaInspector = analysisHintsParser.javaInspector();
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(analysisHintsParser.runtime(), analysisHintsParser,
                 true);
-        ShallowAnalyzer.Result sr = shallowAnalyzer.go(annotatedApiParser.types());
+        ShallowAnalyzer.Result sr = shallowAnalyzer.go(analysisHintsParser.types());
 
         sorted = sr.sorted();
         graph = sr.typeGraph();
         allTypes = sr.allTypes();
-        compiledTypesManager = annotatedApiParser.javaInspector().compiledTypesManager();
-        runtime = annotatedApiParser.runtime();
+        compiledTypesManager = analysisHintsParser.javaInspector().compiledTypesManager();
+        runtime = analysisHintsParser.runtime();
     }
 
     protected void testImmutableContainer(TypeInfo typeInfo, boolean hcImmutable) {

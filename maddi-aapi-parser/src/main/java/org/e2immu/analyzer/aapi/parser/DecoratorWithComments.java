@@ -41,7 +41,7 @@ class DecoratorWithComments extends DecoratorImpl {
 
     private final org.e2immu.language.cst.api.runtime.Runtime runtime;
     private final Map<Element, Element> translationMap;
-    private final Function<Element, AnnotatedApiParser.Data> dataProvider;
+    private final Function<Element, AnalysisHintsParser.Data> dataProvider;
     private final Function<Element, ShallowAnalyzer.InfoData> infoDataProvider;
     private final Qualification simpleNames;
 
@@ -49,7 +49,7 @@ class DecoratorWithComments extends DecoratorImpl {
                                  SourceSet sourceSetOfRequest,
                                  Map<Element, Element> translationMap,
                                  Function<Element, ShallowAnalyzer.InfoData> infoDataProvider,
-                                 Function<Element, AnnotatedApiParser.Data> dataProvider) {
+                                 Function<Element, AnalysisHintsParser.Data> dataProvider) {
         super(runtime, sourceSetOfRequest, translationMap);
         this.translationMap = translationMap;
         this.runtime = runtime;
@@ -77,7 +77,7 @@ class DecoratorWithComments extends DecoratorImpl {
     private Stream<Comment> annotationsInComments(Element translatedInfo) {
         ShallowAnalyzer.InfoData infoData = infoDataProvider.apply(translatedInfo);
         if (infoData == null) return Stream.of();
-        AnnotatedApiParser.Data data = dataProvider.apply(translatedInfo);
+        AnalysisHintsParser.Data data = dataProvider.apply(translatedInfo);
         boolean explain = data != null && data.explainAnnotationInComment();
         List<String> commentParts = new ArrayList<>();
         for (AnnotationProperty ap : annotationAndProperties(translatedInfo)) {
@@ -113,7 +113,7 @@ class DecoratorWithComments extends DecoratorImpl {
     @Override
     public List<Comment> comments(Element infoIn) {
         Element translatedInfo = translationMap == null ? infoIn : translationMap.getOrDefault(infoIn, infoIn);
-        AnnotatedApiParser.Data data = dataProvider.apply(translatedInfo);
+        AnalysisHintsParser.Data data = dataProvider.apply(translatedInfo);
         List<Comment> comments = data == null ? List.of() : data.comments();
         Stream<Comment> annotationStream = annotationsInComments(translatedInfo);
         if (translatedInfo instanceof MethodInfo mi) {

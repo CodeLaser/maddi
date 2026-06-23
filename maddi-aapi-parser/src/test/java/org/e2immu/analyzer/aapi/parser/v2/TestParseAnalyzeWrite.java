@@ -17,8 +17,8 @@ package org.e2immu.analyzer.aapi.parser.v2;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfigurationImpl;
-import org.e2immu.analyzer.aapi.parser.AnnotatedApiParser;
-import org.e2immu.analyzer.aapi.parser.WriteDecoratedAAPI;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsWriter;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
@@ -76,8 +76,8 @@ public class TestParseAnalyzeWrite {
 
     @Test
     public void test() throws IOException {
-        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
-        annotatedApiParser.initialize(new InputConfigurationImpl.Builder()
+        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
+        analysisHintsParser.initialize(new InputConfigurationImpl.Builder()
                         .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
                         .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
                         .addClassPath(ToolChain.CLASSPATH_JUNIT)
@@ -86,7 +86,7 @@ public class TestParseAnalyzeWrite {
                         .addRestrictSourceToPackages(JDK_PACKAGE).build(),
                 new AnnotatedAPIConfigurationImpl.Builder().build());
 
-        List<TypeInfo> types = annotatedApiParser.typesParsed();
+        List<TypeInfo> types = analysisHintsParser.typesParsed();
         assertEquals(25, types.size());
         for (TypeInfo typeInfo : types) {
             if ("org.e2immu.analyzer.aapi.archive.v2.jdk.JavaLang".equals(typeInfo.fullyQualifiedName())) {
@@ -99,7 +99,7 @@ public class TestParseAnalyzeWrite {
                 assertTrue(uri.endsWith("aapi/archive/v2/jdk/JavaLang.java"), "Have: " + uri);
             }
         }
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(annotatedApiParser.runtime(), annotatedApiParser,
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(analysisHintsParser.runtime(), analysisHintsParser,
                 true);
 
         List<Class<?>> extraClasses = new ArrayList<>();
@@ -120,9 +120,9 @@ public class TestParseAnalyzeWrite {
                 org.slf4j.Logger.class, LoggerFactory.class, ILoggerFactory.class,
                 Assertions.class, ThrowingSupplier.class, Executable.class);
         Stream<TypeInfo> extra = extraClasses.stream()
-                .map(c -> annotatedApiParser.javaInspector().compiledTypesManager()
-                        .getOrLoad(c, annotatedApiParser.javaInspector().mainSources()));
-        List<TypeInfo> typesToAnalyze = Stream.concat(annotatedApiParser.types().stream(), extra).distinct().toList();
+                .map(c -> analysisHintsParser.javaInspector().compiledTypesManager()
+                        .getOrLoad(c, analysisHintsParser.javaInspector().mainSources()));
+        List<TypeInfo> typesToAnalyze = Stream.concat(analysisHintsParser.types().stream(), extra).distinct().toList();
         LOGGER.info("Have {} types for the shallow analyzer", typesToAnalyze.size());
         ShallowAnalyzer.Result rs = shallowAnalyzer.go(typesToAnalyze);
         Trie<TypeInfo> trie = new Trie<>();
@@ -133,7 +133,7 @@ public class TestParseAnalyzeWrite {
             if ("java.lang.CharSequence".equals(ti.fullyQualifiedName())) {
                 MethodInfo sub = ti.findUniqueMethod("subSequence", 2);
                 assertTrue(sub.comments().isEmpty());
-                AnnotatedApiParser.Data data = annotatedApiParser.data(sub);
+                AnalysisHintsParser.Data data = analysisHintsParser.data(sub);
                 assertEquals(NOTE_CHARSEQUENCE, data.comments().getFirst().comment());
             }
             if ("java.util.Collection".equals(ti.fullyQualifiedName())) {
@@ -172,9 +172,9 @@ public class TestParseAnalyzeWrite {
 
         File decorated = new File("build/decorated");
         if (decorated.mkdirs()) LOGGER.info("Created {}", decorated);
-        WriteDecoratedAAPI writeDecoratedAAPI = new WriteDecoratedAAPI(annotatedApiParser.javaInspector(),
-                annotatedApiParser::data, rs.dataMap()::get);
-        writeDecoratedAAPI.write(decorated.getAbsolutePath(), trie, JDK_PACKAGE);
+        AnalysisHintsWriter analysisHintsWriter = new AnalysisHintsWriter(analysisHintsParser.javaInspector(),
+                analysisHintsParser::data, rs.dataMap()::get);
+        analysisHintsWriter.write(decorated.getAbsolutePath(), trie, JDK_PACKAGE);
 
     }
 }
