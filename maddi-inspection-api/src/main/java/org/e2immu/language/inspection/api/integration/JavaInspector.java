@@ -68,8 +68,54 @@ public interface JavaInspector {
 
     Invalidated INVALIDATED_ALL = t -> InvalidationState.INVALID;
 
-    record ParseOptions(boolean failFast, boolean detailedSources, Invalidated invalidated, boolean parallel,
-                        boolean lombok, boolean ignoreModule) {
+    record ParseOptions(boolean failFast,
+                        boolean detailedSources,
+                        Invalidated invalidated,
+                        boolean parallel,
+                        boolean lombok,
+                        boolean ignoreModule) {
+        public static class Builder {
+            boolean failFast;
+            boolean detailedSources;
+            Invalidated invalidated;
+            boolean parallel;
+            boolean lombok;
+            boolean ignoreModule;
+
+            public Builder setFailFast(boolean failFast) {
+                this.failFast = failFast;
+                return this;
+            }
+
+            public Builder setDetailedSources(boolean detailedSources) {
+                this.detailedSources = detailedSources;
+                return this;
+            }
+
+            public Builder setIgnoreModule(boolean ignoreModule) {
+                this.ignoreModule = ignoreModule;
+                return this;
+            }
+
+            public Builder setInvalidated(Invalidated invalidated) {
+                this.invalidated = invalidated;
+                return this;
+            }
+
+            public Builder setParallel(boolean parallel) {
+                this.parallel = parallel;
+                return this;
+            }
+
+            public Builder setLombok(boolean lombok) {
+                this.lombok = lombok;
+                return this;
+            }
+
+            public ParseOptions build() {
+                return new ParseOptions(failFast, detailedSources, invalidated, parallel, lombok, ignoreModule);
+            }
+        }
     }
 
     /*
@@ -80,22 +126,6 @@ public interface JavaInspector {
      */
     enum InvalidationState {
         UNCHANGED, INVALID, REWIRE, REMOVED
-    }
-
-    interface ParseOptionsBuilder {
-        ParseOptionsBuilder setFailFast(boolean failFast);
-
-        ParseOptionsBuilder setParallel(boolean parallel);
-
-        ParseOptionsBuilder setDetailedSources(boolean detailedSources);
-
-        ParseOptionsBuilder setInvalidated(Invalidated invalidated);
-
-        ParseOptionsBuilder setLombok(boolean lombok);
-
-        ParseOptionsBuilder setIgnoreModule(boolean ignoreModule);
-
-        ParseOptions build();
     }
 
     ParseOptions failFast();

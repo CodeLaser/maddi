@@ -15,7 +15,8 @@
 package org.e2immu.language.inspection.integration.java.example4;
 
 
-import static org.e2immu.language.inspection.integration.java.example4.impl.StaticValuesImpl.*;
+import static org.e2immu.language.inspection.integration.java.example4.impl.StaticValuesImpl.SV;
+import static org.e2immu.language.inspection.integration.java.example4.impl.StaticValuesImpl.SubValue;
 
 public class Use2 {
     SubValue sv;

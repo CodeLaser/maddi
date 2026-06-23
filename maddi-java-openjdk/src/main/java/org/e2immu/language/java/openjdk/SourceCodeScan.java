@@ -104,6 +104,17 @@ public final class SourceCodeScan {
             return value == null ? null : ((List<Object>) value).stream().map(o -> (Source) o).toList();
         }
 
+        // generic list-comma accessor for EXTENDS_COMMAS/IMPLEMENTS_COMMAS/PERMITS_COMMAS (keyed by the
+        // keyword source), THROWS_COMMAS (keyed by the method source) and TYPE_ARGUMENT_COMMAS (keyed by the
+        // parameterized type source)
+        @SuppressWarnings("unchecked")
+        public List<Source> findCommaList(Source source, Object commaKey) {
+            Map<Object, Object> map = argumentLists.get(source);
+            if (map == null) return null;
+            Object value = map.get(commaKey);
+            return value == null ? null : ((List<Object>) value).stream().map(o -> (Source) o).toList();
+        }
+
     }
 
     public Result go(CharSequence input, boolean isModule) {
@@ -149,6 +160,9 @@ public final class SourceCodeScan {
         for (Node node : cu) {
             if (node instanceof TypeDeclaration td && !(node instanceof EmptyDeclaration)) {
                 scanTypeDeclaration(td);
+                // a single recursive pass per top-level type captures all type-argument lists, including
+                // those in nested types and in method bodies
+                scanTypeArgumentCommas(td);
             }
         }
 
@@ -188,14 +202,17 @@ public final class SourceCodeScan {
                 case ExtendsList el -> {
                     Node extendsKeyword = el.getFirst();
                     keywords.put(source(extendsKeyword), extendsKeyword.getSource());
+                    scanCommaList(el, source(extendsKeyword), DetailedSources.EXTENDS_COMMAS);
                 }
                 case ImplementsList il -> {
                     Node implementsKeyword = il.getFirst();
                     keywords.put(source(implementsKeyword), implementsKeyword.getSource());
+                    scanCommaList(il, source(implementsKeyword), DetailedSources.IMPLEMENTS_COMMAS);
                 }
                 case PermitsList pl -> {
                     Node permitsKeyword = pl.getFirst();
                     keywords.put(source(permitsKeyword), permitsKeyword.getSource());
+                    scanCommaList(pl, source(permitsKeyword), DetailedSources.PERMITS_COMMAS);
                 }
                 case TypeParameters tps -> {
                     scanTypeParameters(tps);
@@ -330,12 +347,54 @@ public final class SourceCodeScan {
                         }
                     }
                 }
+                case ThrowsList tl -> scanCommaList(tl, source(md), DetailedSources.THROWS_COMMAS);
                 case ExplicitConstructorInvocation eci -> scanCodeBlock(eci);
                 case Statement st -> scanCodeBlock(st);
                 default -> {
                 }
             }
         }
+    }
+
+    // collects the comma delimiters that are direct children of listNode, in the same shape as ARGUMENT_COMMAS
+    // (a List<Source>), recorded under commaKey at keySource (merged into any existing entry); records nothing
+    // when there are no commas. keySource is chosen so the consumer can reproduce it: the keyword for
+    // extends/implements/permits, the method source for throws, the parameterized type for type arguments.
+    private void scanCommaList(Node listNode, Source keySource, Object commaKey) {
+        List<Source> commas = new ArrayList<>();
+        for (Node child : listNode.children()) {
+            if (child instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
+                commas.add(source(d));
+            }
+        }
+        if (!commas.isEmpty()) {
+            mergeIntoArgumentLists(keySource, commaKey, List.copyOf(commas));
+        }
+    }
+
+    private void mergeIntoArgumentLists(Source key, Object detailKey, Object value) {
+        Map<Object, Object> existing = argumentLists.get(key);
+        if (existing == null) {
+            argumentLists.put(key, Map.of(detailKey, value));
+        } else {
+            Map<Object, Object> merged = new HashMap<>(existing);
+            merged.put(detailKey, value);
+            argumentLists.put(key, Map.copyOf(merged));
+        }
+    }
+
+    // records TYPE_ARGUMENT_COMMAS for every TypeArguments list (e.g. Map<String, Integer>) anywhere under
+    // the given node, keyed by the enclosing parameterized type (the node holding the TypeArguments), so the
+    // consumer can look it up by that type's source; covers nested generics and those in expressions
+    private void scanTypeArgumentCommas(Node node) {
+        visit(node, parent -> {
+            for (Node child : parent.children()) {
+                if (child instanceof TypeArguments ta) {
+                    scanCommaList(ta, source(parent), DetailedSources.TYPE_ARGUMENT_COMMAS);
+                }
+            }
+            return true;
+        });
     }
 
     private static String limit(String s) {

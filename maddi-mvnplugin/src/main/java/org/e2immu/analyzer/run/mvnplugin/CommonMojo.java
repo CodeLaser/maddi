@@ -136,7 +136,7 @@ public abstract class CommonMojo extends AbstractMojo {
         String mapped = ToolChain.mapJreShortNameToAnalyzedPackageShortName(jdkSpec);
         getLog().info("Resolved analyzed package files for " + jdkSpec + " -> " + mapped);
 
-        JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
+        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
                 .setFailFast(true).setDetailedSources(true).build();
         ParseResult parseResult = javaInspector.parse(parseOptions).parseResult();
         return new ParseSourcesResult(parseResult, javaInspector, inputConfiguration);

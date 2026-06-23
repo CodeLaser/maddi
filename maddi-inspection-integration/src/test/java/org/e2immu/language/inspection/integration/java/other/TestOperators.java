@@ -18,7 +18,6 @@ import org.e2immu.language.cst.api.expression.BinaryOperator;
 import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.output.element.Symbol;
 import org.e2immu.language.cst.api.statement.IfElseStatement;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;

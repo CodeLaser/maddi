@@ -21,6 +21,7 @@ import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.FieldReference;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
@@ -219,7 +220,7 @@ public class TestFullyQualified extends CommonTest {
 
     @Test
     public void test3() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT3, new JavaInspectorImpl.ParseOptionsBuilder()
+        TypeInfo typeInfo = javaInspector.parse(INPUT3, new JavaInspector.ParseOptions.Builder()
                 .setDetailedSources(true).build());
         {
             MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);
@@ -280,7 +281,7 @@ public class TestFullyQualified extends CommonTest {
 
     @Test
     public void test3b() {
-        TypeInfo typeInfo = javaInspector.parse(INPUT3b, new JavaInspectorImpl.ParseOptionsBuilder()
+        TypeInfo typeInfo = javaInspector.parse(INPUT3b, new JavaInspector.ParseOptions.Builder()
                 .setDetailedSources(true).build());
         {
             MethodInfo methodInfo = typeInfo.findUniqueMethod("method", 0);

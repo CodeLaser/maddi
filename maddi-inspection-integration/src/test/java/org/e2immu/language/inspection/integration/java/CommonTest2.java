@@ -61,7 +61,7 @@ public abstract class CommonTest2 {
         Map<String,String> combined = new HashMap<>(sourcesByURIString);
         combined.putAll(testSourcesByURIString);
         return javaInspector.parse(combined,
-                        new JavaInspectorImpl.ParseOptionsBuilder().setFailFast(true).setDetailedSources(true).build())
+                        new JavaInspector.ParseOptions.Builder().setFailFast(true).setDetailedSources(true).build())
                 .parseResult();
     }
 

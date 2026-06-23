@@ -308,6 +308,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 String keyword = isExtends ? "extends" : "implements";
                 Source source = scanResult.find(keyword, sourceForNode(jcClassDecl.implementing.getFirst()));
                 dsb.put(isExtends ? DetailedSources.EXTENDS : DetailedSources.IMPLEMENTS, source);
+                Object commaKey = isExtends ? DetailedSources.EXTENDS_COMMAS : DetailedSources.IMPLEMENTS_COMMAS;
+                dsb.putListIfNotNull(commaKey, scanResult.findCommaList(source, commaKey));
             }
             for (JCTree.JCExpression i : jcClassDecl.implementing) {
                 builder.addInterfaceImplemented(convertType.convertTree(i, dsb));
@@ -325,6 +327,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (scanResult != null && !jcClassDecl.permitting.isEmpty()) {
             Source source = scanResult.find("permits", sourceForNode(jcClassDecl.permitting.getFirst()));
             dsb.put(DetailedSources.PERMITS, source);
+            dsb.putListIfNotNull(DetailedSources.PERMITS_COMMAS,
+                    scanResult.findCommaList(source, DetailedSources.PERMITS_COMMAS));
         }
 
         // record components: fields and accessors
@@ -673,9 +677,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
 
             if (scanResult != null) {
-                // position of the closing ')' of the formal-parameter list, keyed by the method source
+                // position of the closing ')' of the formal-parameter list, and the throws-list commas, both
+                // keyed by the method source
                 dsb.putIfNotNull(DetailedSources.END_OF_PARAMETER_LIST,
                         scanResult.findEndOfParameterList(scanSource(node)));
+                dsb.putListIfNotNull(DetailedSources.THROWS_COMMAS,
+                        scanResult.findCommaList(scanSource(node), DetailedSources.THROWS_COMMAS));
             }
             Source source = sourceForNode(node, dsb);
             builder.addOverrides(overrides)
@@ -2583,6 +2590,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     @Override
     public Source sourceForNode(Tree node) {
         return sourceForNode(node, "-");
+    }
+
+    @Override
+    public List<Source> typeArgumentCommas(Source typeSource) {
+        return scanResult == null ? null
+                : scanResult.findCommaList(typeSource, DetailedSources.TYPE_ARGUMENT_COMMAS);
     }
 
     private Source statementSourceForNode(Tree node) {

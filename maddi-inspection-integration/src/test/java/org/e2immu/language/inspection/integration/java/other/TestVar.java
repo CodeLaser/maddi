@@ -17,7 +17,6 @@ package org.e2immu.language.inspection.integration.java.other;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.statement.ExpressionAsStatement;
 import org.e2immu.language.cst.api.statement.ForEachStatement;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.Statement;

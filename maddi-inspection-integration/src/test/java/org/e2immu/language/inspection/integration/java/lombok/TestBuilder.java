@@ -16,7 +16,7 @@ package org.e2immu.language.inspection.integration.java.lombok;
 
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -45,7 +45,7 @@ public class TestBuilder extends CommonTest {
     @Test
     public void test1() {
         TypeInfo typeInfo = javaInspector.parse(INPUT1,
-                new JavaInspectorImpl.ParseOptionsBuilder().setLombok(true).build());
+                new JavaInspector.ParseOptions.Builder().setLombok(true).build());
         TypeInfo builder = typeInfo.findSubType("Builder");
         assertTrue(builder.access().isPublic());
         assertTrue(builder.typeNature().isClass());

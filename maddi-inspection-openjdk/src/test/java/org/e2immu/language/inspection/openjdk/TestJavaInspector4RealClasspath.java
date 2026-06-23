@@ -54,7 +54,7 @@ public class TestJavaInspector4RealClasspath {
 
     @Test
     public void test1() {
-        JavaInspector.ParseOptions options = new JavaInspectorImpl.ParseOptionsBuilder()
+        JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder()
                 .setFailFast(true).setDetailedSources(true).setIgnoreModule(true).build();
         ParseResult parseResult = javaInspector.parse(Map.of(), options).parseResult();
 

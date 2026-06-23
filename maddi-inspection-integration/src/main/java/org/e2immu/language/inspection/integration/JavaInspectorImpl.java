@@ -115,57 +115,7 @@ public class JavaInspectorImpl implements JavaInspector {
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
     public static final ParseOptions FAIL_FAST = new ParseOptions(true, false,
             _ -> UNCHANGED, false, false, false);
-    public static final ParseOptions DETAILED_SOURCES = new ParseOptionsBuilder().setDetailedSources(true).build();
-
-    public static class ParseOptionsBuilder implements JavaInspector.ParseOptionsBuilder {
-        private boolean failFast;
-        private boolean detailedSources;
-        private boolean parallel;
-        private boolean lombok;
-        private Invalidated invalidated;
-        private boolean ignoreModule;
-
-        @Override
-        public ParseOptionsBuilder setIgnoreModule(boolean ignoreModule) {
-            this.ignoreModule = ignoreModule;
-            return this;
-        }
-
-        @Override
-        public ParseOptionsBuilder setInvalidated(Invalidated invalidated) {
-            this.invalidated = invalidated;
-            return this;
-        }
-
-        @Override
-        public ParseOptionsBuilder setLombok(boolean lombok) {
-            this.lombok = lombok;
-            return this;
-        }
-
-        @Override
-        public ParseOptionsBuilder setFailFast(boolean failFast) {
-            this.failFast = failFast;
-            return this;
-        }
-
-        @Override
-        public ParseOptionsBuilder setDetailedSources(boolean detailedSources) {
-            this.detailedSources = detailedSources;
-            return this;
-        }
-
-        @Override
-        public ParseOptionsBuilder setParallel(boolean parallel) {
-            this.parallel = parallel;
-            return this;
-        }
-
-        @Override
-        public ParseOptions build() {
-            return new ParseOptions(failFast, detailedSources, invalidated, parallel, lombok, ignoreModule);
-        }
-    }
+    public static final ParseOptions DETAILED_SOURCES = new ParseOptions.Builder().setDetailedSources(true).build();
 
     @Override
     public List<InitializationProblem> initialize(InputConfiguration inputConfiguration) throws IOException {
@@ -545,7 +495,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public TypeInfo parse(String fqn, String input, ParseOptions parseOptions) {
-       return parse(input, parseOptions);
+        return parse(input, parseOptions);
     }
 
     @Override

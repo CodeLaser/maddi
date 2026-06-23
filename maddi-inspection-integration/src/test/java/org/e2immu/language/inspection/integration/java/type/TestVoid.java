@@ -14,17 +14,10 @@
 
 package org.e2immu.language.inspection.integration.java.type;
 
-import org.e2immu.language.cst.api.expression.Lambda;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.inspection.integration.java.CommonTest;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestVoid extends CommonTest {
 
