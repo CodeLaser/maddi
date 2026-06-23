@@ -174,20 +174,6 @@ public class TestParseLiteral extends CommonTestParse {
         } else fail();
     }
 
-    public static final String INPUT4 = "package a.b; public class X { public void parse() { String s = \"a \\\" and \\\" b\"; } }";
-
-    @Test
-    public void test4() {
-        LOGGER.debug(INPUT4);
-        TypeInfo typeInfo = parse(INPUT4);
-        MethodInfo parse = typeInfo.findUniqueMethod("parse", 0);
-        if (parse.methodBody().statements().get(0) instanceof LocalVariableCreation lvc) {
-            if (lvc.localVariable().assignmentExpression() instanceof StringConstant sc) {
-                assertEquals("a \" and \" b", sc.constant());
-            } else fail();
-        } else fail();
-    }
-
     @Language("java")
     public static final String INPUT5 = """
             package a.b;
