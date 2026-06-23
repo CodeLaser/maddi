@@ -17,8 +17,7 @@ package org.e2immu.analyzer.modification.analyzer.io;
 import org.e2immu.analyzer.modification.analyzer.CommonTest;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.link.io.LinkCodec;
-import org.e2immu.analyzer.modification.link.vf.VirtualFieldComputer;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
 import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.LinksImpl;
@@ -106,7 +105,7 @@ public class TestWriteAnalysisSyntheticFields extends CommonTest {
         javaInspector.invalidateAllSources();
         TypeInfo Try1 = javaInspector.parse(INPUT1);
         TypeInfo TryDataImpl1 = Try1.findSubType("TryDataImpl");
-        LoadAnalyzedPackageFiles load = new LoadAnalyzedPackageFiles(javaInspector.mainSources());
+        LoadAnalysisResults load = new LoadAnalysisResults(javaInspector.mainSources());
         load.go(codec, written);
 
         MethodInfo exception1 = TryDataImpl1.findUniqueMethod("exception", 0);

@@ -16,15 +16,15 @@ package org.e2immu.analyzer.run.openjdkmain;
 
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.aapi.parser.AnnotatedAPIConfiguration;
-import org.e2immu.analyzer.aapi.parser.AnnotatedApiParser;
-import org.e2immu.analyzer.aapi.parser.Composer;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsComposer;
 import org.e2immu.analyzer.modification.analyzer.IteratingAnalyzer;
 import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeAnalysisOrder;
 import org.e2immu.analyzer.modification.prepwork.callgraph.ComputeCallGraph;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.analyzer.modification.prepwork.io.WriteAnalysis;
 import org.e2immu.analyzer.run.config.Configuration;
 import org.e2immu.language.cst.api.element.SourceSet;
@@ -109,12 +109,12 @@ public class RunAnalyzer implements Runnable {
                 sourceSetOfRequest = inputConfiguration.sourceSets().stream().findAny().orElse(null);
                 LOGGER.info("Cannot find a 'main' source set, default to {}", sourceSetOfRequest);
             }
-            new LoadAnalyzedPackageFiles(sourceSetOfRequest).go(javaInspector, ac.analyzedAnnotatedApiDirs());
+            new LoadAnalysisResults(sourceSetOfRequest).go(javaInspector, ac.analyzedAnnotatedApiDirs());
         } else {
             LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
         }
 
-        JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
+        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
                 .setDetailedSources(true)
                 .setFailFast(false)
                 .setParallel(configuration.generalConfiguration().parallel())
@@ -208,17 +208,17 @@ public class RunAnalyzer implements Runnable {
 
     private void runShallowAnalyzer() throws IOException {
         AnnotatedAPIConfiguration ac = configuration.annotatedAPIConfiguration();
-        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
+        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
 
-        annotatedApiParser.initialize(configuration.inputConfiguration(), ac);
-        LOGGER.info("AAPI parser finds {} types", annotatedApiParser.types().size());
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(annotatedApiParser.runtime(), annotatedApiParser,
+        analysisHintsParser.initialize(configuration.inputConfiguration(), ac);
+        LOGGER.info("AAPI parser finds {} types", analysisHintsParser.types().size());
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(analysisHintsParser.runtime(), analysisHintsParser,
                 true);
         Trie<TypeInfo> trie = new Trie<>();
-        ShallowAnalyzer.Result rs = shallowAnalyzer.go(annotatedApiParser.typesParsed());
+        ShallowAnalyzer.Result rs = shallowAnalyzer.go(analysisHintsParser.typesParsed());
         LOGGER.info("Shallow analyzer found {} types", rs.allTypes().size());
-        annotatedApiParser.types().forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
-        WriteAnalysis writeAnalysis = new WriteAnalysis(annotatedApiParser.runtime());
+        analysisHintsParser.types().forEach(ti -> trie.add(ti.packageName().split("\\."), ti));
+        WriteAnalysis writeAnalysis = new WriteAnalysis(analysisHintsParser.runtime());
         writeAnalysis.write(ac.analyzedAnnotatedApiTargetDir(), trie);
 
         LOGGER.info("End of e2immu main, AAPI->AAAPI shallow analyzer.");
@@ -239,19 +239,19 @@ public class RunAnalyzer implements Runnable {
             filter = new PackageFilter(ac.annotatedApiPackages());
             LOGGER.info("Created package filter based on {}", ac.annotatedApiPackages());
         }
-        Composer composer = new Composer(javaInspector, _ -> destinationPackage, filter);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, _ -> destinationPackage, filter);
         List<TypeInfo> compiledPrimaryTypes = javaInspector.compiledTypesManager()
                 .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
         LOGGER.info("Loaded {} compiled primary types", compiledPrimaryTypes.size());
 
-        JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder().setFailFast(true).build();
+        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().setFailFast(true).build();
         Summary summary = javaInspector.parse(parseOptions);
         Collection<TypeInfo> sourcePrimaryTypes = summary.types();
         LOGGER.info("Parsed {} primary source types", sourcePrimaryTypes.size());
 
         List<TypeInfo> primaryTypes = Stream.concat(compiledPrimaryTypes.stream(), sourcePrimaryTypes.stream()).toList();
-        Collection<TypeInfo> apiTypes = composer.compose(primaryTypes);
-        composer.write(apiTypes, ac.annotatedApiTargetDir(), null);
+        Collection<TypeInfo> apiTypes = analysisHintsComposer.compose(primaryTypes);
+        analysisHintsComposer.write(apiTypes, ac.annotatedApiTargetDir(), null);
 
         LOGGER.info("End of e2immu main, AAPI skeleton generation mode.");
     }

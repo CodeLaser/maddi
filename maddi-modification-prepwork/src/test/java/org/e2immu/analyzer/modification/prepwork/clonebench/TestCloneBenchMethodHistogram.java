@@ -45,7 +45,7 @@ A small number of files have been modified wrt the main branch, for this test to
  */
 public class TestCloneBenchMethodHistogram extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestCloneBenchMethodHistogram.class);
-    final JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder().build();
+    final JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder().build();
 
     public TestCloneBenchMethodHistogram() {
         super("jmod:java.desktop",

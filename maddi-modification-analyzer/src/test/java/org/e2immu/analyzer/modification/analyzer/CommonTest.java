@@ -6,7 +6,7 @@ import org.e2immu.analyzer.modification.analyzer.impl.IteratingAnalyzerImpl;
 import org.e2immu.analyzer.modification.analyzer.impl.ModAnalyzerForTesting;
 import org.e2immu.analyzer.modification.analyzer.impl.SingleIterationAnalyzerImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
@@ -22,8 +22,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -62,7 +60,7 @@ public abstract class CommonTest {
         InputConfiguration inputConfiguration = builder.build();
         javaInspector.initialize(inputConfiguration);
 
-        new LoadAnalyzedPackageFiles(javaInspector.mainSources()).go(javaInspector,
+        new LoadAnalysisResults(javaInspector.mainSources()).go(javaInspector,
                 List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages()));
 
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);

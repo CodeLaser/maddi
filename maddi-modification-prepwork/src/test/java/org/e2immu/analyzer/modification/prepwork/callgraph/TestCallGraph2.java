@@ -526,7 +526,7 @@ public class TestCallGraph2 extends CommonTest {
 
     private R make(Map<String, String> map) {
         PrepAnalyzer prepAnalyzer = new PrepAnalyzer(runtime);
-        JavaInspector.ParseOptions parseOptions = new JavaInspectorImpl.ParseOptionsBuilder()
+        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
                 .setFailFast(true).setDetailedSources(true).setIgnoreModule(true).build();
         Summary summary = javaInspector.parse(map, parseOptions);
         G<Info> graph = prepAnalyzer.doPrimaryTypesReturnGraph(Set.copyOf(summary.types()));

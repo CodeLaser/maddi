@@ -1,6 +1,6 @@
 package org.e2immu.analyzer.modification.link.impl;
 
-import org.e2immu.analyzer.aapi.parser.AnnotatedApiParser;
+import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
@@ -101,7 +101,7 @@ public class TestShallow extends CommonTest {
         analyzer.doPrimaryType(X);
 
         // run the shallow analyzer to detect the annotations
-        AnnotatedApiParser annotatedApiParser = new AnnotatedApiParser();
+        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, true);
         shallowAnalyzer.go(List.of(X));
 

@@ -8,7 +8,7 @@ module org.e2immu.analyzer.aapi.archive {
     requires org.junit.jupiter.api;
     requires org.slf4j;
 
-    exports org.e2immu.analyzer.aapi.archive.v2.jdk;
-    exports org.e2immu.analyzer.aapi.archive.v2.libs.log;
-    exports org.e2immu.analyzer.aapi.archive.v2.libs.test;
+    exports org.e2immu.analyzer.aapi.archive.jdk;
+    exports org.e2immu.analyzer.aapi.archive.libs.log;
+    exports org.e2immu.analyzer.aapi.archive.libs.test;
 }

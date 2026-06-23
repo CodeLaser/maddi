@@ -19,15 +19,9 @@ import org.e2immu.annotation.Independent;
 import org.e2immu.annotation.Modified;
 import org.e2immu.annotation.type.UtilityClass;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedType;
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-
 public class JavaLangReflect {
+    public static final String PACKAGE_NAME = "java.lang.reflect";
 
-    final static String PACKAGE_NAME = "java.lang.reflect";
 
     @ImmutableContainer
     interface GenericDeclaration$ {
@@ -51,58 +45,99 @@ public class JavaLangReflect {
 
     }
 
+    //public final class Array
     @UtilityClass
     class Array$ {
+        //@Immutable(hc=true)[T] @Independent[T]
         static Object newInstance(Class<?> componentType, int length) { return null; }
-        static Object newInstance(Class<?> componentType, int... dimensions) { return null; }
-        static int getLength(Object object) { return 0; }
-        static Object get(Object object, int i) { return null; }
-        static boolean getBoolean(Object object, int i) { return false; }
-        static byte getByte(Object object, int i) { return 0; }
-        static char getChar(Object object, int i) { return '\0'; }
-        static short getShort(Object object, int i) { return 0; }
-        static int getInt(Object object, int i) { return 0; }
-        static long getLong(Object object, int i) { return 0L; }
-        static float getFloat(Object object, int i) { return 0.0F; }
-        static double getDouble(Object object, int i) { return 0.0; }
-        static void set(@Modified Object object, int i, Object object1) { }
-        static void setBoolean(@Modified Object object, int i, boolean b) { }
-        static void setByte(@Modified Object object, int i, byte b) { }
-        static void setChar(@Modified Object object, int i, char c) { }
-        static void setShort(@Modified Object object, int i, short s) { }
-        static void setInt(@Modified Object object, int i, int i1) { }
-        static void setLong(@Modified Object object, int i, long l) { }
-        static void setFloat(@Modified Object object, int i, float f) { }
-        static void setDouble(@Modified Object object, int i, double d) { }
-    }
 
-    class Method$ {
-        @Modified
-        void setAccessible(boolean flag) { }
-        Class<?> getDeclaringClass() { return null; }
-        String getName() { return null; }
-        int getModifiers() { return 0; }
-        TypeVariable<Method>[] getTypeParameters() { return null; }
-        Class<?> getReturnType() { return null; }
-        Type getGenericReturnType() { return null; }
-        Class<?> [] getParameterTypes() { return null; }
-        int getParameterCount() { return 0; }
-        Type[] getGenericParameterTypes() { return null; }
-        Class<?> [] getExceptionTypes() { return null; }
-        Type[] getGenericExceptionTypes() { return null; }
-        public boolean equals(Object obj) { return false; }
-        public int hashCode() { return 0; }
-        public String toString() { return null; }
-        String toGenericString() { return null; }
-        Object invoke(@Modified Object obj, @Modified Object... args) { return null; }
-        boolean isBridge() { return false; }
-        boolean isVarArgs() { return false; }
-        boolean isSynthetic() { return false; }
-        boolean isDefault() { return false; }
-        Object getDefaultValue() { return null; }
-        <T> T getAnnotation(Class<T> annotationClass) { return null; }
-        Annotation[] getDeclaredAnnotations() { return null; }
-        Annotation[][] getParameterAnnotations() { return null; }
-        AnnotatedType getAnnotatedReturnType() { return null; }
+        //@Immutable(hc=true)[T] @Independent[T]
+        static Object newInstance(Class<?> componentType, int ... dimensions) { return null; }
+
+        static int getLength(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object) {
+            return 0;
+        }
+
+        //@Immutable(hc=true)[T] @Independent[T]
+        static Object get(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object, int i) {
+            return null;
+        }
+
+        static boolean getBoolean(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object,
+            int i) { return false; }
+
+        static byte getByte(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object, int i) {
+            return 0;
+        }
+
+        static char getChar(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object, int i) {
+            return '\0';
+        }
+
+        static short getShort(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object, int i) {
+            return 0;
+        }
+
+        static int getInt(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object, int i) {
+            return 0;
+        }
+
+        static long getLong(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object, int i) {
+            return 0L;
+        }
+
+        static float getFloat(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object, int i) {
+            return 0.0F;
+        }
+
+        static double getDouble(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object,
+            int i) { return 0.0; }
+
+        static void set(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Modified Object object,
+            int i,
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object1) { }
+
+        static void setBoolean(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Modified Object object,
+            int i,
+            boolean b) { }
+
+        static void setByte(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Modified Object object,
+            int i,
+            byte b) { }
+
+        static void setChar(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Modified Object object,
+            int i,
+            char c) { }
+
+        static void setShort(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Modified Object object,
+            int i,
+            short s) { }
+
+        static void setInt(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Modified Object object,
+            int i,
+            int i1) { }
+
+        static void setLong(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Modified Object object,
+            int i,
+            long l) { }
+
+        static void setFloat(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Modified Object object,
+            int i,
+            float f) { }
+
+        static void setDouble(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/@Modified Object object,
+            int i,
+            double d) { }
     }
 }

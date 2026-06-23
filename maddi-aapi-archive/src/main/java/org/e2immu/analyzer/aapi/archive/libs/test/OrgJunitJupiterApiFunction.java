@@ -12,27 +12,18 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser;
+package org.e2immu.analyzer.aapi.archive.libs.test;
+import org.e2immu.annotation.Independent;
+public class OrgJunitJupiterApiFunction {
+    public static final String PACKAGE_NAME = "org.junit.jupiter.api.function";
+    //public interface Executable
+    //@Container[M]
+    @Independent class Executable$ {void execute() { } }
 
-import org.e2immu.analyzer.modification.common.defaults.DebugVisitor;
-import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.integration.ToolChain;
-
-import java.util.Set;
-
-public interface RunVisitor {
-
-    default void afterAnnotatedApiParsing(JavaInspector javaInspector) {
-    }
-
-    default void setContext(AnalysisHints analysisHints) {
-    }
-
-    default DebugVisitor debugVisitor() {
-        return null;
-    }
-
-    default void writeAnalysis(Set<TypeInfo> writeOut) {
+    //public interface ThrowingSupplier
+    //@Container[M]
+    class ThrowingSupplier$<T> {
+        //@Independent(hc=true)[T]
+        T get() { return null; }
     }
 }

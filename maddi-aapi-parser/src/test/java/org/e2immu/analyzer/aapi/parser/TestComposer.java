@@ -66,11 +66,11 @@ public class TestComposer {
         javaInspector.initialize(inputConfiguration);
         inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
 
-        Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         List<TypeInfo> primaryTypes = javaInspector.compiledTypesManager()
                 .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
         LOGGER.info("Have {} primary types loaded", primaryTypes.size());
-        Collection<TypeInfo> apiTypes = composer.compose(primaryTypes);
+        Collection<TypeInfo> apiTypes = analysisHintsComposer.compose(primaryTypes);
 
         Path defaultDestination = Path.of(TEST_DIR);
         defaultDestination.toFile().mkdirs();
@@ -81,8 +81,8 @@ public class TestComposer {
                     .forEach(File::delete);
         }
 
-        Map<Element, Element> dollarMap = composer.translateFromDollarToReal();
-        composer.write(apiTypes, TEST_DIR, new DecoratorImpl(javaInspector.runtime(),
+        Map<Element, Element> dollarMap = analysisHintsComposer.translateFromDollarToReal();
+        analysisHintsComposer.write(apiTypes, TEST_DIR, new DecoratorImpl(javaInspector.runtime(),
                 javaInspector.mainSources(), dollarMap));
 
         String ju = Files.readString(new File(TEST_DIR, "org/e2immu/testannotatedapi/JavaUtil.java").toPath());
@@ -99,9 +99,9 @@ public class TestComposer {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
 
-        Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         TypeInfo typeDescriptor = javaInspector.compiledTypesManager().getOrLoad(TypeDescriptor.class);
-        Collection<TypeInfo> res = composer.compose(Set.of(typeDescriptor));
+        Collection<TypeInfo> res = analysisHintsComposer.compose(Set.of(typeDescriptor));
         assertEquals(1, res.size());
         @Language("java")
         String expected = """
@@ -150,7 +150,7 @@ public class TestComposer {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
         javaInspector.javaBase().computePriorityDependencies();
-        Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
 
         TypeInfo arrays = javaInspector.compiledTypesManager().getOrLoad(Arrays.class);
         MethodInfo parallelSort = arrays.methodStream()
@@ -160,7 +160,7 @@ public class TestComposer {
         assertEquals("java.util.Arrays.parallelSort(Comparable[],int,int)",
                 parallelSort.fullyQualifiedName());
 
-        Collection<TypeInfo> res = composer.compose(Set.of(arrays));
+        Collection<TypeInfo> res = analysisHintsComposer.compose(Set.of(arrays));
         assertEquals(1, res.size());
 
         TypeInfo typeInfo = res.stream().findFirst().orElseThrow();
@@ -204,7 +204,7 @@ public class TestComposer {
         javaInspector.initialize(inputConfiguration);
         inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
 
-        Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
 
         TypeInfo commandLine = javaInspector.compiledTypesManager().getOrLoad("picocli.CommandLine",
                 javaInspector.mainSources());
@@ -212,7 +212,7 @@ public class TestComposer {
         assertEquals("picocli.CommandLine.call(java.util.concurrent.Callable,String[])",
                 call.fullyQualifiedName());
 
-        Collection<TypeInfo> res = composer.compose(Set.of(commandLine));
+        Collection<TypeInfo> res = analysisHintsComposer.compose(Set.of(commandLine));
         assertEquals(1, res.size());
 
         TypeInfo typeInfo = res.stream().findFirst().orElseThrow();
@@ -254,11 +254,11 @@ public class TestComposer {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
 
-        Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         TypeInfo annotationConsumer = javaInspector.compiledTypesManager()
                 .getOrLoad("org.junit.jupiter.params.support.AnnotationConsumer",
                         javaInspector.mainSources());
-        Collection<TypeInfo> res = composer.compose(Set.of(annotationConsumer));
+        Collection<TypeInfo> res = analysisHintsComposer.compose(Set.of(annotationConsumer));
         assertEquals(1, res.size());
 
         @Language("java")
@@ -286,12 +286,12 @@ public class TestComposer {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(inputConfigurationBuilder.build());
 
-        Composer composer = new Composer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
         TypeInfo typeInfo = javaInspector.compiledTypesManager().getOrLoad(
                 "org.springframework.security.config.annotation.web.configurers.AbstractInterceptUrlConfigurer",
                 javaInspector.mainSources());
         assertNotNull(typeInfo);
-        Collection<TypeInfo> res = composer.compose(Set.of(typeInfo));
+        Collection<TypeInfo> res = analysisHintsComposer.compose(Set.of(typeInfo));
         assertEquals(1, res.size());
 
         /*

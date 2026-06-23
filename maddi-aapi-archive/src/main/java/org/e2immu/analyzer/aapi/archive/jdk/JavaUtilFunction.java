@@ -13,188 +13,136 @@
  */
 
 package org.e2immu.analyzer.aapi.archive.jdk;
-
-import org.e2immu.annotation.*;
-
 import java.util.Comparator;
-import java.util.function.Consumer;
-import java.util.function.UnaryOperator;
+import java.util.function.*;
+
+import org.e2immu.annotation.Independent;
+import org.e2immu.annotation.Modified;
+import org.e2immu.annotation.NotNull;
 
 public class JavaUtilFunction {
-
     public static final String PACKAGE_NAME = "java.util.function";
-
+    //public interface BiConsumer
     @Independent(hc = true)
-    @Container
-    interface Supplier$<T> {
-        @Modified
-        T get();
+    class BiConsumer$<T, U> {
+        void accept(/*@Independent(hc=true)[T] @NotModified[T]*/ @Modified T t, /*@Independent(hc=true)[T] @NotModified[T]*/ @Modified U u) { }
+        @NotNull
+        BiConsumer<T, U> andThen(/*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super U> after) { return null; }
     }
 
+    //public interface BiPredicate
     @Independent(hc = true)
-    interface Consumer$<T> {
-        /*
-        t is @Modified implicitly
-         */
-        @Modified
-        void accept(@Modified T t);
+    class BiPredicate$<T, U> {
+        //frequency 1
+        boolean test(/*@Independent(hc=true)[T]*/ @Modified T t, /*@Independent(hc=true)[T]*/ @Modified U u) {
+            return false;
+        }
 
-        // default method, calling accept first, then "after"
+        //@Independent(hc=true)[O]
         @NotNull
-        Consumer<T> andThen(@NotNull Consumer<? super T> after);
+
+        BiPredicate<T, U> and(
+            /*@IgnoreModifications[T] @Independent(hc=true)[T]*/ @NotNull BiPredicate<? super T, ? super U> other) {
+            return null;
+        }
+
+        //@Independent(hc=true)[O]
+        @NotNull
+        BiPredicate<T, U> negate() { return null; }
+
+        //@Independent(hc=true)[O]
+        @NotNull
+
+        BiPredicate<T, U> or(
+            /*@IgnoreModifications[T] @Independent(hc=true)[T]*/ @NotNull BiPredicate<? super T, ? super U> other) {
+            return null;
+        }
     }
 
+    //public interface BinaryOperator implements BiFunction<T,T,T>
     @Independent(hc = true)
-    interface Predicate$<T> {
-        /*
-         t is @Modified implicitly
-         */
-        @Modified
-        boolean test(@Modified T t);
-    }
-
-    @Independent(hc = true)
-    interface Function$<T, R> {
-        /*
-         t is @Modified implicitly
-         */
-        @Modified
-        R apply(@Modified T t);
-
+    class BinaryOperator$<T> {
         @NotNull
-        <V> java.util.function.Function<T, V> andThen(@NotNull java.util.function.Function<? super R, ? extends V> after);
-
-        @NotNull
-        <V> java.util.function.Function<V, R> compose(@NotNull java.util.function.Function<? super V, ? extends T> before);
-
-        @NotNull
-        @ImmutableContainer
-        <T> java.util.function.Function<T, T> identity();
-    }
-
-    @Independent(hc = true)
-    interface BiFunction$<T, U, R> {
-
-        @Modified
-        R apply(@Modified T t, @Modified U u);
+        static <T> BinaryOperator<T> minBy(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull Comparator<? super T> comparator) {
+            return null;
+        }
 
         @NotNull
-        <V> java.util.function.BiFunction<T, U, V> andThen(@NotNull java.util.function.Function<? super R, ? extends V> after);
+        static <T> BinaryOperator<T> maxBy(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull Comparator<? super T> comparator) {
+            return null;
+        }
     }
 
+    //public interface Consumer
     @Independent(hc = true)
-    interface BinaryOperator$<T> extends java.util.function.BiFunction<T, T, T> {
+    class Consumer$<T> {
+        //frequency 1
+        void accept(/*@Independent(hc=true)[T]*/ @Modified T t) { }
 
+        //@Independent(hc=true)[O]
         @NotNull
-        <TT> java.util.function.BinaryOperator<T> maxBy(@NotNull Comparator<? super TT> comparator);
+        Consumer<T> andThen(/*@IgnoreModifications[T] @Independent(hc=true)[T]*/ @NotNull Consumer<? super T> after) {
+            return null;
+        }
+    }
 
+    //public interface Function
+    @Independent(hc = true)
+    class Function$<T, R> {
+        //frequency 5
+        //@Independent(hc=true)[O]
+        R apply(/*@Independent(hc=true)[T]*/ @Modified T t) { return null; }
+
+        //@Independent(hc=true)[O]
         @NotNull
-        <TT> java.util.function.BinaryOperator<T> minBy(@NotNull Comparator<? super TT> comparator);
-    }
+        <V> Function<V, R> compose(
+            /*@IgnoreModifications[T] @Independent(hc=true)[T]*/ @NotNull Function<? super V, ? extends T> before) {
+            return null;
+        }
 
-    @Independent(hc = true)
-    interface BiConsumer$<T, U> {
-        @Modified
-        void accept(@Modified T t, @Modified U u);
-
+        //@Independent(hc=true)[O]
         @NotNull
-        java.util.function.BiConsumer<T, U> andThen(@NotNull java.util.function.BiConsumer<? super T, ? super U> after);
-    }
+        <V> Function<T, V> andThen(
+            /*@IgnoreModifications[T] @Independent(hc=true)[T]*/ @NotNull Function<? super R, ? extends V> after) {
+            return null;
+        }
 
-    @Independent(hc = true)
-    interface ToIntFunction$<R> {
-        @Modified
-        int applyAsInt(@Modified R value);
-    }
-
-    @Independent(hc = true)
-    interface ToIntBiFunction$<T, U> {
-        @Modified
-        int applyAsInt(@Modified T t, @Modified U u);
-    }
-
-    @Independent(hc = true)
-    interface ToLongBiFunction$<T, U> {
-        @Modified
-        long applyAsLong(@Modified T t, @Modified U u);
-    }
-
-    @Independent(hc = true)
-    interface ToDoubleBiFunction$<T, U> {
-        @Modified
-        double applyAsDouble(@Modified T t, @Modified U u);
-    }
-
-    @Independent(hc = true)
-    interface ToLongFunction$<R> {
-        @Modified
-        long applyAsLong(@Modified R value);
-    }
-
-    @Independent(hc = true)
-    interface ToDoubleFunction$<R> {
-        @Modified
-        double applyAsDouble(@Modified R value);
-    }
-
-    @Container
-    @Independent(hc = true)
-    interface IntFunction$<R> {
-        @Modified
-        R apply(int value);
-    }
-
-    @Container
-    @Independent(hc = true)
-    interface DoubleFunction$<R> {
-        @Modified
-        R apply(double value);
-    }
-
-    @Container
-    @Independent(hc = true)
-    interface LongFunction$<R> {
-        @Modified
-        R apply(long value);
-    }
-
-    @Independent(hc = true)
-    interface UnaryOperator$<R> {
-
+        //frequency 2
+        //@Independent(hc=true)[O]
         @NotNull
-        @ImmutableContainer
-        <T> UnaryOperator<T> identity();
+        static <T> Function<T, T> identity() { return null; }
     }
 
+    //public interface IntFunction
     @Independent(hc = true)
-    interface ObjIntConsumer$<T> {
-        @Modified
-        void accept(@Modified T t, int i);
+    class IntFunction$<R> {
+        //@Independent(hc=true)[T]
+        R apply(int i) { return null; }
     }
 
+    //public interface Predicate
+    class Predicate$<T> {
+        boolean test(/*@Independent(hc=true)[T] @NotModified[T]*/ @Modified T t) { return false; }
+        @NotNull
+        Predicate<T> and(/*@IgnoreModifications[T]*/ @NotNull Predicate<? super T> other) { return null; }
+        @NotNull
+        Predicate<T> negate() { return null; }
+        @NotNull
+        Predicate<T> or(/*@IgnoreModifications[T]*/ @NotNull Predicate<? super T> other) { return null; }
+        @NotNull
+        static <T> Predicate<T> isEqual(
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull Object targetRef) { return null; }
+        @NotNull
+        static <T> Predicate<T> not(/*@IgnoreModifications[T]*/@NotNull Predicate<? super T> target) { return null; }
+    }
+
+    //public interface Supplier
+    //@Container[M]
     @Independent(hc = true)
-    interface ObjLongConsumer$<T> {
-        @Modified
-        void accept(@Modified T t, long i);
-    }
-
-    @Independent(hc = true)
-    interface ObjDoubleConsumer$<T> {
-        @Modified
-        void accept(@Modified T t, double i);
-    }
-
-    @Container
-    @Independent
-    interface IntConsumer$ {
-        @Modified
-        void accept(int i);
-    }
-
-    @Container
-    @Independent
-    interface IntPredicate$ {
-        @Modified
-        boolean test(int i);
+    class Supplier$<T> {
+        //@Independent(hc=true)[O]
+        T get() { return null; }
     }
 }

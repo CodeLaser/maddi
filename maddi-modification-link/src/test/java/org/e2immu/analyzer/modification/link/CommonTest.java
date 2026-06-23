@@ -3,7 +3,7 @@ package org.e2immu.analyzer.modification.link;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
-import org.e2immu.analyzer.modification.prepwork.io.LoadAnalyzedPackageFiles;
+import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
@@ -95,7 +95,7 @@ public abstract class CommonTest {
         javaInspector.parse(JavaInspectorImpl.FAIL_FAST);
         runtime = javaInspector.runtime();
 
-        new LoadAnalyzedPackageFiles(javaInspector.mainSources()).go(javaInspector,
+        new LoadAnalysisResults(javaInspector.mainSources()).go(javaInspector,
                 List.of(ToolChain.currentJdkAnalyzedPackages(), ToolChain.commonLibsAnalyzedPackages()));
 
         prepAnalyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
