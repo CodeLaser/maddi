@@ -90,6 +90,12 @@ public final class SourceCodeScan {
             return map == null ? null : (Source) map.get(DetailedSources.SUCCEEDING_COMMA);
         }
 
+        // keyed by the source of a field declarator's name identifier
+        public Source findSucceedingEquals(Source nameSource) {
+            Map<Object, Object> map = argumentLists.get(nameSource);
+            return map == null ? null : (Source) map.get(DetailedSources.SUCCEEDING_EQUALS);
+        }
+
         @SuppressWarnings("unchecked")
         public List<Source> findArgumentCommas(Source sourceOfMethodCallConstructorCall) {
             Map<Object, Object> map = argumentLists.get(sourceOfMethodCallConstructorCall);
@@ -256,9 +262,13 @@ public final class SourceCodeScan {
 
     private void scanFieldDeclaration(Node fd) {
         addComments(fd, true);
+        scanVariableDeclarators(fd);
+    }
 
-        for (Node node : fd.children()) {
-            String string = node.getSource();
+    // records PRECEDING_COMMA/SUCCEEDING_COMMA (keyed by the declarator) and SUCCEEDING_EQUALS (keyed by the
+    // name identifier) for each VariableDeclarator; shared by field and local-variable declarations
+    private void scanVariableDeclarators(Node decl) {
+        for (Node node : decl.children()) {
             if (node instanceof VariableDeclarator vd) {
                 Map<Object, Object> commaMap = new HashMap<>();
                 Node preceding = vd.previousSibling();
@@ -269,16 +279,15 @@ public final class SourceCodeScan {
                 if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
                     commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
                 }
-                Source source = source(vd);
-                argumentLists.put(source, Map.copyOf(commaMap));
+                if (!commaMap.isEmpty()) {
+                    argumentLists.put(source(vd), Map.copyOf(commaMap));
+                }
                 for (Node n : vd.children()) {
                     if (n instanceof Identifier) {
-                        Map<Object, Object> eqMap = new HashMap<>();
                         Node succeedingEq = n.nextSibling();
                         if (succeedingEq != null && succeedingEq.getType() == Token.TokenType.ASSIGN) {
-                            eqMap.put(DetailedSources.SUCCEEDING_EQUALS, source(succeedingEq));
-                            Source sourceId = source(n);
-                            argumentLists.put(sourceId, Map.copyOf(eqMap));
+                            argumentLists.put(source(n),
+                                    Map.of(DetailedSources.SUCCEEDING_EQUALS, source(succeedingEq)));
                         }
                     }
                 }
@@ -346,6 +355,9 @@ public final class SourceCodeScan {
             if (child instanceof TypeDeclaration td) {
                 scanTypeDeclaration(td);
                 return false;
+            }
+            if (child instanceof LocalVariableDeclaration lvd) {
+                scanVariableDeclarators(lvd);
             }
             if (child instanceof MethodCall || child instanceof AllocationExpression
                 || child instanceof ExplicitConstructorInvocation) {

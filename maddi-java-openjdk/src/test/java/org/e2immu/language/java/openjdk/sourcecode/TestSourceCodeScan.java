@@ -130,6 +130,8 @@ public class TestSourceCodeScan {
         testArgumentList(aIterator, "3-16:3-23", "SUCCEEDING_COMMA=3-24:3-24");
         testArgumentList(aIterator, "3-26:3-30", "PRECEDING_COMMA=3-24:3-24");
         testArgumentList(aIterator, "4-11:4-20", "END_OF_ARGUMENT_LIST=4-20:4-20");
+        // local 'int i = s.substring(0, 5).length();' : the name 'i' -> its '=', then the declarator (no commas)
+        testArgumentList(aIterator, "10-12:10-12", "SUCCEEDING_EQUALS=10-14:10-14");
         testArgumentList(aIterator, "10-16:10-32", "ARGUMENT_COMMAS=10-29:10-29, END_OF_ARGUMENT_LIST=10-32:10-32");
         testArgumentList(aIterator, "10-16:10-41", "END_OF_ARGUMENT_LIST=10-41:10-41");
         assertFalse(aIterator.hasNext());
@@ -481,8 +483,12 @@ public class TestSourceCodeScan {
         testArgumentList(a, "9-9:9-26", "ARGUMENT_COMMAS=9-20:9-20;9-23:9-23, END_OF_ARGUMENT_LIST=9-26:9-26");
 
         testArgumentList(a, "11-5:15-5", "END_OF_PARAMETER_LIST=11-22:11-22");                        // allocations()
+        // each 'D dN = new D(...)' local adds: name 'dN' -> '=', then the declarator (no commas), then the call
+        testArgumentList(a, "12-11:12-12", "SUCCEEDING_EQUALS=12-14:12-14");                          // d0 -> '='
         testArgumentList(a, "12-16:12-22", "END_OF_ARGUMENT_LIST=12-22:12-22");                       // new D()       0 args
+        testArgumentList(a, "13-11:13-12", "SUCCEEDING_EQUALS=13-14:13-14");                          // d1 -> '='
         testArgumentList(a, "13-16:13-23", "END_OF_ARGUMENT_LIST=13-23:13-23");                       // new D(x)      1 arg
+        testArgumentList(a, "14-11:14-12", "SUCCEEDING_EQUALS=14-14:14-14");                          // d2 -> '='
         // allocation, 2 args -> one comma
         testArgumentList(a, "14-16:14-26", "ARGUMENT_COMMAS=14-23:14-23, END_OF_ARGUMENT_LIST=14-26:14-26");
 

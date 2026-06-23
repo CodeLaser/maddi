@@ -1,9 +1,12 @@
 package org.e2immu.language.java.openjdk.print;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
+import org.e2immu.language.cst.api.info.FieldInfo;
 import org.e2immu.language.cst.api.info.ImportComputer;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeParameter;
 import org.e2immu.language.cst.api.output.Qualification;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.impl.info.ImportComputerImpl;
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class TestDetailedSources extends CommonTest {
 
@@ -76,5 +80,60 @@ public class TestDetailedSources extends CommonTest {
         MethodInfo constructor = X.constructors().getFirst();
         DetailedSources dsc = constructor.source().detailedSources();
         assertEquals("6-12:6-12", dsc.detail(DetailedSources.END_OF_PARAMETER_LIST).compact2());
+    }
+
+    @Language("java")
+    public static final String INPUT_COMMAS = """
+            package a.b;
+            class X<A, B, C> {
+                int i, j, k;
+                void m(int a, int b, int c) {
+                }
+            }
+            """;
+
+    @Test
+    public void testPrecedingSucceedingComma() {
+        TypeInfo X = scan("a.b.X", INPUT_COMMAS);
+
+        // class type parameter B (middle of <A, B, C>)
+        TypeParameter b = X.typeParameters().get(1);
+        DetailedSources dsB = b.source().detailedSources();
+        assertEquals("2-10:2-10", dsB.detail(DetailedSources.PRECEDING_COMMA).compact2());
+        assertEquals("2-13:2-13", dsB.detail(DetailedSources.SUCCEEDING_COMMA).compact2());
+
+        // field j (middle of i, j, k)
+        FieldInfo j = X.getFieldByName("j", true);
+        DetailedSources dsJ = j.source().detailedSources();
+        assertEquals("3-10:3-10", dsJ.detail(DetailedSources.PRECEDING_COMMA).compact2());
+        assertEquals("3-13:3-13", dsJ.detail(DetailedSources.SUCCEEDING_COMMA).compact2());
+
+        // method parameter 'int b' (middle of int a, int b, int c)
+        ParameterInfo pb = X.findUniqueMethod("m", 3).parameters().get(1);
+        DetailedSources dsPb = pb.source().detailedSources();
+        assertEquals("4-17:4-17", dsPb.detail(DetailedSources.PRECEDING_COMMA).compact2());
+        assertEquals("4-24:4-24", dsPb.detail(DetailedSources.SUCCEEDING_COMMA).compact2());
+    }
+
+    @Language("java")
+    public static final String INPUT_EQUALS = """
+            package a.b;
+            class X {
+                int x = 5;
+                int y;
+            }
+            """;
+
+    @Test
+    public void testSucceedingEquals() {
+        TypeInfo X = scan("a.b.X", INPUT_EQUALS);
+
+        // field with initialiser: '=' at 3-11
+        FieldInfo x = X.getFieldByName("x", true);
+        assertEquals("3-11:3-11", x.source().detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS).compact2());
+
+        // field without initialiser: no SUCCEEDING_EQUALS
+        FieldInfo y = X.getFieldByName("y", true);
+        assertNull(y.source().detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS));
     }
 }
