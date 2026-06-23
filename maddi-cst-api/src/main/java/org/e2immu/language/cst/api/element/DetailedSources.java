@@ -33,41 +33,65 @@ import java.util.List;
  */
 public interface DetailedSources {
 
-    /** Position of the closing {@code )} of a record component list or method formal-parameter list. */
+    /**
+     * Position of the closing {@code )} of a record component list or method formal-parameter list.
+     */
     Object END_OF_PARAMETER_LIST = new Object();
-    /** Position of the {@code extends} keyword in a type declaration header. */
+    /**
+     * Position of the {@code extends} keyword in a type declaration header.
+     */
     Object EXTENDS = new Object();
-    /** Position of the {@code implements} keyword in a type declaration header. */
+    /**
+     * Position of the {@code implements} keyword in a type declaration header.
+     */
     Object IMPLEMENTS = new Object();
-    /** Position of the {@code permits} keyword in a sealed type declaration header. */
+    /**
+     * Position of the {@code permits} keyword in a sealed type declaration header.
+     */
     Object PERMITS = new Object();
-    /** Source range spanning the entire field declaration (type + name + initialiser). */
+    /**
+     * Source range spanning the entire field declaration (type + name + initialiser).
+     */
     Object FIELD_DECLARATION = new Object();
-    /** Position of the comma that <em>precedes</em> an element in a comma-separated list. */
+    /**
+     * Position of the comma that <em>precedes</em> an element in a comma-separated list.
+     * Computed for formal type parameter lists, formal method parameter lists, and field declaration lists.
+     */
     Object PRECEDING_COMMA = new Object();
-    /** Position of the comma that <em>follows</em> an element in a comma-separated list. */
+    /**
+     * Position of the comma that <em>follows</em> an element in a comma-separated list.
+     * Computed for formal type parameter lists, formal method parameter lists, and field declaration lists.
+     */
     Object SUCCEEDING_COMMA = new Object();
-    /** Position of the {@code =} sign in a field or local-variable declarator. */
+    /**
+     * Position of the {@code =} sign in a field or local-variable declarator.
+     */
     Object SUCCEEDING_EQUALS = new Object();
-    /** Positions of all {@code ,} separators in a method-call / constructor-call / annotation argument list. */
+    /**
+     * Positions of all {@code ,} separators in a method-call / constructor-call / annotation argument list.
+     */
     Object ARGUMENT_COMMAS = new Object();
-    /** Position of the closing {@code )} of a method-call / constructor-call / annotation argument list. */
+    /**
+     * Position of the closing {@code )} of a method-call / constructor-call / annotation argument list.
+     */
     Object END_OF_ARGUMENT_LIST = new Object();
-    /** Positions of all {@code ,} separators in a type-argument list (e.g. {@code <A, B>}). */
+
+
+    // unused at the moment
     Object TYPE_ARGUMENT_COMMAS = new Object();
-    /** Positions of all {@code ,} separators in a type's {@code extends} list. */
+    // unused at the moment
     Object EXTENDS_COMMAS = new Object();
-    /** Positions of all {@code ,} separators in a type's {@code implements} list. */
+    // unused at the moment
     Object IMPLEMENTS_COMMAS = new Object();
-    /** Positions of all {@code ,} separators in a type's {@code permits} list. */
+    // unused at the moment
     Object PERMITS_COMMAS = new Object();
-    /** Positions of all {@code ,} separators in a method's {@code throws} list. */
+    // unused at the moment
     Object THROWS_COMMAS = new Object();
-    /** Positions of all {@code ,} separators in a local-variable declaration with multiple declarators. */
+    // unused at the moment
     Object LOCAL_VARIABLE_COMMAS = new Object();
-    /** Positions of all {@code =} operators in a multi-declarator local-variable declaration. */
+    // unused at the moment
     Object LOCAL_VARIABLE_ASSIGNMENT_OPERATORS = new Object();
-    /** Positions of all {@code &} separators in a type-parameter bound (e.g. {@code T extends A & B}). */
+    // unused at the moment
     Object TYPE_BOUND_AMPERSANDS = new Object();
 
     /**
@@ -84,7 +108,9 @@ public interface DetailedSources {
     @NotNull
     List<Source> details(Object object);
 
-    /** Returns a new {@code DetailedSources} combining the entries of this and {@code other}. */
+    /**
+     * Returns a new {@code DetailedSources} combining the entries of this and {@code other}.
+     */
     DetailedSources merge(DetailedSources other);
 
     /**
@@ -93,7 +119,9 @@ public interface DetailedSources {
      */
     Object associatedObject(Object object);
 
-    /** Returns a copy with the sources for {@code o} replaced by {@code sources}. */
+    /**
+     * Returns a copy with the sources for {@code o} replaced by {@code sources}.
+     */
     DetailedSources withSources(Object o, List<Source> sources);
 
     interface Builder {
@@ -118,13 +146,17 @@ public interface DetailedSources {
 
         DetailedSources build();
 
-        /** Records the mapping from an array-typed {@link org.e2immu.language.cst.api.type.ParameterizedType} to its non-array counterpart. */
+        /**
+         * Records the mapping from an array-typed {@link org.e2immu.language.cst.api.type.ParameterizedType} to its non-array counterpart.
+         */
         Builder putWithArrayToWithoutArray(ParameterizedType withArray, ParameterizedType withoutArray);
 
         record TypeInfoSource(TypeInfo typeInfo, Source source) {
         }
 
-        /** Records qualification information: for {@code typeInfo}, which enclosing types were written out. */
+        /**
+         * Records qualification information: for {@code typeInfo}, which enclosing types were written out.
+         */
         Builder putTypeQualification(TypeInfo typeInfo, List<TypeInfoSource> associatedList);
     }
 

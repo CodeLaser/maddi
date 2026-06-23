@@ -159,6 +159,10 @@ public class TestSourceCodeScan {
                     key = "PRECEDING_COMMA";
                 } else if (e.getKey() == DetailedSources.SUCCEEDING_COMMA) {
                     key = "SUCCEEDING_COMMA";
+                } else if (e.getKey() == DetailedSources.SUCCEEDING_EQUALS) {
+                    key = "SUCCEEDING_EQUALS";
+                } else if (e.getKey() == DetailedSources.FIELD_DECLARATION) {
+                    key = "FIELD_DECLARATION";
                 }
             }
             list.add(key + "=" + value);
@@ -375,4 +379,224 @@ public class TestSourceCodeScan {
         testKeyword(kIterator, "72-5:72-9", "class");
         testKeyword(kIterator, "72-22:72-31", "implements");
     }
+
+
+    @Language("java")
+    public static final String INPUT6 = """
+            package a.b;
+            class X<A, B, C> {
+                int i, j, k;
+                <T, U, X extends Object> void m(T t, U u) {
+                }
+            }
+            """;
+
+    /*
+    Demonstrates the gaps: SourceCodeScan currently records comma/end-of-list positions ONLY for formal
+    METHOD parameter lists. Formal TYPE parameter lists and multi-declarator FIELD lists are not scanned,
+    even though DetailedSources.PRECEDING_COMMA / SUCCEEDING_COMMA are documented to cover them too.
+
+    For INPUT6 the only entries are the ones for m(T t, U u); the assertFalse(hasNext()) below proves that
+    nothing is recorded for:
+
+      - line 2 'class X<A, B, C>' : type-parameter commas at 2-10, 2-13 and the closing '>' at 2-16
+                                    (type parameters A@2-9, B@2-12, C@2-15)
+      - line 3 'int i, j, k;'     : field-declarator commas at 3-10, 3-13
+                                    (declarators i@3-9, j@3-12, k@3-15)
+      - line 4 '<T, U>'           : method type-parameter comma at 4-7
+                                    (type parameters T@4-6, U@4-9, closing '>' at 4-10)
+    */
+    @Test
+    public void test6_gaps() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT6, false);
+        Iterator<Map.Entry<Source, Map<Object, Object>>> aIterator = r.argumentLists().entrySet().iterator();
+
+        testArgumentList(aIterator, "2-9:2-9", "SUCCEEDING_COMMA=2-10:2-10");   // A
+        testArgumentList(aIterator, "2-12:2-12", "PRECEDING_COMMA=2-10:2-10, SUCCEEDING_COMMA=2-13:2-13");  // B
+        testArgumentList(aIterator, "2-15:2-15", "PRECEDING_COMMA=2-13:2-13");  // C
+
+        testArgumentList(aIterator, "3-9:3-9", "SUCCEEDING_COMMA=3-10:3-10");   // i
+        testArgumentList(aIterator, "3-12:3-12", "PRECEDING_COMMA=3-10:3-10, SUCCEEDING_COMMA=3-13:3-13");  // j
+        testArgumentList(aIterator, "3-15:3-15", "PRECEDING_COMMA=3-13:3-13");  // k
+
+        testArgumentList(aIterator, "4-5:5-5", "END_OF_PARAMETER_LIST=4-45:4-45");  // the ')' of m(...)
+
+        testArgumentList(aIterator, "4-6:4-6", "SUCCEEDING_COMMA=4-7:4-7");
+        testArgumentList(aIterator, "4-9:4-9", "PRECEDING_COMMA=4-7:4-7, SUCCEEDING_COMMA=4-10:4-10");
+        testArgumentList(aIterator, "4-12:4-27", "PRECEDING_COMMA=4-10:4-10");
+
+        testArgumentList(aIterator, "4-37:4-39", "SUCCEEDING_COMMA=4-40:4-40");     // "T t"
+        testArgumentList(aIterator, "4-42:4-44", "PRECEDING_COMMA=4-40:4-40");      // "U u"
+
+        // GAP: nothing else is recorded — no type-parameter lists, no field-declarator list.
+        // When that support is added, new entries will appear here and this assertion will need updating.
+        assertFalse(aIterator.hasNext(), "expected no further entries; type parameters and field "
+                                         + "declarators are not yet scanned");
+    }
+
+    @Language("java")
+    public static final String INPUT7 = """
+            package a.b;
+            class C {
+                C() {
+                    this(1, 2);
+                }
+                void calls() {
+                    noArg();
+                    oneArg(x);
+                    threeArgs(x, y, z);
+                }
+                void allocations() {
+                    D d0 = new D();
+                    D d1 = new D(x);
+                    D d2 = new D(x, y);
+                }
+                void nested() {
+                    outer(inner(x, y), z);
+                }
+            }
+            """;
+
+    /*
+    Exhaustive coverage of ARGUMENT_COMMAS / END_OF_ARGUMENT_LIST, which scanCall records for the three
+    kinds of call sites (method call, 'new' allocation, explicit constructor invocation), at 0 / 1 / many
+    arguments, plus nesting. Every method/constructor's parameter list also yields an END_OF_PARAMETER_LIST
+    (even the empty '()'), so those appear interleaved.
+    */
+    @Test
+    public void test7() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT7, false);
+        Iterator<Map.Entry<Source, Map<Object, Object>>> a = r.argumentLists().entrySet().iterator();
+
+        testArgumentList(a, "3-5:5-5", "END_OF_PARAMETER_LIST=3-7:3-7");                              // C()
+        // explicit constructor invocation, 2 args: this(1, 2)
+        testArgumentList(a, "4-9:4-18", "ARGUMENT_COMMAS=4-15:4-15, END_OF_ARGUMENT_LIST=4-18:4-18");
+
+        testArgumentList(a, "6-5:10-5", "END_OF_PARAMETER_LIST=6-16:6-16");                           // calls()
+        testArgumentList(a, "7-9:7-15", "END_OF_ARGUMENT_LIST=7-15:7-15");                            // noArg()       0 args
+        testArgumentList(a, "8-9:8-17", "END_OF_ARGUMENT_LIST=8-17:8-17");                            // oneArg(x)     1 arg
+        // method call, 3 args -> two commas
+        testArgumentList(a, "9-9:9-26", "ARGUMENT_COMMAS=9-20:9-20;9-23:9-23, END_OF_ARGUMENT_LIST=9-26:9-26");
+
+        testArgumentList(a, "11-5:15-5", "END_OF_PARAMETER_LIST=11-22:11-22");                        // allocations()
+        testArgumentList(a, "12-16:12-22", "END_OF_ARGUMENT_LIST=12-22:12-22");                       // new D()       0 args
+        testArgumentList(a, "13-16:13-23", "END_OF_ARGUMENT_LIST=13-23:13-23");                       // new D(x)      1 arg
+        // allocation, 2 args -> one comma
+        testArgumentList(a, "14-16:14-26", "ARGUMENT_COMMAS=14-23:14-23, END_OF_ARGUMENT_LIST=14-26:14-26");
+
+        testArgumentList(a, "16-5:18-5", "END_OF_PARAMETER_LIST=16-17:16-17");                        // nested()
+        // nested calls: outer(inner(x, y), z) -> the outer list first (it begins earlier), then the inner
+        testArgumentList(a, "17-9:17-29", "ARGUMENT_COMMAS=17-26:17-26, END_OF_ARGUMENT_LIST=17-29:17-29");
+        testArgumentList(a, "17-15:17-25", "ARGUMENT_COMMAS=17-22:17-22, END_OF_ARGUMENT_LIST=17-25:17-25");
+
+        assertFalse(a.hasNext());
+    }
+
+    @Language("java")
+    public static final String INPUT8 = """
+            package a.b;
+            class C {
+                void m(int a, int b, int c) {
+                }
+                void s(int only) {
+                }
+            }
+            """;
+
+    /*
+    Completes the coverage of the formal-parameter keys PRECEDING_COMMA / SUCCEEDING_COMMA /
+    END_OF_PARAMETER_LIST. test2/test6 only have two-parameter lists, so no parameter ever carries BOTH
+    commas, and a one-parameter list (empty comma map) is never exercised. Here:
+      - 'int b' is a middle parameter -> PRECEDING_COMMA + SUCCEEDING_COMMA (the missing combination)
+      - 'int a' first -> SUCCEEDING_COMMA only; 'int c' last -> PRECEDING_COMMA only
+      - 'int only' single parameter -> empty comma map
+    */
+    @Test
+    public void test8() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT8, false);
+        Iterator<Map.Entry<Source, Map<Object, Object>>> a = r.argumentLists().entrySet().iterator();
+
+        testArgumentList(a, "3-5:4-5", "END_OF_PARAMETER_LIST=3-31:3-31");        // m(...)
+        testArgumentList(a, "3-12:3-16", "SUCCEEDING_COMMA=3-17:3-17");           // int a  (first)
+        testArgumentList(a, "3-19:3-23", "PRECEDING_COMMA=3-17:3-17, SUCCEEDING_COMMA=3-24:3-24"); // int b (middle: BOTH)
+        testArgumentList(a, "3-26:3-30", "PRECEDING_COMMA=3-24:3-24");            // int c  (last)
+
+        testArgumentList(a, "5-5:6-5", "END_OF_PARAMETER_LIST=5-20:5-20");        // s(...)
+        testArgumentList(a, "5-12:5-19", "");                                     // int only (single: no commas)
+
+        assertFalse(a.hasNext());
+    }
+
+    @Language("java")
+    public static final String INPUT9 = """
+            package a.b;
+            public sealed interface I permits A, B {
+            }
+            final class A implements I {
+            }
+            final class B implements I {
+            }
+            """;
+
+    @Test
+    public void test9() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT9, false);
+        Iterator<Map.Entry<Source, String>> k = r.keywords().entrySet().iterator();
+        testKeyword(k, "1-1:1-7", "package");
+        testKeyword(k, "2-1:2-6", "public");
+        testKeyword(k, "2-8:2-13", "sealed");
+        testKeyword(k, "2-15:2-23", "interface");
+        testKeyword(k, "2-27:2-33", "permits");
+        testKeyword(k, "4-1:4-5", "final");
+        testKeyword(k, "4-7:4-11", "class");
+        testKeyword(k, "4-15:4-24", "implements");
+        testKeyword(k, "6-1:6-5", "final");
+        testKeyword(k, "6-7:6-11", "class");
+        testKeyword(k, "6-15:6-24", "implements");
+        assertFalse(k.hasNext());
+    }
+
+    // collects, across all argumentLists entries, the Source(s) recorded under a given sentinel key
+    private static List<Source> findDetail(SourceCodeScan.Result r, Object key) {
+        List<Source> result = new ArrayList<>();
+        for (Map<Object, Object> map : r.argumentLists().values()) {
+            Object v = map.get(key);
+            if (v instanceof Source s) {
+                result.add(s);
+            } else if (v instanceof List<?> list) {
+                for (Object o : list) result.add((Source) o);
+            }
+        }
+        return result;
+    }
+
+    @Language("java")
+    public static final String INPUT10 = """
+            package a.b;
+            class C {
+                int x = 5;
+                int y;
+            }
+            """;
+
+    /*
+    Drives SUCCEEDING_EQUALS, the position of the '=' in a field declarator. SourceCodeScan does not yet
+    record it (scanFieldDeclaration only collects comments), so this fails until it does. The driver does
+    not assume which Source the implementation keys the entry by; it just asserts that exactly one
+    SUCCEEDING_EQUALS is recorded, at the '=' of 'int x = 5;' (3-11), and none for the initialiser-less
+    'int y;'.
+    */
+    @Test
+    public void test10() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT10, false);
+        List<Source> equalsSigns = findDetail(r, DetailedSources.SUCCEEDING_EQUALS);
+        assertEquals(1, equalsSigns.size(), "expected one SUCCEEDING_EQUALS, for 'int x = 5;'");
+        assertEquals("3-11:3-11", equalsSigns.getFirst().compact2());
+    }
+
 }
