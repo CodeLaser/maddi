@@ -25,6 +25,7 @@ import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
+import org.e2immu.language.cst.api.statement.ExplicitConstructorInvocation;
 import org.e2immu.language.cst.api.statement.LocalVariableCreation;
 import org.e2immu.language.cst.api.statement.TryStatement;
 import org.e2immu.language.cst.api.type.ParameterizedType;
@@ -303,6 +304,11 @@ public class ComputeCallGraph {
             if (e instanceof MethodReference mr) {
                 handleMethodCall(info, mr.methodInfo());
                 return true;
+            }
+            if (e instanceof ExplicitConstructorInvocation eci &&
+                // cover Object, Enum, Record, Annotation, etc.
+                !eci.methodInfo().typeInfo().packageName().startsWith("java.lang")) {
+                builder.mergeEdge(info, eci.methodInfo(), CODE_STRUCTURE); // S
             }
             if (e instanceof ConstructorCall cc) {
                 TypeInfo anonymousType = cc.anonymousClass();

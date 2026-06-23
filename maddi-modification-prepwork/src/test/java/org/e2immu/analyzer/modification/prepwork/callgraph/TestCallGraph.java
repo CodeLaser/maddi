@@ -203,23 +203,48 @@ public class TestCallGraph extends CommonTest {
         TypeInfo X = javaInspector.parse(ABX, INPUT4);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
         G<Info> graph = ccg.go().graph();
-        assertEquals("""
-                a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, \
-                a.b.X->S->a.b.X.Z, a.b.X->S->a.b.X.getZ(), a.b.X->S->a.b.X.z, a.b.X.I->S->a.b.X.I.i(), \
-                a.b.X.Y->H->a.b.X.I, a.b.X.Y->S->a.b.X.Y.<init>(int), a.b.X.Y->S->a.b.X.Y.i, a.b.X.Y->S->a.b.X.Y.i(), \
-                a.b.X.Y.i()->S->a.b.X.I.i(), \
-                a.b.X.Y.i->R->a.b.X.Y.<init>(int), a.b.X.Y.i->R->a.b.X.Y.i(), a.b.X.Z->S->a.b.X.Z.<init>(a.b.X.Y), \
-                a.b.X.Z->S->a.b.X.Z.y, a.b.X.Z->S->a.b.X.Z.y(), a.b.X.Z.<init>(a.b.X.Y)->D->a.b.X.Y, \
-                a.b.X.Z.y()->D->a.b.X.Y, a.b.X.Z.y->D->a.b.X.Y, a.b.X.Z.y->R->a.b.X.Z.<init>(a.b.X.Y), \
-                a.b.X.Z.y->R->a.b.X.Z.y(), a.b.X.getZ()->D->a.b.X.Z, a.b.X.z->D->a.b.X.Z, a.b.X.z->R->a.b.X.getZ()\
-                """, ComputeCallGraph.print(graph));
+        if (openJdkParser) {
+            // openJdkParser adds equals, toString, hashCode to records
+            assertEquals("""
+                    a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, a.b.X->S->a.b.X.Z, \
+                    a.b.X->S->a.b.X.getZ(), a.b.X->S->a.b.X.z, a.b.X.I->S->a.b.X.I.i(), a.b.X.Y->H->a.b.X.I, \
+                    a.b.X.Y->S->a.b.X.Y.<init>(int), a.b.X.Y->S->a.b.X.Y.equals(Object), a.b.X.Y->S->a.b.X.Y.hashCode(), \
+                    a.b.X.Y->S->a.b.X.Y.i, a.b.X.Y->S->a.b.X.Y.i(), a.b.X.Y->S->a.b.X.Y.toString(), \
+                    a.b.X.Y.i()->S->a.b.X.I.i(), a.b.X.Y.i->R->a.b.X.Y.<init>(int), a.b.X.Y.i->R->a.b.X.Y.i(), \
+                    a.b.X.Z->S->a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z->S->a.b.X.Z.equals(Object), \
+                    a.b.X.Z->S->a.b.X.Z.hashCode(), a.b.X.Z->S->a.b.X.Z.toString(), a.b.X.Z->S->a.b.X.Z.y, \
+                    a.b.X.Z->S->a.b.X.Z.y(), a.b.X.Z.<init>(a.b.X.Y)->D->a.b.X.Y, a.b.X.Z.y()->D->a.b.X.Y, \
+                    a.b.X.Z.y->D->a.b.X.Y, a.b.X.Z.y->R->a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z.y->R->a.b.X.Z.y(), \
+                    a.b.X.getZ()->D->a.b.X.Z, a.b.X.z->D->a.b.X.Z, a.b.X.z->R->a.b.X.getZ()\
+                    """, ComputeCallGraph.print(graph));
+        } else {
+            assertEquals("""
+                    a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, \
+                    a.b.X->S->a.b.X.Z, a.b.X->S->a.b.X.getZ(), a.b.X->S->a.b.X.z, a.b.X.I->S->a.b.X.I.i(), \
+                    a.b.X.Y->H->a.b.X.I, a.b.X.Y->S->a.b.X.Y.<init>(int), a.b.X.Y->S->a.b.X.Y.i, a.b.X.Y->S->a.b.X.Y.i(), \
+                    a.b.X.Y.i()->S->a.b.X.I.i(), \
+                    a.b.X.Y.i->R->a.b.X.Y.<init>(int), a.b.X.Y.i->R->a.b.X.Y.i(), a.b.X.Z->S->a.b.X.Z.<init>(a.b.X.Y), \
+                    a.b.X.Z->S->a.b.X.Z.y, a.b.X.Z->S->a.b.X.Z.y(), a.b.X.Z.<init>(a.b.X.Y)->D->a.b.X.Y, \
+                    a.b.X.Z.y()->D->a.b.X.Y, a.b.X.Z.y->D->a.b.X.Y, a.b.X.Z.y->R->a.b.X.Z.<init>(a.b.X.Y), \
+                    a.b.X.Z.y->R->a.b.X.Z.y(), a.b.X.getZ()->D->a.b.X.Z, a.b.X.z->D->a.b.X.Z, a.b.X.z->R->a.b.X.getZ()\
+                    """, ComputeCallGraph.print(graph));
+        }
 
         ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
         List<Info> analysisOrder = cao.go(graph);
-        assertEquals("""
-                [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, \
-                a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z.y(), a.b.X.Z.y, a.b.X.Z, a.b.X.getZ(), a.b.X.z, a.b.X]\
-                """, analysisOrder.toString());
+        if(openJdkParser) {
+            assertEquals("""
+                    [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.Y.equals(Object), a.b.X.Y.hashCode(), \
+                    a.b.X.Y.toString(), a.b.X.Z.equals(Object), a.b.X.Z.hashCode(), a.b.X.Z.toString(), \
+                    a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z.y(), a.b.X.Z.y, \
+                    a.b.X.Z, a.b.X.getZ(), a.b.X.z, a.b.X]\
+                    """, analysisOrder.toString());
+        } else {
+            assertEquals("""
+                    [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, \
+                    a.b.X.Z.<init>(a.b.X.Y), a.b.X.Z.y(), a.b.X.Z.y, a.b.X.Z, a.b.X.getZ(), a.b.X.z, a.b.X]\
+                    """, analysisOrder.toString());
+        }
     }
 
     @Language("java")
@@ -240,18 +265,35 @@ public class TestCallGraph extends CommonTest {
         TypeInfo X = javaInspector.parse(ABX, INPUT5);
         ComputeCallGraph ccg = new ComputeCallGraph(runtime, X);
         G<Info> graph = ccg.go().graph();
-        assertEquals("""
-                a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, a.b.X.I->S->a.b.X.I.i(), \
-                a.b.X.I->d->a.b.X.Y, a.b.X.Y->H->a.b.X.I, a.b.X.Y->S->a.b.X.Y.<init>(int), a.b.X.Y->S->a.b.X.Y.i, \
-                a.b.X.Y->S->a.b.X.Y.i(), a.b.X.Y.i()->S->a.b.X.I.i(), a.b.X.Y.i->R->a.b.X.Y.<init>(int), \
-                a.b.X.Y.i->R->a.b.X.Y.i()\
-                """, ComputeCallGraph.print(graph));
-
+        if (openJdkParser) {
+            // openJdkParser adds equals, toString, hashCode to records
+            assertEquals("""
+                    a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, a.b.X.I->S->a.b.X.I.i(), \
+                    a.b.X.I->d->a.b.X.Y, a.b.X.Y->H->a.b.X.I, a.b.X.Y->S->a.b.X.Y.<init>(int), \
+                    a.b.X.Y->S->a.b.X.Y.equals(Object), a.b.X.Y->S->a.b.X.Y.hashCode(), a.b.X.Y->S->a.b.X.Y.i, \
+                    a.b.X.Y->S->a.b.X.Y.i(), a.b.X.Y->S->a.b.X.Y.toString(), a.b.X.Y.i()->S->a.b.X.I.i(), \
+                    a.b.X.Y.i->R->a.b.X.Y.<init>(int), a.b.X.Y.i->R->a.b.X.Y.i()\
+                    """, ComputeCallGraph.print(graph));
+        } else {
+            assertEquals("""
+                    a.b.X->S->a.b.X.<init>(), a.b.X->S->a.b.X.I, a.b.X->S->a.b.X.Y, a.b.X.I->S->a.b.X.I.i(), \
+                    a.b.X.I->d->a.b.X.Y, a.b.X.Y->H->a.b.X.I, a.b.X.Y->S->a.b.X.Y.<init>(int), a.b.X.Y->S->a.b.X.Y.i, \
+                    a.b.X.Y->S->a.b.X.Y.i(), a.b.X.Y.i()->S->a.b.X.I.i(), a.b.X.Y.i->R->a.b.X.Y.<init>(int), \
+                    a.b.X.Y.i->R->a.b.X.Y.i()\
+                    """, ComputeCallGraph.print(graph));
+        }
         ComputeAnalysisOrder cao = new ComputeAnalysisOrder();
         List<Info> analysisOrder = cao.go(graph);
-        assertEquals("""
-                [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, a.b.X]\
-                """, analysisOrder.toString());
+        if (openJdkParser) {
+            assertEquals("""
+                    [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.Y.equals(Object), a.b.X.Y.hashCode(), \
+                    a.b.X.Y.toString(), a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, a.b.X]\
+                    """, analysisOrder.toString());
+        } else {
+            assertEquals("""
+                    [a.b.X.<init>(), a.b.X.I.i(), a.b.X.Y.<init>(int), a.b.X.I, a.b.X.Y.i(), a.b.X.Y.i, a.b.X.Y, a.b.X]\
+                    """, analysisOrder.toString());
+        }
     }
 
 
