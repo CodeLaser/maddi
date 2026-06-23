@@ -467,6 +467,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
         List<AnnotationExpression> annotationExpressions = jcTypeParameter.annotations.stream()
                 .map(this::convertAnnotation).toList();
+        if (scanResult != null) {
+            Source tpKey = scanSource(jcTypeParameter);
+            dsb.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(tpKey));
+            dsb.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(tpKey));
+        }
         tp.builder()
                 .setSource(sourceForNode(jcTypeParameter, dsb))
                 .addAnnotations(annotationExpressions)
@@ -596,6 +601,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     for (JCTree.JCAnnotation annotation : jcVariableDecl.getModifiers().getAnnotations()) {
                         AnnotationExpression ae = convertAnnotation(annotation);
                         parameterInfo.builder().addAnnotation(ae);
+                    }
+                    if (scanResult != null) {
+                        Source paramKey = scanSource(jcVariableDecl);
+                        dsbParam.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(paramKey));
+                        dsbParam.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(paramKey));
                     }
                     Source source;
                     if (isConstructor && currentType.typeNature().isRecord()
@@ -1001,7 +1011,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             List<AnnotationExpression> annotations = new ArrayList<>();
             ParameterizedType type = convertTypeWithAnnotations(node.getVariable().getType(), dsb, annotations::add);
             currentExpression = runtime.newEmptyExpression();
-            lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, null, annotations);
+            lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, annotations);
         } else throw new UnsupportedOperationException("NYI");
 
         Block block = parseBlock("0", node.getStatement());
@@ -1335,7 +1345,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         // local variable
                         Statement prev = lastStatement();
                         LocalVariableCreation prevLvc = prev instanceof LocalVariableCreation lvc2 ? lvc2 : null;
-                        LocalVariableCreation lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, prevLvc,
+                        LocalVariableCreation lvc = continueLocalVariableCreation(variableDecl, name, type, dsb,
                                 annots);
                         if (prevLvc != null && sameLvc(prevLvc, lvc)) {
                             LocalVariableCreation merged = prevLvc.withAdditionalLocalVariable(lvc);
@@ -1394,6 +1404,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             } else {
                 nameAndInitSource = nameSource;
             }
+            if (scanResult != null) {
+                // the scanner keys field-declarator commas by the declarator (name + initialiser, no type),
+                // which corresponds to nameAndInitSource rather than the javac vdSource (which includes the type);
+                // SUCCEEDING_EQUALS is keyed by the name identifier alone (nameSource).
+                dsb.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(nameAndInitSource));
+                dsb.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(nameAndInitSource));
+                dsb.putIfNotNull(DetailedSources.SUCCEEDING_EQUALS, scanResult.findSucceedingEquals(nameSource));
+            }
             dsb.put(DetailedSources.FIELD_DECLARATION, vdSource);
 
             fieldInfo.builder()
@@ -1416,7 +1434,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                                                                          String name,
                                                                          ParameterizedType type,
                                                                          DetailedSources.Builder dsb,
-                                                                         LocalVariableCreation prevLvc,
                                                                          List<AnnotationExpression> annotations) {
         boolean isUnnamed = name.isEmpty();
         LocalVariable localVariable = runtime.newLocalVariable(isUnnamed ? ":" : name, type, currentExpression);
@@ -1435,19 +1452,16 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             lvcb.addAnnotation(ae);
         }
 
-        // this is a lot of work to find out exactly where in the sources the 2nd one starts...
-        // FIXME the -2 in startAtEnd is hardCoded and not obviously correct, representing the ", "
-        String s = variableDecl.toString(); // int b = 3; even in 'int a = 4, b = 3'
-        Source thisSource = sourceForNode(variableDecl);
-        Source source = prevLvc != null ? startAtEnd(prevLvc.source(), thisSource) : thisSource;
-        // FIXME ideally we check for at least a space before name, and a non-alphanumeric after name
-        String searchFor = isUnnamed ? "_" : name;
-        Source namePos = source.ofIndex(s, s.indexOf(searchFor), searchFor.length());
-        assert namePos != null;
+        // The name comes from javac's reliable variableDecl.pos (which points at the name even for the 2nd+
+        // declarator of 'int a = 4, b = 3'); the '=' position is supplied by the scanner, keyed by that same
+        // name source. This replaces the former string-search on variableDecl.toString() + startAtEnd kludge.
+        Source namePos = sourceOfIdentifier(isUnnamed ? "_" : name, variableDecl.pos);
         dsb.put(name, namePos);
-        Source assignSource = source.ofIndex(s, s.indexOf("="), 1);
-        if (assignSource != null) {
-            dsb.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS, List.of(assignSource));
+        if (scanResult != null && variableDecl.init != null) {
+            Source assignSource = scanResult.findSucceedingEquals(namePos);
+            if (assignSource != null) {
+                dsb.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS, List.of(assignSource));
+            }
         }
         Source statementSource = statementSourceForNode(variableDecl, dsb);
         lvcb.setSource(statementSource);
@@ -1456,10 +1470,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 .addComments(commentsForNode(statementSource))
                 .setLabel(statementLabels.get(variableDecl))
                 .build();
-    }
-
-    private Source startAtEnd(Source s1, Source s2) {
-        return runtime.newParserSource(s1.index(), s1.endLine(), s1.endPos() - 2, s2.endLine(), s2.endPos());
     }
 
     @Override
