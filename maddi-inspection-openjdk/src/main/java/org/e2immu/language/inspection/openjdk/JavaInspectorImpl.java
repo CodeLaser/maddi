@@ -119,11 +119,22 @@ public class JavaInspectorImpl implements JavaInspector {
         return List.of();
     }
 
+    @Override
+    public void onlyPreload() {
+        parse(Map.of("a.b.X", "class X { } "), new JavaInspector.ParseOptions.Builder().build());
+    }
+
     // main method, generally called with empty map; only tests use the map
     @Override
     public Summary parse(Map<String, String> sourcesByFqn, ParseOptions parseOptions) {
         Summary summary = new SummaryImpl(parseOptions.failFast());
         List<SourceSet> linearization = computeScanOrder(); // from input configuration
+        if (linearization.isEmpty()) {
+            LOGGER.warn("No source sets in the input configuration!");
+            if (!sourcesByFqn.isEmpty()) {
+                LOGGER.warn("Suggestion: add InputConfigurationImpl.TEST_PROTOCOL_SOURCE_SET");
+            }
+        }
         for (SourceSet sourceSet : linearization) {
             try {
                 singleSourceSet(summary, sourcesByFqn, infoByFqn, sourceSet, !parseOptions.failFast(),

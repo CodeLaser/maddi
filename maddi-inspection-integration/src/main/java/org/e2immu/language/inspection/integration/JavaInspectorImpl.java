@@ -815,5 +815,10 @@ public class JavaInspectorImpl implements JavaInspector {
     public boolean isOpenJdk() {
         return false;
     }
+
+    @Override
+    public void onlyPreload() {
+        //no implementation needed?
+    }
 }
 

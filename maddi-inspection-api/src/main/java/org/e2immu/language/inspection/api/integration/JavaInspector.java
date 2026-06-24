@@ -49,6 +49,10 @@ public interface JavaInspector {
     // for tests
     void invalidateAllSources();
 
+    // don't parse sources, only load the preloaded types into the compiledTypesManager
+    // NOTE: needs InputConfiguration.addSourceSets(InputConfigurationImpl.TEST_PROTOCOL_SOURCE_SET)
+    void onlyPreload();
+
     String print2(CompilationUnit compilationUnit,
                   Qualification qualification,
                   ImportComputer importComputer);

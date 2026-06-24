@@ -63,7 +63,10 @@ public class AnalysisHintsParser implements AnnotationProvider {
         JavaInspector javaInspector = javaInspectorFactory.withSources(sourceSet);
 
         // parse the analysis hint files
-        ParseResult parseResult = javaInspector.parse(new JavaInspector.ParseOptions.Builder().build()).parseResult();
+        JavaInspector.ParseOptions options = new JavaInspector.ParseOptions.Builder()
+                .setIgnoreModule(true)
+                .build();
+        ParseResult parseResult = javaInspector.parse(options).parseResult();
 
         // load the analysis results on all (relevant/loaded) library and JDK types
         int loaded = new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources())

@@ -17,25 +17,32 @@ package org.e2immu.analyzer.aapi.parser;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
+import org.e2immu.annotation.Immutable;
 import org.e2immu.language.cst.api.analysis.Value;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
 import org.e2immu.language.inspection.api.resource.CompiledTypesManager;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
+import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.util.internal.graph.G;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
-import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,35 +63,62 @@ public class CommonTest {
         return runtime;
     }
 
-    public  static SourceSet mainSources() {
+    public static SourceSet mainSources() {
         return javaInspector.mainSources();
     }
 
     @BeforeAll
-    public static void beforeAll() throws IOException {
+    public static void beforeAll() throws IOException, URISyntaxException {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
         ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.aapi")).setLevel(Level.DEBUG);
-/*
-        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
-        analysisHintsParser.initialize(null,
-                List.of(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/slf4j",
-                        JavaInspectorImpl.E2IMMU_SUPPORT,
-                        JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api",
-                        JAR_WITH_PATH_PREFIX + "org/opentest4j",
-                        "jmod:java.datatransfer",
-                        "jmod:java.desktop"),
-                List.of("../maddi-aapi-archive/src/main/java/org/e2immu/analyzer/aapi/archive/v2"),
-                List.of());
-        javaInspector = analysisHintsParser.javaInspector();
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(analysisHintsParser.runtime(), analysisHintsParser,
-                true);
+
+        AnalysisHintsParser analysisHintsParser = createAnalysisHintsParser();
+        AnalysisHints test = new AnalysisHints.Builder()
+                .setLibraryName("test")
+                .setAnalysisResultsDir(Path.of("build/"))
+                .setHintsPath(Path.of("../maddi-aapi-archive/src/main/java"))
+                .setPackagePrefix("org.e2immu.analyzer.aapi.archive")
+                .build();
+
+        javaInspector = analysisHintsParser.go(test);
+        runtime = javaInspector.runtime();
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, analysisHintsParser, true);
         ShallowAnalyzer.Result sr = shallowAnalyzer.go(analysisHintsParser.types());
 
         sorted = sr.sorted();
         graph = sr.typeGraph();
         allTypes = sr.allTypes();
-        compiledTypesManager = analysisHintsParser.javaInspector().compiledTypesManager();
-        runtime = analysisHintsParser.runtime();*/
+        compiledTypesManager = javaInspector.compiledTypesManager();
+    }
+
+    private static @NonNull AnalysisHintsParser createAnalysisHintsParser() throws URISyntaxException {
+        SourceSet javaBase = SourceSetImpl.javaBase();
+        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
+        SourceSet logbackClassic = SourceSetImpl.sourceSetOf(Logger.class);
+        SourceSet jupiter = SourceSetImpl.sourceSetOf(Test.class);
+
+        JavaInspectorFactory javaInspectorFactory = new JavaInspectorFactory() {
+            @Override
+            public List<SourceSet> dependencies() {
+                return List.of(maddiSupport, slf4jApi, logbackClassic, jupiter);
+            }
+
+            @Override
+            public JavaInspector withSources(SourceSet sourceSet) throws IOException {
+                JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
+                javaInspector.preload("java.base::java.util.");
+                javaInspector.preload("java.desktop::java.awt");
+                javaInspector.preload("org.slf4j");
+                InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                        .addSourceSets(sourceSet)
+                        .addClassPathParts(javaBase, maddiSupport, slf4jApi, logbackClassic, jupiter)
+                        .build();
+                javaInspector.initialize(inputConfiguration);
+                return javaInspector;
+            }
+        };
+        return new AnalysisHintsParser(javaInspectorFactory);
     }
 
     protected void testImmutableContainer(TypeInfo typeInfo, boolean hcImmutable) {

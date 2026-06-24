@@ -39,14 +39,12 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.lang.invoke.TypeDescriptor;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAnalysisHintsComposer extends CommonTest {
@@ -68,15 +66,14 @@ public class TestAnalysisHintsComposer extends CommonTest {
         JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
         javaInspector.preload("java.base::java.util");
         javaInspector.preload("org.slf4j");
-        SourceSet sourceSet = new SourceSetImpl.Builder().setName(TEST_PROTOCOL).setUri(URI.create("file:/")).build();
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .addSourceSets(sourceSet)
+                .addSourceSets(InputConfigurationImpl.TEST_PROTOCOL_SOURCE_SET)
                 .addClassPathParts(javaBase, maddiSupport, slf4jApi)
                 .build();
         javaInspector.preload("org.e2immu.annotation.");
 
         javaInspector.initialize(inputConfiguration);
-        javaInspector.parse(Map.of("a.b.X", "package a.b; class X{ }"), new JavaInspector.ParseOptions.Builder().build());
+        javaInspector.onlyPreload();
         AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector,
                 _ -> "org.e2immu.testannotatedapi", _ -> true);
         List<TypeInfo> primaryTypes = javaInspector.compiledTypesManager()
