@@ -28,6 +28,7 @@ import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -47,28 +48,7 @@ public class TestAnnotatedApiParser {
 
     @Test
     public void test() throws IOException, URISyntaxException {
-        SourceSet javaBase = SourceSetImpl.javaBase();
-        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
-        SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
-        JavaInspectorFactory javaInspectorFactory = new JavaInspectorFactory() {
-            @Override
-            public List<SourceSet> dependencies() {
-                return List.of(maddiSupport, slf4jApi);
-            }
-
-            @Override
-            public JavaInspector withSources(SourceSet sourceSet) throws IOException {
-                JavaInspector javaInspector = new JavaInspectorImpl();
-                javaInspector.preload("java.base::java.util");
-                InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                        .addSourceSets(sourceSet)
-                        .addClassPathParts(javaBase, maddiSupport, slf4jApi)
-                        .build();
-                javaInspector.initialize(inputConfiguration);
-                return javaInspector;
-            }
-        };
-        AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser(javaInspectorFactory);
+        AnalysisHintsParser analysisHintsParser = createAnalysisHintsParser();
         AnalysisHints example = new AnalysisHints.Builder()
                 .setLibraryName("example")
                 .setAnalysisResultsDir(Path.of("build/"))
@@ -111,6 +91,32 @@ public class TestAnnotatedApiParser {
 
         // test Object
         List<AnnotationExpression> objectAnnots = analysisHintsParser.annotations(runtime.objectTypeInfo());
-        assertEquals("", objectAnnots.toString());
+        assertEquals("[@ImmutableContainer(hc=true), @Independent]", objectAnnots.toString());
+    }
+
+    private static @NonNull AnalysisHintsParser createAnalysisHintsParser() throws URISyntaxException {
+        SourceSet javaBase = SourceSetImpl.javaBase();
+        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
+        JavaInspectorFactory javaInspectorFactory = new JavaInspectorFactory() {
+            @Override
+            public List<SourceSet> dependencies() {
+                return List.of(maddiSupport, slf4jApi);
+            }
+
+            @Override
+            public JavaInspector withSources(SourceSet sourceSet) throws IOException {
+                JavaInspector javaInspector = new JavaInspectorImpl();
+                javaInspector.preload("java.base::java.util");
+                javaInspector.preload("org.slf4j");
+                InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                        .addSourceSets(sourceSet)
+                        .addClassPathParts(javaBase, maddiSupport, slf4jApi)
+                        .build();
+                javaInspector.initialize(inputConfiguration);
+                return javaInspector;
+            }
+        };
+        return new AnalysisHintsParser(javaInspectorFactory);
     }
 }

@@ -105,7 +105,7 @@ public class ScanCompilationUnits {
             for (String modulePackage : packagesToPreload) {
                 int sep = modulePackage.indexOf("::");
                 if (sep < 0) {
-                   preloads.addAll(preloadClassPath(modulePackage));
+                    preloads.addAll(preloadClassPath(modulePackage));
                 } else {
                     String module = modulePackage.substring(0, sep);
                     String packageName = modulePackage.substring(sep + 2);
@@ -252,7 +252,7 @@ public class ScanCompilationUnits {
                 false); // non-recursive — just java.lang, not subpackages
         Elements elements = task.getElements();
         Symbol.ClassSymbol objectCs = null;
-        List<TypeInfo> list = new LinkedList<>();//runtime.predefinedObjects());
+        List<TypeInfo> list = new LinkedList<>(runtime.predefinedObjects());
         for (JavaFileObject file : files) {
             String binaryName = fm.inferBinaryName(javaBase, file);
             TypeElement te = elements.getTypeElement(binaryName);
@@ -271,10 +271,10 @@ public class ScanCompilationUnits {
                 }
             }
         }
-        if (objectCs != null) {
-            classSymbolScanner.loadType(objectCs, runtime.objectTypeInfo(), ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
-            assert runtime.objectTypeInfo().hasBeenInspected();
-        }
+        assert objectCs != null;
+        classSymbolScanner.loadType(objectCs, runtime.objectTypeInfo(), ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
+        assert runtime.objectTypeInfo().hasBeenInspected();
+
         return list;
     }
 

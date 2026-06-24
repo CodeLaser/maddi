@@ -66,8 +66,9 @@ public class AnalysisHintsParser implements AnnotationProvider {
         ParseResult parseResult = javaInspector.parse(new JavaInspector.ParseOptions.Builder().build()).parseResult();
 
         // load the analysis results on all (relevant/loaded) library and JDK types
-        new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources())
+        int loaded = new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources())
                 .go(analysisHints.preloadAnalysisResultsDirs());
+        LOGGER.info("Loaded {} analysis results file(s)", loaded);
 
         // then process the hint files
         parseResult.primaryTypes().forEach(pt -> process(javaInspector.compiledTypesManager(), pt));
@@ -171,15 +172,16 @@ public class AnalysisHintsParser implements AnnotationProvider {
             TypeInfo targetSubType = targetType.findSubType(subType.simpleName(), false);
             if (targetSubType != null) {
                 transferAnnotations(subType, targetSubType);
-            } else if (subType.isPubliclyAccessible()) {
+            } else {
                 warnings++;
                 LOGGER.warn("Ignoring subtype '{}', cannot find it in the target type '{}'",
                         subType.simpleName(), targetType);
             }
         }
         // TODO: for now, we don't accept/recognize annotations on method, constructor type parameters
+        // TODO 202606: skipping invariants ($ in the name)
         for (MethodInfo sourceMethod : sourceType.methods()) {
-            if (!sourceMethod.isSynthetic()) {
+            if (!sourceMethod.isSynthetic() && !sourceMethod.name().contains("$")) {
                 MethodInfo targetMethod = findTargetMethod(targetType, sourceMethod);
                 if (targetMethod != null) {
                     annotations += sourceMethod.annotations().size();

@@ -91,20 +91,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
 
-        predefinedTypes.put("String", runtime.stringTypeInfo());
-        predefinedTypes.put("Object", runtime.objectTypeInfo());
-
-        predefinedTypes.put("Integer", runtime.integerTypeInfo());
-        predefinedTypes.put("Boolean", runtime.boxedBooleanTypeInfo());
-        predefinedTypes.put("Long", runtime.boxedLongTypeInfo());
-        predefinedTypes.put("Character", runtime.characterTypeInfo());
-        predefinedTypes.put("Double", runtime.boxedDoubleTypeInfo());
-        predefinedTypes.put("Float", runtime.boxedFloatTypeInfo());
-        predefinedTypes.put("Short", runtime.boxedShortTypeInfo());
-        predefinedTypes.put("Byte", runtime.boxedByteTypeInfo());
-        predefinedTypes.put("Void", runtime.boxedVoidTypeInfo());
-
-        predefinedTypes.put("Class", runtime.classTypeInfo());
+        runtime.predefinedObjects().forEach(pd -> predefinedTypes.put(pd.simpleName(), pd));
 
         Map<String, SourceSet> map = new HashMap<>();
         Map<String, SourceSet> prefixes = new HashMap<>();
@@ -215,7 +202,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     void loadType(Symbol.ClassSymbol cs, TypeInfo newTypeInfo, LoadMode loadMode) {
         if (cs == null) return;
         if (newTypeInfo.hasBeenInspected()) return;
-        LOGGER.debug("Enter loadType: {} {}", newTypeInfo.fullyQualifiedName(), loadMode);
+        LOGGER.debug("Enter loadType: {} {}", newTypeInfo, loadMode);
         TypeInfo.Builder builder = newTypeInfo.builder();
 
         if (recursionPrevention.add(newTypeInfo)) {
