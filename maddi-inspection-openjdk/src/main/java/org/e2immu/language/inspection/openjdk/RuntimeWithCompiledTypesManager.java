@@ -53,8 +53,8 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
     public TypeInfo getFullyQualified(String name, boolean complain, SourceSet sourceSetOfRequest) {
         TypeInfo typeInfo = compiledTypesManager.getOrLoad(name, sourceSetOfRequest);
         if (typeInfo == null && complain) {
-            throw new UnsupportedOperationException("Cannot find " + name
-                                                    + "; request by source set " + sourceSetOfRequest.name());
+            throw new UnsupportedOperationException(
+                    "Cannot find " + name + "; request by source set " + sourceSetOfRequest);
         }
         return typeInfo;
     }
