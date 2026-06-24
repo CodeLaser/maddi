@@ -259,9 +259,14 @@ public class ScanCompilationUnits {
             if (te instanceof Symbol.ClassSymbol cs) {
                 try {
                     cs.complete();
-                    if (cs.owner instanceof Symbol.PackageSymbol && null == classSymbolScanner.getType(binaryName)) {
-                        TypeInfo ti = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
-                        list.add(ti);
+                    if (cs.owner instanceof Symbol.PackageSymbol) {
+                        TypeInfo inMap = classSymbolScanner.getType(binaryName);
+                        if (inMap == null) {
+                            TypeInfo ti = classSymbolScanner.lazilyLoadPrimaryTypeFromClassFile(cs);
+                            list.add(ti);
+                        } else {
+                            list.add(inMap);
+                        }
                     } // else: not a primary type, or already known
                     if ("java.lang.Object".equals(binaryName)) {
                         objectCs = cs;
@@ -274,7 +279,7 @@ public class ScanCompilationUnits {
         assert objectCs != null;
         classSymbolScanner.loadType(objectCs, runtime.objectTypeInfo(), ClassSymbolScanner.LoadMode.LOAD_MEMBERS);
         assert runtime.objectTypeInfo().hasBeenInspected();
-
+        LOGGER.info("Preloaded {}, loaded {}", javaBase, list.size());
         return list;
     }
 
