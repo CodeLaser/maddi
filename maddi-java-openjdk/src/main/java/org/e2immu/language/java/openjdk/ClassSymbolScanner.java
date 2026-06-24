@@ -7,6 +7,8 @@ import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.DetailedSources;
 import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.expression.AnnotationExpression;
+import org.e2immu.language.cst.api.expression.Expression;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.NamedType;
@@ -42,6 +44,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Types types;
     private final SourceSet sourceSetOfCurrentTask;
     private final Set<TypeInfo> recursionPrevention = new HashSet<>();
+    // loadType is reachable more than once per type (LAZILY then LOAD_MEMBERS); annotations are appended, so
+    // guard the type-level add to run exactly once
+    private final Set<TypeInfo> typeAnnotationsLoaded = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<String, TypeInfo> predefinedTypes = new HashMap<>();
     private final Deque<Map<String, TypeParameter>> typeParameterStack = new ArrayDeque<>();
     private final Map<String, SourceSet> sourceSetMap;
@@ -226,6 +231,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     }
                 }
                 builder.computeAccess();
+                if (typeAnnotationsLoaded.add(newTypeInfo)) {
+                    builder.addAnnotations(loadAnnotations(cs));
+                }
 
                 int index = 0;
                 newTypeParameterMap();
@@ -314,7 +322,102 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 }
             }
         }
-        newTp.builder().setTypeBounds(List.copyOf(bounds)).commit();
+        newTp.builder().addAnnotations(loadAnnotations(typeParameter)).setTypeBounds(List.copyOf(bounds)).commit();
+    }
+
+    // ---- declaration annotations, read from a class file via the symbol's annotation mirrors ----
+    // (only RUNTIME/CLASS-retained annotations are present in bytecode; SOURCE-retained ones are not). Everything
+    // is defensive: a value we cannot represent is skipped, and a failure never aborts the type's loading.
+
+    // true when 'symbol' belongs to a type we are currently parsing from source: those receive their
+    // annotations from ScanCompilationUnit, so we must not also load them here from the (compiled) class file
+    private boolean isSourceSymbol(Symbol symbol) {
+        if (topLevelClassSymbolsOfSources == null) return false;
+        Symbol.ClassSymbol enclosing = symbol.enclClass();
+        return enclosing != null && topLevelClassSymbolsOfSources.containsKey(primary(enclosing));
+    }
+
+    private List<AnnotationExpression> loadAnnotations(Symbol symbol) {
+        if (isSourceSymbol(symbol)) return List.of();
+        List<AnnotationExpression> result = new ArrayList<>();
+        try {
+            for (var mirror : symbol.getAnnotationMirrors()) {
+                if (mirror instanceof Attribute.Compound compound) {
+                    try {
+                        result.add(annotationExpression(compound));
+                    } catch (RuntimeException re) {
+                        LOGGER.warn("Skipping annotation {} on {}: {}", compound.type, symbol, re.toString());
+                    }
+                }
+            }
+        } catch (RuntimeException re) {
+            LOGGER.warn("Cannot read annotations on {}: {}", symbol, re.toString());
+        }
+        return result;
+    }
+
+    private AnnotationExpression annotationExpression(Attribute.Compound compound) {
+        ParameterizedType type = convert(compound.type);
+        List<AnnotationExpression.KV> kvs = new ArrayList<>();
+        for (var pair : compound.values) {
+            Expression value = annotationValue(pair.snd);
+            if (value != null) {
+                kvs.add(runtime.newAnnotationExpressionKeyValuePair(pair.fst.getSimpleName().toString(), value));
+            }
+        }
+        return runtime.newAnnotationExpressionBuilder()
+                .setTypeInfo(type.typeInfo())
+                .setKeyValuesPairs(kvs)
+                .build();
+    }
+
+    // returns null when the value cannot be represented; the key/value pair is then dropped
+    private Expression annotationValue(Attribute attribute) {
+        try {
+            return switch (attribute) {
+                case Attribute.Constant c -> annotationConstant(c);
+                case Attribute.Enum en -> runtime.newVariableExpressionBuilder()
+                        .setSource(runtime.noSource())
+                        .setVariable(runtime.newFieldReference(getOrLoadField(en.value)))
+                        .build();
+                case Attribute.Class cl -> {
+                    ParameterizedType realType = convert(cl.classType);
+                    ParameterizedType classType = runtime.newParameterizedType(runtime.classTypeInfo(),
+                            List.of(realType));
+                    yield runtime.newClassExpressionBuilder(realType).setClassType(classType).build();
+                }
+                case Attribute.Array arr -> {
+                    List<Expression> values = new ArrayList<>();
+                    for (Attribute a : arr.values) {
+                        Expression e = annotationValue(a);
+                        if (e != null) values.add(e);
+                    }
+                    ParameterizedType commonType = arr.type instanceof Type.ArrayType at
+                            ? convert(at.elemtype) : runtime.objectParameterizedType();
+                    yield runtime.newArrayInitializerBuilder().setExpressions(values).setCommonType(commonType).build();
+                }
+                case Attribute.Compound nested -> annotationExpression(nested);
+                default -> null;
+            };
+        } catch (RuntimeException re) {
+            return null;
+        }
+    }
+
+    private Expression annotationConstant(Attribute.Constant c) {
+        Object v = c.value;
+        return switch (c.type.getTag()) {
+            case BOOLEAN -> runtime.newBoolean(((Integer) v) != 0);
+            case CHAR -> runtime.newChar((char) (int) (Integer) v);
+            case BYTE -> runtime.newByte((byte) (int) (Integer) v);
+            case SHORT -> runtime.newShort((short) (int) (Integer) v);
+            case INT -> runtime.newInt((Integer) v);
+            case LONG -> runtime.newLong((Long) v);
+            case FLOAT -> runtime.newFloat((Float) v);
+            case DOUBLE -> runtime.newDouble((Double) v);
+            case CLASS -> runtime.newStringConstant((String) v); // FIXME should be a ClassExpression
+            default -> null;
+        };
     }
 
     private static final Pattern JAR_FILE = Pattern.compile("(jar:file:.+)/([^/!]+\\.jar)!/.*");
@@ -428,6 +531,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
         typeInfo.builder().addField(fieldInfo);
         flagHelper.field(vs.flags(), fieldInfo.builder());
+        fieldInfo.builder().addAnnotations(loadAnnotations(vs));
 
         put(vs, fieldInfo);
         return fieldInfo;
@@ -479,9 +583,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         for (Symbol.TypeVariableSymbol typeParameter : ms.getTypeParameters()) {
             TypeParameter newTp = newTypeParameters.get(i++);
             addTypeBoundsAndCommit(null, null, typeParameter, newTp);
+            // FIXME when source type, do not commit yet, we must set detailed sources
         }
 
         flagHelper.method(ms.flags(), builder);
+        builder.addAnnotations(loadAnnotations(ms));
         if (synthetic) {
             builder.setSynthetic(true);
         }
@@ -492,7 +598,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 long flags = parameter.flags();
                 if ((flags & Flags.VARARGS) != 0) parameterInfo.builder().setVarArgs(true);
                 if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
+                parameterInfo.builder().addAnnotations(loadAnnotations(parameter));
                 parameterInfo.builder().commit();
+                // FIXME when source type, do not commit yet, we must set detailed sources
             }
         }
         ParameterizedType returnType = isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()
@@ -543,6 +651,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
             // we might overwrite them, or not...
             fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
+            fieldInfo.builder().addAnnotations(loadAnnotations(vs));
             owner.builder().addField(fieldInfo);
             put(vs, fieldInfo);
             return fieldInfo;

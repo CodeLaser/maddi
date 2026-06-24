@@ -37,8 +37,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAnnotatedApiParser {
     @BeforeAll
@@ -49,11 +48,12 @@ public class TestAnnotatedApiParser {
     @Test
     public void test() throws IOException, URISyntaxException {
         SourceSet javaBase = SourceSetImpl.javaBase();
-        SourceSet maddiSupport = SourceSetImpl.sourceSetModuleOf(Immutable.class);
+        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
         JavaInspectorFactory javaInspectorFactory = new JavaInspectorFactory() {
             @Override
             public List<SourceSet> dependencies() {
-                return List.of(maddiSupport);
+                return List.of(maddiSupport, slf4jApi);
             }
 
             @Override
@@ -62,19 +62,21 @@ public class TestAnnotatedApiParser {
                 javaInspector.preload("java.base::java.util");
                 InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                         .addSourceSets(sourceSet)
-                        .addClassPathParts(javaBase, maddiSupport)
+                        .addClassPathParts(javaBase, maddiSupport, slf4jApi)
                         .build();
                 javaInspector.initialize(inputConfiguration);
                 return javaInspector;
             }
         };
         AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser(javaInspectorFactory);
-        JavaInspector javaInspector = analysisHintsParser.go(new AnalysisHints.Builder()
+        AnalysisHints example = new AnalysisHints.Builder()
                 .setLibraryName("example")
                 .setAnalysisResultsDir(Path.of("build/"))
-                .setHintsPath(Path.of("src/test/java/org/e2immu/analyzer/aapi/parser"))
+                .setHintsPath(Path.of("src/test/java"))
                 .setPackagePrefix("org.e2immu.analyzer.aapi.parser.example")
-                .build());
+                .build();
+        JavaInspector javaInspector = analysisHintsParser.go(example);
+
         List<TypeInfo> types = analysisHintsParser.typesParsed();
         assertEquals(2, types.size());
         TypeInfo t1 = types.stream()
@@ -86,6 +88,8 @@ public class TestAnnotatedApiParser {
         assertEquals(2, analysisHintsParser.getWarnings());
 
         Runtime runtime = javaInspector.runtime();
+
+        // test String
         TypeInfo string = runtime.stringTypeInfo();
         TypeInfo charInfo = runtime.charTypeInfo();
         MethodInfo charConstructor = string.constructors().stream()
@@ -98,5 +102,15 @@ public class TestAnnotatedApiParser {
         List<AnnotationExpression> charInfoAnnots = analysisHintsParser.annotations(charConstructor);
         assertEquals(1, charInfoAnnots.size());
         assertEquals("Independent", charInfoAnnots.getFirst().typeInfo().simpleName());
+
+        // test Iterable
+        TypeInfo iterable = javaInspector.compiledTypesManager().get(Iterable.class);
+        assertNotNull(iterable, "Cannot read Iterable from ctm");
+        List<AnnotationExpression> iterableAnnots = analysisHintsParser.annotations(iterable);
+        assertEquals("[@Container]", iterableAnnots.toString());
+
+        // test Object
+        List<AnnotationExpression> objectAnnots = analysisHintsParser.annotations(runtime.objectTypeInfo());
+        assertEquals("", objectAnnots.toString());
     }
 }

@@ -252,7 +252,7 @@ public class ScanCompilationUnits {
                 false); // non-recursive — just java.lang, not subpackages
         Elements elements = task.getElements();
         Symbol.ClassSymbol objectCs = null;
-        List<TypeInfo> list = new LinkedList<>();
+        List<TypeInfo> list = new LinkedList<>();//runtime.predefinedObjects());
         for (JavaFileObject file : files) {
             String binaryName = fm.inferBinaryName(javaBase, file);
             TypeElement te = elements.getTypeElement(binaryName);

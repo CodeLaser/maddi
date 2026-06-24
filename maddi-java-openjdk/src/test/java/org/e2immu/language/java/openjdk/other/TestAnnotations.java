@@ -153,6 +153,9 @@ public class TestAnnotations extends CommonTest {
         Map<String, TypeInfo> types = scan(false, "a.b.C", INPUT2, "a.Resources", RESOURCES,
                 "a.Resource", RESOURCE);
         TypeInfo Resource = types.get("a.Resource");
+        assertEquals("Type java.lang.annotation.Annotation",
+                Resource.interfacesImplemented().getFirst().toString());
+
         TypeInfo Resources = types.get("a.Resources");
         TypeInfo C = types.get("a.b.C");
 
@@ -177,6 +180,9 @@ public class TestAnnotations extends CommonTest {
         if (e instanceof ArrayInitializer ai) {
             if (ai.expressions().getFirst() instanceof AnnotationExpression ae1) {
                 assertEquals(3, ae1.keyValuePairs().size());
+                AnnotationExpression.KV kvType = ae1.keyValuePairs().getLast();
+                assertEquals("type", kvType.key());
+                assertInstanceOf(ClassExpression.class, kvType.value());
             } else fail();
         } else fail();
     }
@@ -445,7 +451,7 @@ public class TestAnnotations extends CommonTest {
         assertTrue(at.typeNature().isEnum());
         assertEquals(2, at.fields().size());
         FieldInfo c = at.getFieldByName("CONTAINER", true);
-        //assertTrue(c.isSynthetic()); TODO is there a reason why they should be synthetic? they're visible
+        assertFalse(c.isSynthetic());
         assertTrue(c.isStatic());
         assertTrue(c.isFinal());
 
@@ -750,6 +756,7 @@ public class TestAnnotations extends CommonTest {
     public void test19() {
         TypeInfo C = scan("a.b.C", INPUT19);
         TypeInfo X = C.findSubType("X");
+        assertEquals("Type java.lang.annotation.Annotation", X.interfacesImplemented().getFirst().toString());
         FieldInfo A = X.getFieldByName("A", true);
         assertEquals("3", A.initializer().toString());
     }

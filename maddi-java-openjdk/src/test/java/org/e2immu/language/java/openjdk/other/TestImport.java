@@ -354,7 +354,7 @@ public class TestImport extends CommonTest {
         if (methodInfo.methodBody().statements().get(1) instanceof LocalVariableCreation lvc) {
             TypeInfo findLoopResult = lvc.localVariable().parameterizedType().typeInfo();
             assertEquals("FindLoopResult", findLoopResult.simpleName());
-            assertTrue(findLoopResult.parentClass().isJavaLangObject());
+            assertEquals("Type Record", findLoopResult.parentClass().toString());
             TypeInfo enclosing = findLoopResult.compilationUnitOrEnclosingType().getRight();
             assertEquals("RStatementAnalysis", enclosing.simpleName());
             assertEquals(2, enclosing.superTypesExcludingJavaLangObject().size());

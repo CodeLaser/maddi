@@ -287,7 +287,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         ParameterizedType parentClass;
-        if (typeInfo.typeNature().isEnum()) {
+        if (typeInfo.typeNature().isEnum() || typeInfo.typeNature().isRecord()) {
             if (jcClassDecl.type instanceof Type.ClassType ct) {
                 parentClass = convertType.convert(ct.supertype_field);
             } else throw new UnsupportedOperationException("NYI");
@@ -403,6 +403,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder.addField(fieldInfo);
             } else {
                 fieldInfo = inMap;
+                // we must add detailed sources
+                convertType.convertTree(definition.getType(), dsbField);
             }
             if (fieldInfo.modifiers().isEmpty()) {
                 fieldInfo.builder()
@@ -411,12 +413,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             Source source = sourceForNode(definition, dsbField);
             fieldInfo.builder().setSource(source).setAccess(runtime.accessPrivate());
-
-            String list =
-                    jcClassDecl.sym.getEnclosedElements().stream()
-                            .filter(e -> e instanceof Symbol.MethodSymbol)
-                            .map(e -> e.name.toString() + " " + ((e.flags() & Flags.RECORD) != 0) + " " + ((e.flags() & Flags.GENERATED_MEMBER) != 0))
-                            .collect(Collectors.joining("\n"));
 
             if (notPresent(typeInfo, fieldName, 0)
                 && hasSyntheticMethod(jcClassDecl, fieldName, 0)) {
@@ -518,8 +514,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 builder = methodInfo.builder();
                 methodInfo.parameters().forEach(pi -> parameterMap.put(pi.name(), pi));
                 methodInfo.typeParameters().forEach(tp -> parameterMap.put(tp.simpleName(), tp));
-                // FIXME issue: when already known, a number of source details are missed out! (e.g. return type)
 
+                // when already known, a number of source details are missed out! (e.g. return type)
+                if (!methodInfo.isConstructor()) {
+                    convertType.convertTree(jcMethod.getReturnType(), dsb);
+                }
+                jcMethod.thrown.forEach(e -> convertType.convertTree(e, dsb));
+
+                // FIXME parameters, type parameters: how to?
             } else {
                 // construction of the method
                 if (isConstructor) {
