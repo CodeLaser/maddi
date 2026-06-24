@@ -295,7 +295,6 @@ public class ScanCompilationUnits {
     private List<TypeInfo> preload(JavaFileManager.Location location, String packageNameIn) throws IOException {
         boolean recurse = packageNameIn.endsWith(".");
         String packageName = recurse ? packageNameIn.substring(0, packageNameIn.length() - 1) : packageNameIn;
-        LOGGER.info("Preloading {}::{}, recurse? {}", location, packageName, recurse);
         JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
         Iterable<JavaFileObject> files = fm.list(location, packageName, Set.of(JavaFileObject.Kind.CLASS), recurse);
         Elements elements = task.getElements();
@@ -325,6 +324,7 @@ public class ScanCompilationUnits {
                 }
             }
         }
+        LOGGER.info("Preloaded {}::{}, recurse? {}, loaded {}", location, packageName, recurse, list.size());
         return list;
     }
 }

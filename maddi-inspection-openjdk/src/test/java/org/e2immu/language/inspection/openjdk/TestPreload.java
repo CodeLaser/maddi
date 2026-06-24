@@ -18,7 +18,7 @@ public class TestPreload {
         javaInspector.preload("java.base::java.util.");
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addClassPathParts(SourceSetImpl.javaBase())
-                .addSourceSets(InputConfigurationImpl.TEST_PROTOCOL_SOURCE_SET)
+                .addSourceSets(SourceSetImpl.testProtocolSourceSet())
                 .build();
         javaInspector.initialize(inputConfiguration);
         javaInspector.onlyPreload();

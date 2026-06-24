@@ -67,7 +67,7 @@ public class TestAnalysisHintsComposer extends CommonTest {
         javaInspector.preload("java.base::java.util");
         javaInspector.preload("org.slf4j");
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                .addSourceSets(InputConfigurationImpl.TEST_PROTOCOL_SOURCE_SET)
+                .addSourceSets(SourceSetImpl.testProtocolSourceSet())
                 .addClassPathParts(javaBase, maddiSupport, slf4jApi)
                 .build();
         javaInspector.preload("org.e2immu.annotation.");

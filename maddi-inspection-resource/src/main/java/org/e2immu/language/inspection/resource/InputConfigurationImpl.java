@@ -28,13 +28,10 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
-
-public class InputConfigurationImpl implements InputConfiguration {
-    public static final SourceSet TEST_PROTOCOL_SOURCE_SET = new SourceSetImpl.Builder()
-            .setName(TEST_PROTOCOL)
-            .setUri(URI.create("file:/"))
-            .build();
+public record InputConfigurationImpl(Path workingDirectory,
+                                     List<SourceSet> sourceSets,
+                                     List<SourceSet> classPathParts,
+                                     Path alternativeJREDirectory) implements InputConfiguration {
 
     public static final String MAVEN_MAIN = "src/main/java";
     public static final String MAVEN_TEST = "src/test/java";
@@ -59,20 +56,6 @@ public class InputConfigurationImpl implements InputConfiguration {
     };
 
     static final String NL_TAB = "\n    ";
-    private final Path workingDirectory;
-    private final List<SourceSet> sourceSets;
-    private final List<SourceSet> classPathParts;
-    private final Path alternativeJREDirectory;
-
-    public InputConfigurationImpl(Path workingDirectory,
-                                  List<SourceSet> sourceSets,
-                                  List<SourceSet> classPathParts,
-                                  Path alternativeJREDirectory) {
-        this.workingDirectory = workingDirectory;
-        this.sourceSets = sourceSets;
-        this.classPathParts = classPathParts;
-        this.alternativeJREDirectory = alternativeJREDirectory;
-    }
 
     @Override
     public InputConfiguration withDefaultModules() {
@@ -125,43 +108,6 @@ public class InputConfigurationImpl implements InputConfiguration {
                NL_TAB + "alternativeJREDirectory=" + (alternativeJREDirectory == null ? "<default>"
                 : alternativeJREDirectory);
     }
-
-    @Override
-    public Path workingDirectory() {
-        return workingDirectory;
-    }
-
-    @Override
-    public List<SourceSet> sourceSets() {
-        return sourceSets;
-    }
-
-    @Override
-    public List<SourceSet> classPathParts() {
-        return classPathParts;
-    }
-
-    @Override
-    public Path alternativeJREDirectory() {
-        return alternativeJREDirectory;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == this) return true;
-        if (obj == null || obj.getClass() != this.getClass()) return false;
-        var that = (InputConfigurationImpl) obj;
-        return Objects.equals(this.workingDirectory, that.workingDirectory) &&
-               Objects.equals(this.sourceSets, that.sourceSets) &&
-               Objects.equals(this.classPathParts, that.classPathParts) &&
-               Objects.equals(this.alternativeJREDirectory, that.alternativeJREDirectory);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(workingDirectory, sourceSets, classPathParts, alternativeJREDirectory);
-    }
-
 
     private record SourceSetNamePath(String name, String path) {
     }
