@@ -478,10 +478,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
         } else if (member instanceof Symbol.ClassSymbol cs && cs.owner == owner) {
             boolean isNotPrivate = (cs.flags() & Flags.PRIVATE) == 0;
-            if (isNotPrivate && (alwaysLoad || loadMode == LoadMode.COMPLETE
-                                               && typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)
-                && (loadMode == LoadMode.LOAD_MEMBERS
-                    || typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)) {
+            if (isNotPrivate) {
                 TypeInfo enclosed = addEnclosedTypeToType(typeInfo, cs, loadMode);
                 if (!enclosed.hasBeenInspected()) {
                     enclosed.builder().computeAccess().commit();

@@ -33,6 +33,7 @@ import org.e2immu.util.internal.graph.G;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.platform.commons.JUnitException;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
@@ -99,12 +100,13 @@ public class CommonTest {
         SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
         SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
         SourceSet logbackClassic = SourceSetImpl.sourceSetOf(Logger.class);
-        SourceSet jupiter = SourceSetImpl.sourceSetOf(Test.class);
+        SourceSet junitPlatform = SourceSetImpl.sourceSetOf(JUnitException.class);
+        SourceSet jupiter = SourceSetImpl.sourceSetOf(Test.class, junitPlatform);
 
         JavaInspectorFactory javaInspectorFactory = new JavaInspectorFactory() {
             @Override
             public List<SourceSet> dependencies() {
-                return List.of(maddiSupport, slf4jApi, logbackClassic, jupiter);
+                return List.of(maddiSupport, slf4jApi, logbackClassic, junitPlatform, jupiter);
             }
 
             @Override
@@ -126,7 +128,7 @@ public class CommonTest {
                 javaInspector.preload("org.junit.jupiter.api.");
                 InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                         .addSourceSets(sourceSet)
-                        .addClassPathParts(javaBase, maddiSupport, slf4jApi, logbackClassic, jupiter)
+                        .addClassPathParts(javaBase, maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform)
                         .build();
                 javaInspector.initialize(inputConfiguration);
                 return javaInspector;
