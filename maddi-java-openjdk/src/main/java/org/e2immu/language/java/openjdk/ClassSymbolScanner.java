@@ -380,12 +380,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                         .setSource(runtime.noSource())
                         .setVariable(runtime.newFieldReference(getOrLoadField(en.value)))
                         .build();
-                case Attribute.Class cl -> {
-                    ParameterizedType realType = convert(cl.classType);
-                    ParameterizedType classType = runtime.newParameterizedType(runtime.classTypeInfo(),
-                            List.of(realType));
-                    yield runtime.newClassExpressionBuilder(realType).setClassType(classType).build();
-                }
+                // a class literal 'X.class'; newClassExpressionBuilder wraps X as the Class<X> overall type
+                case Attribute.Class cl -> runtime.newClassExpressionBuilder(convert(cl.classType)).build();
                 case Attribute.Array arr -> {
                     List<Expression> values = new ArrayList<>();
                     for (Attribute a : arr.values) {
@@ -415,7 +411,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             case LONG -> runtime.newLong((Long) v);
             case FLOAT -> runtime.newFloat((Float) v);
             case DOUBLE -> runtime.newDouble((Double) v);
-            case CLASS -> runtime.newStringConstant((String) v); // FIXME should be a ClassExpression
+            // TypeTag.CLASS on a *constant* is javac's encoding of a String value (java.lang.String); a real
+            // class literal 'X.class' arrives as Attribute.Class and is handled in annotationValue()
+            case CLASS -> runtime.newStringConstant((String) v);
             default -> null;
         };
     }
