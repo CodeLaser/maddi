@@ -25,6 +25,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 
+import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
+
 public class SourceSetImpl implements SourceSet {
     private final String name;
     private final List<Path> sourceDirectories;

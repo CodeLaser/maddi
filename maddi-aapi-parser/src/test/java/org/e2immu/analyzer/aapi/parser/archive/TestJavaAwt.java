@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.awt.*;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.COMMUTABLE_METHODS;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaAwt extends CommonTest {
@@ -31,6 +32,7 @@ public class TestJavaAwt extends CommonTest {
     @Test
     public void testContainerAdd() {
         TypeInfo typeInfo = compiledTypesManager().getOrLoad(Container.class, mainSources());
+        assertNotNull(typeInfo, "Cannot find java.awt.Container");
         MethodInfo methodInfo = typeInfo.findUniqueMethod("add", 1);
         assertTrue(methodInfo.isModifying());
         testCommutable(methodInfo);

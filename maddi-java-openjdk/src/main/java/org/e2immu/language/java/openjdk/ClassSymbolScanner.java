@@ -484,9 +484,6 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                     || typeInfo.findSubType(cs.getSimpleName().toString(), false) == null)) {
                 TypeInfo enclosed = addEnclosedTypeToType(typeInfo, cs, loadMode);
                 if (!enclosed.hasBeenInspected()) {
-                    if (enclosed.packageName().startsWith("com.google.cloud")) {
-                        LOGGER.info("Committing {}", enclosed);
-                    }
                     enclosed.builder().computeAccess().commit();
                 }
             }
