@@ -58,6 +58,9 @@ public class TestRecord extends CommonTest {
         FieldInfo b = S.getFieldByName("b", true);
         assertTrue(b.hasBeenInspected());
         assertTrue(b.access().isPrivate());
+
+        assertEquals("Type Record", R.parentClass().toString());
+        assertEquals("Type Record", S.parentClass().toString());
     }
 
     @Language("java")

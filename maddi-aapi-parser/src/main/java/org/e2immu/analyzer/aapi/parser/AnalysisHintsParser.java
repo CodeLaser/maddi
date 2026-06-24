@@ -102,7 +102,7 @@ public class AnalysisHintsParser implements AnnotationProvider {
             if (targetType != null) {
                 annotatedTypes++;
                 transferAnnotations(typeInfo, targetType);
-            } else if (typeInfo.isPubliclyAccessible()) {
+            } else {
                 warnings++;
                 LOGGER.warn("Ignoring type '{}', cannot load it.", fqn);
             }
