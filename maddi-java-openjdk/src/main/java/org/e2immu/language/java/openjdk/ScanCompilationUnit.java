@@ -463,11 +463,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private void parseTypeBoundsAndCommit(Symbol owner, TypeParameter tp, JCTree.JCTypeParameter jcTypeParameter) {
         DetailedSources.Builder dsb = runtime.newDetailedSourcesBuilder();
         List<ParameterizedType> typeBounds = new ArrayList<>();
-        JCTree.JCExpression prev = null;
         for (JCTree.JCExpression expression : jcTypeParameter.getBounds()) {
-            ParameterizedType bound = parseTypeBoundCheckSelfReference(owner, tp, expression, prev, dsb);
+            ParameterizedType bound = parseTypeBoundCheckSelfReference(owner, tp, expression, dsb);
             typeBounds.add(bound);
-            prev = expression;
         }
         List<AnnotationExpression> annotationExpressions = jcTypeParameter.annotations.stream()
                 .map(this::convertAnnotation).toList();
@@ -475,6 +473,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             Source tpKey = scanSource(jcTypeParameter);
             dsb.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(tpKey));
             dsb.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(tpKey));
+            dsb.putListIfNotNull(DetailedSources.TYPE_BOUND_AMPERSANDS,
+                    scanResult.findCommaList(tpKey, DetailedSources.TYPE_BOUND_AMPERSANDS));
         }
         tp.builder()
                 .setSource(sourceForNode(jcTypeParameter, dsb))
@@ -486,31 +486,13 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     private ParameterizedType parseTypeBoundCheckSelfReference(Symbol owner,
                                                                TypeParameter tp,
                                                                JCTree.JCExpression expression,
-                                                               JCTree.JCExpression prev,
                                                                DetailedSources.Builder dsb) {
         if (expression.type.tsym == owner) {
             // self-reference! we must check, otherwise there'll be loops
             return runtime.newParameterizedType(tp.getOwner().getLeft(),
                     tp.typeInfo().typeParameters().stream().map(NamedType::asParameterizedType).toList());
         }
-        // detailed sources... rather involved, because they must be read from the sources
-        if (prev != null) {
-            try {
-                CharSequence source = compilationUnitTree.getSourceFile().getCharContent(false);
-                long afterPrev = sourcePositions.getEndPosition(compilationUnitTree, prev);
-                long beforeBound = sourcePositions.getStartPosition(compilationUnitTree, expression);
-                for (long pos = afterPrev; pos < beforeBound; pos++) {
-                    char c = source.charAt((int) pos);
-                    if (c == '&') {
-                        Source ampersandSource = sourceForNode("", pos, pos + 1);
-                        dsb.put(DetailedSources.TYPE_BOUND_AMPERSANDS, ampersandSource);
-                        break;
-                    }
-                }
-            } catch (IOException ioe) {
-                throw new UnsupportedOperationException("Cannot read sources?");
-            }
-        }
+        // the '&' separators between bounds are recorded as TYPE_BOUND_AMPERSANDS by SourceCodeScan
         return convertType.convertTree(expression, dsb);
     }
 
@@ -1463,13 +1445,25 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         // declarator of 'int a = 4, b = 3'); the '=' position is supplied by the scanner, keyed by that same
         // name source. This replaces the former string-search on variableDecl.toString() + startAtEnd kludge.
         Source namePos = sourceOfIdentifier(isUnnamed ? "_" : name, variableDecl.pos);
-        dsb.put(name, namePos);
-        if (scanResult != null && variableDecl.init != null) {
-            Source assignSource = scanResult.findSucceedingEquals(namePos);
-            if (assignSource != null) {
-                dsb.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS, List.of(assignSource));
+        if (scanResult != null) {
+            // the scanner records per-declarator commas and '=' keyed exactly as for fields (commas by the
+            // declarator span, '=' by the name). For a local these are nested in the variable's name source,
+            // since several declarators may share a single LocalVariableCreation (mirrors SUCCEEDING_EQUALS;
+            // replaces the former flat LOCAL_VARIABLE_COMMAS / LOCAL_VARIABLE_ASSIGNMENT_OPERATORS lists)
+            Source declaratorSource = variableDecl.init == null ? namePos
+                    : namePos.max(sourceForNode(variableDecl.init));
+            Source preceding = scanResult.findPrecedingComma(declaratorSource);
+            Source succeeding = scanResult.findSucceedingComma(declaratorSource);
+            Source equals = variableDecl.init == null ? null : scanResult.findSucceedingEquals(namePos);
+            if (preceding != null || succeeding != null || equals != null) {
+                DetailedSources.Builder nameDsb = runtime.newDetailedSourcesBuilder();
+                nameDsb.putIfNotNull(DetailedSources.PRECEDING_COMMA, preceding);
+                nameDsb.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, succeeding);
+                nameDsb.putIfNotNull(DetailedSources.SUCCEEDING_EQUALS, equals);
+                namePos = namePos.withDetailedSources(nameDsb.build());
             }
         }
+        dsb.put(name, namePos);
         Source statementSource = statementSourceForNode(variableDecl, dsb);
         lvcb.setSource(statementSource);
         elementStack.put(localVariable.simpleName(), localVariable);

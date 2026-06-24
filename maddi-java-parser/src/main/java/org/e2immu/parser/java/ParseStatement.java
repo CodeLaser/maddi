@@ -523,13 +523,12 @@ public class ParseStatement extends CommonParse {
         ParameterizedType baseType = parsers.parseType().parse(context, typeNode, detailedSourcesBuilder);
         i++;
         boolean first = true;
-        List<Node> commas = detailedSourcesBuilder != null ? new ArrayList<>() : null;
-        List<Node> assignmentOperators = detailedSourcesBuilder != null ? new ArrayList<>() : null;
+        Node precedingComma = null;
         while (i < nvd.size() && nvd.get(i) instanceof VariableDeclarator vd) {
-            if (detailedSourcesBuilder != null && i + 1 < nvd.size()
-                && nvd.get(i + 1) instanceof Delimiter d && d.getType() == Token.TokenType.COMMA) {
-                commas.add(d);
-            }
+            // the comma following this declarator (if any) is both its SUCCEEDING_COMMA and the next
+            // declarator's PRECEDING_COMMA
+            Node succeedingComma = i + 1 < nvd.size() && nvd.get(i + 1) instanceof Delimiter d
+                                   && d.getType() == Token.TokenType.COMMA ? d : null;
             Node vd0 = vd.getFirst();
             Node assignmentOperator;
             LocalVariable lv;
@@ -568,7 +567,9 @@ public class ParseStatement extends CommonParse {
                     assignmentOperator = null;
                 }
                 if (detailedSourcesBuilder != null) {
-                    detailedSourcesBuilder.put(lv, source(identifier));
+                    // commas and '=' are recorded per variable, nested in the variable's name source
+                    detailedSourcesBuilder.put(lv, nameSourceWithDetails(context, source(identifier),
+                            precedingComma, succeedingComma, assignmentOperator));
                 }
             }
             if (first) {
@@ -578,20 +579,27 @@ public class ParseStatement extends CommonParse {
                 builder.addOtherLocalVariable(lv);
             }
             i += 2;
-            if (detailedSourcesBuilder != null) {
-                assignmentOperators.add(assignmentOperator);
-            }
-        }
-        if (detailedSourcesBuilder != null) {
-            addCommaList(commas, detailedSourcesBuilder, DetailedSources.LOCAL_VARIABLE_COMMAS);
-            // FIXME should use SUCCEEDING_EQUALS
-            //detailedSourcesBuilder.putList(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS,
-            //        assignmentOperators.stream().map(o -> o == null ? null : source(o)).toList());
+            precedingComma = succeedingComma;
         }
         lvcModifiers.forEach(builder::addModifier);
         return builder
                 .setSource(detailedSourcesBuilder == null ? source : source.withDetailedSources(detailedSourcesBuilder.build()))
                 .addComments(comments).setLabel(label).addAnnotations(annotations).build();
+    }
+
+    // returns the variable's name source, enriched with the per-declarator details nested in its detailed
+    // sources: PRECEDING_COMMA / SUCCEEDING_COMMA (the commas around this declarator) and SUCCEEDING_EQUALS
+    // (its '='). This lets each variable of a (possibly multi-declarator) LocalVariableCreation carry its own
+    // positions, replacing the former flat LOCAL_VARIABLE_COMMAS / LOCAL_VARIABLE_ASSIGNMENT_OPERATORS lists.
+    private Source nameSourceWithDetails(Context context, Source nameSource, Node precedingComma,
+                                         Node succeedingComma, Node assignmentOperator) {
+        if (precedingComma == null && succeedingComma == null && assignmentOperator == null) return nameSource;
+        DetailedSources.Builder nameDsb = context.newDetailedSourcesBuilder();
+        if (nameDsb == null) return nameSource;
+        if (precedingComma != null) nameDsb.put(DetailedSources.PRECEDING_COMMA, source(precedingComma));
+        if (succeedingComma != null) nameDsb.put(DetailedSources.SUCCEEDING_COMMA, source(succeedingComma));
+        if (assignmentOperator != null) nameDsb.put(DetailedSources.SUCCEEDING_EQUALS, source(assignmentOperator));
+        return nameSource.withDetailedSources(nameDsb.build());
     }
 
     private LocalVariableCreation forEachElementWithVar(Context context, LocalVariableDeclaration varDeclaration,
@@ -639,14 +647,14 @@ public class ParseStatement extends CommonParse {
         VariableDeclarator vd = (VariableDeclarator) varDeclaration.get(i);
         Identifier identifier = (Identifier) vd.get(0);
         ForwardType forwardType = context.emptyForwardType();
-        if (detailedSourcesBuilder != null) {
-            detailedSourcesBuilder.put(DetailedSources.SUCCEEDING_EQUALS, source(vd.get(1)));
-        }
         Expression expression = parsers.parseExpression().parse(context, index, forwardType, vd.get(2));
         String variableName = identifier.getSource();
         ParameterizedType type = expression.parameterizedType();
         LocalVariable lv = runtime.newLocalVariable(variableName, type, expression);
-        if (detailedSourcesBuilder != null) detailedSourcesBuilder.put(lv, source(identifier));
+        if (detailedSourcesBuilder != null) {
+            // single declarator: only the '=' to nest (no surrounding commas)
+            detailedSourcesBuilder.put(lv, nameSourceWithDetails(context, source(identifier), null, null, vd.get(1)));
+        }
         context.variableContext().add(lv);
         lvcModifiers.forEach(builder::addModifier);
         return builder.setLocalVariable(lv)

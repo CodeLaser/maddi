@@ -652,4 +652,23 @@ public class TestSourceCodeScan {
         assertEquals("8-22:8-22, 8-25:8-25", commas(r, DetailedSources.THROWS_COMMAS));
     }
 
+    @Language("java")
+    public static final String INPUT12 = """
+            package a.b;
+            class X<T extends A & B & C> {
+            }
+            """;
+
+    /*
+    TYPE_BOUND_AMPERSANDS: the '&' separators of an intersection type bound, recorded as a List<Source> like
+    the other separator keys. Purely syntactic, so A/B/C need not exist.
+    */
+    @Test
+    public void test12() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT12, false);
+        // T extends A & B & C  ('&' at 2-21, 2-25)
+        assertEquals("2-21:2-21, 2-25:2-25", commas(r, DetailedSources.TYPE_BOUND_AMPERSANDS));
+    }
+
 }

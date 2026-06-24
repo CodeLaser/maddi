@@ -55,16 +55,20 @@ public interface DetailedSources {
     Object FIELD_DECLARATION = new Object();
     /**
      * Position of the comma that <em>precedes</em> an element in a comma-separated list.
-     * Computed for formal type parameter lists, formal method parameter lists, and field declaration lists.
+     * Computed for formal type parameter lists, formal method parameter lists, field declaration lists, and
+     * local-variable declaration lists. For a local variable it is nested in each variable's name source.
      */
     Object PRECEDING_COMMA = new Object();
     /**
      * Position of the comma that <em>follows</em> an element in a comma-separated list.
-     * Computed for formal type parameter lists, formal method parameter lists, and field declaration lists.
+     * Computed for formal type parameter lists, formal method parameter lists, field declaration lists, and
+     * local-variable declaration lists. For a local variable it is nested in each variable's name source.
      */
     Object SUCCEEDING_COMMA = new Object();
     /**
-     * Position of the {@code =} sign in a field or local-variable declarator.
+     * Position of the {@code =} sign in a field or local-variable declarator. For a field it sits directly on
+     * the field's source; for a local variable it is nested in each variable's name source, so the multiple
+     * declarators of a single {@code LocalVariableCreation} each carry their own operator.
      */
     Object SUCCEEDING_EQUALS = new Object();
     /**
@@ -76,22 +80,11 @@ public interface DetailedSources {
      */
     Object END_OF_ARGUMENT_LIST = new Object();
 
-
-    // unused at the moment
     Object TYPE_ARGUMENT_COMMAS = new Object();
-    // unused at the moment
     Object EXTENDS_COMMAS = new Object();
-    // unused at the moment
     Object IMPLEMENTS_COMMAS = new Object();
-    // unused at the moment
     Object PERMITS_COMMAS = new Object();
-    // unused at the moment
     Object THROWS_COMMAS = new Object();
-    // unused at the moment
-    Object LOCAL_VARIABLE_COMMAS = new Object();
-    // unused at the moment
-    Object LOCAL_VARIABLE_ASSIGNMENT_OPERATORS = new Object();
-    // unused at the moment
     Object TYPE_BOUND_AMPERSANDS = new Object();
 
     /**

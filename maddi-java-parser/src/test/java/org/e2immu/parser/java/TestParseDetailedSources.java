@@ -151,8 +151,17 @@ public class TestParseDetailedSources extends CommonTestParse {
 
         MethodInfo lvs = typeInfo.findUniqueMethod("lvs", 0);
         LocalVariableCreation lvc = (LocalVariableCreation) lvs.methodBody().statements().getFirst();
-        assertEquals("17-16:17-16 17-23:17-23", lvc.source().detailedSources().details(DetailedSources.LOCAL_VARIABLE_COMMAS)
-                .stream().map(Source::compact2).collect(Collectors.joining(" ")));
+        // commas are nested per declarator: i (first) -> succeeding only; j (middle) -> both; k (last) -> preceding only
+        DetailedSources lvds = lvc.source().detailedSources();
+        DetailedSources iDs = lvds.detail(lvc.localVariable()).detailedSources();
+        assertNull(iDs.detail(PRECEDING_COMMA));
+        assertEquals("17-16:17-16", iDs.detail(SUCCEEDING_COMMA).compact2());
+        DetailedSources jDs = lvds.detail(lvc.otherLocalVariables().get(0)).detailedSources();
+        assertEquals("17-16:17-16", jDs.detail(PRECEDING_COMMA).compact2());
+        assertEquals("17-23:17-23", jDs.detail(SUCCEEDING_COMMA).compact2());
+        DetailedSources kDs = lvds.detail(lvc.otherLocalVariables().get(1)).detailedSources();
+        assertEquals("17-23:17-23", kDs.detail(PRECEDING_COMMA).compact2());
+        assertNull(kDs.detail(SUCCEEDING_COMMA));
 
         MethodInfo newC = typeInfo.findUniqueMethod("newC", 0);
         ConstructorCall cc = (ConstructorCall) newC.methodBody().lastStatement().expression();
