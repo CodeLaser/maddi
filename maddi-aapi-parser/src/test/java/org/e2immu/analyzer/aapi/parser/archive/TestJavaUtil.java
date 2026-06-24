@@ -21,7 +21,6 @@ import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
-import org.e2immu.language.inspection.integration.ToolChain;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
@@ -31,7 +30,6 @@ import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.FALSE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.BoolImpl.TRUE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.*;
-import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.FieldValue;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.NO_VALUE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.*;
@@ -489,7 +487,7 @@ public class TestJavaUtil extends CommonTest {
 
     @Test
     public void testMapEntry() {
-        TypeInfo typeInfo = compiledTypesManager().get(Map.Entry.class);
+        TypeInfo typeInfo = compiledTypesManager().get(Map.class).findSubType("Entry");
         assertTrue(typeInfo.isInterface());
         assertFalse(typeInfo.isAtLeastImmutableHC());
         assertSame(MUTABLE, typeInfo.analysis().getOrDefault(IMMUTABLE_TYPE, MUTABLE));

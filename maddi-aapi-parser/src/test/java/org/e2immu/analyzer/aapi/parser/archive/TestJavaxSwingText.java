@@ -15,6 +15,7 @@
 package org.e2immu.analyzer.aapi.parser.archive;
 
 import org.e2immu.analyzer.aapi.parser.CommonTest;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,9 @@ public class TestJavaxSwingText extends CommonTest {
     @Test
     public void testJTextComponentSetText() {
         TypeInfo typeInfo = compiledTypesManager().getOrLoad(JTextComponent.class, mainSources());
+        SourceSet set = typeInfo.compilationUnit().sourceSet();
+        assertTrue(set.partOfJdk());
+        assertTrue(set.externalLibrary());
         MethodInfo methodInfo = typeInfo.findUniqueMethod("setText", 1);
         assertTrue(methodInfo.isModifying());
     }

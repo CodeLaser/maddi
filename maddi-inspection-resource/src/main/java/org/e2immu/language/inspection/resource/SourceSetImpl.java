@@ -76,22 +76,32 @@ public class SourceSetImpl implements SourceSet {
                 .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
     }
 
-    public static SourceSet sourceSetModuleOf(Class<?> clazz, SourceSet... dependencies) throws URISyntaxException {
+    public static SourceSet jdkModule(String name) {
+        return new Builder().setName(name).setUri(URI.create("file:/"))
+                .setLibrary(true)
+                .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build();
+    }
+
+    public static SourceSet sourceSetModuleOf(Class<?> clazz, SourceSet... dependencies) {
         return sourceSetOf(clazz, true, dependencies);
     }
 
-    public static SourceSet sourceSetOf(Class<?> clazz, SourceSet... dependencies) throws URISyntaxException {
+    public static SourceSet sourceSetOf(Class<?> clazz, SourceSet... dependencies) {
         return sourceSetOf(clazz, false, dependencies);
     }
 
-    private static SourceSet sourceSetOf(Class<?> clazz, boolean isModule, SourceSet... dependencies) throws URISyntaxException {
-        URI uri = clazz.getProtectionDomain().getCodeSource().getLocation().toURI();
-        return new Builder().setName(tail(uri)).setUri(uri)
-                .setModule(isModule)
-                .setLibrary(true)
-                .setExternalLibrary(true)
-                .setDependencies(Arrays.stream(dependencies).toList())
-                .build();
+    private static SourceSet sourceSetOf(Class<?> clazz, boolean isModule, SourceSet... dependencies) {
+        try {
+            URI uri = clazz.getProtectionDomain().getCodeSource().getLocation().toURI();
+            return new Builder().setName(tail(uri)).setUri(uri)
+                    .setModule(isModule)
+                    .setLibrary(true)
+                    .setExternalLibrary(true)
+                    .setDependencies(Arrays.stream(dependencies).toList())
+                    .build();
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static String tail(URI uri) {

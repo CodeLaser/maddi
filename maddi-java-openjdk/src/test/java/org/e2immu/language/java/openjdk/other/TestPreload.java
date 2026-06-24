@@ -1,5 +1,6 @@
 package org.e2immu.language.java.openjdk.other;
 
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.expression.AnnotationExpression;
 import org.e2immu.language.cst.api.expression.ClassExpression;
 import org.e2immu.language.cst.api.expression.Expression;
@@ -7,9 +8,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.java.openjdk.CommonTest;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestPreload extends CommonTest {
     @Test
@@ -23,6 +22,9 @@ public class TestPreload extends CommonTest {
         assertEquals("@Target({ElementType.TYPE})", functionalInterface.annotations().get(2).toString());
         assertEquals("Type java.lang.annotation.Annotation",
                 functionalInterface.interfacesImplemented().getFirst().toString());
+        SourceSet set = functionalInterface.compilationUnit().sourceSet();
+        assertTrue(set.partOfJdk());
+        assertTrue(set.externalLibrary());
     }
 
     @Test
@@ -40,5 +42,9 @@ public class TestPreload extends CommonTest {
         ClassExpression classExpression = assertInstanceOf(ClassExpression.class, value);
         assertEquals("org.junit.jupiter.api.extension.Extensions",
                 classExpression.type().typeInfo().fullyQualifiedName());
+
+        SourceSet set = extendWith.compilationUnit().sourceSet();
+        assertFalse(set.partOfJdk());
+        assertTrue(set.externalLibrary());
     }
 }

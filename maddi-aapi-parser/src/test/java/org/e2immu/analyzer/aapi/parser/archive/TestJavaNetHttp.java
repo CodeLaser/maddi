@@ -63,7 +63,7 @@ public class TestJavaNetHttp extends CommonTest {
 
     @Test
     public void testHttpRequestBuilderGET() {
-        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.Builder.class);
+        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.class).findSubType("Builder");
         MethodInfo methodInfo = typeInfo.findUniqueMethod("GET", 0);
         testFluent(methodInfo);
         testCommutable(methodInfo);
@@ -71,7 +71,7 @@ public class TestJavaNetHttp extends CommonTest {
 
     @Test
     public void testHttpRequestBuilderUri() {
-        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.Builder.class);
+        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.class).findSubType("Builder");
         MethodInfo methodInfo = typeInfo.findUniqueMethod("uri", 1);
         testFluent(methodInfo);
         testCommutable(methodInfo);
@@ -79,7 +79,7 @@ public class TestJavaNetHttp extends CommonTest {
 
     @Test
     public void testHttpRequestBuilderTimeout() {
-        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.Builder.class);
+        TypeInfo typeInfo = compiledTypesManager().get(HttpRequest.class).findSubType("Builder");
         MethodInfo methodInfo = typeInfo.findUniqueMethod("timeout", 1);
         testFluent(methodInfo);
         testCommutable(methodInfo);
