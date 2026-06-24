@@ -193,7 +193,7 @@ public class TestJavaLang extends CommonTest {
 
         ParameterInfo p0 = methodInfo.parameters().getFirst();
         // no name in the byte-code, so auto-generated from T
-        assertEquals("t", p0.name());
+        assertEquals("arg0", p0.name());
         assertEquals(0, p0.index());
         assertSame(INDEPENDENT, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(IMMUTABLE_HC, p0.analysis().getOrDefault(IMMUTABLE_PARAMETER, MUTABLE));
@@ -319,16 +319,14 @@ public class TestJavaLang extends CommonTest {
         TypeInfo typeInfo = compiledTypesManager().get(System.class);
         MethodInfo methodInfo = typeInfo.findUniqueMethod("arraycopy", 5);
         ParameterInfo p0 = methodInfo.parameters().getFirst();
-        // name generated from Object
-        assertEquals("object", p0.name());
+        assertEquals("arg0", p0.name());
         Independent independentP0 = p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
         assertEquals("@Independent(hc=true, hcParameters={2})", independentP0.toString());
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));
 
         ParameterInfo p2 = methodInfo.parameters().get(2);
-        // name generated from Object
-        assertEquals("object1", p2.name());
+        assertEquals("arg2", p2.name());
         Value.Independent independentP2 = p2.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT);
         assertTrue(independentP2.isIndependent());
         assertSame(NOT_NULL, p2.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
@@ -379,8 +377,7 @@ public class TestJavaLang extends CommonTest {
         assertSame(IMMUTABLE, methodInfo.analysis().getOrDefault(IMMUTABLE_METHOD, MUTABLE));
         assertSame(INDEPENDENT, methodInfo.analysis().getOrDefault(INDEPENDENT_METHOD, DEPENDENT));
         ParameterInfo p0 = methodInfo.parameters().getFirst();
-        // name generated from int
-        assertEquals("i", p0.name());
+        assertEquals("arg0", p0.name());
         assertSame(INDEPENDENT, p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, DEPENDENT));
         assertSame(NOT_NULL, p0.analysis().getOrDefault(NOT_NULL_PARAMETER, NULLABLE));
         assertSame(TRUE, p0.analysis().getOrDefault(UNMODIFIED_PARAMETER, FALSE));

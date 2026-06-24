@@ -84,9 +84,6 @@ public class CommonTest {
         runtime = javaInspector.runtime();
         compiledTypesManager = javaInspector.compiledTypesManager();
 
-        TypeInfo httpRequest = compiledTypesManager.get("java.net.http.HttpRequest", null);
-        assertNotNull(httpRequest);
-
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, analysisHintsParser, true);
         ShallowAnalyzer.Result sr = shallowAnalyzer.go(analysisHintsParser.types());
 
@@ -97,6 +94,8 @@ public class CommonTest {
 
     private static @NonNull AnalysisHintsParser createAnalysisHintsParser() throws URISyntaxException {
         SourceSet javaBase = SourceSetImpl.javaBase();
+        SourceSet javaDesktop = SourceSetImpl.jdkModule("java.desktop");
+        SourceSet javaNetHttp = SourceSetImpl.jdkModule("java.net.http");
         SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
         SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
         SourceSet logbackClassic = SourceSetImpl.sourceSetOf(Logger.class);
@@ -128,7 +127,8 @@ public class CommonTest {
                 javaInspector.preload("org.junit.jupiter.api.");
                 InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                         .addSourceSets(sourceSet)
-                        .addClassPathParts(javaBase, maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform)
+                        .addClassPathParts(javaBase, javaDesktop, javaNetHttp,
+                                maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform)
                         .build();
                 javaInspector.initialize(inputConfiguration);
                 return javaInspector;

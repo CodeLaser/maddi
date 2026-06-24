@@ -439,6 +439,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             if (known != null) {
                 return known;
             }
+            LOGGER.warn("Unknown module {}, add to classpath?", module);
         }
         return sourceSetOfCurrentTask;
     }
@@ -582,6 +583,9 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         if (synthetic) {
             builder.setSynthetic(true);
         }
+        // exception types
+        ms.getThrownTypes().forEach(t -> builder.addExceptionType(convert(t)));
+
         if (ms.params != null) {
             for (Symbol.VarSymbol parameter : ms.params) {
                 ParameterizedType pt = convert(parameter.type);

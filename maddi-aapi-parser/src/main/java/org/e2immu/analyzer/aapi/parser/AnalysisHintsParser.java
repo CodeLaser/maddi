@@ -104,6 +104,7 @@ public class AnalysisHintsParser implements AnnotationProvider {
             String fqn = apiPackage + "." + simpleNameWithoutDollar;
             TypeInfo targetType = compiledTypesManager.getOrLoad(fqn, typeInfo.compilationUnit().sourceSet());
             if (targetType != null) {
+                assert targetType.compilationUnit().sourceSet().externalLibrary();
                 annotatedTypes++;
                 transferAnnotations(typeInfo, targetType);
             } else {
