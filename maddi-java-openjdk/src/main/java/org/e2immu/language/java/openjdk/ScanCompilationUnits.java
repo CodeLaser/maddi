@@ -292,10 +292,12 @@ public class ScanCompilationUnits {
         return preload(StandardLocation.CLASS_PATH, packageName);
     }
 
-    private List<TypeInfo> preload(JavaFileManager.Location location, String packageName) throws IOException {
-        LOGGER.info("Preloading {}::{}", location, packageName);
+    private List<TypeInfo> preload(JavaFileManager.Location location, String packageNameIn) throws IOException {
+        boolean recurse = packageNameIn.endsWith(".");
+        String packageName = recurse ? packageNameIn.substring(0, packageNameIn.length() - 1) : packageNameIn;
+        LOGGER.info("Preloading {}::{}, recurse? {}", location, packageName, recurse);
         JavaFileManager fm = ((BasicJavacTask) task).getContext().get(JavaFileManager.class);
-        Iterable<JavaFileObject> files = fm.list(location, packageName, Set.of(JavaFileObject.Kind.CLASS), false);
+        Iterable<JavaFileObject> files = fm.list(location, packageName, Set.of(JavaFileObject.Kind.CLASS), recurse);
         Elements elements = task.getElements();
         List<TypeInfo> list = new LinkedList<>();
         for (JavaFileObject file : files) {

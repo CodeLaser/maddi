@@ -17,6 +17,7 @@ package org.e2immu.analyzer.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import org.e2immu.analyzer.modification.prepwork.io.DecoratorImpl;
+import org.e2immu.annotation.Immutable;
 import org.e2immu.language.cst.api.element.Element;
 import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.MethodInfo;
@@ -27,6 +28,7 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.integration.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -37,15 +39,18 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.lang.invoke.TypeDescriptor;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TestComposer {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TestComposer.class);
+public class TestAnalysisHintsComposer extends CommonTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestAnalysisHintsComposer.class);
     public static final String TEST_DIR = "build/testAAPI";
 
     @BeforeAll
@@ -55,18 +60,25 @@ public class TestComposer {
     }
 
     @Test
-    public void test() throws IOException {
-        InputConfigurationImpl.Builder inputConfigurationBuilder = new InputConfigurationImpl.Builder()
-                .addSources("none")
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
-                .addClassPath("jmod:java.base");
+    public void test() throws IOException, URISyntaxException {
+        SourceSet javaBase = SourceSetImpl.javaBase();
+        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
+        SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
 
-        JavaInspector javaInspector = new JavaInspectorImpl();
-        InputConfiguration inputConfiguration = inputConfigurationBuilder.build();
+        JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
+        javaInspector.preload("java.base::java.util");
+        javaInspector.preload("org.slf4j");
+        SourceSet sourceSet = new SourceSetImpl.Builder().setName(TEST_PROTOCOL).setUri(URI.create("file:/")).build();
+        InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
+                .addSourceSets(sourceSet)
+                .addClassPathParts(javaBase, maddiSupport, slf4jApi)
+                .build();
+        javaInspector.preload("org.e2immu.annotation.");
+
         javaInspector.initialize(inputConfiguration);
-        inputConfiguration.classPathParts().forEach(SourceSet::computePriorityDependencies);
-
-        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector, set -> "org.e2immu.testannotatedapi", w -> true);
+        javaInspector.parse(Map.of("a.b.X", "package a.b; class X{ }"), new JavaInspector.ParseOptions.Builder().build());
+        AnalysisHintsComposer analysisHintsComposer = new AnalysisHintsComposer(javaInspector,
+                _ -> "org.e2immu.testannotatedapi", _ -> true);
         List<TypeInfo> primaryTypes = javaInspector.compiledTypesManager()
                 .typesLoaded(true).stream().filter(TypeInfo::isPrimaryType).toList();
         LOGGER.info("Have {} primary types loaded", primaryTypes.size());
