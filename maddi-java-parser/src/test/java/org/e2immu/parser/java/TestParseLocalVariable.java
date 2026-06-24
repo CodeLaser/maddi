@@ -15,7 +15,6 @@
 package org.e2immu.parser.java;
 
 import org.e2immu.language.cst.api.element.DetailedSources;
-import org.e2immu.language.cst.api.element.Source;
 import org.e2immu.language.cst.api.expression.ArrayLength;
 import org.e2immu.language.cst.api.expression.BinaryOperator;
 import org.e2immu.language.cst.api.expression.IntConstant;
@@ -30,8 +29,6 @@ import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.LocalVariable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -126,10 +123,11 @@ public class TestParseLocalVariable extends CommonTestParse {
             LocalVariable lv2 = lvc.otherLocalVariables().getFirst();
             assertEquals("b", lv2.simpleName());
 
-            List<Source> sources = lvc.source().detailedSources().details(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS);
-            assertEquals(2, sources.size());
-            assertEquals("@4:11-4:11", sources.getFirst().toString());
-            assertEquals("@4:28-4:28", sources.getLast().toString());
+            // the '=' of each declarator is nested as SUCCEEDING_EQUALS in that variable's name source
+            assertEquals("@4:11-4:11", lvc.source().detailedSources().detail(lv)
+                    .detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS).toString());
+            assertEquals("@4:28-4:28", lvc.source().detailedSources().detail(lv2)
+                    .detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS).toString());
         } else fail();
     }
 }

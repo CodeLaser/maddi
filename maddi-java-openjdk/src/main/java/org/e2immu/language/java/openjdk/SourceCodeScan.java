@@ -258,7 +258,6 @@ public final class SourceCodeScan {
 
     private void scanTypeParameters(Node tps) {
         for (Node node : tps.children()) {
-            String string = node.getSource();
             if (node instanceof TypeParameter || node instanceof Identifier) {
                 addComments(node, true);
                 Map<Object, Object> commaMap = new HashMap<>();
@@ -270,8 +269,23 @@ public final class SourceCodeScan {
                 if (succeeding != null && succeeding.getType() == Token.TokenType.COMMA) {
                     commaMap.put(DetailedSources.SUCCEEDING_COMMA, source(succeeding));
                 }
-                Source source = source(node);
-                argumentLists.put(source, Map.copyOf(commaMap));
+                if (node instanceof TypeParameter tp) {
+                    // the '&' separators of an intersection bound 'T extends A & B & C' live in the TypeBound
+                    // child as Operator nodes at the odd positions after each bound
+                    TypeBound tb = tp.firstChildOfType(TypeBound.class);
+                    if (tb != null) {
+                        List<Source> ampersands = new ArrayList<>();
+                        for (int j = 2; j < tb.size(); j += 2) {
+                            if (tb.get(j) instanceof Operator op) {
+                                ampersands.add(source(op));
+                            }
+                        }
+                        if (!ampersands.isEmpty()) {
+                            commaMap.put(DetailedSources.TYPE_BOUND_AMPERSANDS, List.copyOf(ampersands));
+                        }
+                    }
+                }
+                argumentLists.put(source(node), Map.copyOf(commaMap));
             }
         }
     }

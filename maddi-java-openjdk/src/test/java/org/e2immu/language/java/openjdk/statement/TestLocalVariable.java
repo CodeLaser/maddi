@@ -32,8 +32,6 @@ import org.e2immu.language.java.openjdk.CommonTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestLocalVariable extends CommonTest {
@@ -117,7 +115,12 @@ public class TestLocalVariable extends CommonTest {
             assertFalse(lvc.hasSingleDeclaration());
             assertFalse(lvc.otherLocalVariables().isEmpty());
             assertEquals("a", lv.fullyQualifiedName());
-            assertEquals("4-9:4-9", lvc.source().detailedSources().detail(lv.simpleName()).compact2());
+            Source aName = lvc.source().detailedSources().detail(lv.simpleName());
+            assertEquals("4-9:4-9", aName.compact2());
+            // the '=' and the surrounding commas are recorded per variable, nested in the variable's name source
+            assertEquals("4-11:4-11", aName.detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS).compact2());
+            assertNull(aName.detailedSources().detail(DetailedSources.PRECEDING_COMMA));
+            assertEquals("4-24:4-24", aName.detailedSources().detail(DetailedSources.SUCCEEDING_COMMA).compact2());
 
             if (lv.assignmentExpression() instanceof ArrayLength al) {
                 if (al.scope() instanceof VariableExpression ve) {
@@ -129,12 +132,11 @@ public class TestLocalVariable extends CommonTest {
 
             LocalVariable lv2 = lvc.otherLocalVariables().getFirst();
             assertEquals("b", lv2.simpleName());
-            assertEquals("4-26:4-26", lvc.source().detailedSources().detail(lv2.simpleName()).compact2());
-
-            List<Source> sources = lvc.source().detailedSources().details(DetailedSources.LOCAL_VARIABLE_ASSIGNMENT_OPERATORS);
-            assertEquals(2, sources.size());
-            assertEquals("4-11:4-11", sources.getFirst().compact2());
-            assertEquals("4-28:4-28", sources.getLast().compact2());
+            Source bName = lvc.source().detailedSources().detail(lv2.simpleName());
+            assertEquals("4-26:4-26", bName.compact2());
+            assertEquals("4-28:4-28", bName.detailedSources().detail(DetailedSources.SUCCEEDING_EQUALS).compact2());
+            assertEquals("4-24:4-24", bName.detailedSources().detail(DetailedSources.PRECEDING_COMMA).compact2());
+            assertNull(bName.detailedSources().detail(DetailedSources.SUCCEEDING_COMMA));
         } else fail();
     }
 }
