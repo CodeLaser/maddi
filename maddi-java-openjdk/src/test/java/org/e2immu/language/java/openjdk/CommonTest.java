@@ -100,7 +100,7 @@ public class CommonTest {
                     preload);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
-        } catch (IOException | URISyntaxException io) {
+        } catch (IOException io) {
             fail(io);
             return null;
         }

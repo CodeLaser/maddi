@@ -37,14 +37,14 @@ import org.junit.platform.commons.JUnitException;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.List;
 
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CommonTest {
     private static CompiledTypesManager compiledTypesManager;
@@ -68,7 +68,7 @@ public class CommonTest {
     }
 
     @BeforeAll
-    public static void beforeAll() throws IOException, URISyntaxException {
+    public static void beforeAll() throws IOException {
         ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
         ((Logger) LoggerFactory.getLogger("org.e2immu.analyzer.aapi")).setLevel(Level.DEBUG);
 
@@ -92,7 +92,7 @@ public class CommonTest {
         allTypes = sr.allTypes();
     }
 
-    private static @NonNull AnalysisHintsParser createAnalysisHintsParser() throws URISyntaxException {
+    static @NonNull JavaInspectorFactory javaInspectorFactory() {
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet javaDesktop = SourceSetImpl.jdkModule("java.desktop");
         SourceSet javaNetHttp = SourceSetImpl.jdkModule("java.net.http");
@@ -102,7 +102,7 @@ public class CommonTest {
         SourceSet junitPlatform = SourceSetImpl.sourceSetOf(JUnitException.class);
         SourceSet jupiter = SourceSetImpl.sourceSetOf(Test.class, junitPlatform);
 
-        JavaInspectorFactory javaInspectorFactory = new JavaInspectorFactory() {
+        return new JavaInspectorFactory() {
             @Override
             public List<SourceSet> dependencies() {
                 return List.of(maddiSupport, slf4jApi, logbackClassic, junitPlatform, jupiter);
@@ -125,6 +125,7 @@ public class CommonTest {
                 javaInspector.preload("java.net.http::java.net.http");
                 javaInspector.preload("org.slf4j");
                 javaInspector.preload("org.junit.jupiter.api.");
+                javaInspector.preload("org.e2immu.annotation.");
                 InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                         .addSourceSets(sourceSet)
                         .addClassPathParts(javaBase, javaDesktop, javaNetHttp,
@@ -134,6 +135,10 @@ public class CommonTest {
                 return javaInspector;
             }
         };
+    }
+
+    static @NonNull AnalysisHintsParser createAnalysisHintsParser() {
+        JavaInspectorFactory javaInspectorFactory = javaInspectorFactory();
         return new AnalysisHintsParser(javaInspectorFactory);
     }
 

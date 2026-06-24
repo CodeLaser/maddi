@@ -14,6 +14,7 @@
 
 package org.e2immu.analyzer.modification.link.io;
 
+import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
@@ -84,10 +85,6 @@ public class TestWriteAnalysis2 extends CommonTest {
              {"name": "MgetN(1)", "data":{"getSetField":["Fn(0)",false,false],"methodLinks":[[["R",["Ta.b.X","MgetN(1)"]],[["R",["Ta.b.X","MgetN(1)"]],"←",["F",["Ta.b.X","Fn(0)"]]]],[]],"nonModifyingMethod":1}}]}
             ]
             """;
-
-    public TestWriteAnalysis2() {
-        super(false);
-    }
 
     @DisplayName("basics")
     @Test

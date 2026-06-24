@@ -44,6 +44,8 @@ dependencies {
 
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-java-openjdk"))
+
+    testImplementation(testFixtures(project(":maddi-modification-common")))
 }
 
 tasks.withType<Test> {
@@ -57,12 +59,4 @@ tasks.withType<Test> {
         "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
     )
-
-    val impl = System.getProperty("maddi_parser", "maddi")
-
-    // Pass it forward down to the worker JVM execution context
-    systemProperty("maddi_parser", impl)
-
-    // Visual logging to your terminal so you always know which version is active
-    logger.lifecycle("Project [${project.name}] executing test suite targeting: $impl")
 }

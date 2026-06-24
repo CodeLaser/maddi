@@ -1,0 +1,535 @@
+[
+{"name": "Tjava.util.stream.BaseStream", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Msequential(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mparallel(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Miterator(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "Mspliterator(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MisParallel(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Munordered(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MonClose(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1}}},
+ {"name": "Mclose(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}}]},
+
+{"name": "Tjava.util.stream.Collector", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Msupplier(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"notNullMethod":2}},
+ {"name": "Maccumulator(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"notNullMethod":1}},
+ {"name": "Mcombiner(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"notNullMethod":2}},
+ {"name": "Mfinisher(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"notNullMethod":2}},
+ {"name": "Mcharacteristics(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "Mof(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Parg1(1)", "data":{"ignoreModsParameter":1}},
+  {"name": "Parg2(2)", "data":{"ignoreModsParameter":1}},
+  {"name": "Parg3(3)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mof(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Parg1(1)", "data":{"ignoreModsParameter":1}},
+  {"name": "Parg2(2)", "data":{"ignoreModsParameter":1}},
+  {"name": "Parg3(3)", "data":{"ignoreModsParameter":1}},
+  {"name": "Parg4(4)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]}]},
+
+{"name": "Tjava.util.stream.Collectors", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2,"utilityClass":1}, "subs":[
+ {"name": "MtoCollection(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MtoList(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoSet(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mjoining(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mjoining(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mjoining(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mmapping(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "McollectingAndThen(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "Mcounting(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MminBy(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MmaxBy(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MsummingInt(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MsummingLong(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MsummingDouble(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MaveragingInt(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MaveragingLong(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MaveragingDouble(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "Mreducing(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "Mreducing(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "Mreducing(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "MgroupingBy(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MgroupingBy(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MgroupingBy(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MgroupingByConcurrent(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MgroupingByConcurrent(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MgroupingByConcurrent(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MpartitioningBy(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MpartitioningBy(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoMap(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":[1,{"-1":1}]}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":[1,{"-1":1}]}}]},
+ {"name": "MtoMap(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "MtoMap(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "MtoConcurrentMap(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "MtoConcurrentMap(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "MtoConcurrentMap(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "MsummarizingInt(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MsummarizingLong(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MsummarizingDouble(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "MflatMapping(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mfiltering(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoUnmodifiableList(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MtoUnmodifiableSet(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoUnmodifiableMap(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "MtoUnmodifiableMap(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]},
+ {"name": "Mteeing(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}]}]},
+
+{"name": "Tjava.util.stream.DoubleStream", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "SBuilder(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Maccept(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Madd(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Mbuild(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}}]},
+ {"name": "SDoubleMapMultiConsumer(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Maccept(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]}},
+ {"name": "Mfilter(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mmap(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MmapToObj(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MmapToInt(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MmapToLong(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MflatMap(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mdistinct(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}},
+ {"name": "Msorted(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}},
+ {"name": "Mpeek(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mlimit(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mskip(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MforEach(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MforEachOrdered(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MtoArray(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"notNullMethod":1}},
+ {"name": "Mreduce(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Mreduce(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mcollect(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Msum(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mmin(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mmax(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mcount(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Maverage(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MsummaryStatistics(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}},
+ {"name": "ManyMatch(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MallMatch(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MnoneMatch(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MfindFirst(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MfindAny(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mboxed(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}},
+ {"name": "Msequential(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}},
+ {"name": "Mparallel(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}},
+ {"name": "Miterator(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}},
+ {"name": "Mspliterator(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}},
+ {"name": "Mbuilder(33)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mempty(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "Mof(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mof(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Miterate(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Mgenerate(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mconcat(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtakeWhile(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MdropWhile(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Miterate(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "MmapMulti(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}}]},
+
+{"name": "Tjava.util.stream.IntStream", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "SBuilder(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Maccept(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Madd(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Mbuild(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}}]},
+ {"name": "SIntMapMultiConsumer(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Maccept(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]}},
+ {"name": "Mfilter(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mmap(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MmapToObj(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":[1,{"-1":1}]}}},
+ {"name": "MmapToLong(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MmapToDouble(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MflatMap(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mdistinct(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Msorted(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mpeek(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mlimit(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mskip(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MforEach(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MforEachOrdered(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MtoArray(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}},
+ {"name": "Mreduce(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Mreduce(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mcollect(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Msum(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mmin(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "Mmax(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "Mcount(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Maverage(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MsummaryStatistics(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "ManyMatch(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MallMatch(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MnoneMatch(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MfindFirst(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MfindAny(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MasLongStream(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MasDoubleStream(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "Mboxed(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "Msequential(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mparallel(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Miterator(33)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mspliterator(34)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mbuilder(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mempty(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mof(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mof(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Miterate(39)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Mgenerate(40)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mrange(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MrangeClosed(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mconcat(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MtakeWhile(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MdropWhile(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Miterate(46)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "MmapMulti(47)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}}]},
+
+{"name": "Tjava.util.stream.LongStream", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "SBuilder(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Maccept(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Madd(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Mbuild(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}}]},
+ {"name": "SLongMapMultiConsumer(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Maccept(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "subs":[
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]}},
+ {"name": "Mfilter(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mmap(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MmapToObj(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MmapToInt(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MmapToDouble(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MflatMap(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mdistinct(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Msorted(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mpeek(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mlimit(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mskip(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MforEach(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MforEachOrdered(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MtoArray(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1}},
+ {"name": "Mreduce(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Mreduce(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mcollect(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Msum(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mmin(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mmax(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mcount(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Maverage(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
+ {"name": "MsummaryStatistics(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "ManyMatch(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MallMatch(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MnoneMatch(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MfindFirst(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MfindAny(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MasDoubleStream(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "Mboxed(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}},
+ {"name": "Msequential(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mparallel(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Miterator(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mspliterator(33)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mbuilder(34)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mempty(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "Mof(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mof(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1}}},
+ {"name": "Miterate(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "Mgenerate(39)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Mrange(40)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MrangeClosed(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mconcat(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "MtakeWhile(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "MdropWhile(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+ {"name": "Miterate(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+ {"name": "MmapMulti(46)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}}]},
+
+{"name": "Tjava.util.stream.Stream", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
+ {"name": "SBuilder(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Maccept(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"notNullMethod":1}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Madd(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Mbuild(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1}}]},
+ {"name": "Mfilter(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "Mmap(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MmapToInt(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MmapToLong(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MmapToDouble(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MflatMap(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MflatMapToInt(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MflatMapToLong(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MflatMapToDouble(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "Mdistinct(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}},
+ {"name": "Msorted(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}},
+ {"name": "Msorted(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mpeek(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "Mlimit(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mskip(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MforEach(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MforEachOrdered(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MtoArray(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"notNullMethod":1}},
+ {"name": "MtoArray(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "Mreduce(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}]},
+ {"name": "Mreduce(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "Mreduce(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}]},
+ {"name": "Mcollect(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}]},
+ {"name": "Mcollect(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mmin(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mmax(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mcount(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "ManyMatch(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MallMatch(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MnoneMatch(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MfindFirst(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}},
+ {"name": "MfindAny(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"notNullMethod":1}},
+ {"name": "Mbuilder(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1}},
+ {"name": "Mempty(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Mof(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mof(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Miterate(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}]},
+ {"name": "Mconcat(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtakeWhile(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MdropWhile(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MofNullable(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Miterate(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}]},
+ {"name": "Mgenerate(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MmapMulti(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MmapMultiToInt(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MmapMultiToLong(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MmapMultiToDouble(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"notNullParameter":1}}},
+ {"name": "MtoList(47)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"notNullMethod":1}},
+ {"name": "Mgather(48)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"independentParameter":1,"unmodifiedParameter":1}}}]}
+]

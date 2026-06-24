@@ -13,12 +13,8 @@
 #
 
 cd src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk/
-cd openjdk-24.0.2
-jar cf ../openjdk-24.0.2.jar *.json
-cd ../openjdk-21.0.11/
-jar cf ../openjdk-21.0.11.jar *.json
-cd ../openjdk-26.0.1/
-jar cf ../openjdk-26.0.1.jar *.json
+jar cf ../openjdk.jar *.json
+
 cd ../../libs/
 jar cf ../libs.jar */*.json
 

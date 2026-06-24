@@ -12,20 +12,16 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.e2immu.analyzer.aapi.parser.v2;
+package org.e2immu.analyzer.aapi.parser;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsParser;
-import org.e2immu.analyzer.aapi.parser.AnalysisHintsWriter;
 import org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.ParameterInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.impl.analysis.ValueImpl;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.ToolChain;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.util.internal.util.Trie;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,6 +41,7 @@ import java.lang.constant.Constable;
 import java.lang.reflect.Array;
 import java.net.URI;
 import java.net.http.HttpRequest;
+import java.nio.file.Path;
 import java.security.Guard;
 import java.security.MessageDigest;
 import java.security.PrivilegedAction;
@@ -63,7 +60,7 @@ import static org.e2immu.analyzer.modification.common.defaults.ShallowAnalyzer.A
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TestParseAnalyzeWrite {
+public class TestParseAnalyzeWrite extends CommonTest {
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(TestParseAnalyzeWrite.class);
     public static final String NOTE_CHARSEQUENCE = " NOTE: can we demand that the result is @Independent?";
     public static final String JDK_PACKAGE = "org.e2immu.analyzer.aapi.archive.v2.jdk";
@@ -75,20 +72,19 @@ public class TestParseAnalyzeWrite {
 
     @Test
     public void test() throws IOException {
-   /*     AnalysisHintsParser analysisHintsParser = new AnalysisHintsParser();
-        analysisHintsParser.initialize(new InputConfigurationImpl.Builder()
-                        .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                        .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
-                        .addClassPath(ToolChain.CLASSPATH_JUNIT)
-                        .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
-                        .addSources("../maddi-aapi-archive/src/main/java")
-                        .addRestrictSourceToPackages(JDK_PACKAGE).build(),
-                new AnnotatedAPIConfigurationImpl.Builder().build());
+        AnalysisHintsParser analysisHintsParser = createAnalysisHintsParser();
+        AnalysisHints test = new AnalysisHints.Builder()
+                .setLibraryName("test")
+                .setAnalysisResultsDir(Path.of("build/"))
+                .setHintsPath(Path.of("../maddi-aapi-archive/src/main/java"))
+                .setPackagePrefix("org.e2immu.analyzer.aapi.archive")
+                .build();
 
+        JavaInspector javaInspector = analysisHintsParser.go(test);
         List<TypeInfo> types = analysisHintsParser.typesParsed();
-        assertEquals(25, types.size());
+        assertEquals(28, types.size());
         for (TypeInfo typeInfo : types) {
-            if ("org.e2immu.analyzer.aapi.archive.v2.jdk.JavaLang".equals(typeInfo.fullyQualifiedName())) {
+            if ("JavaLang".equals(typeInfo.fullyQualifiedName())) {
                 TypeInfo charSeq = typeInfo.findSubType("CharSequence$");
                 MethodInfo sub = charSeq.findUniqueMethod("subSequence", 2);
                 assertFalse(sub.comments().isEmpty());
@@ -98,7 +94,7 @@ public class TestParseAnalyzeWrite {
                 assertTrue(uri.endsWith("aapi/archive/v2/jdk/JavaLang.java"), "Have: " + uri);
             }
         }
-        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(analysisHintsParser.runtime(), analysisHintsParser,
+        ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(javaInspector.runtime(), analysisHintsParser,
                 true);
 
         List<Class<?>> extraClasses = new ArrayList<>();
@@ -113,14 +109,19 @@ public class TestParseAnalyzeWrite {
                 SecureRandom.class, MessageDigest.class, RandomGenerator.class, Guard.class, PrivilegedAction.class,
                 ZipOutputStream.class,
                 Container.class, Component.class, Color.class, Graphics.class,
-                HttpRequest.class, HttpRequest.Builder.class, URI.class,
+                HttpRequest.class, URI.class,
                 DefaultComboBoxModel.class, JLabel.class, JComboBox.class, JTable.class, AbstractButton.class,
                 TableColumn.class, JTextComponent.class,
                 org.slf4j.Logger.class, LoggerFactory.class, ILoggerFactory.class,
                 Assertions.class, ThrowingSupplier.class, Executable.class);
         Stream<TypeInfo> extra = extraClasses.stream()
-                .map(c -> analysisHintsParser.javaInspector().compiledTypesManager()
-                        .getOrLoad(c, analysisHintsParser.javaInspector().mainSources()));
+                .map(c -> {
+                    TypeInfo ti = javaInspector.compiledTypesManager().getOrLoad(c, javaInspector.mainSources());
+                    if (ti == null) {
+                        LOGGER.warn("Cannot load " + c);
+                    }
+                    return ti;
+                }).filter(Objects::nonNull);
         List<TypeInfo> typesToAnalyze = Stream.concat(analysisHintsParser.types().stream(), extra).distinct().toList();
         LOGGER.info("Have {} types for the shallow analyzer", typesToAnalyze.size());
         ShallowAnalyzer.Result rs = shallowAnalyzer.go(typesToAnalyze);
@@ -142,14 +143,14 @@ public class TestParseAnalyzeWrite {
                     ShallowAnalyzer.InfoData id = rs.dataMap().get(contains);
                     assertSame(ANNOTATED, id.origin(NON_MODIFYING_METHOD));
                     ParameterInfo p0 = contains.parameters().getFirst();
-                    assertEquals("java.util.Collection.contains(Object):0:object", p0.fullyQualifiedName());
+                    assertEquals("java.util.Collection.contains(Object):0:arg0", p0.fullyQualifiedName());
                     ShallowAnalyzer.InfoData id0 = rs.dataMap().get(p0);
                     assertSame(FROM_OWNER, id0.origin(UNMODIFIED_PARAMETER));
                 }
                 {
                     MethodInfo add = ti.findUniqueMethod("add", 1);
                     ParameterInfo p0 = add.parameters().getFirst();
-                    assertEquals("java.util.Collection.add(Object):0:e", p0.fullyQualifiedName());
+                    assertEquals("java.util.Collection.add(Object):0:arg0", p0.fullyQualifiedName());
                     ShallowAnalyzer.InfoData id0 = rs.dataMap().get(p0);
                     assertSame(FROM_TYPE, id0.origin(INDEPENDENT_PARAMETER));
                     assertTrue(p0.analysis().getOrDefault(INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.DEPENDENT)
@@ -171,9 +172,9 @@ public class TestParseAnalyzeWrite {
 
         File decorated = new File("build/decorated");
         if (decorated.mkdirs()) LOGGER.info("Created {}", decorated);
-        AnalysisHintsWriter analysisHintsWriter = new AnalysisHintsWriter(analysisHintsParser.javaInspector(),
-                analysisHintsParser::data, rs.dataMap()::get);
+        AnalysisHintsWriter analysisHintsWriter = new AnalysisHintsWriter(javaInspector, analysisHintsParser::data,
+                rs.dataMap()::get);
         analysisHintsWriter.write(decorated.getAbsolutePath(), trie, JDK_PACKAGE);
-*/
+
     }
 }

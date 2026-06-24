@@ -15,7 +15,9 @@
 
 plugins {
     id("java-library-conventions")
+    `java-test-fixtures`
 }
+
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
@@ -26,14 +28,12 @@ dependencies {
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-analysis"))
 
-    testImplementation(project(":maddi-cst-impl"))
-    testImplementation(project(":maddi-cst-io"))
-    testImplementation(project(":maddi-cst-print"))
-    testImplementation(project(":maddi-inspection-parser"))
-    testImplementation(project(":maddi-inspection-integration"))
-    testImplementation(project(":maddi-inspection-resource"))
-    testImplementation(project(":maddi-java-bytecode"))
-    testImplementation(project(":maddi-java-parser"))
+    testFixturesImplementation(project(":maddi-java-openjdk"))
+    testFixturesImplementation(project(":maddi-inspection-resource"))
+    testFixturesImplementation(project(":maddi-inspection-openjdk"))
+    testFixturesImplementation("org.slf4j:slf4j-api")
+    testFixturesImplementation("org.jetbrains:annotations")
+    testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
 }
 tasks.withType<Test> {
     maxHeapSize = "2G"

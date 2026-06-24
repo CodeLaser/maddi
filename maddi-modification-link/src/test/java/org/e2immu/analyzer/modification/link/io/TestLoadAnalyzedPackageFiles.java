@@ -15,19 +15,17 @@
 package org.e2immu.analyzer.modification.link.io;
 
 import ch.qos.logback.classic.Level;
+import org.e2immu.analyzer.modification.common.CommonTest;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
+import org.e2immu.language.cst.api.element.SourceSet;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.integration.JavaInspectorImpl;
-import org.e2immu.language.inspection.integration.ToolChain;
-import org.e2immu.language.inspection.resource.InputConfigurationImpl;
+import org.e2immu.language.inspection.api.integration.JavaInspector;
+import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,77 +37,27 @@ import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DE
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.INDEPENDENT;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.NOT_NULL;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.NotNullImpl.NULLABLE;
-import static org.e2immu.language.inspection.integration.JavaInspectorImpl.JAR_WITH_PATH_PREFIX;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestLoadAnalyzedPackageFiles {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TestLoadAnalyzedPackageFiles.class);
 
     @BeforeAll
     public static void beforeAll() {
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
+        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.shallow")).setLevel(Level.DEBUG);
         ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger("org.e2immu.analyzer.modification")).setLevel(Level.DEBUG);
     }
 
-    @DisplayName("using files")
     @Test
     public void test1() throws IOException {
-        List<String> classPath = List.of(
-                "jmod:java.base", "jmod:java.xml", "jmod:java.net.http",
-                "jmod:java.desktop", "jmod:java.datatransfer",
-                JAR_WITH_PATH_PREFIX + "org/e2immu/support",
-                JAR_WITH_PATH_PREFIX + "org/slf4j",
-                JAR_WITH_PATH_PREFIX + "ch/qos/logback/classic",
-                JAR_WITH_PATH_PREFIX + "org/junit/jupiter/api",
-                JAR_WITH_PATH_PREFIX + "ch/qos/logback/core/spi",
-                JAR_WITH_PATH_PREFIX + "org/apiguardian/api",
-                JAR_WITH_PATH_PREFIX + "org/opentest4j"
-        );
-        JavaInspectorImpl javaInspector = new JavaInspectorImpl();
-        InputConfigurationImpl.Builder inputConfigurationBuilder = new InputConfigurationImpl.Builder();
-        classPath.forEach(inputConfigurationBuilder::addClassPath);
-        inputConfigurationBuilder.addSources("none");
-        javaInspector.initialize(inputConfigurationBuilder.build());
+        SourceSet sourceSet = SourceSetImpl.testProtocolSourceSet();
+        JavaInspector javaInspector = CommonTest.javaInspectorFactory().withSources(sourceSet);
+        javaInspector.onlyPreload();
+        LoadAnalysisResults lar = new LoadAnalysisResults(javaInspector.runtime(), sourceSet);
+        lar.go(List.of("../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"));
 
-        LoadAnalysisResults loadAnalyzedPackageFiles = new LoadAnalysisResults(javaInspector.runtime(), javaInspector.mainSources());
-        String jdk = null;//FIXME ToolChain.mapJreShortNameToAnalyzedPackageShortName(ToolChain.currentJre().shortName());
-        File jdkDir = new File("../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk/" + jdk);
-        LOGGER.info("JDK dir is {}", jdkDir);
-        assertTrue(jdkDir.isDirectory());
-        int countJdk = loadAnalyzedPackageFiles.goDir(javaInspector, jdkDir);
-        assertTrue(countJdk > 1);
-
-        File libDir = new File("../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs");
-        LOGGER.info("Lib dir is {}", libDir);
-        assertTrue(libDir.isDirectory());
-        int countLib = loadAnalyzedPackageFiles.goDir(javaInspector, libDir);
-        assertTrue(countLib > 0);
-
-        doTests(javaInspector);
-    }
-
-    @DisplayName("using resource:")
-    @Test
-    public void test2() throws IOException {
-        JavaInspectorImpl javaInspector = new JavaInspectorImpl();
-        InputConfigurationImpl.Builder inputConfiguration = new InputConfigurationImpl.Builder()
-                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
-                .addClassPath(ToolChain.CLASSPATH_SLF4J_LOGBACK)
-                .addClassPath(ToolChain.CLASSPATH_JUNIT)
-                .addClassPath(JavaInspectorImpl.E2IMMU_SUPPORT)
-                .addSources("none");
-        javaInspector.initialize(inputConfiguration.build());
-
-     //  FIXME LoadAnalysisResults loadAnalyzedPackageFiles = new LoadAnalysisResults(javaInspector.mainSources());
-     //   int count = loadAnalyzedPackageFiles.go(javaInspector, List.of(ToolChain.currentJdkAnalyzedPackages(),
-     //           ToolChain.commonLibsAnalyzedPackages()));
-     //   assertTrue(count > 1);
-        doTests(javaInspector);
-    }
-
-    private static void doTests(JavaInspectorImpl javaInspector) {
         TypeInfo object = javaInspector.compiledTypesManager().get(Object.class);
+        assertNotNull(object);
         MethodInfo objectToString = object.findUniqueMethod("toString", 0);
         // assertSame(TRUE, methodInfo.analysis().getOrDefault(CONTAINER_METHOD, FALSE));
         assertSame(NOT_NULL, objectToString.analysis().getOrDefault(NOT_NULL_METHOD, NULLABLE));

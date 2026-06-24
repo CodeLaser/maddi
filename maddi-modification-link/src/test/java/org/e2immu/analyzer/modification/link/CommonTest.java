@@ -5,6 +5,7 @@ import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
 import org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 
 import static org.e2immu.language.inspection.api.integration.JavaInspector.TEST_PROTOCOL;
 import static org.e2immu.language.inspection.resource.SourceSetImpl.sourceSetOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public abstract class CommonTest {
@@ -104,5 +106,12 @@ public abstract class CommonTest {
 
     protected static <K, V> String nice(Map<K, V> map) {
         return map.entrySet().stream().map(Object::toString).sorted().collect(Collectors.joining(", "));
+    }
+
+    protected void prepWork(TypeInfo typeInfo) {
+        List<TypeInfo> typesLoaded = javaInspector.compiledTypesManager().typesLoaded(true);
+        assertTrue(typesLoaded.stream().anyMatch(ti -> "java.util.ArrayList".equals(ti.fullyQualifiedName())));
+
+        prepAnalyzer.doPrimaryType(typeInfo);
     }
 }

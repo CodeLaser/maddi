@@ -94,7 +94,7 @@ public class TestAnalysisHintsParser extends CommonTest {
         assertEquals("[@ImmutableContainer(hc=true), @Independent]", objectAnnots.toString());
     }
 
-    private static @NonNull AnalysisHintsParser createAnalysisHintsParser() throws URISyntaxException {
+    static @NonNull AnalysisHintsParser createAnalysisHintsParser() {
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
         SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
