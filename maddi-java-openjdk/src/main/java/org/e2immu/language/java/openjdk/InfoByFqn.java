@@ -44,6 +44,11 @@ public class InfoByFqn {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
                     prev.compilationUnit().sourceSet(), typeInfo.compilationUnit().sourceSet());
             assert !prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet());
+            // all sub-types must be removed as well:
+            // TODO would a TreeMap be more efficient here? We'd have to balance
+            String prefix = typeInfo.fullyQualifiedName() + ".";
+            singleTypeByFqn.keySet().removeIf(key -> key.startsWith(prefix));
+            multiTypeByFqn.keySet().removeIf(key -> key.startsWith(prefix));
             //} else {
             //  LOGGER.info("Put in single (!=): {}", typeInfo.descriptor());
         }

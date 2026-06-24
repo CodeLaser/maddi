@@ -43,8 +43,7 @@ import java.util.List;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.IndependentImpl.DEPENDENT;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class CommonTest {
     private static CompiledTypesManager compiledTypesManager;
@@ -82,13 +81,17 @@ public class CommonTest {
 
         javaInspector = analysisHintsParser.go(test);
         runtime = javaInspector.runtime();
+        compiledTypesManager = javaInspector.compiledTypesManager();
+
+        TypeInfo httpRequest = compiledTypesManager.get("java.net.http.HttpRequest", null);
+        assertNotNull(httpRequest);
+
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, analysisHintsParser, true);
         ShallowAnalyzer.Result sr = shallowAnalyzer.go(analysisHintsParser.types());
 
         sorted = sr.sorted();
         graph = sr.typeGraph();
         allTypes = sr.allTypes();
-        compiledTypesManager = javaInspector.compiledTypesManager();
     }
 
     private static @NonNull AnalysisHintsParser createAnalysisHintsParser() throws URISyntaxException {
@@ -108,8 +111,19 @@ public class CommonTest {
             public JavaInspector withSources(SourceSet sourceSet) throws IOException {
                 JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
                 javaInspector.preload("java.base::java.util.");
+                javaInspector.preload("java.base::java.net");
+                javaInspector.preload("java.base::java.io");
+                javaInspector.preload("java.base::java.nio.");
+                javaInspector.preload("java.base::java.time.");
+                javaInspector.preload("java.base::java.security");
+                javaInspector.preload("java.base::java.lang.annotation");
+                javaInspector.preload("java.base::java.lang.reflect");
+                javaInspector.preload("java.base::java.lang.constant");
                 javaInspector.preload("java.desktop::java.awt");
+                javaInspector.preload("java.desktop::javax.swing.");
+                javaInspector.preload("java.net.http::java.net.http");
                 javaInspector.preload("org.slf4j");
+                javaInspector.preload("org.junit.jupiter.api.");
                 InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                         .addSourceSets(sourceSet)
                         .addClassPathParts(javaBase, maddiSupport, slf4jApi, logbackClassic, jupiter)

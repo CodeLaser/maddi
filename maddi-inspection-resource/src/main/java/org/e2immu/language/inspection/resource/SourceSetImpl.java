@@ -102,6 +102,10 @@ public class SourceSetImpl implements SourceSet {
         return name;
     }
 
+    public static SourceSet testProtocolSourceSet() {
+        return new Builder().setName(TEST_PROTOCOL).setUri(URI.create("file:/")).build();
+    }
+
     @Override
     public boolean equals(Object object) {
         if (!(object instanceof SourceSetImpl sourceSet)) return false;

@@ -492,18 +492,28 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
     private TypeInfo addEnclosedTypeToType(TypeInfo typeInfo, Symbol.ClassSymbol cs, LoadMode loadMode) {
         TypeInfo inMap = getType(cs.fullname.toString());
-        if (inMap != null) return inMap;
-        String name = cs.getSimpleName().toString();
-        LOGGER.debug("Adding enclosed type {} to {}", name, typeInfo);
-        TypeInfo enclosed = runtime.newTypeInfo(typeInfo, name);
-        put(enclosed);
-        typeInfo.builder().addSubType(enclosed);
+        TypeInfo enclosed;
+        if (inMap != null) {
+            if (inMap.hasBeenInspected() || loadMode == LoadMode.LAZILY) {
+                return inMap;
+            }
+            enclosed = inMap;
+        } else {
+            String name = cs.getSimpleName().toString();
+            LOGGER.debug("Adding enclosed type {} to {}", name, typeInfo);
+            enclosed = runtime.newTypeInfo(typeInfo, name);
+            put(enclosed);
+            typeInfo.builder().addSubType(enclosed);
+        }
         // we must do type parameters, interfaces, parent class etc.
         loadType(cs, enclosed, loadMode == LoadMode.COMPLETE ? LoadMode.COMPLETE_SUB : loadMode);
         return enclosed;
     }
 
     private FieldInfo addFieldToType(TypeInfo typeInfo, Symbol.VarSymbol vs) {
+        FieldInfo inMap = varSymbolMap.get(vs);
+        if (inMap != null) return inMap;
+
         String name = vs.getSimpleName().toString();
         LOGGER.debug("Adding field {} to {}", name, typeInfo);
         ParameterizedType type = convert(vs.type);
@@ -530,6 +540,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                             .collect(Collectors.joining("\n")));
             throw new UnsupportedOperationException();
         }
+        MethodInfo inMap = methodSymbolMap.get(ms);
+        if (inMap != null) return inMap;
         String name = ms.getSimpleName().toString();
         //  assert (ms.flags() & Flags.BRIDGE) == 0 : "Do not want any bridge method " + ms + " in " + typeInfo;
         MethodInfo method;
