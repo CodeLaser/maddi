@@ -124,6 +124,7 @@ public class ScanCompilationUnits {
                             throw new RuntimeException();
                         },
                         IdentityHashMap::new));
+        classSymbolScanner.setTopLevelClassSymbolsOfSources(topLevelClassSymbols);
         if (detailedSources) {
             LOGGER.info("Collected {} class symbols for source set {}", topLevelClassSymbols.size(), sourceSet.name());
             int nThreads = java.lang.Runtime.getRuntime().availableProcessors();

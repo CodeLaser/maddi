@@ -103,7 +103,6 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         this.scanJavaDoc = new ScanJavaDoc(runtime, typeData, docSourcePositions, compilationUnitTree, lineMap);
 
         convertType = classSymbolScanner;
-        convertType.setTopLevelClassSymbolsOfSources(topLevelClassSymbols);
         convertType.startCompilationUnit(this, elementStack);
     }
 
