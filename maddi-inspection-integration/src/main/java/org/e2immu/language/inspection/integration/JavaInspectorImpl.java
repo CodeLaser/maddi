@@ -113,8 +113,7 @@ public class JavaInspectorImpl implements JavaInspector {
     public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "org/e2immu/annotation";
 
     public static final String TEST_PROTOCOL_PREFIX = TEST_PROTOCOL + ":";
-    public static final ParseOptions FAIL_FAST = new ParseOptions(true, false,
-            _ -> UNCHANGED, false, false, false);
+    public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();
     public static final ParseOptions DETAILED_SOURCES = new ParseOptions.Builder().setDetailedSources(true).build();
 
     @Override

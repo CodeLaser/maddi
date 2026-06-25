@@ -24,6 +24,10 @@ public final class SourceCodeScan {
     private final NavigableMap<Source, List<Comment>> trailingComments = new TreeMap<>();
     private final NavigableMap<Source, String> keywords = new TreeMap<>();
     private final NavigableMap<Source, Map<Object, Object>> argumentLists = new TreeMap<>();
+    // element source -> (modifier keyword string -> its source); for types/methods/fields/parameters
+    private final NavigableMap<Source, Map<String, Source>> modifiers = new TreeMap<>();
+    // type source -> source of its nature keyword (class/interface/enum/record/@interface)
+    private final NavigableMap<Source, Source> typeKeyword = new TreeMap<>();
 
     public SourceCodeScan(Runtime runtime) {
         this.runtime = runtime;
@@ -32,7 +36,20 @@ public final class SourceCodeScan {
     public record Result(NavigableMap<Source, List<Comment>> comments,
                          NavigableMap<Source, List<Comment>> trailingComments,
                          NavigableMap<Source, String> keywords,
-                         NavigableMap<Source, Map<Object, Object>> argumentLists) {
+                         NavigableMap<Source, Map<Object, Object>> argumentLists,
+                         NavigableMap<Source, Map<String, Source>> modifiers,
+                         NavigableMap<Source, Source> typeKeyword) {
+        // keyed by the element source: type=source(td), method=source(md), field=per-declarator source(vd),
+        // parameter=source(fp); returns (modifier keyword -> keyword source) or null
+        public Map<String, Source> findModifiers(Source elementSource) {
+            return modifiers.get(elementSource);
+        }
+
+        // keyed by the type source; returns the source of the class/interface/enum/record/@interface keyword, or null
+        public Source findTypeKeyword(Source typeSource) {
+            return typeKeyword.get(typeSource);
+        }
+
         public Source find(String keyword, Source source) {
             Map.Entry<Source, String> entry = keywords.floorEntry(source);
             while (entry != null) {
@@ -139,7 +156,9 @@ public final class SourceCodeScan {
         return new Result(Collections.unmodifiableNavigableMap(comments),
                 Collections.unmodifiableNavigableMap(trailingComments),
                 Collections.unmodifiableNavigableMap(keywords),
-                Collections.unmodifiableNavigableMap(argumentLists));
+                Collections.unmodifiableNavigableMap(argumentLists),
+                Collections.unmodifiableNavigableMap(modifiers),
+                Collections.unmodifiableNavigableMap(typeKeyword));
     }
 
     private void handleCompilationUnit(JavaParser p) {
@@ -190,15 +209,48 @@ public final class SourceCodeScan {
         }
     }
 
+    private static final Set<String> MODIFIER_KEYWORDS = Set.of(
+            "public", "private", "protected", "static", "final", "abstract",
+            "synchronized", "native", "default", "volatile", "transient",
+            "sealed", "non-sealed", "strictfp");
+    // 'record' arrives as a Token rather than a KeyWord, so it is handled separately
+    private static final Set<String> TYPE_NATURE_KEYWORDS = Set.of("class", "interface", "enum", "@interface");
+
+    // collects the modifier keywords of an element declaration node, whether they are wrapped in a Modifiers
+    // child node (types, fields, parameters) or appear as direct KeyWord children (methods), as keyword -> source
+    private Map<String, Source> collectModifiers(Node elementNode) {
+        Map<String, Source> mods = new LinkedHashMap<>();
+        for (Node child : elementNode.children()) {
+            if (child instanceof Modifiers m) {
+                for (Node n : m.children()) {
+                    if (n instanceof KeyWord && MODIFIER_KEYWORDS.contains(n.getSource())) {
+                        mods.put(n.getSource(), source(n));
+                    }
+                }
+            } else if (child instanceof KeyWord && MODIFIER_KEYWORDS.contains(child.getSource())) {
+                mods.put(child.getSource(), source(child));
+            }
+        }
+        return mods;
+    }
+
     private void scanTypeDeclaration(TypeDeclaration td) {
         addComments(td, false);
+        Map<String, Source> typeMods = collectModifiers(td);
+        if (!typeMods.isEmpty()) modifiers.put(source(td), typeMods);
 
         for (Node node : td.children()) {
             String string = node.getSource();
             switch (node) {
                 case Modifiers modifiers -> scanModifiers(modifiers);
-                case KeyWord _ -> keywords.put(source(node), string);
-                case Token _ when "record".equals(string) -> keywords.put(source(node), string);
+                case KeyWord _ -> {
+                    keywords.put(source(node), string);
+                    if (TYPE_NATURE_KEYWORDS.contains(string)) typeKeyword.put(source(td), source(node));
+                }
+                case Token _ when "record".equals(string) -> {
+                    keywords.put(source(node), string);
+                    typeKeyword.put(source(td), source(node));
+                }
                 case ExtendsList el -> {
                     Node extendsKeyword = el.getFirst();
                     keywords.put(source(extendsKeyword), extendsKeyword.getSource());
@@ -293,6 +345,16 @@ public final class SourceCodeScan {
 
     private void scanFieldDeclaration(Node fd) {
         addComments(fd, true);
+        // the modifiers are shared by all declarators; record them under each declarator's source, which is the
+        // source the consumer uses for the individual FieldInfo (name + initializer)
+        Map<String, Source> fieldMods = collectModifiers(fd);
+        if (!fieldMods.isEmpty()) {
+            for (Node node : fd.children()) {
+                if (node instanceof VariableDeclarator vd) {
+                    modifiers.put(source(vd), fieldMods);
+                }
+            }
+        }
         scanVariableDeclarators(fd);
     }
 
@@ -328,6 +390,8 @@ public final class SourceCodeScan {
 
     private void scanMethodDeclaration(Node md) {
         addComments(md, false);
+        Map<String, Source> methodMods = collectModifiers(md);
+        if (!methodMods.isEmpty()) modifiers.put(source(md), methodMods);
         for (Node node : md.children()) {
             String string = node.getSource();
             LOGGER.debug("In MD: {}: {}", node.getClass(), limit(string));
@@ -343,6 +407,9 @@ public final class SourceCodeScan {
                     for (Node param : fps.children()) {
                         if (param instanceof FormalParameter fp) {
                             addComments(fp, true);
+
+                            Map<String, Source> paramMods = collectModifiers(fp);
+                            if (!paramMods.isEmpty()) modifiers.put(source(fp), paramMods);
 
                             Map<Object, Object> commaMap = new HashMap<>();
                             Node preceding = param.previousSibling();
