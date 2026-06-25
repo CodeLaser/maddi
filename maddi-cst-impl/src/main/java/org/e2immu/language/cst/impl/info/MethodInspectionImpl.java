@@ -322,6 +322,7 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
 
         @Override
         public void commit() {
+            assert source() != null;
             if (!fullyQualifiedName.isSet()) commitParameters();
             MethodInspection mi = new MethodInspectionImpl(this, returnType, List.copyOf(typeParameters),
                     List.copyOf(parameters), Set.copyOf(methodModifiers), List.copyOf(exceptionTypes),

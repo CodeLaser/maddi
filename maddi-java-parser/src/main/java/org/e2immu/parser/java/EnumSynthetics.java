@@ -39,6 +39,7 @@ class EnumSynthetics {
 
         MethodInfo name = runtime.newMethod(typeInfo, "name", runtime.methodTypeMethod());
         name.builder()
+                .setSource(runtime.noSource())
                 .setSynthetic(true)
                 .setAccess(runtime.accessPublic())
                 .addMethodModifier(runtime.methodModifierPublic())
@@ -53,6 +54,7 @@ class EnumSynthetics {
 
         MethodInfo values = runtime.newMethod(typeInfo, "values", runtime.methodTypeStaticMethod());
         values.builder()
+                .setSource(runtime.noSource())
                 .setSynthetic(true)
                 .setAccess(runtime.accessPublic())
                 .addMethodModifier(runtime.methodModifierPublic())
@@ -68,6 +70,7 @@ class EnumSynthetics {
 
         MethodInfo valueOf = runtime.newMethod(typeInfo, "valueOf", runtime.methodTypeStaticMethod());
         valueOf.builder()
+                .setSource(runtime.noSource())
                 .setSynthetic(true)
                 .setAccess(runtime.accessPublic())
                 .addMethodModifier(runtime.methodModifierStatic())

@@ -391,6 +391,8 @@ public interface TypeInfo extends NamedType, Info {
         /** Returns the fields accumulated in the builder so far. */
         List<FieldInfo> fields();
 
+        List<TypeInfo> subTypes();
+
         /**
          * Returns the current anonymous-type counter and increments it.
          * Used to generate stable names for anonymous classes.

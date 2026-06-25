@@ -373,6 +373,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
 
         Source source = sourceForNode(jcClassDecl, dsb);
+
+        // going to commit the methods, so we'll sort
+        // they may be out of order because of the ClassSymbolScanner
+        // this is expensive but essential when reproducing code
+        builder.methods().sort(Comparator.comparing(MethodInfo::source));
+        builder.fields().sort(Comparator.comparing(FieldInfo::source));
+        builder.subTypes().sort(Comparator.comparing(TypeInfo::source));
+
         builder.addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
                 .setSource(source)
@@ -668,6 +676,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         scanResult.findCommaList(scanSource(node), DetailedSources.THROWS_COMMAS));
             }
             Source source = sourceForNode(node, dsb);
+            assert source != null;
             builder.addOverrides(overrides)
                     .setSource(source)
                     .addComments(commentsForNode(source))
@@ -2198,7 +2207,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         if (explicitConstructorInvocation) {
             boolean isSuper = "super".equals(methodName);
             boolean isSyntheticSuperCall = isSuper && isSyntheticSuperCall(methodInvocation, compilationUnitTree);
-            Source source = isSyntheticSuperCall ? null : statementSourceForNode(node, dsb);
+            Source source = isSyntheticSuperCall ? runtime.noSource() : statementSourceForNode(node, dsb);
             Statement statement = runtime.newExplicitConstructorInvocationBuilder()
                     .setSynthetic(isSyntheticSuperCall)
                     .setSource(source)

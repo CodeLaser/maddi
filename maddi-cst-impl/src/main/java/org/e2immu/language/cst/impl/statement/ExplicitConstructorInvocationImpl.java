@@ -60,7 +60,7 @@ public class ExplicitConstructorInvocationImpl extends StatementImpl implements 
         this.methodInfo = methodInfo;
         this.parameterExpressions = parameterExpressions;
         this.synthetic = synthetic;
-        assert source == null || source.index() != null && ZEROS.matcher(source.index()).matches();
+        assert synthetic || source.index() != null && ZEROS.matcher(source.index()).matches();
     }
 
     @Override
