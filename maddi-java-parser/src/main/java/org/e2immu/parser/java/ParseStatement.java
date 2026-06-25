@@ -700,7 +700,9 @@ public class ParseStatement extends CommonParse {
                     String newIndex = index + "." + StringUtil.pad(count, n);
                     entryBuilder.setStatement(parsers.parseBlock().parse(newContext, newIndex, null, cb));
                 } else if (ncs.get(1) instanceof Statement st) {
-                    String newIndex = index + "." + StringUtil.pad(count, n) + "0";
+                    // single-expression arm: index it like statement 0 of the (implicit) entry block, i.e.
+                    // "<index>.<count>.0" -- consistent with the block-bodied arm above (which yields the same)
+                    String newIndex = index + "." + StringUtil.pad(count, n) + ".0";
                     entryBuilder.setStatement(parse(newContext, newIndex, st));
                 } else throw new Summary.ParseException(newContext, "Expect statement");
                 count++;

@@ -186,10 +186,16 @@ public class TestJavaInspector6MultiProject {
         // *************
 
         TypeInfo codecImpl = parseResult.findType("org.e2immu.language.cst.io.ExpressionCodec");
-        MethodInfo encodeExpression = codecImpl.findUniqueMethod("encodeExpression", 1);
-
         IsolateMethod isolateMethod = new IsolateMethod(javaInspector);
-        TypeInfo isolatedEncoded = isolateMethod.isolate(encodeExpression);
+
+        MethodInfo encodeExpression = codecImpl.findUniqueMethod("encodeExpression", 1);
+        go(isolateMethod, encodeExpression);
+        MethodInfo constructor = codecImpl.findConstructor(3);
+        go(isolateMethod, constructor);
+    }
+
+    private void go(IsolateMethod isolateMethod, MethodInfo methodInfo) {
+        TypeInfo isolatedEncoded = isolateMethod.isolate(methodInfo);
         String printed = javaInspector.print2(isolatedEncoded.compilationUnit(),
                 javaInspector.runtime().qualificationSimpleNames(), javaInspector.importComputer(4, javaInspector.mainSources()));
         LOGGER.info("Frame:\n{}", printed);

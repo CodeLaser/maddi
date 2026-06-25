@@ -58,7 +58,7 @@ public class TestParseRecord extends CommonTestParse {
                 cc.print(runtime.qualificationQualifyFromPrimaryType()).toString());
         MethodInfo accessor0 = typeInfo.findUniqueMethod("s", 0);
         Statement a0 = accessor0.methodBody().statements().getFirst();
-        assertEquals("0", a0.source().index());
+        assertNull(a0.source().index());
 
         TypeInfo p = typeInfo.findSubType("P");
         assertTrue(p.typeNature().isRecord());

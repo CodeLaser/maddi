@@ -2514,7 +2514,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             Statement statement;
             String index = StringUtil.pad(i, n);
             if (jcCase.getBody() instanceof JCTree.JCBlock block) {
-                statement = parseBlock(index, block, newVariablesArray);
+                // parseBlock indexes the block with statementIndex() (the switch's own index); here that is wrong,
+                // the arm block sits at the entry index 'switchIndex.entry' (e.g. 1.1, matching the inner 1.1.0)
+                Block parsedBlock = parseBlock(index, block, newVariablesArray);
+                statement = parsedBlock.withSource(parsedBlock.source().withIndex(statementIndex() + "." + index));
             } else if (jcCase.getBody() instanceof JCTree.JCExpression e) {
                 if (haveExtraVariables) {
                     Map<String, Element> map = elementStack.push();

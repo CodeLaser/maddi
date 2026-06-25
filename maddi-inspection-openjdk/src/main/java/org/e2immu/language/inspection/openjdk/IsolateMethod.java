@@ -2,10 +2,7 @@ package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.CompilationUnit;
 import org.e2immu.language.cst.api.element.Element;
-import org.e2immu.language.cst.api.expression.Expression;
-import org.e2immu.language.cst.api.expression.MethodCall;
-import org.e2immu.language.cst.api.expression.TypeExpression;
-import org.e2immu.language.cst.api.expression.VariableExpression;
+import org.e2immu.language.cst.api.expression.*;
 import org.e2immu.language.cst.api.info.*;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.statement.Block;
@@ -113,12 +110,11 @@ public class IsolateMethod {
             return runtime.newParameterizedType(newTypeInfo, pt.arrays(), pt.wildcard(), params);
         }
 
-        private void ensureInstanceField(FieldInfo fieldInfo) {
+        private void ensureField(TypeInfo owner, FieldInfo fieldInfo) {
             FieldInfo inMap = fieldMap.get(fieldInfo);
             if (inMap != null) return;
             ParameterizedType newPt = ensureTypes(fieldInfo.type());
-            FieldInfo newField = runtime.newFieldInfo(fieldInfo.name(), fieldInfo.isStatic(),
-                    newPt, frame);
+            FieldInfo newField = runtime.newFieldInfo(fieldInfo.name(), fieldInfo.isStatic(), newPt, owner);
             newField.builder().setInitializer(runtime.newEmptyExpression())
                     .setAccess(runtime.accessPackage())
                     .commit();
@@ -171,6 +167,23 @@ public class IsolateMethod {
             switch (element) {
                 case TypeExpression te -> data.ensureTypes(te.parameterizedType());
                 case LocalVariableCreation lvc -> data.ensureTypes(lvc.localVariable().parameterizedType());
+                case InstanceOf instanceOf -> data.ensureTypes(instanceOf.testType());
+                case Cast cast -> data.ensureTypes(cast.parameterizedType());
+                case ClassExpression classExpression -> data.ensureTypes(classExpression.parameterizedType());
+                case Lambda lambda -> {
+                    for (ParameterInfo pi : lambda.parameters()) {
+                        data.ensureTypes(pi.parameterizedType());
+                    }
+                    lambda.methodBody().visit(this);
+                }
+                case ConstructorCall cc -> {
+                    if (cc.anonymousClass() != null) {
+                        cc.anonymousClass().visit(this);
+                    }
+                    if (cc.constructor() != null) {
+                        data.ensureMethodInfo(cc.constructor().typeInfo(), cc.constructor());
+                    }
+                }
                 case MethodCall mc -> {
                     TypeInfo owner;
                     if (mc.object() == null || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
@@ -182,8 +195,19 @@ public class IsolateMethod {
                     data.ensureMethodInfo(owner, mc.methodInfo());
                 }
                 case VariableExpression ve -> {
-                    if (ve.variable() instanceof FieldReference fr && fr.scopeIsThis()) {
-                        data.ensureInstanceField(fr.fieldInfo());
+                    if (ve.variable() instanceof FieldReference fr) {
+                        TypeInfo owner;
+                        if (fr.isDefaultScope()) {
+                            if (fr.scopeIsThis()) {
+                                owner = data.frame;
+                            } else {
+                                throw new UnsupportedOperationException("TODO static import of field");
+                            }
+                        } else {
+                            ParameterizedType realOwner = data.ensureTypes(fr.scope().parameterizedType());
+                            owner = realOwner.typeInfo();
+                        }
+                        data.ensureField(owner, fr.fieldInfo());
                     }
                 }
                 default -> {
