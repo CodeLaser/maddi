@@ -35,8 +35,8 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
 
     @Override
     public List<TypeInfo> typesLoaded(Boolean compiled) {
-        return typesLoaded.values().stream().filter(ti -> compiled == null
-                                                          || ti.compilationUnit().sourceSet().externalLibrary() == compiled)
+        return typesLoaded.values().stream()
+                .filter(ti -> compiled == null || ti.compilationUnit().sourceSet().externalLibrary() == compiled)
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
                 .toList();
     }

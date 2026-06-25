@@ -11,6 +11,7 @@ import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -145,10 +146,13 @@ public class TestJavaInspector6MultiProject {
         assertTrue(Files.isReadable(cstIoJar));
         assertTrue(Files.isDirectory(cstIoPath));
 
+        // this is the short way of writing
+        SourceSet openTest = SourceSetImpl.sourceSetOf(AssertionFailedError.class);
+
         InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                 .addSourceSets(cstApi, maddiSupport, cstAnalysis, maddiUtil, cstImpl, cstImplTest, cstIo)
                 .addClassPath("jmod:java.base")
-                .addClassPathParts(orgSlf4jApi, annotations, junitJupiter)
+                .addClassPathParts(orgSlf4jApi, annotations, junitJupiter, openTest)
                 .build();
         javaInspector.initialize(inputConfiguration);
     }
