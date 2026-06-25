@@ -120,6 +120,6 @@ public class TestModifierDetailedSources extends CommonTest {
         MethodModifier mm = Xc.methodModifiers().stream().findFirst().orElseThrow();
         assertTrue(mm.isPublic());
         Source publicSrc = Xc.source().detailedSources().detail(mm);
-        assertEquals("", publicSrc.compact2());
+        assertEquals("4-5:4-10", publicSrc.compact2());
     }
 }

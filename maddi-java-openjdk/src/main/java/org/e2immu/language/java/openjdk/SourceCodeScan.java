@@ -269,7 +269,7 @@ public final class SourceCodeScan {
                 case TypeParameters tps -> {
                     scanTypeParameters(tps);
                 }
-                case ClassOrInterfaceBody _, EnumBody _, AnnotationTypeBody _ -> {
+                case ClassOrInterfaceBody _, EnumBody _, AnnotationTypeBody _, RecordBody _ -> {
                     for (Node node2 : node.children()) {
                         String string2 = node2.getSource();
                         switch (node2) {
