@@ -2,6 +2,7 @@ package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
+import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -21,12 +23,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJavaInspector6MultiProject {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestJavaInspector6MultiProject.class);
 
     private JavaInspector javaInspector;
     private SourceSet cstApi;
@@ -180,5 +182,21 @@ public class TestJavaInspector6MultiProject {
 
         TypeInfo typeInfoImpl = parseResult.findType("org.e2immu.language.cst.impl.info.TypeInfoImpl");
         assertTrue(typeInfoImpl.typeNature().isClass());
+
+        // *************
+
+        TypeInfo codecImpl = parseResult.findType("org.e2immu.language.cst.io.ExpressionCodec");
+        MethodInfo encodeExpression = codecImpl.findUniqueMethod("encodeExpression", 1);
+
+        IsolateMethod isolateMethod = new IsolateMethod(javaInspector);
+        TypeInfo isolatedEncoded = isolateMethod.isolate(encodeExpression);
+        String printed = javaInspector.print2(isolatedEncoded.compilationUnit(),
+                javaInspector.runtime().qualificationSimpleNames(), javaInspector.importComputer(4, javaInspector.mainSources()));
+        LOGGER.info("Frame:\n{}", printed);
+        try {
+            Files.writeString(Path.of("src/test/java/" + isolatedEncoded.simpleName() + ".java"), printed);
+        } catch (IOException ioe) {
+            throw new UnsupportedOperationException(ioe);
+        }
     }
 }
