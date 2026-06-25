@@ -16,6 +16,7 @@ import org.e2immu.language.cst.impl.runtime.RuntimeImpl;
 import org.e2immu.language.cst.print.FormattingOptionsImpl;
 import org.e2immu.language.cst.print.formatter2.Formatter2Impl;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.e2immu.support.SetOnce;
@@ -44,6 +45,8 @@ public class CommonTest {
     protected JavacTask javacTask;
     protected SourceSet sourceSet;
     protected ClassSymbolScanner classSymbolScanner;
+    // set by a test before scan() to supply faithful class-file parameter names
+    protected ParameterNameIndex parameterNameIndex;
 
     public CommonTest() {
         this(List.of());
@@ -97,7 +100,7 @@ public class CommonTest {
                     .build();
             ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
                     javacTask, sourceSet, infoByFqn, true, diagnostics,
-                    preload);
+                    preload, parameterNameIndex);
             classSymbolScanner = scanCompilationUnits.classSymbolScanner();
             return scanCompilationUnits.scan();
         } catch (IOException io) {
