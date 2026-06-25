@@ -145,6 +145,30 @@ public class MethodAnalyzer {
             return true;
         }
 
+        /*
+        Is 'variable' in scope at 'index'? The default scope is based on the index of definition. A pattern
+        variable additionally carries a flow-scope (limitedScopeOfPatternVariables):
+         - a 'beyond' scope (ending in END '~') comes from a negative-instanceof guard
+           'if(!(x instanceof Y y)) return;' and *extends* past the statement of definition (y is visible in the
+           rest of the block), so it is authoritative;
+         - any other limited scope only further *restricts* the default (e.g. a positive pattern limited to the
+           then-block), so it is AND-ed with the default, exactly as before.
+        */
+        public boolean inScope(VariableData variableData, Variable variable, String indexOfDefinition, String index) {
+            String limited = limitedScopeOfPatternVariablesGet(variableData, variable, indexOfDefinition);
+            if (limited != null) {
+                boolean extendsBeyond = !limited.isEmpty() && limited.charAt(limited.length() - 1) == END;
+                if (extendsBeyond) {
+                    return Util.inScopeOf(limited, index);
+                }
+                return Util.inScopeOf(indexOfDefinition, index) && Util.inScopeOf(limited, index);
+            }
+            if (parent != null) {
+                return parent.inScope(variableData, variable, indexOfDefinition, index);
+            }
+            return Util.inScopeOf(indexOfDefinition, index);
+        }
+
         List<Variable> currentVariables() {
             if (breakVariable != null) return List.of(rv, breakVariable);
             if (parent == null) return List.of(rv);
@@ -454,8 +478,7 @@ public class MethodAnalyzer {
             String indexOfDefinition = vi.assignments().indexOfDefinition();
             Variable variable = vi.variable();
             VariableData closureVic = iv.closure.get(variable.fullyQualifiedName());
-            if (closureVic != null ||
-                Util.inScopeOf(indexOfDefinition, index) && iv.acceptLimitedScope(previousVd, vi.variable(), indexOfDefinition, index)) {
+            if (closureVic != null || iv.inScope(previousVd, vi.variable(), indexOfDefinition, index)) {
                 if (!vdBuilder.isKnown(variable.fullyQualifiedName())
                     && !readWriteData.seenFirstTime.containsKey(variable)
                     && !readWriteData.accessorSeenFirstTime.containsKey(variable)) {
