@@ -209,7 +209,9 @@ public class PredefinedImpl implements Predefined {
                     .addParameter("p" + i, parameterizedType); // inspection built when method is built
             pi.builder().setVarArgs(false).commit();
         }
-        MethodInfo.Builder builder = mi.builder().setReturnType(returnType);
+        MethodInfo.Builder builder = mi.builder()
+                .setSource(SourceImpl.NO_SOURCE)
+                .setReturnType(returnType);
         mi.inspectionBuilder().setAccess(InspectionImpl.AccessEnum.PUBLIC);
         builder.commit();
         return mi;

@@ -407,7 +407,7 @@ public class FactoryImpl extends PredefinedImpl implements Factory {
         for (int i = 0; i < type.arrays(); i++) {
             mi.builder().addParameter("dim" + i, intParameterizedType());
         }
-        mi.builder().commitParameters().commit();
+        mi.builder().setSource(noSource()).commitParameters().commit();
         return mi;
     }
 

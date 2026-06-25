@@ -605,6 +605,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 .stream().map(this::getOrLoadMethod)
                 .toList();
         builder.setReturnType(returnType)
+                .setSource(runtime.noSource())
                 .setMethodBody(runtime.emptyBlock())
                 .addOverrides(overrides)
                 .commitParameters()

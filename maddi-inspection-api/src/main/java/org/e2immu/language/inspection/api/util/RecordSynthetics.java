@@ -77,13 +77,14 @@ public class RecordSynthetics {
         MethodInfo methodInfo = runtime.newMethod(fieldInfo.owner(), fieldInfo.name(),
                 runtime.methodTypeMethod());
         FieldReference fr = runtime.newFieldReference(fieldInfo);
-        Source source = runtime.newParserSource("0", 0, 0, 0, 0);
+        Source source = runtime.noSource();
         ReturnStatement rs = runtime.newReturnBuilder()
                 .setExpression(runtime.newVariableExpressionBuilder().setVariable(fr).setSource(source).build())
                 .setSource(source).build();
         Block methodBody = runtime.newBlockBuilder().setSource(source).addStatement(rs).build();
         MethodInfo.Builder builder = methodInfo.builder();
         builder.setReturnType(fieldInfo.type())
+                .setSource(source)
                 .setAccess(runtime.accessPublic())
                 .addMethodModifier(runtime.methodModifierPublic())
                 .setSynthetic(true)
@@ -98,6 +99,7 @@ public class RecordSynthetics {
         MethodInfo javaLangObjectToString = runtime.objectTypeInfo().findUniqueMethod("toString", 0);
         MethodInfo methodInfo = runtime.newMethod(typeInfo, "toString", runtime.methodTypeMethod());
         methodInfo.builder()
+                .setSource(runtime.noSource())
                 .setSynthetic(true)
                 .setReturnType(runtime.stringParameterizedType())
                 .setMethodBody(runtime.emptyBlock())
@@ -114,6 +116,7 @@ public class RecordSynthetics {
         ParameterInfo pi = methodInfo.builder().addParameter("o", runtime.objectParameterizedType());
         pi.builder().setIsFinal(false).setVarArgs(false).commit();
         methodInfo.builder()
+                .setSource(runtime.noSource())
                 .setSynthetic(true)
                 .setReturnType(runtime.stringParameterizedType())
                 .setMethodBody(runtime.emptyBlock())
@@ -128,6 +131,7 @@ public class RecordSynthetics {
         MethodInfo javaLangHashCode = runtime.objectTypeInfo().findUniqueMethod("hashCode", 0);
         MethodInfo methodInfo = runtime.newMethod(typeInfo, "hashCode", runtime.methodTypeMethod());
         methodInfo.builder()
+                .setSource(runtime.noSource())
                 .setSynthetic(true)
                 .setReturnType(runtime.intParameterizedType())
                 .setMethodBody(runtime.emptyBlock())
