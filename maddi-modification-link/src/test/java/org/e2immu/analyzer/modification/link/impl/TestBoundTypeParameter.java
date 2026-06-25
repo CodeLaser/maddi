@@ -66,7 +66,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze 'get', array access")
     @Test
     public void test1a() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -190,7 +190,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze direct link from constructor parameter to getter")
     @Test
     public void test5a() {
-        TypeInfo X = javaInspector.parse(INPUT5a);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5a);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -224,7 +224,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze constructor inbetween constructor parameter and getter")
     @Test
     public void test5b() {
-        TypeInfo X = javaInspector.parse(INPUT5b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -281,7 +281,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze 'add' on List, instance")
     @Test
     public void test6a() {
-        TypeInfo X = javaInspector.parse(INPUT6a);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT6a);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -306,7 +306,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze 'add' on List, static")
     @Test
     public void test6b() {
-        TypeInfo X = javaInspector.parse(INPUT6b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT6b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -338,7 +338,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze static add all")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -375,7 +375,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze Collections.addAll(...), cross links")
     @Test
     public void test8() {
-        TypeInfo X = javaInspector.parse(INPUT8);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT8);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -408,7 +408,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze static List.of()")
     @Test
     public void test9() {
-        TypeInfo X = javaInspector.parse(INPUT9);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT9);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 

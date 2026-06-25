@@ -14,6 +14,7 @@
 
 package org.e2immu.language.cst.io;
 
+import org.e2immu.language.cst.api.analysis.Codec;
 import org.e2immu.language.cst.api.expression.EnclosedExpression;
 import org.e2immu.language.cst.api.expression.VariableExpression;
 import org.e2immu.language.cst.api.variable.FieldReference;
@@ -29,7 +30,7 @@ public class TestCodecExpression extends CommonTest {
     @DisplayName("field reference")
     @Test
     public void test1() {
-        context.push(typeInfo);
+        context.push(new Codec.TypeAndSorted(typeInfo));
 
         String encoded = "[\"F\",[\"Ta.b.C\",\"Ff(0)\"]]";
         FieldReference fr = runtime.newFieldReference(f);

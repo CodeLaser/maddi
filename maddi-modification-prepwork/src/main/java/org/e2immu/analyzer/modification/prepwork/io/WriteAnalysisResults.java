@@ -28,10 +28,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -111,12 +108,12 @@ public class WriteAnalysisResults {
         }
     }
 
-    private static Codec.EncodedValue write(Codec codec, Codec.Context context, Info fieldInfo, int index) {
-        Stream<Codec.EncodedPropertyValue> stream = fieldInfo.analysis().propertyValueStream()
+    private static Codec.EncodedValue write(Codec codec, Codec.Context context, Info info, int index) {
+        Stream<Codec.EncodedPropertyValue> stream = info.analysis().propertyValueStream()
                 .filter(pv -> !pv.value().isDefault()) // not streaming default values
                 .map(pv -> codec.encode(context, pv.property(), pv.value()))
                 .filter(Objects::nonNull); // some properties will (temporarily) not be streamed
-        return codec.encode(context, fieldInfo, "" + index, stream, null);
+        return codec.encode(context, info, "" + index, stream, null);
     }
 
     private static Codec.EncodedValue writeMethod(Codec codec, Codec.Context context, MethodInfo methodInfo, int index) {
@@ -150,21 +147,27 @@ public class WriteAnalysisResults {
         }
 
         int fc = 0;
-        for (FieldInfo fieldInfo : typeInfo.fields()) {
+        List<FieldInfo> fieldsSorted = typeInfo.fields().stream()
+                .sorted(Comparator.comparing(FieldInfo::name)).toList();
+        for (FieldInfo fieldInfo : fieldsSorted) {
             context.push(fieldInfo);
             subs.add(write(codec, context, fieldInfo, fc));
             context.pop();
             fc++;
         }
         int cc = 0;
-        for (MethodInfo methodInfo : typeInfo.constructors()) {
+        List<MethodInfo> constructorsSorted = typeInfo.constructors().stream()
+                .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList();
+        for (MethodInfo methodInfo : constructorsSorted) {
             context.push(methodInfo);
             subs.add(writeMethod(codec, context, methodInfo, cc));
             context.pop();
             cc++;
         }
         int mc = 0;
-        for (MethodInfo methodInfo : typeInfo.methods()) {
+        List<MethodInfo> methodsSorted = typeInfo.methods().stream()
+                .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList();
+        for (MethodInfo methodInfo : methodsSorted) {
             context.push(methodInfo);
             subs.add(writeMethod(codec, context, methodInfo, mc));
             context.pop();

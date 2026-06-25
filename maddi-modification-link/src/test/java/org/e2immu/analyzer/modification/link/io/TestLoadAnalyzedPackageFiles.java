@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.e2immu.analyzer.modification.common.CommonTest.ANALYZED_RESULTS;
 import static org.e2immu.language.cst.impl.analysis.PropertyImpl.*;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE;
 import static org.e2immu.language.cst.impl.analysis.ValueImpl.ImmutableImpl.MUTABLE;
@@ -54,7 +55,7 @@ public class TestLoadAnalyzedPackageFiles {
         JavaInspector javaInspector = CommonTest.javaInspectorFactory().withSources(sourceSet);
         javaInspector.onlyPreload();
         LoadAnalysisResults lar = new LoadAnalysisResults(javaInspector.runtime(), sourceSet);
-        lar.go(List.of("../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk"));
+        lar.go(ANALYZED_RESULTS);
 
         TypeInfo object = javaInspector.compiledTypesManager().get(Object.class);
         assertNotNull(object);

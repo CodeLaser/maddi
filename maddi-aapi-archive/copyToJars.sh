@@ -15,6 +15,6 @@
 cd src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk/
 jar cf ../openjdk.jar *.json
 
-cd ../../libs/
+cd ../libs/
 jar cf ../libs.jar */*.json
 

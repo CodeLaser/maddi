@@ -23,6 +23,7 @@ import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.variable.Variable;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,8 +35,6 @@ support for reading and writing the property-value pairs in many elements.
  */
 public interface Codec {
 
-    int constructorIndex(MethodInfo methodInfo);
-
     /*
     the reason we write directly is that HCS follows HCT in the same list, and needs its value (see decoder of HCS)
      */
@@ -45,7 +44,7 @@ public interface Codec {
 
     Expression decodeExpression(Context context, EncodedValue value);
 
-    FieldInfo decodeFieldInfo(TypeInfo typeInfo, EncodedValue ev);
+    FieldInfo decodeFieldInfo(TypeAndSorted typeAndSorted, EncodedValue ev);
 
     Info decodeInfoInContext(Context context, EncodedValue ev);
 
@@ -105,23 +104,66 @@ public interface Codec {
 
     EncodedValue encodeVariable(Context context, Variable variable);
 
-    int fieldIndex(FieldInfo key);
-
     boolean isList(EncodedValue encodedValue);
 
-    int methodIndex(MethodInfo methodInfo);
-
     PropertyProvider propertyProvider();
-
-    int subTypeIndex(TypeInfo subType);
 
     // for extensions
     TypeProvider typeProvider();
 
+    record TypeAndSorted(TypeInfo typeInfo, List<FieldInfo> sortedFields,
+                         List<MethodInfo> sortedConstructors,
+                         List<MethodInfo> sortedMethods,
+                         List<TypeInfo> sortedSubTypes) {
+        public TypeAndSorted(TypeInfo typeInfo) {
+            this(typeInfo,
+                    typeInfo.fields().stream().sorted(Comparator.comparing(FieldInfo::name)).toList(),
+                    typeInfo.constructors().stream().sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList(),
+                    typeInfo.methods().stream().sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList(),
+                    typeInfo.subTypes().stream().sorted(Comparator.comparing(TypeInfo::simpleName)).toList());
+        }
+
+        public int constructorIndex(MethodInfo methodInfo) {
+            int i = 0;
+            for (MethodInfo mi : sortedConstructors) {
+                if (mi == methodInfo) return i;
+                ++i;
+            }
+            throw new UnsupportedOperationException();
+        }
+
+        public int methodIndex(MethodInfo methodInfo) {
+            int i = 0;
+            for (MethodInfo mi : sortedMethods) {
+                if (mi == methodInfo) return i;
+                ++i;
+            }
+            throw new UnsupportedOperationException();
+        }
+
+        public int fieldIndex(FieldInfo fieldInfo) {
+            int i = 0;
+            for (FieldInfo fi : sortedFields) {
+                if (fi == fieldInfo) return i;
+                ++i;
+            }
+            throw new UnsupportedOperationException();
+        }
+
+        public int subTypeIndex(TypeInfo typeInfo) {
+            int i = 0;
+            for (TypeInfo sub : sortedSubTypes) {
+                if (sub == typeInfo) return i;
+                ++i;
+            }
+            throw new UnsupportedOperationException();
+        }
+    }
+
     interface Context {
         MethodInfo currentMethod();
 
-        TypeInfo currentType();
+        TypeAndSorted currentType();
 
         TypeInfo findType(Codec.TypeProvider typeProvider, String typeFqn);
 
@@ -129,11 +171,11 @@ public interface Codec {
 
         boolean methodBeforeType();
 
-        Info peek(int stepsBack);
+        Object peek(int stepsBack);
 
-        Info pop();
+        Object pop();
 
-        void push(Info info);
+        void push(Object info);
     }
 
     interface DI {

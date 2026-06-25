@@ -70,7 +70,7 @@ public class TestVariableTranslationMap extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 2);
         ParameterInfo x = method.parameters().getLast();
         FieldInfo set = X.getFieldByName("set", true);
@@ -98,7 +98,7 @@ public class TestVariableTranslationMap extends CommonTest {
     @DisplayName("replace this")
     @Test
     public void test2b() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 2);
         ParameterInfo x = method.parameters().getLast();
         FieldInfo set = X.getFieldByName("set", true);
@@ -140,7 +140,7 @@ public class TestVariableTranslationMap extends CommonTest {
     // base a, sub a.b.c; tm = a -> d; result of translating should be d.b.c;
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         TypeInfo R = X.findSubType("R");
         FieldInfo b = R.getFieldByName("b", true);
         TypeInfo S = X.findSubType("S");
@@ -175,7 +175,7 @@ public class TestVariableTranslationMap extends CommonTest {
     // NOTE: this bit has been removed from the original code in TranslationMapImpl as well
     @Test
     public void test3b() {
-        TypeInfo X = javaInspector.parse(INPUT3b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3b);
         TypeInfo R = X.findSubType("R");
         FieldInfo b = R.getFieldByName("b", true);
         MethodInfo method = X.findUniqueMethod("method", 1);

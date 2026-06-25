@@ -87,16 +87,6 @@ public class CodecImpl implements Codec {
     }
 
     @Override
-    public int constructorIndex(MethodInfo methodInfo) {
-        int i = 0;
-        for (MethodInfo mi : methodInfo.typeInfo().constructors()) {
-            if (mi == methodInfo) return i;
-            ++i;
-        }
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void decode(Context context,
                        PropertyValueMap pvm,
                        Stream<EncodedPropertyValue> encodedPropertyValueStream) {
@@ -124,11 +114,11 @@ public class CodecImpl implements Codec {
         } else throw new UnsupportedOperationException();
     }
 
-    private MethodInfo decodeConstructor(TypeInfo typeInfo, String fqnNameIndex) {
+    private MethodInfo decodeConstructor(TypeAndSorted typeAndSorted, String fqnNameIndex) {
         Matcher m = NAME_INDEX_PATTERN.matcher(fqnNameIndex);
         if (m.matches()) {
             int index = Integer.parseInt(m.group(2));
-            MethodInfo methodInfo = typeInfo.constructors().get(index);
+            MethodInfo methodInfo = typeAndSorted.sortedConstructors().get(index);
             assert methodInfo.isConstructor();
             return methodInfo;
         } else {
@@ -142,20 +132,20 @@ public class CodecImpl implements Codec {
     }
 
     @Override
-    public FieldInfo decodeFieldInfo(TypeInfo typeInfo, EncodedValue ev) {
+    public FieldInfo decodeFieldInfo(TypeAndSorted typeAndSorted, EncodedValue ev) {
         String s = decodeString(null, ev);
-        return decodeFieldInfo(typeInfo, s.substring(1));
+        return decodeFieldInfo(typeAndSorted, s.substring(1));
     }
 
-    private FieldInfo decodeFieldInfo(TypeInfo typeInfo, String nameIndex) {
+    private FieldInfo decodeFieldInfo(TypeAndSorted typeAndSorted, String nameIndex) {
         Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
         if (m.matches()) {
             int index = Integer.parseInt(m.group(2));
-            if (index >= typeInfo.fields().size()) {
+            if (index >= typeAndSorted.sortedFields().size()) {
                 throw new UnsupportedOperationException("Index " + index
-                        + " greater than the number of fields in " + typeInfo);
+                                                        + " greater than the number of fields in " + typeAndSorted);
             }
-            FieldInfo fieldInfo = typeInfo.fields().get(index);
+            FieldInfo fieldInfo = typeAndSorted.sortedFields().get(index);
             assert fieldInfo.name().equals(m.group(1));
             return fieldInfo;
         } else {
@@ -200,7 +190,7 @@ public class CodecImpl implements Codec {
     }
 
     protected Info decodeInfoOutOfContext(Context context, List<EncodedValue> list) {
-        Info current = null;
+        Object current = null;
         int pos = 0;
         for (EncodedValue ev : list) {
             if (ev instanceof D(Node s) && s instanceof StringLiteral sl) {
@@ -213,16 +203,17 @@ public class CodecImpl implements Codec {
             } //else throw new UnsupportedOperationException();
             ++pos;
         }
-        return current;
+        return current instanceof TypeAndSorted tas ? tas.typeInfo() : (Info) current;
     }
 
-    protected Info decodeInfo(Context context, Info current, char type, String name, List<EncodedValue> list, int pos) {
+    // NOTE: is being overridden, and there te context is used
+    protected Object decodeInfo(Context context, Object current, char type, String name, List<EncodedValue> list, int pos) {
         return switch (type) {
-            case 'F' -> decodeFieldInfo((TypeInfo) current, name);
-            case 'C' -> decodeConstructor((TypeInfo) current, name);
-            case 'M' -> decodeMethodInfo((TypeInfo) current, name);
-            case 'T' -> typeProvider.get(name);
-            case 'S' -> decodeSubType((TypeInfo) current, name);
+            case 'F' -> decodeFieldInfo((TypeAndSorted) current, name);
+            case 'C' -> decodeConstructor((TypeAndSorted) current, name);
+            case 'M' -> decodeMethodInfo((TypeAndSorted) current, name);
+            case 'T' -> new TypeAndSorted(typeProvider.get(name));
+            case 'S' -> new TypeAndSorted(decodeSubType((TypeAndSorted) current, name));
             case 'P' -> decodeParameterInfo((MethodInfo) current, name);
             default -> throw new UnsupportedOperationException();
         };
@@ -274,11 +265,11 @@ public class CodecImpl implements Codec {
         return map;
     }
 
-    private MethodInfo decodeMethodInfo(TypeInfo typeInfo, String nameIndex) {
+    private MethodInfo decodeMethodInfo(TypeAndSorted typeAndSorted, String nameIndex) {
         Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
         if (m.matches()) {
             int index = Integer.parseInt(m.group(2));
-            MethodInfo methodInfo = typeInfo.methods().get(index);
+            MethodInfo methodInfo = typeAndSorted.sortedMethods().get(index);
             assert !methodInfo.isConstructor();
             assert methodInfo.name().equals(m.group(1)) : "Method names do not agree: " + methodInfo + " vs " + m.group(1);
             return methodInfo;
@@ -330,7 +321,7 @@ public class CodecImpl implements Codec {
             case 'P' -> {
                 // type parameter in current context
                 int index = Integer.parseInt(substring);
-                yield context.currentType().typeParameters().get(index).asParameterizedType();
+                yield context.currentType().typeInfo().typeParameters().get(index).asParameterizedType();
             }
             default -> throw new UnsupportedOperationException("TODO: " + unquoted);
         };
@@ -345,12 +336,12 @@ public class CodecImpl implements Codec {
         }
     }
 
-    private TypeInfo decodeSubType(TypeInfo typeInfo, String nameIndex) {
+    private TypeInfo decodeSubType(TypeAndSorted typeAndSorted, String nameIndex) {
         Matcher m = NAME_INDEX_PATTERN.matcher(nameIndex);
         if (m.matches()) {
             int index = Integer.parseInt(m.group(2));
-            assert typeInfo != null;
-            TypeInfo subType = typeInfo.subTypes().get(index);
+            assert typeAndSorted != null;
+            TypeInfo subType = typeAndSorted.sortedSubTypes().get(index);
             assert subType.simpleName().equals(m.group(1));
             return subType;
         } else {
@@ -381,10 +372,12 @@ public class CodecImpl implements Codec {
                 int index = Integer.parseInt(fqn.substring(1));
                 boolean ownerNotInContext = !(list.get(i) instanceof D(Node s1) && s1 instanceof NumberLiteral);
                 if ('M' == first) {
-                    MethodInfo owner = ownerNotInContext ? (MethodInfo) this.decodeInfoInContext(context, list.get(i)) : context.currentMethod();
+                    MethodInfo owner = ownerNotInContext ? (MethodInfo) this.decodeInfoInContext(context, list.get(i))
+                            : context.currentMethod();
                     nt = owner.typeParameters().get(index);
                 } else if ('P' == first) {
-                    TypeInfo owner = ownerNotInContext ? (TypeInfo) this.decodeInfoInContext(context, list.get(i)) : context.currentType();
+                    TypeInfo owner = ownerNotInContext ? (TypeInfo) this.decodeInfoInContext(context, list.get(i))
+                            : context.currentType().typeInfo();
                     nt = owner.typeParameters().get(index);
                 } else throw new UnsupportedOperationException();
                 if (ownerNotInContext) {
@@ -512,14 +505,14 @@ public class CodecImpl implements Codec {
         }
         assert index != null && !index.isBlank();
         if (info instanceof MethodInfo methodInfo) {
-            assert methodInfo.typeInfo() == context.currentType();
+            assert methodInfo.typeInfo() == context.currentType().typeInfo();
             if (methodInfo.isConstructor()) {
                 return "C" + MethodInfo.CONSTRUCTOR_NAME + "(" + index + ")";
             }
             return "M" + methodInfo.name() + "(" + index + ")";
         }
         if (info instanceof FieldInfo fieldInfo) {
-            if (context.currentType() == fieldInfo.owner()) {
+            if (context.currentType().typeInfo() == fieldInfo.owner()) {
                 return "F" + fieldInfo.name() + "(" + index + ")";
             }
             return "F" + fieldInfo.fullyQualifiedName();
@@ -533,10 +526,12 @@ public class CodecImpl implements Codec {
 
     @Override
     public EncodedValue encodeInfoOutOfContext(Context context, Info info) {
-        return encodeList(context, encodeInfoOutOfContextStream(context, info).toList());
+        return encodeList(context, encodeInfoOutOfContextStream(context,
+                new TypeAndSorted(info.typeInfo()), info).toList());
     }
 
-    protected Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
+    // FIXME encoding is not correct, newBuilder should get values 7,8,9 instead of 0,1
+    protected Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, TypeAndSorted typeAndSorted, Info info) {
         String s;
         Stream<EncodedValue> prev;
         switch (info) {
@@ -546,25 +541,26 @@ public class CodecImpl implements Codec {
                     prev = Stream.of();
                 } else {
                     assert !typeInfo.isAnonymous();
-                    int index = subTypeIndex(typeInfo);
+                    int index = typeAndSorted.subTypeIndex(typeInfo);
                     s = "S" + typeInfo.simpleName() + "(" + index + ")";
-                    prev = encodeInfoOutOfContextStream(context, typeInfo.compilationUnitOrEnclosingType().getRight());
+                    TypeInfo subType = typeInfo.compilationUnitOrEnclosingType().getRight();
+                    prev = encodeInfoOutOfContextStream(context, new TypeAndSorted(subType), subType);
                 }
             }
             case MethodInfo methodInfo -> {
-                prev = encodeInfoOutOfContextStream(context, methodInfo.typeInfo());
+                prev = encodeInfoOutOfContextStream(context, typeAndSorted, methodInfo.typeInfo());
                 if (methodInfo.isConstructor()) {
-                    s = "C" + MethodInfo.CONSTRUCTOR_NAME + "(" + constructorIndex(methodInfo) + ")";
+                    s = "C" + MethodInfo.CONSTRUCTOR_NAME + "(" + typeAndSorted.constructorIndex(methodInfo) + ")";
                 } else {
-                    s = "M" + methodInfo.name() + "(" + methodIndex(methodInfo) + ")";
+                    s = "M" + methodInfo.name() + "(" + typeAndSorted.methodIndex(methodInfo) + ")";
                 }
             }
             case FieldInfo fieldInfo -> {
-                prev = encodeInfoOutOfContextStream(context, fieldInfo.owner());
-                s = "F" + fieldInfo.name() + "(" + fieldIndex(fieldInfo) + ")";
+                prev = encodeInfoOutOfContextStream(context, typeAndSorted, fieldInfo.owner());
+                s = "F" + fieldInfo.name() + "(" + typeAndSorted.fieldIndex(fieldInfo) + ")";
             }
             case ParameterInfo pi -> {
-                prev = encodeInfoOutOfContextStream(context, pi.methodInfo());
+                prev = encodeInfoOutOfContextStream(context, typeAndSorted, pi.methodInfo());
                 s = "P" + pi.name() + "(" + pi.index() + ")";
             }
             case null, default -> throw new UnsupportedOperationException();
@@ -611,10 +607,11 @@ public class CodecImpl implements Codec {
         if (typeParameter.isMethodTypeParameter()) {
             MethodInfo methodInfo = typeParameter.getOwner().getRight();
             if (methodInfo.equals(context.currentMethod())) return null;
-            return encodeInfoInContext(context, methodInfo, "" + methodIndex(methodInfo));
+            TypeAndSorted tas = new TypeAndSorted(methodInfo.typeInfo());
+            return encodeInfoInContext(context, methodInfo, "" + tas.methodIndex(methodInfo));
         }
         TypeInfo typeInfo = typeParameter.getOwner().getLeft();
-        if (typeInfo.equals(context.currentType())) return null;
+        if (typeInfo.equals(context.currentType().typeInfo())) return null;
         return encodeInfoInContext(context, typeInfo, null);
     }
 
@@ -644,7 +641,7 @@ public class CodecImpl implements Codec {
         EncodedValue e0 = encodeString(context, s0);
         EncodedValue e1 = type.isTypeParameter() ? encodeOwnerOfTypeParameter(context, type.typeParameter()) : null;
         if (type.arrays() == 0 && type.parameters().isEmpty()
-                && e1 == null && (type.wildcard() == null || type.wildcard().isUnbound())) {
+            && e1 == null && (type.wildcard() == null || type.wildcard().isUnbound())) {
             return e0;
         }
         EncodedValue e2 = encodeInt(context, type.arrays());
@@ -697,15 +694,6 @@ public class CodecImpl implements Codec {
         return encodeString(context, s);
     }
 
-    @Override
-    public int fieldIndex(FieldInfo fieldInfo) {
-        int i = 0;
-        for (FieldInfo fi : fieldInfo.owner().fields()) {
-            if (fi == fieldInfo) return i;
-            ++i;
-        }
-        throw new UnsupportedOperationException();
-    }
 
     @Override
     public boolean isList(EncodedValue encodedValue) {
@@ -715,30 +703,12 @@ public class CodecImpl implements Codec {
         throw new UnsupportedOperationException("Expect D object, not E object");
     }
 
-    @Override
-    public int methodIndex(MethodInfo methodInfo) {
-        int i = 0;
-        for (MethodInfo mi : methodInfo.typeInfo().methods()) {
-            if (mi == methodInfo) return i;
-            ++i;
-        }
-        throw new UnsupportedOperationException();
-    }
 
     @Override
     public PropertyProvider propertyProvider() {
         return propertyProvider;
     }
 
-    @Override
-    public int subTypeIndex(TypeInfo typeInfo) {
-        int i = 0;
-        for (TypeInfo sub : typeInfo.compilationUnitOrEnclosingType().getRight().subTypes()) {
-            if (sub == typeInfo) return i;
-            ++i;
-        }
-        throw new UnsupportedOperationException();
-    }
 
     @Override
     public TypeProvider typeProvider() {
@@ -804,7 +774,7 @@ public class CodecImpl implements Codec {
     }
 
     public static class ContextImpl implements Context {
-        private final Stack<Info> stack = new Stack<>();
+        private final Stack<Object> stack = new Stack<>();
 
         @Override
         public MethodInfo currentMethod() {
@@ -815,9 +785,9 @@ public class CodecImpl implements Codec {
         }
 
         @Override
-        public TypeInfo currentType() {
+        public TypeAndSorted currentType() {
             for (int i = 0; i < stack.size(); i++) {
-                if (peek(i) instanceof TypeInfo ti) return ti;
+                if (peek(i) instanceof TypeAndSorted tas) return tas;
             }
             return null;
         }
@@ -825,7 +795,9 @@ public class CodecImpl implements Codec {
         @Override
         public TypeInfo findType(Codec.TypeProvider typeProvider, String typeFqn) {
             for (int i = 0; i < stack.size(); i++) {
-                if (peek(i) instanceof TypeInfo ti && typeFqn.equals(ti.fullyQualifiedName())) return ti;
+                if (peek(i) instanceof TypeAndSorted tas && typeFqn.equals(tas.typeInfo().fullyQualifiedName())) {
+                    return tas.typeInfo();
+                }
             }
             return typeProvider.get(typeFqn);
         }
@@ -838,26 +810,30 @@ public class CodecImpl implements Codec {
         @Override
         public boolean methodBeforeType() {
             for (int i = 0; i < stack.size(); i++) {
-                Info peek = peek(i);
-                if (peek instanceof TypeInfo) return false;
+                Object peek = peek(i);
+                if (peek instanceof TypeAndSorted) return false;
                 if (peek instanceof MethodInfo) return true;
             }
             return false;
         }
 
         @Override
-        public Info peek(int stepsBack) {
+        public Object peek(int stepsBack) {
             return stack.elementAt(stack.size() - 1 - stepsBack);
         }
 
         @Override
-        public Info pop() {
+        public Object pop() {
             return stack.pop();
         }
 
         @Override
-        public void push(Info info) {
-            stack.push(info);
+        public void push(Object info) {
+            if (info instanceof TypeInfo ti) {
+                stack.push(new TypeAndSorted(ti));
+            } else {
+                stack.push(info);
+            }
         }
     }
 }

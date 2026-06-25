@@ -1,167 +1,167 @@
 [
 {"name": "Tjava.time.chrono.ChronoLocalDate", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "MgetChronology(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MgetEra(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MlengthOfMonth(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "Mwith(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
- {"name": "Mwith(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MadjustInto(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mplus(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MatTime(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mminus(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mplus(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "Mminus(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "MatTime(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Muntil(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MtoEpochDay(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "Mequals(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MhashCode(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MlengthOfYear(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "MisSupported(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisLeapYear(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "MtimeLineOrder(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "Mfrom(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisSupported(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mquery(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MadjustInto(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Muntil(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "Mformat(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "McompareTo(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "McompareTo(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MisAfter(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "Mequals(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mformat(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisBefore(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "Mfrom(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisEqual(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MgetChronology(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MgetEra(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MhashCode(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisAfter(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MtoString(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
+ {"name": "MisBefore(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisEqual(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisLeapYear(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MisSupported(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisSupported(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MlengthOfMonth(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MlengthOfYear(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "Mminus(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mminus(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mplus(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mplus(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mquery(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MtimeLineOrder(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MtoEpochDay(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MtoString(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Muntil(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Muntil(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mwith(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mwith(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]}]},
 
 {"name": "Tjava.time.chrono.ChronoLocalDateTime", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "MtimeLineOrder(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "Mfrom(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MadjustInto(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MgetChronology(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MtoLocalDate(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MtoLocalTime(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MisSupported(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MatZone(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisSupported(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mwith(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mwith(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
- {"name": "Mplus(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mplus(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "Mminus(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mminus(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "Mquery(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MadjustInto(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mformat(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MatZone(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MtoInstant(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MtoEpochSecond(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "McompareTo(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "McompareTo(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MisAfter(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisBefore(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisEqual(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mequals(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "Mequals(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MhashCode(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MtoString(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}}]},
+ {"name": "Mformat(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mfrom(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MgetChronology(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MhashCode(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisAfter(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisBefore(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisEqual(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisSupported(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisSupported(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mminus(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mminus(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mplus(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mplus(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mquery(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MtimeLineOrder(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MtoEpochSecond(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MtoInstant(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MtoLocalDate(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MtoLocalTime(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MtoString(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Mwith(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mwith(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]}]},
 
 {"name": "Tjava.time.chrono.ChronoZonedDateTime", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "MisSupported(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "McompareTo(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mequals(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mformat(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisSupported(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "Mfrom(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mrange(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "Mget(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mget(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MgetChronology(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MgetLong(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MgetLong(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MgetOffset(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MwithEarlierOffsetAtOverlap(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MwithLaterOffsetAtOverlap(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MgetOffset(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
  {"name": "MgetZone(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MwithZoneSameLocal(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MhashCode(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisAfter(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MwithZoneSameInstant(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MisBefore(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MtoLocalDateTime(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MtoLocalDate(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MtoLocalTime(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "Mwith(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MisEqual(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mwith(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MisSupported(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MisSupported(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mminus(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mminus(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mplus(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mplus(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
+ {"name": "Mquery(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mrange(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "MtimeLineOrder(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MtoEpochSecond(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
+ {"name": "MtoInstant(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MtoLocalDate(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MtoLocalDateTime(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MtoLocalTime(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MtoString(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "Mwith(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+ {"name": "Mwith(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}]},
- {"name": "Mplus(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
+ {"name": "MwithEarlierOffsetAtOverlap(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MwithLaterOffsetAtOverlap(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
+ {"name": "MwithZoneSameInstant(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mplus(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "Mminus(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mminus(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1}}]},
- {"name": "Mquery(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mformat(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "Mequals(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MhashCode(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MtoString(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "MtimeLineOrder(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "Mfrom(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MgetChronology(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MtoInstant(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}},
- {"name": "MtoEpochSecond(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}},
- {"name": "McompareTo(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"notNullParameter":1,"unmodifiedParameter":1}}},
- {"name": "MisBefore(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisAfter(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
- {"name": "MisEqual(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"notNullMethod":1}, "sub":
+ {"name": "MwithZoneSameLocal(33)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1}}}]}
 ]

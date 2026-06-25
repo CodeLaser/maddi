@@ -5,94 +5,99 @@
 
 {"name": "Torg.slf4j.Logger", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
  {"name": "FROOT_LOGGER_NAME(0)", "data":{"annotatedApi":1,"finalField":1,"unmodifiedField":1}},
- {"name": "MgetName(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MmakeLoggingEventBuilder(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MatDebug(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MatError(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MatInfo(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MatLevel(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Plevel(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MatTrace(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MatWarn(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Mdebug(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MatLevel(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MisEnabledForLevel(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MisTraceEnabled(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "Mtrace(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mtrace(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mtrace(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mtrace(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mtrace(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MisTraceEnabled(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MatTrace(11)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Mtrace(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mtrace(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mtrace(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mtrace(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mtrace(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mdebug(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MisDebugEnabled(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "Mdebug(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "Merror(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mdebug(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mdebug(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mdebug(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mdebug(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MisDebugEnabled(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mdebug(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mdebug(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(22)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mdebug(26)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mdebug(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mdebug(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Merror(25)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MatDebug(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MisInfoEnabled(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "Minfo(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MgetName(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Minfo(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Minfo(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Minfo(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Minfo(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Minfo(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Minfo(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
@@ -102,117 +107,112 @@
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Minfo(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Minfo(35)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MisInfoEnabled(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Minfo(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Minfo(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Minfo(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Minfo(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Minfo(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Minfo(36)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MatInfo(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MisWarnEnabled(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "Mwarn(44)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "MisDebugEnabled(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisDebugEnabled(38)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mwarn(45)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "MisEnabledForLevel(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Plevel(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisErrorEnabled(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisErrorEnabled(41)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisInfoEnabled(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisInfoEnabled(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisTraceEnabled(44)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisTraceEnabled(45)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MisWarnEnabled(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
+ {"name": "MisWarnEnabled(47)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MmakeLoggingEventBuilder(48)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Plevel(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mtrace(49)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mtrace(50)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mwarn(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mtrace(51)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mtrace(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mwarn(47)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mtrace(53)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mtrace(54)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mtrace(55)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mwarn(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MisWarnEnabled(49)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mwarn(50)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mwarn(51)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mwarn(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mtrace(56)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mwarn(53)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mtrace(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mwarn(54)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mtrace(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MatWarn(55)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MisErrorEnabled(56)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}},
- {"name": "Merror(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
+ {"name": "Mwarn(59)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Merror(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Merror(59)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(61)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Merror(60)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Merror(61)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MisErrorEnabled(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Merror(63)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Merror(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(65)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Merror(65)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Merror(66)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Merror(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
+ {"name": "Mwarn(68)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"notNullMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MatError(68)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.slf4j.LoggerFactory", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
- {"name": "FPROVIDER_PROPERTY_KEY(11)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "FPROVIDER_PROPERTY_KEY(15)", "data":{"annotatedApi":1,"finalField":1}},
+ {"name": "MgetILoggerFactory(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MgetLogger(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pclazz(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MgetLogger(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MgetILoggerFactory(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}}]}
+  {"name": "Pname(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}}]}
 ]

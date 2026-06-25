@@ -43,6 +43,7 @@ dependencies {
 
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-java-openjdk"))
+    testImplementation(testFixtures(project(":maddi-modification-common")))
 
     implementation("ch.qos.logback:logback-classic")
 
@@ -51,6 +52,7 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter:5.9.2")
     testRuntimeOnly("org.springframework.security:spring-security-config:6.3.9")
     testRuntimeOnly("org.springframework.security:spring-security-web:6.3.9")
+
 }
 
 

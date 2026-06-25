@@ -165,6 +165,11 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
+    public TypeInfo parse(String input) {
+        throw new UnsupportedOperationException("Add fqn!");
+    }
+
+    @Override
     public TypeInfo parse(String fqn, String input) {
         return parse(Map.of(fqn, input), failFast()).parseResult().firstType();
     }
@@ -333,7 +338,10 @@ public class JavaInspectorImpl implements JavaInspector {
             }
             return (JavacTask) javaCompiler.getTask(
                     null, fm, diagnostics,
-                    List.of("-proc:none", "--enable-preview", "--release=26"),
+                    // -parameters makes javac's ClassReader keep formal parameter names read from the
+                    // MethodParameters attribute (and the LocalVariableTable) of class files on the class/module
+                    // path; without it Symbol.MethodSymbol.getParameters() yields synthetic arg0, arg1, ...
+                    List.of("-proc:none", "--enable-preview", "--release=26", "-parameters"),
                     null,
                     allCompilationUnits
             );

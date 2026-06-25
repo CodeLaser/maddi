@@ -92,53 +92,8 @@ public class CommonTest {
         allTypes = sr.allTypes();
     }
 
-    static @NonNull JavaInspectorFactory javaInspectorFactory() {
-        SourceSet javaBase = SourceSetImpl.javaBase();
-        SourceSet javaDesktop = SourceSetImpl.jdkModule("java.desktop");
-        SourceSet javaNetHttp = SourceSetImpl.jdkModule("java.net.http");
-        SourceSet maddiSupport = SourceSetImpl.sourceSetOf(Immutable.class);
-        SourceSet slf4jApi = SourceSetImpl.sourceSetOf(org.slf4j.Logger.class);
-        SourceSet logbackClassic = SourceSetImpl.sourceSetOf(Logger.class);
-        SourceSet junitPlatform = SourceSetImpl.sourceSetOf(JUnitException.class);
-        SourceSet jupiter = SourceSetImpl.sourceSetOf(Test.class, junitPlatform);
-
-        return new JavaInspectorFactory() {
-            @Override
-            public List<SourceSet> dependencies() {
-                return List.of(maddiSupport, slf4jApi, logbackClassic, junitPlatform, jupiter);
-            }
-
-            @Override
-            public JavaInspector withSources(SourceSet sourceSet) throws IOException {
-                JavaInspector javaInspector = new org.e2immu.language.inspection.openjdk.JavaInspectorImpl();
-                javaInspector.preload("java.base::java.util.");
-                javaInspector.preload("java.base::java.net");
-                javaInspector.preload("java.base::java.io");
-                javaInspector.preload("java.base::java.nio.");
-                javaInspector.preload("java.base::java.time.");
-                javaInspector.preload("java.base::java.security");
-                javaInspector.preload("java.base::java.lang.annotation");
-                javaInspector.preload("java.base::java.lang.reflect");
-                javaInspector.preload("java.base::java.lang.constant");
-                javaInspector.preload("java.desktop::java.awt");
-                javaInspector.preload("java.desktop::javax.swing.");
-                javaInspector.preload("java.net.http::java.net.http");
-                javaInspector.preload("org.slf4j");
-                javaInspector.preload("org.junit.jupiter.api.");
-                javaInspector.preload("org.e2immu.annotation.");
-                InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
-                        .addSourceSets(sourceSet)
-                        .addClassPathParts(javaBase, javaDesktop, javaNetHttp,
-                                maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform)
-                        .build();
-                javaInspector.initialize(inputConfiguration);
-                return javaInspector;
-            }
-        };
-    }
-
     static @NonNull AnalysisHintsParser createAnalysisHintsParser() {
-        JavaInspectorFactory javaInspectorFactory = javaInspectorFactory();
+        JavaInspectorFactory javaInspectorFactory =  org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory();
         return new AnalysisHintsParser(javaInspectorFactory);
     }
 

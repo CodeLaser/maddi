@@ -222,10 +222,11 @@ public class LinkCodec {
         private final Set<TypeInfo> duplication = new HashSet<>();
 
         @Override
-        public Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, Info info) {
+        public Stream<EncodedValue> encodeInfoOutOfContextStream(Context context, TypeAndSorted tas, Info info) {
             if (info instanceof TypeInfo ti && Util.isContainerType(ti)) {
                 String s = "U" + ti.simpleName();
                 Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context,
+                        null, // FIXME
                         ti.compilationUnitOrEnclosingType().getRight());
                 Stream<EncodedValue> post;
                 int n;
@@ -252,11 +253,15 @@ public class LinkCodec {
                     return streamSyntheticFieldDetails(context, fi, s);
                 }
             }
-            return super.encodeInfoOutOfContextStream(context, info);
+            return super.encodeInfoOutOfContextStream(context,
+                    null, // FIXME
+                    info);
         }
 
         private @NotNull Stream<EncodedValue> streamSyntheticFieldDetails(Context context, FieldInfo fi, String s) {
-            Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context, fi.owner());
+            Stream<EncodedValue> pre = encodeInfoOutOfContextStream(context,
+                    null, // FIXME
+                    fi.owner());
             Stream<EncodedValue> post = Stream.of(encodeType(context, fi.type()));
             return Stream.concat(Stream.concat(pre, Stream.of(encodeString(context, s))), post);
         }
@@ -284,12 +289,13 @@ public class LinkCodec {
         }
 
         @Override
-        protected Info decodeInfo(Context context,
-                                  Info currentType,
+        protected Object decodeInfo(Context context,
+                                  Object currentTypeIn,
                                   char type,
                                   String name,
                                   List<EncodedValue> list,
                                   int pos) {
+            TypeAndSorted currentType = (TypeAndSorted) currentTypeIn;
             if ('U' == type) {
                 // decode virtual container type
                 List<EncodedValue> tail = list.subList(pos + 1, list.size());
@@ -317,7 +323,7 @@ public class LinkCodec {
                 ParameterizedType fieldType = decodeType(context, list.get(pos + 1));
                 return VirtualFieldComputer.newFieldKeepName(runtime, name, fieldType, owner);
             }
-            return super.decodeInfo(context, currentType, type, name, list, pos);
+            return super.decodeInfo(context, currentTypeIn, type, name, list, pos);
         }
 
         private String nameComponent(FieldInfo fieldInfo) {
@@ -337,7 +343,9 @@ public class LinkCodec {
                     Stream<EncodedValue> name = Stream.of(encodeString(context, "V" + type.typeInfo().fullyQualifiedName()));
                     Stream<EncodedValue> arrays = Stream.of(encodeInt(context, type.arrays()));
                     // this one will add to duplication
-                    Stream<EncodedValue> typeStream = encodeInfoOutOfContextStream(context, type.typeInfo());
+                    Stream<EncodedValue> typeStream = encodeInfoOutOfContextStream(context,
+                            null, // FIXME
+                            type.typeInfo());
                     List<EncodedValue> list = Stream.concat(Stream.concat(name, arrays), typeStream).toList();
                     return encodeList(context, list);
                 } else {
