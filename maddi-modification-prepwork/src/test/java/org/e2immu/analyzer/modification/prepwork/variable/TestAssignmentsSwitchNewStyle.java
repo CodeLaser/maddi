@@ -28,13 +28,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * New-style (arrow) switch statement and pattern switch: assignment in every arm (including default) produces a
- * {@code =M} merge, so the variable is definitely assigned afterwards.
- * <p>
- * NOTE / SUSPECTED BUG: with the maddi parser, an arm whose body is a single expression (e.g. {@code case 1 -> r=10;})
- * gets the malformed statement index {@code 1.00} / {@code 1.20} (missing the middle dot; should be {@code 1.0.0} /
- * {@code 1.2.0}), while a block-bodied arm ({@code case 2 -> { r=20; }}) is correctly indexed {@code 1.1.0}. The
- * openJdk parser instead mis-indexes the block arm. These assertions lock in the <em>current maddi-parser</em>
- * output so the discrepancy is visible and tracked; see the message to Bart.
+ * {@code =M} merge, so the variable is definitely assigned afterwards. Both single-expression arms
+ * ({@code case 1 -> r=10;}) and block-bodied arms ({@code case 2 -> { r=20; }}) are indexed consistently as
+ * statement 0 of their entry, i.e. {@code 1.0.0} / {@code 1.1.0} / {@code 1.2.0} (regression test for the
+ * arrow-arm index fix in ParseStatement).
  */
 public class TestAssignmentsSwitchNewStyle extends CommonTest {
 
@@ -69,8 +66,8 @@ public class TestAssignmentsSwitchNewStyle extends CommonTest {
     public void testSwitch() {
         VariableData vd = analyse(SWITCH);
         VariableInfo r = local(vd, "r");
-        // 1.00 and 1.20 are the malformed expression-arm indices (see class comment); 1.1.0 is the block arm
-        assertEquals("D:0, A:[1.00, 1.1.0, 1.20, 1=M]", r.assignments().toString());
+        // expression arms 1.0.0 / 1.2.0 and block arm 1.1.0 are now consistently indexed
+        assertEquals("D:0, A:[1.0.0, 1.1.0, 1.2.0, 1=M]", r.assignments().toString());
         assertEquals("2", r.reads().toString());
         assertTrue(r.hasBeenDefined("2")); // all arms (incl. default) assign -> defined after
 
@@ -97,7 +94,7 @@ public class TestAssignmentsSwitchNewStyle extends CommonTest {
     public void testPatternSwitch() {
         VariableData vd = analyse(PATTERN_SWITCH);
         VariableInfo s = local(vd, "s");
-        assertEquals("D:0, A:[1.00, 1.10, 1.20, 1=M]", s.assignments().toString());
+        assertEquals("D:0, A:[1.0.0, 1.1.0, 1.2.0, 1=M]", s.assignments().toString());
         assertEquals("2", s.reads().toString());
         assertTrue(s.hasBeenDefined("2"));
 

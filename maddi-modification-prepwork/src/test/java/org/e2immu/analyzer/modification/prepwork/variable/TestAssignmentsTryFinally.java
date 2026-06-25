@@ -94,4 +94,34 @@ public class TestAssignmentsTryFinally extends CommonTest {
         assertTrue(x.hasBeenDefined("2"));
         assertEquals("1.0.0", v(vd, "s").reads().toString());
     }
+
+    @Language("java") private static final String LABELED_BREAK_THROUGH_FINALLY = """
+            package a.b;
+            class X {
+                static int m(int n) {
+                    int r = 0;
+                    outer:
+                    for (int i = 0; i < n; i++) {
+                        try {
+                            if (i == 5) break outer;
+                            r += i;
+                        } finally {
+                            r++;
+                        }
+                    }
+                    return r;
+                }
+            }""";
+
+    @DisplayName("labeled break crossing a try/finally that reassigns")
+    @Test
+    public void testLabeledBreakThroughFinally() {
+        VariableData vd = analyse(LABELED_BREAK_THROUGH_FINALLY);
+        VariableInfo r = v(vd, "r");
+        // r += i in the try body (1.0.0.0.1), r++ in the finally (1.0.0.1.0), try/finally merge (1.0.0=M)
+        assertEquals("D:0, A:[0, 1.0.0.0.1, 1.0.0.1.0, 1.0.0=M]", r.assignments().toString());
+        assertEquals("1.0.0.0.1, 1.0.0.1.0, 2", r.reads().toString());
+        assertTrue(r.hasBeenDefined("2"));
+        assertEquals("1-E, 1;E", v(vd, "n").reads().toString());
+    }
 }
