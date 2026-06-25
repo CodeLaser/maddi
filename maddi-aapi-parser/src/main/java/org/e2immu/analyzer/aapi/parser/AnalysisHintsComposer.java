@@ -119,14 +119,18 @@ public class AnalysisHintsComposer {
         for (TypeInfo subType : typeInfo.subTypes()) {
             appendType(newType, subType, newTypeTm.tm);
         }
-        for (FieldInfo fieldInfo : typeInfo.fields()) {
+        List<FieldInfo> fieldsSorted = typeInfo.fields().stream()
+                .sorted(Comparator.comparing(FieldInfo::name)).toList();
+        for (FieldInfo fieldInfo : fieldsSorted) {
             if (fieldInfo.access().isPublic() && predicate.test(fieldInfo)) {
                 FieldInfo newField = createField(fieldInfo, newType);
                 translateFromDollarToReal.put(newField, fieldInfo);
                 newType.builder().addField(newField);
             }
         }
-        for (MethodInfo constructor : typeInfo.constructors()) {
+        List<MethodInfo> constructorsSorted = typeInfo.constructors().stream()
+                .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList();
+        for (MethodInfo constructor : constructorsSorted) {
             if (constructor.isPublic() && !constructor.isSynthetic() && predicate.test(constructor)) {
                 MethodInfo newConstructor = createMethod(constructor, newType, newTypeTm.tm);
                 translateFromDollarToReal.put(newConstructor, constructor);
@@ -135,7 +139,9 @@ public class AnalysisHintsComposer {
                 newType.builder().addMethod(newConstructor);
             }
         }
-        for (MethodInfo methodInfo : typeInfo.methods()) {
+        List<MethodInfo> methodsSorted = typeInfo.methods().stream()
+                .sorted(Comparator.comparing(MethodInfo::fullyQualifiedName)).toList();
+        for (MethodInfo methodInfo : methodsSorted) {
             if (methodInfo.isPublic()
                 && !methodInfo.isSynthetic()
                 && predicate.test(methodInfo)

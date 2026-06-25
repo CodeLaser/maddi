@@ -582,7 +582,8 @@ public abstract class ValueImpl implements Value {
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
             List<Codec.EncodedValue> list = new ArrayList<>();
-            list.add(codec.encodeInfoInContext(context, field, "" + codec.fieldIndex(field)));
+            Codec.TypeAndSorted tas = new Codec.TypeAndSorted(field.owner());
+            list.add(codec.encodeInfoInContext(context, field, "" + tas.fieldIndex(field)));
             list.add(codec.encodeBoolean(context, setter));
             list.add(codec.encodeBoolean(context, this.list));
             if (parameterIndexOfIndex >= 0) {
@@ -638,7 +639,11 @@ public abstract class ValueImpl implements Value {
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
             Map<Codec.EncodedValue, Codec.EncodedValue> encodedMap = map.entrySet().stream()
                     .collect(Collectors.toUnmodifiableMap(
-                            e -> codec.encodeInfoInContext(context, e.getKey(), "" + codec.fieldIndex(e.getKey())),
+                            e -> {
+                                Codec.TypeAndSorted tas = context.currentType();
+                                return codec.encodeInfoInContext(context, e.getKey(),
+                                        "" + tas.fieldIndex(e.getKey()));
+                            },
                             e -> codec.encodeBoolean(context, e.getValue())));
             return codec.encodeMap(context, encodedMap);
         }
@@ -731,8 +736,10 @@ public abstract class ValueImpl implements Value {
 
         @Override
         public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
-            Set<Codec.EncodedValue> set = fields.stream().map(fi -> codec.encodeInfoInContext(context, fi,
-                    "" + codec.fieldIndex(fi))).collect(Collectors.toUnmodifiableSet());
+            Set<Codec.EncodedValue> set = fields.stream().map(fi -> {
+                Codec.TypeAndSorted tas = context.currentType();
+                return codec.encodeInfoInContext(context, fi, "" + tas.fieldIndex(fi));
+            }).collect(Collectors.toUnmodifiableSet());
             return codec.encodeSet(context, set);
         }
 
@@ -971,14 +978,17 @@ public abstract class ValueImpl implements Value {
                     .map(info -> {
                         int index;
                         if (info instanceof TypeInfo) index = -1;
-                        else if (info instanceof MethodInfo methodInfo) {
-                            if (methodInfo.isConstructor()) {
-                                index = codec.constructorIndex(methodInfo);
-                            } else {
-                                index = codec.methodIndex(methodInfo);
-                            }
-                        } else if (info instanceof FieldInfo fieldInfo) index = codec.fieldIndex(fieldInfo);
-                        else throw new UnsupportedOperationException();
+                        else {
+                            Codec.TypeAndSorted tas = context.currentType();
+                            if (info instanceof MethodInfo methodInfo) {
+                                if (methodInfo.isConstructor()) {
+                                    index = tas.constructorIndex(methodInfo);
+                                } else {
+                                    index = tas.methodIndex(methodInfo);
+                                }
+                            } else if (info instanceof FieldInfo fieldInfo) index = tas.fieldIndex(fieldInfo);
+                            else throw new UnsupportedOperationException();
+                        }
                         return codec.encodeInfoInContext(context, info, "" + index);
                     }).toList();
             return codec.encodeList(context, encodedValues);

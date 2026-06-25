@@ -23,8 +23,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Path;
 
-public class TestRun extends CommonTest {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TestRun.class);
+import static org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory;
+
+public class TestAnalysisHintsCompiler extends CommonTest {
+    private static final Logger LOGGER = LoggerFactory.getLogger(TestAnalysisHintsCompiler.class);
 
     @BeforeAll
     public static void beforeAll() {

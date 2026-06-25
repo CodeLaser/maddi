@@ -7,6 +7,7 @@ import org.e2immu.language.inspection.api.integration.JavaInspectorFactory;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
 import org.e2immu.language.inspection.resource.InputConfigurationImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
+import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.JUnitException;
@@ -18,6 +19,12 @@ import java.util.List;
 
 public class CommonTest {
 
+    public static final String ANALYZED_RESULTS_JDK = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk";
+    public static final String ANALYZED_RESULTS_LIBS = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs";
+
+    public static final List<String> ANALYZED_RESULTS = List.of(ANALYZED_RESULTS_JDK, ANALYZED_RESULTS_LIBS+"/test",
+            ANALYZED_RESULTS_LIBS+"/log");
+
     public static @NonNull JavaInspectorFactory javaInspectorFactory() {
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet javaDesktop = SourceSetImpl.jdkModule("java.desktop");
@@ -28,11 +35,12 @@ public class CommonTest {
         SourceSet junitPlatform = SourceSetImpl.sourceSetOf(JUnitException.class);
         SourceSet jupiter = SourceSetImpl.sourceSetOf(Test.class, junitPlatform);
         SourceSet opentest4j = SourceSetImpl.sourceSetOf(AssertionFailedError.class);
+        SourceSet annotations = SourceSetImpl.sourceSetOf(NotNull.class);
 
         return new JavaInspectorFactory() {
             @Override
             public List<SourceSet> dependencies() {
-                return List.of(maddiSupport, slf4jApi, logbackClassic, junitPlatform, jupiter, opentest4j);
+                return List.of(maddiSupport, slf4jApi, logbackClassic, junitPlatform, jupiter, opentest4j, annotations);
             }
 
             @Override
@@ -56,7 +64,8 @@ public class CommonTest {
                 InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                         .addSourceSets(sourceSet)
                         .addClassPathParts(javaBase, javaDesktop, javaNetHttp,
-                                maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform, opentest4j)
+                                maddiSupport, slf4jApi, logbackClassic, jupiter, junitPlatform, opentest4j,
+                                annotations)
                         .build();
                 javaInspector.initialize(inputConfiguration);
                 return javaInspector;
