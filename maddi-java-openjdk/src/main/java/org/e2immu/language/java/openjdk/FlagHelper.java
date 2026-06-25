@@ -3,8 +3,11 @@ package org.e2immu.language.java.openjdk;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import org.e2immu.language.cst.api.info.FieldInfo;
+import org.e2immu.language.cst.api.info.FieldModifier;
 import org.e2immu.language.cst.api.info.MethodInfo;
+import org.e2immu.language.cst.api.info.MethodModifier;
 import org.e2immu.language.cst.api.info.TypeInfo;
+import org.e2immu.language.cst.api.info.TypeModifier;
 import org.e2immu.language.cst.api.runtime.Runtime;
 import org.e2immu.language.cst.api.type.TypeNature;
 
@@ -37,6 +40,50 @@ public record FlagHelper(Runtime runtime) {
         if (isSynthetic || isGeneratedConstructor || isBridge) {
             builder.setSynthetic(true);
         }
+    }
+
+    // keyword-string -> modifier object, mirroring the flag-based methods above, so a source scanner can attach
+    // the keyword's source position to the same modifier object the builder holds; null for an unknown keyword
+    public TypeModifier typeModifier(String keyword) {
+        return switch (keyword) {
+            case "public" -> runtime.typeModifierPublic();
+            case "protected" -> runtime.typeModifierProtected();
+            case "private" -> runtime.typeModifierPrivate();
+            case "static" -> runtime.typeModifierStatic();
+            case "abstract" -> runtime.typeModifierAbstract();
+            case "sealed" -> runtime.typeModifierSealed();
+            case "non-sealed" -> runtime.typeModifierNonSealed();
+            case "final" -> runtime.typeModifierFinal();
+            default -> null;
+        };
+    }
+
+    public MethodModifier methodModifier(String keyword) {
+        return switch (keyword) {
+            case "public" -> runtime.methodModifierPublic();
+            case "private" -> runtime.methodModifierPrivate();
+            case "protected" -> runtime.methodModifierProtected();
+            case "final" -> runtime.methodModifierFinal();
+            case "synchronized" -> runtime.methodModifierSynchronized();
+            case "static" -> runtime.methodModifierStatic();
+            case "abstract" -> runtime.methodModifierAbstract();
+            case "default" -> runtime.methodModifierDefault();
+            case "native" -> runtime.methodModifierNative();
+            default -> null;
+        };
+    }
+
+    public FieldModifier fieldModifier(String keyword) {
+        return switch (keyword) {
+            case "public" -> runtime.fieldModifierPublic();
+            case "protected" -> runtime.fieldModifierProtected();
+            case "private" -> runtime.fieldModifierPrivate();
+            case "final" -> runtime.fieldModifierFinal();
+            case "static" -> runtime.fieldModifierStatic();
+            case "volatile" -> runtime.fieldModifierVolatile();
+            case "transient" -> runtime.fieldModifierTransient();
+            default -> null;
+        };
     }
 
     public MethodInfo.MethodType constructorType(long flags) {

@@ -86,6 +86,13 @@ public interface DetailedSources {
     Object PERMITS_COMMAS = new Object();
     Object THROWS_COMMAS = new Object();
     Object TYPE_BOUND_AMPERSANDS = new Object();
+    /**
+     * Position of the {@code final} keyword on a parameter. Type, method and field modifiers are keyed by their
+     * {@code Modifier} object (e.g. {@code dsb.put(methodModifierPublic(), source)}), but a parameter has only an
+     * {@code isFinal()} flag and no modifier object, so its {@code final} source sits on the parameter's own
+     * source under this sentinel.
+     */
+    Object FINAL = new Object();
 
     /**
      * Returns the single {@link Source} associated with {@code object}, or {@code null} if absent.

@@ -19,12 +19,6 @@ import java.util.List;
 
 public class CommonTest {
 
-    public static final String ANALYZED_RESULTS_JDK = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/jdk";
-    public static final String ANALYZED_RESULTS_LIBS = "../maddi-aapi-archive/src/main/resources/org/e2immu/analyzer/aapi/archive/analyzedPackageFiles/libs";
-
-    public static final List<String> ANALYZED_RESULTS = List.of(ANALYZED_RESULTS_JDK, ANALYZED_RESULTS_LIBS+"/test",
-            ANALYZED_RESULTS_LIBS+"/log");
-
     public static @NonNull JavaInspectorFactory javaInspectorFactory() {
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet javaDesktop = SourceSetImpl.jdkModule("java.desktop");

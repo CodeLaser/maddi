@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.e2immu.analyzer.modification.common.CommonTest.ANALYZED_RESULTS;
+import static org.e2immu.analyzer.modification.prepwork.io.LoadAnalysisResults.ANALYZED_RESULTS;
 import static org.e2immu.language.inspection.resource.SourceSetImpl.testProtocolSourceSet;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

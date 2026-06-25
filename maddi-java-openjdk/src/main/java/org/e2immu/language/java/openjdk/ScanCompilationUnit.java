@@ -34,6 +34,7 @@ import javax.tools.Diagnostic;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
@@ -256,6 +257,27 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         }
     }
 
+    // attaches, to dsb, the source position of each explicit modifier keyword the scanner recorded for the
+    // element; keyed by the modifier object (mapper turns the keyword into the same object the builder holds),
+    // matching the hand-written parser. Implicit modifiers (e.g. interface methods' public/abstract) are not in
+    // the scanner's per-element map, so they correctly get no source.
+    private void attachModifiers(Source elementSource, DetailedSources.Builder dsb, Function<String, Object> mapper) {
+        if (scanResult == null || elementSource == null) return;
+        Map<String, Source> mods = scanResult.findModifiers(elementSource);
+        if (mods == null) return;
+        mods.forEach((keyword, src) -> {
+            Object modifier = mapper.apply(keyword);
+            if (modifier != null) dsb.put(modifier, src);
+        });
+    }
+
+    // a parameter has no modifier object, only isFinal(); its 'final' keyword source sits under FINAL
+    private void attachParameterFinal(Source paramSource, DetailedSources.Builder dsb) {
+        if (scanResult == null || paramSource == null) return;
+        Map<String, Source> mods = scanResult.findModifiers(paramSource);
+        if (mods != null && mods.get("final") != null) dsb.put(DetailedSources.FINAL, mods.get("final"));
+    }
+
     private void continueType(TypeInfo typeInfo, JCTree.JCClassDecl jcClassDecl) {
         typeStack.addLast(typeInfo);
         elementStack.push();
@@ -372,6 +394,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             builder.setJavaDoc(javaDoc);
         }
 
+        if (scanResult != null) {
+            attachModifiers(scanSource(jcClassDecl), dsb, flagHelper::typeModifier);
+            // the class/interface/enum/record/@interface keyword, keyed by the TypeNature object
+            dsb.putIfNotNull(typeInfo.typeNature(), scanResult.findTypeKeyword(scanSource(jcClassDecl)));
+        }
         Source source = sourceForNode(jcClassDecl, dsb);
 
         // going to commit the methods, so we'll sort
@@ -601,6 +628,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         Source paramKey = scanSource(jcVariableDecl);
                         dsbParam.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(paramKey));
                         dsbParam.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(paramKey));
+                        attachParameterFinal(paramKey, dsbParam);
                     }
                     Source source;
                     if (isConstructor && currentType.typeNature().isRecord()
@@ -674,6 +702,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         scanResult.findEndOfParameterList(scanSource(node)));
                 dsb.putListIfNotNull(DetailedSources.THROWS_COMMAS,
                         scanResult.findCommaList(scanSource(node), DetailedSources.THROWS_COMMAS));
+                attachModifiers(scanSource(node), dsb, flagHelper::methodModifier);
             }
             Source source = sourceForNode(node, dsb);
             assert source != null;
@@ -1410,6 +1439,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 dsb.putIfNotNull(DetailedSources.PRECEDING_COMMA, scanResult.findPrecedingComma(nameAndInitSource));
                 dsb.putIfNotNull(DetailedSources.SUCCEEDING_COMMA, scanResult.findSucceedingComma(nameAndInitSource));
                 dsb.putIfNotNull(DetailedSources.SUCCEEDING_EQUALS, scanResult.findSucceedingEquals(nameSource));
+                // field modifiers are recorded per declarator under the same nameAndInitSource key
+                attachModifiers(nameAndInitSource, dsb, flagHelper::fieldModifier);
             }
             dsb.put(DetailedSources.FIELD_DECLARATION, vdSource);
 
