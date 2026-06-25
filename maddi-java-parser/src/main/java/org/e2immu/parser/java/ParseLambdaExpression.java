@@ -132,9 +132,10 @@ public class ParseLambdaExpression extends CommonParse {
             throw new Summary.ParseException(context, "Expected either expression or code block");
         }
 
-        miBuilder.setMethodBody(methodBody);
-        miBuilder.setReturnType(concreteReturnType);
-        miBuilder.commit();
+        miBuilder.setMethodBody(methodBody)
+                .setSource(runtime.noSource())
+                .setReturnType(concreteReturnType)
+                .commit();
 
         List<ParameterizedType> types = methodInfo.parameters().stream().map(ParameterInfo::parameterizedType).toList();
         ParameterizedType functionalType = singleAbstractMethod.inferFunctionalType(runtime, types, concreteReturnType);

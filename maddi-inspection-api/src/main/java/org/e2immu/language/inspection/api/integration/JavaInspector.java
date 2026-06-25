@@ -186,7 +186,7 @@ public interface JavaInspector {
     List<TypeInfo> parseReturnAll(String input, String inputName, String sourceSetName, ParseOptions parseOptions);
 
     // only for testing, after general parse();
-    Summary parse(URI typeInfo, SourceSet sourceSet, ParseOptions parseOptions);
+    Summary parseSingleFileInSourceSet(URI typeInfo, SourceSet sourceSet, ParseOptions parseOptions);
 
     // only for testing, after general parse();
     default List<TypeInfo> parseReturnAll(String input, String sourceSetName, ParseOptions parseOptions) {

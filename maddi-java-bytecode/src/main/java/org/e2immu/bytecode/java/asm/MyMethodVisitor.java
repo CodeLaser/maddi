@@ -258,7 +258,7 @@ public class MyMethodVisitor extends MethodVisitor {
         Set<MethodInfo> overrides = computeMethodOverrides.overrides(methodInfo);
         methodInfo.builder().addOverrides(overrides);
 
-        methodInfo.builder().commit();
+        methodInfo.builder().setSource(runtime.noSource()).commit();
         if (methodInfo.isConstructor()) {
             typeInfo.builder().addConstructor(methodInfo);
         } else {

@@ -75,7 +75,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public void invalidateAllSources() {
-       infoByFqn.removeAllSources();
+        infoByFqn.removeAllSources();
     }
 
     @Override
@@ -207,7 +207,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     // single file
     @Override
-    public Summary parse(URI javaUri, SourceSet sourceSet, ParseOptions parseOptions) {
+    public Summary parseSingleFileInSourceSet(URI javaUri, SourceSet sourceSet, ParseOptions parseOptions) {
         try {
             Path javaFile = Path.of(javaUri);
             String name = javaFile.getFileName().toString();
