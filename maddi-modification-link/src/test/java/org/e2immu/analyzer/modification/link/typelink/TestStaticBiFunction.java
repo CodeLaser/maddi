@@ -46,7 +46,7 @@ public class TestStaticBiFunction extends CommonTest {
     @DisplayName("BiFunction extract")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -95,7 +95,7 @@ public class TestStaticBiFunction extends CommonTest {
     @DisplayName("BiFunction extract wrapped")
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -145,7 +145,7 @@ public class TestStaticBiFunction extends CommonTest {
     @DisplayName("BiFunction extract wrapped 2")
     @Test
     public void test2b() {
-        TypeInfo C = javaInspector.parse(INPUT2b);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2b);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -198,7 +198,7 @@ public class TestStaticBiFunction extends CommonTest {
     @DisplayName("BiFunction join")
     @Test
     public void test3() {
-        TypeInfo C = javaInspector.parse(INPUT3);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT3);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -250,7 +250,7 @@ public class TestStaticBiFunction extends CommonTest {
     @DisplayName("BiFunction join reversed")
     @Test
     public void test4() {
-        TypeInfo C = javaInspector.parse(INPUT4);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT4);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -303,7 +303,7 @@ public class TestStaticBiFunction extends CommonTest {
     @DisplayName("BiFunction join reversed wrapped")
     @Test
     public void test5() {
-        TypeInfo C = javaInspector.parse(INPUT5);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT5);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -355,7 +355,7 @@ public class TestStaticBiFunction extends CommonTest {
     @DisplayName("BiFunction join reversed wrapped 2")
     @Test
     public void test6() {
-        TypeInfo C = javaInspector.parse(INPUT6);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT6);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);

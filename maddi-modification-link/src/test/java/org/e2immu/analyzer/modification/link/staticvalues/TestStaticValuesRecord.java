@@ -59,7 +59,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("record")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -134,7 +134,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("values in record")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -185,7 +185,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("values in record, extra indirection")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -225,7 +225,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("values in record, extra indirection; type parameter")
     @Test
     public void test3b() {
-        TypeInfo X = javaInspector.parse(INPUT3B);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3B);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -267,7 +267,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("values in record, @Identity, accessor")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -316,7 +316,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("values in record, embed in abstract type")
     @Test
     public void test4b() {
-        TypeInfo X = javaInspector.parse(INPUT4b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
@@ -385,7 +385,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("values in record, embed in abstract type, now embed() @NotModified")
     @Test
     public void test4c() {
-        TypeInfo X = javaInspector.parse(INPUT4c);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4c);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
@@ -459,7 +459,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("simple builder for record")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -555,7 +555,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("more complex builder for record: indexed objects")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT6);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -707,7 +707,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("interface in between")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -815,7 +815,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("pack and unpack, with local variables")
     @Test
     public void test8() {
-        TypeInfo X = javaInspector.parse(INPUT8);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT8);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -873,7 +873,7 @@ public class TestStaticValuesRecord extends CommonTest {
     @DisplayName("pack and unpack, with parameters")
     @Test
     public void test9() {
-        TypeInfo X = javaInspector.parse(INPUT9);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT9);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);

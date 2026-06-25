@@ -38,7 +38,7 @@ public class TestShallowArray extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -90,7 +90,7 @@ public class TestShallowArray extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);

@@ -50,7 +50,7 @@ public class TestForEachMethodReference extends CommonTest {
     @DisplayName("list.forEach(this::add)")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -107,7 +107,7 @@ public class TestForEachMethodReference extends CommonTest {
     @DisplayName("list.forEach(this.set::add)")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -146,7 +146,7 @@ public class TestForEachMethodReference extends CommonTest {
     @DisplayName("list.forEach(x::add)")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -191,7 +191,7 @@ public class TestForEachMethodReference extends CommonTest {
     @DisplayName("list.forEach(X::add)")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT6);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);

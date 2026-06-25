@@ -37,7 +37,7 @@ public class TestMap extends CommonTest {
     @DisplayName("Analyze 'get', map access, manually inserting links for Map.get(K)")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 

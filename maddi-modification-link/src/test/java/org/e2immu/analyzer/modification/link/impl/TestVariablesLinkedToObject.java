@@ -40,7 +40,7 @@ public class TestVariablesLinkedToObject extends CommonTest {
     @DisplayName("multiple casts")
     @Test
     public void test1() {
-        TypeInfo B = javaInspector.parse(INPUT1);
+        TypeInfo B = javaInspector.parse("a.b.ii.C1", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);

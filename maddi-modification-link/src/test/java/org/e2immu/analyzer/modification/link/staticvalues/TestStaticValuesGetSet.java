@@ -67,7 +67,7 @@ public class TestStaticValuesGetSet extends CommonTest {
     @DisplayName("modification of an array component element")
     @Test
     public void test() {
-        TypeInfo X = javaInspector.parse(INPUT);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -170,7 +170,7 @@ public class TestStaticValuesGetSet extends CommonTest {
     @DisplayName("getter in field reference")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT_2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT_2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);

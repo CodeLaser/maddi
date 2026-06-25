@@ -49,7 +49,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("getter")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -84,7 +84,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("getter, immutable, non-extensible variant")
     @Test
     public void test1b() {
-        TypeInfo X = javaInspector.parse(INPUT1b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1b);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -125,7 +125,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("getter, immutable HC, extensible variant")
     @Test
     public void test1c() {
-        TypeInfo X = javaInspector.parse(INPUT1c);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1c);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -172,7 +172,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("getter, mutable, non-extensible variant")
     @Test
     public void test1d() {
-        TypeInfo X = javaInspector.parse(INPUT1d);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1d);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -207,7 +207,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("getter, accessor variant")
     @Test
     public void test1e() {
-        TypeInfo X = javaInspector.parse(INPUT1e);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1e);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -246,7 +246,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("modify one component")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -321,7 +321,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("modify one component, variant with accessors")
     @Test
     public void test2b() {
-        TypeInfo X = javaInspector.parse(INPUT2b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2b);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -394,7 +394,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("identity function preserves modification area information, static values")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -444,7 +444,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("modification area of arrays")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -502,7 +502,7 @@ public class TestLinkModificationArea extends CommonTest {
     @DisplayName("modification area of arrays, index variables")
     @Test
     public void test4b() {
-        TypeInfo X = javaInspector.parse(INPUT4b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4b);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);

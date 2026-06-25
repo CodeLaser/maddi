@@ -33,7 +33,7 @@ public class Test1 extends CommonTest {
     @DisplayName("assertion error in LinkImpl constructor")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -66,7 +66,7 @@ public class Test1 extends CommonTest {
     @DisplayName("wrong link in LMC.linksBetweenParameters")
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -96,7 +96,7 @@ public class Test1 extends CommonTest {
     @DisplayName("null owner")
     @Test
     public void test3() {
-        TypeInfo C = javaInspector.parse(INPUT3);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT3);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -138,7 +138,7 @@ public class Test1 extends CommonTest {
     @DisplayName("recursive method")
     @Test
     public void test4() {
-        TypeInfo C = javaInspector.parse(INPUT4);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -187,7 +187,7 @@ public class Test1 extends CommonTest {
     @DisplayName("limitation in GenericsHelper.translateMap")
     @Test
     public void test5() {
-        TypeInfo C = javaInspector.parse(INPUT5);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT5);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -224,7 +224,7 @@ public class Test1 extends CommonTest {
     @DisplayName("null virtual field")
     @Test
     public void test6() {
-        TypeInfo C = javaInspector.parse(INPUT6);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT6);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -248,13 +248,21 @@ public class Test1 extends CommonTest {
                 interface CMParSeq<T> { int size(); Expression template(); List<T> toList(); }
                 interface Parallel<T> extends CMParSeq<T> { }
                 interface EmptyParSeq<T> extends CMParSeq<T> { }
-                record EmptyParSeqImpl(Runtime runtime) implements EmptyParSeq<?> { }
+                record EmptyParSeqImpl(Runtime runtime) implements EmptyParSeq { 
+                        @Override public List toList() { return List.of(); }
+                        @Override public a.b.C.Expression template() { return null; }
+                        @Override public int size() { return 0; }
+                }
                 interface SeqPars<T> { }
                 static class SeqElements<T> implements CMParSeq<T> {
                     List<T> elements;
                     Runtime runtime;
                     Expression template;
-                    record ParSeqElement<T>(Runtime runtime, T t) implements Parallel<T> { }
+                    record ParSeqElement<T>(Runtime runtime, T t) implements Parallel<T> {
+                        @Override public List<T> toList() { return List.of(); }
+                        @Override public a.b.C.Expression template() { return null; }
+                        @Override public int size() { return 0; }
+                     }
                     SeqElements(Runtime runtime, List<T> intersection, Expression template) {
                         this.elements = intersection;
                         this.runtime = runtime;
@@ -267,11 +275,11 @@ public class Test1 extends CommonTest {
                     }
                     private CMParSeq<T> intersection(CMParSeq<T> other) {
                         if (other instanceof EmptyParSeq<T>) return other;
-                        if (other instanceof ParSeqElement<T> e) return contains(e.t()) ? other : new EmptyParSeqImpl<>(runtime);
+                        if (other instanceof ParSeqElement<T> e) return contains(e.t()) ? other : new EmptyParSeqImpl(runtime);
                         if (other instanceof SeqElements<T> seq) {
                             List<T> intersection = new ArrayList<>(elements);
                             intersection.retainAll(seq.elements);
-                            if (intersection.isEmpty()) return new EmptyParSeqImpl<>(runtime);
+                            if (intersection.isEmpty()) return new EmptyParSeqImpl(runtime);
                             if (intersection.size() == 1) return new ParSeqElement<>(runtime, intersection.get(0));
                             return new SeqElements<>(runtime, intersection, template);
                         }
@@ -280,6 +288,9 @@ public class Test1 extends CommonTest {
                     private boolean contains(T t) {
                         return elements.contains(t);
                     }
+                    @Override public List<T> toList() { return List.of(); }
+                    @Override public a.b.C.Expression template() { return null; }
+                    @Override public int size() { return 0; }
                 }
             }
             """;
@@ -287,7 +298,7 @@ public class Test1 extends CommonTest {
     @DisplayName("could not reproduce the bug")
     @Test
     public void test7() {
-        TypeInfo C = javaInspector.parse(INPUT7);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
@@ -316,7 +327,7 @@ public class Test1 extends CommonTest {
     @DisplayName("cycle protection")
     @Test
     public void test8() {
-        TypeInfo C = javaInspector.parse(INPUT8);
+        TypeInfo C = javaInspector.parse("a.b.JSONParser", INPUT8);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
@@ -336,8 +347,8 @@ public class Test1 extends CommonTest {
                 }
                 interface Variable { }
                 interface CMParSeq<T> { Template template(); }
-                interface Template { }
                 interface Expression { }
+                interface Template extends Expression { }
                 record ByTemplate(Template template, int pos, List<CMParSeq<Variable>> list) {
                     ByTemplate merge(ByTemplate other) {
                         assert template.equals(other.template);
@@ -359,7 +370,7 @@ public class Test1 extends CommonTest {
     @DisplayName("§m mixes with other virtual fields")
     @Test
     public void test9() {
-        TypeInfo C = javaInspector.parse(INPUT9);
+        TypeInfo C = javaInspector.parse("a.b.X", INPUT9);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,
@@ -371,7 +382,8 @@ public class Test1 extends CommonTest {
     @Language("java")
     private static final String INPUT10 = """
             package a.b;
-            import java.util.List;class X {
+            import java.util.List;
+            class X {
                 static class Logger { void debug(String s, Object o) { } }
                 Logger LOGGER;
                 interface TypeInfo {
@@ -393,7 +405,7 @@ public class Test1 extends CommonTest {
     @DisplayName("§m stacked on top of virtual fields")
     @Test
     public void test10() {
-        TypeInfo C = javaInspector.parse(INPUT10);
+        TypeInfo C = javaInspector.parse("a.b.X", INPUT10);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector,

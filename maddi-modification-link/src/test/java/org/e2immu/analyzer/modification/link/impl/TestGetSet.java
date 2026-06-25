@@ -64,7 +64,7 @@ public class TestGetSet extends CommonTest {
     @DisplayName("modification of an array component element")
     @Test
     public void test() {
-        TypeInfo X = javaInspector.parse(INPUT);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -148,7 +148,7 @@ public class TestGetSet extends CommonTest {
     @DisplayName("modification in @Fluent setter")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.B", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);

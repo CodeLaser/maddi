@@ -59,7 +59,7 @@ public class TestMapManual extends CommonTest {
     @DisplayName("Analyze 'get', map access, manually inserting links for Map.get(K)")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
@@ -90,7 +90,7 @@ public class TestMapManual extends CommonTest {
     @DisplayName("Analyze 'keySet', manually inserting links for Map.keySet()")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -156,7 +156,7 @@ public class TestMapManual extends CommonTest {
     @DisplayName("Analyze 'getOrDefault', map access, manually inserting links for Map.get(K)")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);
@@ -178,7 +178,7 @@ public class TestMapManual extends CommonTest {
     @DisplayName("Analyze 'entrySet', map access, manually inserting links for Map.entrySet()")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         TypeInfo atomicBoolean = javaInspector.compiledTypesManager().getOrLoad(AtomicBoolean.class);

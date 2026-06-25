@@ -32,7 +32,7 @@ public class TestRecord extends CommonTest {
     @DisplayName("T->R[](T), wrapped 2x")
     @Test
     public void testWrap2() {
-        TypeInfo C = javaInspector.parse(INPUT_WRAP2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT_WRAP2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);

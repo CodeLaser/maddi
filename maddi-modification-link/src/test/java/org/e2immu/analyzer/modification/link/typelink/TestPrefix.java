@@ -41,7 +41,7 @@ public class TestPrefix extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -99,7 +99,7 @@ public class TestPrefix extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -139,7 +139,7 @@ public class TestPrefix extends CommonTest {
     // see also TestShallowPrefix, which computes the shallow version
     @Test
     public void test3() {
-        TypeInfo C = javaInspector.parse(INPUT3);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT3);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -176,7 +176,7 @@ public class TestPrefix extends CommonTest {
     // see also TestShallowPrefix, which computes the shallow version
     @Test
     public void test4() {
-        TypeInfo C = javaInspector.parse(INPUT4);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT4);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);

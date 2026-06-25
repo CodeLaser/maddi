@@ -222,7 +222,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
     @DisplayName("concrete set: no virtual fields, but actual ones")
     @Test
     public void test4() {
-        TypeInfo C = javaInspector.parse(INPUT4);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
 
@@ -279,7 +279,7 @@ public class TestVirtualFieldTranslationMap extends CommonTest {
     @DisplayName("concrete set, without type parameters")
     @Test
     public void test4b() {
-        TypeInfo C = javaInspector.parse(INPUT4b);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT4b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         VirtualFieldComputer vfc = new VirtualFieldComputer(javaInspector);

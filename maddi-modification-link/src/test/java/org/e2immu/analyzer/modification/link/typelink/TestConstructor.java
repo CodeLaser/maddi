@@ -55,7 +55,7 @@ public class TestConstructor extends CommonTest {
     @DisplayName("shows replaceSubsetSuperset in action: ⊆ becomes ~")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());

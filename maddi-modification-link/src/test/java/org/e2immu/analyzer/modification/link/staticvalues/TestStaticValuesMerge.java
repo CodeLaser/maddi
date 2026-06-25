@@ -51,7 +51,7 @@ public class TestStaticValuesMerge extends CommonTest {
     @DisplayName("test the 'erase' system, 1")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -93,7 +93,7 @@ public class TestStaticValuesMerge extends CommonTest {
     @DisplayName("test the 'erase' system, 2")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 

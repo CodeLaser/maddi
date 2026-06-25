@@ -400,6 +400,8 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
             VariableData vd = previousVd;
             boolean firstStatementOfBlock = true;
             for (Statement statement : block.statements()) {
+                if (statement instanceof ExplicitConstructorInvocation eci &&
+                    eci.isSuper() && eci.isSynthetic()) continue; // ignore, artifact of openjdk
                 if (statement instanceof Block b) {
                     // a block among the statements
                     vd = doBlock(false, b, vd);
@@ -487,6 +489,7 @@ public class LinkComputerImpl implements LinkComputer, LinkComputerRecursion {
                 replaceConstants = null;
             }
             VariableData vd = VariableDataImpl.of(statement);
+            assert vd != null;
             Variable destination;
             if (r != null) {
                 r = r.copyLinksToExtra();

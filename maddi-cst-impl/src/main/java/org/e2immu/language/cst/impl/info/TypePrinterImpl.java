@@ -110,7 +110,9 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
             }
             if (typeInfo.parentClass() != null && !typeInfo.parentClass().isJavaLangObject()
                 && (!typeInfo.typeNature().isEnum()
-                    || !"java.lang.Enum".equals(typeInfo.parentClass().typeInfo().fullyQualifiedName()))) {
+                    || !"java.lang.Enum".equals(typeInfo.parentClass().typeInfo().fullyQualifiedName()))
+                && (!typeInfo.typeNature().isRecord()
+                    || !"java.lang.Record".equals(typeInfo.parentClass().typeInfo().fullyQualifiedName()))) {
                 afterAnnotations.add(SpaceEnum.ONE).add(KeywordImpl.EXTENDS).add(SpaceEnum.ONE)
                         .add(typeInfo.parentClass().print(insideType, false, DiamondEnum.SHOW_ALL));
             }

@@ -36,7 +36,8 @@ public class TestList extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            import java.util.Arrays;public class X<T> {
+            import java.util.Arrays;
+            public class X<T> {
                 T[] ts;
                 private T get(int index) {
                     return ts[index];
@@ -53,7 +54,7 @@ public class TestList extends CommonTest {
 
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
 
         MethodInfo get = X.findUniqueMethod("get", 1);
         ReturnVariable rv = new ReturnVariableImpl(get);
@@ -88,7 +89,7 @@ public class TestList extends CommonTest {
     @DisplayName("shallow get/multiplicity 1 instead of 2")
     @Test
     public void testShallow1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
@@ -127,7 +128,7 @@ public class TestList extends CommonTest {
 
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -174,7 +175,7 @@ public class TestList extends CommonTest {
 
     @Test
     public void testShallow2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
@@ -208,7 +209,7 @@ public class TestList extends CommonTest {
     // this test models the .sublist(...) type of methods
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
 
         MethodInfo copy = X.findUniqueMethod("copy", 0);
         ReturnVariable rv = new ReturnVariableImpl(copy);
@@ -238,7 +239,7 @@ public class TestList extends CommonTest {
 
     @Test
     public void testShallow3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
@@ -280,7 +281,7 @@ public class TestList extends CommonTest {
 
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -328,7 +329,7 @@ public class TestList extends CommonTest {
     @DisplayName("Show how §m is present after an assignment")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);

@@ -2,18 +2,17 @@ package org.e2immu.analyzer.modification.link.typelink;
 
 import org.e2immu.analyzer.modification.link.CommonTest;
 import org.e2immu.analyzer.modification.link.LinkComputer;
-import org.e2immu.analyzer.modification.prepwork.variable.Links;
-import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.link.impl.LinkComputerImpl;
 import org.e2immu.analyzer.modification.link.impl.MethodLinkedVariablesImpl;
 import org.e2immu.analyzer.modification.prepwork.PrepAnalyzer;
+import org.e2immu.analyzer.modification.prepwork.variable.Links;
+import org.e2immu.analyzer.modification.prepwork.variable.MethodLinkedVariables;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableData;
 import org.e2immu.analyzer.modification.prepwork.variable.VariableInfo;
 import org.e2immu.analyzer.modification.prepwork.variable.impl.VariableDataImpl;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +45,7 @@ public class TestBiFunction extends CommonTest {
     @DisplayName("BiFunction extract")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);

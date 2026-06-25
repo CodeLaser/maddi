@@ -35,7 +35,7 @@ public class TestBoundTypeParameter extends CommonTest {
                     return ts[index];
                 }
             
-                public static <K> K method(int i, X<K> x) {
+                public static <K extends Comparable<? super K>> K method(int i, X<K> x) {
                     K k = x.get(i);
                     return k;
                 }
@@ -79,7 +79,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze 'method', given method links for 'get'")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -105,7 +105,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze 'asShortList'")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -125,7 +125,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze 'sub'")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -141,7 +141,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze 'set'")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -160,7 +160,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze 'compareFirst'")
     @Test
     public void test4b() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -256,7 +256,7 @@ public class TestBoundTypeParameter extends CommonTest {
     @DisplayName("Analyze constructor, ensure recursive computation")
     @Test
     public void test5c() {
-        TypeInfo X = javaInspector.parse(INPUT5b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -325,6 +325,7 @@ public class TestBoundTypeParameter extends CommonTest {
             class X<K extends Comparable<? super K>> {
                 static <T extends Comparable<? super T>> boolean listAdd(List<T> list, T t) {
                    list.add(t);
+                   return true;
                 }
                 boolean add(K k, List<K> in) {
                     return listAdd(in, k);
