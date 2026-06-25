@@ -460,7 +460,7 @@ public class JavaInspectorImpl implements JavaInspector {
     }
 
     @Override
-    public Summary parse(URI uri, SourceSet sourceSet, ParseOptions parseOptions) {
+    public Summary parseSingleFileInSourceSet(URI uri, SourceSet sourceSet, ParseOptions parseOptions) {
         Summary summary = new SummaryImpl(true); // once stable, change to false
         try (InputStreamReader isr = makeInputStreamReader(uri, StandardCharsets.UTF_8); StringWriter sw = new StringWriter()) {
             isr.transferTo(sw);

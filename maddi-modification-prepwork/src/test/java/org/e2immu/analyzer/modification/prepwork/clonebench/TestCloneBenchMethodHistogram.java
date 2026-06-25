@@ -22,7 +22,6 @@ import org.e2immu.language.cst.api.info.Info;
 import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.openjdk.JavaInspectorImpl;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -82,10 +81,9 @@ public class TestCloneBenchMethodHistogram extends CommonTest {
         return PROCESSED.matcher(name).matches();
     }
 
-    private void process(SourceSet sourceSet, PrepAnalyzer analyzer, File javaFile, Map<String, Integer> methodHistogram)
-            throws IOException {
+    private void process(SourceSet sourceSet, PrepAnalyzer analyzer, File javaFile, Map<String, Integer> methodHistogram) {
         LOGGER.info("Start parsing {} in set {}", javaFile, sourceSet.name());
-        TypeInfo typeInfo = javaInspector.parse(javaFile.toURI(), sourceSet, parseOptions).parseResult().firstType();
+        TypeInfo typeInfo = javaInspector.parseSingleFileInSourceSet(javaFile.toURI(), sourceSet, parseOptions).parseResult().firstType();
         List<Info> analysisOrder = analyzer.doPrimaryType(typeInfo);
         LOGGER.info("-    analysis order size {}", analysisOrder.size());
         analysisOrder.stream().filter(info -> info instanceof MethodInfo)

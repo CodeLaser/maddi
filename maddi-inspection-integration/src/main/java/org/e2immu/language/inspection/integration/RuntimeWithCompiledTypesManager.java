@@ -121,6 +121,7 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
         sam.analysis().set(PropertyImpl.NON_MODIFYING_METHOD, ValueImpl.BoolImpl.FALSE);
         sam.builder()
                 .setSynthetic(true)
+                .setSource(noSource())
                 .setAccess(accessPublic())
                 .addMethodModifier(methodModifierPublic())
                 .setReturnType(returnType);
