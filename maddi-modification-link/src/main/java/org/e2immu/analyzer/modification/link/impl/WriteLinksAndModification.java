@@ -45,6 +45,7 @@ record WriteLinksAndModification(JavaInspector javaInspector, Runtime runtime,
                             Set<Variable> previouslyModified,
                             Map<Variable, Set<MethodInfo>> modifiedDuringEvaluation,
                             Map<Variable, Map<Variable, LinkNature>> graph) {
+        assert vd != null;
 
         // do the first iteration
         LoopResult lr = loopOverVd(vd, statement, lastStatement, graph, previouslyModified, modifiedDuringEvaluation);

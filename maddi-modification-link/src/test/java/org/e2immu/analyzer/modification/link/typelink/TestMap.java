@@ -26,7 +26,7 @@ public class TestMap extends CommonTest {
     @Language("java")
     private static final String INPUT1 = """
             package a.b;
-            import java.util.Map;
+            import java.util.Collection;import java.util.Map;
             import java.util.HashMap;
             import java.util.Set;
             public class C<K, V> {
@@ -53,14 +53,14 @@ public class TestMap extends CommonTest {
                 }
             
                 // these methods are here to give Map multiplicity 2 for the shallow computations
-                public Set<V> values() { return map.values(); }
+                public Collection<V> values() { return map.values(); }
                 public Set<K> keySet() { return map.keySet(); }
             }
             """;
 
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -128,7 +128,7 @@ public class TestMap extends CommonTest {
 
     @Test
     public void testShallow1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.C", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);
@@ -181,7 +181,7 @@ public class TestMap extends CommonTest {
 
     @Test
     public void test1b() {
-        TypeInfo C = javaInspector.parse(INPUT1B);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1B);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         MethodInfo init = C.findUniqueMethod("init", 2);
@@ -248,7 +248,7 @@ public class TestMap extends CommonTest {
 
     @Test
     public void test2Reverse0() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -419,7 +419,7 @@ public class TestMap extends CommonTest {
 
     @Test
     public void test2Reverse() {
-        TypeInfo C = javaInspector.parse(INPUT2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -483,7 +483,7 @@ public class TestMap extends CommonTest {
 
     @Test
     public void testShallow2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.C", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector, LinkComputer.Options.FORCE_SHALLOW);

@@ -75,8 +75,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public void invalidateAllSources() {
-        sourceFiles.values().stream().flatMap(Collection::stream).forEach(ti ->
-                compiledTypesManager.invalidate(ti));
+       infoByFqn.removeAllSources();
     }
 
     @Override

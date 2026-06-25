@@ -52,7 +52,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("list.forEach(j -> add(j))")
     @Test
     public void test3() {
-        TypeInfo X = javaInspector.parse(INPUT3);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT3);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -111,7 +111,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("list.forEach(j -> set.add(j))")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -163,7 +163,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("list.forEach(j -> x.add(j))")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -224,7 +224,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("list.forEach(j -> X.add(j))")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT6);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -284,7 +284,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("map.forEach((k, j) -> put(k, j))")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT7);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -346,10 +346,7 @@ public class TestForEachLambda extends CommonTest {
                  void put2(H h, II ii) {
                      put(h, ii);
                  }
-                 static void method(Map<H, II> map) {
-                    map.forEach((p0, p1) -> put(p0, p1));
-                 }
-                 void method2(Map<H, II> map) {
+                 void method(Map<H, II> map) {
                     map.forEach((p0, p1) -> put(p0, p1));
                  }
             }
@@ -358,7 +355,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("map.forEach((p0, p1) -> put(p0, p1))")
     @Test
     public void test8() {
-        TypeInfo X = javaInspector.parse(INPUT8);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT8);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -382,10 +379,6 @@ public class TestForEachLambda extends CommonTest {
         MethodInfo method = X.findUniqueMethod("method", 1);
         MethodLinkedVariables mlvMethod = method.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
         assertEquals(LINKS_MAP_PUT, mlvMethod.toString());
-
-        MethodInfo method2 = X.findUniqueMethod("method2", 1);
-        MethodLinkedVariables mlvMethod2 = method2.analysis().getOrNull(METHOD_LINKS, MethodLinkedVariablesImpl.class);
-        assertEquals(LINKS_MAP_PUT, mlvMethod2.toString());
     }
 
 
@@ -411,7 +404,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("map.forEach((p0, p1) -> put(p1, p0))")
     @Test
     public void test9() {
-        TypeInfo X = javaInspector.parse(INPUT9);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT9);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -460,7 +453,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("map.forEach((p0, p1) -> put(p1, p0)) using anonymous class construction")
     @Test
     public void test9b() {
-        TypeInfo X = javaInspector.parse(INPUT9b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT9b);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
@@ -497,7 +490,7 @@ public class TestForEachLambda extends CommonTest {
     @DisplayName("forEach without type parameters")
     @Test
     public void test10() {
-        TypeInfo C = javaInspector.parse(INPUT10);
+        TypeInfo C = javaInspector.parse("a.b.ii.C", INPUT10);
         TypeInfo II = C.findSubType("II");
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());

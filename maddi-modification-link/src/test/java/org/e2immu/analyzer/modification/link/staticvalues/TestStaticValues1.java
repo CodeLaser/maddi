@@ -45,7 +45,7 @@ public class TestStaticValues1 extends CommonTest {
     @DisplayName("direct assignment")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -94,7 +94,7 @@ public class TestStaticValues1 extends CommonTest {
     @DisplayName("assignment to field")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -178,7 +178,7 @@ public class TestStaticValues1 extends CommonTest {
     @DisplayName("one level deep")
     @Test
     public void test4() {
-        TypeInfo X = javaInspector.parse(INPUT4);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -220,8 +220,8 @@ public class TestStaticValues1 extends CommonTest {
             package a.b;
             import java.util.Set;
             class X {
-                record R(int i, int j) {}
-                record S(R r, int k) {}
+                static class R { int i; int j; }
+                static class S { R r; int k; }
             
                 int method(S s) {
                     s.r.i = 3;
@@ -234,7 +234,7 @@ public class TestStaticValues1 extends CommonTest {
     @DisplayName("two levels deep")
     @Test
     public void test5() {
-        TypeInfo X = javaInspector.parse(INPUT5);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -279,8 +279,8 @@ public class TestStaticValues1 extends CommonTest {
             package a.b;
             import java.util.Set;
             class X {
-                record R(int i, int j) {}
-                record S(R r, int k) {}
+                static class R { int i; int j; int j() { return j; } }
+                static class S { R r; int k; R r() { return r; }}
             
                 int method(S s) {
                     s.r().i = 3;
@@ -293,7 +293,7 @@ public class TestStaticValues1 extends CommonTest {
     @DisplayName("two levels deep, accessors")
     @Test
     public void test5b() {
-        TypeInfo X = javaInspector.parse(INPUT5b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT5b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -338,7 +338,7 @@ public class TestStaticValues1 extends CommonTest {
             package a.b;
             import java.util.Set;
             class X {
-                record R(int i, int j) {}
+                static class R { int i; int j; }
                 record S(R r, int k) {}
                 record T(S s, int l) {}
             
@@ -354,7 +354,7 @@ public class TestStaticValues1 extends CommonTest {
     @DisplayName("three levels deep")
     @Test
     public void test6() {
-        TypeInfo X = javaInspector.parse(INPUT6);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT6);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);

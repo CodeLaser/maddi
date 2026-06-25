@@ -50,7 +50,7 @@ public class TestShallow extends CommonTest {
     @DisplayName("Analyze 'get/set', multiplicity 1")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -96,7 +96,7 @@ public class TestShallow extends CommonTest {
     @DisplayName("Analyze 'get/set', multiplicity 1, with bound type parameter")
     @Test
     public void test1b() {
-        TypeInfo X = javaInspector.parse(INPUT1b);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 
@@ -405,7 +405,7 @@ public class TestShallow extends CommonTest {
     @DisplayName("Analyze simpler version of Collections.addAll")
     @Test
     public void test7() {
-        TypeInfo X = javaInspector.parse(INPUT7);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT7);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, true);
@@ -448,7 +448,7 @@ public class TestShallow extends CommonTest {
             package a.b;
             import org.e2immu.annotation.Independent;
             import java.util.List;
-            public class C<X> {
+            public abstract class C<X> {
                 record R<V>(V v) { }
                 @Independent(hc = true)
                 abstract List<R<X>> method(@Independent(hc = true) List<X> list);
@@ -458,7 +458,7 @@ public class TestShallow extends CommonTest {
     @DisplayName("wrapped")
     @Test
     public void test9() {
-        TypeInfo C = javaInspector.parse(INPUT9);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT9);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
@@ -494,7 +494,7 @@ public class TestShallow extends CommonTest {
     @DisplayName("wrapped, method type parameter")
     @Test
     public void test9b() {
-        TypeInfo C = javaInspector.parse(INPUT9b);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT9b);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
@@ -532,7 +532,7 @@ public class TestShallow extends CommonTest {
     @DisplayName("Analyze simpler version of System.arraycopy")
     @Test
     public void test10() {
-        TypeInfo X = javaInspector.parse(INPUT10);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT10);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         ShallowAnalyzer shallowAnalyzer = new ShallowAnalyzer(runtime, Element::annotations, false);
@@ -574,7 +574,7 @@ public class TestShallow extends CommonTest {
     @DisplayName("from a MapMap into a type parameter")
     @Test
     public void test12() {
-        TypeInfo X = javaInspector.parse(INPUT12);
+        TypeInfo X = javaInspector.parse("a.b.EdgePrinter", INPUT12);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         MethodInfo print = X.findUniqueMethod("print", 1);

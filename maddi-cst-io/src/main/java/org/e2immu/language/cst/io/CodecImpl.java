@@ -189,32 +189,45 @@ public class CodecImpl implements Codec {
         return decodeInfoOutOfContext(context, list);
     }
 
+    public record DR(Info current, TypeAndSorted typeAndSorted) {
+    }
+
     protected Info decodeInfoOutOfContext(Context context, List<EncodedValue> list) {
-        Object current = null;
+        Info current = null;
+        TypeAndSorted tas = null;
         int pos = 0;
         for (EncodedValue ev : list) {
             if (ev instanceof D(Node s) && s instanceof StringLiteral sl) {
                 String src = unquote(sl.getSource());
                 char type = src.charAt(0);
-                current = decodeInfo(context, current, type, src.substring(1), list, pos);
+                DR dr = decodeInfo(context, current, tas, type, src.substring(1), list, pos);
+                current = dr.current;
+                tas = dr.typeAndSorted;
                 if (type != 'T' && type != 'S' && type != 'M' && type != 'C' && type != 'U') {
                     break; // nothing can follow; in particular, we definitely want to stop after F and V (see linking)
                 }
             } //else throw new UnsupportedOperationException();
             ++pos;
         }
-        return current instanceof TypeAndSorted tas ? tas.typeInfo() : (Info) current;
+        return current;
     }
 
-    // NOTE: is being overridden, and there te context is used
-    protected Object decodeInfo(Context context, Object current, char type, String name, List<EncodedValue> list, int pos) {
+    // FIXME we should return both TAS and the actual current
+    // NOTE: is being overridden, and there the 'context' parameter is used
+    protected DR decodeInfo(Context context, Info current, TypeAndSorted tas, char type, String name, List<EncodedValue> list, int pos) {
         return switch (type) {
-            case 'F' -> decodeFieldInfo((TypeAndSorted) current, name);
-            case 'C' -> decodeConstructor((TypeAndSorted) current, name);
-            case 'M' -> decodeMethodInfo((TypeAndSorted) current, name);
-            case 'T' -> new TypeAndSorted(typeProvider.get(name));
-            case 'S' -> new TypeAndSorted(decodeSubType((TypeAndSorted) current, name));
-            case 'P' -> decodeParameterInfo((MethodInfo) current, name);
+            case 'F' -> new DR(decodeFieldInfo(tas, name), tas);
+            case 'C' -> new DR(decodeConstructor(tas, name), tas);
+            case 'M' -> new DR(decodeMethodInfo(tas, name), tas);
+            case 'T' -> {
+                TypeInfo typeInfo = typeProvider.get(name);
+                yield new DR(typeInfo, new TypeAndSorted(typeInfo));
+            }
+            case 'S' -> {
+                TypeInfo sub = decodeSubType(tas, name);
+                yield new DR(sub, new TypeAndSorted(sub));
+            }
+            case 'P' -> new DR(decodeParameterInfo((MethodInfo) current, name), tas);
             default -> throw new UnsupportedOperationException();
         };
     }

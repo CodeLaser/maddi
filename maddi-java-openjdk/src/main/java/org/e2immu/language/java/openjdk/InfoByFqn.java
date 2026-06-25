@@ -16,6 +16,16 @@ public class InfoByFqn {
 
     private final Set<TypeInfo> loadedForThisSourceSet = new HashSet<>();
 
+    public void removeAllSources() {
+        singleTypeByFqn.values().removeIf(InfoByFqn::isSourceType);
+        multiTypeByFqn.values().forEach(list -> list.removeIf(InfoByFqn::isSourceType));
+        multiTypeByFqn.values().removeIf(List::isEmpty);
+    }
+
+    private static boolean isSourceType(TypeInfo ti) {
+        return ti.compilationUnit().sourceSet() != null && !ti.compilationUnit().sourceSet().externalLibrary();
+    }
+
     void startOfNewSourceSet() {
         loadedForThisSourceSet.clear();
     }

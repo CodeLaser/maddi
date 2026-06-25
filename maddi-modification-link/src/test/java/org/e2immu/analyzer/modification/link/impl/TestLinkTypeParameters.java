@@ -82,7 +82,7 @@ public class TestLinkTypeParameters extends CommonTest {
     @DisplayName("constructing pairs")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);
@@ -205,7 +205,7 @@ public class TestLinkTypeParameters extends CommonTest {
     @DisplayName("reverse, and pack in R")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         prepAnalyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
         tlc.doPrimaryType(X);

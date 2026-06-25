@@ -60,7 +60,7 @@ public class TestAssignToField extends CommonTest {
     @DisplayName("direct assignment")
     @Test
     public void test1() {
-        TypeInfo X = javaInspector.parse(INPUT);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
         LinkComputer tlc = new LinkComputerImpl(javaInspector);
@@ -99,7 +99,7 @@ public class TestAssignToField extends CommonTest {
     @DisplayName("direct assignment, type parameter")
     @Test
     public void test2() {
-        TypeInfo X = javaInspector.parse(INPUT2);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 

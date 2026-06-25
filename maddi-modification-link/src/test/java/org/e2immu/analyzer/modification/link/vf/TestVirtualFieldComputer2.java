@@ -36,7 +36,7 @@ public class TestVirtualFieldComputer2 extends CommonTest {
     @DisplayName("Collection<I>[]")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("B", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         MethodInfo method = C.findUniqueMethod("combine", 2);
@@ -67,7 +67,7 @@ public class TestVirtualFieldComputer2 extends CommonTest {
     @DisplayName("new HashSet<>(set)")
     @Test
     public void test3() {
-        TypeInfo B = javaInspector.parse(INPUT2);
+        TypeInfo B = javaInspector.parse("a.b.B", INPUT2);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         MethodInfo method = B.findConstructor(1);
@@ -101,7 +101,7 @@ public class TestVirtualFieldComputer2 extends CommonTest {
     @DisplayName("new HashMap<Long, Integer[]>()")
     @Test
     public void test4() {
-        TypeInfo B = javaInspector.parse(INPUT4);
+        TypeInfo B = javaInspector.parse("a.b.B", INPUT4);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(B);
         MethodInfo method = B.findConstructor(0);

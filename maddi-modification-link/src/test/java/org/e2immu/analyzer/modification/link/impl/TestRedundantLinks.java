@@ -35,7 +35,7 @@ public class TestRedundantLinks extends CommonTest {
     @DisplayName("simple chain")
     @Test
     public void test1a() {
-        TypeInfo X = javaInspector.parse(INPUT1);
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT1);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(X);
 

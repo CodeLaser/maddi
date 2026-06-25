@@ -294,7 +294,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     @DisplayName("wrapped")
     @Test
     public void test11() {
-        TypeInfo C = javaInspector.parse(INPUT11);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT11);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         TypeInfo R = C.findSubType("R");
@@ -350,7 +350,7 @@ public class TestVirtualFieldComputer extends CommonTest {
     @DisplayName("iterable")
     @Test
     public void test13() {
-        TypeInfo C = javaInspector.parse(INPUT13);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT13);
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
         MethodInfo method = C.findUniqueMethod("method", 1);

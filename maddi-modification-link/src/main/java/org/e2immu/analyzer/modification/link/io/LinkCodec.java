@@ -253,9 +253,10 @@ public class LinkCodec {
                     return streamSyntheticFieldDetails(context, fi, s);
                 }
             }
-            return super.encodeInfoOutOfContextStream(context,
-                    null, // FIXME
-                    info);
+            TypeAndSorted typeAndSorted = info instanceof TypeInfo ti && ti.compilationUnitOrEnclosingType().isRight()
+                    ? new TypeAndSorted(ti.compilationUnitOrEnclosingType().getRight())
+                    : new TypeAndSorted(info.typeInfo());
+            return super.encodeInfoOutOfContextStream(context, typeAndSorted, info);
         }
 
         private @NotNull Stream<EncodedValue> streamSyntheticFieldDetails(Context context, FieldInfo fi, String s) {
@@ -289,13 +290,13 @@ public class LinkCodec {
         }
 
         @Override
-        protected Object decodeInfo(Context context,
-                                  Object currentTypeIn,
-                                  char type,
-                                  String name,
-                                  List<EncodedValue> list,
-                                  int pos) {
-            TypeAndSorted currentType = (TypeAndSorted) currentTypeIn;
+        protected DR decodeInfo(Context context,
+                                Info currentType,
+                                TypeAndSorted typeAndSorted,
+                                char type,
+                                String name,
+                                List<EncodedValue> list,
+                                int pos) {
             if ('U' == type) {
                 // decode virtual container type
                 List<EncodedValue> tail = list.subList(pos + 1, list.size());
@@ -314,16 +315,17 @@ public class LinkCodec {
                     containerType = VirtualFieldComputer.makeContainer(runtime, owner, typeName, fields);
                 }
                 virtualTypes.put(containerType.fullyQualifiedName(), containerType);
-                return containerType;
+                return new DR(containerType, new TypeAndSorted(containerType));
             }
             if ('V' == type || 'G' == type) {
                 // decode synthetic field (virtual, or created via makeComparableSub)
                 TypeInfo owner = currentType.typeInfo();
                 assert list.size() == pos + 2; // pre, this, one extra
                 ParameterizedType fieldType = decodeType(context, list.get(pos + 1));
-                return VirtualFieldComputer.newFieldKeepName(runtime, name, fieldType, owner);
+                FieldInfo newField = VirtualFieldComputer.newFieldKeepName(runtime, name, fieldType, owner);
+                return new DR(newField, typeAndSorted);
             }
-            return super.decodeInfo(context, currentTypeIn, type, name, list, pos);
+            return super.decodeInfo(context, currentType, typeAndSorted, type, name, list, pos);
         }
 
         private String nameComponent(FieldInfo fieldInfo) {

@@ -62,7 +62,7 @@ public class TestStream extends CommonTest {
     @DisplayName("identity function")
     @Test
     public void testIdentity() {
-        TypeInfo C = javaInspector.parse(INPUT_IDENTITY);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT_IDENTITY);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -182,7 +182,7 @@ public class TestStream extends CommonTest {
     @DisplayName("T[]->T, take first element")
     @Test
     public void testTakeFirst() {
-        TypeInfo C = javaInspector.parse(INPUT_TAKE_FIRST);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT_TAKE_FIRST);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -249,7 +249,7 @@ public class TestStream extends CommonTest {
     @DisplayName("T->R(T), wrap")
     @Test
     public void testWrap() {
-        TypeInfo C = javaInspector.parse(INPUT_WRAP);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT_WRAP);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -310,7 +310,7 @@ public class TestStream extends CommonTest {
     @DisplayName("T->R[](T), wrapped 2x")
     @Test
     public void testWrap2() {
-        TypeInfo C = javaInspector.parse(INPUT_WRAP2);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT_WRAP2);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
@@ -381,7 +381,7 @@ public class TestStream extends CommonTest {
     @DisplayName("MR to instance function swap")
     @Test
     public void test1() {
-        TypeInfo C = javaInspector.parse(INPUT1);
+        TypeInfo C = javaInspector.parse("a.b.C", INPUT1);
 
         PrepAnalyzer analyzer = new PrepAnalyzer(runtime, new PrepAnalyzer.Options.Builder().build());
         analyzer.doPrimaryType(C);
