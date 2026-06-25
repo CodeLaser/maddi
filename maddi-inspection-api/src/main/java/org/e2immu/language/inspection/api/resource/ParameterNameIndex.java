@@ -60,11 +60,21 @@ public class ParameterNameIndex {
      * {@code <init>} for a constructor. Derivable identically from any {@link MethodInfo}, regardless of loader.
      */
     public static String key(MethodInfo methodInfo) {
-        String params = methodInfo.parameters().stream()
+        List<String> erasedParamFqns = methodInfo.parameters().stream()
                 .map(pi -> pi.parameterizedType().erasedForFQN().fullyQualifiedName())
-                .collect(Collectors.joining(","));
-        String name = methodInfo.isConstructor() ? "<init>" : methodInfo.name();
-        return methodInfo.typeInfo().fullyQualifiedName() + "." + name + "(" + params + ")";
+                .collect(Collectors.toList());
+        return key(methodInfo.typeInfo().fullyQualifiedName(),
+                methodInfo.isConstructor() ? "<init>" : methodInfo.name(), erasedParamFqns);
+    }
+
+    /**
+     * Same key from the raw components, so a loader that has not yet built a {@link MethodInfo} (e.g. the
+     * javac-based one, while it is adding parameters) can look up the names. {@code methodNameOrInit} is the
+     * method name, or {@code <init>} for a constructor; the FQNs are the {@code erasedForFQN()} names of the
+     * (already resolved) parameter types, in order.
+     */
+    public static String key(String typeFqn, String methodNameOrInit, List<String> erasedParamFqns) {
+        return typeFqn + "." + methodNameOrInit + "(" + String.join(",", erasedParamFqns) + ")";
     }
 
     public void put(MethodInfo methodInfo) {

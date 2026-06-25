@@ -15,6 +15,7 @@ import org.e2immu.language.cst.api.type.NamedType;
 import org.e2immu.language.cst.api.type.ParameterizedType;
 import org.e2immu.language.cst.api.type.Wildcard;
 import org.e2immu.language.inspection.api.resource.InputConfiguration;
+import org.e2immu.language.inspection.api.resource.ParameterNameIndex;
 import org.e2immu.language.inspection.api.util.CreateSyntheticFieldsForGetSet;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.jetbrains.annotations.NotNull;
@@ -53,6 +54,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private final Map<String, SourceSet> sourceSetDirPrefixes;
     private final ComputeMethodOverrides computeMethodOverrides;
     private final MaddiDiagnosticCollector diagnosticCollector;
+    // when non-null, supplies faithful formal parameter names for class-file methods (javac only gives arg0,...)
+    private final ParameterNameIndex parameterNameIndex;
 
     private final InfoByFqn infoByFqn; // Javac qualified name -> typeInfo, methodInfo, fieldInfo
     private final Map<Symbol.MethodSymbol, MethodInfo> methodSymbolMap = new IdentityHashMap<>();
@@ -79,7 +82,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                               FlagHelper flagHelper,
                               Types types,
                               Elements elements,
-                              MaddiDiagnosticCollector maddiDiagnosticCollector) {
+                              MaddiDiagnosticCollector maddiDiagnosticCollector,
+                              @Nullable ParameterNameIndex parameterNameIndex) {
         this.runtime = runtime;
         this.flagHelper = flagHelper;
         this.elements = elements;
@@ -88,6 +92,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         this.sourceSetOfCurrentTask = sourceSetOfCurrentTask;
         assert inputConfiguration.sourceSets().contains(sourceSetOfCurrentTask);
         this.diagnosticCollector = maddiDiagnosticCollector;
+        this.parameterNameIndex = parameterNameIndex;
         this.computeMethodOverrides = new ComputeMethodOverrides(types, elements);
         this.createSyntheticFieldsForGetSet = new CreateSyntheticFieldsForGetSet(runtime);
 
@@ -310,6 +315,21 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
         }
         newTp.builder().addAnnotations(loadAnnotations(typeParameter)).setTypeBounds(List.copyOf(bounds)).commit();
+    }
+
+    // looks up faithful parameter names for the method being built, keyed on its (erased) signature; null when
+    // there is no index, no parameters, or no entry — callers then keep javac's synthetic arg0, arg1, ... names
+    private List<String> lookupParameterNames(TypeInfo typeInfo, String name, List<ParameterizedType> paramTypes) {
+        if (parameterNameIndex == null || paramTypes.isEmpty()) return null;
+        try {
+            List<String> erasedParamFqns = paramTypes.stream()
+                    .map(pt -> pt.erasedForFQN().fullyQualifiedName()).collect(Collectors.toList());
+            return parameterNameIndex.parameterNames(
+                    ParameterNameIndex.key(typeInfo.fullyQualifiedName(), name, erasedParamFqns));
+        } catch (RuntimeException re) {
+            LOGGER.warn("Cannot look up parameter names for {}.{}: {}", typeInfo, name, re.toString());
+            return null;
+        }
     }
 
     // ---- declaration annotations, read from a class file via the symbol's annotation mirrors ----
@@ -587,15 +607,23 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         ms.getThrownTypes().forEach(t -> builder.addExceptionType(convert(t)));
 
         if (ms.params != null) {
+            // resolve all parameter types up front, so the index can be keyed on the full (erased) signature
+            List<ParameterizedType> paramTypes = ms.params.stream().map(p -> convert(p.type))
+                    .collect(Collectors.toList());
+            List<String> realNames = lookupParameterNames(typeInfo, name, paramTypes);
+            int pIndex = 0;
             for (Symbol.VarSymbol parameter : ms.params) {
-                ParameterizedType pt = convert(parameter.type);
-                ParameterInfo parameterInfo = builder.addParameter(parameter.getSimpleName().toString(), pt);
+                ParameterizedType pt = paramTypes.get(pIndex);
+                String paramName = realNames != null && pIndex < realNames.size()
+                        ? realNames.get(pIndex) : parameter.getSimpleName().toString();
+                ParameterInfo parameterInfo = builder.addParameter(paramName, pt);
                 long flags = parameter.flags();
                 if ((flags & Flags.VARARGS) != 0) parameterInfo.builder().setVarArgs(true);
                 if ((flags & Flags.FINAL) != 0) parameterInfo.builder().setIsFinal(true);
                 parameterInfo.builder().addAnnotations(loadAnnotations(parameter));
                 parameterInfo.builder().commit();
                 // FIXME when source type, do not commit yet, we must set detailed sources
+                pIndex++;
             }
         }
         ParameterizedType returnType = isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()

@@ -78,14 +78,21 @@ public interface JavaInspector {
                         Invalidated invalidated,
                         boolean parallel,
                         boolean lombok,
-                        boolean ignoreModule) {
+                        boolean ignoreModule,
+                        boolean parameterNames) {
         public static class Builder {
             boolean failFast;
             boolean detailedSources;
-            Invalidated invalidated;
+            Invalidated invalidated = _ -> InvalidationState.UNCHANGED;
             boolean parallel;
             boolean lombok;
             boolean ignoreModule;
+            boolean parameterNames;
+
+            public Builder setParameterNames(boolean parameterNames) {
+                this.parameterNames = parameterNames;
+                return this;
+            }
 
             public Builder setFailFast(boolean failFast) {
                 this.failFast = failFast;
@@ -118,7 +125,8 @@ public interface JavaInspector {
             }
 
             public ParseOptions build() {
-                return new ParseOptions(failFast, detailedSources, invalidated, parallel, lombok, ignoreModule);
+                return new ParseOptions(failFast, detailedSources, invalidated, parallel, lombok, ignoreModule,
+                        parameterNames);
             }
         }
     }

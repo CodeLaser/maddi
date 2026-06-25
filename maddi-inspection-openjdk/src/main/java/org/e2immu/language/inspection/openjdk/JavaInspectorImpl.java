@@ -41,8 +41,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static org.e2immu.language.inspection.api.integration.JavaInspector.InvalidationState.UNCHANGED;
-
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
     private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000L);
@@ -69,8 +67,7 @@ public class JavaInspectorImpl implements JavaInspector {
 
     public static final String JAR_WITH_PATH_PREFIX = "jar-on-classpath:";
     public static final String E2IMMU_SUPPORT = JAR_WITH_PATH_PREFIX + "org/e2immu/annotation";
-    public static final ParseOptions FAIL_FAST = new ParseOptions(true, false,
-            _ -> UNCHANGED, false, false, false);
+    public static final ParseOptions FAIL_FAST = new ParseOptions.Builder().setFailFast(true).build();
     public static final ParseOptions DETAILED_SOURCES = new ParseOptions.Builder().setDetailedSources(true).build();
 
     @Override
@@ -235,8 +232,10 @@ public class JavaInspectorImpl implements JavaInspector {
             LOGGER.warn("Have no sources in source set {}", sourceSet.name());
             return;
         }
+        // TODO when parseOptions.parameterNames() is set, load the ParameterNameIndex (the .paramnames.gz
+        //  resources) and pass it here instead of null, so class-file methods get faithful parameter names
         ScanCompilationUnits scanCompilationUnits = new ScanCompilationUnits(runtime, inputConfiguration,
-                javacTask, sourceSet, infoByFqn, true, diagnostics, preload);
+                javacTask, sourceSet, infoByFqn, true, diagnostics, preload, null);
         ScanCompilationUnits.Result scanned = scanCompilationUnits.scan();
 
         // copy from scanned into summary
