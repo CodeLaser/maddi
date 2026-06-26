@@ -228,7 +228,7 @@ public class TestEnum extends CommonTest {
         assertSame(level, set.type().parameters().getFirst().typeInfo());
         TypeInfo enumSet = set.type().typeInfo();
         assertEquals(1, enumSet.typeParameters().size());
-        assertEquals("E=TP#0 in EnumSet [Type ? extends Enum<E extends ? extends Enum<E>>]",
+        assertEquals("E=TP#0 in EnumSet [Type ? extends Enum<E extends Enum<E>>]",
                 enumSet.typeParameters().getFirst().toStringWithTypeBounds());
         classSymbolScanner.commitType(enumSet);
         assertTrue(enumSet.hasBeenInspected());
