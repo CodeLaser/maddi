@@ -673,7 +673,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 int addToStatementsSize = methodInfo.methodType().isCompactConstructor()
                                           && currentType.typeNature().isRecord()
                         ? methodInfo.parameters().size() : 0;
-                methodBody = parseBlock("-", node.getBody(), addToStatementsSize);
+                methodBody = parseBlock("-", node.getBody(), addToStatementsSize, false);
                 elementStack.pop();
                 currentMethod = null;
             }
@@ -815,10 +815,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
     }
 
     private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
-        return parseBlock(blockIndex, node, 0, variablesToAdd);
+        return parseBlock(blockIndex, node, 0, false, variablesToAdd);
     }
 
-    private Block parseBlock(String blockIndex, Tree node, int addToStatementsSize, LocalVariable... variablesToAdd) {
+    // the block source index: a sub-component block (an if/while/for/try body, an else, ...) sits at 'i.<blockIndex>'
+    // relative to its statement 'i'; a standalone '{ }' block, however, *is* the statement, so it keeps that index
+    private Source blockSource(boolean blockAsStatement, String blockIndexAtStatement, Source source) {
+        return "-".equals(blockIndexAtStatement) || blockAsStatement ? source
+                : source.withIndex(blockIndexAtStatement);
+    }
+
+    private Block parseBlock(String blockIndex, Tree node, int addToStatementsSize, boolean blockAsStatement,
+                             LocalVariable... variablesToAdd) {
         List<JCTree.JCStatement> statements;
         Source source = statementSourceForNode(node);
 
@@ -826,20 +834,22 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case JCTree.JCBlock block -> statements = block.stats;
             case JCTree.JCStatement statement -> statements = List.of(statement);
             case null -> {
+                String i = "-".equals(blockIndex) ? "-" : statementIndex() + "." + blockIndex;
                 return runtime.newBlockBuilder()
-                        .setSource(source)
+                        .setSource(blockSource(blockAsStatement, i, source))
                         .addComments(commentsForNode(source))
                         .build();
             }
             default -> throw new UnsupportedOperationException("NYI");
         }
-        return parseBlock(blockIndex, statements, addToStatementsSize,
+        return parseBlock(blockIndex, statements, addToStatementsSize, blockAsStatement,
                 statementLabels.get(node), source, variablesToAdd);
     }
 
     private Block parseBlock(String blockIndex,
                              List<JCTree.JCStatement> statements,
                              int addToStatementsSize,
+                             boolean blockAsStatement,
                              String label,
                              Source source,
                              LocalVariable... variablesToAdd) {
@@ -853,7 +863,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         for (JCTree.JCStatement statement : statements) {
             if (statement instanceof JCTree.JCBlock subBlock) {
-                Block parsedSub = parseBlock("0", subBlock, 0);
+                // a standalone '{ }' block is itself a statement, so it keeps the statement index (not 'i.0')
+                Block parsedSub = parseBlock("0", subBlock, 0, true);
                 addStatement(parsedSub);
             } else if (statement instanceof JCTree.JCClassDecl localType) {
                 Statement localTypeCreation = handleLocalType(localType);
@@ -867,7 +878,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
         return blockBuilders.removeLast().blockBuilder
                 .setLabel(label)
-                .setSource(source)
+                .setSource(blockSource(blockAsStatement, i, source))
                 .addTrailingComments(trailingCommentsForNode(source))
                 .addComments(commentsForNode(source))
                 .build();
@@ -1222,7 +1233,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 statementsToParse.addAll(jcCase.stats);
                 statementCount += jcCase.stats.size();
             }
-            Block block = parseBlock("0", statementsToParse, 0,
+            Block block = parseBlock("0", statementsToParse, 0, false,
                     null, sourceForNode(node));
             s = runtime.newSwitchStatementOldStyleBuilder()
                     .setLabel(statementLabels.get(node))
