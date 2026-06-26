@@ -62,7 +62,7 @@ public class TestIsolateMethod1 {
         String expected = """
                 import java.util.ArrayList;
                 import java.util.List;
-                public class X_method { }
+                public class X_method {void _method_to_be_replaced_() { } }
                 """;
         assertEquals(expected, isolateMethod.print(r));
     }
@@ -105,6 +105,7 @@ public class TestIsolateMethod1 {
                 public class X_method {
                     static int length(List<String> list) { return 0; }
                     void add(List<String> list, String ... elements) { }
+                    void _method_to_be_replaced_() { }
                 }
                 """;
         assertEquals(expected, isolateMethod.print(r));
@@ -152,4 +153,52 @@ public class TestIsolateMethod1 {
         TypeInfo XMethod = javaInspector.parse("X_method", expected);
         assertNotNull(XMethod);
     }
+
+    @Language("java")
+    public static final String INPUT4 = """
+            package a.b;
+            import org.slf4j.Logger;
+            import org.slf4j.LoggerFactory;
+            import java.util.List;
+            public class X {
+                private static final Logger LOGGER = LoggerFactory.getLogger("X");
+                record S(String s) { }
+                record R(int i, List<S> strings) { }
+                void method(R r) {
+                    LOGGER.info("... {}", r.strings.getFirst().s);
+                }
+            }
+            """;
+
+    @DisplayName("more complex record use")
+    @Test
+    public void test4() {
+        TypeInfo X = javaInspector.parse("a.b.X", INPUT4);
+        IsolateMethod.Result r = isolateMethod.isolate(X.findUniqueMethod("method", 1));
+
+        String methodString = """
+                void method(R r) {
+                    LOGGER.info("... {}", r.strings.getFirst().s);
+                }""";
+
+        @Language("java")
+        String expected = """
+                import java.util.List;
+                public class X_method {
+                    Logger LOGGER;
+                    List<S> strings;
+                    class Logger {void info(String arg0, Object arg1) { } }
+                    class R { List<S> strings; }
+                    class S { String s; }
+                    void method(R r) {
+                    LOGGER.info("... {}", r.strings.getFirst().s);
+                }
+                }
+                """;
+        assertEquals(expected, isolateMethod.print(r, methodString));
+        javaInspector.invalidateAllSources();
+        TypeInfo XMethod = javaInspector.parse("X_method", expected);
+        assertNotNull(XMethod);
+    }
+
 }
