@@ -47,11 +47,15 @@ public class TestIfElse extends CommonTest {
         MethodInfo main = typeInfo.findUniqueMethod("main", 1);
         if (main.methodBody().statements().getFirst() instanceof IfElseStatement ifElse) {
             assertEquals("0", ifElse.source().index());
+            // a statement's blocks are nested under it: the then-block is i.0, the else-block i.1
+            assertEquals("0.0", ifElse.block().source().index());
+            assertEquals("0.1", ifElse.elseBlock().source().index());
             if (ifElse.block().statements().getFirst() instanceof ExpressionAsStatement eas) {
                 assertEquals("0.0.0", eas.source().index());
             } else fail();
             if (ifElse.elseBlock().statements().getFirst() instanceof IfElseStatement ifElse2) {
                 assertEquals("0.1.0", ifElse2.source().index());
+                assertEquals("0.1.0.0", ifElse2.block().source().index());
                 if (ifElse2.block().statements().getFirst() instanceof ExpressionAsStatement eas2) {
                     assertEquals("0.1.0.0.0", eas2.source().index());
                 } else fail();
