@@ -102,4 +102,41 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }
+
+    @Language("java")
+    public static final String INPUT3 = """
+            package a.b;
+            public class X {
+                Object method() {
+                    ArrayList list = new ArrayList();
+                    return list.get(0);
+                }
+            }
+            class ArrayList extends java.util.ArrayList<String> { }
+            """;
+
+    @DisplayName("custom type whose simple name clashes with its JDK supertype (ArrayList extends java.util.ArrayList)")
+    @Test
+    public void test3() {
+        TypeInfo x = parse("a.b.X", INPUT3);
+        String m = """
+                Object method() {
+                    ArrayList list = new ArrayList();
+                    return list.get(0);
+                }""";
+        String out = isolate(x, "method", 0, m);
+        @Language("java")
+        String expected = """
+                public class X_method {
+                    class ArrayList extends java.util.ArrayList<String> {ArrayList() { } }
+                    Object method() {
+                    ArrayList list = new ArrayList();
+                    return list.get(0);
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
 }

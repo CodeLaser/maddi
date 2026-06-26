@@ -72,6 +72,9 @@ public class ImportComputerImpl implements ImportComputer {
         Set<String> reservedNames = compilationUnit.types().stream()
                 .flatMap(TypeInfo::recursiveSubTypeStream)
                 .map(TypeInfo::simpleName).collect(Collectors.toUnmodifiableSet());
+        // a type declared in this compilation unit owns its simple name: a referenced type with the same simple
+        // name must be fully-qualified rather than imported, or the two would collide on the bare name
+        reservedNames.forEach(qualification::reserveSimpleNameAgainstImport);
         compilationUnit.types().stream()
                 .flatMap(ti -> ti.subTypes().stream()).forEach(qualification::addUnqualifiedType);
 

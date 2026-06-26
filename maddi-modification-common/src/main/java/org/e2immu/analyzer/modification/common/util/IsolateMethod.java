@@ -43,13 +43,25 @@ public class IsolateMethod {
 
     public String print(Result result) {
         ImportComputer importComputer = javaInspector.importComputer(4, javaInspector.mainSources());
-        result.jdkTypesToImport.forEach(importComputer::add);
+        addJdkImports(importComputer, result);
         return javaInspector.print2(result.typeInfo.compilationUnit(), runtime.qualificationSimpleNames(), importComputer);
+    }
+
+    // import the collected JDK types, except any whose simple name clashes with a stub declared in the frame (e.g. a
+    // client 'ArrayList' extending java.util.ArrayList): importing the JDK one would print it as the bare simple name
+    // and collide with the stub; instead leave it out so the import computer fully-qualifies it ('java.util.ArrayList')
+    private void addJdkImports(ImportComputer importComputer, Result result) {
+        Set<String> declaredSimpleNames = new HashSet<>();
+        result.typeInfo.compilationUnit().types()
+                .forEach(t -> t.recursiveSubTypeStream().forEach(st -> declaredSimpleNames.add(st.simpleName())));
+        result.jdkTypesToImport.stream()
+                .filter(t -> !declaredSimpleNames.contains(t.simpleName()))
+                .forEach(importComputer::add);
     }
 
     public String print(Result result, String methodString) {
         ImportComputer importComputer = javaInspector.importComputer(4, javaInspector.mainSources());
-        result.jdkTypesToImport.forEach(importComputer::add);
+        addJdkImports(importComputer, result);
         CompilationUnit compilationUnit = result.typeInfo.compilationUnit();
         Qualification qualification = runtime.qualificationSimpleNames();
         // the @Override supertype (if any) is the sibling top-level type; print its method qualifying from the primary
@@ -344,7 +356,11 @@ public class IsolateMethod {
             if (inMap != null) return;
             ParameterizedType newPt = ensureTypes(fieldInfo.type());
             FieldInfo newField = runtime.newFieldInfo(fieldInfo.name(), fieldInfo.isStatic(), newPt, owner);
-            FieldInfo.Builder fieldBuilder = newField.builder().setInitializer(runtime.newEmptyExpression())
+            // an interface field is implicitly 'public static final', so it must have an initializer (a bare
+            // 'String NAME;' does not compile in an interface); a class field may leave it empty
+            Expression initializer = interfaceStubs.contains(owner)
+                    ? runtime.nullValue(newPt) : runtime.newEmptyExpression();
+            FieldInfo.Builder fieldBuilder = newField.builder().setInitializer(initializer)
                     .setAccess(runtime.accessPackage());
             if (fieldInfo.isStatic()) fieldBuilder.addFieldModifier(runtime.fieldModifierStatic());
             fieldBuilder.commit();
@@ -353,6 +369,10 @@ public class IsolateMethod {
 
         private void ensureMethodInfo(TypeInfo owner, MethodInfo methodInfo) {
             if (isJdkType(owner)) return;
+            // a method inherited from a JDK supertype (e.g. ArrayList.get() from java.util.ArrayList on a custom
+            // subclass) resolves via the reproduced real supertype; stubbing it would leak that supertype's type
+            // parameters (e.g. 'E get(int)') into the stub, which are not in scope
+            if (isJdkType(methodInfo.typeInfo())) return;
             MethodInfo inMap = methodMap.get(methodInfo);
             if (inMap != null) return;
             // a non-static method on an interface stub becomes 'default' (keeps the body): an abstract method would

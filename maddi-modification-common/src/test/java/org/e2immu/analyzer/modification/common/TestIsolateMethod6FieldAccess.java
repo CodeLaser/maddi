@@ -76,4 +76,38 @@ public class TestIsolateMethod6FieldAccess extends CommonIsolateMethodTest {
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }
+
+    @Language("java")
+    public static final String F3 = """
+            package a.b;
+            interface Constants { String NAME = "x"; }
+            public class X {
+                String method() {
+                    return Constants.NAME;
+                }
+            }
+            """;
+
+    @DisplayName("constant on an interface stub needs an initializer value")
+    @Test
+    public void f3() {
+        TypeInfo X = parse("a.b.X", F3);
+        String m = """
+                String method() {
+                    return Constants.NAME;
+                }""";
+        String out = isolate(X, "method", 0, m);
+        @Language("java")
+        String expected = """
+                public class X_method {
+                    interface Constants { String NAME = null; }
+                    String method() {
+                    return Constants.NAME;
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
 }
