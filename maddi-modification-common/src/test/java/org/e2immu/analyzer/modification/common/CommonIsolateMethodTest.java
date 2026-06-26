@@ -39,7 +39,11 @@ public abstract class CommonIsolateMethodTest {
     // parse() returns the compilation unit's types in resolution order; when the primary type references a
     // sibling's member it can be returned after that sibling, so we look the wanted type up by its FQN.
     protected TypeInfo parse(String fqn, String source) {
-        return javaInspector.parse(Map.of(fqn, source), new JavaInspector.ParseOptions.Builder().build())
+        return javaInspector.parse(Map.of(fqn, source), new JavaInspector.ParseOptions.Builder()
+                        .setDetailedSources(true)
+                        .setFailFast(true)
+                        .setIgnoreModule(true)
+                        .build())
                 .parseResult().findType(fqn);
     }
 
