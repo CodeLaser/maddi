@@ -137,7 +137,7 @@ public class TestIsolateMethod2TypeParameters extends CommonIsolateMethodTest {
         @Language("java")
         String expected = """
                 public class X_method {
-                    class ThrowingSupplier<T> {T get() { return null; } }
+                    interface ThrowingSupplier<T> {default T get() { return null; } }
                     String method(ThrowingSupplier<String> supplier) throws Throwable {
                     return supplier.get();
                 }
