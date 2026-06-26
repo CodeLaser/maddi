@@ -179,7 +179,14 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             }
             URI uri;
             CompilationUnit cu;
-            if (cs.classfile == null) {
+            CompilationUnit currentCu = sourceProvider == null ? null : sourceProvider.currentCompilationUnit();
+            if (currentCu != null && cs.sourcefile != null && cs.sourcefile.toUri().equals(currentCu.uri())) {
+                // a forward reference (an 'extends'/'implements' naming a type declared later in the same source file
+                // being scanned): reuse that file's CompilationUnit, so all its top-level types share one instance
+                // rather than this load minting a second, equal-but-not-identical one
+                cu = currentCu;
+                internal = false;
+            } else if (cs.classfile == null) {
                 LOGGER.warn("Creating stub type for {}", cs);
                 cu = runtime.newCompilationUnitStub(packageName);
                 internal = false;
