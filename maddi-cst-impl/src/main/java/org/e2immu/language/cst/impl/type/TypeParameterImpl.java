@@ -200,7 +200,9 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
             outputBuilder.add(SpaceEnum.ONE).add(KeywordImpl.EXTENDS).add(SpaceEnum.ONE);
             outputBuilder.add(typeBounds()
                     .stream()
-                    .map(pt -> ParameterizedTypePrinter.print(qualification, pt, false,
+                    // a bound is an upper bound by definition; the 'extends' keyword is already printed, so drop any
+                    // leading wildcard the bound carries (bytecode models 'T extends X' as 'T extends ? extends X')
+                    .map(pt -> ParameterizedTypePrinter.print(qualification, pt.withWildcard(null), false,
                             DiamondEnum.SHOW_ALL, false, false))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.AND_TYPES)));
         }
