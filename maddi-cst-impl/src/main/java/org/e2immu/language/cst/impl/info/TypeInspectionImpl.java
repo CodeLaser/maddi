@@ -67,6 +67,8 @@ public class TypeInspectionImpl extends InspectionImpl implements TypeInspection
         this.typeNature = typeNature;
         this.singleAbstractMethod = singleAbstractMethod;
         this.interfacesImplemented = interfacesImplemented;
+        assert interfacesImplemented.size() == interfacesImplemented.stream().distinct().count()
+                : "Extending multiple identical interfaces";
         this.subTypes = subTypes;
         this.fields = fields;
         this.typeParameters = typeParameters;
