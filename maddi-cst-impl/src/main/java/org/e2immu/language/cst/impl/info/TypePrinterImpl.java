@@ -116,11 +116,19 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
                 afterAnnotations.add(SpaceEnum.ONE).add(KeywordImpl.EXTENDS).add(SpaceEnum.ONE)
                         .add(typeInfo.parentClass().print(insideType, false, DiamondEnum.SHOW_ALL));
             }
-            if (!typeInfo.interfacesImplemented().isEmpty()) {
+            // an annotation type implicitly implements java.lang.annotation.Annotation; that interface is never
+            // written out in source (and 'implements Annotation' on an '@interface' would not compile), so skip it
+            List<ParameterizedType> interfaces = typeInfo.typeNature().isAnnotation()
+                    ? typeInfo.interfacesImplemented().stream()
+                    .filter(pt -> pt.typeInfo() == null
+                                  || !"java.lang.annotation.Annotation".equals(pt.typeInfo().fullyQualifiedName()))
+                    .toList()
+                    : typeInfo.interfacesImplemented();
+            if (!interfaces.isEmpty()) {
                 afterAnnotations.add(SpaceEnum.ONE)
                         .add(typeInfo.isInteger() ? KeywordImpl.EXTENDS : KeywordImpl.IMPLEMENTS)
                         .add(SpaceEnum.ONE);
-                afterAnnotations.add(typeInfo.interfacesImplemented().stream()
+                afterAnnotations.add(interfaces.stream()
                         .map(pi -> pi.print(insideType, false, DiamondEnum.SHOW_ALL))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
             }

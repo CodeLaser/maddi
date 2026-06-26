@@ -105,11 +105,51 @@ public class IsolateMethod {
         methodMarker.builder().setSource(runtime.noSource()).setMethodBody(runtime.emptyBlock())
                 .setReturnType(runtime.voidParameterizedType()).setAccess(runtime.accessPackage())
                 .computeAccess().commit();
+        // if the method carries @Override it must override something, or the isolated frame does not compile; give it
+        // an abstract supertype declaring the same method so the verbatim @Override stays valid (must run before the
+        // frame is committed, as it changes the frame's parent class)
+        TypeInfo overrideSuper = isOverride(methodInfo) ? createOverrideSupertype(data, methodInfo, newCu, frame) : null;
         frame.builder()
                 .addMethod(methodMarker)
                 .commit();
-        newCu.setTypes(List.of(frame));
+        newCu.setTypes(overrideSuper == null ? List.of(frame) : List.of(overrideSuper, frame));
         return new Result(frame, data.jdkTypesToImport);
+    }
+
+    private static boolean isOverride(MethodInfo methodInfo) {
+        return methodInfo.annotations().stream()
+                .anyMatch(ae -> "java.lang.Override".equals(ae.typeInfo().fullyQualifiedName()));
+    }
+
+    // an abstract class 'X_method_super' declaring the isolated method as abstract (signature reproduced with the
+    // frame's stubbed types); the frame extends it, so an '@Override' on the method resolves to a real supertype method
+    private TypeInfo createOverrideSupertype(Data data, MethodInfo methodInfo, CompilationUnit newCu, TypeInfo frame) {
+        TypeInfo superType = runtime.newTypeInfo(newCu, frame.simpleName() + "_super");
+        superType.builder().setSource(runtime.noSource())
+                .setTypeNature(runtime.typeNatureClass())
+                .setParentClass(runtime.objectParameterizedType())
+                // package-private: a compilation unit may have only one public top-level type (the frame)
+                .addTypeModifier(runtime.typeModifierAbstract())
+                .computeAccess();
+        MethodInfo abstractMethod = runtime.newMethod(superType, methodInfo.name(),
+                runtime.methodTypeAbstractMethod());
+        methodInfo.parameters().forEach(pi -> {
+            ParameterInfo np = abstractMethod.builder().addParameter(pi.name(), data.ensureTypes(pi.parameterizedType()));
+            np.builder().setVarArgs(pi.isVarArgs()).setIsFinal(pi.isFinal()).commit();
+        });
+        abstractMethod.builder()
+                .setReturnType(data.ensureTypes(methodInfo.returnType()))
+                .setAccess(methodInfo.access())
+                .addMethodModifier(runtime.methodModifierAbstract())
+                .setSource(runtime.noSource())
+                // empty (not null) body: printed as ';' since the method is abstract, but a null body would trip
+                // the import computer's methodBody().typesReferenced()
+                .setMethodBody(runtime.emptyBlock())
+                .computeAccess()
+                .commit();
+        superType.builder().addMethod(abstractMethod).commit();
+        frame.builder().setParentClass(superType.asSimpleParameterizedType());
+        return superType;
     }
 
     class Data {
@@ -207,9 +247,17 @@ public class IsolateMethod {
             ParameterizedType parentClass = extendsThrowable(typeInfo)
                     ? ensureTypes(typeInfo.parentClass()) : runtime.objectParameterizedType();
             stub.builder().setParentClass(parentClass)
-                    .setTypeNature(runtime.typeNatureClass())
+                    // an annotation must stay an '@interface', otherwise a use '@Marker' in the pasted text would not
+                    // compile; everything else (including plain interfaces) is reproduced as a class, which suffices
+                    .setTypeNature(typeInfo.isAnnotation() ? runtime.typeNatureAnnotation() : runtime.typeNatureClass())
                     .setSource(runtime.noSource())
                     .setAccess(runtime.accessPackage());
+            if (typeInfo.isAnnotation()) {
+                // an annotation type must implement java.lang.annotation.Annotation (asserted on commit)
+                TypeInfo annotation = javaInspector.compiledTypesManager()
+                        .getOrLoad(java.lang.annotation.Annotation.class);
+                stub.builder().addInterfaceImplemented(annotation.asSimpleParameterizedType());
+            }
             // reproduce the type parameters, so 'Box<T>' becomes a generic stub 'class Box<T>'. Two passes: first
             // create+map all of them (a bound may reference a sibling or this type itself), then translate bounds.
             List<TypeParameter> origTps = typeInfo.typeParameters();
@@ -323,6 +371,40 @@ public class IsolateMethod {
                 return true;
             }
             return false;
+        }
+
+        // an annotation present in the pasted text ('@Marker', '@Named("x")') needs its '@interface' stubbed, plus
+        // every attribute it actually uses, plus any types its attribute values reference (e.g. 'SomeClass.class')
+        private void ensureAnnotations(Element annotated, MyVisitor visitor) {
+            for (AnnotationExpression ae : annotated.annotations()) {
+                TypeInfo annotationType = ae.typeInfo();
+                // JDK annotations (@Deprecated, @SuppressWarnings, ...) resolve without a stub; @Override resolves
+                // too but is checked semantically -- that is handled separately by createOverrideSupertype
+                if (isJdkType(annotationType)) continue;
+                DetailedSources ds = ae.source() == null ? null : ae.source().detailedSources();
+                ensureType(annotationType, ds); // nature 'annotation' -> printed as '@interface'
+                TypeInfo stub = typeMap.get(annotationType);
+                if (stub == null) continue;
+                for (AnnotationExpression.KV kv : ae.keyValuePairs()) {
+                    MethodInfo origAttr = annotationType.methodStream()
+                            .filter(mm -> mm.name().equals(kv.key())).findFirst().orElse(null);
+                    if (origAttr != null && !methodMap.containsKey(origAttr)) {
+                        MethodInfo newAttr = runtime.newMethod(stub, origAttr.name(),
+                                runtime.methodTypeAbstractMethod());
+                        newAttr.builder()
+                                .setReturnType(ensureTypes(origAttr.returnType()))
+                                .setAccess(runtime.accessPackage())
+                                .setSource(runtime.noSource())
+                                // empty (not null) body: it is printed as ';' since the method is abstract, but a
+                                // null body would trip the import computer's methodBody().typesReferenced()
+                                .setMethodBody(runtime.emptyBlock())
+                                .commit();
+                        stub.builder().addMethod(newAttr);
+                        methodMap.put(origAttr, newAttr);
+                    }
+                    kv.value().visit(visitor);
+                }
+            }
         }
     }
 
@@ -440,14 +522,17 @@ public class IsolateMethod {
     }
 
     private void visit(Data data, MethodInfo methodInfo) {
+        MyVisitor myVisitor = new MyVisitor(data);
         for (ParameterInfo pi : methodInfo.parameters()) {
             data.ensureTypes(pi.parameterizedType(), detailedSources(pi.source()));
+            data.ensureAnnotations(pi, myVisitor);
         }
         if (methodInfo.hasReturnValue()) {
             data.ensureTypes(methodInfo.returnType(), detailedSources(methodInfo.source()));
         }
+        // annotations on the isolated method (and its parameters) appear verbatim in the pasted text
+        data.ensureAnnotations(methodInfo, myVisitor);
 
-        MyVisitor myVisitor = new MyVisitor(data);
         methodInfo.methodBody().visit(myVisitor);
     }
 
