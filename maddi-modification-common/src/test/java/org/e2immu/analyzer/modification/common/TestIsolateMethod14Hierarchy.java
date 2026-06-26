@@ -139,4 +139,233 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }
+
+    @Language("java")
+    public static final String INPUT4 = """
+            package a.b;
+            import java.io.Serializable;
+            class LongVector implements Serializable, Iterable<Long> {
+                boolean add(long o) { return false; }
+                long[] toArray() { return null; }
+                public java.util.Iterator<Long> iterator() { return null; }
+            }
+            public class X {
+                Object method() {
+                    LongVector v = new LongVector();
+                    v.add(1L);
+                    return v.toArray();
+                }
+            }
+            """;
+
+    @DisplayName("instantiated stub implementing an interface gets dummy implementations of its abstract methods")
+    @Test
+    public void test4() {
+        TypeInfo x = parse("a.b.X", INPUT4);
+        String m = """
+                Object method() {
+                    LongVector v = new LongVector();
+                    v.add(1L);
+                    return v.toArray();
+                }""";
+        String out = isolate(x, "method", 0, m);
+        @Language("java")
+        String expected = """
+                import java.io.Serializable;
+                import java.util.Iterator;
+                public class X_method {
+                    class LongVector implements Serializable, Iterable<Long> {
+                        LongVector() { }
+                        boolean add(long o) { return false; }
+                        long [] toArray() { return null; }
+                        public Iterator<Long> iterator() { return null; }
+                    }
+
+                    Object method() {
+                    LongVector v = new LongVector();
+                    v.add(1L);
+                    return v.toArray();
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String INPUT5 = """
+            package a.b;
+            class IDataType { }
+            class ObjectID extends IDataType {
+                public String toString() { return null; }
+                ObjectID(long objectID) { }
+                String getDefaultValue() { return null; }
+            }
+            public class X {
+                String method(ObjectID id) {
+                    return id.toString() + id.getDefaultValue();
+                }
+            }
+            """;
+
+    @DisplayName("a stub method overriding java.lang.Object (toString) must be public")
+    @Test
+    public void test5() {
+        TypeInfo x = parse("a.b.X", INPUT5);
+        String m = """
+                String method(ObjectID id) {
+                    return id.toString() + id.getDefaultValue();
+                }""";
+        String out = isolate(x, "method", 1, m);
+        @Language("java")
+        String expected = """
+                public class X_method {
+                    class IDataType { }
+                    class ObjectID extends IDataType {
+                        public String toString() { return null; }
+                        String getDefaultValue() { return null; }
+                    }
+
+                    String method(ObjectID id) {
+                    return id.toString() + id.getDefaultValue();
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String INPUT6 = """
+            package a.b;
+            public class X {
+                Object method() {
+                    ArrayList<String> list = new ArrayList<>();
+                    list.add("x");
+                    return list;
+                }
+            }
+            class ArrayList<I> extends java.util.ArrayList<I> {
+                public boolean add(I o) { return false; }
+            }
+            """;
+
+    @DisplayName("a stub method overriding an inherited interface method (Collection.add) must be public")
+    @Test
+    public void test6() {
+        TypeInfo x = parse("a.b.X", INPUT6);
+        String m = """
+                Object method() {
+                    ArrayList<String> list = new ArrayList<>();
+                    list.add("x");
+                    return list;
+                }""";
+        String out = isolate(x, "method", 0, m);
+        @Language("java")
+        String expected = """
+                public class X_method {
+                    class ArrayList<I> extends java.util.ArrayList<I> {ArrayList() { }public boolean add(I o) { return false; } }
+                    Object method() {
+                    ArrayList<String> list = new ArrayList<>();
+                    list.add("x");
+                    return list;
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String INPUT7 = """
+            package a.b;
+            import java.io.Serializable;
+            public class X {
+                static class Node implements Comparable<Node>, Cloneable, Serializable {
+                    public int compareTo(Node o) { return 0; }
+                }
+                Node method() {
+                    Node d = new Node();
+                    return d;
+                }
+            }
+            """;
+
+    @DisplayName("a self-referential nested type (Node implements Comparable<Node>) is stubbed exactly once")
+    @Test
+    public void test7() {
+        TypeInfo x = parse("a.b.X", INPUT7);
+        String m = """
+                Node method() {
+                    Node d = new Node();
+                    return d;
+                }""";
+        String out = isolate(x, "method", 0, m);
+        @Language("java")
+        String expected = """
+                import java.io.Serializable;
+                public class X_method {
+                    class Node implements Comparable<Node>, Cloneable, Serializable {
+                        Node() { }
+                        public int compareTo(Node arg0) { return 0; }
+                    }
+
+                    Node method() {
+                    Node d = new Node();
+                    return d;
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String INPUT8 = """
+            package a.b;
+            public class X {
+                interface Sink { void accept(IDataType t); }
+                static class IDataType implements Comparable<IDataType> {
+                    public int compareTo(IDataType o) { return 0; }
+                }
+                static class Holder implements Sink {
+                    public void accept(IDataType t) { }
+                }
+                Object method() {
+                    Holder h = new Holder();
+                    return h;
+                }
+            }
+            """;
+
+    @DisplayName("a type first stubbed inside the dummy-implementation pass also receives its own dummy methods")
+    @Test
+    public void test8() {
+        TypeInfo x = parse("a.b.X", INPUT8);
+        String m = """
+                Object method() {
+                    Holder h = new Holder();
+                    return h;
+                }""";
+        String out = isolate(x, "method", 0, m);
+        @Language("java")
+        String expected = """
+                public class X_method {
+                    class Holder implements Sink {Holder() { }public void accept(IDataType t) { } }
+                    class IDataType implements Comparable<IDataType> {public int compareTo(IDataType arg0) { return 0; } }
+                    interface Sink { }
+                    Object method() {
+                    Holder h = new Holder();
+                    return h;
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
 }

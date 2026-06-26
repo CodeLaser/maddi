@@ -110,4 +110,99 @@ public class TestIsolateMethod6FieldAccess extends CommonIsolateMethodTest {
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }
+
+    @Language("java")
+    public static final String F4 = """
+            package a.b;
+            public class X {
+                interface C { int A = 0; int B = 1; int D = 2; }
+                int method(int x) {
+                    switch (x) {
+                        case C.A: return 1;
+                        case C.B: return 2;
+                        case C.D: return 3;
+                    }
+                    return 0;
+                }
+            }
+            """;
+
+    @DisplayName("numeric interface constants used as switch labels get distinct values")
+    @Test
+    public void f4() {
+        TypeInfo X = parse("a.b.X", F4);
+        String m = """
+                int method(int x) {
+                    switch (x) {
+                        case C.A: return 1;
+                        case C.B: return 2;
+                        case C.D: return 3;
+                    }
+                    return 0;
+                }""";
+        String out = isolate(X, "method", 1, m);
+        @Language("java")
+        String expected = """
+                public class X_method {
+                    interface C { int A = 0; int B = 1; int D = 2; }
+                    int method(int x) {
+                    switch (x) {
+                        case C.A: return 1;
+                        case C.B: return 2;
+                        case C.D: return 3;
+                    }
+                    return 0;
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
+
+    @Language("java")
+    public static final String F5 = """
+            package a.b;
+            public class X {
+                static class C { static final int A = 7; static final int B = 9; }
+                int method(int x) {
+                    switch (x) {
+                        case C.A: return 1;
+                        case C.B: return 2;
+                    }
+                    return 0;
+                }
+            }
+            """;
+
+    @DisplayName("numeric class constants stay 'static final' with distinct values for switch labels")
+    @Test
+    public void f5() {
+        TypeInfo X = parse("a.b.X", F5);
+        String m = """
+                int method(int x) {
+                    switch (x) {
+                        case C.A: return 1;
+                        case C.B: return 2;
+                    }
+                    return 0;
+                }""";
+        String out = isolate(X, "method", 1, m);
+        @Language("java")
+        String expected = """
+                public class X_method {
+                    class C { static final int A = 0; static final int B = 1; }
+                    int method(int x) {
+                    switch (x) {
+                        case C.A: return 1;
+                        case C.B: return 2;
+                    }
+                    return 0;
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
 }
