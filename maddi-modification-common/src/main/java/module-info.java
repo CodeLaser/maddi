@@ -6,6 +6,7 @@ module org.e2immu.analyzer.modification.common {
     requires org.e2immu.util.internal.graph;
     requires org.e2immu.util.internal.util;
     requires org.slf4j;
+    requires org.e2immu.language.cst.print;
 
     exports org.e2immu.analyzer.modification.common;
     exports org.e2immu.analyzer.modification.common.defaults;
