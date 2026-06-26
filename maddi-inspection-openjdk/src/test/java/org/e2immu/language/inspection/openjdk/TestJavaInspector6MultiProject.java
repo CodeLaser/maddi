@@ -2,7 +2,6 @@ package org.e2immu.language.inspection.openjdk;
 
 import org.e2immu.language.cst.api.element.ModuleInfo;
 import org.e2immu.language.cst.api.element.SourceSet;
-import org.e2immu.language.cst.api.info.MethodInfo;
 import org.e2immu.language.cst.api.info.TypeInfo;
 import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
@@ -182,27 +181,5 @@ public class TestJavaInspector6MultiProject {
 
         TypeInfo typeInfoImpl = parseResult.findType("org.e2immu.language.cst.impl.info.TypeInfoImpl");
         assertTrue(typeInfoImpl.typeNature().isClass());
-
-        // *************
-
-        TypeInfo codecImpl = parseResult.findType("org.e2immu.language.cst.io.ExpressionCodec");
-        IsolateMethod isolateMethod = new IsolateMethod(javaInspector);
-
-        MethodInfo encodeExpression = codecImpl.findUniqueMethod("encodeExpression", 1);
-        go(isolateMethod, encodeExpression);
-        MethodInfo constructor = codecImpl.findConstructor(3);
-        go(isolateMethod, constructor);
-    }
-
-    private void go(IsolateMethod isolateMethod, MethodInfo methodInfo) {
-        TypeInfo isolatedEncoded = isolateMethod.isolate(methodInfo);
-        String printed = javaInspector.print2(isolatedEncoded.compilationUnit(),
-                javaInspector.runtime().qualificationSimpleNames(), javaInspector.importComputer(4, javaInspector.mainSources()));
-        LOGGER.info("Frame:\n{}", printed);
-        try {
-            Files.writeString(Path.of("src/test/java/" + isolatedEncoded.simpleName() + ".java"), printed);
-        } catch (IOException ioe) {
-            throw new UnsupportedOperationException(ioe);
-        }
     }
 }

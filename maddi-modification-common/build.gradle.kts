@@ -28,6 +28,13 @@ dependencies {
     implementation(project(":maddi-util"))
     implementation(project(":maddi-cst-analysis"))
 
+    testImplementation(project(":maddi-java-openjdk"))
+    testImplementation(project(":maddi-inspection-resource"))
+    testImplementation(project(":maddi-inspection-openjdk"))
+    testImplementation("org.slf4j:slf4j-api")
+    testImplementation("org.jetbrains:annotations")
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+
     testFixturesImplementation(project(":maddi-java-openjdk"))
     testFixturesImplementation(project(":maddi-inspection-resource"))
     testFixturesImplementation(project(":maddi-inspection-openjdk"))
@@ -38,4 +45,14 @@ dependencies {
 tasks.withType<Test> {
     maxHeapSize = "2G"
     maxParallelForks = 4
+
+
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
+
 }
