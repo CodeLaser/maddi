@@ -30,7 +30,7 @@ public class TestIsolateMethodCodec extends CommonTest {
     public void test() throws IOException {
 
         TypeInfo codecImpl = parseResult.findType("org.e2immu.language.cst.io.ExpressionCodec");
-        IsolateMethod isolateMethod = new IsolateMethod(javaInspector);
+        IsolateMethod isolateMethod = new IsolateMethod(javaInspector, "codec");
 
         MethodInfo encodeExpression = codecImpl.findUniqueMethod("encodeExpression", 1);
         go(isolateMethod, encodeExpression);

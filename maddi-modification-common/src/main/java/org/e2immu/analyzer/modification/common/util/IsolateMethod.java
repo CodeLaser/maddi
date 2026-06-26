@@ -22,10 +22,12 @@ public class IsolateMethod {
 
     private final JavaInspector javaInspector;
     private final Runtime runtime;
+    private final String targetPackage;
 
-    public IsolateMethod(JavaInspector javaInspector) {
+    public IsolateMethod(JavaInspector javaInspector, String targetPackage) {
         this.javaInspector = javaInspector;
         this.runtime = javaInspector.runtime();
+        this.targetPackage = targetPackage;
     }
 
     public record Result(TypeInfo typeInfo, Set<TypeInfo> jdkTypesToImport) {
@@ -41,13 +43,19 @@ public class IsolateMethod {
         TypeInfo originalType = methodInfo.typeInfo().primaryType();
         org.e2immu.language.cst.api.runtime.Runtime runtime = javaInspector.runtime();
         CompilationUnit newCu = runtime.newCompilationUnitBuilder()
-                .setPackageName("")
+                .setPackageName(targetPackage)
                 .setSourceSet(originalType.compilationUnit().sourceSet())
                 .setURI(originalType.compilationUnit().uri())
                 .build();
-        TypeInfo frame = runtime.newTypeInfo(newCu, originalType.simpleName() + "_"
-                                                    + methodInfo.name());
-        Data data = new Data(frame);
+        TypeInfo frame = runtime
+                .newTypeInfo(newCu, originalType.simpleName() + "_" + methodInfo.name());
+        frame.builder().setSource(runtime.noSource())
+                .setTypeNature(runtime.typeNatureClass())
+                .setParentClass(runtime.objectParameterizedType())
+                .addTypeModifier(runtime.typeModifierPublic())
+                .computeAccess();
+
+        Data data = new Data(methodInfo, frame);
         visit(data, methodInfo);
 
         data.fieldMap.values().stream().sorted(Comparator.comparing(FieldInfo::name)).forEach(field -> {
@@ -58,18 +66,14 @@ public class IsolateMethod {
                     .commit();
             frame.builder().addSubType(stub);
         });
-        frame.builder()
-                .setSource(runtime.noSource())
-                .setTypeNature(runtime.typeNatureClass())
-                .setParentClass(runtime.objectParameterizedType())
-                .addTypeModifier(runtime.typeModifierPublic())
-                .computeAccess()
-                .commit();
+        frame.builder().commit();
         newCu.setTypes(List.of(frame));
         return new Result(frame, data.jdkTypesToImport);
     }
 
     class Data {
+        private final TypeInfo originalType;
+        private final MethodInfo originalMethod;
         private final TypeInfo frame;
         final Map<TypeInfo, TypeInfo> typeMap = new HashMap<>();
         final Map<MethodInfo, MethodInfo> methodMap = new HashMap<>();
@@ -77,12 +81,16 @@ public class IsolateMethod {
         final Set<TypeParameter> typeParameters = new HashSet<>();
         final Set<TypeInfo> jdkTypesToImport = new HashSet<>(); // TODO
 
-        Data(TypeInfo frame) {
+        Data(MethodInfo originalMethod, TypeInfo frame) {
+            this.originalMethod = originalMethod;
+            this.originalType = originalMethod.primaryType();
             this.frame = frame;
         }
 
         private TypeInfo ensureType(TypeInfo typeInfo) {
             if (typeInfo.isPrimitive()
+                || typeInfo == originalType
+                // already one of the new types
                 || typeInfo.compilationUnitOrEnclosingType().isRight() && frame == typeInfo.compilationUnitOrEnclosingType().getRight()) {
                 return typeInfo;// keep as is
             }
@@ -142,7 +150,8 @@ public class IsolateMethod {
             MethodInfo inMap = methodMap.get(methodInfo);
             if (inMap != null) return;
             MethodInfo newMethod = runtime.newMethod(owner, methodInfo.name(),
-                    methodInfo.isConstructor() ? runtime.methodTypeConstructor() : runtime.methodTypeMethod());
+                    methodInfo.isStatic() ? runtime.methodTypeStaticMethod() :
+                            methodInfo.isConstructor() ? runtime.methodTypeConstructor() : runtime.methodTypeMethod());
             methodInfo.parameters().forEach(pi -> {
                 ParameterizedType newType = ensureTypes(pi.parameterizedType());
                 ParameterInfo newParam = newMethod.builder().addParameter(pi.name(), newType);
@@ -150,9 +159,8 @@ public class IsolateMethod {
             });
             Block.Builder mb = runtime.newBlockBuilder();
             ParameterizedType newReturnType = ensureTypes(methodInfo.returnType());
-            if (!methodInfo.isConstructor()) {
-                Expression expression = methodInfo.returnType().isVoid()
-                        ? runtime.newEmptyExpression() : runtime.nullValue(newReturnType);
+            if (!methodInfo.isConstructor() && !methodInfo.returnType().isVoid()) {
+                Expression expression = runtime.nullValue(newReturnType);
                 mb.addStatement(runtime.newReturnBuilder().setExpression(expression).build());
             }
             newMethod.builder()
@@ -199,7 +207,9 @@ public class IsolateMethod {
                 }
                 case MethodCall mc -> {
                     TypeInfo owner;
-                    if (mc.object() == null || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
+                    if (mc.object() == null
+                        || mc.methodInfo().isStatic() && mc.methodInfo().typeInfo() == data.originalType
+                        || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This) {
                         owner = data.frame;
                     } else {
                         ParameterizedType firstOwner = data.ensureTypes(mc.object().parameterizedType());
@@ -211,11 +221,7 @@ public class IsolateMethod {
                     if (ve.variable() instanceof FieldReference fr) {
                         TypeInfo owner;
                         if (fr.isDefaultScope()) {
-                            if (fr.scopeIsThis()) {
-                                owner = data.frame;
-                            } else {
-                                throw new UnsupportedOperationException("TODO static import of field");
-                            }
+                            owner = data.frame;
                         } else {
                             ParameterizedType realOwner = data.ensureTypes(fr.scope().parameterizedType());
                             owner = realOwner.typeInfo();
