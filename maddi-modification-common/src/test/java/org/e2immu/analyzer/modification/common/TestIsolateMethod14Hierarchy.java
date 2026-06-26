@@ -64,4 +64,42 @@ public class TestIsolateMethod14Hierarchy extends CommonIsolateMethodTest {
         javaInspector.invalidateAllSources();
         assertNotNull(javaInspector.parse("X_method", out));
     }
+
+    @Language("java")
+    public static final String INPUT2 = """
+            package a.b;
+            import java.io.Serializable;
+            interface IMarker { }
+            class Holder implements Serializable, IMarker { }
+            public class X {
+                Holder method() {
+                    return null;
+                }
+            }
+            """;
+
+    @DisplayName("a type implementing several interfaces lists each once")
+    @Test
+    public void test2() {
+        TypeInfo x = parse("a.b.X", INPUT2);
+        String m = """
+                Holder method() {
+                    return null;
+                }""";
+        String out = isolate(x, "method", 0, m);
+        @Language("java")
+        String expected = """
+                import java.io.Serializable;
+                public class X_method {
+                    class Holder implements Serializable, IMarker { }
+                    interface IMarker { }
+                    Holder method() {
+                    return null;
+                }
+                }
+                """;
+        assertEquals(expected, out);
+        javaInspector.invalidateAllSources();
+        assertNotNull(javaInspector.parse("X_method", out));
+    }
 }
