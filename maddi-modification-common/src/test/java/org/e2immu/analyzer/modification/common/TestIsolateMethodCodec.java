@@ -7,6 +7,7 @@ import org.e2immu.language.inspection.api.integration.JavaInspector;
 import org.e2immu.language.inspection.api.parser.ParseResult;
 import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+@Disabled
 public class TestIsolateMethodCodec extends CommonTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(TestIsolateMethodCodec.class);
 

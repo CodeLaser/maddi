@@ -1,40 +1,16 @@
 package org.e2immu.analyzer.modification.common;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
 import org.e2immu.analyzer.modification.common.util.IsolateMethod;
 import org.e2immu.language.cst.api.info.TypeInfo;
-import org.e2immu.language.inspection.api.integration.JavaInspector;
-import org.e2immu.language.inspection.resource.SourceSetImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-
-import static org.e2immu.analyzer.modification.common.CommonTest.javaInspectorFactory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class TestIsolateMethod1 {
+public class TestIsolateMethod1 extends CommonIsolateMethodTest {
 
-    private JavaInspector javaInspector;
-    IsolateMethod isolateMethod;
-
-    @BeforeAll
-    public static void beforeAll() {
-        ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)).setLevel(Level.INFO);
-        ((Logger) LoggerFactory.getLogger(IsolateMethod.class)).setLevel(Level.DEBUG);
-    }
-
-    @BeforeEach
-    public void beforeEach() throws IOException {
-        javaInspector = javaInspectorFactory().withSources(SourceSetImpl.testProtocolSourceSet());
-        isolateMethod = new IsolateMethod(javaInspector, "");
-    }
 
     @Language("java")
     public static final String INPUT1 = """
@@ -140,7 +116,7 @@ public class TestIsolateMethod1 {
         @Language("java")
         String expected = """
                 public class X_method {
-                    Logger LOGGER;
+                    static Logger LOGGER;
                     class Logger {void info(String arg0, Object arg1) { } }
                     class R { }
                     void method(R r) {
@@ -185,8 +161,7 @@ public class TestIsolateMethod1 {
         String expected = """
                 import java.util.List;
                 public class X_method {
-                    Logger LOGGER;
-                    List<S> strings;
+                    static Logger LOGGER;
                     class Logger {void info(String arg0, Object arg1) { } }
                     class R { List<S> strings; }
                     class S { String s; }
