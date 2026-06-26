@@ -16,6 +16,19 @@ package org.e2immu.language.cst.api.output;
 
 public interface FormattingOptions {
 
+    /**
+     * Strategy for wrapping the elements of a guide block (parameter lists, argument lists, etc.)
+     * once the block does not fit on the current line.
+     * <p>
+     * CHOP_DOWN — split at every candidate position (one element per line). Historical default.
+     * GREEDY_FILL — fill each line up to {@link #lengthOfLine()}, only splitting when the next
+     *               element would overflow. Falls back to CHOP_DOWN behaviour for a block whose
+     *               own elements already contain newlines (a nested block that had to wrap).
+     */
+    enum WrapStyle {
+        CHOP_DOWN, GREEDY_FILL
+    }
+
     boolean binaryOperatorsAtEndOfLine();
 
     boolean compact();
@@ -31,4 +44,6 @@ public interface FormattingOptions {
     int spacesInTab();
 
     int tabsForLineSplit();
+
+    WrapStyle wrapStyle();
 }
